@@ -1,0 +1,208 @@
+{
+  "generatedAt": "2026-08-27T21:07:28.821Z",
+  "collections": [
+    {
+      "name": "users",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PCP_ADMIN",
+            "PCP_PROGRAMMER",
+            "LINE_MANAGER",
+            "PRODUCTION_VIEWER",
+            "EXECUTIVE_VIEWER",
+            "AUDITOR"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "production_lines",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\" && (@request.auth.role = \"PCP_ADMIN\" || @request.auth.role = \"PCP_PROGRAMMER\")",
+        "update": "@request.auth.id != \"\" && (@request.auth.role = \"PCP_ADMIN\" || @request.auth.role = \"PCP_PROGRAMMER\" || @request.auth.role = \"LINE_MANAGER\")",
+        "delete": "@request.auth.id != \"\" && @request.auth.role = \"PCP_ADMIN\""
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["running", "idle", "stopped", "maintenance"]
+        },
+        {
+          "name": "target_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operator",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "efficiency",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_lines_code ON production_lines (code)"]
+    },
+    {
+      "name": "pcp_alerts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\" && @request.auth.role = \"PCP_ADMIN\""
+      },
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "severity",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["critical", "warning", "info", "success"]
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acknowledged",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_alerts_severity ON pcp_alerts (severity)",
+        "CREATE INDEX idx_alerts_line ON pcp_alerts (line_id)"
+      ]
+    }
+  ]
+}
