@@ -20,8 +20,239 @@ export type CentralSubmodule =
   | 'TORRE_CONTROLE'
   | 'OPERACIONAL'
   | 'SEQUENCIAMENTO'
+  | 'EFICIENCIA'
+  | 'EFICIENCIA_PRODUTOS'
+  | 'EFICIENCIA_LINHAS'
+  | 'EFICIENCIA_PLANTAS'
+  | 'ASSERTIVIDADE'
+  | 'CARTEIRA'
   | 'CENARIOS'
   | 'HISTORICO'
+
+// ==========================================
+// 4 Conceitos Fundamentais de Capacidade
+// ==========================================
+export interface PlantCapacityAnalysis {
+  companyCode: string
+  plantCode: string
+  period: string
+  nominalCapacityTons: number // Capacidade Nominal (ex: 15.000 t/mês)
+  mixProgrammableCapacityTons: number // Capacidade Programável pelo Mix (ex: 13.800 t)
+  realizedCapacityTons: number // Capacidade Realizada (ex: 12.950 t)
+  lostCapacityTons: number // Capacidade Perdida = Programável - Realizada (ex: 850 t)
+  mixStructuralLossTons: number // Perda Estrutural por Mix = Nominal - Programável (ex: 1.200 t)
+  waterfall: {
+    nominalCapacity: number
+    mixStructuralLoss: number
+    setupLoss: number
+    maintenanceLoss: number
+    rhythmSpeedLoss: number
+    qualityDefectLoss: number
+    materialShortageLoss: number
+    operationalLoss: number
+    realizedCapacity: number
+  }
+}
+
+// Cadastro de Performance de Produto por Linha (ProductLinePerformance)
+export interface ProductLinePerformance {
+  id: string
+  companyCode: string
+  plantCode: string
+  lineCode: string
+  productCode: string
+  productName: string
+  familyCode: string
+  minCapacityRatePerHour: number // Capacidade Mínima Esperada (ex: 68 t/h)
+  maxCapacityRatePerHour: number // Capacidade Máxima Esperada (ex: 72 t/h)
+  plannedCapacityRatePerHour: number // Capacidade Planejada Padrão (ex: 70 t/h)
+  minEfficiencyPct: number // Eficiência Mínima (ex: 82%)
+  expectedEfficiencyPct: number // Eficiência Esperada (ex: 92%)
+  currentEfficiencyPct: number // Eficiência Atual Realizada (ex: 88%)
+  standardSetupMinutes: number
+  expectedYieldPct: number
+  restrictionsNotes: string
+  effectiveFrom: string
+  source: 'SAP' | 'MANUAL' | 'ENGINEERING'
+  version: number
+  status: 'DENTRO_ESPERADO' | 'ATENCAO' | 'CRITICO'
+}
+
+// Ocorrência Automática de Desvio & Aprendizado Contínuo
+export interface ProductionDeviation {
+  id: string
+  companyCode: string
+  plantCode: string
+  lineCode: string
+  productCode: string
+  familyName: string
+  orderNumber: string
+  period: string
+  shift: string
+  plannedQty: number
+  projectedQty: number
+  realizedQty: number
+  gapQty: number
+  adherencePct: number
+  efficiencyPct: number
+  causeTaxonomy:
+    | 'Ritmo abaixo do planejado'
+    | 'Parada corretiva'
+    | 'Parada preventiva'
+    | 'Setup acima do previsto'
+    | 'Falha operacional'
+    | 'Falha de equipamento'
+    | 'Material indisponível'
+    | 'Problema de qualidade'
+    | 'Falta de mão de obra'
+    | 'Gargalo upstream'
+    | 'Gargalo downstream'
+    | 'Restrição de processo'
+    | 'Erro de programação PCP'
+    | 'Premissa incorreta'
+    | 'Capacidade superestimada'
+    | 'Setup subestimado'
+    | 'Alteração de prioridade'
+    | 'Pedido alterado'
+    | 'Evento externo'
+    | 'Outros'
+  justification: string
+  actionPlan: string
+  responsibleName: string
+  deadline: string
+  status: 'ABERTO' | 'EM_TRATAMENTO' | 'CONCLUIDO_EFICAZ' | 'CONCLUIDO_INEFICAZ'
+  efficacyVerified: boolean
+  isRecurrent: boolean
+  recurrenceCount?: number
+  previousActionHistory?: string
+  previousActionEfficacy?: string
+  paramRevisionProposed?: boolean
+  proposedParamRevision?: {
+    field: string
+    currentValue: number | string
+    suggestedValue: number | string
+    reason: string
+    confidencePct: number
+  }
+}
+
+// KPI de Assertividade da Programação PCP
+export interface ScheduleAssertivenessKPI {
+  companyCode: string
+  plantCode: string
+  lineCode: string
+  period: string
+  assertivenessScorePct: number // ex: 92.6%
+  plannedVsRealQuantityPct: number
+  startAdherencePct: number
+  endAdherencePct: number
+  rhythmAdherencePct: number
+  setupAdherencePct: number
+  capacityAdherencePct: number
+  sequenceAdherencePct: number
+  otdOrdersMetPct: number
+  changesAfterPublishCount: number
+  causesBreakdown: {
+    category:
+      | 'ERRO_PREMISSA_PCP'
+      | 'EVENTO_OPERACIONAL'
+      | 'EVENTO_IMPREVISIVEL'
+      | 'RESTRICAO_EXTERNA'
+    percentage: number
+    impactHours: number
+    description: string
+  }[]
+}
+
+// Dependência Produtiva N:N & Roteamento Condicional
+export interface ProductionLineRelationship {
+  id: string
+  originLineCode: string
+  targetLineCode: string
+  relationType: 'MANDATORY' | 'CONDITIONAL' | 'BYPASS' | 'PARALLEL' | 'REWORK'
+  productCode?: string
+  familyCode?: string
+  routingCondition?: string // ex: "Se Produto = Barra X direcionar para Acabamento L1, se NC direcionar para Retrabalho"
+  priorityOrder: number
+  allocationPct: number
+  capacityLimitPerHour: number
+  standardLeadTimeMinutes: number
+  bufferMinTons: number
+  bufferMaxTons: number
+  rulePackCode: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+// Carteira de Pedidos & Rentabilidade CRM
+export interface CommercialBacklogItem {
+  id: string
+  salesOrderId: string
+  salesOrderItem: string
+  customerName: string
+  customerPriority: 'ESTRATEGICO' | 'ALTA' | 'NORMAL'
+  productCode: string
+  productName: string
+  familyCode: string
+  targetLineCode: string
+  quantityTons: number
+  unitPrice: number
+  commercialMarginPct: number
+  rentabilityLevel: 'ALTA' | 'MEDIA' | 'REGULAR'
+  promisedDeliveryDate: string
+  projectedDeliveryDate: string
+  stockCoverageStatus: 'COBERTO_WMS' | 'PARCIAL' | 'SEM_COBERTURA' | 'EM_RISCO'
+  capacityCoverageStatus: 'DISPONIVEL' | 'SOBRECARREGADO' | 'CONFLITO_GARGALO'
+  status: 'A_PROGRAMAR' | 'PROGRAMADO' | 'EM_PRODUCAO' | 'VENCIDO' | 'ENTREGUE'
+}
+
+// Integração WMS: Dias Negativos, Itens Negativos e Rupturas
+export interface WmsInventoryProjection {
+  itemCode: string
+  description: string
+  plantCode: string
+  physicalStockTons: number
+  availableStockTons: number
+  blockedStockTons: number
+  workInProgressTons: number
+  bufferStockTons: number
+  projectedDaysWithNegativeStock: number // KPI Dias Negativos
+  firstRuptureDate?: string
+  ruptureImpact: {
+    lineCode: string
+    affectedOrdersCount: number
+    affectedTons: number
+    firstAffectedOrder: string
+    estimatedDelayHours: number
+  } | null
+  isCritical: boolean
+}
+
+// Esteira de Aprovação Dupla (PCP + Gestor de Linha)
+export interface LineDoubleApprovalItem {
+  id: string
+  entityType: 'LINE_MASTER' | 'RULE_PACK' | 'SCHEDULE' | 'CAPACITY_PARAM'
+  entityId: string
+  lineCode: string
+  lineName: string
+  version: string
+  changeReason: string
+  authorName: string
+  authorRole: string
+  createdAt: string
+  pcpApproval: {
+    status: 'APPROVED' | 'REJECTED' | 'PENDING'
+    approverName?: string
+    approvedAt?: string
+    notes?: string
+  }
+  lineManagerApproval: {
+    status: 'APPROVED' | 'REJECTED' | 'PENDING'
+    approverName?: string
+    approvedAt?: string
+    notes?: string
+  }
+  finalStatus: 'DRAFT' | 'PENDING_PCP' | 'PENDING_LINE_MANAGER' | 'ACTIVE' | 'REJECTED'
+}
 
 export type OrderStatus =
   | 'PLANNED'

@@ -70,7 +70,7 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
     effectiveRules,
   } = useControlTower()
 
-  const { currentSimulatedUser } = useAuth()
+  const { user, isGlobal, scopes } = useAuth()
   const [isHomologationOpen, setIsHomologationOpen] = useState(false)
   const [isRuleInspectorOpen, setIsRuleInspectorOpen] = useState(false)
 
@@ -300,9 +300,11 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
               <DropdownMenuSeparator className="bg-slate-800" />
               <div className="px-2 py-1.5 text-[11px] text-muted-foreground font-mono">
                 Perfil:{' '}
-                <span className="text-slate-300 font-semibold">{currentSimulatedUser.name}</span>
+                <span className="text-slate-300 font-semibold">
+                  {user?.name || user?.email || 'Lucas Ferreira (PCP)'}
+                </span>
                 <br />
-                Escopo: {currentSimulatedUser.plantAccess?.[0] || 'Global'}
+                Escopo: {isGlobal ? 'Global' : scopes?.[0]?.target_code || 'Restrito'}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

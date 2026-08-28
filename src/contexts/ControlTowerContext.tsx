@@ -37,8 +37,26 @@ import {
   mockScenarios,
   mockImpactAnalysis,
   mockVersionHistory,
+  mockPlantCapacityAnalysis,
+  mockProductLinePerformances,
+  mockProductionDeviations,
+  mockScheduleAssertiveness,
+  mockLineRelationships,
+  mockCommercialBacklog,
+  mockWmsInventory,
+  mockLineDoubleApprovals,
   resolveEffectiveRules,
 } from '@/data/control-tower-mock'
+import {
+  PlantCapacityAnalysis,
+  ProductLinePerformance,
+  ProductionDeviation,
+  ScheduleAssertivenessKPI,
+  ProductionLineRelationship,
+  CommercialBacklogItem,
+  WmsInventoryProjection,
+  LineDoubleApprovalItem,
+} from '@/types/control-tower'
 import { useToast } from '@/hooks/use-toast'
 
 export interface SimulationDragDiff {
@@ -157,6 +175,27 @@ interface ControlTowerContextType {
     bottlenecksCount: number
     ordersAtRiskCount: number
   }[]
+
+  // Modelos Avançados de Capacidade, Eficiência, Carteira e WMS
+  plantCapacityAnalysis: PlantCapacityAnalysis
+  productPerformances: ProductLinePerformance[]
+  productionDeviations: ProductionDeviation[]
+  scheduleAssertiveness: ScheduleAssertivenessKPI
+  lineRelationships: ProductionLineRelationship[]
+  commercialBacklog: CommercialBacklogItem[]
+  wmsInventory: WmsInventoryProjection[]
+  doubleApprovals: LineDoubleApprovalItem[]
+
+  // Ações de Tratamento de Desvio, Proposta de Parâmetro e Aprovação Dupla
+  addDeviationAction: (
+    deviationId: string,
+    actionPlan: string,
+    justification: string,
+    responsible: string,
+    deadline: string,
+  ) => void
+  proposeParamRevision: (deviationId: string) => void
+  approveLineDouble: (approvalId: string, role: 'PCP' | 'LINE_MANAGER', notes?: string) => void
 
   // Modais & Gavetas
   selectedProcess: ProductionProcessNode | null
@@ -291,6 +330,144 @@ export const ControlTowerProvider: React.FC<{
   const [activeScenarioId, setActiveScenarioId] = useState<string>('scen-base')
   const [impactAnalysis, setImpactAnalysis] = useState<ImpactAnalysis>(mockImpactAnalysis)
   const [versionHistory, setVersionHistory] = useState<VersionHistoryItem[]>(mockVersionHistory)
+
+  // Modelos Avançados de Capacidade, Eficiência, Carteira e WMS
+  const [plantCapacityAnalysis, setPlantCapacityAnalysis] =
+    useState<PlantCapacityAnalysis>(mockPlantCapacityAnalysis)
+  const [productPerformances, setProductPerformances] = useState<ProductLinePerformance[]>(
+    mockProductLinePerformances,
+  )
+  const [productionDeviations, setProductionDeviations] =
+    useState<ProductionDeviation[]>(mockProductionDeviations)
+  const [scheduleAssertiveness, setScheduleAssertiveness] =
+    useState<ScheduleAssertivenessKPI>(mockScheduleAssertiveness)
+  const [lineRelationships, setLineRelationships] =
+    useState<ProductionLineRelationship[]>(mockLineRelationships)
+  const [commercialBacklog, setCommercialBacklog] =
+    useState<CommercialBacklogItem[]>(mockCommercialBacklog)
+  const [wmsInventory, setWmsInventory] = useState<WmsInventoryProjection[]>(mockWmsInventory)
+  const [doubleApprovals, setDoubleApprovals] =
+    useState<LineDoubleApprovalItem[]>(mockLineDoubleApprovals)
+
+  // Tratamento de Desvio Obrigatório
+  const addDeviationAction = useCallback(
+    (
+      deviationId: string,
+      actionPlan: string,
+      justification: string,
+      responsible: string,
+      deadline: string,
+    ) => {
+      setProductionDeviations((prev) =>
+        prev.map((d) => {
+          if (d.id === deviationId) {
+            return {
+              ...d,
+              actionPlan,
+              justification,
+              responsibleName: responsible,
+              deadline,
+              status: 'EM_TRATAMENTO',
+            }
+          }
+          return d
+        }),
+      )
+      toast({
+        title: '📋 Ação de Desvio Registrada',
+        description:
+          'Justificativa, responsável e prazo vinculados. Ciclo de aprendizado atualizado.',
+      })
+    },
+    [toast],
+  )
+
+  // Proposta de Revisão de Parâmetro da Ficha Mestre
+  const proposeParamRevision = useCallback(
+    (deviationId: string) => {
+      const dev = productionDeviations.find((d) => d.id === deviationId)
+      if (!dev || !dev.proposedParamRevision) return
+
+      const newApproval: LineDoubleApprovalItem = {
+        id: `app-${Date.now()}`,
+        entityType: 'CAPACITY_PARAM',
+        entityId: dev.lineCode,
+        lineCode: dev.lineCode,
+        lineName: `Linha ${dev.lineCode}`,
+        version: `v${dev.lineCode === 'L1' ? '2.2' : '1.1'}`,
+        changeReason: `Proposta de revisão de parâmetro (${dev.proposedParamRevision.field}) a partir do desvio na OP ${dev.orderNumber}. Motivo: ${dev.proposedParamRevision.reason}`,
+        authorName: 'Motor IA / Aprendizado PCP',
+        authorRole: 'AI_AGENT',
+        createdAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        pcpApproval: {
+          status: 'PENDING',
+          notes: 'Aguardando validação do Coordenador de PCP',
+        },
+        lineManagerApproval: {
+          status: 'PENDING',
+          notes: 'Aguardando validação do Coordenador de Linha',
+        },
+        finalStatus: 'PENDING_PCP',
+      }
+
+      setDoubleApprovals((prev) => [newApproval, ...prev])
+      toast({
+        title: '⚙️ Proposta de Revisão de Parâmetro Aberta',
+        description:
+          'Enviada para esteira de aprovação dupla (PCP + Linha). Ficha Mestre preservada até aprovação final.',
+      })
+    },
+    [productionDeviations, toast],
+  )
+
+  // Aprovação Dupla (PCP + Gestor da Linha)
+  const approveLineDouble = useCallback(
+    (approvalId: string, role: 'PCP' | 'LINE_MANAGER', notes?: string) => {
+      setDoubleApprovals((prev) =>
+        prev.map((item) => {
+          if (item.id === approvalId) {
+            const updated = { ...item }
+            const now = new Date().toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+            if (role === 'PCP') {
+              updated.pcpApproval = {
+                status: 'APPROVED',
+                approverName: 'Lucas Ferreira (PCP)',
+                approvedAt: now,
+                notes: notes || 'Aprovado pelo Planejamento Mestre',
+              }
+              if (updated.lineManagerApproval.status === 'APPROVED') {
+                updated.finalStatus = 'ACTIVE'
+              } else {
+                updated.finalStatus = 'PENDING_LINE_MANAGER'
+              }
+            } else {
+              updated.lineManagerApproval = {
+                status: 'APPROVED',
+                approverName: 'Carlos Mendes (Gestor da Linha)',
+                approvedAt: now,
+                notes: notes || 'Validado pela Operação',
+              }
+              if (updated.pcpApproval.status === 'APPROVED') {
+                updated.finalStatus = 'ACTIVE'
+              } else {
+                updated.finalStatus = 'PENDING_PCP'
+              }
+            }
+            return updated
+          }
+          return item
+        }),
+      )
+      toast({
+        title: '✍️ Aprovação Registrada na Esteira',
+        description: `Fase ${role === 'PCP' ? '1/2 (PCP)' : '2/2 (Gestor)'} concluída com sucesso.`,
+      })
+    },
+    [toast],
+  )
 
   // Drawers & Modals
   const [selectedProcess, setSelectedProcess] = useState<ProductionProcessNode | null>(null)
@@ -782,6 +959,17 @@ export const ControlTowerProvider: React.FC<{
         lastSyncTime,
         isSyncing,
         navigateToSubmodule,
+        plantCapacityAnalysis,
+        productPerformances,
+        productionDeviations,
+        scheduleAssertiveness,
+        lineRelationships,
+        commercialBacklog,
+        wmsInventory,
+        doubleApprovals,
+        addDeviationAction,
+        proposeParamRevision,
+        approveLineDouble,
       }}
     >
       {children}
