@@ -230,7 +230,13 @@ export interface WmsInventoryProjection {
 // Esteira de Aprovação Dupla (PCP + Gestor de Linha)
 export interface LineDoubleApprovalItem {
   id: string
-  entityType: 'LINE_MASTER' | 'RULE_PACK' | 'SCHEDULE' | 'CAPACITY_PARAM'
+  entityType:
+    | 'LINE_MASTER'
+    | 'RULE_PACK'
+    | 'SCHEDULE'
+    | 'CAPACITY_PARAM'
+    | 'PRODUCTION_ROUTE'
+    | 'ROTA_PRODUTIVA'
   entityId: string
   lineCode: string
   lineName: string
@@ -251,7 +257,7 @@ export interface LineDoubleApprovalItem {
     approvedAt?: string
     notes?: string
   }
-  finalStatus: 'DRAFT' | 'PENDING_PCP' | 'PENDING_LINE_MANAGER' | 'ACTIVE' | 'REJECTED'
+  finalStatus: 'DRAFT' | 'PENDING_PCP' | 'PENDING_LINE_MANAGER' | 'ACTIVE' | 'APPROVED' | 'REJECTED'
 }
 
 export type OrderStatus =

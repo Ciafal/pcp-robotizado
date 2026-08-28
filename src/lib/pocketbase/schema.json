@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T16:34:15.045Z",
+  "generatedAt": "2026-08-28T17:06:13.245Z",
   "collections": [
     {
       "name": "users",
@@ -4040,6 +4040,561 @@
       ],
       "indexes": [
         "CREATE INDEX idx_lda_ent ON line_double_approvals (entity_type, entity_id, version)"
+      ]
+    },
+    {
+      "name": "production_routes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "DRAFT",
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "REJECTED",
+            "INACTIVE",
+            "SUPERSEDED"
+          ]
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preferred",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "author_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "author_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pr_code_ver ON production_routes (code, version)",
+        "CREATE INDEX idx_pr_status ON production_routes (status)"
+      ]
+    },
+    {
+      "name": "production_route_nodes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "route_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_routes"
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "process_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "logical_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nominal_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "capacity_unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "input_buffer_min",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "input_buffer_max",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "output_buffer_min",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "output_buffer_max",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conditions_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_prn_route_ord ON production_route_nodes (route_id, logical_order)"
+      ]
+    },
+    {
+      "name": "production_route_edges",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "route_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_routes"
+        },
+        {
+          "name": "origin_line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "relation_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANDATORY", "OPTIONAL", "ALTERNATIVE", "PARALLEL", "CONDITIONAL"]
+        },
+        {
+          "name": "priority",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_precedence_mandatory",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lead_time_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "buffer_min_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "buffer_max_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "buffer_target_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "buffer_physical_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "buffer_unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_buffer_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "projected_buffer_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "condition_expression",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "DRAFT",
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "REJECTED",
+            "INACTIVE",
+            "SUPERSEDED"
+          ]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pre_route_lines ON production_route_edges (route_id, origin_line_code, target_line_code)"
+      ]
+    },
+    {
+      "name": "production_capacity_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SHIFT", "DAY", "WEEK", "MONTH"]
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nominal_capacity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "planned_stops_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_setup_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_calendar_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "other_planned_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programmable_capacity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unplanned_stops_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unplanned_setup_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "maintenance_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_shortage_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quality_defect_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bottleneck_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operational_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "other_execution_loss",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_capacity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_lost_capacity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "utilization_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "efficiency_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bottleneck_risk",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        {
+          "name": "data_source",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ESTIMATED_MOCK", "MANUAL_AUDITED", "MES_40_INTEGRATED", "SAP_CONFIRMED"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcl_line_period ON production_capacity_logs (line_code, period_type, period_ref)"
       ]
     }
   ]

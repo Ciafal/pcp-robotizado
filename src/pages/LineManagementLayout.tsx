@@ -6,6 +6,7 @@ import { Building2, Network, Gauge, Share2, History, FileSpreadsheet } from 'luc
 const subTabs = [
   { path: '/pcp/linhas', label: 'Cadastro de Linhas', icon: Building2, exact: true },
   { path: '/pcp/linhas/cadastro', label: 'Linhas (Grid)', icon: Building2 },
+  { path: '/pcp/linhas/sequenciamento', label: 'Sequenciamento (Prompt 04)', icon: Share2 },
   { path: '/pcp/linhas/mapa-integracao', label: 'Mapa de Integração', icon: Network },
   { path: '/pcp/linhas/capacidades', label: 'Capacidades & Performance', icon: Gauge },
   { path: '/pcp/linhas/dependencias', label: 'Dependências & Rotas', icon: Share2 },

@@ -200,12 +200,12 @@ export const App: React.FC = () => {
                 >
                   <Route index element={<LineMasterPage />} />
                   <Route path="cadastro" element={<LineMasterPage />} />
+                  <Route path="sequenciamento" element={<SequencingPage />} />
                   <Route path="mapa-integracao" element={<ProductionIntegrationMapPage />} />
                   <Route path="capacidades" element={<LineCapacitiesSubpage />} />
                   <Route path="dependencias" element={<LineDependenciesSubpage />} />
                   <Route path="historico" element={<LineHistorySubpage />} />
                 </Route>
-
                 {/* 5. Módulos Auxiliares & Governança */}
                 <Route
                   path="/pcp/ficha-mestre"
