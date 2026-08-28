@@ -11,6 +11,7 @@ import {
   Briefcase,
   Sliders,
   History,
+  Building2,
   FileSpreadsheet,
   Cpu,
   CheckCircle2,
@@ -58,14 +59,54 @@ const navSections: NavSectionItem[] = [
     badge: 'Hub',
     permission: 'pcp.schedule.view',
     subItems: [
-      { title: 'Visão Geral', href: '/pcp/sequenciamento', icon: Layers, permission: 'pcp.schedule.view' },
-      { title: 'Torre de Controle', href: '/pcp/sequenciamento/torre-controle', icon: Activity, permission: 'pcp.schedule.view' },
-      { title: 'Operacional', href: '/pcp/sequenciamento/operacional', icon: Sparkles, permission: 'pcp.schedule.view' },
-      { title: 'Sequenciamento (Gantt)', href: '/pcp/sequenciamento/programacao', icon: CalendarDays, permission: 'pcp.schedule.edit' },
-      { title: 'Eficiência & Perdas', href: '/pcp/sequenciamento/eficiencia', icon: BarChart3, permission: 'pcp.schedule.view' },
-      { title: 'Carteira (CRM / WMS)', href: '/pcp/sequenciamento/carteira', icon: Briefcase, permission: 'pcp.schedule.view' },
-      { title: 'Cenários & Simulações', href: '/pcp/sequenciamento/cenarios', icon: Sliders, permission: 'pcp.schedule.simulate' },
-      { title: 'Histórico & Versões', href: '/pcp/sequenciamento/historico', icon: History, permission: 'pcp.schedule.view' },
+      {
+        title: 'Visão Geral',
+        href: '/pcp/sequenciamento',
+        icon: Layers,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Torre de Controle',
+        href: '/pcp/sequenciamento/torre-controle',
+        icon: Activity,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Operacional',
+        href: '/pcp/sequenciamento/operacional',
+        icon: Sparkles,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Sequenciamento (Gantt)',
+        href: '/pcp/sequenciamento/programacao',
+        icon: CalendarDays,
+        permission: 'pcp.schedule.edit',
+      },
+      {
+        title: 'Eficiência & Perdas',
+        href: '/pcp/sequenciamento/eficiencia',
+        icon: BarChart3,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Carteira (CRM / WMS)',
+        href: '/pcp/sequenciamento/carteira',
+        icon: Briefcase,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Cenários & Simulações',
+        href: '/pcp/sequenciamento/cenarios',
+        icon: Sliders,
+        permission: 'pcp.schedule.simulate',
+      },
+      {
+        title: 'Histórico & Versões',
+        href: '/pcp/sequenciamento/historico',
+        icon: History,
+        permission: 'pcp.schedule.view',
+      },
     ],
   },
   {
@@ -75,14 +116,73 @@ const navSections: NavSectionItem[] = [
     badge: 'S&OP',
     permission: 'pcp.masterdata.view',
     subItems: [
-      { title: 'Visão Geral (PMP)', href: '/pcp/planejamento', icon: Layers, permission: 'pcp.masterdata.view' },
-      { title: 'Plano Anual', href: '/pcp/planejamento/anual', icon: CalendarRange, permission: 'pcp.masterdata.view' },
-      { title: 'Plano Mensal', href: '/pcp/planejamento/mensal', icon: CalendarRange, permission: 'pcp.masterdata.view' },
-      { title: 'Plano Semanal', href: '/pcp/planejamento/semanal', icon: CalendarDays, permission: 'pcp.masterdata.view' },
+      {
+        title: 'Visão Geral (PMP)',
+        href: '/pcp/planejamento',
+        icon: Layers,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Plano Anual',
+        href: '/pcp/planejamento/anual',
+        icon: CalendarRange,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Plano Mensal',
+        href: '/pcp/planejamento/mensal',
+        icon: CalendarRange,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Plano Semanal',
+        href: '/pcp/planejamento/semanal',
+        icon: CalendarDays,
+        permission: 'pcp.masterdata.view',
+      },
     ],
   },
   {
-    title: 'Ficha Mestre & Linhas',
+    title: 'Gestão de Linhas',
+    href: '/pcp/linhas',
+    icon: Building2,
+    badge: 'Malha',
+    permission: 'pcp.masterdata.view',
+    subItems: [
+      {
+        title: 'Cadastro de Linhas',
+        href: '/pcp/linhas/cadastro',
+        icon: Building2,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Mapa de Integração',
+        href: '/pcp/linhas/mapa-integracao',
+        icon: Compass,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Capacidades & Performance',
+        href: '/pcp/linhas/capacidades',
+        icon: BarChart3,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Dependências e Rotas',
+        href: '/pcp/linhas/dependencias',
+        icon: Layers,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Histórico de Revisões',
+        href: '/pcp/linhas/historico',
+        icon: History,
+        permission: 'pcp.masterdata.view',
+      },
+    ],
+  },
+  {
+    title: 'Ficha Mestre',
     href: '/pcp/ficha-mestre',
     icon: FileSpreadsheet,
     badge: 'SAP ECC',
@@ -157,6 +257,7 @@ export const PCPSidebar: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     '/pcp/sequenciamento': true,
     '/pcp/planejamento': true,
+    '/pcp/linhas': true,
   })
 
   const toggleSection = (href: string) => {

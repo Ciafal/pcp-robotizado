@@ -19,12 +19,15 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 interface MasterPlanningProps {
-  initialHorizon?: 'anual' | 'mensal' | 'semanal'
+  initialHorizon?: 'ANUAL' | 'MENSAL' | 'SEMANAL' | 'anual' | 'mensal' | 'semanal'
 }
 
-export const MasterPlanningPage: React.FC<MasterPlanningProps> = ({ initialHorizon = 'anual' }) => {
+export const MasterPlanningPage: React.FC<MasterPlanningProps> = ({
+  initialHorizon = 'MENSAL',
+}) => {
   const { filters, plantCapacityAnalysis, plants, lines } = useControlTower()
-  const [horizon, setHorizon] = useState<string>(initialHorizon)
+  const normalizedHorizon = initialHorizon.toLowerCase()
+  const [horizon, setHorizon] = useState<string>(normalizedHorizon)
 
   return (
     <div className="space-y-6">

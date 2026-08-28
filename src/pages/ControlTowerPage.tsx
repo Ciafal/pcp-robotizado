@@ -758,3 +758,5 @@ export const ControlTowerPage: React.FC = () => {
     </div>
   )
 }
+
+export default ControlTowerPage

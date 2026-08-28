@@ -244,3 +244,5 @@ export const SequencingPage: React.FC = () => {
     </div>
   )
 }
+
+export default SequencingPage

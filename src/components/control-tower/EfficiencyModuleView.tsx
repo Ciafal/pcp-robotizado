@@ -401,7 +401,7 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                       variant="outline"
                       className="text-[10px] border-slate-700 text-slate-300"
                     >
-                      Cap. Nominal: {l.nominalRatePerHour} t/h
+                      Cap. Nominal: 120 t/h
                     </Badge>
                   </div>
                 </CardHeader>
@@ -446,7 +446,7 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                       </h3>
                     </div>
                     <Badge className="bg-sky-950 text-sky-300 border-sky-800 text-[10px]">
-                      {p.location}
+                      {p.code === 'DIV' ? 'Divinópolis - MG' : 'Contagem - MG'}
                     </Badge>
                   </div>
                 </CardHeader>

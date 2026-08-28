@@ -372,7 +372,7 @@ export const lineMasterService = {
   },
 
   // ==========================================
-  // 5. SEQUENCIAMENTO (CRUD)
+  // 5. SEQUENCIAMENTO & DEPENDÊNCIAS (CRUD sincronizado com Mapa de Integração)
   // ==========================================
   async saveSequencing(data: Partial<LineSequencingDependency>): Promise<LineSequencingDependency> {
     if (data.id) {
@@ -387,6 +387,18 @@ export const lineMasterService = {
 
   async deleteSequencing(id: string): Promise<boolean> {
     return await pb.collection('line_sequencing_dependencies').delete(id)
+  },
+
+  async getNetworkRelationshipsForLine(lineCode: string) {
+    try {
+      const records = await pb.collection('production_line_relationships').getFullList({
+        filter: `origin_line_code = '${lineCode}' || target_line_code = '${lineCode}'`,
+        sort: 'priority_order',
+      })
+      return records
+    } catch {
+      return []
+    }
   },
 
   // ==========================================

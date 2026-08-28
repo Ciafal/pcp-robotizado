@@ -99,3 +99,5 @@ export const ModulePreparationPage: React.FC<PlaceholderProps> = ({
     </div>
   )
 }
+
+export default ModulePreparationPage

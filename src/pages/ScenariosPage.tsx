@@ -246,3 +246,5 @@ export const ScenariosPage: React.FC = () => {
     </div>
   )
 }
+
+export default ScenariosPage

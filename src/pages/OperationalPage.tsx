@@ -526,3 +526,5 @@ export const OperationalPage: React.FC = () => {
     </div>
   )
 }
+
+export default OperationalPage

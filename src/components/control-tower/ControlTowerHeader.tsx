@@ -43,6 +43,8 @@ interface ControlTowerHeaderProps {
   title?: string
   subtitle?: string
   breadcrumbSubmodule?: string
+  isFullscreen?: boolean
+  toggleFullscreen?: () => void
 }
 
 export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
