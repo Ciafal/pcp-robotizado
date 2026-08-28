@@ -1,3 +1,6 @@
+/**
+ * Testes Unitários e de Regressão - Cockpit Executivo CIAFAL
+ */
 import { describe, it, expect } from 'vitest'
 import {
   deterministicEngine,
