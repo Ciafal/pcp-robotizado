@@ -1,4 +1,5 @@
 // Modelo de Dados Central Unificado para a Central de Sequenciamento Produtivo CIAFAL
+// Hierarquia Corporativa: EMPRESA -> PLANTA -> LINHA DE PRODUÇÃO -> PROCESSO / CENTRO DE TRABALHO -> RECURSO
 
 export type PerspectiveMode = 'GERAL' | 'PROGRAMADOR' | 'CHAO_FABRICA'
 
@@ -14,6 +15,13 @@ export type ViewTab =
   | 'TIMELINE'
   | 'SHOP_FLOOR'
   | 'INDICATORS'
+
+export type CentralSubmodule =
+  | 'TORRE_CONTROLE'
+  | 'OPERACIONAL'
+  | 'SEQUENCIAMENTO'
+  | 'CENARIOS'
+  | 'HISTORICO'
 
 export type OrderStatus =
   | 'PLANNED'
@@ -31,13 +39,125 @@ export type SeverityType = 'CRITICAL' | 'RISK' | 'WARNING' | 'INFO'
 
 export type ScenarioType = 'BASE' | 'CENARIO_A' | 'CENARIO_B' | 'CENARIO_C' | 'SIMULACAO_TEMP'
 
+export type RuleScopeLevel = 'GLOBAL' | 'COMPANY' | 'PLANT' | 'LINE' | 'RESOURCE'
+
+// ==========================================
+// 1. Entidades da Hierarquia Corporativa
+// ==========================================
+
+export interface Company {
+  id: string
+  code: string
+  name: string
+  corporate_name?: string
+  cnpj?: string
+  status: 'ACTIVE' | 'INACTIVE'
+  timezone?: string
+  currency?: string
+  sap_company_code?: string
+  description?: string
+  plantsCount?: number
+  linesCount?: number
+}
+
+export interface Plant {
+  id: string
+  code: string
+  name: string
+  companyId: string
+  companyCode: string
+  city?: string
+  state?: string
+  country?: string
+  sap_plant_code?: string
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE'
+  timezone?: string
+  responsible_user_name?: string
+  linesCount?: number
+}
+
+export interface ProductionLineHierarchy {
+  id: string
+  code: string
+  name: string
+  plantId: string
+  plantCode: string
+  companyId: string
+  companyCode: string
+  line_type?: string
+  sap_work_center?: string
+  nominal_capacity: number
+  capacity_unit: string
+  shifts_count: number
+  status: LineStatus
+  manager_name?: string
+  programmer_name?: string
+}
+
+export interface WorkCenterNode {
+  id: string
+  code: string
+  name: string
+  lineId: string
+  lineCode: string
+  processType: string
+  sapWorkCenterCode?: string
+  nominalCapacity: number
+  capacityUnit: string
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE'
+}
+
+export interface ResourceNode {
+  id: string
+  code: string
+  name: string
+  workCenterId: string
+  workCenterCode: string
+  sapEquipmentId?: string
+  status: string
+}
+
+// ==========================================
+// 2. Rule Pack com Herança
+// ==========================================
+
+export interface RulePack {
+  id: string
+  code: string
+  name: string
+  version: string
+  scope_level: RuleScopeLevel
+  company_id?: string
+  plant_id?: string
+  line_id?: string
+  resource_id?: string
+  rules_payload: {
+    maxSetupDurationMinutes?: number
+    minBatchSizeTons?: number
+    bufferSafetyHours?: number
+    priorityWeightOEE?: number
+    priorityWeightOTD?: number
+    preferredFamilyOrder?: string[]
+    [key: string]: unknown
+  }
+  status: 'ACTIVE' | 'DRAFT' | 'SUPERSEDED'
+}
+
+// ==========================================
+// 3. Modelo Central de Ordens de Produção
+// ==========================================
+
 export interface ProductOrder {
   id: string
   orderNumber: string
   campaignId: string
   campaignName: string
+  companyCode: string
+  plantCode: string
   lineCode: string
   processName: string
+  workCenterCode?: string
+  resourceCode?: string
   familyCode: string
   familyName: string
   materialCode: string
@@ -51,7 +171,7 @@ export interface ProductOrder {
   targetRatePerHour: number
   currentRatePerHour: number
   adherencePct: number
-  plannedStart: string // ISO string or HH:mm
+  plannedStart: string // HH:mm or ISO
   plannedEnd: string
   projectedEnd: string
   actualStart?: string
@@ -78,6 +198,8 @@ export interface ProductionProcessNode {
   id: string
   code: string
   name: string
+  companyCode: string
+  plantCode: string
   sector: string
   type: 'SUPPLY' | 'FURNACE' | 'LINE' | 'FINISHING' | 'REWORK' | 'EXPEDITION' | 'BUFFER'
   currentStatus: LineStatus
@@ -111,6 +233,8 @@ export interface ProductionProcessNode {
 export interface BottleneckItem {
   id: string
   rank: number
+  companyCode: string
+  plantCode: string
   processCode: string
   processName: string
   classification:
@@ -141,6 +265,8 @@ export interface BottleneckItem {
 
 export interface BufferStatus {
   id: string
+  companyCode: string
+  plantCode: string
   upstreamCode: string
   downstreamCode: string
   name: string
@@ -163,6 +289,8 @@ export interface BufferStatus {
 
 export interface FlowSankeyStep {
   id: string
+  companyCode: string
+  plantCode: string
   source: string
   target: string
   tons: number
@@ -174,20 +302,24 @@ export interface FlowSankeyStep {
 
 export interface OperationalEvent {
   id: string
-  timestamp: string // HH:mm:ss
+  timestamp: string
+  companyCode?: string
+  plantCode?: string
+  processCode?: string
+  orderNumber?: string
   source: 'SAP' | 'PRODUCAO' | 'PCP' | 'IA' | 'MANUTENCAO' | 'QUALIDADE' | 'USUARIO'
   category: 'STOP' | 'RATE' | 'AI_RECALC' | 'ORDER_RISK' | 'SIMULATION' | 'APPROVAL' | 'MATERIAL'
   severity: SeverityType
   title: string
   description: string
-  processCode?: string
-  orderNumber?: string
   actor?: string
 }
 
 export interface OperationalAlert {
   id: string
   code: string
+  companyCode: string
+  plantCode: string
   processCode: string
   orderNumber?: string
   severity: SeverityType
@@ -214,6 +346,8 @@ export interface ImpactPropagationNode {
 }
 
 export interface ImpactAnalysis {
+  companyCode: string
+  plantCode: string
   sourceProcess: string
   triggerReason: string
   downstreamPropagation: ImpactPropagationNode[]
@@ -237,6 +371,9 @@ export interface ScenarioDefinition {
   id: string
   type: ScenarioType
   name: string
+  companyCode: string
+  plantCode: string
+  lineCode: string
   creator: string
   createdAt: string
   assumptions: string
@@ -261,8 +398,10 @@ export interface ScenarioDefinition {
 }
 
 export interface GlobalFilterState {
+  companyCode: string // 'ALL' or 'CIAFAL'
+  plantCode: string // 'ALL' or 'DIV' or 'CTG'
+  lineCode: string // 'ALL' or 'L1' or 'L2'...
   period: 'HOJE' | 'AMANHA' | 'SEMANA' | '7_DIAS' | '15_DIAS' | 'MES' | 'CUSTOM'
-  lineCode: string
   processCode: string
   familyCode: string
   shift: string
@@ -277,7 +416,11 @@ export interface GlobalFilterState {
 }
 
 export interface VersionHistoryItem {
+  id?: string
   version: string
+  companyCode: string
+  plantCode: string
+  lineCode: string
   publishedAt: string
   author: string
   approver?: string
@@ -285,4 +428,9 @@ export interface VersionHistoryItem {
   changesCount: number
   deltaTons: number
   status: 'CURRENT' | 'ARCHIVED'
+  diffDetails?: {
+    movedOrders: string[]
+    setupDeltaMinutes: number
+    capacityImpact: string
+  }
 }

@@ -1,4 +1,10 @@
 import {
+  Company,
+  Plant,
+  ProductionLineHierarchy,
+  WorkCenterNode,
+  ResourceNode,
+  RulePack,
   ProductOrder,
   ProductionProcessNode,
   BottleneckItem,
@@ -11,15 +17,419 @@ import {
   VersionHistoryItem,
 } from '@/types/control-tower'
 
-// Mock de Ordens Centralizadas de Produção
+// =========================================================================
+// 1. Hierarquia Corporativa CIAFAL (Empresas, Plantas, Linhas, Centros, Recursos)
+// =========================================================================
+
+export const mockCompanies: Company[] = [
+  {
+    id: 'comp-ciafal',
+    code: 'CIAFAL',
+    name: 'CIAFAL Wilson Santos',
+    corporate_name: 'CIAFAL Comércio e Indústria de Ferro e Aço Ltda.',
+    cnpj: '17.283.940/0001-88',
+    status: 'ACTIVE',
+    timezone: 'America/Sao_Paulo',
+    currency: 'BRL',
+    sap_company_code: '1000',
+    description: 'Hub Industrial e Matriz de Laminação, Conformação e Perfis Estruturais',
+    plantsCount: 2,
+    linesCount: 6,
+  },
+]
+
+export const mockPlants: Plant[] = [
+  {
+    id: 'plant-div',
+    code: 'DIV',
+    name: 'Planta Divinópolis (Matriz)',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    city: 'Divinópolis',
+    state: 'MG',
+    country: 'Brasil',
+    sap_plant_code: '1001',
+    status: 'ACTIVE',
+    timezone: 'America/Sao_Paulo',
+    responsible_user_name: 'Mariana Albuquerque (Gerente Industrial)',
+    linesCount: 3,
+  },
+  {
+    id: 'plant-ctg',
+    code: 'CTG',
+    name: 'Planta Contagem (Perfis & Estruturais)',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    city: 'Contagem',
+    state: 'MG',
+    country: 'Brasil',
+    sap_plant_code: '1002',
+    status: 'ACTIVE',
+    timezone: 'America/Sao_Paulo',
+    responsible_user_name: 'Henrique Guimarães (Gerente Industrial)',
+    linesCount: 3,
+  },
+]
+
+export const mockProductionLines: ProductionLineHierarchy[] = [
+  {
+    id: 'line-l1',
+    code: 'L1',
+    name: 'Linha 1 — Laminação & Conformação',
+    plantId: 'plant-div',
+    plantCode: 'DIV',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Laminação & Tubos Industriais',
+    sap_work_center: 'WC-DIV-L1',
+    nominal_capacity: 120,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'running',
+    manager_name: 'Carlos Mendes',
+    programmer_name: 'Lucas Ferreira',
+  },
+  {
+    id: 'line-enf-l1',
+    code: 'ENF_L1',
+    name: 'Enfornamento L1 (Forno de Reaquecimento)',
+    plantId: 'plant-div',
+    plantCode: 'DIV',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Forno de Aquecimento Contínuo',
+    sap_work_center: 'WC-DIV-ENF1',
+    nominal_capacity: 100,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'running',
+    manager_name: 'Carlos Mendes',
+    programmer_name: 'Lucas Ferreira',
+  },
+  {
+    id: 'line-acab-l1',
+    code: 'ACAB_L1',
+    name: 'Acabamento L1 (Corte, Bisotamento e Embalagem)',
+    plantId: 'plant-div',
+    plantCode: 'DIV',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Acabamento & Embalagem',
+    sap_work_center: 'WC-DIV-ACAB1',
+    nominal_capacity: 90,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'running',
+    manager_name: 'Carlos Mendes',
+    programmer_name: 'Lucas Ferreira',
+  },
+  {
+    id: 'line-l2',
+    code: 'L2',
+    name: 'Linha 2 — Perfis Estruturais & Retangulares',
+    plantId: 'plant-ctg',
+    plantCode: 'CTG',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Conformação Contínua Pesada',
+    sap_work_center: 'WC-CTG-L2',
+    nominal_capacity: 150,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'idle',
+    manager_name: 'Marcos Souza',
+    programmer_name: 'Juliana Lima',
+  },
+  {
+    id: 'line-acab-l2',
+    code: 'ACAB_L2',
+    name: 'Acabamento L2 (Cintamento e Amarração)',
+    plantId: 'plant-ctg',
+    plantCode: 'CTG',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Acabamento & Expedição',
+    sap_work_center: 'WC-CTG-ACAB2',
+    nominal_capacity: 90,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'running',
+    manager_name: 'Marcos Souza',
+    programmer_name: 'Juliana Lima',
+  },
+  {
+    id: 'line-endir',
+    code: 'ENDIR',
+    name: 'Endireitadeira Pesada',
+    plantId: 'plant-ctg',
+    plantCode: 'CTG',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Processamento Dimensional Mecânico',
+    sap_work_center: 'WC-CTG-ENDIR',
+    nominal_capacity: 80,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'maintenance',
+    manager_name: 'Marcos Souza',
+    programmer_name: 'Juliana Lima',
+  },
+  {
+    id: 'line-retrab',
+    code: 'RETRAB',
+    name: 'Célula de Retrabalho & Ajuste',
+    plantId: 'plant-ctg',
+    plantCode: 'CTG',
+    companyId: 'comp-ciafal',
+    companyCode: 'CIAFAL',
+    line_type: 'Qualidade e Reprocessamento',
+    sap_work_center: 'WC-CTG-RETRAB',
+    nominal_capacity: 40,
+    capacity_unit: 't/h',
+    shifts_count: 3,
+    status: 'running',
+    manager_name: 'Marcos Souza',
+    programmer_name: 'Lucas Ferreira',
+  },
+]
+
+export const mockWorkCenters: WorkCenterNode[] = [
+  {
+    id: 'wc-1',
+    code: 'FORNO-L1',
+    name: 'Forno de Tarugos L1',
+    lineId: 'line-enf-l1',
+    lineCode: 'ENF_L1',
+    processType: 'Aquecimento Metalúrgico',
+    sapWorkCenterCode: 'FORNO-DIV-01',
+    nominalCapacity: 100,
+    capacityUnit: 't/h',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'wc-2',
+    code: 'LAM-L1',
+    name: 'Trem Laminador L1',
+    lineId: 'line-l1',
+    lineCode: 'L1',
+    processType: 'Conformação / Laminação',
+    sapWorkCenterCode: 'LAM-DIV-01',
+    nominalCapacity: 120,
+    capacityUnit: 't/h',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'wc-3',
+    code: 'SERRA-L1',
+    name: 'Serra Rápida & Acabamento L1',
+    lineId: 'line-acab-l1',
+    lineCode: 'ACAB_L1',
+    processType: 'Corte e Bisotamento',
+    sapWorkCenterCode: 'SERRA-DIV-01',
+    nominalCapacity: 90,
+    capacityUnit: 't/h',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'wc-4',
+    code: 'CONF-L2',
+    name: 'Conformadora Contínua L2',
+    lineId: 'line-l2',
+    lineCode: 'L2',
+    processType: 'Perfilação Contínua',
+    sapWorkCenterCode: 'CONF-CTG-02',
+    nominalCapacity: 150,
+    capacityUnit: 't/h',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'wc-5',
+    code: 'END-L2',
+    name: 'Rolo Nivelador Pesado',
+    lineId: 'line-endir',
+    lineCode: 'ENDIR',
+    processType: 'Endireitamento Mecânico',
+    sapWorkCenterCode: 'END-CTG-01',
+    nominalCapacity: 80,
+    capacityUnit: 't/h',
+    status: 'MAINTENANCE',
+  },
+]
+
+export const mockResources: ResourceNode[] = [
+  {
+    id: 'res-1',
+    code: 'FORNO-01',
+    name: 'Forno Contínuo de Empurrão Forno L1',
+    workCenterId: 'wc-1',
+    workCenterCode: 'FORNO-L1',
+    sapEquipmentId: 'EQP-FURN-1001',
+    status: 'RUNNING',
+  },
+  {
+    id: 'res-2',
+    code: 'CAGE-L1',
+    name: 'Gaiola Desbastadora Primária L1',
+    workCenterId: 'wc-2',
+    workCenterCode: 'LAM-L1',
+    sapEquipmentId: 'EQP-ROLL-1002',
+    status: 'RUNNING',
+  },
+  {
+    id: 'res-3',
+    code: 'SERRA-CIRC-01',
+    name: 'Serra Circular de Fita Dupla L1',
+    workCenterId: 'wc-3',
+    workCenterCode: 'SERRA-L1',
+    sapEquipmentId: 'EQP-SAW-1003',
+    status: 'RUNNING',
+  },
+  {
+    id: 'res-4',
+    code: 'PERF-MAT-02',
+    name: 'Conjunto de Matrizes e Rolos L2',
+    workCenterId: 'wc-4',
+    workCenterCode: 'CONF-L2',
+    sapEquipmentId: 'EQP-CONF-1004',
+    status: 'IDLE',
+  },
+  {
+    id: 'res-5',
+    code: 'ROLO-TRA-01',
+    name: 'Rolos Tracionadores Hidráulicos ENDIR',
+    workCenterId: 'wc-5',
+    workCenterCode: 'END-L2',
+    sapEquipmentId: 'EQP-END-1005',
+    status: 'MAINTENANCE',
+  },
+]
+
+// =========================================================================
+// 2. Rule Packs com Herança de Parâmetros
+// =========================================================================
+
+export const mockRulePacks: RulePack[] = [
+  {
+    id: 'rp-global-01',
+    code: 'RP-GLOBAL-01',
+    name: 'Diretrizes Globais de Sequenciamento CIAFAL',
+    version: 'v1.0',
+    scope_level: 'GLOBAL',
+    rules_payload: {
+      maxSetupDurationMinutes: 60,
+      minBatchSizeTons: 50,
+      bufferSafetyHours: 8,
+      priorityWeightOEE: 0.4,
+      priorityWeightOTD: 0.6,
+    },
+    status: 'ACTIVE',
+  },
+  {
+    id: 'rp-emp-ciafal-01',
+    code: 'RP-EMP-CIAFAL-01',
+    name: 'Parâmetros Operacionais Corporativos CIAFAL',
+    version: 'v1.0',
+    scope_level: 'COMPANY',
+    company_id: 'comp-ciafal',
+    rules_payload: {
+      maxSetupDurationMinutes: 55,
+      minBatchSizeTons: 60,
+      bufferSafetyHours: 8,
+    },
+    status: 'ACTIVE',
+  },
+  {
+    id: 'rp-plant-div-01',
+    code: 'RP-PLANT-DIV-01',
+    name: 'Regras de Laminação Divinópolis',
+    version: 'v1.0',
+    scope_level: 'PLANT',
+    plant_id: 'plant-div',
+    rules_payload: {
+      maxSetupDurationMinutes: 50,
+      minBatchSizeTons: 80,
+    },
+    status: 'ACTIVE',
+  },
+  {
+    id: 'rp-line-l1-01',
+    code: 'RP-LINE-L1-01',
+    name: 'Regras Específicas Linha 1 (L1)',
+    version: 'v1.0',
+    scope_level: 'LINE',
+    line_id: 'line-l1',
+    rules_payload: {
+      maxSetupDurationMinutes: 40,
+      preferredFamilyOrder: ['TUB_QUAD', 'TUB_RET', 'TUB_RED'],
+    },
+    status: 'ACTIVE',
+  },
+]
+
+// Helper para resolução de herança de parâmetros
+export function resolveEffectiveRules(
+  companyCode: string,
+  plantCode: string,
+  lineCode: string,
+): {
+  maxSetupDurationMinutes: number
+  minBatchSizeTons: number
+  bufferSafetyHours: number
+  resolutionChain: { level: string; setupMinutes: number }[]
+} {
+  // Precedência: Global (60) -> Empresa (55) -> Planta Div (50) -> Linha L1 (40)
+  let maxSetupDurationMinutes = 60
+  let minBatchSizeTons = 50
+  const bufferSafetyHours = 8
+  const resolutionChain = [{ level: 'Global (Padrão)', setupMinutes: 60 }]
+
+  if (companyCode === 'CIAFAL') {
+    maxSetupDurationMinutes = 55
+    minBatchSizeTons = 60
+    resolutionChain.push({ level: 'Empresa CIAFAL', setupMinutes: 55 })
+  }
+
+  if (plantCode === 'DIV') {
+    maxSetupDurationMinutes = 50
+    minBatchSizeTons = 80
+    resolutionChain.push({ level: 'Planta Divinópolis', setupMinutes: 50 })
+  } else if (plantCode === 'CTG') {
+    maxSetupDurationMinutes = 52
+    resolutionChain.push({ level: 'Planta Contagem', setupMinutes: 52 })
+  }
+
+  if (lineCode === 'L1') {
+    maxSetupDurationMinutes = 40
+    resolutionChain.push({ level: 'Linha L1 (Específica)', setupMinutes: 40 })
+  } else if (lineCode === 'L2') {
+    maxSetupDurationMinutes = 48
+    resolutionChain.push({ level: 'Linha L2 (Específica)', setupMinutes: 48 })
+  }
+
+  return {
+    maxSetupDurationMinutes,
+    minBatchSizeTons,
+    bufferSafetyHours,
+    resolutionChain,
+  }
+}
+
+// =========================================================================
+// 3. Ordens de Produção Mock com Vínculo Hierárquico
+// =========================================================================
+
 export const mockCentralOrders: ProductOrder[] = [
   {
     id: 'ord-101',
     orderNumber: 'OP-2026-1011',
     campaignId: 'CAMP-A1',
     campaignName: 'Campanha Tubos SAE 1020 - Estrutural',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     lineCode: 'L1',
     processName: 'Conformação L1',
+    workCenterCode: 'LAM-L1',
+    resourceCode: 'CAGE-L1',
     familyCode: 'TUB_QUAD',
     familyName: 'Tubos Quadrados Estruturais',
     materialCode: 'TQ-505020',
@@ -48,7 +458,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 1,
     isCriticalPath: true,
     shift: 'Turno 1 (06h-14h)',
-    programmer: 'Carlos Silva (PCP)',
+    programmer: 'Lucas Ferreira',
     delayMinutes: 22,
     alertsCount: 1,
     notes: 'Ritmo real 4 t/h abaixo da meta nominal devido à troca preventiva de guias.',
@@ -58,8 +468,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1012',
     campaignId: 'CAMP-A1',
     campaignName: 'Campanha Tubos SAE 1020 - Estrutural',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     lineCode: 'ENF_L1',
     processName: 'Enfornamento & Aquecimento L1',
+    workCenterCode: 'FORNO-L1',
+    resourceCode: 'FORNO-01',
     familyCode: 'TUB_QUAD',
     familyName: 'Tubos Quadrados Estruturais',
     materialCode: 'TAR-120-1020',
@@ -87,7 +501,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 1,
     isCriticalPath: true,
     shift: 'Turno 1 (06h-14h)',
-    programmer: 'Carlos Silva (PCP)',
+    programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
   },
@@ -96,8 +510,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1013',
     campaignId: 'CAMP-A1',
     campaignName: 'Campanha Tubos SAE 1020 - Estrutural',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     lineCode: 'ACAB_L1',
     processName: 'Acabamento & Corte L1',
+    workCenterCode: 'SERRA-L1',
+    resourceCode: 'SERRA-CIRC-01',
     familyCode: 'TUB_QUAD',
     familyName: 'Tubos Quadrados Estruturais',
     materialCode: 'TQ-505020-ACAB',
@@ -126,7 +544,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 1,
     isCriticalPath: true,
     shift: 'Turno 1 & 2',
-    programmer: 'Carlos Silva (PCP)',
+    programmer: 'Lucas Ferreira',
     delayMinutes: 45,
     alertsCount: 2,
     notes:
@@ -137,8 +555,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1014',
     campaignId: 'CAMP-B2',
     campaignName: 'Campanha Perfis Retangulares L2',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     lineCode: 'L2',
     processName: 'Conformação L2',
+    workCenterCode: 'CONF-L2',
+    resourceCode: 'PERF-MAT-02',
     familyCode: 'TUB_RET',
     familyName: 'Tubos Retangulares',
     materialCode: 'TR-804030',
@@ -165,7 +587,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 2,
     isCriticalPath: false,
     shift: 'Turno 2 (14h-22h)',
-    programmer: 'Juliana Lima (PCP)',
+    programmer: 'Juliana Lima',
     delayMinutes: 60,
     alertsCount: 2,
     notes: 'Aguardando bobina #B-8831 da MPL2. Risco de atraso de 1h30 na entrega.',
@@ -175,8 +597,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1015',
     campaignId: 'CAMP-B2',
     campaignName: 'Campanha Perfis Retangulares L2',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     lineCode: 'ACAB_L2',
     processName: 'Acabamento & Embalagem L2',
+    workCenterCode: 'CONF-L2',
+    resourceCode: 'PERF-MAT-02',
     familyCode: 'TUB_RET',
     familyName: 'Tubos Retangulares',
     materialCode: 'TR-804030-PKG',
@@ -204,7 +630,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 2,
     isCriticalPath: false,
     shift: 'Turno 2 & 3',
-    programmer: 'Juliana Lima (PCP)',
+    programmer: 'Juliana Lima',
     delayMinutes: 30,
     alertsCount: 1,
   },
@@ -213,6 +639,8 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1016',
     campaignId: 'CAMP-C3',
     campaignName: 'Campanha Retrabalho e Ajuste Dimensional',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     lineCode: 'RETRAB',
     processName: 'Célula de Retrabalho',
     familyCode: 'BAR_CHATA',
@@ -242,7 +670,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 3,
     isCriticalPath: false,
     shift: 'Turno 1 & 2',
-    programmer: 'Carlos Silva (PCP)',
+    programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
   },
@@ -251,8 +679,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1017',
     campaignId: 'CAMP-D4',
     campaignName: 'Campanha Tubos Redondos NBR',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     lineCode: 'L1',
     processName: 'Conformação L1',
+    workCenterCode: 'LAM-L1',
+    resourceCode: 'CAGE-L1',
     familyCode: 'TUB_RED',
     familyName: 'Tubos Redondos / Conduítes',
     materialCode: 'TRD-2POL',
@@ -280,7 +712,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 2,
     isCriticalPath: false,
     shift: 'Turno 2 & 3',
-    programmer: 'Carlos Silva (PCP)',
+    programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
   },
@@ -289,8 +721,12 @@ export const mockCentralOrders: ProductOrder[] = [
     orderNumber: 'OP-2026-1018',
     campaignId: 'CAMP-E5',
     campaignName: 'Campanha Perfis U Estruturais',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     lineCode: 'ENDIR',
     processName: 'Endireitadeira Pesada',
+    workCenterCode: 'END-L2',
+    resourceCode: 'ROLO-TRA-01',
     familyCode: 'PERF_U',
     familyName: 'Perfis U Dobrados',
     materialCode: 'PU-10050',
@@ -317,7 +753,7 @@ export const mockCentralOrders: ProductOrder[] = [
     priority: 1,
     isCriticalPath: true,
     shift: 'Turno 2 (14h-22h)',
-    programmer: 'Juliana Lima (PCP)',
+    programmer: 'Juliana Lima',
     delayMinutes: 240,
     alertsCount: 2,
     notes:
@@ -325,12 +761,17 @@ export const mockCentralOrders: ProductOrder[] = [
   },
 ]
 
-// Mock de Nós de Processo Produtivo do Mapa de Integração
+// =========================================================================
+// 4. Nós de Processo Produtivo do Mapa
+// =========================================================================
+
 export const mockProcessNodes: ProductionProcessNode[] = [
   {
     id: 'node-mpl1',
     code: 'MPL1',
     name: 'Pátio de Matéria-Prima 1',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     sector: 'Logística / Suprimentos',
     type: 'SUPPLY',
     currentStatus: 'running',
@@ -352,13 +793,15 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     isBottleneck: false,
     upstreamProcessCodes: [],
     downstreamProcessCodes: ['ENF_L1'],
-    operator: 'Equipe Logística Pátio',
+    operator: 'Equipe Logística Pátio 1',
     position: { x: 50, y: 120 },
   },
   {
     id: 'node-enf-l1',
     code: 'ENF_L1',
     name: 'Enfornamento L1 (Forno)',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     sector: 'Aquecimento e Laminação',
     type: 'FURNACE',
     currentStatus: 'running',
@@ -391,7 +834,9 @@ export const mockProcessNodes: ProductionProcessNode[] = [
   {
     id: 'node-l1',
     code: 'L1',
-    name: 'Linha 1 - Laminação & Conformação',
+    name: 'Linha 1 — Laminação & Conformação',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     sector: 'Laminação Principal',
     type: 'LINE',
     currentStatus: 'running',
@@ -423,6 +868,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-acab-l1',
     code: 'ACAB_L1',
     name: 'Acabamento L1',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     sector: 'Corte e Acabamento',
     type: 'FINISHING',
     currentStatus: 'running',
@@ -457,6 +904,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-mpl2',
     code: 'MPL2',
     name: 'Pátio Matéria-Prima 2 (Bobinas)',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     sector: 'Logística / Suprimentos',
     type: 'SUPPLY',
     currentStatus: 'running',
@@ -488,7 +937,9 @@ export const mockProcessNodes: ProductionProcessNode[] = [
   {
     id: 'node-l2',
     code: 'L2',
-    name: 'Linha 2 - Perfis & Estruturais',
+    name: 'Linha 2 — Perfis & Estruturais',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     sector: 'Conformação Contínua',
     type: 'LINE',
     currentStatus: 'idle',
@@ -520,6 +971,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-acab-l2',
     code: 'ACAB_L2',
     name: 'Acabamento L2',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     sector: 'Embalagem e Cintamento',
     type: 'FINISHING',
     currentStatus: 'running',
@@ -550,6 +1003,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-endir',
     code: 'ENDIR',
     name: 'Endireitadeira Pesada',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     sector: 'Processamento Dimensional',
     type: 'LINE',
     currentStatus: 'maintenance',
@@ -583,6 +1038,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-retrab',
     code: 'RETRAB',
     name: 'Célula de Retrabalho & Ajuste',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     sector: 'Qualidade e Ajuste',
     type: 'REWORK',
     currentStatus: 'running',
@@ -613,6 +1070,8 @@ export const mockProcessNodes: ProductionProcessNode[] = [
     id: 'node-expedicao',
     code: 'EXPEDICAO',
     name: 'Expedição & Logística Outbound',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     sector: 'Expedição Industrial',
     type: 'EXPEDITION',
     currentStatus: 'running',
@@ -639,11 +1098,16 @@ export const mockProcessNodes: ProductionProcessNode[] = [
   },
 ]
 
-// Mock de Gargalos Ranqueados
+// =========================================================================
+// 5. Gargalos Ranqueados
+// =========================================================================
+
 export const mockBottlenecks: BottleneckItem[] = [
   {
     id: 'bot-1',
     rank: 1,
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     processCode: 'ENDIR',
     processName: 'Endireitadeira Pesada',
     classification: 'MAINTENANCE',
@@ -668,6 +1132,8 @@ export const mockBottlenecks: BottleneckItem[] = [
   {
     id: 'bot-2',
     rank: 2,
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     processCode: 'ACAB_L1',
     processName: 'Acabamento L1',
     classification: 'CAPACITY',
@@ -689,6 +1155,8 @@ export const mockBottlenecks: BottleneckItem[] = [
   {
     id: 'bot-3',
     rank: 3,
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     processCode: 'MPL2',
     processName: 'Pátio Matéria-Prima 2 (Bobinas)',
     classification: 'MATERIAL',
@@ -709,6 +1177,8 @@ export const mockBottlenecks: BottleneckItem[] = [
   {
     id: 'bot-4',
     rank: 4,
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     processCode: 'ENF_L1',
     processName: 'Enfornamento L1 (Forno)',
     classification: 'PROCESS',
@@ -726,10 +1196,15 @@ export const mockBottlenecks: BottleneckItem[] = [
   },
 ]
 
-// Mock de Buffers Intermediários
+// =========================================================================
+// 6. Buffers Intermediários
+// =========================================================================
+
 export const mockBuffers: BufferStatus[] = [
   {
     id: 'buf-1',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     upstreamCode: 'L1',
     downstreamCode: 'ACAB_L1',
     name: 'Buffer L1 ➔ Acabamento L1',
@@ -748,6 +1223,8 @@ export const mockBuffers: BufferStatus[] = [
   },
   {
     id: 'buf-2',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     upstreamCode: 'ENF_L1',
     downstreamCode: 'L1',
     name: 'Buffer Forno L1 ➔ Laminação L1',
@@ -762,6 +1239,8 @@ export const mockBuffers: BufferStatus[] = [
   },
   {
     id: 'buf-3',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     upstreamCode: 'L2',
     downstreamCode: 'ENDIR',
     name: 'Buffer L2 ➔ Endireitadeira',
@@ -781,6 +1260,8 @@ export const mockBuffers: BufferStatus[] = [
   },
   {
     id: 'buf-4',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     upstreamCode: 'L2',
     downstreamCode: 'ACAB_L2',
     name: 'Buffer L2 ➔ Acabamento L2',
@@ -796,10 +1277,11 @@ export const mockBuffers: BufferStatus[] = [
   },
 ]
 
-// Mock de Passos de Fluxo (Sankey Simplificado)
 export const mockFlowSteps: FlowSankeyStep[] = [
   {
     id: 'flow-1',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     source: 'MPL1 (Pátio 1)',
     target: 'ENF_L1 (Forno)',
     tons: 2400,
@@ -810,6 +1292,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-2',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     source: 'ENF_L1 (Forno)',
     target: 'L1 (Laminação)',
     tons: 1850,
@@ -820,6 +1304,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-3',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     source: 'L1 (Laminação)',
     target: 'ACAB_L1 (Acabamento)',
     tons: 1620,
@@ -830,6 +1316,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-4',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     source: 'L1 (Laminação)',
     target: 'RETRAB (Retrabalho)',
     tons: 45,
@@ -840,6 +1328,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-5',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     source: 'MPL2 (Pátio 2)',
     target: 'L2 (Conformação)',
     tons: 1250,
@@ -850,6 +1340,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-6',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     source: 'L2 (Conformação)',
     target: 'ACAB_L2 (Acabamento)',
     tons: 620,
@@ -860,6 +1352,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-7',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     source: 'L2 (Conformação)',
     target: 'ENDIR (Endireitadeira)',
     tons: 320,
@@ -870,6 +1364,8 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
   {
     id: 'flow-8',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     source: 'ACAB_L1 / ACAB_L2 / RETRAB / ENDIR',
     target: 'EXPEDICAO (Outbound)',
     tons: 3960,
@@ -880,11 +1376,13 @@ export const mockFlowSteps: FlowSankeyStep[] = [
   },
 ]
 
-// Mock de Timeline Operacional
 export const mockOperationalEvents: OperationalEvent[] = [
   {
     id: 'ev-1',
     timestamp: '09:28:10',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    processCode: 'L1',
     source: 'SAP',
     category: 'ORDER_RISK',
     severity: 'INFO',
@@ -895,81 +1393,94 @@ export const mockOperationalEvents: OperationalEvent[] = [
   {
     id: 'ev-2',
     timestamp: '09:18:44',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    processCode: 'L1',
     source: 'USUARIO',
     category: 'APPROVAL',
     severity: 'INFO',
-    title: 'Gestor Aprovou Sequenciamento Turno 1',
-    description: 'Homologação da versão v2.4 da Linha 1 por Marcos Santos (Gestor Titular).',
-    processCode: 'L1',
-    actor: 'Marcos Santos (Gestor Titular)',
+    title: 'Gestor Aprovou Sequenciamento Turno 1 (L1)',
+    description: 'Homologação da versão v2.4 da Linha 1 por Carlos Mendes (Gestor Titular).',
+    actor: 'Carlos Mendes (Gestor L1)',
   },
   {
     id: 'ev-3',
     timestamp: '09:10:02',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
+    processCode: 'L2',
     source: 'PCP',
     category: 'SIMULATION',
     severity: 'INFO',
     title: 'Programador Simulou Cenário Alternativo B',
     description: 'Inversão da ordem OP-2026-1014 para mitigar atraso de bobina MPL2.',
-    processCode: 'L2',
-    actor: 'Carlos Silva (PCP)',
+    actor: 'Juliana Lima (PCP)',
   },
   {
     id: 'ev-4',
     timestamp: '08:33:15',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
+    processCode: 'L2',
     source: 'IA',
     category: 'ORDER_RISK',
     severity: 'RISK',
     title: 'Pedido OV-450021 Entrou em Risco de Atraso',
     description: 'Projeção de entrega postergada em 1h30 para o cliente Construtora Vale do Aço.',
     orderNumber: 'OP-2026-1014',
-    processCode: 'L2',
   },
   {
     id: 'ev-5',
     timestamp: '08:21:00',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    processCode: 'ACAB_L1',
     source: 'IA',
     category: 'AI_RECALC',
     severity: 'WARNING',
     title: 'Motor de IA Recalculou Projeção Produtiva',
     description:
       'Gargalo no Acabamento L1 detectado com 87% de confiança; buffer atingirá limite às 18:45.',
-    processCode: 'ACAB_L1',
   },
   {
     id: 'ev-6',
     timestamp: '08:05:22',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    processCode: 'L1',
     source: 'PRODUCAO',
     category: 'RATE',
     severity: 'WARNING',
     title: 'Ritmo Abaixo do Nominal na Linha L1',
     description: 'Cadência real registrada de 68 t/h (meta nominal de 72 t/h). Desvio de -5.5%.',
-    processCode: 'L1',
     orderNumber: 'OP-2026-1011',
   },
   {
     id: 'ev-7',
     timestamp: '07:42:10',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
+    processCode: 'ENDIR',
     source: 'MANUTENCAO',
     category: 'STOP',
     severity: 'CRITICAL',
     title: 'Parada Extraordinária na Endireitadeira',
     description: 'Superaquecimento de rolamentos de tração. Abertura de OS preventiva SAP ZPP003.',
-    processCode: 'ENDIR',
     orderNumber: 'OP-2026-1018',
   },
 ]
 
-// Mock de Alertas Operacionais Ricos
 export const mockOperationalAlerts: OperationalAlert[] = [
   {
     id: 'al-1',
     code: 'ALT-ENDIR-01',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     processCode: 'ENDIR',
     orderNumber: 'OP-2026-1018',
     severity: 'CRITICAL',
     category: 'PARADA',
-    title: '🔴 Endireitadeira — Parada Mecânica: 3h12',
+    title: 'CIAFAL > Contagem > ENDIR — 🔴 Parada Mecânica: 3h12',
     cause: 'Aquecimento excessivo de mancal no conjunto de rolos de nivelamento.',
     impact: 'Redução de -410 t no volume do dia e bloqueio de 3 pedidos estruturais.',
     whoIsAffected: 'Clientes: Estruturas Metálicas Brasil e Construtora Vale do Aço.',
@@ -985,11 +1496,13 @@ export const mockOperationalAlerts: OperationalAlert[] = [
   {
     id: 'al-2',
     code: 'ALT-ACAB-02',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     processCode: 'ACAB_L1',
     orderNumber: 'OP-2026-1013',
     severity: 'RISK',
     category: 'BUFFER',
-    title: '🟠 Acabamento L1 — Fila de 320 t & Sobrecarga de Buffer',
+    title: 'CIAFAL > Divinópolis > ACAB_L1 — 🟠 Fila de 320 t & Sobrecarga de Buffer',
     cause:
       'Descompasso entre cadência de laminação da L1 (118 t/h) e corte do acabamento (75 t/h).',
     impact: 'Buffer downstream atingirá saturação máxima (300 t) às 18:45 com risco de retenção.',
@@ -1006,11 +1519,13 @@ export const mockOperationalAlerts: OperationalAlert[] = [
   {
     id: 'al-3',
     code: 'ALT-PED-03',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
     processCode: 'L2',
     orderNumber: 'OP-2026-1014',
     severity: 'WARNING',
     category: 'PEDIDO',
-    title: '🟡 Pedido OV-450021 — Risco de Atraso de 1h30',
+    title: 'CIAFAL > Contagem > L2 — 🟡 Pedido OV-450021 Risco de Atraso 1h30',
     cause: 'Falta temporária de bobina BQ 3.00mm no pátio da MPL2 (transporte em trânsito).',
     impact: 'Entrega projetada para 23:30 (janela acordada era 22:00).',
     whoIsAffected: 'Cliente Construtora Vale do Aço (Pedido com penalidade contratual).',
@@ -1026,11 +1541,13 @@ export const mockOperationalAlerts: OperationalAlert[] = [
   {
     id: 'al-4',
     code: 'ALT-MAT-04',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
     processCode: 'ENF_L1',
     orderNumber: 'OP-2026-1012',
     severity: 'INFO',
     category: 'MATERIAIS',
-    title: '🔵 Enfornamento L1 — Curva Térmica Controlada',
+    title: 'CIAFAL > Divinópolis > ENF_L1 — 🔵 Curva Térmica Controlada',
     cause: 'Ciclo de aquecimento estabilizado em 96 t/h conforme ficha técnica.',
     impact: 'Garante integridade metalúrgica sem sobrecarga nos queimadores do forno.',
     whoIsAffected: 'Processo L1 downstream sincronizado.',
@@ -1042,8 +1559,9 @@ export const mockOperationalAlerts: OperationalAlert[] = [
   },
 ]
 
-// Mock de Análise de Impacto Bidirecional
 export const mockImpactAnalysis: ImpactAnalysis = {
+  companyCode: 'CIAFAL',
+  plantCode: 'CTG',
   sourceProcess: 'ENDIR (Endireitadeira)',
   triggerReason: 'Parada mecânica extraordinária nos rolos de alinhamento',
   downstreamPropagation: [
@@ -1121,23 +1639,25 @@ export const mockImpactAnalysis: ImpactAnalysis = {
     },
   ],
   aiSummary:
-    'A parada da Endireitadeira gera propagação bidirecional: a jusante atrasa 3 pedidos na Expedição (-410 t / 4.5h), enquanto a montante satura o Buffer L2-Endireitadeira em 2 horas caso a Linha 2 continue conformando o mesmo lote.',
+    'A parada da Endireitadeira gera propagação bidirecional na Planta Contagem: a jusante atrasa 3 pedidos na Expedição (-410 t / 4.5h), enquanto a montante satura o Buffer L2-Endireitadeira em 2 horas caso a Linha 2 continue conformando o mesmo lote.',
 }
 
-// Mock de Cenários de Sequenciamento
 export const mockScenarios: ScenarioDefinition[] = [
   {
     id: 'scen-base',
     type: 'BASE',
     name: 'Cenário Oficial (SAP ECC Base)',
+    companyCode: 'CIAFAL',
+    plantCode: 'ALL',
+    lineCode: 'ALL',
     creator: 'Planejamento Mestre SAP',
     createdAt: '28/08/2026 06:00',
     assumptions: 'Programação mestre original enviada pelo SAP sem ajustes dinâmicos de parada.',
     changesApplied: ['Programação padrão sem compensação'],
     status: 'PUBLISHED',
     kpis: {
-      totalPlannedTons: 4820,
-      adherencePct: 82.2,
+      totalPlannedTons: 12480,
+      adherencePct: 97.4,
       totalDelaysCount: 7,
       totalSetupChanges: 9,
       activeBottlenecksCount: 4,
@@ -1156,7 +1676,10 @@ export const mockScenarios: ScenarioDefinition[] = [
     id: 'scen-a',
     type: 'CENARIO_A',
     name: 'Cenário A — Otimização de Setup & Inversão L2',
-    creator: 'Carlos Silva (PCP)',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
+    lineCode: 'L2',
+    creator: 'Lucas Ferreira (PCP)',
     createdAt: '28/08/2026 08:45',
     assumptions: 'Adiantamento do lote com matéria-prima pronta e inversão de campanha na Linha 2.',
     changesApplied: [
@@ -1166,8 +1689,8 @@ export const mockScenarios: ScenarioDefinition[] = [
     ],
     status: 'SIMULATED',
     kpis: {
-      totalPlannedTons: 4650,
-      adherencePct: 88.5,
+      totalPlannedTons: 12310,
+      adherencePct: 98.5,
       totalDelaysCount: 3,
       totalSetupChanges: 7,
       activeBottlenecksCount: 2,
@@ -1194,6 +1717,9 @@ export const mockScenarios: ScenarioDefinition[] = [
     id: 'scen-b',
     type: 'CENARIO_B',
     name: 'Cenário B — Cadência Máxima & Reforço Noturno',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    lineCode: 'L1',
     creator: 'Motor IA CIAFAL',
     createdAt: '28/08/2026 09:15',
     assumptions:
@@ -1205,8 +1731,8 @@ export const mockScenarios: ScenarioDefinition[] = [
     ],
     status: 'SIMULATED',
     kpis: {
-      totalPlannedTons: 4910,
-      adherencePct: 94.2,
+      totalPlannedTons: 12590,
+      adherencePct: 99.2,
       totalDelaysCount: 1,
       totalSetupChanges: 11,
       activeBottlenecksCount: 3,
@@ -1217,7 +1743,7 @@ export const mockScenarios: ScenarioDefinition[] = [
     orders: mockCentralOrders,
     tradeOffs: {
       advantages: [
-        'Maior volume produzido do dia (4.910 t)',
+        'Maior volume produzido do dia (12.590 t)',
         'Apenas 1 pedido com pequeno atraso',
         '+12% de recuperação no OEE global',
       ],
@@ -1227,20 +1753,32 @@ export const mockScenarios: ScenarioDefinition[] = [
   },
 ]
 
-// Mock de Histórico de Versões da Programação
 export const mockVersionHistory: VersionHistoryItem[] = [
   {
+    id: 'ver-24',
     version: 'v2.4 (Oficial)',
+    companyCode: 'CIAFAL',
+    plantCode: 'DIV',
+    lineCode: 'L1',
     publishedAt: '28/08/2026 09:18',
-    author: 'Carlos Silva (PCP)',
-    approver: 'Marcos Santos (Gestor Titular)',
+    author: 'Lucas Ferreira (PCP)',
+    approver: 'Carlos Mendes (Gestor L1)',
     reason: 'Ajuste de cadência térmica e alocação do Turno 1 da Linha 1',
     changesCount: 4,
     deltaTons: +120,
     status: 'CURRENT',
+    diffDetails: {
+      movedOrders: ['OP-2026-1011', 'OP-2026-1017'],
+      setupDeltaMinutes: -15,
+      capacityImpact: '+120 t no Turno 1',
+    },
   },
   {
+    id: 'ver-23',
     version: 'v2.3',
+    companyCode: 'CIAFAL',
+    plantCode: 'ALL',
+    lineCode: 'ALL',
     publishedAt: '28/08/2026 06:00',
     author: 'Interface SAP ECC',
     approver: 'Auto-Ingestão ERP',
@@ -1248,15 +1786,29 @@ export const mockVersionHistory: VersionHistoryItem[] = [
     changesCount: 14,
     deltaTons: 0,
     status: 'ARCHIVED',
+    diffDetails: {
+      movedOrders: ['OP-2026-1011..1018'],
+      setupDeltaMinutes: 0,
+      capacityImpact: 'Base SAP padrão',
+    },
   },
   {
+    id: 'ver-22',
     version: 'v2.2',
+    companyCode: 'CIAFAL',
+    plantCode: 'CTG',
+    lineCode: 'L2',
     publishedAt: '27/08/2026 21:30',
     author: 'Juliana Lima (PCP)',
-    approver: 'Roberto Alves (Gerência PCP)',
+    approver: 'Marcos Souza (Gestor L2)',
     reason: 'Fechamento do Turno Noturno e reprogramação de sobras',
     changesCount: 6,
     deltaTons: -85,
     status: 'ARCHIVED',
+    diffDetails: {
+      movedOrders: ['OP-2026-1014'],
+      setupDeltaMinutes: +20,
+      capacityImpact: '-85 t remanejadas',
+    },
   },
 ]

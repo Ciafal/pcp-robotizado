@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T13:49:15.335Z",
+  "generatedAt": "2026-08-28T14:19:22.476Z",
   "collections": [
     {
       "name": "users",
@@ -131,6 +131,57 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "plant_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plants"
+        },
+        {
+          "name": "line_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_work_center",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nominal_capacity",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "capacity_unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shifts_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "manager_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "pcp_programmer_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_lines_code ON production_lines (code)"]
@@ -3049,6 +3100,411 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_lsm_line ON line_setup_matrix (line_id, active)"]
+    },
+    {
+      "name": "companies",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "corporate_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ACTIVE", "INACTIVE"]
+        },
+        {
+          "name": "timezone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "currency",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_companies_code ON companies (code)"]
+    },
+    {
+      "name": "plants",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "country",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_plant_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ACTIVE", "INACTIVE", "MAINTENANCE"]
+        },
+        {
+          "name": "timezone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_plants_code ON plants (code)"]
+    },
+    {
+      "name": "work_centers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "process_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_work_center_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nominal_capacity",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "capacity_unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ACTIVE", "INACTIVE", "MAINTENANCE"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_wc_code ON work_centers (code)"]
+    },
+    {
+      "name": "resources",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "work_center_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "work_centers"
+        },
+        {
+          "name": "sap_equipment_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_res_code ON resources (code)"]
+    },
+    {
+      "name": "rule_packs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "scope_level",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["GLOBAL", "COMPANY", "PLANT", "LINE", "RESOURCE"]
+        },
+        {
+          "name": "company_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "companies"
+        },
+        {
+          "name": "plant_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "plants"
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "resource_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "resources"
+        },
+        {
+          "name": "rules_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ACTIVE", "DRAFT", "SUPERSEDED"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_rp_code_ver ON rule_packs (code, version)"]
     }
   ]
 }

@@ -1,8 +1,15 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react'
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   PerspectiveMode,
   ViewTab,
   GlobalFilterState,
+  CentralSubmodule,
+  Company,
+  Plant,
+  ProductionLineHierarchy,
+  WorkCenterNode,
+  ResourceNode,
   ProductOrder,
   ProductionProcessNode,
   BottleneckItem,
@@ -15,6 +22,11 @@ import {
   VersionHistoryItem,
 } from '@/types/control-tower'
 import {
+  mockCompanies,
+  mockPlants,
+  mockProductionLines,
+  mockWorkCenters,
+  mockResources,
   mockCentralOrders,
   mockProcessNodes,
   mockBottlenecks,
@@ -25,6 +37,7 @@ import {
   mockScenarios,
   mockImpactAnalysis,
   mockVersionHistory,
+  resolveEffectiveRules,
 } from '@/data/control-tower-mock'
 import { useToast } from '@/hooks/use-toast'
 
@@ -43,18 +56,39 @@ export interface SimulationDragDiff {
 }
 
 interface ControlTowerContextType {
-  // Perspectiva e Visão
+  // Submódulo Ativo
+  activeSubmodule: CentralSubmodule
+  setActiveSubmodule: (s: CentralSubmodule) => void
+
+  // Perspectiva e Lente
   perspective: PerspectiveMode
   setPerspective: (p: PerspectiveMode) => void
   activeTab: ViewTab
   setActiveTab: (t: ViewTab) => void
 
-  // Filtros Globais
+  // Hierarquia Mestre CIAFAL
+  companies: Company[]
+  plants: Plant[]
+  lines: ProductionLineHierarchy[]
+  workCenters: WorkCenterNode[]
+  resources: ResourceNode[]
+
+  // Filtros em Cascata & Contexto Persistente
   filters: GlobalFilterState
   setFilters: React.Dispatch<React.SetStateAction<GlobalFilterState>>
+  setCompanyScope: (companyCode: string) => void
+  setPlantScope: (plantCode: string) => void
+  setLineScope: (lineCode: string) => void
   resetFilters: () => void
 
-  // Dados Centrais (Único Modelo de Dados Compartilhado)
+  // Cascata de opções disponíveis
+  availablePlants: Plant[]
+  availableLines: ProductionLineHierarchy[]
+
+  // Resolução de Regras e Herança
+  effectiveRules: ReturnType<typeof resolveEffectiveRules>
+
+  // Dados Centrais Únicos Compartilhados
   orders: ProductOrder[]
   processNodes: ProductionProcessNode[]
   bottlenecks: BottleneckItem[]
@@ -68,16 +102,17 @@ interface ControlTowerContextType {
   impactAnalysis: ImpactAnalysis
   versionHistory: VersionHistoryItem[]
 
-  // Filtros computados
+  // Dados Filtrados Reativamente por Hierarquia
   filteredOrders: ProductOrder[]
   filteredNodes: ProductionProcessNode[]
   filteredBottlenecks: BottleneckItem[]
   filteredAlerts: OperationalAlert[]
 
-  // KPIs Centrais Agregados
+  // KPIs Agregados por Nível de Escopo
   kpis: {
     plannedTons: number
     producedTons: number
+    projectedTons: number
     adherencePct: number
     availableCapacityPct: number
     occupancyPct: number
@@ -86,9 +121,44 @@ interface ControlTowerContextType {
     delaysCount: number
     criticalStopsCount: number
     totalRatePerHour: number
+    plantsCount: number
+    linesCount: number
   }
 
-  // Gavetas & Modais
+  // Comparações de Nível
+  plantComparisonData: {
+    plantCode: string
+    plantName: string
+    plannedTons: number
+    producedTons: number
+    projectedTons: number
+    adherencePct: number
+    occupancyPct: number
+    bottlenecksCount: number
+    ordersAtRiskCount: number
+    criticalStopsCount: number
+  }[]
+
+  lineComparisonData: {
+    lineCode: string
+    lineName: string
+    plantCode: string
+    currentOrder: string
+    nextOrder: string
+    plannedTons: number
+    producedTons: number
+    projectedTons: number
+    adherencePct: number
+    occupancyPct: number
+    bufferCoverageHours: number
+    currentRate: number
+    targetRate: number
+    status: string
+    bottlenecksCount: number
+    ordersAtRiskCount: number
+  }[]
+
+  // Modais & Gavetas
   selectedProcess: ProductionProcessNode | null
   setSelectedProcess: (p: ProductionProcessNode | null) => void
   selectedOrder: ProductOrder | null
@@ -119,15 +189,18 @@ interface ControlTowerContextType {
   lastSyncTime: string
   isSyncing: boolean
 
-  // Gestão de visualização salva
-  savedViews: { id: string; name: string; filters: GlobalFilterState; tab: ViewTab }[]
-  saveCurrentView: (name: string) => void
-  applySavedView: (id: string) => void
+  // Navegação Cruzada Inteligente
+  navigateToSubmodule: (
+    submodule: CentralSubmodule,
+    overrideScope?: { company?: string; plant?: string; line?: string; tab?: ViewTab },
+  ) => void
 }
 
 const initialFilters: GlobalFilterState = {
-  period: 'HOJE',
+  companyCode: 'CIAFAL',
+  plantCode: 'ALL',
   lineCode: 'ALL',
+  period: 'HOJE',
   processCode: 'ALL',
   familyCode: 'ALL',
   shift: 'ALL',
@@ -143,14 +216,70 @@ const initialFilters: GlobalFilterState = {
 
 const ControlTowerContext = createContext<ControlTowerContextType | undefined>(undefined)
 
-export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ControlTowerProvider: React.FC<{
+  children: React.ReactNode
+  initialSubmodule?: CentralSubmodule
+}> = ({ children, initialSubmodule = 'TORRE_CONTROLE' }) => {
   const { toast } = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
+  const [activeSubmodule, setActiveSubmodule] = useState<CentralSubmodule>(initialSubmodule)
   const [perspective, setPerspective] = useState<PerspectiveMode>('PROGRAMADOR')
   const [activeTab, setActiveTab] = useState<ViewTab>('OVERVIEW')
-  const [filters, setFilters] = useState<GlobalFilterState>(initialFilters)
 
-  // Estado Central Único
+  // Inicializar filtros a partir dos query params se existirem na URL
+  const [filters, setFilters] = useState<GlobalFilterState>(() => {
+    const qCompany = searchParams.get('company') || 'CIAFAL'
+    const qPlant = searchParams.get('plant') || 'ALL'
+    const qLine = searchParams.get('line') || 'ALL'
+    const qPeriod = (searchParams.get('period') as GlobalFilterState['period']) || 'HOJE'
+
+    return {
+      ...initialFilters,
+      companyCode: qCompany,
+      plantCode: qPlant,
+      lineCode: qLine,
+      period: qPeriod,
+    }
+  })
+
+  // Sincronizar query params com o estado de filtros
+  useEffect(() => {
+    const currentParams = new URLSearchParams(location.search)
+    let hasChanged = false
+
+    if (filters.companyCode && currentParams.get('company') !== filters.companyCode) {
+      currentParams.set('company', filters.companyCode)
+      hasChanged = true
+    }
+    if (filters.plantCode && currentParams.get('plant') !== filters.plantCode) {
+      currentParams.set('plant', filters.plantCode)
+      hasChanged = true
+    }
+    if (filters.lineCode && currentParams.get('line') !== filters.lineCode) {
+      currentParams.set('line', filters.lineCode)
+      hasChanged = true
+    }
+    if (filters.period && currentParams.get('period') !== filters.period) {
+      currentParams.set('period', filters.period)
+      hasChanged = true
+    }
+
+    if (hasChanged) {
+      setSearchParams(currentParams, { replace: true })
+    }
+  }, [filters, location.search, setSearchParams])
+
+  // Hierarquia
+  const [companies] = useState<Company[]>(mockCompanies)
+  const [plants] = useState<Plant[]>(mockPlants)
+  const [lines] = useState<ProductionLineHierarchy[]>(mockProductionLines)
+  const [workCenters] = useState<WorkCenterNode[]>(mockWorkCenters)
+  const [resources] = useState<ResourceNode[]>(mockResources)
+
+  // Modelo de Dados Central Único
   const [orders, setOrders] = useState<ProductOrder[]>(mockCentralOrders)
   const [processNodes, setProcessNodes] = useState<ProductionProcessNode[]>(mockProcessNodes)
   const [bottlenecks, setBottlenecks] = useState<BottleneckItem[]>(mockBottlenecks)
@@ -163,7 +292,7 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [impactAnalysis, setImpactAnalysis] = useState<ImpactAnalysis>(mockImpactAnalysis)
   const [versionHistory, setVersionHistory] = useState<VersionHistoryItem[]>(mockVersionHistory)
 
-  // Drawer & Modals state
+  // Drawers & Modals
   const [selectedProcess, setSelectedProcess] = useState<ProductionProcessNode | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<ProductOrder | null>(null)
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false)
@@ -173,52 +302,73 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isCriticalPathVisible, setIsCriticalPathVisible] = useState(false)
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
 
-  // Simulação Temporária Drag & Drop
+  // Simulação Temporária
   const [activeSimulationDiff, setActiveSimulationDiff] = useState<SimulationDragDiff | null>(null)
-
-  // Sincronização SAP
   const [lastSyncTime, setLastSyncTime] = useState<string>('28/08/2026 09:28')
   const [isSyncing, setIsSyncing] = useState<boolean>(false)
 
-  // Visualizações salvas
-  const [savedViews, setSavedViews] = useState<
-    { id: string; name: string; filters: GlobalFilterState; tab: ViewTab }[]
-  >([
-    {
-      id: 'sv-1',
-      name: 'Programador L1 (Gargalos & 48h)',
-      filters: { ...initialFilters, lineCode: 'L1', quickFilterOnlyBottlenecks: true },
-      tab: 'GANTT',
-    },
-    {
-      id: 'sv-2',
-      name: 'Torre de Controle Diretoria (Visão Geral)',
-      filters: initialFilters,
-      tab: 'OVERVIEW',
-    },
-    {
-      id: 'sv-3',
-      name: 'Chão de Fábrica Linha 1',
-      filters: { ...initialFilters, lineCode: 'L1' },
-      tab: 'SHOP_FLOOR',
-    },
-  ])
+  // Filtros em Cascata: Plantas Disponíveis
+  const availablePlants = useMemo(() => {
+    if (filters.companyCode === 'ALL') return plants
+    return plants.filter((p) => p.companyCode === filters.companyCode)
+  }, [plants, filters.companyCode])
 
-  // Filtragem Reativa de Ordens
+  // Filtros em Cascata: Linhas Disponíveis (NUNCA mostrar linha de outra planta se planta estiver selecionada)
+  const availableLines = useMemo(() => {
+    return lines.filter((l) => {
+      if (filters.companyCode !== 'ALL' && l.companyCode !== filters.companyCode) return false
+      if (filters.plantCode !== 'ALL' && l.plantCode !== filters.plantCode) return false
+      return true
+    })
+  }, [lines, filters.companyCode, filters.plantCode])
+
+  // Setters de Escopo com Reset em Cascata
+  const setCompanyScope = useCallback((companyCode: string) => {
+    setFilters((prev) => {
+      const next: GlobalFilterState = {
+        ...prev,
+        companyCode,
+        plantCode: 'ALL',
+        lineCode: 'ALL',
+      }
+      return next
+    })
+  }, [])
+
+  const setPlantScope = useCallback((plantCode: string) => {
+    setFilters((prev) => {
+      const next: GlobalFilterState = {
+        ...prev,
+        plantCode,
+        lineCode: 'ALL',
+      }
+      return next
+    })
+  }, [])
+
+  const setLineScope = useCallback((lineCode: string) => {
+    setFilters((prev) => ({ ...prev, lineCode }))
+  }, [])
+
+  // Herança Efetiva de Regras
+  const effectiveRules = useMemo(() => {
+    return resolveEffectiveRules(filters.companyCode, filters.plantCode, filters.lineCode)
+  }, [filters.companyCode, filters.plantCode, filters.lineCode])
+
+  // Filtragem Reativa de Ordens (Empresa -> Planta -> Linha)
   const filteredOrders = useMemo(() => {
     return orders.filter((ord) => {
-      // 1. Linha
+      if (filters.companyCode !== 'ALL' && ord.companyCode !== filters.companyCode) return false
+      if (filters.plantCode !== 'ALL' && ord.plantCode !== filters.plantCode) return false
       if (filters.lineCode !== 'ALL' && ord.lineCode !== filters.lineCode) return false
-      // 2. Família
       if (filters.familyCode !== 'ALL' && ord.familyCode !== filters.familyCode) return false
-      // 3. Status
       if (filters.status !== 'ALL' && ord.status !== filters.status) return false
-      // 4. Quick Filters
+
       if (filters.quickFilterOnlyDelays && ord.delayMinutes <= 0) return false
       if (filters.quickFilterOnlyOrdersAtRisk && ord.priority > 2 && ord.delayMinutes <= 0)
         return false
       if (filters.quickFilterOnlyBottlenecks && !ord.isCriticalPath) return false
-      // 5. Query
+
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase()
         const match =
@@ -235,8 +385,9 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Filtragem Reativa de Nós
   const filteredNodes = useMemo(() => {
     return processNodes.filter((node) => {
+      if (filters.companyCode !== 'ALL' && node.companyCode !== filters.companyCode) return false
+      if (filters.plantCode !== 'ALL' && node.plantCode !== filters.plantCode) return false
       if (filters.lineCode !== 'ALL' && node.code !== filters.lineCode) {
-        // Se filtro for L1, mostrar também upstream/downstream relevantes
         if (
           !node.downstreamProcessCodes.includes(filters.lineCode) &&
           !node.upstreamProcessCodes.includes(filters.lineCode)
@@ -252,6 +403,8 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Filtragem de Gargalos
   const filteredBottlenecks = useMemo(() => {
     return bottlenecks.filter((bot) => {
+      if (filters.companyCode !== 'ALL' && bot.companyCode !== filters.companyCode) return false
+      if (filters.plantCode !== 'ALL' && bot.plantCode !== filters.plantCode) return false
       if (filters.lineCode !== 'ALL' && bot.processCode !== filters.lineCode) return false
       return true
     })
@@ -260,30 +413,37 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Filtragem de Alertas
   const filteredAlerts = useMemo(() => {
     return alerts.filter((al) => {
+      if (filters.companyCode !== 'ALL' && al.companyCode !== filters.companyCode) return false
+      if (filters.plantCode !== 'ALL' && al.plantCode !== filters.plantCode) return false
       if (filters.lineCode !== 'ALL' && al.processCode !== filters.lineCode) return false
       return true
     })
   }, [alerts, filters])
 
-  // Cálculo de KPIs Centrais Unificados
+  // Cálculo de KPIs Unificados
   const kpis = useMemo(() => {
-    const plannedTons = orders.reduce((sum, o) => sum + o.plannedTons, 0)
-    const producedTons = orders.reduce((sum, o) => sum + o.producedTons, 0)
+    const plannedTons = filteredOrders.reduce((sum, o) => sum + o.plannedTons, 0) || 12480
+    const producedTons = filteredOrders.reduce((sum, o) => sum + o.producedTons, 0) || 10920
+    const projectedTons = Math.round(plannedTons * 0.974) || 12150
     const adherencePct =
-      plannedTons > 0 ? Number(((producedTons / plannedTons) * 100).toFixed(1)) : 82.2
-    const totalRate = processNodes.reduce((sum, n) => sum + n.currentRateTonsPerHour, 0)
-    const totalNominal = processNodes.reduce((sum, n) => sum + n.nominalCapacityTonsPerHour, 0)
+      plannedTons > 0 ? Number(((producedTons / plannedTons) * 100).toFixed(1)) : 97.4
+
+    const totalRate = filteredNodes.reduce((sum, n) => sum + n.currentRateTonsPerHour, 0)
+    const totalNominal = filteredNodes.reduce((sum, n) => sum + n.nominalCapacityTonsPerHour, 0)
     const occupancyPct = totalNominal > 0 ? Math.round((totalRate / totalNominal) * 100) : 91
-    const activeBottlenecks = bottlenecks.length
-    const ordersAtRisk = orders.filter((o) => o.delayMinutes > 0 || o.alertsCount > 0).length
-    const delaysCount = orders.filter((o) => o.delayMinutes > 0).length
-    const criticalStopsCount = processNodes.filter(
-      (n) => n.currentStatus === 'maintenance' || n.currentStatus === 'stopped',
-    ).length
+    const activeBottlenecks = filteredBottlenecks.length || 4
+    const ordersAtRisk =
+      filteredOrders.filter((o) => o.delayMinutes > 0 || o.alertsCount > 0).length || 12
+    const delaysCount = filteredOrders.filter((o) => o.delayMinutes > 0).length || 7
+    const criticalStopsCount =
+      filteredNodes.filter(
+        (n) => n.currentStatus === 'maintenance' || n.currentStatus === 'stopped',
+      ).length || 2
 
     return {
       plannedTons,
       producedTons,
+      projectedTons,
       adherencePct,
       availableCapacityPct: 100 - occupancyPct,
       occupancyPct,
@@ -291,9 +451,76 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
       ordersAtRisk,
       delaysCount,
       criticalStopsCount,
-      totalRatePerHour: totalRate,
+      totalRatePerHour: totalRate || 840,
+      plantsCount: availablePlants.length,
+      linesCount: availableLines.length,
     }
-  }, [orders, processNodes, bottlenecks])
+  }, [filteredOrders, filteredNodes, filteredBottlenecks, availablePlants, availableLines])
+
+  // Dados para Tabela de Comparação de Plantas (Visão Empresa na Torre)
+  const plantComparisonData = useMemo(() => {
+    return plants.map((pl) => {
+      const plOrders = orders.filter((o) => o.plantCode === pl.code)
+      const plPlanned =
+        plOrders.reduce((s, o) => s + o.plannedTons, 0) || (pl.code === 'DIV' ? 6850 : 5630)
+      const plProduced =
+        plOrders.reduce((s, o) => s + o.producedTons, 0) || (pl.code === 'DIV' ? 6100 : 4820)
+      const plProjected = Math.round(plPlanned * 0.978)
+      const plAdherence = plPlanned > 0 ? Number(((plProduced / plPlanned) * 100).toFixed(1)) : 97.4
+      const plBottlenecks = bottlenecks.filter((b) => b.plantCode === pl.code).length
+      const plAtRisk = plOrders.filter((o) => o.delayMinutes > 0).length
+
+      return {
+        plantCode: pl.code,
+        plantName: pl.name,
+        plannedTons: plPlanned,
+        producedTons: plProduced,
+        projectedTons: plProjected,
+        adherencePct: plAdherence,
+        occupancyPct: pl.code === 'DIV' ? 94 : 88,
+        bottlenecksCount: plBottlenecks,
+        ordersAtRiskCount: plAtRisk,
+        criticalStopsCount: pl.code === 'CTG' ? 1 : 0,
+      }
+    })
+  }, [plants, orders, bottlenecks])
+
+  // Dados para Tabela de Comparação de Linhas (Visão Planta na Torre)
+  const lineComparisonData = useMemo(() => {
+    return availableLines.map((l) => {
+      const lineOrders = orders.filter((o) => o.lineCode === l.code)
+      const activeOrd = lineOrders.find((o) => o.status === 'IN_PRODUCTION') || lineOrders[0]
+      const nextOrd = lineOrders.find((o) => o.status === 'RELEASED' || o.status === 'SETUP')
+      const planned = lineOrders.reduce((s, o) => s + o.plannedTons, 0) || 1850
+      const produced = lineOrders.reduce((s, o) => s + o.producedTons, 0) || 1420
+      const projected = Math.round(planned * 0.96)
+      const adherence = planned > 0 ? Number(((produced / planned) * 100).toFixed(1)) : 89.2
+      const node = processNodes.find((n) => n.code === l.code)
+
+      return {
+        lineCode: l.code,
+        lineName: l.name,
+        plantCode: l.plantCode,
+        currentOrder: activeOrd
+          ? `${activeOrd.orderNumber} (${activeOrd.familyName})`
+          : 'Nenhuma OP ativa',
+        nextOrder: nextOrd
+          ? `${nextOrd.orderNumber} (${nextOrd.familyName})`
+          : 'Aguardando liberação',
+        plannedTons: planned,
+        producedTons: produced,
+        projectedTons: projected,
+        adherencePct: adherence,
+        occupancyPct: node?.occupancyPct || 92,
+        bufferCoverageHours: node?.downstreamBufferHours || 6.2,
+        currentRate: node?.currentRateTonsPerHour || 68,
+        targetRate: l.nominal_capacity || 72,
+        status: l.status,
+        bottlenecksCount: bottlenecks.filter((b) => b.processCode === l.code).length,
+        ordersAtRiskCount: lineOrders.filter((o) => o.delayMinutes > 0).length,
+      }
+    })
+  }, [availableLines, orders, processNodes, bottlenecks])
 
   // Simulação Drag & Drop de Gantt / Kanban
   const simulateOrderMove = useCallback(
@@ -301,7 +528,6 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const order = orders.find((o) => o.id === orderId)
       if (!order) return
 
-      // Cálculo de impacto simulado
       const setupDeltaMinutes = newLine !== order.lineCode ? +35 : 0
       const materialRisk = newLine === 'L2' && !order.rawMaterialAvailable
       const delayDeltaHours = newLine === 'L1' ? -4.0 : +2.5
@@ -354,19 +580,20 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }),
     )
 
-    // Adiciona evento na timeline
     setEvents((prev) => [
       {
         id: `ev-${Date.now()}`,
         timestamp: new Date().toLocaleTimeString('pt-BR'),
+        companyCode: filters.companyCode,
+        plantCode: filters.plantCode !== 'ALL' ? filters.plantCode : 'DIV',
+        processCode: activeSimulationDiff.newLine,
+        orderNumber: activeSimulationDiff.orderNumber,
         source: 'PCP',
         category: 'SIMULATION',
         severity: 'INFO',
         title: `Cenário Alterado pelo Programador: ${activeSimulationDiff.orderNumber}`,
         description: `Ordem movida para ${activeSimulationDiff.newLine} às ${activeSimulationDiff.newStart}.`,
-        actor: 'Carlos Silva (PCP)',
-        processCode: activeSimulationDiff.newLine,
-        orderNumber: activeSimulationDiff.orderNumber,
+        actor: 'Lucas Ferreira (PCP)',
       },
       ...prev,
     ])
@@ -376,16 +603,19 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
       title: 'Cenário Atualizado em Memória',
       description: 'Alteração mantida no cenário ativo. Envie para aprovação para oficializar.',
     })
-  }, [activeSimulationDiff, toast])
+  }, [activeSimulationDiff, filters, toast])
 
   const sendScenarioForApproval = useCallback(
     (note: string) => {
-      // Adicionar nova versão ao histórico
       const newVersion = `v2.${versionHistory.length + 3}`
       const newHistoryItem: VersionHistoryItem = {
+        id: `ver-${Date.now()}`,
         version: `${newVersion} (Pendente Homologação)`,
+        companyCode: filters.companyCode,
+        plantCode: filters.plantCode !== 'ALL' ? filters.plantCode : 'DIV',
+        lineCode: filters.lineCode !== 'ALL' ? filters.lineCode : 'L1',
         publishedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        author: 'Carlos Silva (PCP)',
+        author: 'Lucas Ferreira (PCP)',
         approver: 'Aguardando Gestor de Linha',
         reason: note || 'Otimização de gargalos e realocação de ordens críticas',
         changesCount: 2,
@@ -398,12 +628,14 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         {
           id: `ev-${Date.now()}`,
           timestamp: new Date().toLocaleTimeString('pt-BR'),
+          companyCode: filters.companyCode,
+          plantCode: filters.plantCode !== 'ALL' ? filters.plantCode : 'DIV',
           source: 'USUARIO',
           category: 'APPROVAL',
           severity: 'INFO',
           title: `Programador Enviou ${newVersion} para Homologação`,
           description: `Justificativa: ${note || 'Otimização de sequência'}`,
-          actor: 'Carlos Silva (PCP)',
+          actor: 'Lucas Ferreira (PCP)',
         },
         ...prev,
       ])
@@ -414,7 +646,7 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
           'A esteira de 2 fases foi acionada. A programação oficial será atualizada após validação do Gestor.',
       })
     },
-    [versionHistory, toast],
+    [versionHistory, filters, toast],
   )
 
   const acknowledgeAlert = useCallback(
@@ -443,53 +675,68 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         title: 'Dados Sincronizados com SAP ECC',
         description: 'Status de linhas, buffers e carteira atualizados em tempo real.',
       })
-    }, 600)
+    }, 500)
   }, [toast])
 
   const resetFilters = useCallback(() => {
     setFilters(initialFilters)
   }, [])
 
-  const saveCurrentView = useCallback(
-    (name: string) => {
-      const newId = `sv-${Date.now()}`
-      setSavedViews((prev) => [
-        ...prev,
-        { id: newId, name, filters: { ...filters }, tab: activeTab },
-      ])
-      toast({
-        title: 'Visão Salva',
-        description: `A visualização "${name}" foi adicionada aos seus favoritos.`,
-      })
-    },
-    [filters, activeTab, toast],
-  )
+  // Navegação Cruzada Preservando Contexto e Query Params
+  const navigateToSubmodule = useCallback(
+    (
+      submodule: CentralSubmodule,
+      overrideScope?: { company?: string; plant?: string; line?: string; tab?: ViewTab },
+    ) => {
+      const targetCompany = overrideScope?.company || filters.companyCode
+      const targetPlant = overrideScope?.plant || filters.plantCode
+      const targetLine = overrideScope?.line || filters.lineCode
 
-  const applySavedView = useCallback(
-    (id: string) => {
-      const sv = savedViews.find((v) => v.id === id)
-      if (sv) {
-        setFilters(sv.filters)
-        setActiveTab(sv.tab)
-        toast({
-          title: 'Visão Carregada',
-          description: `Filtros e lente aplicados: ${sv.name}`,
-        })
-      }
+      if (overrideScope?.company) setCompanyScope(overrideScope.company)
+      if (overrideScope?.plant) setPlantScope(overrideScope.plant)
+      if (overrideScope?.line) setLineScope(overrideScope.line)
+      if (overrideScope?.tab) setActiveTab(overrideScope.tab)
+
+      let path = '/pcp/sequenciamento/torre-controle'
+      if (submodule === 'OPERACIONAL') path = '/pcp/sequenciamento/operacional'
+      else if (submodule === 'SEQUENCIAMENTO') path = '/pcp/sequenciamento/programacao'
+      else if (submodule === 'CENARIOS') path = '/pcp/sequenciamento/cenarios'
+      else if (submodule === 'HISTORICO') path = '/pcp/sequenciamento/historico'
+
+      const params = new URLSearchParams()
+      if (targetCompany) params.set('company', targetCompany)
+      if (targetPlant) params.set('plant', targetPlant)
+      if (targetLine) params.set('line', targetLine)
+      if (filters.period) params.set('period', filters.period)
+
+      navigate(`${path}?${params.toString()}`)
     },
-    [savedViews, toast],
+    [filters, setCompanyScope, setPlantScope, setLineScope, navigate],
   )
 
   return (
     <ControlTowerContext.Provider
       value={{
+        activeSubmodule,
+        setActiveSubmodule,
         perspective,
         setPerspective,
         activeTab,
         setActiveTab,
+        companies,
+        plants,
+        lines,
+        workCenters,
+        resources,
         filters,
         setFilters,
+        setCompanyScope,
+        setPlantScope,
+        setLineScope,
         resetFilters,
+        availablePlants,
+        availableLines,
+        effectiveRules,
         orders,
         processNodes,
         bottlenecks,
@@ -507,6 +754,8 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         filteredBottlenecks,
         filteredAlerts,
         kpis,
+        plantComparisonData,
+        lineComparisonData,
         selectedProcess,
         setSelectedProcess,
         selectedOrder,
@@ -532,9 +781,7 @@ export const ControlTowerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         refreshData,
         lastSyncTime,
         isSyncing,
-        savedViews,
-        saveCurrentView,
-        applySavedView,
+        navigateToSubmodule,
       }}
     >
       {children}
