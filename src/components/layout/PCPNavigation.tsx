@@ -48,7 +48,7 @@ const navItems: SidebarItem[] = [
     permission: 'pcp.masterplan.view',
   },
   {
-    title: 'Programação de Linhas',
+    title: 'Central de Sequenciamento',
     href: '/pcp-robotizado/programacoes',
     icon: Layers,
     permission: 'pcp.schedule.view',
