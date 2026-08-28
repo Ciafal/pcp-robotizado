@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T13:22:26.853Z",
+  "generatedAt": "2026-08-28T13:49:15.335Z",
   "collections": [
     {
       "name": "users",
@@ -2000,6 +2000,1055 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_lrpr_line ON line_rule_pack_refs (line_id)"]
+    },
+    {
+      "name": "sap_integration_catalog",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.role = 'PCP_ADMIN'",
+        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "integration_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["RFC_BAPI", "IDOC", "ODATA", "PI_PO", "SAP_DIRECT_TABLE", "OTHER"]
+        },
+        {
+          "name": "function_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "standard_or_z",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["STANDARD", "Z_CUSTOM"]
+        },
+        {
+          "name": "source_object",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "input_mapping",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "output_mapping",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_test",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["CONECTADO", "ERRO", "NAO_TESTADO", "INDISPONIVEL"]
+        },
+        {
+          "name": "last_sync_records_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_responsible",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "homologation_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "environment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "system_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_sap_cat_code ON sap_integration_catalog (code)"]
+    },
+    {
+      "name": "line_org_hierarchy",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "org_level_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "org_level_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "job_title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "substitute_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "integration_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_loh_line ON line_org_hierarchy (line_id, org_level_order)"]
+    },
+    {
+      "name": "line_managers_assignment",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "responsibility_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PRIMARY_MANAGER", "SUBSTITUTE_MANAGER", "ADDITIONAL_MANAGER"]
+        },
+        {
+          "name": "role_title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scope_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_lma_line_user ON line_managers_assignment (line_id, user_id)"]
+    },
+    {
+      "name": "line_approvers_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "approval_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "PCP_APPROVAL",
+            "LINE_MANAGER_APPROVAL",
+            "QUALITY_APPROVAL",
+            "EXECUTIVE_APPROVAL"
+          ]
+        },
+        {
+          "name": "approval_stage",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "STAGE_1_PCP",
+            "STAGE_2_LINE_MANAGER",
+            "STAGE_3_QUALITY",
+            "STAGE_4_DIRECTOR"
+          ]
+        },
+        {
+          "name": "sequence_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "role_title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "requirement_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANDATORY", "OPTIONAL", "BY_RULE", "NOT_APPLICABLE"]
+        },
+        {
+          "name": "substitute_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lam_line_seq ON line_approvers_matrix (line_id, approval_stage, sequence_order)"
+      ]
+    },
+    {
+      "name": "line_sequencing_dependencies",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "previous_process_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "next_process_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "sequence_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "relation_nature",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANDATORY", "OPTIONAL", "BYPASS_ALLOWED", "PARALLEL"]
+        },
+        {
+          "name": "dependency_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "FINISH_TO_START",
+            "START_TO_START",
+            "FINISH_TO_FINISH",
+            "TRANSFER_BATCH",
+            "BUFFER_REQUIRED"
+          ]
+        },
+        {
+          "name": "standard_lead_time_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "intermediate_buffer_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "intermediate_buffer_capacity",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "intermediate_buffer_unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lsd_line ON line_sequencing_dependencies (line_id, sequence_order)"
+      ]
+    },
+    {
+      "name": "line_productivity_rates",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_master_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "line_masters"
+        },
+        {
+          "name": "product_family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "material_product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimension_spec",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "productivity_unit",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["t/h", "peça/h", "m/h"]
+        },
+        {
+          "name": "nominal_productivity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "planned_productivity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expected_efficiency_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANUAL", "SAP"]
+        },
+        {
+          "name": "sap_integration_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sap_integration_catalog"
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_lpr_line ON line_productivity_rates (line_id, active)"]
+    },
+    {
+      "name": "line_raw_material_priorities",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_master_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "line_masters"
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "material_origin",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "condition_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANUAL", "SAP"]
+        },
+        {
+          "name": "sap_integration_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sap_integration_catalog"
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lrmp_line_prio ON line_raw_material_priorities (line_id, priority_order)"
+      ]
+    },
+    {
+      "name": "line_blocked_products",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_master_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "line_masters"
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "block_reason",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "block_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "TOTAL",
+            "TEMPORARY",
+            "QUALITY",
+            "TECHNICAL",
+            "CAPACITY",
+            "PROCESS",
+            "OTHER"
+          ]
+        },
+        {
+          "name": "responsible_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANUAL", "SAP"]
+        },
+        {
+          "name": "sap_integration_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sap_integration_catalog"
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_lbp_line ON line_blocked_products (line_id, active)"]
+    },
+    {
+      "name": "line_setup_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_master_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "line_masters"
+        },
+        {
+          "name": "setup_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "setup_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "setup_category",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "TOOL_CHANGE",
+            "DIMENSION_CHANGE",
+            "MATERIAL_CHANGE",
+            "COLOR_CHANGE",
+            "CLEANING_SETUP",
+            "HEATING_CYCLE",
+            "OTHER"
+          ]
+        },
+        {
+          "name": "from_family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "to_family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "from_product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "to_product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setup_duration_minutes",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "capacity_loss_impact",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MANUAL", "SAP"]
+        },
+        {
+          "name": "sap_integration_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sap_integration_catalog"
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_lsm_line ON line_setup_matrix (line_id, active)"]
     }
   ]
 }

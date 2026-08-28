@@ -54,10 +54,11 @@ const navItems: SidebarItem[] = [
     permission: 'pcp.schedule.view',
   },
   {
-    title: 'Ficha Mestre (Linhas)',
+    title: 'Gestão de Linhas',
     href: '/pcp-robotizado/ficha-mestre',
-    icon: FileSpreadsheet,
+    icon: Building2,
     permission: 'pcp.masterdata.view',
+    badge: 'Prompt 03.1',
   },
   {
     title: 'Rule Packs (Regras)',
@@ -73,7 +74,7 @@ const navItems: SidebarItem[] = [
     permission: 'pcp.approval.view',
   },
   {
-    title: 'Gestão de Linhas & Gestores',
+    title: 'Delegações & Escopos',
     href: '/pcp-robotizado/linhas-responsaveis',
     icon: Activity,
     permission: 'pcp.masterdata.view',

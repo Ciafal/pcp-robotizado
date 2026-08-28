@@ -1,4 +1,4 @@
-// Endpoint para exportação estruturada de Contexto da Ficha Mestre para futura IA / Motores de Otimização
+// Endpoint expandido para exportação estruturada de Contexto Completo da Linha e Ficha Mestre para IA / Otimizadores
 // GET /backend/v1/pcp/line-master-context/{lineId}
 // Requer autenticação e permissão pcp.masterdata.view
 
@@ -90,7 +90,103 @@ routerAdd(
       )
     } catch (_) {}
 
-    // 7. Carregar Restrições Estruturais
+    // 7. Carregar Matriz de Setup De -> Para
+    let setupMatrix = []
+    try {
+      setupMatrix = $app.findRecordsByFilter(
+        'line_setup_matrix',
+        `line_id = '${lineId}' && active = true`,
+        'setup_code',
+        50,
+        0,
+      )
+    } catch (_) {}
+
+    // 8. Carregar Produtividade
+    let productivityRates = []
+    try {
+      productivityRates = $app.findRecordsByFilter(
+        'line_productivity_rates',
+        `line_id = '${lineId}' && active = true`,
+        'material_product_code',
+        50,
+        0,
+      )
+    } catch (_) {}
+
+    // 9. Carregar Prioridades de Matéria-Prima
+    let rawMaterialPriorities = []
+    try {
+      rawMaterialPriorities = $app.findRecordsByFilter(
+        'line_raw_material_priorities',
+        `line_id = '${lineId}' && active = true`,
+        'priority_order',
+        50,
+        0,
+      )
+    } catch (_) {}
+
+    // 10. Carregar Produtos Bloqueados
+    let blockedProducts = []
+    try {
+      blockedProducts = $app.findRecordsByFilter(
+        'line_blocked_products',
+        `line_id = '${lineId}' && active = true`,
+        'product_code',
+        50,
+        0,
+      )
+    } catch (_) {}
+
+    // 11. Carregar Hierarquia Organizacional
+    let orgHierarchy = []
+    try {
+      orgHierarchy = $app.findRecordsByFilter(
+        'line_org_hierarchy',
+        `line_id = '${lineId}' && active = true`,
+        'org_level_order',
+        20,
+        0,
+      )
+    } catch (_) {}
+
+    // 12. Carregar Gestores da Linha
+    let managers = []
+    try {
+      managers = $app.findRecordsByFilter(
+        'line_managers_assignment',
+        `line_id = '${lineId}' && active = true`,
+        'responsibility_type',
+        20,
+        0,
+      )
+    } catch (_) {}
+
+    // 13. Carregar Aprovadores
+    let approvers = []
+    try {
+      approvers = $app.findRecordsByFilter(
+        'line_approvers_matrix',
+        `line_id = '${lineId}' && active = true`,
+        'sequence_order',
+        20,
+        0,
+      )
+    } catch (_) {}
+
+    // 14. Carregar Sequenciamento e Dependências
+    let sequencing = []
+    try {
+      sequencing = $app.findRecordsByFilter(
+        'line_sequencing_dependencies',
+        `line_id = '${lineId}' && active = true`,
+        'sequence_order',
+        20,
+        0,
+      )
+    } catch (_) {}
+
+    // 15. Carregar Restrições Estruturais
     let structuralConstraints = []
     try {
       structuralConstraints = $app.findRecordsByFilter(
@@ -102,7 +198,7 @@ routerAdd(
       )
     } catch (_) {}
 
-    // 8. Carregar Paradas Programadas Padrão (Sem extraordinárias)
+    // 16. Carregar Paradas Programadas Padrão (Sem extraordinárias)
     let scheduledStops = []
     try {
       scheduledStops = $app.findRecordsByFilter(
@@ -114,7 +210,7 @@ routerAdd(
       )
     } catch (_) {}
 
-    // 9. Referências a Rule Packs
+    // 17. Referências a Rule Packs
     let rulePackRefs = []
     try {
       rulePackRefs = $app.findRecordsByFilter(
@@ -131,11 +227,11 @@ routerAdd(
       metadata: {
         generated_at: new Date().toISOString(),
         system: 'HUB CIAFAL - PCP ROBOTIZADO',
-        source: 'Ficha Mestre das Linhas (Prompt 03)',
+        source: 'Gestão de Linhas & Ficha Mestre Expandida (Prompt 03.1)',
         version: activeMaster ? activeMaster.get('version') : null,
         ready_for_scheduling: activeMaster ? activeMaster.get('ready_for_scheduling') : false,
         completeness_score: activeMaster ? activeMaster.get('completeness_score') : 0,
-        extraordinary_stops_source: 'SAP ZPP003 (Futuro / Histórico)',
+        extraordinary_stops_source: 'SAP ZPP003 (Futuro / Histórico - SEM CADASTRO MANUAL)',
       },
       production_line: {
         id: line.id,
@@ -144,7 +240,80 @@ routerAdd(
         status: line.getString('status'),
         current_rate: line.get('current_rate'),
         efficiency: line.get('efficiency'),
+        sap_plant_code: line.getString('sap_plant_code'),
+        sap_work_center: line.getString('sap_work_center'),
       },
+      organization_hierarchy: orgHierarchy.map((o) => ({
+        level_order: o.get('org_level_order'),
+        level_name: o.getString('org_level_name'),
+        area: o.getString('area_name'),
+        job_title: o.getString('job_title'),
+        user_id: o.getString('user_id'),
+        status: o.getString('integration_status'),
+      })),
+      managers: managers.map((m) => ({
+        responsibility: m.getString('responsibility_type'),
+        title: m.getString('role_title'),
+        user_id: m.getString('user_id'),
+        scope: m.getString('scope_description'),
+      })),
+      approvers: approvers.map((a) => ({
+        stage: a.getString('approval_stage'),
+        type: a.getString('approval_type'),
+        sequence: a.get('sequence_order'),
+        role_title: a.getString('role_title'),
+        user_id: a.getString('user_id'),
+        substitute_user_id: a.getString('substitute_user_id'),
+        requirement: a.getString('requirement_type'),
+      })),
+      sequencing: sequencing.map((s) => ({
+        sequence_order: s.get('sequence_order'),
+        previous_process: s.getString('previous_process_name'),
+        previous_line_id: s.getString('previous_line_id'),
+        next_process: s.getString('next_process_name'),
+        next_line_id: s.getString('next_line_id'),
+        relation_nature: s.getString('relation_nature'),
+        dependency_type: s.getString('dependency_type'),
+        lead_time_minutes: s.get('standard_lead_time_minutes'),
+        buffer_type: s.getString('intermediate_buffer_type'),
+        buffer_capacity: s.get('intermediate_buffer_capacity'),
+        buffer_unit: s.getString('intermediate_buffer_unit'),
+      })),
+      productivity_rates: productivityRates.map((p) => ({
+        material_code: p.getString('material_product_code'),
+        material_name: p.getString('material_product_name'),
+        dimension: p.getString('dimension_spec'),
+        unit: p.getString('productivity_unit'),
+        nominal: p.get('nominal_productivity'),
+        planned: p.get('planned_productivity'),
+        efficiency_pct: p.get('expected_efficiency_pct'),
+        source_mode: p.getString('source_mode'),
+      })),
+      raw_material_priorities: rawMaterialPriorities.map((r) => ({
+        material_code: r.getString('material_code'),
+        material_description: r.getString('material_description'),
+        group: r.getString('material_group'),
+        origin: r.getString('material_origin'),
+        priority_order: r.get('priority_order'),
+        condition_rule: r.getString('condition_rule'),
+        source_mode: r.getString('source_mode'),
+      })),
+      blocked_products: blockedProducts.map((b) => ({
+        product_code: b.getString('product_code'),
+        product_description: b.getString('product_description'),
+        reason: b.getString('block_reason'),
+        block_type: b.getString('block_type'),
+        source_mode: b.getString('source_mode'),
+        valid_until: b.getString('valid_until'),
+      })),
+      setup_matrix: setupMatrix.map((sm) => ({
+        setup_code: sm.getString('setup_code'),
+        setup_description: sm.getString('setup_description'),
+        category: sm.getString('setup_category'),
+        duration_minutes: sm.get('setup_duration_minutes'),
+        impact: sm.getString('capacity_loss_impact'),
+        source_mode: sm.getString('source_mode'),
+      })),
       line_master: activeMaster
         ? {
             id: activeMaster.id,
@@ -219,14 +388,6 @@ routerAdd(
           weight_max: c.get('max_weight_kg'),
         },
         specific_capacity: c.get('specific_capacity'),
-      })),
-      setups: setups.map((st) => ({
-        code: st.getString('code'),
-        description: st.getString('description'),
-        category: st.getString('category'),
-        standard_duration_minutes: st.get('standard_duration_minutes'),
-        affected_resource: st.getString('affected_resource'),
-        setup_type: st.getString('setup_type'),
       })),
       structural_constraints: structuralConstraints.map((sc) => ({
         code: sc.getString('code'),

@@ -1,225 +1,552 @@
 import pb from '@/lib/pocketbase/client'
 import {
-  FullLineMasterBundle,
+  LineApproverMatrix,
+  LineAuditVersion,
+  LineBlockedProduct,
   LineCapability,
+  LineConfigurationAlert,
+  LineManagerAssignment,
   LineMaster,
+  LineOrgHierarchy,
+  LineOverviewData,
+  LineProductivityRate,
+  LineRawMaterialPriority,
   LineRulePackRef,
+  LineSequencingDependency,
   LineSetup,
+  LineSetupMatrix,
   LineStructuralConstraint,
-  ProductFamily,
   ProductionCalendar,
+  ProductionLine,
   ProductionShift,
+  ProductFamily,
   StandardScheduledStop,
 } from '@/types/line-master'
 
 export const lineMasterService = {
-  /**
-   * Carrega todas as Fichas Mestres ativas das linhas acessíveis
-   */
-  async listAllActiveMasters(): Promise<LineMaster[]> {
-    const records = await pb.collection('line_masters').getFullList({
-      filter: "status = 'ACTIVE'",
-      sort: 'code',
-      expand: 'line_id,primary_responsible_id,substitute_responsible_id',
-    })
-    return records as any
+  // ==========================================
+  // 1. LINHAS PRODUTIVAS (production_lines)
+  // ==========================================
+  async listLines(): Promise<ProductionLine[]> {
+    try {
+      const records = await pb.collection('production_lines').getFullList<ProductionLine>({
+        sort: 'code',
+      })
+      return records
+    } catch (err) {
+      console.error('Erro ao listar linhas:', err)
+      return []
+    }
   },
 
-  /**
-   * Carrega todas as versões de uma linha específica
-   */
-  async listVersionsByLine(lineId: string): Promise<LineMaster[]> {
-    const records = await pb.collection('line_masters').getFullList({
-      filter: `line_id = '${lineId}'`,
-      sort: '-version',
-      expand: 'primary_responsible_id,substitute_responsible_id,author_id',
-    })
-    return records as any
+  async getLineById(lineId: string): Promise<ProductionLine> {
+    return await pb.collection('production_lines').getOne<ProductionLine>(lineId)
   },
 
-  /**
-   * Carrega o pacote completo de dados da Ficha Mestre para a tela de detalhes
-   */
-  async getFullBundle(lineId: string): Promise<FullLineMasterBundle> {
+  async createLine(data: Partial<ProductionLine>): Promise<ProductionLine> {
+    return await pb.collection('production_lines').create<ProductionLine>(data)
+  },
+
+  async updateLine(lineId: string, data: Partial<ProductionLine>): Promise<ProductionLine> {
+    return await pb.collection('production_lines').update<ProductionLine>(lineId, data)
+  },
+
+  // ==========================================
+  // 2. CONTEXTO COMPLETO DA LINHA (Visão 360)
+  // ==========================================
+  async getLineOverview(lineId: string): Promise<LineOverviewData> {
+    const line = await this.getLineById(lineId)
+
+    // Consultas paralelas para performance industrial
     const [
-      line,
-      versions,
+      masters,
+      hierarchy,
+      managers,
+      approvers,
+      sequencing,
       shifts,
       calendars,
-      stops,
-      setups,
       capabilities,
+      productivity,
+      rawMaterials,
+      blockedProducts,
+      setups,
+      setupMatrix,
+      scheduledStops,
       constraints,
       rulePacks,
-      families,
+      history,
     ] = await Promise.all([
-      pb.collection('production_lines').getOne(lineId),
-      pb.collection('line_masters').getFullList({
-        filter: `line_id = '${lineId}'`,
-        sort: '-version',
-        expand:
-          'primary_responsible_id,substitute_responsible_id,author_id,upstream_line_id,downstream_line_id',
-      }),
-      pb.collection('production_shifts').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: 'start_time',
-      }),
-      pb.collection('production_calendars').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: '-year',
-      }),
-      pb.collection('standard_scheduled_stops').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: 'scheduled_time',
-      }),
-      pb.collection('line_setups').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: 'code',
-        expand: 'from_family_id,to_family_id',
-      }),
-      pb.collection('line_capabilities').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: 'created',
-        expand: 'product_family_id',
-      }),
-      pb.collection('line_structural_constraints').getFullList({
-        filter: `line_id = '${lineId}' && active = true`,
-        sort: 'code',
-      }),
-      pb.collection('line_rule_pack_refs').getFullList({
-        filter: `line_id = '${lineId}'`,
-        sort: 'rule_pack_code',
-      }),
-      pb.collection('product_families').getFullList({
-        sort: 'name',
-      }),
+      pb
+        .collection('line_masters')
+        .getFullList<LineMaster>({
+          filter: `line_id = '${lineId}' && status = 'ACTIVE'`,
+          sort: '-version',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_org_hierarchy')
+        .getFullList<LineOrgHierarchy>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'org_level_order',
+          expand: 'user_id,substitute_user_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_managers_assignment')
+        .getFullList<LineManagerAssignment>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'responsibility_type',
+          expand: 'user_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_approvers_matrix')
+        .getFullList<LineApproverMatrix>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'sequence_order',
+          expand: 'user_id,substitute_user_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_sequencing_dependencies')
+        .getFullList<LineSequencingDependency>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'sequence_order',
+          expand: 'previous_line_id,next_line_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('production_shifts')
+        .getFullList<ProductionShift>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'start_time',
+        })
+        .catch(() => []),
+      pb
+        .collection('production_calendars')
+        .getFullList<ProductionCalendar>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: '-year',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_capabilities')
+        .getFullList<LineCapability>({
+          filter: `line_id = '${lineId}' && active = true`,
+          expand: 'product_family_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_productivity_rates')
+        .getFullList<LineProductivityRate>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'material_product_code',
+          expand: 'product_family_id,sap_integration_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_raw_material_priorities')
+        .getFullList<LineRawMaterialPriority>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'priority_order',
+          expand: 'product_family_id,sap_integration_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_blocked_products')
+        .getFullList<LineBlockedProduct>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: '-created',
+          expand: 'product_family_id,responsible_user_id,sap_integration_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_setups')
+        .getFullList<LineSetup>({
+          filter: `line_id = '${lineId}' && active = true`,
+        })
+        .catch(() => []),
+      pb
+        .collection('line_setup_matrix')
+        .getFullList<LineSetupMatrix>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'setup_code',
+          expand: 'from_family_id,to_family_id,sap_integration_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('standard_scheduled_stops')
+        .getFullList<StandardScheduledStop>({
+          filter: `line_id = '${lineId}' && active = true`,
+          sort: 'scheduled_time',
+        })
+        .catch(() => []),
+      pb
+        .collection('line_structural_constraints')
+        .getFullList<LineStructuralConstraint>({
+          filter: `line_id = '${lineId}' && active = true`,
+        })
+        .catch(() => []),
+      pb
+        .collection('line_rule_pack_refs')
+        .getFullList<LineRulePackRef>({
+          filter: `line_id = '${lineId}'`,
+        })
+        .catch(() => []),
+      pb
+        .collection('line_audit_versions')
+        .getFullList<LineAuditVersion>({
+          filter: `line_id = '${lineId}'`,
+          sort: '-created',
+          expand: 'changed_by',
+        })
+        .catch(() => []),
     ])
 
-    const activeMaster =
-      (versions.find((v: any) => v.status === 'ACTIVE') as any) || (versions[0] as any) || null
+    const activeMaster = masters.length > 0 ? masters[0] : null
+
+    // Geração dinâmica de alertas de governança e configuração
+    const alerts: LineConfigurationAlert[] = []
+
+    if (managers.length === 0) {
+      alerts.push({
+        id: 'alt_no_mgr',
+        level: 'CRITICAL',
+        category: 'ORGANIZATION',
+        title: 'Linha sem Gestor Titular',
+        description:
+          'Não há gestor operacional principal associado à linha para liberação de programação.',
+        resolutionAction: 'Associar Gestor na aba Organização',
+      })
+    }
+
+    const mandatoryApprovers = approvers.filter((a) => a.requirement_type === 'MANDATORY')
+    if (mandatoryApprovers.length === 0 && approvers.length === 0) {
+      alerts.push({
+        id: 'alt_no_app',
+        level: 'WARNING',
+        category: 'GOVERNANCE',
+        title: 'Nenhum Aprovador Configurado',
+        description:
+          'A linha não possui aprovadores definidos. Se a aprovação for mandatória, os planos não poderão ser homologados.',
+        resolutionAction: 'Configurar Matriz de Aprovadores',
+      })
+    }
+
+    if (sequencing.length === 0) {
+      alerts.push({
+        id: 'alt_no_seq',
+        level: 'INFO',
+        category: 'PROCESS',
+        title: 'Sequenciamento Produtivo Não Definido',
+        description:
+          'A linha não possui predecessores ou sucessores declarados no fluxo de fábrica.',
+        resolutionAction: 'Configurar Sequenciamento na aba Processo',
+      })
+    }
+
+    if (productivity.length === 0) {
+      alerts.push({
+        id: 'alt_no_prod',
+        level: 'WARNING',
+        category: 'CAPACITY',
+        title: 'Produtividade Não Cadastrada',
+        description:
+          'Sem taxas de cadência (t/h, peça/h), o cálculo de capacidade horária é apenas estimativo.',
+        resolutionAction: 'Cadastrar Produtividade Manual ou SAP',
+      })
+    }
+
+    // Alerta para itens SAP sem teste ou com erro
+    const unverifiedSap = [
+      ...productivity.filter(
+        (p) =>
+          p.source_mode === 'SAP' &&
+          (!p.sap_integration_id || p.expand?.sap_integration_id?.last_status !== 'CONECTADO'),
+      ),
+      ...rawMaterials.filter(
+        (r) =>
+          r.source_mode === 'SAP' &&
+          (!r.sap_integration_id || r.expand?.sap_integration_id?.last_status !== 'CONECTADO'),
+      ),
+    ]
+    if (unverifiedSap.length > 0) {
+      alerts.push({
+        id: 'alt_sap_untested',
+        level: 'WARNING',
+        category: 'INTEGRATION',
+        title: 'Integração SAP com Fonte Pendente ou Não Testada',
+        description: `${unverifiedSap.length} parâmetro(s) estão com origem SAP sem confirmação de RFC/BAPI ativa.`,
+        resolutionAction: 'Acessar Governança de Fontes e validar BAPIs',
+      })
+    }
+
+    // Alerta de produto bloqueado
+    if (blockedProducts.length > 0) {
+      alerts.push({
+        id: 'alt_blocked_prod',
+        level: 'INFO',
+        category: 'PROCESS',
+        title: `${blockedProducts.length} Produto(s) com Bloqueio Ativo`,
+        description: 'O motor de programação ignorará itens bloqueados nesta linha.',
+      })
+    }
+
+    // Cálculo dinâmico de completude e ready_for_scheduling revisado (Regra 42 e 43)
+    let score = 0
+    if (line.status === 'ACTIVE') score += 15
+    if (managers.length > 0) score += 15
+    if (activeMaster && activeMaster.nominal_hourly_capacity > 0) score += 15
+    if (shifts.length > 0) score += 15
+    if (calendars.length > 0) score += 10
+    if (capabilities.length > 0) score += 10
+    if (productivity.length > 0) score += 10
+    if (sequencing.length > 0) score += 10
+
+    // Ready for scheduling: requer linha ativa, gestor, capacidade, turnos e ao menos capacidades/produtividade
+    // NOTA (Regra 43): Aprovador NÃO bloqueia se a aprovação for opcional/não aplicável
+    const readyForScheduling =
+      line.status === 'ACTIVE' &&
+      managers.length > 0 &&
+      shifts.length > 0 &&
+      (activeMaster ? activeMaster.nominal_hourly_capacity > 0 : true) &&
+      capabilities.length > 0 &&
+      score >= 70
 
     return {
       line,
-      activeMaster,
-      versions: versions as any,
-      shifts: shifts as any,
-      calendar: (calendars[0] as any) || null,
-      stops: stops as any,
-      setups: setups as any,
-      capabilities: capabilities as any,
-      constraints: constraints as any,
-      rulePacks: rulePacks as any,
-      families: families as any,
+      master: activeMaster,
+      hierarchy,
+      managers,
+      approvers,
+      sequencing,
+      shifts,
+      calendar: calendars.length > 0 ? calendars[0] : null,
+      capabilities,
+      productivity,
+      rawMaterials,
+      blockedProducts,
+      setups,
+      setupMatrix,
+      scheduledStops,
+      constraints,
+      rulePacks,
+      history,
+      alerts,
+      completeness: Math.min(100, score),
+      readyForScheduling,
     }
   },
 
-  /**
-   * Cria uma nova versão da Ficha Mestre (Versionamento rigoroso)
-   */
-  async createNewVersion(
-    data: Partial<LineMaster> & { change_reason: string },
-  ): Promise<LineMaster> {
-    if (!data.change_reason || !data.change_reason.trim()) {
-      throw new Error('A justificativa técnica de modificação é obrigatória.')
-    }
-    if ((data.nominal_hourly_capacity ?? 0) <= 0) {
-      throw new Error('A capacidade nominal por hora deve ser maior que zero (> 0).')
-    }
-    if (
-      data.min_batch_size &&
-      data.max_batch_size &&
-      Number(data.min_batch_size) > Number(data.max_batch_size)
-    ) {
-      throw new Error('O lote mínimo não pode exceder o lote máximo.')
-    }
-
-    // Se estiver ativando esta versão, arquivar/superseder as versões anteriores
-    if (data.status === 'ACTIVE' && data.line_id) {
-      const existing = await pb.collection('line_masters').getFullList({
-        filter: `line_id = '${data.line_id}' && status = 'ACTIVE'`,
-      })
-      for (const rec of existing) {
-        await pb.collection('line_masters').update(rec.id, {
-          status: 'SUPERSEDED',
-          change_reason: `Versão substituída pela nova Versão ${data.version || 2}.`,
-        })
-      }
-    }
-
-    return (await pb.collection('line_masters').create(data)) as any
-  },
-
-  /**
-   * Salva alterações em itens associados (Turnos, Setups, etc.) com justificativa
-   */
-  async saveShift(data: Partial<ProductionShift>): Promise<ProductionShift> {
+  // ==========================================
+  // 3. GESTORES DA LINHA (CRUD)
+  // ==========================================
+  async saveManagerAssignment(
+    data: Partial<LineManagerAssignment>,
+  ): Promise<LineManagerAssignment> {
     if (data.id) {
-      return (await pb.collection('production_shifts').update(data.id, data)) as any
+      return await pb
+        .collection('line_managers_assignment')
+        .update<LineManagerAssignment>(data.id, data)
     }
-    return (await pb.collection('production_shifts').create(data)) as any
+    return await pb.collection('line_managers_assignment').create<LineManagerAssignment>(data)
   },
 
-  async deleteShift(id: string): Promise<boolean> {
-    return await pb.collection('production_shifts').delete(id)
+  async deleteManagerAssignment(id: string): Promise<boolean> {
+    return await pb.collection('line_managers_assignment').delete(id)
   },
 
+  // ==========================================
+  // 4. APROVADORES DA LINHA (CRUD)
+  // ==========================================
+  async saveApprover(data: Partial<LineApproverMatrix>): Promise<LineApproverMatrix> {
+    if (data.id) {
+      return await pb.collection('line_approvers_matrix').update<LineApproverMatrix>(data.id, data)
+    }
+    return await pb.collection('line_approvers_matrix').create<LineApproverMatrix>(data)
+  },
+
+  async deleteApprover(id: string): Promise<boolean> {
+    return await pb.collection('line_approvers_matrix').delete(id)
+  },
+
+  // ==========================================
+  // 5. SEQUENCIAMENTO (CRUD)
+  // ==========================================
+  async saveSequencing(data: Partial<LineSequencingDependency>): Promise<LineSequencingDependency> {
+    if (data.id) {
+      return await pb
+        .collection('line_sequencing_dependencies')
+        .update<LineSequencingDependency>(data.id, data)
+    }
+    return await pb
+      .collection('line_sequencing_dependencies')
+      .create<LineSequencingDependency>(data)
+  },
+
+  async deleteSequencing(id: string): Promise<boolean> {
+    return await pb.collection('line_sequencing_dependencies').delete(id)
+  },
+
+  // ==========================================
+  // 6. PRODUTIVIDADE (CRUD)
+  // ==========================================
+  async saveProductivity(data: Partial<LineProductivityRate>): Promise<LineProductivityRate> {
+    if (data.id) {
+      return await pb
+        .collection('line_productivity_rates')
+        .update<LineProductivityRate>(data.id, data)
+    }
+    return await pb.collection('line_productivity_rates').create<LineProductivityRate>(data)
+  },
+
+  async deleteProductivity(id: string): Promise<boolean> {
+    return await pb.collection('line_productivity_rates').delete(id)
+  },
+
+  // ==========================================
+  // 7. PRIORIDADES DE MATÉRIA-PRIMA (CRUD)
+  // ==========================================
+  async saveRawMaterialPriority(
+    data: Partial<LineRawMaterialPriority>,
+  ): Promise<LineRawMaterialPriority> {
+    if (data.id) {
+      return await pb
+        .collection('line_raw_material_priorities')
+        .update<LineRawMaterialPriority>(data.id, data)
+    }
+    return await pb.collection('line_raw_material_priorities').create<LineRawMaterialPriority>(data)
+  },
+
+  async deleteRawMaterialPriority(id: string): Promise<boolean> {
+    return await pb.collection('line_raw_material_priorities').delete(id)
+  },
+
+  // ==========================================
+  // 8. PRODUTOS BLOQUEADOS (CRUD)
+  // ==========================================
+  async saveBlockedProduct(data: Partial<LineBlockedProduct>): Promise<LineBlockedProduct> {
+    if (data.id) {
+      return await pb.collection('line_blocked_products').update<LineBlockedProduct>(data.id, data)
+    }
+    return await pb.collection('line_blocked_products').create<LineBlockedProduct>(data)
+  },
+
+  async deleteBlockedProduct(id: string): Promise<boolean> {
+    return await pb.collection('line_blocked_products').delete(id)
+  },
+
+  // ==========================================
+  // 9. MATRIZ DE SETUP (CRUD)
+  // ==========================================
+  async saveSetupMatrix(data: Partial<LineSetupMatrix>): Promise<LineSetupMatrix> {
+    if (data.id) {
+      return await pb.collection('line_setup_matrix').update<LineSetupMatrix>(data.id, data)
+    }
+    return await pb.collection('line_setup_matrix').create<LineSetupMatrix>(data)
+  },
+
+  async deleteSetupMatrix(id: string): Promise<boolean> {
+    return await pb.collection('line_setup_matrix').delete(id)
+  },
+
+  // ==========================================
+  // 10. HIERARQUIA ORGANIZACIONAL (CRUD)
+  // ==========================================
+  async saveOrgHierarchy(data: Partial<LineOrgHierarchy>): Promise<LineOrgHierarchy> {
+    if (data.id) {
+      return await pb.collection('line_org_hierarchy').update<LineOrgHierarchy>(data.id, data)
+    }
+    return await pb.collection('line_org_hierarchy').create<LineOrgHierarchy>(data)
+  },
+
+  // ==========================================
+  // 11. PARADAS PROGRAMADAS (Dentro de Capacidade)
+  // ==========================================
   async saveScheduledStop(data: Partial<StandardScheduledStop>): Promise<StandardScheduledStop> {
     if (data.id) {
-      return (await pb.collection('standard_scheduled_stops').update(data.id, data)) as any
+      return await pb
+        .collection('standard_scheduled_stops')
+        .update<StandardScheduledStop>(data.id, data)
     }
-    return (await pb.collection('standard_scheduled_stops').create(data)) as any
+    return await pb.collection('standard_scheduled_stops').create<StandardScheduledStop>(data)
   },
 
   async deleteScheduledStop(id: string): Promise<boolean> {
     return await pb.collection('standard_scheduled_stops').delete(id)
   },
 
-  async saveSetup(data: Partial<LineSetup>): Promise<LineSetup> {
-    if (data.id) {
-      return (await pb.collection('line_setups').update(data.id, data)) as any
+  // ==========================================
+  // 12. FAMÍLIAS DE PRODUTOS & CAPABILITIES
+  // ==========================================
+  async listProductFamilies(): Promise<ProductFamily[]> {
+    try {
+      return await pb.collection('product_families').getFullList<ProductFamily>({
+        sort: 'code',
+      })
+    } catch {
+      return []
     }
-    return (await pb.collection('line_setups').create(data)) as any
-  },
-
-  async deleteSetup(id: string): Promise<boolean> {
-    return await pb.collection('line_setups').delete(id)
   },
 
   async saveCapability(data: Partial<LineCapability>): Promise<LineCapability> {
     if (data.id) {
-      return (await pb.collection('line_capabilities').update(data.id, data)) as any
+      return await pb.collection('line_capabilities').update<LineCapability>(data.id, data)
     }
-    return (await pb.collection('line_capabilities').create(data)) as any
+    return await pb.collection('line_capabilities').create<LineCapability>(data)
   },
 
   async deleteCapability(id: string): Promise<boolean> {
     return await pb.collection('line_capabilities').delete(id)
   },
 
-  async saveConstraint(data: Partial<LineStructuralConstraint>): Promise<LineStructuralConstraint> {
+  // ==========================================
+  // 13. TURNOS & JORNADA
+  // ==========================================
+  async saveShift(data: Partial<ProductionShift>): Promise<ProductionShift> {
     if (data.id) {
-      return (await pb.collection('line_structural_constraints').update(data.id, data)) as any
+      return await pb.collection('production_shifts').update<ProductionShift>(data.id, data)
     }
-    return (await pb.collection('line_structural_constraints').create(data)) as any
+    return await pb.collection('production_shifts').create<ProductionShift>(data)
   },
 
-  async deleteConstraint(id: string): Promise<boolean> {
-    return await pb.collection('line_structural_constraints').delete(id)
+  async deleteShift(id: string): Promise<boolean> {
+    return await pb.collection('production_shifts').delete(id)
   },
 
-  async saveCalendar(data: Partial<ProductionCalendar>): Promise<ProductionCalendar> {
+  // ==========================================
+  // 14. FICHA MESTRE (Criação de versão / Atualização)
+  // ==========================================
+  async saveLineMaster(data: Partial<LineMaster>): Promise<LineMaster> {
     if (data.id) {
-      return (await pb.collection('production_calendars').update(data.id, data)) as any
+      return await pb.collection('line_masters').update<LineMaster>(data.id, data)
     }
-    return (await pb.collection('production_calendars').create(data)) as any
+    return await pb.collection('line_masters').create<LineMaster>(data)
   },
 
-  /**
-   * Exporta o DTO de contexto para a IA / Motor
-   */
-  async fetchLineMasterContext(lineId: string): Promise<any> {
-    return await pb.send(`/backend/v1/pcp/line-master-context/${lineId}`, {
-      method: 'GET',
+  // ==========================================
+  // 15. AUDITORIA E VERSIONAMENTO DA LINHA
+  // ==========================================
+  async recordAuditVersion(data: {
+    line_id: string
+    line_master_id?: string
+    version: number
+    action: 'CREATE' | 'UPDATE' | 'ACTIVATE' | 'DEACTIVATE' | 'READY_CHECK' | 'SOURCE_CHANGE'
+    changed_fields: string[]
+    change_reason: string
+    snapshot_data: Record<string, unknown>
+  }): Promise<void> {
+    const user = pb.authStore.record
+    await pb.collection('line_audit_versions').create({
+      line_id: data.line_id,
+      line_master_id: data.line_master_id || '',
+      version: data.version,
+      action: data.action,
+      changed_fields: data.changed_fields,
+      change_reason: data.change_reason || 'Alteração técnica homologada',
+      changed_by: user ? user.id : '',
+      snapshot_data: data.snapshot_data,
     })
   },
 }
