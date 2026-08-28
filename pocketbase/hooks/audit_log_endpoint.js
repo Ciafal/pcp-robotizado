@@ -1,12 +1,12 @@
-// Hook endpoint: POST /backend/v1/auth/audit-log
-// Permite que ações de segurança disparadas pela aplicação registrem auditoria formal com validação
+// Hook: Endpoint seguro para registro de trilha de auditoria
+// Protege para impedir que um usuário envie logs em nome de outro (usa e.auth forçadamente)
 routerAdd(
   'POST',
   '/backend/v1/auth/audit-log',
   (e) => {
     const authRecord = e.auth
     if (!authRecord) {
-      return e.json(401, { error: 'Não autenticado' })
+      return e.json(401, { error: 'Não autenticado no HUB CIAFAL' })
     }
 
     const body = e.requestInfo().body || {}
@@ -22,10 +22,11 @@ routerAdd(
     try {
       const auditCol = $app.findCollectionByNameOrId('pcp_audit_logs')
       const log = new Record(auditCol)
+      // Forçar SEMPRE os dados do usuário logado (Anti-Spoofing / Anti-Impersonation)
       log.set('user_id', authRecord.id)
       log.set('user_email', authRecord.getString('email'))
-      log.set('user_name', authRecord.getString('name'))
-      log.set('user_role', authRecord.getString('role'))
+      log.set('user_name', authRecord.getString('name') || authRecord.getString('email'))
+      log.set('user_role', authRecord.getString('role') || 'PRODUCTION_VIEWER')
       log.set('event_type', eventType)
       log.set('action', action)
       log.set('resource', resource)

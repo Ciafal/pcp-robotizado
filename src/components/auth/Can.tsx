@@ -55,7 +55,7 @@ export const Can: React.FC<CanProps> = ({
   }
 
   return (
-    <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-xs flex items-center gap-2">
+    <div className="p-3 bg-amber-950/30 border border-amber-800/60 rounded-md text-amber-200 text-xs flex items-center gap-2">
       <span className="font-bold">Restrição de Acesso:</span> {explainMessage}
     </div>
   )

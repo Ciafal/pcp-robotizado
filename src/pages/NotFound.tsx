@@ -10,12 +10,17 @@ const NotFound = () => {
   }, [location.pathname])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 p-6">
+      <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-xl p-8 text-center shadow-xl">
+        <h1 className="text-4xl font-black mb-2 text-white">404</h1>
+        <p className="text-base text-slate-300 mb-6 font-medium">
+          Módulo ou Recurso não localizado no HUB CIAFAL
+        </p>
+        <a
+          href="/pcp-robotizado"
+          className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-[#004C97] hover:bg-[#003B75] text-white shadow transition-colors"
+        >
+          Retornar ao Cockpit PCP
         </a>
       </div>
     </div>

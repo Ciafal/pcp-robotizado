@@ -45,11 +45,11 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white">
       <PCPNavbar />
       <div className="flex-1 flex">
         <PCPSidebar />
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-900/90">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-950">
           <Outlet />
         </main>
       </div>

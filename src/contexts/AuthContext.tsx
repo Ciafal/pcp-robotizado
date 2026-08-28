@@ -49,15 +49,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true)
     try {
       if (!pb.authStore.isValid) {
-        // Tentar autenticar com usuário padrão ciafal@ciafal.com.br se não houver sessão ativa
-        try {
-          await pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass')
-        } catch (_) {
-          // Usuário não logado
-          setUser(null)
-          setIsLoading(false)
-          return
-        }
+        // Deny by default: Sem sessão ativa, o acesso deve ser bloqueado por padrão (sem auto-login)
+        setUser(null)
+        setIsGlobal(false)
+        setScopes([])
+        setDelegations([])
+        setPermissions([])
+        setPermissionKeys(new Set())
+        setIsLoading(false)
+        return
       }
 
       const res: AuthPermissionsResponse = await authService.resolvePermissions()

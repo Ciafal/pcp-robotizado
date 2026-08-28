@@ -37,8 +37,13 @@ export default {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT: '#004C97', // Pantone 2945 C
+          foreground: '#ffffff',
+          pantone: '#004C97',
+        },
+        pantone: {
+          2945: '#004C97',
+          blue: '#004C97',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

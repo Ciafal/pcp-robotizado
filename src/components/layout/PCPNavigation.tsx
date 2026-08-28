@@ -20,6 +20,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
+import logoCiafalBlue from '@/assets/logo-ciafal-01bdf.png'
+import logoCiafalWhite from '@/assets/logo-ciafal-branca-7db6f.png'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -102,20 +104,20 @@ export const PCPNavbar: React.FC = () => {
         {/* Brand / Title */}
         <div className="flex items-center gap-4">
           <Link to="/pcp-robotizado" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-cyan-600 to-blue-800 rounded-lg flex items-center justify-center text-white font-black text-lg shadow-md border border-cyan-500/30">
-              C
-            </div>
-            <div>
+            <img
+              src={logoCiafalWhite}
+              alt="CIAFAL Wilson Santos"
+              className="h-8 w-auto object-contain brightness-105"
+            />
+            <div className="border-l border-slate-800 pl-3 hidden sm:block">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-white text-base">
-                  HUB CIAFAL
-                </span>
-                <span className="text-cyan-400 font-bold text-xs bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">
+                <span className="font-bold tracking-tight text-white text-sm">HUB INDUSTRIAL</span>
+                <span className="text-white font-extrabold text-[11px] bg-[#004C97] px-2 py-0.5 rounded shadow-sm border border-blue-400/30">
                   PCP ROBOTIZADO
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Governança Corporativa AD &bull; RBAC Industrial v0.0.2
+                Preto & Pantone 2945 C &bull; RBAC Industrial CIAFAL
               </p>
             </div>
           </Link>
@@ -176,12 +178,12 @@ export const PCPSidebar: React.FC = () => {
               to={item.href}
               className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                 isActive
-                  ? 'bg-cyan-950 text-cyan-200 border border-cyan-800/80 shadow-sm'
+                  ? 'bg-[#004C97] text-white border border-blue-400/40 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <item.icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
+                <item.icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{item.title}</span>
               </div>
 
@@ -209,9 +211,12 @@ export const PCPSidebar: React.FC = () => {
       </nav>
 
       {/* Security note */}
-      <div className="mt-auto pt-4 border-t border-slate-900 text-[10px] text-slate-400 px-3">
-        <p className="font-semibold text-slate-300">CIAFAL Active Directory</p>
-        <p>Autenticação SSO corporativa vinculada.</p>
+      <div className="mt-auto pt-4 border-t border-slate-900 text-[10px] text-slate-400 px-3 space-y-2">
+        <img src={logoCiafalBlue} alt="CIAFAL" className="h-4 w-auto object-contain opacity-80" />
+        <div>
+          <p className="font-semibold text-slate-300">CIAFAL Active Directory</p>
+          <p>Autenticação SSO corporativa vinculada.</p>
+        </div>
       </div>
     </aside>
   )
