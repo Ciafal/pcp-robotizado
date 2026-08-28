@@ -22,8 +22,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
-import { ProductionLine, UserProfile } from '@/types/pcp-auth'
-import { ProductFamily } from '@/types/line-master'
+import { UserProfile } from '@/types/pcp-auth'
+import { ProductionLine, ProductFamily } from '@/types/line-master'
 
 interface AddLineWizardModalProps {
   open: boolean

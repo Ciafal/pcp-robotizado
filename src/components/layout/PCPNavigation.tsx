@@ -16,6 +16,7 @@ import {
   LogOut,
   ChevronRight,
   ShieldAlert,
+  Building2,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Can } from '@/components/auth/Can'
