@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T17:06:13.245Z",
+  "generatedAt": "2026-08-28T18:43:49.059Z",
   "collections": [
     {
       "name": "users",
@@ -4595,6 +4595,618 @@
       ],
       "indexes": [
         "CREATE INDEX idx_pcl_line_period ON production_capacity_logs (line_code, period_type, period_ref)"
+      ]
+    },
+    {
+      "name": "optimization_scenarios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "BASELINE",
+            "SCENARIO_A",
+            "SCENARIO_B",
+            "SCENARIO_C",
+            "SCENARIO_D",
+            "CUSTOM"
+          ]
+        },
+        {
+          "name": "profile",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ATENDIMENTO", "PRODUTIVIDADE", "ESTOQUE", "BALANCEADO", "CUSTOM"]
+        },
+        {
+          "name": "horizon",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "start_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "end_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_lines",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_products",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "objectives_weights",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assumptions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "solver_timeout_seconds",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["DRAFT", "QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]
+        },
+        {
+          "name": "is_baseline",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "latest_run_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "summary_kpis",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_opt_scen_code ON optimization_scenarios (code)",
+        "CREATE INDEX idx_opt_scen_status ON optimization_scenarios (status)"
+      ]
+    },
+    {
+      "name": "optimization_runs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "scenario_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "optimization_scenarios"
+        },
+        {
+          "name": "engine_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "engine_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]
+        },
+        {
+          "name": "solver_solution_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["OPTIMAL", "FEASIBLE", "NO_SOLUTION", "TIME_LIMIT", "INFEASIBLE"]
+        },
+        {
+          "name": "execution_time_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "objective_value",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "variables_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "constraints_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gap_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "input_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metrics_result",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bottlenecks_result",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executed_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "executed_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_opt_runs_scen ON optimization_runs (scenario_id, created DESC)",
+        "CREATE INDEX idx_opt_runs_status ON optimization_runs (status)"
+      ]
+    },
+    {
+      "name": "scenario_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "scenario_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "optimization_scenarios"
+        },
+        {
+          "name": "run_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "optimization_runs"
+        },
+        {
+          "name": "demand_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "order_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "demanded_quantity_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "allocated_quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allocation_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ALLOCATED", "PARTIALLY_ALLOCATED", "UNALLOCATED"]
+        },
+        {
+          "name": "unallocated_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assigned_line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "assigned_line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "route_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "route_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "route_version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_material_priority",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "start_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "end_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sequence_order",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setup_duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lead_time_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deterministic_explanation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "manual_override",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_scen_items_run ON scenario_items (run_id, allocation_status)",
+        "CREATE INDEX idx_scen_items_scen ON scenario_items (scenario_id)"
+      ]
+    },
+    {
+      "name": "pcp_schedules",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horizon",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SYSTEM_GENERATED", "AI_GENERATED", "MANUAL", "MIGRATED"]
+        },
+        {
+          "name": "workflow_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "DRAFT",
+            "PCP_REVIEW",
+            "PENDING_DOUBLE_APPROVAL",
+            "APPROVED_OFFICIAL",
+            "REJECTED",
+            "SUPERSEDED"
+          ]
+        },
+        {
+          "name": "source_scenario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "optimization_scenarios"
+        },
+        {
+          "name": "source_run_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "optimization_runs"
+        },
+        {
+          "name": "created_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "reviewed_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "pcp_approval_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_manager_approval_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_planned_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_items_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_projected_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_schedules_code_ver ON pcp_schedules (code, version)",
+        "CREATE INDEX idx_schedules_wf_status ON pcp_schedules (workflow_status)"
       ]
     }
   ]

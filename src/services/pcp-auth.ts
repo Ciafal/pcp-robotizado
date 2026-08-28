@@ -47,7 +47,24 @@ export const authService = {
         ],
         delegations: [],
         permissions: [],
-        permission_keys: role === 'PCP_ADMIN' ? ['*'] : ['pcp.dashboard.view'],
+        permission_keys:
+          role === 'PCP_ADMIN'
+            ? ['*']
+            : role === 'PCP_PROGRAMMER'
+              ? [
+                  'pcp.dashboard.view',
+                  'pcp.optimization.view',
+                  'pcp.optimization.create',
+                  'pcp.optimization.run',
+                  'pcp.optimization.compare',
+                  'pcp.optimization.convert',
+                  'pcp.optimization.manage_objectives',
+                  'pcp.routes.view',
+                  'pcp.routes.create',
+                  'pcp.routes.edit',
+                  'pcp.routes.simulate',
+                ]
+              : ['pcp.dashboard.view', 'pcp.optimization.view', 'pcp.optimization.compare'],
       }
     }
   },
