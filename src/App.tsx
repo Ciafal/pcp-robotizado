@@ -13,6 +13,7 @@ import AuditPage from './pages/AuditPage'
 import LineResponsiblesPage from './pages/LineResponsiblesPage'
 import SchedulesPage from './pages/SchedulesPage'
 import { ModulePreparationPage } from './pages/ModulePreparationPage'
+import LineMasterPage from './pages/LineMasterPage'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -91,18 +92,17 @@ const App = () => (
               path="/pcp-robotizado/ficha-mestre"
               element={
                 <PermissionGuard permission="pcp.masterdata.view">
-                  <ModulePreparationPage
-                    title="Ficha Mestre das Linhas de Produção"
-                    subtitle="Matriz de parâmetros técnicos, capacidades nominais, tempos de setup e restrições térmicas."
-                    targetPrompt="PROMPT 03 — Ficha Mestre das Linhas"
-                    requiredPerm="pcp.masterdata.view"
-                    features={[
-                      'Parâmetros técnicos protegidos por permissão específica (pcp.masterdata.edit)',
-                      'Controle de versionamento com justificativa obrigatória',
-                      'Object-level authorization garantindo isolamento por linha',
-                      'Preparado para receber extrações de normas e manuais CIAFAL',
-                    ]}
-                  />
+                  <LineMasterPage />
+                </PermissionGuard>
+              }
+            />
+
+            {/* Rota oficial de Administração > Ficha Mestre */}
+            <Route
+              path="/pcp-robotizado/administracao/ficha-mestre"
+              element={
+                <PermissionGuard permission="pcp.masterdata.view">
+                  <LineMasterPage />
                 </PermissionGuard>
               }
             />

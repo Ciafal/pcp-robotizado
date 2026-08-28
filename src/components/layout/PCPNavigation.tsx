@@ -58,7 +58,6 @@ const navItems: SidebarItem[] = [
     href: '/pcp-robotizado/ficha-mestre',
     icon: FileSpreadsheet,
     permission: 'pcp.masterdata.view',
-    badge: 'v0.0.3 Prep',
   },
   {
     title: 'Rule Packs (Regras)',
