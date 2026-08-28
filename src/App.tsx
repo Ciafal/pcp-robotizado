@@ -43,6 +43,7 @@ const ScenariosPage = lazy(() =>
 )
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
 const InventoryManagementPage = lazy(() => import('@/pages/InventoryManagementPage'))
+const ExecutiveCockpitPage = lazy(() => import('@/pages/ExecutiveCockpitPage'))
 
 // Planejamento Mestre
 const MasterPlanningLayout = lazy(() =>
@@ -80,7 +81,25 @@ export const App: React.FC = () => {
           <Suspense fallback={<ModuleFallback />}>
             <Routes>
               <Route element={<Layout />}>
-                {/* 1. Cockpit Executivo & Landing Raiz */}
+                {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
+                <Route
+                  path="/pcp/cockpit-executivo"
+                  element={
+                    <PermissionGuard permission="pcp.executive.view">
+                      <ExecutiveCockpitPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/dwp/meu-hub/cockpit-executivo"
+                  element={<Navigate to="/pcp/cockpit-executivo" replace />}
+                />
+                <Route
+                  path="/dwp/cockpit-executivo"
+                  element={<Navigate to="/pcp/cockpit-executivo" replace />}
+                />
+
+                {/* Cockpit de Chão de Fábrica & Landing Raiz */}
                 <Route path="/" element={<Index />} />
                 <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
                 <Route path="/pcp/cockpit" element={<Index />} />

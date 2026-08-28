@@ -50,21 +50,41 @@ export const authService = {
         permission_keys:
           role === 'PCP_ADMIN'
             ? ['*']
-            : role === 'PCP_PROGRAMMER'
+            : role === 'EXECUTIVE_VIEWER'
               ? [
                   'pcp.dashboard.view',
-                  'pcp.optimization.view',
-                  'pcp.optimization.create',
-                  'pcp.optimization.run',
-                  'pcp.optimization.compare',
-                  'pcp.optimization.convert',
-                  'pcp.optimization.manage_objectives',
-                  'pcp.routes.view',
-                  'pcp.routes.create',
-                  'pcp.routes.edit',
-                  'pcp.routes.simulate',
+                  'pcp.executive.view',
+                  'pcp.executive.ask_ai',
+                  'pcp.executive.investigate',
+                  'pcp.executive.actions.manage',
+                  'pcp.executive.export',
+                  'pcp.executive.manage_briefing',
                 ]
-              : ['pcp.dashboard.view', 'pcp.optimization.view', 'pcp.optimization.compare'],
+              : role === 'PCP_PROGRAMMER'
+                ? [
+                    'pcp.dashboard.view',
+                    'pcp.executive.view',
+                    'pcp.executive.ask_ai',
+                    'pcp.executive.investigate',
+                    'pcp.executive.actions.manage',
+                    'pcp.executive.export',
+                    'pcp.optimization.view',
+                    'pcp.optimization.create',
+                    'pcp.optimization.run',
+                    'pcp.optimization.compare',
+                    'pcp.optimization.convert',
+                    'pcp.optimization.manage_objectives',
+                    'pcp.routes.view',
+                    'pcp.routes.create',
+                    'pcp.routes.edit',
+                    'pcp.routes.simulate',
+                  ]
+                : [
+                    'pcp.dashboard.view',
+                    'pcp.executive.view',
+                    'pcp.optimization.view',
+                    'pcp.optimization.compare',
+                  ],
       }
     }
   },

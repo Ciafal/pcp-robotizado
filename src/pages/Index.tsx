@@ -196,6 +196,19 @@ export default function Index() {
 
         {/* Ações Rápidas Controladas por RBAC */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Ação 0: Cockpit Executivo com IA */}
+          <Can permission="pcp.executive.view">
+            <Button
+              size="sm"
+              className="bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-sm text-xs font-bold"
+              asChild
+            >
+              <Link to="/pcp/cockpit-executivo">
+                <Activity className="w-3.5 h-3.5 text-blue-200" /> Cockpit Executivo (IA)
+              </Link>
+            </Button>
+          </Can>
+
           {/* Ação 1: Criar Programação */}
           <Can
             permission="pcp.schedule.create"
@@ -204,11 +217,12 @@ export default function Index() {
           >
             <Button
               size="sm"
-              className="bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-sm text-xs font-semibold"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold"
               asChild
             >
               <Link to="/pcp/sequenciamento/programacao">
-                <Plus className="w-3.5 h-3.5" /> Nova Programação
+                <Plus className="w-3.5 h-3.5 text-[#004C97]" /> Nova Programação
               </Link>
             </Button>
           </Can>

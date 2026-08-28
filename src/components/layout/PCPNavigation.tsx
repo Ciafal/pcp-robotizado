@@ -48,6 +48,13 @@ interface NavSectionItem {
 
 const navSections: NavSectionItem[] = [
   {
+    title: 'Cockpit Executivo (IA)',
+    href: '/pcp/cockpit-executivo',
+    icon: Activity,
+    badge: 'CIAFAL IA',
+    permission: 'pcp.executive.view',
+  },
+  {
     title: 'Cockpit & Fila Fabril',
     href: '/pcp/cockpit',
     icon: LayoutDashboard,
