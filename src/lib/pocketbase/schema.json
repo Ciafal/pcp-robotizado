@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T18:43:49.059Z",
+  "generatedAt": "2026-08-28T19:05:19.922Z",
   "collections": [
     {
       "name": "users",
@@ -5208,6 +5208,419 @@
         "CREATE INDEX idx_schedules_code_ver ON pcp_schedules (code, version)",
         "CREATE INDEX idx_schedules_wf_status ON pcp_schedules (workflow_status)"
       ]
+    },
+    {
+      "name": "inventory_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["RAW_MATERIAL", "SEMI_FINISHED", "FINISHED_GOOD", "OTHER"]
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "qty_unrestricted",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "qty_blocked",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_in_quality",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_reserved",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SAP", "MANUAL"]
+        },
+        {
+          "name": "sap_function_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["STANDARD", "Z_CUSTOM"]
+        },
+        {
+          "name": "sap_function_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sync_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "consumer_line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "producer_line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_inv_mat_dep ON inventory_items (material_code, storage_location)",
+        "CREATE INDEX idx_inv_category ON inventory_items (category)",
+        "CREATE INDEX idx_inv_plant ON inventory_items (plant_code)"
+      ]
+    },
+    {
+      "name": "inventory_snapshots",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "snapshot_timestamp",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source_function",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "records_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_inv_snap_time ON inventory_snapshots (snapshot_timestamp DESC)",
+        "CREATE INDEX idx_inv_snap_mat ON inventory_snapshots (material_code)"
+      ]
+    },
+    {
+      "name": "line_projection_configs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horizon_days",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "initial_stock_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_stock_limit",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_stock_limit",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_stock_limit",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "friday_target_stock_limit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cooling_time_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cooling_rules_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calendar_rules_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "input_flow_definitions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "output_flow_definitions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hourly_productivity_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operating_hours_per_day",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_proj_config_line ON line_projection_configs (line_code)"]
     }
   ]
 }

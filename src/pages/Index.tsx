@@ -177,18 +177,18 @@ export default function Index() {
       {/* Bloco de Identidade e Permissões do Usuário Autenticado */}
       <UserPermissionSummary />
 
-      {/* Header do Cockpit */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header do Cockpit em Fundo Claro Corporativo */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Cockpit Operacional PCP
             </h1>
-            <Badge className="bg-cyan-950 text-cyan-300 border-cyan-800 text-xs">
-              Módulo Ativo
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-bold">
+              CIAFAL &bull; Homologado
             </Badge>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Monitoramento de linhas industriais, cadência, buffer térmico e orquestração de
             sequenciamentos.
           </p>
@@ -204,7 +204,7 @@ export default function Index() {
           >
             <Button
               size="sm"
-              className="bg-cyan-600 hover:bg-cyan-500 text-white gap-1.5 shadow-sm text-xs font-semibold"
+              className="bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-sm text-xs font-semibold"
               asChild
             >
               <Link to="/pcp/sequenciamento/programacao">
@@ -222,11 +222,11 @@ export default function Index() {
             <Button
               variant="outline"
               size="sm"
-              className="border-slate-700 bg-slate-800/80 text-slate-200 hover:text-white hover:bg-slate-700 gap-1.5 text-xs font-semibold"
+              className="border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold"
               asChild
             >
               <Link to="/pcp/sequenciamento/cenarios">
-                <Zap className="w-3.5 h-3.5 text-amber-400" /> Simular Cenário
+                <Zap className="w-3.5 h-3.5 text-amber-500" /> Simular Cenário
               </Link>
             </Button>
           </Can>
@@ -237,7 +237,7 @@ export default function Index() {
             size="sm"
             onClick={loadData}
             disabled={loading}
-            className="text-slate-400 hover:text-white hover:bg-slate-800 p-2 h-8"
+            className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-2 h-8"
             title="Atualizar dados"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -247,66 +247,66 @@ export default function Index() {
 
       {/* KPI Cards (Scoped) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-950 border-slate-800 text-slate-100">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-400 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium">
               Linhas no Seu Escopo
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-cyan-400 flex items-center justify-between">
+            <CardTitle className="text-2xl font-black text-[#004C97] flex items-center justify-between">
               {metrics.total}{' '}
-              <span className="text-xs font-normal text-slate-500">/ {lines.length} Totais</span>
+              <span className="text-xs font-normal text-slate-400">/ {lines.length} Totais</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-400 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             {metrics.running} operando normalmente
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-950 border-slate-800 text-slate-100">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-400 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium">
               Eficiência Média OEE
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-emerald-400">
+            <CardTitle className="text-2xl font-black text-emerald-600">
               {metrics.avgEfficiency}%
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-400 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
             Meta corporativa: 85%
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-950 border-slate-800 text-slate-100">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-400 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium">
               Taxa de Produção Global
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-white">
+            <CardTitle className="text-2xl font-black text-slate-900">
               {metrics.totalCurrentRate}{' '}
-              <span className="text-xs font-mono font-normal text-cyan-400">t/h</span>{' '}
+              <span className="text-xs font-mono font-normal text-[#004C97]">t/h</span>{' '}
               <span className="text-xs font-normal text-slate-400">
                 (meta: {metrics.totalTargetRate} t/h)
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-400">
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500">
             Taxa atual vs. Capacidade programada
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-950 border-slate-800 text-slate-100">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-400 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium">
               Alertas Ativos no Escopo
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-amber-400">
+            <CardTitle className="text-2xl font-black text-amber-600">
               {scopedAlerts.filter((a) => !a.acknowledged).length}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-400 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
             {scopedAlerts.filter((a) => a.severity === 'critical').length} críticos
           </CardContent>
         </Card>
@@ -316,13 +316,13 @@ export default function Index() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Coluna 1 & 2: Cartões de Linhas Autorizadas */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-3 rounded-lg">
+          <div className="flex items-center justify-between bg-white border border-slate-200 p-3 rounded-lg shadow-sm">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
+              <Layers className="w-4 h-4 text-[#004C97]" />
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Linhas e Processos Industriais
               </span>
-              <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
+              <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-700">
                 {scopedLines.length} disponíveis
               </Badge>
             </div>
@@ -333,7 +333,7 @@ export default function Index() {
               <select
                 value={selectedLineFilter}
                 onChange={(e) => setSelectedLineFilter(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 px-2 py-1 outline-none focus:border-cyan-500"
+                className="bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 px-2 py-1 outline-none focus:ring-1 focus:ring-[#004C97]"
               >
                 <option value="ALL">Todas no meu escopo</option>
                 {scopedLines.map((l) => (
@@ -346,15 +346,24 @@ export default function Index() {
           </div>
 
           {scopedLines.length === 0 ? (
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-8 text-center text-slate-400">
-              <ShieldAlert className="w-10 h-10 text-amber-400 mx-auto mb-2" />
-              <p className="font-semibold text-slate-200">
-                Nenhuma linha dentro do seu escopo atual
+            <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 shadow-sm space-y-2">
+              <ShieldAlert className="w-10 h-10 text-amber-500 mx-auto" />
+              <p className="font-bold text-slate-800">
+                Nenhuma linha cadastrada ou no seu escopo atual
               </p>
-              <p className="text-xs mt-1">
-                Seu usuário não possui atribuição de escopo para as linhas selecionadas. Solicite
-                liberação ao PCP_ADMIN.
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Não há linhas cadastradas no sistema. Utilize a opção de cadastro para parametrizar
+                uma nova linha industrial.
               </p>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  asChild
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs"
+                >
+                  <Link to="/pcp/linhas/cadastro">+ Adicionar Linha</Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -365,21 +374,21 @@ export default function Index() {
                 return (
                   <Card
                     key={line.id}
-                    className="bg-slate-950 border-slate-800 text-slate-100 hover:border-slate-700 transition-all shadow-sm"
+                    className="bg-white border-slate-200 text-slate-900 hover:border-slate-300 transition-all shadow-sm"
                   >
                     <CardHeader className="p-4 pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-base text-white">{line.code}</span>
-                          <span className="text-xs text-slate-400">• {line.name}</span>
+                          <span className="font-black text-base text-slate-900">{line.code}</span>
+                          <span className="text-xs text-slate-500">• {line.name}</span>
                         </div>
                         <Badge
                           className={`text-[10px] font-semibold uppercase ${
                             isRunning
-                              ? 'bg-emerald-950 text-emerald-400 border-emerald-700'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                               : isMaintenance
-                                ? 'bg-rose-950 text-rose-400 border-rose-700'
-                                : 'bg-amber-950 text-amber-400 border-amber-700'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}
                         >
                           {line.status}
@@ -388,41 +397,41 @@ export default function Index() {
                     </CardHeader>
 
                     <CardContent className="p-4 pt-0 space-y-3 text-xs">
-                      <div className="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                        <span className="text-[10px] text-slate-400 block font-medium">
+                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block font-medium">
                           Ordem Ativa / Produto:
                         </span>
-                        <span className="font-semibold text-slate-200 truncate block">
+                        <span className="font-semibold text-slate-800 truncate block">
                           {line.active_order || 'Sem ordem ativa'}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="bg-slate-900/40 p-2 rounded border border-slate-800/80">
-                          <span className="text-slate-400 block text-[10px]">Cadência Real</span>
-                          <span className="font-bold text-white text-sm">
+                        <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                          <span className="text-slate-500 block text-[10px]">Cadência Real</span>
+                          <span className="font-bold text-slate-900 text-sm">
                             {line.current_rate}{' '}
-                            <span className="text-[10px] font-normal text-slate-400">
+                            <span className="text-[10px] font-normal text-slate-500">
                               / {line.target_rate} t/h
                             </span>
                           </span>
                         </div>
-                        <div className="bg-slate-900/40 p-2 rounded border border-slate-800/80">
-                          <span className="text-slate-400 block text-[10px]">Eficiência OEE</span>
-                          <span className="font-bold text-emerald-400 text-sm">
+                        <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                          <span className="text-slate-500 block text-[10px]">Eficiência OEE</span>
+                          <span className="font-bold text-emerald-600 text-sm">
                             {line.efficiency}%
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
                         <span>
-                          Operador: <strong className="text-slate-300">{line.operator}</strong>
+                          Operador: <strong className="text-slate-700">{line.operator}</strong>
                         </span>
                       </div>
 
                       {/* Ações no Cartão com Object-Level Authorization */}
-                      <div className="pt-2 border-t border-slate-900 flex items-center justify-between gap-2">
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                         <Can
                           permission="pcp.masterdata.edit"
                           mode="disable"
@@ -432,9 +441,9 @@ export default function Index() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenEdit(line)}
-                            className="w-full border-slate-700 bg-slate-900 text-slate-200 hover:text-white hover:bg-slate-800 text-xs h-7"
+                            className="w-full border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs h-7"
                           >
-                            <Settings className="w-3 h-3 mr-1 text-cyan-400" /> Ajustar Parâmetros
+                            <Settings className="w-3 h-3 mr-1 text-[#004C97]" /> Ajustar Parâmetros
                           </Button>
                         </Can>
 
@@ -442,7 +451,7 @@ export default function Index() {
                           variant="ghost"
                           size="sm"
                           asChild
-                          className="text-slate-400 hover:text-cyan-300 hover:bg-slate-900 text-xs h-7 px-2"
+                          className="text-slate-600 hover:text-[#004C97] hover:bg-slate-100 text-xs h-7 px-2"
                         >
                           <Link to={`/pcp/sequenciamento/programacao?line=${line.code}`}>
                             <Eye className="w-3 h-3 mr-1" /> Ver Plano
@@ -459,14 +468,14 @@ export default function Index() {
 
         {/* Coluna 3: Alertas e Monitoramento no Escopo */}
         <div className="space-y-4">
-          <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between">
+          <div className="bg-white border border-slate-200 p-3 rounded-lg flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Alertas do Seu Escopo
               </span>
             </div>
-            <Badge className="bg-amber-950 text-amber-400 border-amber-700 text-[10px]">
+            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
               {scopedAlerts.length} total
             </Badge>
           </div>
@@ -482,35 +491,35 @@ export default function Index() {
                   key={alert.id}
                   className={`p-3 rounded-lg border transition-all text-xs ${
                     alert.acknowledged
-                      ? 'bg-slate-950/40 border-slate-800/80 opacity-60'
+                      ? 'bg-slate-50 border-slate-200 opacity-60'
                       : isCritical
-                        ? 'bg-rose-950/20 border-rose-800/60 text-rose-200'
+                        ? 'bg-rose-50 border-rose-200 text-rose-900'
                         : isWarning
-                          ? 'bg-amber-950/20 border-amber-800/60 text-amber-200'
+                          ? 'bg-amber-50 border-amber-200 text-amber-900'
                           : isSuccess
-                            ? 'bg-emerald-950/20 border-emerald-800/60 text-emerald-200'
-                            : 'bg-slate-950 border-slate-800 text-slate-200'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                            : 'bg-white border-slate-200 text-slate-800'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="font-bold text-white text-xs">{alert.title}</span>
+                    <span className="font-bold text-slate-900 text-xs">{alert.title}</span>
                     <Badge
                       variant="outline"
                       className={`text-[9px] px-1 py-0 uppercase ${
                         isCritical
-                          ? 'border-rose-600 text-rose-400'
+                          ? 'border-rose-400 text-rose-700 bg-rose-100'
                           : isWarning
-                            ? 'border-amber-600 text-amber-400'
-                            : 'border-slate-700 text-slate-400'
+                            ? 'border-amber-400 text-amber-700 bg-amber-100'
+                            : 'border-slate-300 text-slate-600 bg-slate-100'
                       }`}
                     >
                       {alert.category}
                     </Badge>
                   </div>
 
-                  <p className="text-[11px] text-slate-300 leading-snug mb-2">{alert.message}</p>
+                  <p className="text-[11px] text-slate-600 leading-snug mb-2">{alert.message}</p>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200">
                     <span className="text-[10px] text-slate-500">
                       {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
                       {new Date(alert.created || '').toLocaleTimeString('pt-BR', {
@@ -529,7 +538,7 @@ export default function Index() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAcknowledgeAlert(alert.id)}
-                          className="h-6 px-2 text-[10px] text-cyan-400 hover:text-cyan-300 hover:bg-slate-900"
+                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50"
                         >
                           <CheckCircle2 className="w-3 h-3 mr-1" /> Reconhecer
                         </Button>
@@ -545,13 +554,13 @@ export default function Index() {
 
       {/* Modal para Ajuste com Teste de Object-Level Authorization */}
       <Dialog open={!!editingLine} onOpenChange={(open) => !open && setEditingLine(null)}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-md">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2 text-base">
-              <Settings className="w-4 h-4 text-cyan-400" />
+            <DialogTitle className="text-slate-900 flex items-center gap-2 text-base font-bold">
+              <Settings className="w-4 h-4 text-[#004C97]" />
               Ajustar Parâmetros Industriais ({editingLine?.code})
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
+            <DialogDescription className="text-xs text-slate-500">
               Operação protegida por Object-Level Authorization no backend. O sistema validará se
               seu perfil e escopo permitem a gravação.
             </DialogDescription>
@@ -559,21 +568,23 @@ export default function Index() {
 
           <div className="space-y-4 py-2 text-xs">
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Meta de Produção (t/h)</Label>
+              <Label className="text-slate-700 text-xs font-semibold">Meta de Produção (t/h)</Label>
               <Input
                 type="number"
                 value={editRate}
                 onChange={(e) => setEditRate(Number(e.target.value))}
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-white border-slate-300 text-slate-900"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Ordem de Produção Ativa</Label>
+              <Label className="text-slate-700 text-xs font-semibold">
+                Ordem de Produção Ativa
+              </Label>
               <Input
                 value={editActiveOrder}
                 onChange={(e) => setEditActiveOrder(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-white border-slate-300 text-slate-900"
               />
             </div>
           </div>
@@ -583,7 +594,7 @@ export default function Index() {
               variant="outline"
               size="sm"
               onClick={() => setEditingLine(null)}
-              className="border-slate-700 bg-slate-900 text-slate-300 hover:text-white"
+              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             >
               Cancelar
             </Button>
@@ -591,7 +602,7 @@ export default function Index() {
               size="sm"
               onClick={handleSaveLine}
               disabled={savingEdit}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold"
             >
               {savingEdit ? 'Validando no Backend...' : 'Salvar Alterações'}
             </Button>

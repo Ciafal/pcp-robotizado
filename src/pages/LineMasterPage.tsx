@@ -125,18 +125,24 @@ export default function LineMasterPage() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Header da Página em Fundo Preto + Destaque Pantone 2945 (#004C97) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      {/* 1. Header da Página em Fundo Claro Corporativo CIAFAL */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white p-4 rounded-xl shadow-sm">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-[#004C97] rounded-md text-white">
               <Building2 className="w-5 h-5" />
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Gestão de Linhas & Fichas Mestre (Prompt 03.1)
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Gestão de Linhas & Fichas Mestre
             </h1>
+            <Badge
+              variant="outline"
+              className="text-xs border-blue-200 text-[#004C97] bg-blue-50 font-bold"
+            >
+              CIAFAL &bull; Homologado
+            </Badge>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Arquitetura central de recursos industriais, hierarquia organizacional, sequenciamento
             de processo, matriz de aprovação e governança SAP.
           </p>
@@ -146,9 +152,9 @@ export default function LineMasterPage() {
           <Button
             size="sm"
             onClick={() => setIsSapCatalogModalOpen(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-800 text-xs font-semibold h-8 gap-1.5"
+            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold h-8 gap-1.5"
           >
-            <Database className="w-3.5 h-3.5 text-cyan-400" />
+            <Database className="w-3.5 h-3.5 text-[#004C97]" />
             Catálogo SAP ({sapCatalog.length})
           </Button>
 
@@ -156,7 +162,7 @@ export default function LineMasterPage() {
             <Button
               size="sm"
               onClick={() => setIsAddLineModalOpen(true)}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-lg shadow-blue-950"
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" /> + Adicionar Linha
             </Button>
@@ -167,7 +173,7 @@ export default function LineMasterPage() {
       {/* 2. Se houver linha selecionada: Modo Detalhe 360 / Senão: Grid Principal de Linhas */}
       {selectedLineOverview && selectedLineId ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+          <div className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm">
             <Button
               variant="ghost"
               size="sm"
@@ -175,13 +181,13 @@ export default function LineMasterPage() {
                 setSelectedLineId(null)
                 setSelectedLineOverview(null)
               }}
-              className="text-cyan-300 hover:text-white hover:bg-slate-900 text-xs font-semibold h-7"
+              className="text-[#004C97] hover:bg-blue-50 text-xs font-semibold h-7"
             >
               &larr; Voltar para Todas as Linhas Cadastradas
             </Button>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-slate-600 font-mono">
               Visualizando Linha:{' '}
-              <strong className="text-white">{selectedLineOverview.line.code}</strong>
+              <strong className="text-slate-900 font-bold">{selectedLineOverview.line.code}</strong>
             </span>
           </div>
 
@@ -198,21 +204,21 @@ export default function LineMasterPage() {
       ) : (
         <div className="space-y-5">
           {/* Barra de Filtros & Métricas Rápidas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
             <div className="relative md:col-span-2">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <Input
                 placeholder="Filtrar por código, nome da linha ou processo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-slate-900 border-slate-700 text-xs text-white h-8"
+                className="pl-9 bg-slate-50 border-slate-300 text-xs text-slate-900 h-8 placeholder:text-slate-400"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded text-xs text-white px-2 h-8"
+              className="bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 px-2 h-8 font-medium focus:outline-none focus:ring-1 focus:ring-[#004C97]"
             >
               <option value="ALL">Todos os Status</option>
               <option value="ACTIVE">ACTIVE (Ativas)</option>
@@ -220,26 +226,36 @@ export default function LineMasterPage() {
               <option value="MAINTENANCE">MAINTENANCE (Manutenção)</option>
             </select>
 
-            <div className="flex items-center justify-end text-xs text-slate-400 font-mono">
-              Total: <strong className="text-cyan-300 ml-1">{filteredLines.length} Linhas</strong>
+            <div className="flex items-center justify-end text-xs text-slate-500 font-mono">
+              Total: <strong className="text-[#004C97] ml-1">{filteredLines.length} Linhas</strong>
             </div>
           </div>
 
           {/* Cards das Linhas Cadastradas (Regra 3) */}
           {loading ? (
-            <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
-              <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
+            <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-2 bg-white rounded-xl border border-slate-200">
+              <RefreshCw className="w-6 h-6 animate-spin text-[#004C97]" />
               <span>Carregando cadastro de linhas...</span>
             </div>
           ) : filteredLines.length === 0 ? (
-            <div className="p-12 text-center text-slate-500 bg-slate-950 rounded-xl border border-slate-800">
-              <Building2 className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-400">
-                Nenhuma linha produtiva encontrada.
+            <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2">
+              <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-800">
+                Nenhuma linha produtiva cadastrada.
               </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Clique no botão destacado "+ Adicionar Linha" para iniciar o cadastro.
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Clique no botão "+ Adicionar Linha" para iniciar o cadastro da primeira linha
+                industrial.
               </p>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddLineModalOpen(true)}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold"
+                >
+                  + Adicionar Linha
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -250,26 +266,26 @@ export default function LineMasterPage() {
                   <Card
                     key={l.id}
                     onClick={() => loadLineOverview(l.id)}
-                    className="bg-slate-950 border-slate-800 hover:border-[#004C97] text-slate-100 transition-all cursor-pointer shadow-lg hover:shadow-blue-950/40 group relative overflow-hidden"
+                    className="bg-white border-slate-200 hover:border-[#004C97] text-slate-900 transition-all cursor-pointer shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Barra de destaque no topo em Pantone 2945 */}
-                    <div className="h-1 bg-gradient-to-r from-[#004C97] to-cyan-500 w-full" />
+                    <div className="h-1.5 bg-[#004C97] w-full" />
 
                     <CardHeader className="p-4 pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="font-mono font-black text-xl text-white group-hover:text-cyan-300 transition-colors">
+                          <span className="font-mono font-black text-xl text-slate-900 group-hover:text-[#004C97] transition-colors">
                             {l.code}
                           </span>
-                          <span className="text-xs text-slate-400 block line-clamp-1">
+                          <span className="text-xs text-slate-500 block line-clamp-1">
                             {l.name}
                           </span>
                         </div>
                         <Badge
                           className={`text-[10px] font-bold ${
                             l.status === 'ACTIVE'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
-                              : 'bg-amber-950 text-amber-300 border-amber-700'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}
                         >
                           {l.status}
@@ -278,17 +294,17 @@ export default function LineMasterPage() {
                     </CardHeader>
 
                     <CardContent className="p-4 pt-1 space-y-3 text-xs">
-                      <p className="text-slate-400 text-[11px] line-clamp-2 min-h-[32px]">
+                      <p className="text-slate-600 text-[11px] line-clamp-2 min-h-[32px]">
                         {l.description ||
                           'Recurso industrial dedicado para conformação e laminação.'}
                       </p>
 
-                      <div className="grid grid-cols-2 gap-2 p-2 bg-slate-900/60 rounded border border-slate-800/80 font-mono text-[11px]">
+                      <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border border-slate-200 font-mono text-[11px]">
                         <div>
                           <span className="text-slate-500 block text-[9px] uppercase font-bold">
                             Processo
                           </span>
-                          <span className="text-white truncate block">
+                          <span className="text-slate-900 font-medium truncate block">
                             {l.process || 'Conformação'}
                           </span>
                         </div>
@@ -296,28 +312,32 @@ export default function LineMasterPage() {
                           <span className="text-slate-500 block text-[9px] uppercase font-bold">
                             Centro SAP
                           </span>
-                          <span className="text-cyan-300">{l.sap_plant_code || '1000'}</span>
+                          <span className="text-[#004C97] font-bold">
+                            {l.sap_plant_code || '1000'}
+                          </span>
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[9px] uppercase font-bold">
                             Cadência Nominal
                           </span>
-                          <span className="text-white font-bold">{l.current_rate || 12} t/h</span>
+                          <span className="text-slate-900 font-bold">
+                            {l.current_rate || 12} t/h
+                          </span>
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[9px] uppercase font-bold">
                             Eficiência
                           </span>
-                          <span className="text-emerald-400 font-bold">{l.efficiency || 90}%</span>
+                          <span className="text-emerald-600 font-bold">{l.efficiency || 90}%</span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-1 text-[11px]">
-                        <span className="text-slate-400 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
                           Ficha Mestre Ativa
                         </span>
-                        <span className="text-cyan-400 font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                        <span className="text-[#004C97] font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
                           Abrir Gestão <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       </div>

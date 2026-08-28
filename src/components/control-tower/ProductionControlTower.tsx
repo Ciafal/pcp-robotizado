@@ -65,6 +65,8 @@ import { ProductionFlow } from '@/components/control-tower/ProductionFlow'
 import { EventTimeline } from '@/components/control-tower/EventTimeline'
 import { ShopFloorView } from '@/components/control-tower/ShopFloorView'
 import { ConsolidatedIndicators } from '@/components/control-tower/ConsolidatedIndicators'
+import { TabularScheduleView } from '@/components/schedule-tabular/TabularScheduleView'
+import { LineStockProjection } from '@/components/line-projection/LineStockProjection'
 
 // Modais & Drawers
 import { ProcessDrawer } from '@/components/control-tower/ProcessDrawer'
@@ -101,7 +103,7 @@ const PerspectiveSelector: React.FC = () => {
           Perspectiva Operacional:
         </span>
 
-        <div className="inline-flex bg-slate-900 p-1 rounded-lg border border-slate-800 gap-1">
+        <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200 gap-1">
           {/* Geral */}
           <button
             type="button"
@@ -109,7 +111,7 @@ const PerspectiveSelector: React.FC = () => {
             className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
               perspective === 'GERAL'
                 ? 'bg-[#004C97] text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-200'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
@@ -123,7 +125,7 @@ const PerspectiveSelector: React.FC = () => {
             className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
               perspective === 'PROGRAMADOR'
                 ? 'bg-[#004C97] text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-200'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -137,7 +139,7 @@ const PerspectiveSelector: React.FC = () => {
             className={`px-3 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
               perspective === 'CHAO_FABRICA'
                 ? 'bg-[#004C97] text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-600 hover:text-slate-950 hover:bg-slate-200'
             }`}
           >
             <HardHat className="w-3.5 h-3.5" />
@@ -147,19 +149,19 @@ const PerspectiveSelector: React.FC = () => {
       </div>
 
       {/* Scope helper badge */}
-      <div className="text-[11px] text-slate-400 hidden md:block">
+      <div className="text-[11px] text-slate-500 hidden md:block">
         {perspective === 'GERAL' && (
-          <span className="text-slate-400">
+          <span>
             Modo Consulta: Indicadores executivos, aderência, capacidade e gargalos. Sem edição.
           </span>
         )}
         {perspective === 'PROGRAMADOR' && (
-          <span className="text-cyan-300 font-mono">
-            Modo Completo: Gantt, Simulação D&D, Dependências, IA e Validação.
+          <span className="text-[#004C97] font-semibold">
+            Modo Completo: Grade Tabular, Gantt, Simulação D&D, Dependências e Validação.
           </span>
         )}
         {perspective === 'CHAO_FABRICA' && (
-          <span className="text-amber-300 font-mono">
+          <span className="text-amber-700 font-semibold">
             Modo Simplificado: &quot;O que produzir agora? O que vem depois? Quanto falta?&quot;
           </span>
         )}
@@ -176,14 +178,14 @@ const allTabs: {
   label: string
   icon: React.ComponentType<{ className?: string }>
 }[] = [
-  { id: 'OVERVIEW', label: 'Visão Geral', icon: LayoutDashboard },
-  { id: 'MAP', label: 'Mapa', icon: Network },
+  { id: 'OVERVIEW', label: 'Tabela Operacional', icon: LayoutDashboard },
   { id: 'GANTT', label: 'Gantt', icon: CalendarDays },
+  { id: 'MAP', label: 'Mapa Produtivo', icon: Network },
   { id: 'KANBAN', label: 'Kanban', icon: KanbanSquare },
   { id: 'CAPACITY', label: 'Capacidade', icon: BarChart3 },
   { id: 'HEATMAP', label: 'Heatmap', icon: Flame },
   { id: 'BOTTLENECKS', label: 'Gargalos/Buffers', icon: AlertOctagon },
-  { id: 'FLOW', label: 'Fluxo', icon: GitFork },
+  { id: 'FLOW', label: 'Fluxo & Projeção', icon: GitFork },
   { id: 'TIMELINE', label: 'Timeline', icon: Clock },
   { id: 'SHOP_FLOOR', label: 'Chão de Fábrica', icon: HardHat },
   { id: 'INDICATORS', label: 'Indicadores', icon: LineChart },
@@ -193,7 +195,7 @@ const VisualizationSelector: React.FC = () => {
   const { activeTab, setActiveTab, bottlenecks, orders } = useControlTower()
 
   return (
-    <div className="bg-slate-950 px-4 py-2 border-b border-slate-800 overflow-x-auto no-scrollbar">
+    <div className="bg-white px-4 py-2 border-b border-slate-200 overflow-x-auto no-scrollbar shadow-xs">
       <div className="flex items-center gap-1.5 min-w-max">
         {allTabs.map((tab) => {
           const isActive = activeTab === tab.id
@@ -206,12 +208,12 @@ const VisualizationSelector: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 isActive
-                  ? 'bg-[#004C97] text-white border border-blue-400/40 shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent'
+                  ? 'bg-[#004C97] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
               }`}
             >
               <IconComponent
-                className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`}
+                className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-500'}`}
               />
               <span>{tab.label}</span>
 
@@ -222,7 +224,7 @@ const VisualizationSelector: React.FC = () => {
               )}
 
               {tab.id === 'KANBAN' && (
-                <span className="bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                   {orders.length}
                 </span>
               )}
@@ -252,7 +254,7 @@ const ControlTowerInner: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 selection:bg-[#004C97] selection:text-white">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-[#004C97] selection:text-white">
       {/* Cabeçalho Oficial da Torre de Controle */}
       <ControlTowerHeader isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} />
 
@@ -266,15 +268,25 @@ const ControlTowerInner: React.FC = () => {
       <GlobalFilters />
 
       {/* Área Central de Visualização Ativa */}
-      <main className="flex-1 overflow-auto bg-slate-950">
-        {activeTab === 'OVERVIEW' && <ProductionOverview />}
+      <main className="flex-1 overflow-auto bg-slate-50">
+        {activeTab === 'OVERVIEW' && (
+          <div className="space-y-6 p-4">
+            <TabularScheduleView lineCode="ACAB_L2" />
+            <LineStockProjection lineCode="ACAB_L2" lineName="Acabamento Linha 2" />
+          </div>
+        )}
         {activeTab === 'MAP' && <IntegrationMap />}
         {activeTab === 'GANTT' && <ProductionGantt />}
         {activeTab === 'KANBAN' && <ProductionKanban />}
         {activeTab === 'CAPACITY' && <CapacityLoadChart />}
         {activeTab === 'HEATMAP' && <CapacityHeatmap />}
         {activeTab === 'BOTTLENECKS' && <BottleneckBufferBoard />}
-        {activeTab === 'FLOW' && <ProductionFlow />}
+        {activeTab === 'FLOW' && (
+          <div className="space-y-6 p-4">
+            <ProductionFlow />
+            <LineStockProjection lineCode="END_L1" lineName="Endireitamento Linha 1" />
+          </div>
+        )}
         {activeTab === 'TIMELINE' && <EventTimeline />}
         {activeTab === 'SHOP_FLOOR' && <ShopFloorView />}
         {activeTab === 'INDICATORS' && <ConsolidatedIndicators />}

@@ -347,36 +347,36 @@ export const EngineTestSuiteModal: React.FC<EngineTestSuiteModalProps> = ({ isOp
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-white flex items-center gap-2 text-base font-bold">
-              <ShieldCheck className="w-5 h-5 text-cyan-400" />
-              Suíte de Homologação Formal Prompt 05 (18 Casos de Teste)
+            <DialogTitle className="text-slate-900 flex items-center gap-2 text-base font-bold">
+              <ShieldCheck className="w-5 h-5 text-[#004C97]" />
+              Suíte de Homologação Formal CIAFAL (18 Casos de Teste)
             </DialogTitle>
-            <Badge className="bg-blue-950 text-cyan-300 border-blue-700 font-mono text-xs">
-              CP-SAT & Simulador QA
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 font-mono text-xs font-bold">
+              CP-SAT, Estoques & Projeção QA
             </Badge>
           </div>
-          <DialogDescription className="text-xs text-slate-400">
-            Validação automatizada das Hard Constraints, Soft Constraints, Simulador, Governança
-            Humana e RBAC.
+          <DialogDescription className="text-xs text-slate-500">
+            Validação automatizada das Hard Constraints, Soft Constraints, Gestão de Estoques SAP,
+            Projeção por Linha, Governança e RBAC.
           </DialogDescription>
         </DialogHeader>
 
         {/* Painel de Sumário */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-900/60 p-3 rounded-lg border border-slate-800 text-center font-mono text-xs">
+        <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-center font-mono text-xs">
           <div>
-            <span className="text-[10px] text-slate-400 block">Total de Testes</span>
-            <strong className="text-white text-sm">{testCases.length}</strong>
+            <span className="text-[10px] text-slate-500 block">Total de Testes</span>
+            <strong className="text-slate-900 text-sm">{testCases.length}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-emerald-400 block">Aprovados (PASS)</span>
-            <strong className="text-emerald-400 text-sm">{passCount}</strong>
+            <span className="text-[10px] text-emerald-600 block font-bold">Aprovados (PASS)</span>
+            <strong className="text-emerald-600 text-sm">{passCount}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-rose-400 block">Reprovados (FAIL)</span>
-            <strong className={failCount > 0 ? 'text-rose-400 text-sm' : 'text-slate-500 text-sm'}>
+            <span className="text-[10px] text-rose-600 block font-bold">Reprovados (FAIL)</span>
+            <strong className={failCount > 0 ? 'text-rose-600 text-sm' : 'text-slate-400 text-sm'}>
               {failCount}
             </strong>
           </div>
@@ -446,12 +446,12 @@ export const EngineTestSuiteModal: React.FC<EngineTestSuiteModalProps> = ({ isOp
           ))}
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-between pt-3 border-t border-slate-800">
+        <DialogFooter className="gap-2 sm:justify-between pt-3 border-t border-slate-200">
           <Button
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="border-slate-800 bg-slate-900 text-slate-300 text-xs"
+            className="border-slate-300 text-slate-700 text-xs hover:bg-slate-100"
           >
             Fechar
           </Button>

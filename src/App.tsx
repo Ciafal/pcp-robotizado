@@ -42,6 +42,7 @@ const ScenariosPage = lazy(() =>
   import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
 )
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
+const InventoryManagementPage = lazy(() => import('@/pages/InventoryManagementPage'))
 
 // Planejamento Mestre
 const MasterPlanningLayout = lazy(() =>
@@ -87,6 +88,20 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp-robotizado/cockpit"
                   element={<Navigate to="/pcp/cockpit" replace />}
+                />
+
+                {/* Gestão de Estoques SAP / PCP */}
+                <Route
+                  path="/pcp/estoques"
+                  element={
+                    <PermissionGuard permission="pcp.inventory.view">
+                      <InventoryManagementPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp-robotizado/estoques"
+                  element={<Navigate to="/pcp/estoques" replace />}
                 />
 
                 {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
