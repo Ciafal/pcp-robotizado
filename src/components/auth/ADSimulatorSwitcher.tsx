@@ -1,8 +1,17 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { UserCheck, RefreshCw, Shield, ChevronDown, CheckSquare, ShieldAlert } from 'lucide-react'
+import {
+  UserCheck,
+  RefreshCw,
+  Shield,
+  ChevronDown,
+  CheckSquare,
+  ShieldAlert,
+  Compass,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SecurityTestSuiteModal } from './SecurityTestSuiteModal'
+import { RouteIntegritySuiteModal } from './RouteIntegritySuiteModal'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +78,7 @@ export const ADSimulatorSwitcher: React.FC = () => {
   const { user, switchUserSimulated, isLoading } = useAuth()
   const [isSwitching, setIsSwitching] = useState(false)
   const [isTestModalOpen, setIsTestModalOpen] = useState(false)
+  const [isRouteModalOpen, setIsRouteModalOpen] = useState(false)
 
   const handleSelectUser = async (u: MockUser) => {
     setIsSwitching(true)
@@ -84,7 +94,23 @@ export const ADSimulatorSwitcher: React.FC = () => {
   return (
     <>
       <SecurityTestSuiteModal isOpen={isTestModalOpen} onClose={() => setIsTestModalOpen(false)} />
+      <RouteIntegritySuiteModal
+        isOpen={isRouteModalOpen}
+        onClose={() => setIsRouteModalOpen(false)}
+      />
       <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs shadow-sm">
+        {/* Botão para abrir o Route Integrity Suite */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsRouteModalOpen(true)}
+          className="border-cyan-800/80 bg-cyan-950/40 text-cyan-300 hover:text-white hover:bg-cyan-900/60 text-xs h-8 gap-1.5 shadow-sm"
+          title="Executar a Suite de Integridade de Rotas do PCP (ROUTE INTEGRITY SUITE)"
+        >
+          <Compass className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden md:inline">Route Integrity Suite</span>
+        </Button>
+
         {/* Botão para abrir os 30 Casos de Teste de Conformidade e Segurança */}
         <Button
           variant="outline"

@@ -522,11 +522,7 @@ export const OperationalPage: React.FC = () => {
       </Card>
 
       {/* Drawer de Detalhe da Ordem */}
-      <OrderDrawer
-        order={selectedOrder}
-        isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-      />
+      <OrderDrawer />
     </div>
   )
 }

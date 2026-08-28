@@ -17,10 +17,10 @@ const NotFound = () => {
           Módulo ou Recurso não localizado no HUB CIAFAL
         </p>
         <a
-          href="/pcp-robotizado"
+          href="/pcp/sequenciamento"
           className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-[#004C97] hover:bg-[#003B75] text-white shadow transition-colors"
         >
-          Retornar ao Cockpit PCP
+          Retornar à Central de Sequenciamento
         </a>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { PCPNavbar, PCPSidebar } from './layout/PCPNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export default function Layout() {
+export const Layout: React.FC = () => {
   const { isLoading } = useAuth()
 
   if (isLoading) {
@@ -56,3 +56,4 @@ export default function Layout() {
     </div>
   )
 }
+export default Layout

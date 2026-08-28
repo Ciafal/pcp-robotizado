@@ -73,7 +73,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
           <div className="flex gap-3 justify-center">
             <Button
               variant="outline"
-              onClick={() => navigate('/pcp-robotizado')}
+              onClick={() => navigate('/pcp/sequenciamento')}
               className="gap-2 bg-slate-800 border-slate-700 text-slate-200 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" /> Voltar ao Cockpit

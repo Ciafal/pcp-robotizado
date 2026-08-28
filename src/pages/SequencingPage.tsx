@@ -232,32 +232,15 @@ export const SequencingPage: React.FC = () => {
       </div>
 
       {/* Drawers e Modais */}
-      <OrderDrawer
-        order={selectedOrder}
-        isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-      />
-      <ProcessDrawer
-        process={selectedProcess}
-        isOpen={!!selectedProcess}
-        onClose={() => setSelectedProcess(null)}
-      />
+      <OrderDrawer />
+      <ProcessDrawer />
 
       {/* Modais de IA e Simulação */}
-      <AISequencingPanel isOpen={isAIPanelOpen} onClose={() => setIsAIPanelOpen(false)} />
-      <ScenarioSimulator
-        isOpen={isSimulatorModalOpen}
-        onClose={() => setIsSimulatorModalOpen(false)}
-      />
-      <ScenarioComparison
-        isOpen={isComparisonModalOpen}
-        onClose={() => setIsComparisonModalOpen(false)}
-      />
-      <AlertCenter isOpen={isAlertCenterOpen} onClose={() => setIsAlertCenterOpen(false)} />
-      <VersionComparisonModal
-        isOpen={isVersionModalOpen}
-        onClose={() => setIsVersionModalOpen(false)}
-      />
+      <AISequencingPanel />
+      <ScenarioSimulator />
+      <ScenarioComparison />
+      <AlertCenter />
+      <VersionComparisonModal />
     </div>
   )
 }

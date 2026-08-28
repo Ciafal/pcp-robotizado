@@ -207,7 +207,7 @@ export default function Index() {
               className="bg-cyan-600 hover:bg-cyan-500 text-white gap-1.5 shadow-sm text-xs font-semibold"
               asChild
             >
-              <Link to="/pcp-robotizado/programacoes">
+              <Link to="/pcp/sequenciamento/programacao">
                 <Plus className="w-3.5 h-3.5" /> Nova Programação
               </Link>
             </Button>
@@ -225,7 +225,7 @@ export default function Index() {
               className="border-slate-700 bg-slate-800/80 text-slate-200 hover:text-white hover:bg-slate-700 gap-1.5 text-xs font-semibold"
               asChild
             >
-              <Link to="/pcp-robotizado/programacoes">
+              <Link to="/pcp/sequenciamento/cenarios">
                 <Zap className="w-3.5 h-3.5 text-amber-400" /> Simular Cenário
               </Link>
             </Button>
@@ -281,17 +281,18 @@ export default function Index() {
         <Card className="bg-slate-950 border-slate-800 text-slate-100">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-[11px] text-slate-400 font-medium">
-              Taxa de Produção (t/h)
+              Taxa de Produção Global
             </CardDescription>
             <CardTitle className="text-2xl font-black text-white">
               {metrics.totalCurrentRate}{' '}
+              <span className="text-xs font-mono font-normal text-cyan-400">t/h</span>{' '}
               <span className="text-xs font-normal text-slate-400">
-                / {metrics.totalTargetRate} meta
+                (meta: {metrics.totalTargetRate} t/h)
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-[11px] text-slate-400">
-            Cadência operacional calculada
+            Taxa atual vs. Capacidade programada
           </CardContent>
         </Card>
 
@@ -443,7 +444,7 @@ export default function Index() {
                           asChild
                           className="text-slate-400 hover:text-cyan-300 hover:bg-slate-900 text-xs h-7 px-2"
                         >
-                          <Link to={`/pcp-robotizado/programacoes?line=${line.code}`}>
+                          <Link to={`/pcp/sequenciamento/programacao?line=${line.code}`}>
                             <Eye className="w-3 h-3 mr-1" /> Ver Plano
                           </Link>
                         </Button>

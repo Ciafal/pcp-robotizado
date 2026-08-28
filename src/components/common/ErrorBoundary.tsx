@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public handleGoHome = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
-    window.location.href = '/pcp-robotizado'
+    window.location.href = '/pcp/sequenciamento'
   }
 
   public render() {

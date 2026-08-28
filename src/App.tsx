@@ -1,156 +1,274 @@
-/* Main App Component - Handles routing (using react-router-dom), query client and other providers */
+import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from '@/components/ui/toaster'
-import { Toaster as Sonner } from '@/components/ui/sonner'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { Layout } from '@/components/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
-import Layout from './components/Layout'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 
-import Index from './pages/Index'
-import AccessAdminPage from './pages/AccessAdminPage'
-import AuditPage from './pages/AuditPage'
-import LineResponsiblesPage from './pages/LineResponsiblesPage'
-import SchedulesPage from './pages/SchedulesPage'
-import { ModulePreparationPage } from './pages/ModulePreparationPage'
-import LineMasterPage from './pages/LineMasterPage'
-import NotFound from './pages/NotFound'
-
-const App = () => (
-  <BrowserRouter>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route element={<Layout />}>
-            {/* Redirecionamento de raiz para /pcp-robotizado */}
-            <Route path="/" element={<Index />} />
-            <Route path="/pcp-robotizado" element={<Index />} />
-
-            {/* Programações e Sequenciamento */}
-            <Route
-              path="/pcp-robotizado/programacoes"
-              element={
-                <PermissionGuard permission="pcp.schedule.view">
-                  <SchedulesPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Administração de Perfis, Escopos e RBAC */}
-            <Route
-              path="/pcp-robotizado/admin/acessos"
-              element={
-                <PermissionGuard permission="pcp.admin.access">
-                  <AccessAdminPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Trilha de Auditoria de Segurança */}
-            <Route
-              path="/pcp-robotizado/auditoria"
-              element={
-                <PermissionGuard permission="pcp.audit.view">
-                  <AuditPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Gestão de Gestores de Linha & Delegações */}
-            <Route
-              path="/pcp-robotizado/linhas-responsaveis"
-              element={
-                <PermissionGuard permission="pcp.masterdata.view">
-                  <LineResponsiblesPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Módulos em Preparação Estrutural para os próximos Prompts */}
-            <Route
-              path="/pcp-robotizado/planejamento-mestre"
-              element={
-                <PermissionGuard permission="pcp.masterplan.view">
-                  <ModulePreparationPage
-                    title="Planejamento Mestre de Produção"
-                    subtitle="Visão agregada de horizonte de produção, carteira e restrições fabris."
-                    targetPrompt="Visão Geral do Planejamento Mestre"
-                    requiredPerm="pcp.masterplan.view"
-                    features={[
-                      'Horizonte de planejamento integrado por linha e centro',
-                      'Restrição por escopo operacional de unidade/planta',
-                      'Controle de publicação e simulações com Least Privilege',
-                    ]}
-                  />
-                </PermissionGuard>
-              }
-            />
-
-            <Route
-              path="/pcp-robotizado/ficha-mestre"
-              element={
-                <PermissionGuard permission="pcp.masterdata.view">
-                  <LineMasterPage />
-                </PermissionGuard>
-              }
-            />
-
-            {/* Rota oficial de Administração > Ficha Mestre */}
-            <Route
-              path="/pcp-robotizado/administracao/ficha-mestre"
-              element={
-                <PermissionGuard permission="pcp.masterdata.view">
-                  <LineMasterPage />
-                </PermissionGuard>
-              }
-            />
-
-            <Route
-              path="/pcp-robotizado/regras"
-              element={
-                <PermissionGuard permission="pcp.rules.view">
-                  <ModulePreparationPage
-                    title="Matriz Mestre de Regras & Rule Packs"
-                    subtitle="Repositório versionado de regras industriais, pesos de sequenciamento e restrições SAP."
-                    targetPrompt="PROMPT 04 — Rule Packs & Motor de Regras"
-                    requiredPerm="pcp.rules.view"
-                    features={[
-                      'Programador PCP pode visualizar regras (pcp.rules.view)',
-                      'Alteração de regras exige aprovação e permissão crítica (pcp.rules.edit / pcp.rules.approve)',
-                      'Histórico auditável de modificações e versionamento de regras',
-                    ]}
-                  />
-                </PermissionGuard>
-              }
-            />
-
-            <Route
-              path="/pcp-robotizado/aprovacoes"
-              element={
-                <PermissionGuard permission="pcp.approval.view">
-                  <ModulePreparationPage
-                    title="Central de Aprovações e Homologações"
-                    subtitle="Esteira de aprovação formal de programações em 2 fases (PCP e Gestor da Linha)."
-                    targetPrompt="Esteira de Aprovações em Duas Fases"
-                    requiredPerm="pcp.approval.view"
-                    features={[
-                      'Fase 1: Liberação técnica por Programador PCP (pcp.schedule.approve.pcp)',
-                      'Fase 2: Homologação operacional pelo Gestor Titular da Linha (pcp.schedule.approve.manager)',
-                      'Segregação de funções (SoD) nativa no modelo RBAC',
-                    ]}
-                  />
-                </PermissionGuard>
-              }
-            />
-          </Route>
-
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthProvider>
-    </TooltipProvider>
-  </BrowserRouter>
+// Loading Fallback visual discreto
+const ModuleFallback = () => (
+  <div className="p-12 flex flex-col items-center justify-center space-y-3 min-h-[300px]">
+    <div className="w-8 h-8 border-2 border-[#004C97] border-t-transparent rounded-full animate-spin" />
+    <p className="text-xs font-mono text-slate-400">Carregando módulo...</p>
+  </div>
 )
 
+// Lazy load dos componentes e layouts
+const Index = lazy(() => import('@/pages/Index'))
+const CentralSequenciamentoLayout = lazy(() =>
+  import('@/pages/CentralSequenciamentoLayout').then((m) => ({
+    default: m.CentralSequenciamentoLayout,
+  })),
+)
+const CentralSequenciamentoLandingPage = lazy(
+  () => import('@/pages/CentralSequenciamentoLandingPage'),
+)
+const ControlTowerPage = lazy(() => import('@/pages/ControlTowerPage'))
+const OperationalPage = lazy(() => import('@/pages/OperationalPage'))
+const SequencingPage = lazy(() => import('@/pages/SequencingPage'))
+const EfficiencyPage = lazy(() => import('@/pages/EfficiencyPage'))
+const EfficiencyProductsSubpage = lazy(() => import('@/pages/EfficiencyProductsSubpage'))
+const EfficiencyLinesSubpage = lazy(() => import('@/pages/EfficiencyLinesSubpage'))
+const EfficiencyPlantsSubpage = lazy(() => import('@/pages/EfficiencyPlantsSubpage'))
+const EfficiencyAssertivenessSubpage = lazy(() => import('@/pages/EfficiencyAssertivenessSubpage'))
+const BacklogPage = lazy(() => import('@/pages/BacklogPage'))
+const ScenariosPage = lazy(() => import('@/pages/ScenariosPage'))
+const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
+
+// Planejamento Mestre
+const MasterPlanningLayout = lazy(() =>
+  import('@/pages/MasterPlanningLayout').then((m) => ({ default: m.MasterPlanningLayout })),
+)
+const MasterPlanningSubpage = lazy(() => import('@/pages/MasterPlanningSubpage'))
+
+// Módulos Auxiliares / Legado
+const LineMasterPage = lazy(() => import('@/pages/LineMasterPage'))
+const LineResponsiblesPage = lazy(() => import('@/pages/LineResponsiblesPage'))
+const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
+const AuditPage = lazy(() => import('@/pages/AuditPage'))
+const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
+const ModulePreparationPage = lazy(() => import('@/pages/ModulePreparationPage'))
+const NotFound = lazy(() => import('@/pages/NotFound'))
+
+export const App: React.FC = () => {
+  return (
+    <ErrorBoundary moduleName="Aplicação Principal">
+      <AuthProvider>
+        <BrowserRouter>
+          <Suspense fallback={<ModuleFallback />}>
+            <Routes>
+              <Route element={<Layout />}>
+                {/* 1. Cockpit Executivo & Landing Raiz */}
+                <Route path="/" element={<Index />} />
+                <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
+                <Route path="/pcp/cockpit" element={<Index />} />
+                <Route path="/pcp-robotizado" element={<Navigate to="/" replace />} />
+                <Route
+                  path="/pcp-robotizado/cockpit"
+                  element={<Navigate to="/pcp/cockpit" replace />}
+                />
+
+                {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
+<Route
+  path="/pcp/sequenciamento"
+  element={
+    <PermissionGuard permission="pcp.schedule.view">
+      <CentralSequenciamentoLayout />
+    </PermissionGuard>
+  }
+>
+  {/* Landing da Central */}
+  <Route index element={<CentralSequenciamentoLandingPage />} />
+  <Route path="torre-controle" element={<ControlTowerPage />} />
+  <Route path="operacional" element={<OperationalPage />} />
+  <Route
+    path="programacao"
+    element={
+      <PermissionGuard permission="pcp.schedule.edit">
+        <SequencingPage />
+      </PermissionGuard>
+    }
+  />
+
+  {/* Eficiência & Subrotas especializadas */}
+  <Route path="eficiencia" element={<EfficiencyPage />} />
+  <Route path="eficiencia/produtos" element={<EfficiencyProductsSubpage />} />
+  <Route path="eficiencia/linhas" element={<EfficiencyLinesSubpage />} />
+  <Route path="eficiencia/plantas" element={<EfficiencyPlantsSubpage />} />
+  <Route path="eficiencia/assertividade" element={<EfficiencyAssertivenessSubpage />} />
+
+  {/* Carteira CRM / WMS */}
+  <Route path="carteira" element={<BacklogPage />} />
+
+  {/* Cenários & Simulações */}
+  <Route
+    path="cenarios"
+    element={
+      <PermissionGuard permission="pcp.schedule.simulate">
+        <ScenariosPage />
+      </PermissionGuard>
+    }
+  />
+
+  {/* Histórico & Trilha de Versões */}
+  <Route path="historico" element={<HistoryPage />} />
+</Route>
+
+{/* 3. Planejamento Mestre (S&OP / PMP) */}
+<Route
+  path="/pcp/planejamento"
+  element={
+    <PermissionGuard permission="pcp.masterdata.view">
+      <MasterPlanningLayout />
+    </PermissionGuard>
+  }
+>
+  <Route
+    index
+    element={
+      <MasterPlanningSubpage
+        initialHorizon="mensal"
+        title="Planejamento Mestre de Produção (S&OP)"
+        subtitle="Visão estratégica de médio e longo prazo, balanceamento e conversão para o sequenciamento fino."
+      />
+    }
+  />
+  <Route
+    path="anual"
+    element={
+      <MasterPlanningSubpage
+        initialHorizon="anual"
+        title="Plano Mestre Anual"
+        subtitle="Capacidade instalada anual, demanda projetada e budget fabril por planta."
+      />
+    }
+  />
+  <Route
+    path="mensal"
+    element={
+      <MasterPlanningSubpage
+        initialHorizon="mensal"
+        title="Plano Mestre Mensal"
+        subtitle="Orçamentação operacional e metas de entrega mensal por linha de produção."
+      />
+    }
+  />
+  <Route
+    path="semanal"
+    element={
+      <MasterPlanningSubpage
+        initialHorizon="semanal"
+        title="Plano Mestre Semanal"
+        subtitle="Grade tática semanal conectada diretamente à fila de ordens do sequenciamento."
+      />
+    }
+  />
+</Route>
+
+{/* 4. Módulos Auxiliares & Governança */}
+<Route
+  path="/pcp/ficha-mestre"
+  element={
+    <PermissionGuard permission="pcp.masterdata.view">
+      <LineMasterPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/pcp/regras"
+  element={
+    <PermissionGuard permission="pcp.rules.manage">
+      <ModulePreparationPage
+        moduleKey="regras"
+        moduleName="Motor de Regras & Setup"
+        phaseTarget="Fase 2"
+      />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/pcp/aprovacoes"
+  element={
+    <PermissionGuard permission="pcp.schedule.approve">
+      <SchedulesPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/pcp/linhas-responsaveis"
+  element={
+    <PermissionGuard permission="pcp.masterdata.edit">
+      <LineResponsiblesPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/pcp/auditoria"
+  element={
+    <PermissionGuard permission="pcp.audit.view">
+      <AuditPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/pcp/admin/acessos"
+  element={
+    <PermissionGuard permission="pcp.admin.manage">
+      <AccessAdminPage />
+    </PermissionGuard>
+  }
+/>
+
+                {/* 5. Aliases e Redirecionamentos de Compatibilidade */}
+                <Route
+                  path="/pcp-robotizado/programacoes"
+                  element={<Navigate to="/pcp/sequenciamento/programacao" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/torre-controle"
+                  element={<Navigate to="/pcp/sequenciamento/torre-controle" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/planejamento-mestre"
+                  element={<Navigate to="/pcp/planejamento" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/ficha-mestre"
+                  element={<Navigate to="/pcp/ficha-mestre" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/administracao/ficha-mestre"
+                  element={<Navigate to="/pcp/ficha-mestre" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/regras"
+                  element={<Navigate to="/pcp/regras" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/aprovacoes"
+                  element={<Navigate to="/pcp/aprovacoes" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/linhas-responsaveis"
+                  element={<Navigate to="/pcp/linhas-responsaveis" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/auditoria"
+                  element={<Navigate to="/pcp/auditoria" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/admin/acessos"
+                  element={<Navigate to="/pcp/admin/acessos" replace />}
+                />
+              </Route>
+
+              {/* Rota 404 controlada */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
+  )
+}
 export default App

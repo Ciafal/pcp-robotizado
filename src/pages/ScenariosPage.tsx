@@ -240,15 +240,9 @@ export const ScenariosPage: React.FC = () => {
       </div>
 
       {/* Modais de Simulação & Comparação */}
-      <ScenarioSimulator
-        isOpen={isSimulatorModalOpen}
-        onClose={() => setIsSimulatorModalOpen(false)}
-      />
-      <ScenarioComparison
-        isOpen={isComparisonModalOpen}
-        onClose={() => setIsComparisonModalOpen(false)}
-      />
-      <AISequencingPanel isOpen={isAIPanelOpen} onClose={() => setIsAIPanelOpen(false)} />
+      <ScenarioSimulator />
+      <ScenarioComparison />
+      <AISequencingPanel />
     </div>
   )
 }

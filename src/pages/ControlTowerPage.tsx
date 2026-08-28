@@ -753,16 +753,8 @@ export const ControlTowerPage: React.FC = () => {
       </Dialog>
 
       {/* Drawers Laterais */}
-      <OrderDrawer
-        order={selectedOrder}
-        isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-      />
-      <ProcessDrawer
-        process={selectedProcess}
-        isOpen={!!selectedProcess}
-        onClose={() => setSelectedProcess(null)}
-      />
+      <OrderDrawer />
+      <ProcessDrawer />
     </div>
   )
 }
