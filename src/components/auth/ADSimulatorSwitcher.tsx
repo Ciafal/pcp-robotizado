@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { UserCheck, RefreshCw, Shield, ChevronDown, CheckSquare } from 'lucide-react'
+import { UserCheck, RefreshCw, Shield, ChevronDown, CheckSquare, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SecurityTestSuiteModal } from './SecurityTestSuiteModal'
 import {
@@ -85,18 +85,17 @@ export const ADSimulatorSwitcher: React.FC = () => {
     <>
       <SecurityTestSuiteModal isOpen={isTestModalOpen} onClose={() => setIsTestModalOpen(false)} />
       <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs shadow-sm">
-        {/* Botão para abrir os 10 Casos de Teste de Segurança */}
+        {/* Botão para abrir os 30 Casos de Teste de Conformidade e Segurança */}
         <Button
-          size="sm"
           variant="outline"
+          size="sm"
           onClick={() => setIsTestModalOpen(true)}
-          className="h-7 px-2 border-blue-600 bg-[#004C97]/30 text-blue-200 hover:bg-[#004C97] hover:text-white text-xs gap-1 font-semibold"
-          title="Executar os 10 Casos de Teste de Segurança (Prompt 02)"
+          className="border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 text-xs h-8 gap-1.5 shadow-sm"
+          title="Executar os 30 Casos de Teste Automatizados (RBAC, Ficha Mestre e Central)"
         >
-          <CheckSquare className="w-3.5 h-3.5 text-blue-300" />
-          <span className="hidden md:inline">10 Testes de Segurança</span>
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden md:inline">30 Testes de Conformidade</span>
         </Button>
-
         <div className="h-4 w-px bg-slate-700 hidden sm:block" />
 
         <div className="flex items-center gap-1.5 text-amber-400 font-medium">

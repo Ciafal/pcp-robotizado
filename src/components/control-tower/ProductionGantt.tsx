@@ -1,26 +1,12 @@
 import React, { useState } from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { ProductOrder } from '@/types/control-tower'
-import {
-  CalendarDays,
-  Clock,
-  Zap,
-  Sliders,
-  AlertTriangle,
-  Sparkles,
-  GitCommit,
-  CheckCircle2,
-  HelpCircle,
-  TrendingUp,
-  RotateCcw,
-} from 'lucide-react'
+import { CalendarDays, Zap, GitCommit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export const ProductionGantt: React.FC = () => {
   const {
-    orders,
     filteredOrders,
     setSelectedOrder,
     simulateOrderMove,
@@ -30,12 +16,10 @@ export const ProductionGantt: React.FC = () => {
     cancelSimulation,
     applySimulationToScenario,
     sendScenarioForApproval,
-    setIsComparisonModalOpen,
   } = useControlTower()
 
   const [timeZoom, setTimeZoom] = useState<'1H' | '4H' | 'TURNO' | 'DIA'>('4H')
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null)
-  const [approvalNote, setApprovalNote] = useState<string>('')
 
   // Linhas do Gantt
   const lines = ['ENF_L1', 'L1', 'ACAB_L1', 'MPL2', 'L2', 'ACAB_L2', 'ENDIR', 'RETRAB']

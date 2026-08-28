@@ -1,6 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { GitFork, ArrowRight, Layers, TrendingDown, RefreshCw } from 'lucide-react'
+import { GitFork, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 export const ProductionFlow: React.FC = () => {

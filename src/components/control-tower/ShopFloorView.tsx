@@ -1,7 +1,7 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
 import { HardHat, AlertTriangle, CheckCircle2, Clock, Play, ArrowRight, Gauge } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
 export const ShopFloorView: React.FC = () => {

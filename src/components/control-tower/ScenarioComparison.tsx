@@ -1,6 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { Columns3, Sparkles, CheckCircle2, ShieldCheck, ArrowRight, Zap } from 'lucide-react'
+import { Columns3, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -10,14 +10,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 
 export const ScenarioComparison: React.FC = () => {
   const {
     isComparisonModalOpen,
     setIsComparisonModalOpen,
     scenarios,
-    activeScenarioId,
     setActiveScenarioId,
     sendScenarioForApproval,
   } = useControlTower()

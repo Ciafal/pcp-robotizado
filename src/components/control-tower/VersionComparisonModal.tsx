@@ -1,6 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { History, CheckCircle2, FileText, UserCheck, X } from 'lucide-react'
+import { History } from 'lucide-react'
 import {
   Dialog,
   DialogContent,

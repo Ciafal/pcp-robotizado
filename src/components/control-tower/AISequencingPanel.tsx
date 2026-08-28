@@ -1,14 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import {
-  Sparkles,
-  Zap,
-  ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
-  Cpu,
-} from 'lucide-react'
+import { Sparkles, Zap, Cpu } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -21,13 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 export const AISequencingPanel: React.FC = () => {
-  const {
-    isAIPanelOpen,
-    setIsAIPanelOpen,
-    setIsSimulatorModalOpen,
-    simulateOrderMove,
-    applySimulationToScenario,
-  } = useControlTower()
+  const { isAIPanelOpen, setIsAIPanelOpen, simulateOrderMove } = useControlTower()
 
   const handleSimulateAlternative = () => {
     simulateOrderMove('ord-104', 'L2', '18:00')

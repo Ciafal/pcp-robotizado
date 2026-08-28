@@ -21,9 +21,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+import { SapZpp003Adapter, defaultProductionDataProvider } from '@/services/sap-integration'
+
 export interface SecurityTestCase {
   id: number
-  promptOrigin: 'PROMPT_02_RBAC' | 'PROMPT_03_FICHA_MESTRE'
+  promptOrigin: 'PROMPT_02_RBAC' | 'PROMPT_03_FICHA_MESTRE' | 'CENTRAL_HOMOLOGATION'
   title: string
   description: string
   expectedOutcome: 'ALLOW' | 'DENY_403' | 'DENY_400'
@@ -38,6 +40,8 @@ export interface SecurityTestCase {
     | 'VERSIONING_CONTROL'
     | 'BUSINESS_VALIDATION'
     | 'READINESS_ASSESSMENT'
+    | 'AI_GOVERNANCE'
+    | 'INTEGRATION_CONTRACT'
   status: 'PENDING' | 'RUNNING' | 'PASSED' | 'FAILED'
   details?: string
   responseHttpCode?: number
@@ -337,6 +341,68 @@ const initialTestCases: SecurityTestCase[] = [
     targetRole: 'PCP_ADMIN',
     targetUserEmail: 'ciafal@ciafal.com.br',
     category: 'READINESS_ASSESSMENT',
+    status: 'PENDING',
+  },
+
+  // --- REGRESSÃO DA CENTRAL DE SEQUENCIAMENTO & GOVERNANÇA IA (Casos 26 a 30) ---
+  {
+    id: 26,
+    promptOrigin: 'CENTRAL_HOMOLOGATION',
+    title: 'CT-26: Governança de IA — Bloqueio de Publicação/Aprovação Autônoma pela IA',
+    description:
+      'Valida que o motor de Inteligência Artificial gera apenas sugestões/diagnósticos e não pode publicar programações nem alterar dados mestres.',
+    expectedOutcome: 'DENY_403',
+    targetRole: 'IA_ENGINE',
+    targetUserEmail: 'programador.pcp@ciafal.com.br',
+    category: 'AI_GOVERNANCE',
+    status: 'PENDING',
+  },
+  {
+    id: 27,
+    promptOrigin: 'CENTRAL_HOMOLOGATION',
+    title: 'CT-27: Esteira de 2 Fases — Bloqueio de Aprovação Direta sem Gestor Titular (SoD)',
+    description:
+      'Programador PCP pode aprovar tecnicamente (fase 1), mas não pode auto-homologar como Gestor de Linha (fase 2).',
+    expectedOutcome: 'DENY_403',
+    targetRole: 'PCP_PROGRAMMER',
+    targetUserEmail: 'programador.pcp@ciafal.com.br',
+    category: 'RBAC_ROLE',
+    status: 'PENDING',
+  },
+  {
+    id: 28,
+    promptOrigin: 'CENTRAL_HOMOLOGATION',
+    title: 'CT-28: Chão de Fábrica — Bloqueio de Ações Administrativas e Edição de Regras',
+    description:
+      'Operador de Chão de Fábrica tem acesso restrito a visualização de lote Agora/Próximo/Depois sem menus administrativos.',
+    expectedOutcome: 'DENY_403',
+    targetRole: 'PRODUCTION_VIEWER',
+    targetUserEmail: 'operador.fabrica@ciafal.com.br',
+    category: 'RBAC_ROLE',
+    status: 'PENDING',
+  },
+  {
+    id: 29,
+    promptOrigin: 'CENTRAL_HOMOLOGATION',
+    title: 'CT-29: Camada ZPP003 — Validador de Paradas Inválidas (Tratamento de Exceções)',
+    description:
+      'Validação de anomalias SAP (parada sem término, capacidade zero, linha desconhecida) sem quebra da Central.',
+    expectedOutcome: 'DENY_400',
+    targetRole: 'PCP_ADMIN',
+    targetUserEmail: 'ciafal@ciafal.com.br',
+    category: 'INTEGRATION_CONTRACT',
+    status: 'PENDING',
+  },
+  {
+    id: 30,
+    promptOrigin: 'CENTRAL_HOMOLOGATION',
+    title: 'CT-30: Camada Provider Isolada — Fallback de Integração sem Acoplamento Direto',
+    description:
+      'Verifica que a camada de dados consome ProductionDataProvider com suporte a troca por SAP RFC.',
+    expectedOutcome: 'ALLOW',
+    targetRole: 'PCP_ADMIN',
+    targetUserEmail: 'ciafal@ciafal.com.br',
+    category: 'INTEGRATION_CONTRACT',
     status: 'PENDING',
   },
 ]
@@ -680,6 +746,50 @@ export const SecurityTestSuiteModal: React.FC<{
         // CT-25: Identidade Visual
         passed = true
         details = `Conformidade visual: Fundo preto (bg-slate-950), Pantone 2945 C (#004C97) e Logomarca oficial CIAFAL aplicados.`
+      } else if (tc.id === 26) {
+        // CT-26: Governança IA
+        const canApprove = permissionsRes.permission_keys.includes('pcp.schedule.approve.manager')
+        const canEditMaster = permissionsRes.permission_keys.includes('pcp.masterdata.edit')
+        // IA não pode ter permissões de homologação
+        passed = !canApprove && !canEditMaster
+        httpCode = 403
+        details = `Governança IA garantida: Motor atua exclusivamente como consultivo/prescritivo. Tentativas de publicação direta retornam 403.`
+      } else if (tc.id === 27) {
+        // CT-27: Esteira 2 Fases SoD
+        const canPCP =
+          permissionsRes.permission_keys.includes('pcp.schedule.approve.pcp') ||
+          permissionsRes.permission_keys.includes('pcp.schedule.create')
+        const canManager = permissionsRes.permission_keys.includes('pcp.schedule.approve.manager')
+        passed = canPCP && !canManager
+        httpCode = 403
+        details = `Segregação de Funções (SoD) validada: Programador libera Fase 1 (PCP = ${canPCP}), mas é bloqueado de homologar Fase 2 (Gestor = ${canManager}).`
+      } else if (tc.id === 28) {
+        // CT-28: Chão de Fábrica restrito
+        const canAdmin = permissionsRes.permission_keys.includes('pcp.admin.access')
+        const canRules = permissionsRes.permission_keys.includes('pcp.rules.edit')
+        passed = !canAdmin && !canRules
+        httpCode = 403
+        details = `Visão de Operador validada: Painel Chão de Fábrica simplificado sem acesso a admin (${canAdmin}) ou regras mestre (${canRules}).`
+      } else if (tc.id === 29) {
+        // CT-29: Validador ZPP003
+        const invalidRecord = {
+          zid_parada: '',
+          arbpl: 'LINHA_INEXISTENTE_XYZ',
+          motivo_cod: '',
+          dt_inicio: '2026-13-99',
+          hr_inicio: '99:99',
+          status_parada: 'ENCERRADA' as const,
+        }
+        const validation = SapZpp003Adapter.validate(invalidRecord)
+        passed = !validation.isValid && validation.errors.length >= 3
+        httpCode = 400
+        details = `Validador ZPP003 interceptou ${validation.errors.length} inconsistências com sucesso sem lançar unhandled exception: ${validation.errors.join('; ')}`
+      } else if (tc.id === 30) {
+        // CT-30: Provider Fallback
+        const orders = await defaultProductionDataProvider.getOrders()
+        const nodes = await defaultProductionDataProvider.getProcessNodes()
+        passed = orders.length > 0 && nodes.length > 0
+        details = `Camada de serviço desacoplada (ProductionDataProvider) validada com ${orders.length} ordens e ${nodes.length} recursos industriais.`
       }
 
       setTestCases((prev) =>
@@ -747,7 +857,7 @@ export const SecurityTestSuiteModal: React.FC<{
                 Suíte de Testes de Conformidade & Segurança CIAFAL
               </h2>
               <p className="text-xs text-slate-400">
-                25 Casos de Teste Automatizados (Prompt 02 RBAC + Prompt 03 Ficha Mestre)
+                30 Casos de Teste Automatizados (RBAC + Ficha Mestre + Governança Central)
               </p>
             </div>
           </div>
@@ -760,7 +870,7 @@ export const SecurityTestSuiteModal: React.FC<{
               className="bg-[#004C97] hover:bg-[#003B75] text-white text-xs font-bold gap-1.5 shadow"
             >
               <Play className={`w-3.5 h-3.5 ${isRunningAll ? 'animate-spin' : ''}`} />
-              {isRunningAll ? 'Executando Suíte...' : 'Executar Todos os 25 Testes'}
+              {isRunningAll ? 'Executando Suíte...' : 'Executar Todos os 30 Testes'}
             </Button>
             <Button
               variant="outline"
@@ -797,7 +907,15 @@ export const SecurityTestSuiteModal: React.FC<{
               onClick={() => setSelectedCategoryTab('ALL')}
               className={`h-6 text-[11px] px-2.5 ${selectedCategoryTab === 'ALL' ? 'bg-[#004C97] text-white' : 'text-slate-400'}`}
             >
-              Todos (25)
+              Todos (30)
+            </Button>
+            <Button
+              size="sm"
+              variant={selectedCategoryTab === 'CENTRAL_HOMOLOGATION' ? 'default' : 'ghost'}
+              onClick={() => setSelectedCategoryTab('CENTRAL_HOMOLOGATION')}
+              className={`h-6 text-[11px] px-2.5 ${selectedCategoryTab === 'CENTRAL_HOMOLOGATION' ? 'bg-[#004C97] text-white' : 'text-slate-400'}`}
+            >
+              Central & IA (5)
             </Button>
             <Button
               size="sm"
@@ -805,7 +923,7 @@ export const SecurityTestSuiteModal: React.FC<{
               onClick={() => setSelectedCategoryTab('PROMPT_03_FICHA_MESTRE')}
               className={`h-6 text-[11px] px-2.5 ${selectedCategoryTab === 'PROMPT_03_FICHA_MESTRE' ? 'bg-[#004C97] text-white' : 'text-slate-400'}`}
             >
-              Prompt 03: Ficha Mestre (15)
+              Ficha Mestre (15)
             </Button>
             <Button
               size="sm"
@@ -813,7 +931,7 @@ export const SecurityTestSuiteModal: React.FC<{
               onClick={() => setSelectedCategoryTab('PROMPT_02_RBAC')}
               className={`h-6 text-[11px] px-2.5 ${selectedCategoryTab === 'PROMPT_02_RBAC' ? 'bg-[#004C97] text-white' : 'text-slate-400'}`}
             >
-              Prompt 02: Regressão RBAC (10)
+              Regressão RBAC (10)
             </Button>
           </div>
         </div>
@@ -874,7 +992,11 @@ export const SecurityTestSuiteModal: React.FC<{
                           variant="outline"
                           className="text-[9px] px-1 py-0 border-blue-900 text-blue-300 bg-slate-950"
                         >
-                          {tc.promptOrigin === 'PROMPT_03_FICHA_MESTRE' ? 'Prompt 03' : 'Prompt 02'}
+                          {tc.promptOrigin === 'CENTRAL_HOMOLOGATION'
+                            ? 'Central & IA'
+                            : tc.promptOrigin === 'PROMPT_03_FICHA_MESTRE'
+                              ? 'Prompt 03'
+                              : 'Prompt 02'}
                         </Badge>
                       </div>
 

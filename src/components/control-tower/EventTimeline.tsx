@@ -1,14 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import {
-  Clock,
-  Radio,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  UserCheck,
-  Database,
-} from 'lucide-react'
+import { Clock, Radio, Sparkles, UserCheck, Database } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 export const EventTimeline: React.FC = () => {

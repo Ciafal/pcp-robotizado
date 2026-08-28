@@ -1,16 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import {
-  LineChart as ChartIcon,
-  TrendingUp,
-  Layers,
-  AlertTriangle,
-  Clock,
-  CheckCircle2,
-  Zap,
-  HardHat,
-  Cpu,
-} from 'lucide-react'
+import { LineChart as ChartIcon, Cpu } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 

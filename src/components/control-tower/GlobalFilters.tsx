@@ -1,22 +1,11 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import {
-  Filter,
-  X,
-  Search,
-  Calendar,
-  Layers,
-  AlertTriangle,
-  Clock,
-  AlertOctagon,
-  Sparkles,
-} from 'lucide-react'
+import { X, Search, AlertTriangle, Clock, AlertOctagon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 export const GlobalFilters: React.FC = () => {
-  const { filters, setFilters, resetFilters, orders } = useControlTower()
+  const { filters, setFilters, resetFilters } = useControlTower()
 
   const handlePeriodChange = (p: typeof filters.period) => {
     setFilters((prev) => ({ ...prev, period: p }))

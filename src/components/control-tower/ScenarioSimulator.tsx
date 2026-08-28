@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { Zap, Play, CheckCircle2, Sliders, Sparkles, X, ArrowRight } from 'lucide-react'
+import { Zap, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -19,7 +18,6 @@ export const ScenarioSimulator: React.FC = () => {
     isSimulatorModalOpen,
     setIsSimulatorModalOpen,
     simulateOrderMove,
-    sendScenarioForApproval,
     setIsComparisonModalOpen,
     orders,
   } = useControlTower()
@@ -33,11 +31,6 @@ export const ScenarioSimulator: React.FC = () => {
 
   const handleRunSimulation = () => {
     simulateOrderMove(selectedOrderId, targetLine, '14:00')
-    setIsSimulatorModalOpen(false)
-  }
-
-  const handleSendApprovalDirect = () => {
-    sendScenarioForApproval(simulationNote)
     setIsSimulatorModalOpen(false)
   }
 

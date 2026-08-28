@@ -13,7 +13,9 @@ import {
   History,
   Maximize2,
   Minimize2,
+  TestTube,
 } from 'lucide-react'
+import { HomologationControlModal } from './HomologationControlModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -55,6 +57,7 @@ export const ControlTowerHeader: React.FC<{
   } = useControlTower()
 
   const [isSaveViewOpen, setIsSaveViewOpen] = useState(false)
+  const [isHomologModalOpen, setIsHomologModalOpen] = useState(false)
   const [viewNameInput, setViewNameInput] = useState('')
 
   const activeAlertsCount = alerts.filter((a) => !a.acknowledged).length
@@ -69,6 +72,27 @@ export const ControlTowerHeader: React.FC<{
 
   return (
     <div className="bg-slate-950 border-b border-slate-800 p-4 space-y-3">
+      {/* Homologation Top Notification Strip */}
+      <div className="bg-amber-950/40 border border-amber-500/50 rounded-lg px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-200">
+        <div className="flex items-center gap-2">
+          <TestTube className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span className="font-bold text-amber-100">
+            AMBIENTE DE HOMOLOGAÇÃO FUNCIONAL (Massa Controlada)
+          </span>
+          <span className="text-[11px] text-amber-300/80 hidden md:inline">
+            • 8 Cenários de Teste • Camada ZPP003 Integrada • Sem Impacto Produtivo
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setIsHomologModalOpen(true)}
+          className="h-6 text-[11px] border-amber-500/60 bg-amber-900/40 text-amber-200 hover:bg-amber-800 hover:text-white font-bold gap-1"
+        >
+          <TestTube className="w-3 h-3" /> Abrir Painel de Homologação (8 Cenários)
+        </Button>
+      </div>
+
       {/* Breadcrumb & SAP Status Line */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
         <div className="flex items-center gap-1.5 font-medium">
@@ -102,7 +126,6 @@ export const ControlTowerHeader: React.FC<{
           </div>
         </div>
       </div>
-
       {/* Main Title & Action Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -217,6 +240,18 @@ export const ControlTowerHeader: React.FC<{
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Modo Homologação Direto */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHomologModalOpen(true)}
+            className="border-amber-600/70 bg-amber-950/40 text-amber-300 hover:text-amber-100 hover:bg-amber-900/60 text-xs h-8 gap-1.5 font-bold"
+            title="Abrir Cenários de Homologação e Perfis de Teste"
+          >
+            <TestTube className="w-3.5 h-3.5 text-amber-400" />
+            <span>Homologação</span>
+          </Button>
+
           {/* Histórico & Versionamento */}
           <Button
             variant="outline"
@@ -282,6 +317,12 @@ export const ControlTowerHeader: React.FC<{
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Controle do Modo Homologação */}
+      <HomologationControlModal
+        isOpen={isHomologModalOpen}
+        onClose={() => setIsHomologModalOpen(false)}
+      />
     </div>
   )
 }

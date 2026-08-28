@@ -20,8 +20,7 @@ import { Button } from '@/components/ui/button'
 import { ProductionProcessNode } from '@/types/control-tower'
 
 export const ProductionOverview: React.FC = () => {
-  const { kpis, filteredNodes, setSelectedProcess, setActiveTab, setIsSimulatorModalOpen } =
-    useControlTower()
+  const { kpis, filteredNodes, setSelectedProcess, setActiveTab } = useControlTower()
 
   return (
     <div className="p-4 space-y-6">
