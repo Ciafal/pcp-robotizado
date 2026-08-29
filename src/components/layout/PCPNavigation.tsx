@@ -134,6 +134,12 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Montagem Semanal',
+        href: '/pcp/sequenciamento/montagem-semanal',
+        icon: CalendarDays,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Torre de Controle',
         href: '/pcp/sequenciamento/torre-controle',
         icon: Activity,

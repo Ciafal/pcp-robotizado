@@ -87,6 +87,7 @@ const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
 const AuditPage = lazy(() => import('@/pages/AuditPage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
+const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 const ModulePreparationPage = lazy(() =>
   import('@/pages/ModulePreparationPage').then((m) => ({
     default: m.ModulePreparationPage || m.default,
@@ -156,6 +157,14 @@ export const App: React.FC = () => {
                 >
                   {/* Landing da Central */}
                   <Route index element={<CentralSequenciamentoLandingPage />} />
+                  <Route
+                    path="montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
                   <Route path="torre-controle" element={<ControlTowerPage />} />
                   <Route path="operacional" element={<OperationalPage />} />
                   <Route
@@ -352,6 +361,14 @@ export const App: React.FC = () => {
                 />
 
                 {/* 5. Aliases e Redirecionamentos de Compatibilidade */}
+                <Route
+                  path="/pcp-robotizado/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/pcp/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
                 <Route
                   path="/pcp-robotizado/programacoes"
                   element={<Navigate to="/pcp/sequenciamento/programacao" replace />}

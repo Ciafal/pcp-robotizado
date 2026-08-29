@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T18:40:43.303Z",
+  "generatedAt": "2026-08-29T20:33:11.458Z",
   "collections": [
     {
       "name": "users",
@@ -8773,6 +8773,288 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_mpv_code ON master_plan_versions (version_code)",
         "CREATE INDEX idx_mpv_plan ON master_plan_versions (plan_code, version_number)"
+      ]
+    },
+    {
+      "name": "weekly_schedules",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "week_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_display",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "day_of_week",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "date_str",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shift_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "shift_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crew_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sequence_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PRODUCTION", "SETUP", "SCHEDULED_STOP"]
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimensions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_order_mto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["MTS", "MTO", "INDUSTRIALIZACAO"]
+        },
+        {
+          "name": "planned_quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "productivity_rate_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setup_duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setup_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stop_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stop_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stop_duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "start_datetime",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "end_datetime",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["DRAFT", "EM_ANALISE", "APROVADO", "PUBLICADO"]
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pcp_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_material_req_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_material_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_blocked_attempt",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ws_line_week ON weekly_schedules (line_code, year, week_number)",
+        "CREATE INDEX idx_ws_seq ON weekly_schedules (day_of_week, shift_code, sequence_order)",
+        "CREATE INDEX idx_ws_status ON weekly_schedules (status)"
       ]
     }
   ]
