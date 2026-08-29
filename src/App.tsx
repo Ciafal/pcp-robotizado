@@ -114,6 +114,22 @@ export const App: React.FC = () => {
                   element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route
+                  path="/pcp/programacao-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/programacao-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/pcp/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
                   path="/pcp-robotizado/programacao/montagem-semanal"
                   element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
@@ -395,6 +411,14 @@ export const App: React.FC = () => {
                 />
                 <Route
                   path="/pcp/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/pcp/programacao-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/programacao-semanal"
                   element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route

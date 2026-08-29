@@ -250,33 +250,65 @@ export const WeeklyIndicatorsBar: React.FC<WeeklyIndicatorsBarProps> = ({
         </div>
       </Card>
 
-      {/* 9. Alertas Críticos & Score */}
+      {/* 9. SCORE DA SEQUÊNCIA (0-100) & Alertas */}
       <Card
         className={`p-2.5 shadow-sm flex flex-col justify-between border ${
           indicators.criticalAlertsCount > 0
             ? 'bg-rose-50 border-rose-300'
-            : 'bg-white border-slate-200'
+            : indicators.sequenceScore < 60
+              ? 'bg-amber-50 border-amber-300'
+              : indicators.sequenceScore < 85
+                ? 'bg-blue-50/60 border-blue-200'
+                : 'bg-emerald-50/60 border-emerald-300'
         }`}
       >
         <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-wider">
-          <span className={indicators.criticalAlertsCount > 0 ? 'text-rose-800' : 'text-slate-500'}>
-            Alertas / Score
+          <span
+            className={
+              indicators.criticalAlertsCount > 0
+                ? 'text-rose-800'
+                : indicators.sequenceScore < 60
+                  ? 'text-amber-900'
+                  : 'text-slate-700'
+            }
+          >
+            SCORE SEQUÊNCIA
           </span>
-          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
         </div>
         <div className="mt-1 flex items-baseline justify-between">
           <span
             className={`text-base font-black font-mono ${
-              indicators.criticalAlertsCount > 0 ? 'text-rose-700' : 'text-slate-900'
+              indicators.criticalAlertsCount > 0
+                ? 'text-rose-700'
+                : indicators.sequenceScore < 60
+                  ? 'text-amber-800'
+                  : indicators.sequenceScore < 85
+                    ? 'text-blue-900'
+                    : 'text-emerald-800'
             }`}
           >
-            {indicators.criticalAlertsCount > 0
-              ? `${indicators.criticalAlertsCount} Bloq`
-              : `${indicators.sequenceScore} pts`}
+            {indicators.sequenceScore}/100
           </span>
         </div>
-        <span className="text-[9px] text-slate-500 font-medium truncate mt-0.5">
-          {indicators.criticalAlertsCount > 0 ? 'Exige intervenção' : 'Sequência Otimizada'}
+        <span
+          className={`text-[9px] font-bold truncate mt-0.5 ${
+            indicators.criticalAlertsCount > 0
+              ? 'text-rose-700 font-black'
+              : indicators.sequenceScore >= 85
+                ? 'text-emerald-700'
+                : indicators.sequenceScore >= 60
+                  ? 'text-amber-700'
+                  : 'text-rose-600'
+          }`}
+        >
+          {indicators.criticalAlertsCount > 0
+            ? `${indicators.criticalAlertsCount} Alerta(s)`
+            : indicators.sequenceScore >= 85
+              ? 'OTIMIZADA'
+              : indicators.sequenceScore >= 60
+                ? 'MELHORÁVEL'
+                : 'CRÍTICA'}
         </span>
       </Card>
     </div>

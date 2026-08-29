@@ -53,6 +53,7 @@ export type WeeklyScheduleWorkflowState =
   | 'EXECUTANDO'
   | 'REALIZADO'
   | 'ANALISADO'
+  | 'AGUARDANDO_OBSERVACOES'
   | 'EM_ANALISE' // legado
   | 'APROVADO' // legado
 
@@ -106,6 +107,27 @@ export interface WeeklyScheduleItem {
   raw_material_req_tons: number
   raw_material_type?: string
   raw_material_calc?: RawMaterialItemCalculation
+  // Status Aguardando Observações
+  awaiting_observations?: {
+    is_awaiting: boolean
+    reason: string
+    observation: string
+    responsible: string
+    date_time: string
+    deadline?: string
+  }
+  // Validação de Resfriamento
+  cooling_validation?: {
+    hasViolation: boolean
+    requiredHours: number
+    upstreamLineCode: string
+    upstreamEndTime: string
+    earliestPossibleTime: string
+    currentProgrammedTime: string
+    diffHours: number
+    suggestedNewTime?: string
+    message: string
+  }
   is_blocked_attempt?: boolean
   scenario_id?: string
   scenario_name?: string
@@ -237,6 +259,18 @@ export interface WeeklyIndicators {
   rawMaterialRedCount?: number
   criticalAlertsCount: number
   sequenceScore: number
+  sequenceScoreLabel?: 'OTIMIZADA' | 'MELHORÁVEL' | 'CRÍTICA'
+  sequenceRecommendation?: {
+    hasBetterAlternative: boolean
+    title: string
+    currentSequenceSummary: string
+    suggestedSequenceSummary: string
+    gainMinutesSaved: number
+    gainSetupAvoidedCount: number
+    gainCapacityHours: number
+    gainTonsImpact: number
+    rationale: string
+  }
 }
 export interface WeeklySummaryCapacity {
   calendarHours: number

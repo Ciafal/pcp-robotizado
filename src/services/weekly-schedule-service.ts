@@ -308,11 +308,34 @@ export const weeklyScheduleService = {
         ]
       }
 
+      // 5. Tempos de Resfriamento Cadastrados
+      let coolingTimes: any[] = []
+      try {
+        const coolingRecords = await pb.collection('cooling_times').getFullList({
+          filter: "status = 'ATIVO'",
+        })
+        coolingTimes = coolingRecords.map((r: any) => ({
+          center_code: r.center_code,
+          plant_id: r.plant_id,
+          line_code: r.line_code,
+          work_center: r.work_center,
+          material_code: r.material_code,
+          family_code: r.family_code,
+          gauge_dimension: r.gauge_dimension,
+          cooling_time_hours: Number(r.cooling_time_hours) || 24,
+          rule_condition: r.rule_condition,
+          notes: r.notes,
+        }))
+      } catch (err) {
+        console.warn('Erro ao carregar cooling_times:', err)
+      }
+
       return {
         inventoryItems: finalInventory,
         purchaseOrders,
         upstreamProductions,
         otherWeeklySchedules,
+        coolingTimes,
       }
     } catch (err) {
       console.error('Erro ao carregar contexto de matéria-prima:', err)
@@ -508,6 +531,17 @@ export const weeklyScheduleService = {
           pcp_notes: r.pcp_notes,
           raw_material_req_tons: Number(r.raw_material_req_tons) || 0,
           raw_material_type: r.raw_material_type,
+          awaiting_observations:
+            r.metadata?.awaiting_observations ||
+            (r.status === 'AGUARDANDO_OBSERVACOES'
+              ? {
+                  is_awaiting: true,
+                  reason: 'Aguardando validação',
+                  observation: r.pcp_notes || '',
+                  responsible: 'PCP',
+                  date_time: r.created || new Date().toISOString(),
+                }
+              : undefined),
           is_blocked_attempt: r.is_blocked_attempt || false,
           metadata: r.metadata || {},
           created: r.created,
@@ -603,6 +637,7 @@ export const weeklyScheduleService = {
           metadata: {
             saved_by: user ? user.name || user.email : 'Programador PCP',
             saved_at: new Date().toISOString(),
+            awaiting_observations: item.awaiting_observations || null,
           },
         }
 
