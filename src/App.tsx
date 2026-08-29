@@ -88,6 +88,11 @@ const AuditPage = lazy(() => import('@/pages/AuditPage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
+const RulesEnginePage = lazy(() =>
+  import('@/pages/RulesEnginePage').then((m) => ({
+    default: m.RulesEnginePage || m.default,
+  })),
+)
 const ModulePreparationPage = lazy(() =>
   import('@/pages/ModulePreparationPage').then((m) => ({
     default: m.ModulePreparationPage || m.default,
@@ -329,19 +334,8 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/regras"
                   element={
-                    <PermissionGuard permission="pcp.rules.manage">
-                      <ModulePreparationPage
-                        title="Motor de Regras & Setup"
-                        subtitle="Gerenciamento de restrições, matrizes de setup e matriz de compatibilidade de produtos."
-                        targetPrompt="Fase 2"
-                        requiredPerm="pcp.rules.manage"
-                        features={[
-                          'Matriz de Troca de Dimensão / Cor / Perfil',
-                          'Herança Hierárquica de Regras (Rule Packs)',
-                          'Prioridades de Matéria-Prima e Famílias',
-                          'Restrições Físicas e Bloqueios Operacionais',
-                        ]}
-                      />
+                    <PermissionGuard permission="pcp.rules.view">
+                      <RulesEnginePage />
                     </PermissionGuard>
                   }
                 />
@@ -427,6 +421,15 @@ export const App: React.FC = () => {
                   path="/pcp-robotizado/regras"
                   element={<Navigate to="/pcp/regras" replace />}
                 />
+                <Route
+                  path="/pcp/sequenciamento/regras"
+                  element={<Navigate to="/pcp/regras" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/motor-regras"
+                  element={<Navigate to="/pcp/regras" replace />}
+                />
+                <Route path="/regras" element={<Navigate to="/pcp/regras" replace />} />
                 <Route
                   path="/pcp-robotizado/aprovacoes"
                   element={<Navigate to="/pcp/aprovacoes" replace />}

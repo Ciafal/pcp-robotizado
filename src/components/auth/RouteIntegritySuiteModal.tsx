@@ -333,6 +333,31 @@ const INITIAL_CASES: RouteTestCase[] = [
     queryParamsTest: '',
     detail: 'Preserva URLs antigas sem causar tela branca ou 404.',
   },
+  {
+    id: 'R-26',
+    route: '/pcp/regras',
+    label: 'Motor de Regras & Setup',
+    category: 'Central',
+    expectedComponent: 'RulesEnginePage',
+    expectedStatus: 'PENDING',
+    f5Safe: true,
+    rbacProtected: true,
+    queryParamsTest: '',
+    detail:
+      '6 abas funcionais: Setup & Acerto, Paradas, Resfriamento, Sequenciamento, Revisões e Auditoria.',
+  },
+  {
+    id: 'R-27',
+    route: '/pcp-robotizado/regras',
+    label: 'Alias Oficial de Regras',
+    category: 'Auxiliares',
+    expectedComponent: 'Redirect -> /pcp/regras',
+    expectedStatus: 'PENDING',
+    f5Safe: true,
+    rbacProtected: true,
+    queryParamsTest: '',
+    detail: 'Garante que o alias /pcp-robotizado/regras abra o Motor de Regras, nunca Index.',
+  },
 ]
 
 export const RouteIntegritySuiteModal: React.FC<{

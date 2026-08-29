@@ -401,7 +401,7 @@ const navSections: NavSectionItem[] = [
     title: 'Motor de Regras & Setup',
     href: '/pcp/regras',
     icon: Cpu,
-    permission: 'pcp.rules.manage',
+    permission: 'pcp.rules.view',
   },
   {
     title: 'Painel de Aprovações',
