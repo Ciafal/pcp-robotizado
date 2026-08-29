@@ -21,6 +21,13 @@ import {
   ChevronRight,
   Database,
   Lock,
+  Download,
+  UploadCloud,
+  FileCheck,
+  Zap,
+  ArrowUpDown,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -47,14 +54,19 @@ import {
 } from '@/services/pcp-rules-service'
 import { lineMasterService } from '@/services/line-master'
 import { ProductionLine } from '@/types/line-master'
+import { SetupDetailDrawer } from '@/components/rules-engine/SetupDetailDrawer'
+import { NewRevisionModal } from '@/components/rules-engine/NewRevisionModal'
+import { ImportPreviewModal } from '@/components/rules-engine/ImportPreviewModal'
+import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalculatorWidget'
+import { downloadOfficialTemplate } from '@/services/rules-template-export'
 
 export const RulesEnginePage: React.FC = () => {
   const { can, user } = useAuth()
   const { toast } = useToast()
 
   // Permissões RBAC
-  const canEdit = can('pcp.rules.edit') || can('pcp.rules.manage')
-  const canApprove = can('pcp.rules.approve')
+  const canEdit = can('pcp.rules.edit') || can('pcp.rules.manage') || can('pcp.schedule.edit')
+  const canApprove = can('pcp.rules.approve') || can('pcp.schedule.approve')
 
   // Filtros Globais
   const [selectedPlant, setSelectedPlant] = useState<string>('ALL')
@@ -72,6 +84,18 @@ export const RulesEnginePage: React.FC = () => {
   const [auditList, setAuditList] = useState<RuleAuditLogRecord[]>([])
 
   const [isLoading, setIsLoading] = useState<boolean>(true)
+
+  // Drawer & Modais
+  const [selectedSetupForDrawer, setSelectedSetupForDrawer] = useState<SetupAcertoRecord | null>(
+    null,
+  )
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false)
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState<boolean>(false)
+  const [setupForRevision, setSetupForRevision] = useState<SetupAcertoRecord | null>(null)
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false)
+  const [importTemplateType, setImportTemplateType] = useState<
+    'SETUP' | 'STOP' | 'COOLING' | 'SEQUENCING'
+  >('SETUP')
 
   // Carrega todos os dados do Backend PocketBase
   const loadAllData = async () => {
@@ -110,6 +134,85 @@ export const RulesEnginePage: React.FC = () => {
     loadAllData()
   }, [])
 
+  // Abertura de Drawer ao selecionar linha
+  const handleSelectSetupRow = (row: SetupAcertoRecord) => {
+    setSelectedSetupForDrawer(row)
+    setIsDrawerOpen(true)
+  }
+
+  // Abertura de Nova Revisão a partir de um registro ou do Drawer
+  const handleOpenRevisionProposal = (row?: SetupAcertoRecord) => {
+    const target = row || selectedSetupForDrawer || setupList[0]
+    setSetupForRevision(target)
+    setIsRevisionModalOpen(true)
+  }
+
+  // Submissão da proposta de revisão
+  const handleSubmitRevision = async (data: {
+    proposedMinutes: number
+    changeReason: string
+    justificationCategory?: string
+    justificationDetail?: string
+    aiClassification: string
+    aiExplanation: string
+    mesSnapshot: any
+  }) => {
+    if (!setupForRevision) return
+
+    try {
+      await pcpRulesService.createRevisionProposal({
+        entityType: 'SETUP',
+        entityId: setupForRevision.setup_code || setupForRevision.id,
+        lineCode: setupForRevision.line_code,
+        currentValue: `${setupForRevision.setup_time_minutes} min`,
+        proposedValue: `${data.proposedMinutes} min`,
+        changeReason: data.changeReason,
+        justificationCategory: data.justificationCategory,
+        justificationDetail: data.justificationDetail,
+        aiClassification: data.aiClassification,
+        aiExplanation: data.aiExplanation,
+        mesSnapshot: data.mesSnapshot,
+      })
+
+      toast({
+        title: 'Proposta de Revisão Criada',
+        description: `Proposta enviada para a esteira de dupla aprovação (PCP + Linha ${setupForRevision.line_code}).`,
+      })
+
+      loadAllData()
+    } catch (err) {
+      console.error('Erro ao enviar proposta de revisão:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha ao salvar proposta',
+        description: 'Não foi possível registrar a proposta de revisão no banco de dados.',
+      })
+    }
+  }
+
+  // Aprovação em esteira
+  const handleApproveRevision = async (
+    record: PendingRevisionRecord,
+    stage: 'PCP' | 'LINE_MANAGER',
+  ) => {
+    try {
+      await pcpRulesService.approveRevision(record.id, stage, user?.name || 'Carlos Alberto (PCP)')
+
+      toast({
+        title: stage === 'PCP' ? 'Fase 1 (PCP) Aprovada' : 'Fase 2 (Linha) Homologada & Publicada',
+        description: `Revisão do parâmetro ${record.parameter_name} atualizada com sucesso.`,
+      })
+
+      loadAllData()
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na aprovação',
+        description: 'Falha ao homologar etapa da revisão.',
+      })
+    }
+  }
+
   // Filtros aplicados na lista de Setup
   const filteredSetups = useMemo(() => {
     return setupList.filter((item) => {
@@ -118,6 +221,7 @@ export const RulesEnginePage: React.FC = () => {
         const q = searchTerm.toLowerCase()
         return (
           item.line_code.toLowerCase().includes(q) ||
+          item.from_family_code.toLowerCase().includes(q) ||
           item.to_family_code.toLowerCase().includes(q) ||
           item.to_description_gauge.toLowerCase().includes(q) ||
           item.work_center.toLowerCase().includes(q)
@@ -147,11 +251,12 @@ export const RulesEnginePage: React.FC = () => {
   // Filtros aplicados em Tempos de Resfriamento
   const filteredCoolings = useMemo(() => {
     return coolingList.filter((item) => {
-      if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
+      if (selectedLine !== 'ALL' && item.origin_line_code !== selectedLine) return false
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
         return (
-          item.line_code.toLowerCase().includes(q) ||
+          item.origin_line_code.toLowerCase().includes(q) ||
+          item.dest_line_code.toLowerCase().includes(q) ||
           (item.material_code && item.material_code.toLowerCase().includes(q)) ||
           (item.family_code && item.family_code.toLowerCase().includes(q)) ||
           item.gauge_dimension.toLowerCase().includes(q)
@@ -169,6 +274,8 @@ export const RulesEnginePage: React.FC = () => {
         return (
           item.code.toLowerCase().includes(q) ||
           item.name.toLowerCase().includes(q) ||
+          (item.from_family_code && item.from_family_code.toLowerCase().includes(q)) ||
+          (item.to_family_code && item.to_family_code.toLowerCase().includes(q)) ||
           item.scope_level.toLowerCase().includes(q)
         )
       }
@@ -207,8 +314,8 @@ export const RulesEnginePage: React.FC = () => {
   }, [auditList, searchTerm])
 
   return (
-    <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen text-slate-900">
-      {/* 1. CABEÇALHO PADRÃO CIAFAL COM KPIs COMPACTOS */}
+    <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen text-slate-900 relative">
+      {/* 1. CABEÇALHO PADRÃO CIAFAL COM GOVERNANÇA E BOTÕES DE TEMPLATE */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-sm">
@@ -235,40 +342,77 @@ export const RulesEnginePage: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Governança centralizada de tempos de transição, matrizes de setup, paradas de linha,
-              resfriamento metalúrgico e parâmetros CP-SAT.
+              Fonte oficial governada de tempos DE&rarr;PARA, acertos, paradas de capacidade,
+              resfriamento metalúrgico e penalidades CP-SAT.
             </p>
           </div>
         </div>
 
-        {/* Botões de Ação */}
-        <div className="flex items-center gap-2">
+        {/* BOTÕES HORIZONTAIS DE TEMPLATES & WORKFLOW (REQUISITO 1 & 10) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadOfficialTemplate('SETUP')}
+            className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span>Baixar Template</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setImportTemplateType(
+                activeTab === 'paradas-programadas'
+                  ? 'STOP'
+                  : activeTab === 'resfriamento'
+                    ? 'COOLING'
+                    : activeTab === 'sequenciamento'
+                      ? 'SEQUENCING'
+                      : 'SETUP',
+              )
+              setIsImportModalOpen(true)
+            }}
+            className="text-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100 gap-1.5 h-8 font-semibold"
+          >
+            <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
+            <span>Importar Template</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => handleOpenRevisionProposal()}
+            className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs gap-1.5 h-8 font-bold shadow-sm"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Nova Proposta de Revisão</span>
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
             onClick={loadAllData}
             disabled={isLoading}
-            className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50"
+            className="text-xs border-slate-300 gap-1 h-8 bg-white hover:bg-slate-50 px-2"
+            title="Atualizar dados do backend"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Atualizar Dados</span>
-          </Button>
-
-          <Button
-            size="sm"
-            disabled
-            className="bg-[#004C97] text-white text-xs gap-1.5 h-8 opacity-90 cursor-not-allowed shadow-sm"
-            title="Importação em lote será habilitada na próxima fase de integração SAP/MES"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Carga / Template SAP</span>
           </Button>
         </div>
       </div>
 
       {/* 2. CARDS COMPACTOS DE GOVERNANÇA INDUSTRIAL */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('setup-acerto')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'setup-acerto'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-blue-600" />
             <span>Setups Cadastrados</span>
@@ -277,7 +421,14 @@ export const RulesEnginePage: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">Matriz De/Para</div>
         </Card>
 
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('paradas-programadas')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'paradas-programadas'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
             <span>Paradas Programadas</span>
@@ -286,7 +437,14 @@ export const RulesEnginePage: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">Preventivas/Limpeza</div>
         </Card>
 
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('resfriamento')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'resfriamento'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <ThermometerSnowflake className="w-3.5 h-3.5 text-cyan-600" />
             <span>Resfriamentos</span>
@@ -297,18 +455,32 @@ export const RulesEnginePage: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">Regras de Cura</div>
         </Card>
 
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('sequenciamento')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'sequenciamento'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Rule Packs</span>
+            <span>Sequenciamento</span>
           </div>
           <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
             {sequencingList.length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Herança Hierárquica</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Penalidades CP-SAT</div>
         </Card>
 
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('revisoes-pendentes')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'revisoes-pendentes'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Revisões Pendentes</span>
@@ -319,13 +491,20 @@ export const RulesEnginePage: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-0.5">Aprovação 2 Fases</div>
         </Card>
 
-        <Card className="bg-white border-slate-200 p-3 shadow-sm">
+        <Card
+          onClick={() => setActiveTab('historico-alteracoes')}
+          className={`p-3 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'historico-alteracoes'
+              ? 'border-[#004C97] bg-blue-50/30'
+              : 'bg-white border-slate-200 hover:bg-slate-50'
+          }`}
+        >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <History className="w-3.5 h-3.5 text-purple-600" />
-            <span>Logs de Alteração</span>
+            <span>Auditoria & Logs</span>
           </div>
           <div className="text-xl font-bold text-slate-900 mt-1 font-mono">{auditList.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Trilha de Auditoria</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Trilha de Versões</div>
         </Card>
       </div>
 
@@ -334,7 +513,7 @@ export const RulesEnginePage: React.FC = () => {
         <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <Input
-            placeholder="Filtrar por linha, bitola, motivo ou código..."
+            placeholder="Filtrar por linha, bitola DE/PARA, motivo ou código..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-8 text-xs bg-slate-50 border-slate-200"
@@ -344,10 +523,10 @@ export const RulesEnginePage: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Linha:</span>
+            <span>Filtrar Linha:</span>
           </div>
           <Select value={selectedLine} onValueChange={setSelectedLine}>
-            <SelectTrigger className="h-8 w-44 text-xs bg-white border-slate-200">
+            <SelectTrigger className="h-8 w-48 text-xs bg-white border-slate-200 font-medium">
               <SelectValue placeholder="Todas as Linhas" />
             </SelectTrigger>
             <SelectContent>
@@ -362,7 +541,7 @@ export const RulesEnginePage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. ÁREA CENTRAL: 6 ABAS FUNCIONAIS SEM TELA EM BRANCO */}
+      {/* 4. ÁREA CENTRAL: 6 ABAS FUNCIONAIS COMPLETAS */}
       <Card className="border-slate-200 shadow-sm bg-white">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="border-b border-slate-200 px-4 pt-3 bg-slate-50/50 rounded-t-xl overflow-x-auto">
@@ -427,7 +606,7 @@ export const RulesEnginePage: React.FC = () => {
                 className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
               >
                 <History className="w-3.5 h-3.5" />
-                <span>6. Histórico de Alterações</span>
+                <span>6. Histórico & Auditoria</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
                   {auditList.length}
                 </Badge>
@@ -436,120 +615,158 @@ export const RulesEnginePage: React.FC = () => {
           </div>
 
           {/* ========================================================================= */}
-          {/* ABA 1 — SETUP & ACERTO                                                    */}
+          {/* ABA 1 — SETUP & ACERTO (ALTA DENSIDADE, SAP STYLE, DE -> PARA)             */}
           {/* ========================================================================= */}
           <TabsContent value="setup-acerto" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Matriz de Transição e Tempos de Setup & Acerto
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  Matriz de Setup & Acerto DE &rarr; PARA (Estilo SAP / Alta Densidade)
+                  <Badge className="bg-slate-100 text-slate-700 font-mono text-[10px]">
+                    Edição Direta Bloqueada &bull; Clique na linha para Evidências MES/IA
+                  </Badge>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Parâmetros de troca de ferramental, ajuste de esquadro e tempos de calibração
-                  consumidos pelo CP-SAT.
+                  Quando não existir regra DE específica, o motor aplica a regra genérica de entrada
+                  PARA.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
-                {filteredSetups.length} registro(s) exibido(s)
+                {filteredSetups.length} registro(s) oficiais
               </div>
             </div>
 
-            {filteredSetups.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <Database className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhum registro encontrado</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Nenhuma matriz de setup cadastrada para o filtro selecionado — aguardando carga
-                  oficial SAP/MES.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px]">
-                      <th className="p-2.5">Centro</th>
-                      <th className="p-2.5">Linha</th>
-                      <th className="p-2.5">Centro de Trabalho</th>
-                      <th className="p-2.5">Família PARA</th>
-                      <th className="p-2.5">Início Código PARA</th>
-                      <th className="p-2.5">Descrição / Bitola PARA</th>
-                      <th className="p-2.5 text-right">Tempo Setup (min)</th>
-                      <th className="p-2.5 text-right">Tempo Acerto (min)</th>
-                      <th className="p-2.5 text-center">Origem</th>
-                      <th className="p-2.5 text-center">Status</th>
-                      <th className="p-2.5">Validade</th>
-                      <th className="p-2.5">Responsável</th>
-                      <th className="p-2.5">Última Revisão</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {filteredSetups.map((row) => (
-                      <tr key={row.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                        <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
-                        <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
-                        <td className="p-2.5 font-medium">{row.to_family_code}</td>
-                        <td className="p-2.5 font-mono text-slate-700">{row.to_code_prefix}</td>
-                        <td className="p-2.5 text-slate-800 font-medium">
-                          {row.to_description_gauge}
-                        </td>
-                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                          {row.setup_time_minutes} min
-                        </td>
-                        <td className="p-2.5 text-right font-mono text-slate-600">
-                          {row.tuning_time_minutes} min
-                        </td>
-                        <td className="p-2.5 text-center">
+            <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-2xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Centro</th>
+                    <th className="p-2.5">Linha</th>
+                    <th className="p-2.5">Centro de Trabalho</th>
+                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Família DE</th>
+                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Código DE</th>
+                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Descrição / Bitola DE</th>
+                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">Família PARA</th>
+                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">Código PARA</th>
+                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">
+                      Descrição / Bitola PARA
+                    </th>
+                    <th className="p-2.5 text-right font-mono font-bold">Tempo Setup</th>
+                    <th className="p-2.5 text-right font-mono">Tempo Acerto</th>
+                    <th className="p-2.5 text-center">Origem</th>
+                    <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5">Vigência</th>
+                    <th className="p-2.5">Última Revisão</th>
+                    <th className="p-2.5">Responsável</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredSetups.map((row) => (
+                    <tr
+                      key={row.id}
+                      onClick={() => handleSelectSetupRow(row)}
+                      className="hover:bg-blue-50/60 cursor-pointer transition-colors whitespace-nowrap group"
+                    >
+                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
+                      <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
+                      <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
+
+                      {/* COLUNAS DE */}
+                      <td className="p-2.5 bg-blue-50/20 font-medium">
+                        {row.is_generic ? (
                           <Badge
                             variant="outline"
-                            className={`text-[10px] font-mono ${
-                              row.origin === 'SAP'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
+                            className="bg-slate-100 text-slate-600 text-[10px]"
                           >
-                            {row.origin}
+                            * (QUALQUER)
                           </Badge>
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <Badge
-                            className={`text-[10px] ${
-                              row.status === 'ATIVO'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
-                          >
-                            {row.status}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-slate-500 text-[11px]">
-                          {row.validity_start} &rarr; {row.validity_end}
-                        </td>
-                        <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
-                        <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                          {row.last_revision}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                        ) : (
+                          row.from_family_code
+                        )}
+                      </td>
+                      <td className="p-2.5 bg-blue-50/20 font-mono text-slate-600">
+                        {row.from_code_prefix}
+                      </td>
+                      <td
+                        className="p-2.5 bg-blue-50/20 text-slate-700 max-w-xs truncate"
+                        title={row.from_description_gauge}
+                      >
+                        {row.from_description_gauge}
+                      </td>
+
+                      {/* COLUNAS PARA */}
+                      <td className="p-2.5 bg-indigo-50/20 font-bold text-slate-800">
+                        {row.to_family_code}
+                      </td>
+                      <td className="p-2.5 bg-indigo-50/20 font-mono font-bold text-indigo-900">
+                        {row.to_code_prefix}
+                      </td>
+                      <td
+                        className="p-2.5 bg-indigo-50/20 text-slate-800 font-medium max-w-xs truncate"
+                        title={row.to_description_gauge}
+                      >
+                        {row.to_description_gauge}
+                      </td>
+
+                      {/* TEMPOS */}
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900 group-hover:text-[#004C97]">
+                        {row.setup_time_minutes} min
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-slate-600">
+                        {row.tuning_time_minutes} min
+                      </td>
+
+                      {/* ORIGEM & STATUS */}
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-mono ${
+                            row.origin === 'SAP'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {row.origin}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.status === 'ATIVO'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {row.status}
+                        </Badge>
+                      </td>
+
+                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
+                        {row.validity_start} &rarr; {row.validity_end}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-500 text-[11px]">
+                        {row.last_revision}
+                      </td>
+                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 2 — PARADAS PROGRAMADAS                                               */}
+          {/* ABA 2 — PARADAS PROGRAMADAS (COM HORAS E CAPACIDADE PERDIDA EM TONELADAS) */}
           {/* ========================================================================= */}
           <TabsContent value="paradas-programadas" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Paradas Programadas de Linha & Manutenção Preventiva
+                  Paradas Programadas de Linha & Impacto na Capacidade
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Janelas de indisponibilidade planejada: manutenção, limpeza autônoma, troca de
-                  discos e aferição de sensores.
+                  Somente paradas <strong>PUBLICADAS</strong> consomem capacidade oficial no cálculo
+                  de horas úteis e toneladas programáveis.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
@@ -557,102 +774,107 @@ export const RulesEnginePage: React.FC = () => {
               </div>
             </div>
 
-            {filteredStops.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <Database className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhum registro encontrado</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Nenhuma parada programada cadastrada — aguardando carga oficial SAP/MES.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px]">
-                      <th className="p-2.5">Centro</th>
-                      <th className="p-2.5">Linha</th>
-                      <th className="p-2.5">Centro de Trabalho</th>
-                      <th className="p-2.5">Tipo</th>
-                      <th className="p-2.5">Motivo</th>
-                      <th className="p-2.5">Descrição</th>
-                      <th className="p-2.5 text-right">Duração</th>
-                      <th className="p-2.5 text-center">Início</th>
-                      <th className="p-2.5 text-center">Término</th>
-                      <th className="p-2.5">Recorrência</th>
-                      <th className="p-2.5">Turno</th>
-                      <th className="p-2.5">Validade</th>
-                      <th className="p-2.5 text-center">Status</th>
-                      <th className="p-2.5">Responsável</th>
-                      <th className="p-2.5">Observação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {filteredStops.map((row) => (
-                      <tr key={row.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                        <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
-                        <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
-                        <td className="p-2.5">
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]"
-                          >
-                            {row.stop_type}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 font-mono font-medium text-slate-700">{row.reason}</td>
-                        <td className="p-2.5 text-slate-800 font-medium">{row.description}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-amber-900">
-                          {row.duration_minutes} min
-                        </td>
-                        <td className="p-2.5 text-center font-mono text-slate-700">
-                          {row.start_time}
-                        </td>
-                        <td className="p-2.5 text-center font-mono text-slate-500">
-                          {row.end_time}
-                        </td>
-                        <td className="p-2.5 text-slate-700">{row.recurrence}</td>
-                        <td className="p-2.5 text-slate-600">{row.shift}</td>
-                        <td className="p-2.5 text-slate-500 text-[11px]">{row.validity}</td>
-                        <td className="p-2.5 text-center">
-                          <Badge
-                            className={`text-[10px] ${
-                              row.status === 'ATIVO'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
-                          >
-                            {row.status}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
-                        <td
-                          className="p-2.5 text-slate-500 italic max-w-xs truncate"
-                          title={row.observation}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Centro</th>
+                    <th className="p-2.5">Linha</th>
+                    <th className="p-2.5">Centro de Trabalho</th>
+                    <th className="p-2.5">Tipo</th>
+                    <th className="p-2.5">Motivo / Código</th>
+                    <th className="p-2.5">Descrição</th>
+                    <th className="p-2.5 text-right">Duração Padrão</th>
+                    <th className="p-2.5 text-center">Hora Início</th>
+                    <th className="p-2.5">Recorrência</th>
+                    <th className="p-2.5">Turno</th>
+                    <th className="p-2.5 text-right text-amber-800 bg-amber-50/50">
+                      Horas Perdidas / Mês
+                    </th>
+                    <th className="p-2.5 text-right text-amber-800 bg-amber-50/50">
+                      Capacidade Perdida (t)
+                    </th>
+                    <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5">Vigência</th>
+                    <th className="p-2.5">Responsável</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredStops.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                    >
+                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
+                      <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
+                      <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
+                      <td className="p-2.5">
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]"
                         >
-                          {row.observation || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          {row.stop_type}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 font-mono font-medium text-slate-700">{row.reason}</td>
+                      <td
+                        className="p-2.5 text-slate-800 font-medium max-w-xs truncate"
+                        title={row.description}
+                      >
+                        {row.description}
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-amber-900">
+                        {row.duration_minutes} min
+                      </td>
+                      <td className="p-2.5 text-center font-mono text-slate-700">
+                        {row.start_time}
+                      </td>
+                      <td className="p-2.5 text-slate-700">{row.recurrence}</td>
+                      <td className="p-2.5 text-slate-600">{row.shift}</td>
+
+                      {/* IMPACTO CALCULADO EM HORAS E TONELADAS (REQUISITO 5) */}
+                      <td className="p-2.5 text-right font-mono font-bold text-amber-800 bg-amber-50/20">
+                        {row.lost_hours_month || 0} h/mês
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-rose-700 bg-amber-50/20">
+                        {row.lost_capacity_tons || 0} t
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.status === 'ATIVO'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-slate-500 text-[11px]">{row.validity}</td>
+                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 3 — TEMPO DE RESFRIAMENTO                                             */}
+          {/* ABA 3 — TEMPO DE RESFRIAMENTO (COM FLUXO LINHA ORIGEM -> DESTINO)         */}
           {/* ========================================================================= */}
-          <TabsContent value="resfriamento" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <TabsContent value="resfriamento" className="m-0 p-4 space-y-4">
+            {/* WIDGET DE CÁLCULO DE DEPENDÊNCIA TÉRMICA (REQUISITO 6) */}
+            <CoolingCalculatorWidget />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Tempo de Resfriamento & Cura Metalúrgica
+                  Tabela Oficial de Tempos de Resfriamento & Cura Metalúrgica
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Restrições térmicas para movimentação e processos subsequentes (Laminação &rarr;
-                  Endireitamento / Trefilação).
+                  Valores homologados: 18h, 23h, 24h e 36h dependendo da seção, espessura e
+                  material.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
@@ -660,315 +882,336 @@ export const RulesEnginePage: React.FC = () => {
               </div>
             </div>
 
-            {filteredCoolings.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <ThermometerSnowflake className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhum registro encontrado</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Nenhum tempo de resfriamento cadastrado — aguardando carga oficial SAP/MES.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px]">
-                      <th className="p-2.5">Centro</th>
-                      <th className="p-2.5">Linha</th>
-                      <th className="p-2.5">Centro de Trabalho</th>
-                      <th className="p-2.5">Material</th>
-                      <th className="p-2.5">Família</th>
-                      <th className="p-2.5">Bitola</th>
-                      <th className="p-2.5 text-right">Tempo Resfriamento (h)</th>
-                      <th className="p-2.5">Regra / Condição</th>
-                      <th className="p-2.5">Validade</th>
-                      <th className="p-2.5 text-center">Origem</th>
-                      <th className="p-2.5 text-center">Status</th>
-                      <th className="p-2.5">Responsável</th>
-                      <th className="p-2.5 text-center">Revisão</th>
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Centro</th>
+                    <th className="p-2.5">Linha Origem</th>
+                    <th className="p-2.5">Centro Trab. Origem</th>
+                    <th className="p-2.5 text-[#004C97] font-bold">Linha Destino</th>
+                    <th className="p-2.5 text-[#004C97]">Centro Trab. Destino</th>
+                    <th className="p-2.5">Família</th>
+                    <th className="p-2.5">Material / Bitola</th>
+                    <th className="p-2.5 text-right text-cyan-900 bg-cyan-50/50">
+                      Tempo Mínimo Resfriamento
+                    </th>
+                    <th className="p-2.5">Unidade</th>
+                    <th className="p-2.5">Origem</th>
+                    <th className="p-2.5">Vigência</th>
+                    <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5">Responsável</th>
+                    <th className="p-2.5 text-center">Revisão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredCoolings.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                    >
+                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
+                      <td className="p-2.5 font-bold text-slate-800">{row.origin_line_code}</td>
+                      <td className="p-2.5 font-mono text-slate-600">{row.origin_work_center}</td>
+                      <td className="p-2.5 font-bold text-[#004C97] bg-blue-50/20">
+                        {row.dest_line_code}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-600 bg-blue-50/20">
+                        {row.dest_work_center}
+                      </td>
+                      <td className="p-2.5 font-medium">{row.family_code}</td>
+                      <td className="p-2.5 text-slate-800 font-medium">
+                        {row.gauge_dimension}{' '}
+                        <span className="text-slate-400 font-mono text-[10px]">
+                          ({row.material_code})
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-cyan-800 bg-cyan-50/30">
+                        {row.cooling_time_hours} h
+                      </td>
+                      <td className="p-2.5 text-slate-500 font-mono">{row.unit}</td>
+                      <td className="p-2.5">
+                        <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
+                          {row.origin}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
+                        {row.valid_from} &rarr; {row.valid_until}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.status === 'ATIVO'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
+                      <td className="p-2.5 text-center font-mono text-slate-500">
+                        v{row.revision_number}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {filteredCoolings.map((row) => (
-                      <tr key={row.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                        <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
-                        <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
-                        <td className="p-2.5 font-mono font-medium text-slate-700">
-                          {row.material_code}
-                        </td>
-                        <td className="p-2.5 font-medium">{row.family_code}</td>
-                        <td className="p-2.5 text-slate-800">{row.gauge_dimension}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-cyan-800">
-                          {row.cooling_time_hours} h
-                        </td>
-                        <td className="p-2.5 text-slate-600">{row.rule_condition}</td>
-                        <td className="p-2.5 text-slate-500 text-[11px]">
-                          {row.valid_from
-                            ? `${row.valid_from} -> ${row.valid_until || 'Vigente'}`
-                            : 'Vigente'}
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-mono bg-slate-50 text-slate-700"
-                          >
-                            {row.origin}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <Badge
-                            className={`text-[10px] ${
-                              row.status === 'ATIVO'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                            }`}
-                          >
-                            {row.status}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
-                        <td className="p-2.5 text-center font-mono text-slate-500">
-                          v{row.revision_number}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 4 — REGRAS DE SEQUENCIAMENTO                                          */}
+          {/* ABA 4 — REGRAS DE SEQUENCIAMENTO (PROIBITIVA, NÃO RECOMENDADA, ETC)       */}
           {/* ========================================================================= */}
           <TabsContent value="sequenciamento" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Regras de Sequenciamento & Hierarquia de Rule Packs
+                  Regras de Sequenciamento & Penalidades no Score (0–100)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Herança em cascata (Global &rarr; Empresa &rarr; Planta &rarr; Linha) com pesos
-                  para o Solver CP-SAT.
+                  Tipos: <strong>PROIBITIVA</strong> (hard constraint),{' '}
+                  <strong>NÃO RECOMENDADA</strong> (soft constraint), <strong>PREFERENCIAL</strong>{' '}
+                  (bonifica) e <strong>NEUTRA</strong>.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
-                {filteredSequencings.length} rule pack(s) ativo(s)
+                {filteredSequencings.length} regra(s) registradas
               </div>
             </div>
 
-            {filteredSequencings.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <Sliders className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhum registro encontrado</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Nenhuma regra de sequenciamento cadastrada — aguardando carga oficial SAP/MES.
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Linha</th>
+                    <th className="p-2.5">Família DE</th>
+                    <th className="p-2.5">Material DE</th>
+                    <th className="p-2.5">Família PARA</th>
+                    <th className="p-2.5">Material PARA</th>
+                    <th className="p-2.5 text-center">Tipo da Regra</th>
+                    <th className="p-2.5 text-right font-mono">Impacto no Score</th>
+                    <th className="p-2.5">Motivo Técnico / Rationale</th>
+                    <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5 text-center">Versão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredSequencings.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                    >
+                      <td className="p-2.5 font-bold text-[#004C97]">
+                        {row.line_code || 'GLOBAL'}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-700">
+                        {row.from_family_code || '*'}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-500">
+                        {row.from_material_code || '*'}
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-indigo-900">
+                        {row.to_family_code || '*'}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-500">
+                        {row.to_material_code || '*'}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.rule_type === 'PROIBITIVA'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300'
+                              : row.rule_type === 'NAO_RECOMENDADA'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : row.rule_type === 'PREFERENCIAL'
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {row.rule_type}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold">
+                        {row.penalty_score > 0 ? (
+                          <span className="text-rose-700">-{row.penalty_score} pts</span>
+                        ) : row.penalty_score < 0 ? (
+                          <span className="text-emerald-700">
+                            +{Math.abs(row.penalty_score)} pts
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">0 pts</span>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-slate-800 max-w-sm truncate" title={row.reason}>
+                        {row.reason}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-center font-mono text-slate-500">{row.version}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+
+          {/* ========================================================================= */}
+          {/* ABA 5 — REVISÕES PENDENTES (ESTEIRA DE DUPLA APROVAÇÃO PCP + LINHA)        */}
+          {/* ========================================================================= */}
+          <TabsContent value="revisoes-pendentes" className="m-0 p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Esteira de Homologação Dupla (Fase 1: PCP &rarr; Fase 2: Gestor da Linha)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Nenhum parâmetro é publicado diretamente. A aprovação exige parecer técnico e
+                  histórico preservado.
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredSequencings.map((pack) => (
-                  <Card
-                    key={pack.id}
-                    className="border-slate-200 bg-white hover:border-blue-300 transition-colors"
-                  >
-                    <CardHeader className="p-4 pb-2">
-                      <div className="flex items-center justify-between">
+              <div className="text-xs text-slate-500 font-mono">
+                {filteredPendings.length} revisão(ões) na esteira
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Tipo</th>
+                    <th className="p-2.5">Linha / Entidade</th>
+                    <th className="p-2.5">Parâmetro / Código</th>
+                    <th className="p-2.5 font-mono">Atual &rarr; Proposto</th>
+                    <th className="p-2.5">Motivo & Justificativa Técnica</th>
+                    <th className="p-2.5 text-center">Fase 1: PCP</th>
+                    <th className="p-2.5 text-center">Fase 2: Gestor Linha</th>
+                    <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredPendings.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                    >
+                      <td className="p-2.5">
                         <Badge
                           variant="outline"
                           className="bg-blue-50 text-[#004C97] border-blue-200 font-mono text-[10px]"
                         >
-                          {pack.scope_level}
+                          {row.entity_type}
                         </Badge>
-                        <Badge
-                          className={`text-[10px] ${
-                            pack.status === 'ACTIVE'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {pack.status} &bull; {pack.version}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-sm font-bold text-slate-900 mt-2">
-                        {pack.name}
-                      </CardTitle>
-                      <CardDescription className="font-mono text-[11px] text-slate-500">
-                        Código: {pack.code}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-2 space-y-2 text-xs">
-                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1.5 font-mono text-[11px]">
-                        {pack.rules_payload.maxSetupDurationMinutes !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Setup Máximo:</span>
-                            <span className="font-bold text-slate-800">
-                              {pack.rules_payload.maxSetupDurationMinutes} min
-                            </span>
-                          </div>
-                        )}
-                        {pack.rules_payload.minBatchSizeTons !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Lote Mínimo:</span>
-                            <span className="font-bold text-slate-800">
-                              {pack.rules_payload.minBatchSizeTons} t
-                            </span>
-                          </div>
-                        )}
-                        {pack.rules_payload.bufferSafetyHours !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Buffer Térmico/Segurança:</span>
-                            <span className="font-bold text-slate-800">
-                              {pack.rules_payload.bufferSafetyHours} h
-                            </span>
-                          </div>
-                        )}
-                        {pack.rules_payload.preferredFamilyOrder && (
-                          <div className="flex flex-col gap-1 pt-1 border-t border-slate-200">
-                            <span className="text-slate-500">Ordem de Famílias Preferencial:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {pack.rules_payload.preferredFamilyOrder.map((fam, i) => (
-                                <Badge
-                                  key={i}
-                                  variant="secondary"
-                                  className="text-[9px] px-1.5 py-0 bg-slate-200"
-                                >
-                                  {i + 1}º {fam}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                      </td>
+                      <td className="p-2.5 font-bold text-slate-800">{row.line_code}</td>
+                      <td className="p-2.5 font-mono text-slate-700">{row.parameter_name}</td>
+                      <td className="p-2.5 font-mono">
+                        <span className="line-through text-slate-400">{row.current_value}</span>{' '}
+                        &rarr; <strong className="text-[#004C97]">{row.proposed_value}</strong>
+                      </td>
+                      <td
+                        className="p-2.5 text-slate-700 max-w-xs truncate"
+                        title={row.change_reason}
+                      >
+                        {row.change_reason}
+                      </td>
 
-          {/* ========================================================================= */}
-          {/* ABA 5 — REVISÕES PENDENTES                                                */}
-          {/* ========================================================================= */}
-          <TabsContent value="revisoes-pendentes" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Esteira de Aprovação Dupla (PCP + Gestor da Linha)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Alterações cadastrais e técnicas que exigem homologação em duas etapas antes de
-                  publicação oficial.
-                </p>
-              </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredPendings.length} revisão(ões) pendente(s)
-              </div>
-            </div>
-
-            {filteredPendings.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhuma revisão pendente</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Todas as parametrizações de regras e setup estão vigentes e homologadas no
-                  sistema.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px]">
-                      <th className="p-2.5">Tipo de Entidade</th>
-                      <th className="p-2.5">Linha / Recurso</th>
-                      <th className="p-2.5">Versão</th>
-                      <th className="p-2.5">Motivo da Alteração</th>
-                      <th className="p-2.5 text-center">Fase 1: PCP</th>
-                      <th className="p-2.5 text-center">Fase 2: Gestor Linha</th>
-                      <th className="p-2.5 text-center">Status Geral</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {filteredPendings.map((row) => (
-                      <tr key={row.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="p-2.5">
+                      {/* FASE 1: PCP */}
+                      <td className="p-2.5 text-center">
+                        {row.pcp_approved_at ? (
+                          <div className="text-[10px]">
+                            <span className="font-bold text-emerald-700 block">
+                              ✓ {row.pcp_approver_name || 'Aprovado'}
+                            </span>
+                            <span className="text-slate-400 font-mono">{row.pcp_approved_at}</span>
+                          </div>
+                        ) : (
                           <Badge
                             variant="outline"
-                            className="bg-blue-50 text-[#004C97] border-blue-200 font-mono text-[10px]"
+                            className="text-[9px] bg-amber-50 text-amber-800 border-amber-200"
                           >
-                            {row.entity_type}
+                            Aguardando PCP
                           </Badge>
-                        </td>
-                        <td className="p-2.5 font-bold text-slate-800">{row.line_code}</td>
-                        <td className="p-2.5 font-mono text-slate-600">{row.version}</td>
-                        <td className="p-2.5 text-slate-700">{row.change_reason}</td>
-                        <td className="p-2.5 text-center">
-                          {row.pcp_approver_name ? (
-                            <div className="text-[10px]">
-                              <span className="font-bold text-emerald-700 block">
-                                {row.pcp_approver_name}
-                              </span>
-                              <span className="text-slate-400">{row.pcp_approved_at}</span>
-                            </div>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] bg-amber-50 text-amber-700 border-amber-200"
-                            >
-                              Aguardando PCP
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="p-2.5 text-center">
-                          {row.line_manager_name ? (
-                            <div className="text-[10px]">
-                              <span className="font-bold text-emerald-700 block">
-                                {row.line_manager_name}
-                              </span>
-                              <span className="text-slate-400">{row.line_manager_approved_at}</span>
-                            </div>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] bg-slate-50 text-slate-500 border-slate-200"
-                            >
-                              Pendente
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="p-2.5 text-center">
+                        )}
+                      </td>
+
+                      {/* FASE 2: GESTOR LINHA */}
+                      <td className="p-2.5 text-center">
+                        {row.line_manager_approved_at ? (
+                          <div className="text-[10px]">
+                            <span className="font-bold text-emerald-700 block">
+                              ✓ {row.line_manager_name || 'Homologado'}
+                            </span>
+                            <span className="text-slate-400 font-mono">
+                              {row.line_manager_approved_at}
+                            </span>
+                          </div>
+                        ) : (
                           <Badge
-                            className={`text-[10px] ${
-                              row.status === 'APPROVED'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
+                            variant="outline"
+                            className="text-[9px] bg-slate-50 text-slate-500 border-slate-200"
                           >
-                            {row.status}
+                            Pendente
                           </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                        )}
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.status === 'APPROVED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {row.status}
+                        </Badge>
+                      </td>
+
+                      {/* BOTÕES DE APROVAÇÃO */}
+                      <td className="p-2.5 text-right">
+                        {canApprove && !row.pcp_approved_at && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveRevision(row, 'PCP')}
+                            className="h-7 text-xs bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold"
+                          >
+                            Aprovar PCP (Fase 1)
+                          </Button>
+                        )}
+                        {canApprove && row.pcp_approved_at && !row.line_manager_approved_at && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveRevision(row, 'LINE_MANAGER')}
+                            className="h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
+                          >
+                            Homologar Linha (Fase 2)
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 6 — HISTÓRICO DE ALTERAÇÕES                                           */}
+          {/* ABA 6 — HISTÓRICO & AUDITORIA (TRILHA COMPLETA COM RASTREABILIDADE)       */}
           {/* ========================================================================= */}
           <TabsContent value="historico-alteracoes" className="m-0 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Trilha de Auditoria & Histórico de Alterações de Regras
+                  Trilha de Auditoria & Preservação Histórica de Parâmetros
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Rastreabilidade completa: parâmetro, valor anterior, novo valor, usuário, motivo,
-                  validação MES e recomendações IA.
+                  Nunca apagamos versões anteriores: todas as alterações guardam solicitante,
+                  data/hora, parecer IA, evidência MES e aprovador.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
@@ -976,83 +1219,110 @@ export const RulesEnginePage: React.FC = () => {
               </div>
             </div>
 
-            {filteredAudits.length === 0 ? (
-              <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg">
-                <History className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <h4 className="text-xs font-bold text-slate-700">Nenhum registro encontrado</h4>
-                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
-                  Nenhuma alteração registrada até o momento — aguardando operações ou carga
-                  oficial.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px]">
-                      <th className="p-2.5">Parâmetro</th>
-                      <th className="p-2.5">Valor Anterior</th>
-                      <th className="p-2.5">Valor Novo</th>
-                      <th className="p-2.5">Usuário</th>
-                      <th className="p-2.5">Data / Hora</th>
-                      <th className="p-2.5">Motivo</th>
-                      <th className="p-2.5 text-center">Origem</th>
-                      <th className="p-2.5 text-center">Validação MES</th>
-                      <th className="p-2.5">Recomendação IA</th>
-                      <th className="p-2.5">Aprovador</th>
-                      <th className="p-2.5">Data Publicação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {filteredAudits.map((row) => (
-                      <tr key={row.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="p-2.5 font-bold text-slate-900">{row.parameter_name}</td>
-                        <td className="p-2.5 font-mono text-slate-500 line-through">
-                          {row.previous_value || '-'}
-                        </td>
-                        <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                          {row.new_value || '-'}
-                        </td>
-                        <td className="p-2.5 text-slate-700">{row.user_name}</td>
-                        <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                          {row.change_date}
-                        </td>
-                        <td className="p-2.5 text-slate-800">{row.reason}</td>
-                        <td className="p-2.5 text-center">
-                          <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
-                            {row.origin}
-                          </Badge>
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <Badge
-                            className={`text-[10px] ${
-                              row.mes_validation_status === 'VALIDADO'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {row.mes_validation_status}
-                          </Badge>
-                        </td>
-                        <td
-                          className="p-2.5 text-slate-600 italic max-w-xs truncate"
-                          title={row.ai_recommendation}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Parâmetro / Regra</th>
+                    <th className="p-2.5 font-mono">Valor Anterior</th>
+                    <th className="p-2.5 font-mono">Novo Valor Publicado</th>
+                    <th className="p-2.5">Usuário Solicitante</th>
+                    <th className="p-2.5">Data / Hora</th>
+                    <th className="p-2.5">Motivo / Justificativa</th>
+                    <th className="p-2.5 text-center">Origem</th>
+                    <th className="p-2.5 text-center">Validação MES</th>
+                    <th className="p-2.5">Recomendação IA</th>
+                    <th className="p-2.5">Aprovador</th>
+                    <th className="p-2.5">Data Publicação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredAudits.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
+                    >
+                      <td className="p-2.5 font-bold text-slate-900">{row.parameter_name}</td>
+                      <td className="p-2.5 font-mono text-slate-500 line-through">
+                        {row.previous_value || '-'}
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-[#004C97]">
+                        {row.new_value || '-'}
+                      </td>
+                      <td className="p-2.5 text-slate-700">{row.user_name}</td>
+                      <td className="p-2.5 font-mono text-slate-500 text-[11px]">
+                        {row.change_date}
+                      </td>
+                      <td className="p-2.5 text-slate-800 max-w-xs truncate" title={row.reason}>
+                        {row.reason}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
+                          {row.origin}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[10px] ${
+                            row.mes_validation_status === 'VALIDADO'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
                         >
-                          {row.ai_recommendation || '-'}
-                        </td>
-                        <td className="p-2.5 text-slate-600">{row.approver_name || '-'}</td>
-                        <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                          {row.published_at || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          {row.mes_validation_status}
+                        </Badge>
+                      </td>
+                      <td
+                        className="p-2.5 text-slate-700 italic max-w-xs truncate"
+                        title={row.ai_recommendation}
+                      >
+                        {row.ai_recommendation || '-'}
+                      </td>
+                      <td className="p-2.5 text-slate-600">{row.approver_name || '-'}</td>
+                      <td className="p-2.5 font-mono text-slate-500 text-[11px]">
+                        {row.published_at || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
         </Tabs>
       </Card>
+
+      {/* DRAWER LATERAL DE DETALHE DE SETUP & EVIDÊNCIA MES/IA */}
+      <SetupDetailDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        record={selectedSetupForDrawer}
+        onRequestRevision={(rec) => {
+          setIsDrawerOpen(false)
+          handleOpenRevisionProposal(rec)
+        }}
+      />
+
+      {/* MODAL DE NOVA PROPOSTA DE REVISÃO */}
+      <NewRevisionModal
+        isOpen={isRevisionModalOpen}
+        onClose={() => setIsRevisionModalOpen(false)}
+        record={setupForRevision}
+        onSubmitProposal={handleSubmitRevision}
+      />
+
+      {/* MODAL DE PRÉVIA DA IMPORTAÇÃO */}
+      <ImportPreviewModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        templateType={importTemplateType}
+        onConfirmSendToWorkflow={(items) => {
+          toast({
+            title: 'Lote Enviado para Validação',
+            description: `${items.length} registro(s) encaminhados para validação MES e esteira de revisão.`,
+          })
+          loadAllData()
+        }}
+      />
     </div>
   )
 }
