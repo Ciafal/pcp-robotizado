@@ -108,38 +108,70 @@ export const App: React.FC = () => {
           <Suspense fallback={<ModuleFallback />}>
             <Routes>
               <Route element={<Layout />}>
-                {/* Rota Direta de Montagem Semanal (Fácil Acesso & Compatibilidade) */}
+                {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases) */}
                 <Route
                   path="/pcp/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/pcp/programacao-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/programacao-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/pcp/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/pcp-robotizado/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/pcp-robotizado/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
                 <Route
                   path="/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
                 />
 
                 {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
@@ -388,39 +420,7 @@ export const App: React.FC = () => {
                   }
                 />
 
-                {/* 5. Aliases e Redirecionamentos de Compatibilidade */}
-                <Route
-                  path="/pcp-robotizado/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/pcp-robotizado/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/pcp/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/pcp/programacao/montagem-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/pcp/programacao-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
-                <Route
-                  path="/programacao-semanal"
-                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
-                />
+                {/* Aliases e Redirecionamentos de Compatibilidade */}
                 <Route
                   path="/pcp-robotizado/programacoes"
                   element={<Navigate to="/pcp/sequenciamento/programacao" replace />}

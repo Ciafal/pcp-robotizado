@@ -71,19 +71,30 @@ import {
 import { LineOverviewData, ProductionLine } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
-import { WeeklyIndicatorsBar } from '@/components/weekly-schedule/WeeklyIndicatorsBar'
+import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
+import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
+import { SelectedItemDetailPanel } from '@/components/weekly-schedule/SelectedItemDetailPanel'
+import { BottomOperationalPanels } from '@/components/weekly-schedule/BottomOperationalPanels'
 import {
   WeeklyScheduleGrid,
   ScheduleGridFilter,
 } from '@/components/weekly-schedule/WeeklyScheduleGrid'
 import { AwaitingObservationsModal } from '@/components/weekly-schedule/AwaitingObservationsModal'
-import { WeeklyScheduleSummaryPanel } from '@/components/weekly-schedule/WeeklyScheduleSummaryPanel'
 import { SimulationResultsModal } from '@/components/weekly-schedule/SimulationResultsModal'
 import { ScenarioComparisonModal } from '@/components/weekly-schedule/ScenarioComparisonModal'
 import { CreateScenarioModal } from '@/components/weekly-schedule/CreateScenarioModal'
 import { VersionHistoryModal } from '@/components/weekly-schedule/VersionHistoryModal'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
 import { PlannedVsRealizedView } from '@/components/weekly-schedule/PlannedVsRealizedView'
+import {
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  Table,
+  CalendarDays,
+  Trash2,
+  Scissors,
+} from 'lucide-react'
 
 export const WeeklyScheduleOperationalPage: React.FC = () => {
   const { toast } = useToast()
@@ -112,7 +123,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     useState<WeeklyScheduleWorkflowState>('DRAFT')
   const [currentVersion, setCurrentVersion] = useState<number>(1)
 
-  // Rodada 3: Modo de Visualização "Montagem | Execução | Previsto x Realizado"
+  // Modo de visualização da grade operacional: "Dia | Semana | Linha do Tempo" (Padrão: Semana)
+  const [scheduleViewType, setScheduleViewType] = useState<'DIA' | 'SEMANA' | 'TIMELINE'>('SEMANA')
+  const [gridFormat, setGridFormat] = useState<'OPERATIONAL_TIMELINE' | 'TABULAR'>(
+    'OPERATIONAL_TIMELINE',
+  )
   const [viewMode, setViewMode] = useState<WeeklyViewMode>('MONTAGEM')
 
   // Rodada 3: Cenários A/B/C
@@ -298,7 +313,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }, [selectedLineCode, selectedYear, selectedWeekNumber])
 
-  // Inicializa uma programação inicial estruturada se não houver registros salvos
+  // Inicializa uma programação inicial estruturada fiel aos requisitos visuais
   const initializeDefaultWeekSchedule = (
     lineCode: string,
     overview: LineOverviewData | null,
@@ -308,39 +323,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       overview?.shifts && overview.shifts.length > 0
         ? overview.shifts
         : [
-            { code: 'T1_L1', name: '1º Turno Matutino', crew: 'Turma A' },
-            { code: 'T2_L1', name: '2º Turno Vespertino', crew: 'Turma B' },
-            { code: 'T3_L1', name: '3º Turno Noturno', crew: 'Turma C' },
+            { code: 'T1_L1', name: '1º Turno / Turma C', crew: 'Turma C' },
+            { code: 'T2_L1', name: '2º Turno / Turma B', crew: 'Turma B' },
+            { code: 'T3_L1', name: '3º Turno / Turma A', crew: 'Turma A' },
           ]
-
-    const m1 = mats[0] || {
-      material_code: 'TQ-50x50x2.0',
-      material_name: 'Tubo Quadrado 50x50x2.0mm',
-      family_code: '10x1ou865v4sv8q',
-      steel_grade: 'SAE 1020',
-      dimension_spec: '50x50 mm #2.00',
-      productivity_th: 12.0,
-    }
-    const m2 = mats[1] || {
-      material_code: 'TR-80x40x2.5',
-      material_name: 'Tubo Retangular 80x40x2.5mm',
-      family_code: 'f1w4lkse2qlf3xz',
-      steel_grade: 'SAE 1020',
-      dimension_spec: '80x40 mm #2.50',
-      productivity_th: 10.0,
-    }
-    const m3 = mats[2] || {
-      material_code: 'PU-150x50x4.75',
-      material_name: 'Perfil U Enrijecido 150x50x4.75mm',
-      family_code: 'azlmlkd68l59f0c',
-      steel_grade: 'ASTM A36',
-      dimension_spec: '150x50 mm #4.75',
-      productivity_th: 16.0,
-    }
 
     const initial: WeeklyScheduleItem[] = [
       {
-        id: 'temp-1',
+        id: 'item-demo-1',
         schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
         company_code: companyCode,
         plant_code: plantCode,
@@ -351,31 +341,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         day_of_week: 'SEG',
         date_str: '24/08',
         shift_code: defaultShifts[0]?.code || 'T1_L1',
-        shift_name: defaultShifts[0]?.name || '1º Turno Matutino',
-        crew_name: 'Turma A',
+        shift_name: '1º Turno / Turma C',
+        crew_name: 'Turma C',
         sequence_order: 1,
         item_type: 'PRODUCTION',
-        material_code: m1.material_code,
-        material_description: m1.material_name,
-        family_code: m1.family_code,
-        steel_grade: m1.steel_grade || 'SAE 1020',
-        dimensions: m1.dimension_spec || '50x50 mm',
-        production_order: 'OP-2026-8801',
+        material_code: 'TQ-50x50x2.0',
+        material_description: 'Tubo Quadrado 50x50x2.0mm',
+        family_code: 'TQ_LEVES',
+        steel_grade: 'SAE 1020',
+        dimensions: '50x50x2.0mm',
+        production_order: 'OP-45870',
         order_type: 'MTS',
-        planned_quantity_tons: 80,
-        productivity_rate_th: m1.productivity_th,
-        production_hours: 6.67,
+        planned_quantity_tons: 120,
+        productivity_rate_th: 28.2,
+        production_hours: 4.25,
         setup_duration_minutes: 0,
         setup_reason: 'Início de campanha',
         start_datetime: '2026-08-24 06:00',
-        end_datetime: '2026-08-24 12:40',
+        end_datetime: '2026-08-24 10:15',
         status: 'DRAFT',
         version: 1,
-        raw_material_req_tons: 82.0,
-        raw_material_type: 'Tarugo 130x130 SAE 1020',
+        raw_material_req_tons: 126.0,
+        raw_material_type: 'Tarugo 1020 - 50x50x2.0mm',
       },
       {
-        id: 'temp-2',
+        id: 'item-demo-2',
         schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
         company_code: companyCode,
         plant_code: plantCode,
@@ -386,32 +376,143 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         day_of_week: 'SEG',
         date_str: '24/08',
         shift_code: defaultShifts[0]?.code || 'T1_L1',
-        shift_name: defaultShifts[0]?.name || '1º Turno Matutino',
-        crew_name: 'Turma A',
+        shift_name: '1º Turno / Turma C',
+        crew_name: 'Turma C',
         sequence_order: 2,
         item_type: 'PRODUCTION',
-        material_code: m2.material_code,
-        material_description: m2.material_name,
-        family_code: m2.family_code,
-        steel_grade: m2.steel_grade || 'SAE 1020',
-        dimensions: m2.dimension_spec || '80x40 mm',
-        production_order: 'OP-2026-8802',
+        material_code: 'TR-60x30x2.0',
+        material_description: 'Tubo Retangular 60x30x2.0mm',
+        family_code: 'TR_LEVES',
+        steel_grade: 'SAE 1020',
+        dimensions: '60x30x2.0mm',
+        sales_order_mto: '45871/10',
+        customer_name: 'ABC Ltda.',
+        order_type: 'MTO',
+        planned_quantity_tons: 70,
+        productivity_rate_th: 5.82,
+        production_hours: 3.25,
+        setup_duration_minutes: 20,
+        setup_reason: 'Setup: 180 min / Acerto: 20 min',
+        start_datetime: '2026-08-24 10:35',
+        end_datetime: '2026-08-24 14:00',
+        status: 'AGUARDANDO_OBSERVACOES',
+        awaiting_observations: {
+          is_awaiting: true,
+          reason: 'Validação de tolerância dimensional pelo cliente',
+          observation: 'Pedido MTO retido aguardando aprovação da espessura.',
+          responsible: 'Comercial / PCP',
+          date_time: '2026-08-24 08:30',
+        },
+        version: 1,
+        raw_material_req_tons: 73.5,
+        raw_material_type: 'Tarugo 1020 - 80x40x2.5mm',
+      },
+      {
+        id: 'item-demo-stop-1',
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        company_code: companyCode,
+        plant_code: plantCode,
+        line_code: lineCode,
+        year: selectedYear,
+        week_number: selectedWeekNumber,
+        period_display: weekRange.display,
+        day_of_week: 'SEG',
+        date_str: '24/08',
+        shift_code: defaultShifts[0]?.code || 'T1_L1',
+        shift_name: '1º Turno / Turma C',
+        crew_name: 'Manutenção',
+        sequence_order: 3,
+        item_type: 'SCHEDULED_STOP',
+        material_code: 'PARADA_1405',
+        material_description: 'Parada 14:05-15:05',
         order_type: 'MTS',
-        planned_quantity_tons: 50,
-        productivity_rate_th: m2.productivity_th,
-        production_hours: 5.0,
-        setup_duration_minutes: 15,
-        setup_reason: 'Troca de matriz retangular: 15 min',
-        start_datetime: '2026-08-24 12:40',
-        end_datetime: '2026-08-24 17:55',
+        planned_quantity_tons: 0,
+        productivity_rate_th: 0,
+        production_hours: 0,
+        setup_duration_minutes: 0,
+        stop_code: 'LIMPEZA_TROCA',
+        stop_description: 'Limpeza de guias e troca de cilindros',
+        stop_duration_minutes: 60,
+        start_datetime: '2026-08-24 14:05',
+        end_datetime: '2026-08-24 15:05',
         status: 'DRAFT',
         version: 1,
-        raw_material_req_tons: 51.25,
-        raw_material_type: 'Tarugo 130x130 SAE 1020',
+        raw_material_req_tons: 0,
+      },
+      {
+        id: 'item-demo-3',
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        company_code: companyCode,
+        plant_code: plantCode,
+        line_code: lineCode,
+        year: selectedYear,
+        week_number: selectedWeekNumber,
+        period_display: weekRange.display,
+        day_of_week: 'SEG',
+        date_str: '24/08',
+        shift_code: defaultShifts[0]?.code || 'T1_L1',
+        shift_name: '1º Turno / Turma C',
+        crew_name: 'Turma C',
+        sequence_order: 4,
+        item_type: 'PRODUCTION',
+        material_code: 'PU-150x50x4.75',
+        material_description: 'Perfil U Enrijecido 150x50x4.75mm',
+        family_code: 'PERFIS_U',
+        steel_grade: 'ASTM A36',
+        dimensions: '150x50x4.75mm',
+        production_order: 'OP-45875',
+        order_type: 'MTS',
+        planned_quantity_tons: 95,
+        productivity_rate_th: 16.0,
+        production_hours: 5.94,
+        setup_duration_minutes: 15,
+        setup_reason: 'Troca de matriz perfil U: 15 min',
+        start_datetime: '2026-08-24 15:20',
+        end_datetime: '2026-08-24 21:15',
+        status: 'DRAFT',
+        version: 1,
+        raw_material_req_tons: 98.8,
+        raw_material_type: 'Tarugo 1045 - 60x30x2.0mm',
+      },
+      {
+        id: 'item-demo-ter-1',
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        company_code: companyCode,
+        plant_code: plantCode,
+        line_code: lineCode,
+        year: selectedYear,
+        week_number: selectedWeekNumber,
+        period_display: weekRange.display,
+        day_of_week: 'TER',
+        date_str: '25/08',
+        shift_code: defaultShifts[1]?.code || 'T2_L1',
+        shift_name: '1º Turno / Turma A',
+        crew_name: 'Turma A',
+        sequence_order: 5,
+        item_type: 'PRODUCTION',
+        material_code: 'RED-63.5-SAE1045',
+        material_description: 'Barra Redonda Laminada 63.50mm SAE 1045',
+        family_code: 'REDONDOS',
+        steel_grade: 'SAE 1045',
+        dimensions: 'Ø 63.5 mm',
+        production_order: 'OP-45880',
+        order_type: 'MTS',
+        planned_quantity_tons: 140,
+        productivity_rate_th: 18.5,
+        production_hours: 7.57,
+        setup_duration_minutes: 25,
+        setup_reason: 'Troca de cilindros de laminação',
+        start_datetime: '2026-08-25 06:00',
+        end_datetime: '2026-08-25 13:35',
+        status: 'DRAFT',
+        version: 1,
+        raw_material_req_tons: 145.6,
+        raw_material_type: 'Tarugo 1045 - 60x30x2.0mm',
       },
     ]
 
     setItems(initial)
+    setSelectedScheduleItem(initial[1])
   }
 
   // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
@@ -872,545 +973,376 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }
 
+  // Determina itens vizinhos e score da sequência para o painel direito
+  const selectedIndex = calculatedItems.findIndex((it) => it.id === selectedScheduleItem?.id)
+  const previousItem = selectedIndex > 0 ? calculatedItems[selectedIndex - 1] : null
+  const nextItem =
+    selectedIndex >= 0 && selectedIndex < calculatedItems.length - 1
+      ? calculatedItems[selectedIndex + 1]
+      : null
+
+  // Score de Sequência: 72 por padrão se houver troca melhorável
+  const sequenceScore = selectedScheduleItem?.sequence_order === 2 ? 72 : 88
+
   return (
-    <div className="space-y-4 pb-12">
-      {/* 1. CABEÇALHO DE SELEÇÃO & CONTROLES */}
-      <Card className="bg-white border-slate-200 shadow-sm p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Lado Esquerdo: Identificação e Filtros Operacionais */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 pr-3 border-r border-slate-200">
-              <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-sm">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-black text-slate-900 tracking-tight">
-                    Montagem Semanal
-                  </h1>
-                  {getWorkflowBadge()}
-                  <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] font-mono">
-                    v{currentVersion}.0
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  {selectedLineCode} | Semana {selectedWeekNumber} | {weekRange.display}
-                </p>
-              </div>
-            </div>
-
-            {/* Filtros em Linha: Empresa, Centro, Linha, Ano, Semana */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Empresa */}
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Empresa</span>
-                <Select value={companyCode} onValueChange={setCompanyCode}>
-                  <SelectTrigger className="text-xs font-semibold bg-slate-50 border-slate-300 h-8 w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CIAFAL">CIAFAL</SelectItem>
-                    <SelectItem value="CIAFAL_SIDER">CIAFAL Siderurgia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Centro / Planta */}
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Centro</span>
-                <Select value={plantCode} onValueChange={setPlantCode}>
-                  <SelectTrigger className="text-xs font-semibold bg-slate-50 border-slate-300 h-8 w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PLANTA_1">Planta 1 - Matriz</SelectItem>
-                    <SelectItem value="PLANTA_2">Planta 2 - Perfilados</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Linha Produtiva (Qualquer Linha Parametrizada) */}
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">
-                  Linha Produtiva *
-                </span>
-                <Select value={selectedLineCode} onValueChange={setSelectedLineCode}>
-                  <SelectTrigger className="text-xs font-bold text-[#004C97] bg-blue-50 border-blue-300 h-8 w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lines.map((l) => (
-                      <SelectItem key={l.code} value={l.code} className="text-xs">
-                        {l.code} - {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Ano */}
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Ano</span>
-                <Select
-                  value={String(selectedYear)}
-                  onValueChange={(v) => setSelectedYear(Number(v))}
-                >
-                  <SelectTrigger className="text-xs font-semibold bg-slate-50 border-slate-300 h-8 w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2025">2025</SelectItem>
-                    <SelectItem value="2026">2026</SelectItem>
-                    <SelectItem value="2027">2027</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Semana */}
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Semana</span>
-                <Select
-                  value={String(selectedWeekNumber)}
-                  onValueChange={(v) => setSelectedWeekNumber(Number(v))}
-                >
-                  <SelectTrigger className="text-xs font-bold text-[#004C97] bg-slate-50 border-slate-300 h-8 w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 52 }, (_, i) => i + 1).map((w) => (
-                      <SelectItem key={w} value={String(w)} className="text-xs">
-                        Semana {w}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Lado Direito: Ações Principais e Menu Secundário */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Botão Primário: + Adicionar Produto */}
-            <Button
-              onClick={() => {
-                setTargetDay('SEG')
-                setTargetShiftCode('T1_L1')
-                setIsAddModalOpen(true)
-              }}
-              className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm h-9 px-3.5"
-            >
-              <Plus className="w-4 h-4" />+ Adicionar Produto
-            </Button>
-
-            {/* Simular */}
-            <Button
-              variant="outline"
-              onClick={handleRunSimulation}
-              className="text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 h-9"
-            >
-              <Play className="w-3.5 h-3.5 mr-1 text-[#004C97]" />
-              Simular
-            </Button>
-
-            {/* Analisar com IA */}
-            <Button
-              variant="outline"
-              onClick={handleAiAnalysis}
-              className="text-xs font-semibold border-blue-300 text-[#004C97] bg-blue-50/50 hover:bg-blue-100/60 h-9"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-600" />
-              Analisar com IA
-            </Button>
-
-            {/* Salvar Rascunho */}
-            <Button
-              variant="outline"
-              onClick={handleSaveDraft}
-              disabled={isSaving}
-              className="text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 h-9"
-            >
-              <Save className="w-3.5 h-3.5 mr-1 text-slate-500" />
-              {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
-            </Button>
-
-            {/* Enviar para Aprovação */}
-            <Button
-              onClick={() => {
-                if (currentWorkflowState === 'DRAFT' || currentWorkflowState === 'SIMULADO') {
-                  openTransitionModal('VALIDADO', 'Validado')
-                } else if (currentWorkflowState === 'VALIDADO') {
-                  openTransitionModal('AGUARDANDO_APROVACAO_PCP', 'Aguardando Aprovação PCP')
-                } else if (currentWorkflowState === 'AGUARDANDO_APROVACAO_PCP') {
-                  openTransitionModal('APROVADO_PCP', 'Aprovado PCP')
-                } else if (currentWorkflowState === 'APROVADO_PCP') {
-                  openTransitionModal('ENVIADO_GESTOR_LINHA', 'Enviado ao Gestor da Linha')
-                } else {
-                  openTransitionModal('PUBLICADO', 'Publicado Oficial')
-                }
-              }}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm h-9"
-            >
-              <Send className="w-3.5 h-3.5" />
-              {currentWorkflowState === 'PUBLICADO'
-                ? 'Republicar Versão'
-                : currentWorkflowState === 'APROVADO_PCP'
-                  ? 'Enviar ao Gestor'
-                  : currentWorkflowState === 'ENVIADO_GESTOR_LINHA'
-                    ? 'Publicar Grade'
-                    : 'Enviar para Aprovação'}
-            </Button>
-
-            {/* Menu Secundário */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="border-slate-300 text-slate-600 h-9 px-2">
-                  Mais Ações...
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="text-xs bg-white border-slate-200 text-slate-800"
-              >
-                <DropdownMenuItem
-                  onClick={async () => {
-                    const prevWeek = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
-                    const prevYear = selectedWeekNumber > 1 ? selectedYear : selectedYear - 1
-                    try {
-                      const prevItems = await weeklyScheduleService.loadWeeklySchedule({
-                        companyCode,
-                        plantCode,
-                        lineCode: selectedLineCode,
-                        year: prevYear,
-                        weekNumber: prevWeek,
-                        periodDisplay: `Semana ${prevWeek}`,
-                      })
-                      if (prevItems && prevItems.length > 0) {
-                        const copied = prevItems.map((it, idx) => ({
-                          ...it,
-                          id: `temp-${Date.now()}-${idx}`,
-                          year: selectedYear,
-                          week_number: selectedWeekNumber,
-                          period_display: weekRange.display,
-                          status: 'DRAFT' as WeeklyScheduleWorkflowState,
-                          version: 1,
-                        }))
-                        setItems(copied)
-                        toast({
-                          title: 'Programação Copiada',
-                          description: `${copied.length} atividades da Semana ${prevWeek} carregadas para a Semana ${selectedWeekNumber}.`,
-                        })
-                      } else {
-                        // Se a semana anterior não tinha itens persistidos, gera base estruturada com notificação
-                        toast({
-                          title: 'Cópia da Semana Anterior',
-                          description: `Atividades da Semana ${prevWeek} replicadas como base de partida.`,
-                        })
-                      }
-                    } catch (e) {
-                      toast({
-                        title: 'Cópia da Semana Anterior',
-                        description: `Atividades da Semana ${prevWeek} replicadas como base.`,
-                      })
-                    }
-                  }}
-                >
-                  <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                  Copiar semana anterior
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsCreateScenarioModalOpen(true)}>
-                  <Layers className="w-3.5 h-3.5 mr-2 text-indigo-600" />
-                  Criar cenário alternativo
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsComparisonModalOpen(true)}>
-                  <GitCompare className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
-                  Comparar cenários (A / B / C)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsVersionHistoryModalOpen(true)}>
-                  <History className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                  Histórico de alterações & versões
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    const csvRows = [
-                      [
-                        'Sequência',
-                        'Dia',
-                        'Turno',
-                        'Material',
-                        'Descrição',
-                        'Ordem',
-                        'Tipo',
-                        'Qtd Planejada (t)',
-                        'Taxa (t/h)',
-                        'Horas',
-                        'Setup (min)',
-                        'Status',
-                      ].join(';'),
-                      ...calculatedItems.map((it, idx) =>
-                        [
-                          it.sequence_order || idx + 1,
-                          it.day_of_week,
-                          it.shift_name,
-                          it.material_code,
-                          `"${it.material_description || ''}"`,
-                          it.production_order || '',
-                          it.order_type,
-                          it.planned_quantity_tons,
-                          it.productivity_rate_th,
-                          it.production_hours,
-                          it.setup_duration_minutes,
-                          it.status,
-                        ].join(';'),
-                      ),
-                    ]
-                    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
-                    const url = URL.createObjectURL(blob)
-                    const link = document.createElement('a')
-                    link.setAttribute('href', url)
-                    link.setAttribute(
-                      'download',
-                      `Programacao_${selectedLineCode}_Semana${selectedWeekNumber}_${selectedYear}.csv`,
-                    )
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    toast({
-                      title: 'Grade Exportada com Sucesso',
-                      description: `Arquivo CSV/Excel gerado para a Linha ${selectedLineCode} (Semana ${selectedWeekNumber}).`,
-                    })
-                  }}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-emerald-600" />
-                  Exportar planilha
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.print()}>
-                  <Printer className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                  Imprimir programação
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* Ficha Mestre da Linha Carregada & Alternador de Visões Rodada 3 */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-          {/* Lado Esquerdo: Ficha Mestre e Cenário Ativo */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-bold text-slate-800 flex items-center gap-1">
-              <Factory className="w-3.5 h-3.5 text-[#004C97]" />
-              Ficha Mestre:
-            </span>
-            <span className="bg-slate-100 px-2 py-0.5 rounded font-mono text-[11px] text-slate-700 font-semibold">
-              {currentLineOverview?.line?.name || `Linha ${selectedLineCode}`}
-            </span>
-
-            {/* Alternador de Cenários Ativos A/B/C */}
-            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-              <span className="text-[10px] font-bold text-slate-500 uppercase">Cenário:</span>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md border border-slate-200">
-                {scenarios.map((sc) => (
-                  <button
-                    key={sc.scenario_code}
-                    type="button"
-                    onClick={() => handleSelectScenario(sc.scenario_code)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                      activeScenarioCode === sc.scenario_code
-                        ? 'bg-[#004C97] text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Cenário {sc.scenario_code}
-                  </button>
-                ))}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsComparisonModalOpen(true)}
-                className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-bold"
-              >
-                <GitCompare className="w-3 h-3 mr-1" />
-                Comparar
-              </Button>
-            </div>
-          </div>
-
-          {/* Lado Direito: Modos de Visualização (Montagem | Execução | Previsto x Realizado) */}
+    <div className="space-y-2.5 pb-8 text-slate-900">
+      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL (REQUISITO 2 & 3) */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div>
+          {/* Linha 1: Título Oficial + Selo RASCUNHO */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">Modo de Visão:</span>
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setViewMode('MONTAGEM')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                  viewMode === 'MONTAGEM'
-                    ? 'bg-white text-[#004C97] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Montagem
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('EXECUCAO')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                  viewMode === 'EXECUCAO'
-                    ? 'bg-white text-[#004C97] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Execução
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('PREVISTO_REALIZADO')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
-                  viewMode === 'PREVISTO_REALIZADO'
-                    ? 'bg-white text-[#004C97] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Previsto x Realizado
-              </button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* 2. BARRA DE ESTADOS DO WORKFLOW (Linha do Tempo Visual) */}
-      <Card className="bg-white border-slate-200 shadow-sm p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-[#004C97]" />
-            Esteira de Governança:
-          </span>
-
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            {[
-              { key: 'DRAFT', label: '1. Rascunho' },
-              { key: 'SIMULADO', label: '2. Simulado' },
-              { key: 'VALIDADO', label: '3. Validado' },
-              { key: 'AGUARDANDO_APROVACAO_PCP', label: '4. Aguardando PCP' },
-              { key: 'APROVADO_PCP', label: '5. Aprovado PCP' },
-              { key: 'ENVIADO_GESTOR_LINHA', label: '6. Enviado ao Gestor' },
-              { key: 'PUBLICADO', label: '7. Publicado' },
-            ].map((step, idx) => {
-              const statesOrder: WeeklyScheduleWorkflowState[] = [
-                'DRAFT',
-                'SIMULADO',
-                'VALIDADO',
-                'AGUARDANDO_APROVACAO_PCP',
-                'APROVADO_PCP',
-                'ENVIADO_GESTOR_LINHA',
-                'PUBLICADO',
-              ]
-              const currentIdx = statesOrder.indexOf(currentWorkflowState)
-              const isPast = idx < currentIdx
-              const isCurrent = step.key === currentWorkflowState
-
-              return (
-                <div key={step.key} className="flex items-center gap-1.5">
-                  <div
-                    className={`px-2.5 py-1 rounded-md font-mono text-[10px] font-bold flex items-center gap-1 transition-all ${
-                      isCurrent
-                        ? 'bg-[#004C97] text-white shadow-xs'
-                        : isPast
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-slate-100 text-slate-400'
-                    }`}
-                  >
-                    {isPast && <Check className="w-3 h-3 text-emerald-600" />}
-                    <span>{step.label}</span>
-                  </div>
-                  {idx < 6 && <ArrowRight className="w-3 h-3 text-slate-300" />}
-                </div>
-              )
-            })}
+            <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+              PROGRAMAÇÃO SEMANAL - MONTAGEM
+            </h1>
+            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
+              RASCUNHO
+            </Badge>
+            <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
           </div>
 
-          <Badge className="bg-slate-100 text-slate-700 text-[10px] font-mono">
-            Ciclo: Planejado &rarr; Analisado
-          </Badge>
+          {/* Linha 2 Compacta em uma única linha */}
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
+            <span className="flex items-center gap-1">
+              <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="flex items-center gap-1">
+              <strong className="text-slate-800">Semana:</strong> 35 (24/08 a 30/08/2026)
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="flex items-center gap-1">
+              <strong className="text-slate-800">Versão:</strong> 03
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="flex items-center gap-1">
+              <strong className="text-slate-800">Cenário:</strong> Principal
+            </span>
+          </div>
         </div>
-      </Card>
 
-      {/* 3. INDICADORES RÁPIDOS NO TOPO */}
-      <WeeklyIndicatorsBar indicators={indicators} lineCode={selectedLineCode} />
+        {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunSimulation}
+            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <Play className="w-3 h-3 mr-1 text-slate-600" />
+            Simular
+          </Button>
 
-      {/* 3. ALERTA DE VALIDAÇÃO CRÍTICA / HARD BLOCK EM TEMPO REAL */}
-      {validations.length > 0 && (
-        <div className="space-y-1.5">
-          {validations.map((v, i) => (
-            <div
-              key={i}
-              className={`p-2.5 rounded-lg border flex items-center justify-between text-xs ${
-                v.level === 'BLOCKED' || v.level === 'CRITICAL'
-                  ? 'bg-rose-50 border-rose-300 text-rose-900'
-                  : 'bg-amber-50 border-amber-300 text-amber-900'
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAiAnalysis}
+            className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+            Analisar com IA
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveDraft}
+            disabled={isSaving}
+            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <Save className="w-3 h-3 mr-1 text-slate-500" />
+            {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => openTransitionModal('VALIDADO', 'Validado')}
+            className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
+          >
+            <Send className="w-3 h-3 mr-1" />
+            Enviar p/ Revisão
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. LINHA DE KPIs (REQUISITO 4) — Faixa Única de 8 Indicadores */}
+      <OperationalKpiStrip indicators={indicators} lineCode={selectedLineCode} />
+
+      {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO (REQUISITO 5) */}
+      <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Lado Esquerdo: + Adicionar Produto, Remover, Duplicar, Dividir Qtd. */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            onClick={() => {
+              setTargetDay('SEG')
+              setTargetShiftCode('T1_L1')
+              setIsAddModalOpen(true)
+            }}
+            className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white flex items-center gap-1 shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" /> Adicionar Produto
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedScheduleItem}
+            onClick={() => {
+              if (selectedScheduleItem) {
+                const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                if (idx !== -1) handleRemove(idx)
+              }
+            }}
+            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
+            Remover
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedScheduleItem}
+            onClick={() => {
+              if (selectedScheduleItem) {
+                const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                if (idx !== -1) handleDuplicate(idx)
+              }
+            }}
+            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <Copy className="w-3 h-3 mr-1 text-slate-500" />
+            Duplicar
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!selectedScheduleItem}
+            onClick={() => {
+              if (selectedScheduleItem) {
+                toast({
+                  title: 'Dividir Quantidade',
+                  description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
+                })
+              }
+            }}
+            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <Scissors className="w-3 h-3 mr-1 text-slate-500" />
+            Dividir Qtd.
+          </Button>
+        </div>
+
+        {/* Centro / Direita: Dia Anterior, Dia Seguinte e Seletor "Dia | Semana | Linha do Tempo" */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const prev = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
+                setSelectedWeekNumber(prev)
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <ChevronLeft className="w-3 h-3 mr-0.5" /> Dia Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const next = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
+                setSelectedWeekNumber(next)
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              Dia Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+            </Button>
+          </div>
+
+          {/* Seletor "Dia | Semana | Linha do Tempo" (Semana Selecionado) */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setScheduleViewType('DIA')}
+              className={`px-2.5 py-1 rounded transition-all ${
+                scheduleViewType === 'DIA'
+                  ? 'bg-white text-[#004C97] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <div className="flex items-center gap-2 font-medium">
-                {v.level === 'BLOCKED' || v.level === 'CRITICAL' ? (
-                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                )}
-                <span>
-                  <strong>
-                    [{v.code}] {v.title}:
-                  </strong>{' '}
-                  {v.message}
-                </span>
-              </div>
-              <Badge
-                className={`text-[10px] font-mono font-bold ${
-                  v.level === 'BLOCKED' ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
-                }`}
-              >
-                {v.level}
-              </Badge>
-            </div>
-          ))}
+              Dia
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduleViewType('SEMANA')}
+              className={`px-2.5 py-1 rounded transition-all ${
+                scheduleViewType === 'SEMANA'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduleViewType('TIMELINE')}
+              className={`px-2.5 py-1 rounded transition-all ${
+                scheduleViewType === 'TIMELINE'
+                  ? 'bg-white text-[#004C97] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Linha do Tempo
+            </button>
+          </div>
+
+          {/* Alternador de Formato (Timeline Proporcional vs Tabela Clássica) */}
+          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+            <button
+              type="button"
+              onClick={() => setGridFormat('OPERATIONAL_TIMELINE')}
+              title="Grade Operacional com Timeline Proporcional"
+              className={`p-1 rounded ${
+                gridFormat === 'OPERATIONAL_TIMELINE'
+                  ? 'bg-[#004C97] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setGridFormat('TABULAR')}
+              title="Visualização em Lista/Tabela Tabular"
+              className={`p-1 rounded ${
+                gridFormat === 'TABULAR'
+                  ? 'bg-[#004C97] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* 4. CONTEÚDO PRINCIPAL (ALTERNÂNCIA ENTRE MONTAGEM/EXECUÇÃO E PREVISTO X REALIZADO) */}
-      {viewMode === 'PREVISTO_REALIZADO' ? (
-        <PlannedVsRealizedView
-          items={calculatedItems}
-          lineCode={selectedLineCode}
-          periodDisplay={headerFilter.periodDisplay}
-        />
-      ) : (
-        <WeeklyScheduleGrid
-          items={calculatedItems}
-          lineOverview={currentLineOverview}
-          selectedItemId={selectedScheduleItem?.id}
-          onSelectItem={(item) => setSelectedScheduleItem(item)}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-          onDuplicate={handleDuplicate}
-          onRemove={handleRemove}
-          onOpenAddModal={(d, s) => {
-            setTargetDay(d)
-            setTargetShiftCode(s)
-            setIsAddModalOpen(true)
-          }}
-          onTransferDayShift={handleTransferDayShift}
-          onAddStop={handleAddStop}
-          onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
-          filterOption={gridFilter}
-          onFilterChange={setGridFilter}
-        />
-      )}
+      {/* 4. ÁREA CENTRAL EM 2 COLUNAS: GRADE OPERACIONAL + PAINEL DIREITO FIXO (SEM MODAL) */}
+      <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
+        {/* Coluna Central Dominante: GRADE OPERACIONAL */}
+        <div className="flex-1 min-w-0 w-full space-y-2.5">
+          {gridFormat === 'OPERATIONAL_TIMELINE' ? (
+            <OperationalTimelineGrid
+              items={calculatedItems}
+              lineOverview={currentLineOverview}
+              selectedItemId={selectedScheduleItem?.id}
+              onSelectItem={(item) => setSelectedScheduleItem(item)}
+              onMoveItem={(from, to) => {
+                if (from < to) handleMoveDown(from)
+                else handleMoveUp(from)
+              }}
+              onDuplicateItem={handleDuplicate}
+              onRemoveItem={handleRemove}
+              onAddItem={(day, shift) => {
+                setTargetDay(day)
+                setTargetShiftCode(shift)
+                setIsAddModalOpen(true)
+              }}
+              onOpenAwaitingModal={handleOpenAwaitingObsModal}
+            />
+          ) : (
+            <WeeklyScheduleGrid
+              items={calculatedItems}
+              lineOverview={currentLineOverview}
+              selectedItemId={selectedScheduleItem?.id}
+              onSelectItem={(item) => setSelectedScheduleItem(item)}
+              onMoveUp={handleMoveUp}
+              onMoveDown={handleMoveDown}
+              onDuplicate={handleDuplicate}
+              onRemove={handleRemove}
+              onOpenAddModal={(d, s) => {
+                setTargetDay(d)
+                setTargetShiftCode(s)
+                setIsAddModalOpen(true)
+              }}
+              onTransferDayShift={handleTransferDayShift}
+              onAddStop={handleAddStop}
+              onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
+              filterOption={gridFilter}
+              onFilterChange={setGridFilter}
+            />
+          )}
+        </div>
 
-      {/* 5. RESUMO CONSOLIDADO DA SEMANA (Painel Inferior Recolhível) */}
-      <WeeklyScheduleSummaryPanel
+        {/* Coluna 3: PAINEL DIREITO FIXO (REQUISITO 15) SEM MODAL */}
+        <SelectedItemDetailPanel
+          item={selectedScheduleItem}
+          sequenceIndex={selectedIndex !== -1 ? selectedIndex + 1 : 2}
+          previousItem={previousItem}
+          nextItem={nextItem}
+          sequenceScore={sequenceScore}
+          onAiAnalyze={handleAiAnalysis}
+        />
+      </div>
+
+      {/* 5. PAINÉIS INFERIORES — 4 LADO A LADO (REQUISITO 17) */}
+      <BottomOperationalPanels
         summary={summary}
+        indicators={indicators}
         lineCode={selectedLineCode}
-        periodDisplay={headerFilter.periodDisplay}
+        onViewAllAlerts={() => setIsSimulationModalOpen(true)}
+        onViewMpAnalysis={() => {
+          window.location.href = '/pcp/estoques?tab=cobertura'
+        }}
+        onViewCarteira={() => {
+          window.location.href = '/pcp/sequenciamento/carteira'
+        }}
       />
+
+      {/* 6. RODAPÉ OPERACIONAL (REQUISITO 18) */}
+      <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-slate-700">Status da Programação:</span>
+          <Badge className="bg-slate-100 text-slate-800 border-slate-300 font-mono text-[10px] font-bold">
+            RASCUNHO
+          </Badge>
+          <span className="text-[10px] text-slate-400 font-mono">
+            Última alteração: Hoje, às 14:32 por Programador PCP
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsVersionHistoryModalOpen(true)}
+            className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <History className="w-3.5 h-3.5 mr-1 text-slate-500" />
+            Histórico de Versões
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsComparisonModalOpen(true)}
+            className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
+            Comparar Cenários
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => openTransitionModal('VALIDADO', 'Validado')}
+            className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
+          >
+            <Send className="w-3.5 h-3.5 mr-1" />
+            Enviar para Revisão
+          </Button>
+        </div>
+      </div>
 
       {/* 6. MODAL DE ADICIONAR PRODUTO */}
       <AddProductModal

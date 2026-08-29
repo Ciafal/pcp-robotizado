@@ -467,144 +467,240 @@ export const PCPNavbar: React.FC = () => {
   )
 }
 
+interface NavGroup {
+  groupTitle: string
+  items: {
+    title: string
+    href: string
+    icon: React.ComponentType<{ className?: string }>
+    permission?: string
+  }[]
+}
+
+const officialNavGroups: NavGroup[] = [
+  {
+    groupTitle: 'PRINCIPAL',
+    items: [
+      { title: 'Visão Geral', href: '/pcp/cockpit', icon: LayoutDashboard },
+      {
+        title: 'Torre de Controle',
+        href: '/pcp/sequenciamento/torre-controle',
+        icon: Activity,
+        permission: 'pcp.schedule.view',
+      },
+    ],
+  },
+  {
+    groupTitle: 'PROGRAMAÇÃO',
+    items: [
+      {
+        title: 'Montagem Semanal',
+        href: '/pcp/sequenciamento/montagem-semanal',
+        icon: CalendarDays,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Visão Mensal',
+        href: '/pcp/planejamento?tab=plano-mensal',
+        icon: CalendarRange,
+        permission: 'pcp.masterplan.overview',
+      },
+      {
+        title: 'Cenários e Simulações',
+        href: '/pcp/sequenciamento/cenarios',
+        icon: Sliders,
+        permission: 'pcp.schedule.simulate',
+      },
+      {
+        title: 'Em Aprovação',
+        href: '/pcp/aprovacoes',
+        icon: CheckCircle2,
+        permission: 'pcp.schedule.approve',
+      },
+      {
+        title: 'Aprovadas',
+        href: '/pcp/aprovacoes?filter=approved',
+        icon: ShieldCheck,
+        permission: 'pcp.schedule.approve',
+      },
+      {
+        title: 'Integração SAP / Ordens',
+        href: '/pcp/linhas/mapa-integracao',
+        icon: Compass,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Histórico de Programações',
+        href: '/pcp/sequenciamento/historico',
+        icon: History,
+        permission: 'pcp.schedule.view',
+      },
+    ],
+  },
+  {
+    groupTitle: 'EXECUÇÃO',
+    items: [
+      {
+        title: 'Acompanhamento',
+        href: '/pcp/sequenciamento/operacional',
+        icon: Sparkles,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Previsto x Realizado',
+        href: '/pcp/sequenciamento/eficiencia/assertividade',
+        icon: BarChart3,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Análise de Desvios',
+        href: '/pcp/planejamento?tab=desvios-causas',
+        icon: AlertTriangle,
+        permission: 'pcp.masterplan.deviations',
+      },
+    ],
+  },
+  {
+    groupTitle: 'CADASTROS',
+    items: [
+      {
+        title: 'Ficha Mestre de Linha',
+        href: '/pcp/ficha-mestre',
+        icon: FileSpreadsheet,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Motor de Regras & Setup',
+        href: '/pcp/regras',
+        icon: Cpu,
+        permission: 'pcp.rules.view',
+      },
+      {
+        title: 'Tabelas de Tempo',
+        href: '/pcp/linhas/capacidades',
+        icon: Clock,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'MP e Fornecedores',
+        href: '/pcp/estoques?tab=materia-prima',
+        icon: Boxes,
+        permission: 'pcp.inventory.raw_material',
+      },
+      {
+        title: 'Paradas Programadas',
+        href: '/pcp/linhas/dependencias',
+        icon: Calendar,
+        permission: 'pcp.masterdata.view',
+      },
+    ],
+  },
+  {
+    groupTitle: 'RELATÓRIOS',
+    items: [
+      {
+        title: 'Capacidade',
+        href: '/pcp/planejamento?tab=aderencia',
+        icon: BarChart3,
+        permission: 'pcp.masterplan.adherence',
+      },
+      {
+        title: 'MP & Estoque Projetado',
+        href: '/pcp/estoques?tab=cobertura',
+        icon: Layers,
+        permission: 'pcp.inventory.coverage',
+      },
+      {
+        title: 'Carteira & Atendimento',
+        href: '/pcp/sequenciamento/carteira',
+        icon: Briefcase,
+        permission: 'pcp.schedule.view',
+      },
+    ],
+  },
+  {
+    groupTitle: 'GOVERNANÇA',
+    items: [
+      {
+        title: 'Configurações',
+        href: '/pcp/admin/acessos',
+        icon: KeyRound,
+        permission: 'pcp.admin.manage',
+      },
+      {
+        title: 'Trilha de Auditoria',
+        href: '/pcp/auditoria',
+        icon: ShieldCheck,
+        permission: 'pcp.audit.view',
+      },
+    ],
+  },
+]
+
 export const PCPSidebar: React.FC = () => {
   const location = useLocation()
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    '/pcp/estoques': true,
-    '/pcp/sequenciamento': true,
-    '/pcp/planejamento': true,
-    '/pcp/linhas': true,
-  })
-
-  const toggleSection = (href: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [href]: !prev[href],
-    }))
-  }
 
   return (
-    <aside className="w-64 border-r border-slate-200 bg-white hidden md:block shrink-0 min-h-[calc(100vh-4rem)] p-3 shadow-sm">
-      <nav className="space-y-1">
-        {navSections.map((section) => {
-          const hasSub = !!section.subItems && section.subItems.length > 0
-          const isCurrentSectionActive =
-            section.href === '/pcp/cockpit'
-              ? location.pathname === '/pcp/cockpit' ||
-                location.pathname === '/' ||
-                location.pathname === '/pcp-robotizado'
-              : location.pathname.startsWith(section.href)
+    <aside className="w-[210px] bg-[#0F172A] text-slate-300 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-800 select-none">
+      {/* Topo do menu lateral */}
+      <div className="p-3 border-b border-slate-800 bg-[#0B1120]">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#004C97] ring-2 ring-blue-400/40" />
+          <span className="font-black text-xs tracking-wider text-white uppercase">
+            PCP ROBOTIZADO
+          </span>
+        </div>
+        <div className="text-[10px] text-slate-400 font-mono mt-0.5 pl-4">CIAFAL • Divinópolis</div>
+      </div>
 
-          const isExpanded = expandedSections[section.href] ?? isCurrentSectionActive
-          const SectionIcon = section.icon
+      {/* Itens agrupados compactos */}
+      <nav className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-3 text-xs">
+        {officialNavGroups.map((group) => (
+          <div key={group.groupTitle} className="space-y-0.5">
+            <div className="px-2 py-1 text-[9px] font-black tracking-widest text-slate-400 uppercase">
+              {group.groupTitle}
+            </div>
+            {group.items.map((item) => {
+              const ItemIcon = item.icon
+              // Identifica seleção ativa
+              const isSelected =
+                item.href === '/pcp/sequenciamento/montagem-semanal'
+                  ? location.pathname.includes('montagem-semanal') ||
+                    location.pathname.includes('programacao-semanal')
+                  : location.pathname === item.href ||
+                    (item.href.includes('?') && location.pathname + location.search === item.href)
 
-          const renderSectionItem = (
-            <div key={section.href} className="space-y-0.5">
-              <div
-                className={`flex items-center justify-between rounded-lg transition-colors group ${
-                  isCurrentSectionActive && !hasSub
-                    ? 'bg-[#004C97] text-white font-semibold shadow-sm'
-                    : isCurrentSectionActive && hasSub
-                      ? 'bg-blue-50 text-[#004C97] font-semibold border border-blue-200'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100'
-                }`}
-              >
+              const navLink = (
                 <Link
-                  to={section.href}
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold flex-1 overflow-hidden"
+                  key={item.title}
+                  to={item.href}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                    isSelected
+                      ? 'bg-[#004C97] text-white font-bold shadow-xs'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+                  }`}
                 >
-                  <SectionIcon
-                    className={`w-4 h-4 shrink-0 ${
-                      isCurrentSectionActive
-                        ? !hasSub
-                          ? 'text-white'
-                          : 'text-[#004C97]'
-                        : 'text-slate-500 group-hover:text-slate-800'
+                  <ItemIcon
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      isSelected ? 'text-white' : 'text-slate-400'
                     }`}
                   />
-                  <span className="truncate">{section.title}</span>
-                  {section.badge && (
-                    <span
-                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded border shrink-0 ${
-                        isCurrentSectionActive && !hasSub
-                          ? 'bg-blue-800/80 text-white border-blue-600'
-                          : 'bg-slate-100 text-slate-600 border-slate-300'
-                      }`}
-                    >
-                      {section.badge}
-                    </span>
-                  )}
+                  <span className="truncate">{item.title}</span>
                 </Link>
+              )
 
-                {hasSub && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleSection(section.href)
-                    }}
-                    className="px-2.5 py-2 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none"
-                    aria-label="Expandir/Recolher subitens"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                )}
-              </div>
+              if (item.permission) {
+                return (
+                  <Can key={item.title} permission={item.permission}>
+                    {navLink}
+                  </Can>
+                )
+              }
 
-              {/* Sub-itens com verificação individual de RBAC */}
-              {hasSub && isExpanded && (
-                <div className="ml-3 pl-2.5 border-l border-slate-200 space-y-0.5 pt-0.5">
-                  {section.subItems!.map((sub) => {
-                    const SubIcon = sub.icon
-                    const isSubActive =
-                      sub.href === section.href
-                        ? location.pathname === sub.href
-                        : location.pathname.startsWith(sub.href)
-
-                    const navSub = (
-                      <Link
-                        key={sub.href}
-                        to={sub.href}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] transition-colors ${
-                          isSubActive
-                            ? 'bg-[#004C97] text-white font-bold shadow-sm'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        <SubIcon className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{sub.title}</span>
-                      </Link>
-                    )
-
-                    if (sub.permission) {
-                      return (
-                        <Can key={sub.href} permission={sub.permission}>
-                          {navSub}
-                        </Can>
-                      )
-                    }
-                    return navSub
-                  })}
-                </div>
-              )}
-            </div>
-          )
-
-          if (section.permission) {
-            return (
-              <Can key={section.href} permission={section.permission}>
-                {renderSectionItem}
-              </Can>
-            )
-          }
-
-          return renderSectionItem
-        })}
+              return navLink
+            })}
+          </div>
+        ))}
       </nav>
     </aside>
   )
