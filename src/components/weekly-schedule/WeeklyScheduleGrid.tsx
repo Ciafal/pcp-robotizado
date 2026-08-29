@@ -406,29 +406,35 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         )}
                       </td>
 
-                      {/* Semáforo de MP (Verde / Amarelo / Vermelho) */}
+                      {/* Semáforo de MP (Verde / Amarelo / Vermelho com Déficit e Ruptura) */}
                       <td className="py-2 px-3 text-center whitespace-nowrap">
                         {!isStop && item.raw_material_calc ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div>
+                              <div className="flex flex-col items-center">
                                 {item.raw_material_calc.status === 'GREEN' && (
-                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit">
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
                                     <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                                    MP GARANTIDA
+                                    🟢 GARANTIDA
                                   </Badge>
                                 )}
                                 {item.raw_material_calc.status === 'YELLOW' && (
-                                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit">
-                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                    MP COM RISCO
+                                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500" />🟡 COM
+                                    RISCO
                                   </Badge>
                                 )}
                                 {item.raw_material_calc.status === 'RED' && (
-                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit animate-pulse">
-                                    <AlertCircle className="w-3 h-3 text-rose-600" />
-                                    MP INSUFICIENTE
-                                  </Badge>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit animate-pulse shadow-xs">
+                                      <AlertCircle className="w-3 h-3 text-rose-600" />🔴
+                                      INSUFICIENTE
+                                    </Badge>
+                                    <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1 rounded border border-rose-200">
+                                      -{item.raw_material_calc.deficitTons.toLocaleString('pt-BR')}{' '}
+                                      t
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                             </TooltipTrigger>
@@ -436,36 +442,64 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                               side="top"
                               className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
                             >
-                              <div className="space-y-1">
-                                <p
-                                  className={`font-bold ${
-                                    item.raw_material_calc.status === 'GREEN'
-                                      ? 'text-emerald-400'
-                                      : item.raw_material_calc.status === 'YELLOW'
-                                        ? 'text-amber-400'
-                                        : 'text-rose-400'
-                                  }`}
-                                >
-                                  {item.raw_material_calc.statusLabel}
-                                </p>
-                                <p className="text-[11px] text-slate-200">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p
+                                    className={`font-bold ${
+                                      item.raw_material_calc.status === 'GREEN'
+                                        ? 'text-emerald-400'
+                                        : item.raw_material_calc.status === 'YELLOW'
+                                          ? 'text-amber-400'
+                                          : 'text-rose-400'
+                                    }`}
+                                  >
+                                    {item.raw_material_calc.statusLabel}
+                                  </p>
+                                  {item.raw_material_calc.probableRuptureDate && (
+                                    <span className="text-[10px] font-mono text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded border border-rose-800">
+                                      Ruptura: {item.raw_material_calc.probableRuptureDate}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-200 leading-relaxed">
                                   {item.raw_material_calc.statusReason}
                                 </p>
                                 <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-300 font-mono space-y-0.5">
-                                  <div>
-                                    Estoque SAP: {item.raw_material_calc.currentSapStockTons} t
+                                  <div className="flex justify-between">
+                                    <span>Estoque Físico SAP/WMS:</span>
+                                    <span className="text-white font-bold">
+                                      {item.raw_material_calc.currentSapStockTons} t
+                                    </span>
                                   </div>
-                                  <div>
-                                    Entrada Pedidos Compra: {item.raw_material_calc.confirmedPoTons}{' '}
-                                    t
+                                  <div className="flex justify-between">
+                                    <span>Entrada Pedidos Compra (PO):</span>
+                                    <span className="text-white font-bold">
+                                      {item.raw_material_calc.confirmedPoTons} t
+                                    </span>
                                   </div>
-                                  <div>
-                                    Produção Upstream:{' '}
-                                    {item.raw_material_calc.upstreamProductionTons} t
+                                  <div className="flex justify-between">
+                                    <span>Produção Upstream Linhas:</span>
+                                    <span className="text-white font-bold">
+                                      {item.raw_material_calc.upstreamProductionTons} t
+                                    </span>
                                   </div>
-                                  <div>
-                                    Saldo Projetado Final:{' '}
-                                    {item.raw_material_calc.projectedBalanceTons} t
+                                  <div className="flex justify-between">
+                                    <span>Consumo Próprio Anterior:</span>
+                                    <span className="text-amber-300 font-bold">
+                                      {item.raw_material_calc.priorOwnLineConsumptionTons} t
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between pt-1 border-t border-slate-800">
+                                    <span>Saldo Projetado na Data:</span>
+                                    <span
+                                      className={`font-bold ${
+                                        item.raw_material_calc.projectedBalanceTons >= 0
+                                          ? 'text-emerald-400'
+                                          : 'text-rose-400'
+                                      }`}
+                                    >
+                                      {item.raw_material_calc.projectedBalanceTons} t
+                                    </span>
                                   </div>
                                 </div>
                               </div>

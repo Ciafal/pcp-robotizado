@@ -179,21 +179,75 @@ export const WeeklyIndicatorsBar: React.FC<WeeklyIndicatorsBarProps> = ({
         </span>
       </Card>
 
-      {/* 8. Necessidade Total de MP */}
-      <Card className="bg-white border-slate-200 p-2.5 shadow-sm flex flex-col justify-between">
-        <div className="flex items-center justify-between text-slate-500 text-[10px] uppercase font-bold tracking-wider">
-          <span>Demanda MP</span>
-          <Boxes className="w-3.5 h-3.5 text-indigo-600" />
-        </div>
-        <div className="mt-1">
-          <span className="text-base font-black font-mono text-indigo-950">
-            {indicators.rawMaterialRequiredTons.toLocaleString('pt-BR')}
+      {/* 8. Necessidade Total & Saldo de MP */}
+      <Card
+        className={`p-2.5 shadow-sm flex flex-col justify-between border ${
+          (indicators.rawMaterialRedCount || 0) > 0
+            ? 'bg-rose-50/70 border-rose-300'
+            : (indicators.rawMaterialYellowCount || 0) > 0
+              ? 'bg-amber-50/50 border-amber-300'
+              : 'bg-white border-slate-200'
+        }`}
+      >
+        <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-wider">
+          <span
+            className={
+              (indicators.rawMaterialRedCount || 0) > 0
+                ? 'text-rose-800'
+                : (indicators.rawMaterialYellowCount || 0) > 0
+                  ? 'text-amber-800'
+                  : 'text-slate-600'
+            }
+          >
+            Demanda MP / Saldo
           </span>
-          <span className="text-[10px] font-black text-indigo-900 ml-1">t</span>
+          <Boxes
+            className={`w-3.5 h-3.5 ${
+              (indicators.rawMaterialRedCount || 0) > 0
+                ? 'text-rose-600'
+                : (indicators.rawMaterialYellowCount || 0) > 0
+                  ? 'text-amber-600'
+                  : 'text-indigo-600'
+            }`}
+          />
         </div>
-        <span className="text-[9px] text-slate-500 font-medium truncate mt-0.5">
-          Tarugos & Bobinas
-        </span>
+        <div className="mt-1 flex items-baseline justify-between">
+          <div>
+            <span className="text-base font-black font-mono text-indigo-950">
+              {indicators.rawMaterialRequiredTons.toLocaleString('pt-BR')}
+            </span>
+            <span className="text-[10px] font-black text-indigo-900 ml-1">t</span>
+          </div>
+          {indicators.rawMaterialBalanceTons !== undefined && (
+            <span
+              className={`text-xs font-mono font-bold ${
+                indicators.rawMaterialBalanceTons >= 0 ? 'text-emerald-700' : 'text-rose-700'
+              }`}
+              title="Saldo Projetado Consolidado"
+            >
+              {indicators.rawMaterialBalanceTons >= 0 ? '+' : ''}
+              {indicators.rawMaterialBalanceTons.toLocaleString('pt-BR')} t
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold">
+          {(indicators.rawMaterialRedCount || 0) > 0 ? (
+            <span className="text-rose-700 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+              {indicators.rawMaterialRedCount} com déficit
+            </span>
+          ) : (indicators.rawMaterialYellowCount || 0) > 0 ? (
+            <span className="text-amber-700 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              {indicators.rawMaterialYellowCount} com risco/PO
+            </span>
+          ) : (
+            <span className="text-emerald-700 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              100% MP Garantida
+            </span>
+          )}
+        </div>
       </Card>
 
       {/* 9. Alertas Críticos & Score */}

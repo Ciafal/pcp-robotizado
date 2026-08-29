@@ -317,14 +317,14 @@ export const WeeklyScheduleEngine = {
     // A) Estoque SAP / WMS Disponível
     const stockItems = context.inventoryItems || []
     const matchingStock = stockItems.filter((st) => {
-      const stGrade = (st.steel_grade || '').toUpperCase()
+      const stGrade = ((st as any).steel_grade || '').toUpperCase()
       const stCat = st.category
       const matDesc = (st.material_description || '').toUpperCase()
       const matCode = (st.material_code || '').toUpperCase()
 
       const isRm =
         stCat === 'RAW_MATERIAL' ||
-        stCat === 'SEMI_FINISHED' ||
+        (stCat as string) === 'SEMI_FINISHED' ||
         matDesc.includes('TARUGO') ||
         matDesc.includes('BOBINA') ||
         matCode.includes('BOB') ||
@@ -651,7 +651,7 @@ export const WeeklyScheduleEngine = {
 
       // Estoque SAP total para o grau
       const matchingStock = stockItems.filter((st) => {
-        const stGrade = (st.steel_grade || '').toUpperCase()
+        const stGrade = ((st as any).steel_grade || '').toUpperCase()
         const matDesc = (st.material_description || '').toUpperCase()
         return stGrade.includes(grade) || matDesc.includes(grade)
       })
@@ -868,6 +868,14 @@ export const WeeklyScheduleEngine = {
     }))
 
     const totalRawMaterialRequired = billetRequirements.reduce((s, r) => s + r.requiredTons, 0)
+    const totalRawMaterialAvailable = billetRequirements.reduce((s, r) => s + r.availableTons, 0)
+    const totalRawMaterialBalance = billetRequirements.reduce(
+      (s, r) => s + r.projectedBalanceTons,
+      0,
+    )
+    const rawMaterialGreenCount = billetRequirements.filter((r) => r.status === 'GREEN').length
+    const rawMaterialYellowCount = billetRequirements.filter((r) => r.status === 'YELLOW').length
+    const rawMaterialRedCount = billetRequirements.filter((r) => r.status === 'RED').length
 
     const indicators: WeeklyIndicators = {
       availableCapacityHours: Number(nominalAvailableHours.toFixed(1)),
@@ -879,6 +887,11 @@ export const WeeklyScheduleEngine = {
       utilizationPct,
       programmedProductsCount: processedItems.filter((it) => it.item_type === 'PRODUCTION').length,
       rawMaterialRequiredTons: Number(totalRawMaterialRequired.toFixed(1)),
+      rawMaterialAvailableTons: Number(totalRawMaterialAvailable.toFixed(1)),
+      rawMaterialBalanceTons: Number(totalRawMaterialBalance.toFixed(1)),
+      rawMaterialGreenCount,
+      rawMaterialYellowCount,
+      rawMaterialRedCount,
       criticalAlertsCount: validations.filter(
         (v) => v.level === 'BLOCKED' || v.level === 'CRITICAL',
       ).length,

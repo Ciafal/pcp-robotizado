@@ -103,6 +103,40 @@ export const App: React.FC = () => {
           <Suspense fallback={<ModuleFallback />}>
             <Routes>
               <Route element={<Layout />}>
+                {/* Rota Direta de Montagem Semanal (Fácil Acesso & Compatibilidade) */}
+                <Route
+                  path="/pcp/montagem-semanal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp-robotizado/programacao/montagem-semanal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp-robotizado/montagem-semanal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/montagem-semanal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+
                 {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
                 <Route
                   path="/pcp/cockpit-executivo"
@@ -363,6 +397,18 @@ export const App: React.FC = () => {
                 {/* 5. Aliases e Redirecionamentos de Compatibilidade */}
                 <Route
                   path="/pcp-robotizado/programacao/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/pcp-robotizado/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/pcp/montagem-semanal"
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
+                />
+                <Route
+                  path="/montagem-semanal"
                   element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route

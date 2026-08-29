@@ -109,10 +109,14 @@ export interface WeeklyIndicators {
   utilizationPct: number
   programmedProductsCount: number
   rawMaterialRequiredTons: number
+  rawMaterialAvailableTons?: number
+  rawMaterialBalanceTons?: number
+  rawMaterialGreenCount?: number
+  rawMaterialYellowCount?: number
+  rawMaterialRedCount?: number
   criticalAlertsCount: number
   sequenceScore: number
 }
-
 export interface WeeklySummaryCapacity {
   calendarHours: number
   availableHours: number

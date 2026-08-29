@@ -882,7 +882,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       />
 
       {/* 5. RESUMO CONSOLIDADO DA SEMANA (Painel Inferior Recolhível) */}
-      <WeeklyScheduleSummaryPanel summary={summary} lineCode={selectedLineCode} />
+      <WeeklyScheduleSummaryPanel
+        summary={summary}
+        lineCode={selectedLineCode}
+        periodDisplay={headerFilter.periodDisplay}
+      />
 
       {/* 6. MODAL DE ADICIONAR PRODUTO */}
       <AddProductModal

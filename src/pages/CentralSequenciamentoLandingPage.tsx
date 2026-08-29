@@ -35,6 +35,17 @@ interface AreaCard {
 
 const areas: AreaCard[] = [
   {
+    title: 'Montagem Semanal',
+    subtitle: 'Programação de Linha, Turnos e MP',
+    description:
+      'Montagem operacional da programação semanal com cálculo determinístico de necessidade de tarugos, disponibilidade projetada de MP e semáforo.',
+    href: '/pcp/sequenciamento/montagem-semanal',
+    icon: CalendarDays,
+    badge: 'Semáforo MP',
+    kpi: 'Disponibilidade MP',
+    color: 'from-blue-600/20 to-blue-900/10 border-blue-800/60',
+  },
+  {
     title: 'Torre de Controle',
     subtitle: 'Visão Integrada e Gargalos',
     description:
@@ -43,7 +54,7 @@ const areas: AreaCard[] = [
     icon: Activity,
     badge: 'Tempo Real',
     kpi: '97.4% Aderência',
-    color: 'from-blue-600/20 to-blue-900/10 border-blue-800/60',
+    color: 'from-indigo-600/20 to-indigo-900/10 border-indigo-800/60',
   },
   {
     title: 'Operacional de Chão de Fábrica',
