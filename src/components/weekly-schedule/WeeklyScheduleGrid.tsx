@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -8,12 +8,14 @@ import {
   Layers,
   MoreVertical,
   Plus,
-  Sparkles,
   Trash2,
   Wrench,
-  AlertOctagon,
+  AlertCircle,
+  HelpCircle,
+  AlertTriangle,
   FileText,
-  Boxes,
+  Filter,
+  CheckCircle2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,11 +29,20 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
-import { ShieldCheck, AlertCircle, HelpCircle } from 'lucide-react'
+
+export type ScheduleGridFilter =
+  | 'ALL'
+  | 'AGUARDANDO_OBSERVACOES'
+  | 'ALERTAS'
+  | 'BLOQUEADOS'
+  | 'MTO'
+  | 'MTS'
 
 interface WeeklyScheduleGridProps {
   items: WeeklyScheduleItem[]
   lineOverview: LineOverviewData | null
+  selectedItemId?: string | null
+  onSelectItem?: (item: WeeklyScheduleItem) => void
   onMoveUp: (index: number) => void
   onMoveDown: (index: number) => void
   onDuplicate: (index: number) => void
@@ -46,11 +57,16 @@ interface WeeklyScheduleGridProps {
     newShiftCode: string,
   ) => void
   onAddStop: (day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM', shiftCode: string) => void
+  onOpenAwaitingObservationsModal?: (item: WeeklyScheduleItem) => void
+  filterOption?: ScheduleGridFilter
+  onFilterChange?: (filter: ScheduleGridFilter) => void
 }
 
 export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   items,
   lineOverview,
+  selectedItemId,
+  onSelectItem,
   onMoveUp,
   onMoveDown,
   onDuplicate,
@@ -58,8 +74,31 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   onOpenAddModal,
   onTransferDayShift,
   onAddStop,
+  onOpenAwaitingObservationsModal,
+  filterOption = 'ALL',
+  onFilterChange,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
+  const [internalFilter, setInternalFilter] = useState<ScheduleGridFilter>(filterOption)
+
+  const activeFilter = onFilterChange ? filterOption : internalFilter
+  const handleFilterSelect = (f: ScheduleGridFilter) => {
+    if (onFilterChange) {
+      onFilterChange(f)
+    } else {
+      setInternalFilter(f)
+    }
+  }
+
+  const currentSelectedId = selectedItemId !== undefined ? selectedItemId : internalSelectedId
+
+  const handleRowClick = (item: WeeklyScheduleItem) => {
+    setInternalSelectedId(item.id)
+    if (onSelectItem) {
+      onSelectItem(item)
+    }
+  }
 
   // Manipuladores de Drag and Drop
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -84,44 +123,150 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     setDraggedIndex(null)
   }
 
-  // Agrupa os itens por Dia da Semana e Turno para renderização em planilha operacional CIAFAL
-  const daysList: Array<{
-    code: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
-    label: string
-  }> = [
-    { code: 'SEG', label: 'Segunda-feira' },
-    { code: 'TER', label: 'Terça-feira' },
-    { code: 'QUA', label: 'Quarta-feira' },
-    { code: 'QUI', label: 'Quinta-feira' },
-    { code: 'SEX', label: 'Sexta-feira' },
-    { code: 'SAB', label: 'Sábado' },
-    { code: 'DOM', label: 'Domingo' },
-  ]
+  // Filtro de Itens
+  const filteredItemsWithIndex = useMemo(() => {
+    return items
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .filter(({ item }) => {
+        const isAwaiting =
+          item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
+        const isBlocked =
+          item.is_blocked_attempt ||
+          (lineOverview?.blockedProducts &&
+            lineOverview.blockedProducts.some(
+              (b) =>
+                b.active &&
+                b.product_code.trim().toUpperCase() === item.material_code.trim().toUpperCase(),
+            ))
+        const hasAlerts =
+          item.raw_material_calc?.status === 'RED' ||
+          item.raw_material_calc?.status === 'YELLOW' ||
+          item.cooling_validation?.hasViolation ||
+          isAwaiting ||
+          isBlocked
 
-  const shiftsList =
-    lineOverview?.shifts && lineOverview.shifts.length > 0
-      ? lineOverview.shifts
-      : [
-          { code: 'T1_L1', name: '1º Turno Matutino', start_time: '06:00', end_time: '14:20' },
-          { code: 'T2_L1', name: '2º Turno Vespertino', start_time: '14:20', end_time: '22:40' },
-          { code: 'T3_L1', name: '3º Turno Noturno', start_time: '22:40', end_time: '06:00' },
-        ]
+        if (activeFilter === 'AGUARDANDO_OBSERVACOES') return isAwaiting
+        if (activeFilter === 'ALERTAS') return hasAlerts
+        if (activeFilter === 'BLOQUEADOS') return isBlocked
+        if (activeFilter === 'MTO') return item.order_type === 'MTO'
+        if (activeFilter === 'MTS') return item.order_type === 'MTS'
+        return true
+      })
+  }, [items, activeFilter, lineOverview])
+
+  /**
+   * Helper para determinar estilo de fundo/linha conforme as Cores Oficiais da Programação:
+   * - Verde claro: MTS
+   * - Amarelo claro: MTO
+   * - Amarelo destacado: Aguardando observações
+   * - Cinza: Setup / Troca
+   * - Laranja: Parada Programada
+   * - Azul claro: Manutenção
+   * - Vermelho: Bloqueio / condição crítica
+   * - Contorno azul: item atualmente selecionado
+   */
+  const getItemRowClasses = (item: WeeklyScheduleItem, isSelected: boolean) => {
+    const isAwaiting =
+      item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
+    const isStop = item.item_type === 'SCHEDULED_STOP'
+    const isSetup = item.item_type === 'SETUP'
+    const isBlocked =
+      item.is_blocked_attempt ||
+      (lineOverview?.blockedProducts &&
+        lineOverview.blockedProducts.some(
+          (b) =>
+            b.active &&
+            b.product_code.trim().toUpperCase() === item.material_code.trim().toUpperCase(),
+        ))
+    const isCriticalCondition = item.raw_material_calc?.status === 'RED' || isBlocked
+
+    let bgClass = 'bg-white'
+
+    if (isCriticalCondition) {
+      // Vermelho: Bloqueio / condição crítica
+      bgClass = 'bg-rose-50/80 hover:bg-rose-100/80 text-rose-950'
+    } else if (isAwaiting) {
+      // Amarelo destacado: Aguardando observações
+      bgClass = 'bg-amber-100/90 hover:bg-amber-200/90 text-amber-950 font-medium'
+    } else if (isStop) {
+      if (
+        item.stop_description?.toLowerCase().includes('manuten') ||
+        item.stop_code?.toLowerCase().includes('manut')
+      ) {
+        // Azul claro: Manutenção
+        bgClass = 'bg-sky-50 hover:bg-sky-100 text-sky-950'
+      } else {
+        // Laranja: Parada Programada
+        bgClass = 'bg-orange-50 hover:bg-orange-100 text-orange-950 font-medium'
+      }
+    } else if (isSetup) {
+      // Cinza: Setup / Troca
+      bgClass = 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+    } else if (item.order_type === 'MTO') {
+      // Amarelo claro: MTO
+      bgClass = 'bg-amber-50/60 hover:bg-amber-100/60 text-slate-900'
+    } else {
+      // Verde claro: MTS
+      bgClass = 'bg-emerald-50/40 hover:bg-emerald-100/50 text-slate-900'
+    }
+
+    const selectedClass = isSelected
+      ? 'ring-2 ring-blue-600 ring-inset shadow-md z-10 relative !bg-blue-50/90'
+      : ''
+
+    return `${bgClass} ${selectedClass} transition-colors cursor-pointer group`
+  }
 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        {/* Barra superior de instrução */}
-        <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center justify-between text-xs">
+        {/* Barra superior de instrução + Filtros */}
+        <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-slate-700 font-semibold">
             <Layers className="w-4 h-4 text-[#004C97]" />
             <span>
               Grade Operacional de Montagem Semanal (Dia &rarr; Turno &rarr; Turma &rarr; Sequência)
             </span>
           </div>
-          <span className="text-[11px] text-slate-500 font-mono">
-            {items.length} atividade(s) programada(s) &bull; Arraste ou mova para recalcular
-            automaticamente
-          </span>
+
+          {/* Filtro de Visualização de Itens */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+              <Filter className="w-3 h-3 text-[#004C97]" />
+              Filtro:
+            </span>
+            <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 shadow-xs">
+              {[
+                { key: 'ALL', label: 'Todos' },
+                { key: 'AGUARDANDO_OBSERVACOES', label: 'Aguardando Observações' },
+                { key: 'ALERTAS', label: 'Alertas' },
+                { key: 'BLOQUEADOS', label: 'Bloqueados' },
+                { key: 'MTO', label: 'MTO' },
+                { key: 'MTS', label: 'MTS' },
+              ].map((f) => {
+                const isActive = activeFilter === f.key
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => handleFilterSelect(f.key as ScheduleGridFilter)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                      isActive
+                        ? f.key === 'AGUARDANDO_OBSERVACOES'
+                          ? 'bg-amber-400 text-slate-950 shadow-xs'
+                          : 'bg-[#004C97] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+            <span className="text-[11px] text-slate-500 font-mono ml-2">
+              {filteredItemsWithIndex.length} de {items.length} atividade(s)
+            </span>
+          </div>
         </div>
 
         {/* Grade Principal com Cabeçalho Fixo e Primeira Coluna Fixa */}
@@ -153,33 +298,50 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
             {/* CORPO DA GRADE */}
             <tbody className="divide-y divide-slate-200">
-              {items.length === 0 ? (
+              {filteredItemsWithIndex.length === 0 ? (
                 <tr>
                   <td colSpan={16} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <Layers className="w-8 h-8 text-slate-300" />
                       <p className="font-bold text-slate-700">
-                        Nenhum produto programado para esta semana.
+                        Nenhuma atividade encontrada com o filtro atual.
                       </p>
-                      <p className="text-xs text-slate-400">
-                        Clique em <strong>"+ Adicionar Produto"</strong> para iniciar a montagem
-                        operacional.
-                      </p>
-                      <Button
-                        size="sm"
-                        onClick={() => onOpenAddModal('SEG', 'T1_L1')}
-                        className="bg-[#004C97] text-white hover:bg-[#003d7a] text-xs font-semibold mt-2"
-                      >
-                        <Plus className="w-3.5 h-3.5 mr-1" />
-                        Adicionar Primeiro Produto
-                      </Button>
+                      {activeFilter !== 'ALL' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleFilterSelect('ALL')}
+                          className="text-xs"
+                        >
+                          Limpar Filtro e Exibir Todas
+                        </Button>
+                      ) : (
+                        <>
+                          <p className="text-xs text-slate-400">
+                            Clique em <strong>"+ Adicionar Produto"</strong> para iniciar a montagem
+                            operacional.
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => onOpenAddModal('SEG', 'T1_L1')}
+                            className="bg-[#004C97] text-white hover:bg-[#003d7a] text-xs font-semibold mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Adicionar Primeiro Produto
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                items.map((item, index) => {
+                filteredItemsWithIndex.map(({ item, originalIndex }) => {
                   const isStop = item.item_type === 'SCHEDULED_STOP'
                   const isMto = item.order_type === 'MTO'
+                  const isAwaiting =
+                    item.status === 'AGUARDANDO_OBSERVACOES' ||
+                    item.awaiting_observations?.is_awaiting
+                  const isSelected = currentSelectedId === item.id
                   const startHour = item.start_datetime
                     ? item.start_datetime.split(' ')[1] || item.start_datetime
                     : '--:--'
@@ -189,24 +351,19 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
                   return (
                     <tr
-                      key={item.id || index}
+                      key={item.id || originalIndex}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
+                      onClick={() => handleRowClick(item)}
+                      onDragStart={(e) => handleDragStart(e, originalIndex)}
                       onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, index)}
-                      className={`hover:bg-blue-50/60 transition-colors group ${
-                        isStop
-                          ? 'bg-amber-50/40 text-amber-950 font-medium'
-                          : index % 2 === 0
-                            ? 'bg-white'
-                            : 'bg-slate-50/40'
-                      }`}
+                      onDrop={(e) => handleDrop(e, originalIndex)}
+                      className={getItemRowClasses(item, isSelected)}
                     >
                       {/* Coluna 1 Fixa: Sequência */}
                       <td className="py-2 px-2.5 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
                         <div className="flex items-center justify-center gap-1">
                           <GripVertical className="w-3 h-3 text-slate-300 group-hover:text-slate-500 cursor-grab" />
-                          <span>{index + 1}</span>
+                          <span>{originalIndex + 1}</span>
                         </div>
                       </td>
 
@@ -244,16 +401,16 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       {/* Tipo */}
                       <td className="py-2 px-3 whitespace-nowrap">
                         {isStop ? (
-                          <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                          <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-bold">
                             <Wrench className="w-2.5 h-2.5 mr-1" />
                             Parada
                           </Badge>
                         ) : isMto ? (
-                          <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[10px] font-bold">
+                          <Badge className="bg-amber-100 text-amber-950 border-amber-300 text-[10px] font-bold">
                             MTO
                           </Badge>
                         ) : (
-                          <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-bold">
+                          <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 text-[10px] font-bold">
                             MTS
                           </Badge>
                         )}
@@ -262,9 +419,36 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       {/* Material / Produto SAP */}
                       <td className="py-2 px-3">
                         <div className="flex flex-col">
-                          <span className="font-mono font-bold text-slate-900 text-xs">
-                            {item.material_code}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-bold text-slate-900 text-xs">
+                              {item.material_code}
+                            </span>
+                            {isAwaiting && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black uppercase px-1.5 py-0 shadow-xs flex items-center gap-1 cursor-help">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-slate-950 font-black" />
+                                    Aguardando Observações
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-xs p-2.5"
+                                >
+                                  <p className="font-bold text-amber-300">
+                                    {item.awaiting_observations?.reason || 'Aguardando Observações'}
+                                  </p>
+                                  <p className="text-[11px] text-slate-200 mt-1">
+                                    {item.awaiting_observations?.observation ||
+                                      'Item retido na programação aguardando validação.'}
+                                  </p>
+                                  <div className="mt-1.5 pt-1.5 border-t border-slate-700 text-[10px] text-slate-400 font-mono">
+                                    Resp: {item.awaiting_observations?.responsible || 'PCP'}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                           <span className="text-[11px] text-slate-600 line-clamp-1">
                             {item.material_description ||
                               (isStop ? item.stop_description : 'Produto Cadastrado')}
@@ -512,18 +696,27 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
                       {/* Status da Atividade */}
                       <td className="py-2 px-3 text-center whitespace-nowrap">
-                        <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">
-                          Rascunho
-                        </Badge>
+                        {isAwaiting ? (
+                          <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black">
+                            Aguard. Obs.
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">
+                            {item.status || 'Rascunho'}
+                          </Badge>
+                        )}
                       </td>
 
-                      {/* Ações (Mover, Duplicar, Remover) */}
+                      {/* Ações (Mover, Duplicar, Aguardando Observações, Remover) */}
                       <td className="py-2 px-3 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1">
+                        <div
+                          className="flex items-center justify-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
-                            disabled={index === 0}
-                            onClick={() => onMoveUp(index)}
+                            disabled={originalIndex === 0}
+                            onClick={() => onMoveUp(originalIndex)}
                             title="Mover para Cima (Recalcular)"
                             className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
                           >
@@ -531,8 +724,8 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                           </button>
                           <button
                             type="button"
-                            disabled={index === items.length - 1}
-                            onClick={() => onMoveDown(index)}
+                            disabled={originalIndex === items.length - 1}
+                            onClick={() => onMoveDown(originalIndex)}
                             title="Mover para Baixo (Recalcular)"
                             className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
                           >
@@ -547,15 +740,26 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="text-xs bg-white border-slate-200 text-slate-800"
+                              className="text-xs bg-white border-slate-200 text-slate-800 shadow-xl"
                             >
-                              <DropdownMenuItem onClick={() => onDuplicate(index)}>
+                              {onOpenAwaitingObservationsModal && (
+                                <DropdownMenuItem
+                                  onClick={() => onOpenAwaitingObservationsModal(item)}
+                                  className="text-amber-800 focus:text-amber-900 focus:bg-amber-50 font-semibold"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 mr-2 text-amber-600" />
+                                  {isAwaiting
+                                    ? 'Editar Aguardando Observações'
+                                    : 'Aguardando Observações...'}
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
                                 <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
                                 Duplicar Atividade
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => onRemove(index)}
+                                onClick={() => onRemove(originalIndex)}
                                 className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
                               >
                                 <Trash2 className="w-3.5 h-3.5 mr-2" />
@@ -571,6 +775,51 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* 3. LEGENDA OFICIAL DA PROGRAMAÇÃO (SEMPRE VISÍVEL ABAIXO DA GRADE) */}
+        <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
+              Legenda Oficial da Programação CIAFAL:
+            </span>
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-700">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-emerald-300 bg-emerald-100/90 shrink-0" />
+                <span>Verde claro: MTS</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-amber-300 bg-amber-50 shrink-0" />
+                <span>Amarelo claro: MTO</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-amber-400 bg-amber-200 shrink-0 font-bold text-slate-950" />
+                <span className="font-semibold text-amber-950">
+                  Amarelo destacado: Aguardando observações
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-slate-300 bg-slate-200 shrink-0" />
+                <span>Cinza: Setup / Troca</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-orange-300 bg-orange-100 shrink-0" />
+                <span>Laranja: Parada Programada</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-sky-300 bg-sky-100 shrink-0" />
+                <span>Azul claro: Manutenção</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-rose-300 bg-rose-100 shrink-0" />
+                <span>Vermelho: Bloqueio / Condição crítica</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border-2 border-blue-600 bg-blue-50 shrink-0" />
+                <span>Contorno azul: Item selecionado</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </TooltipProvider>

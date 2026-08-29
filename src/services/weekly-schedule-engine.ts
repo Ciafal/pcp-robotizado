@@ -26,81 +26,9 @@ import {
 import { InventoryItem } from '@/types/inventory-projection'
 
 /**
- * Obtém o tempo obrigatório de resfriamento para o material/linha/bitola
- */
-getCoolingTimeHours(
-  lineCode: string,
-  materialCode: string,
-  familyCode?: string,
-  dimensions?: string,
-  coolingRules?: Array<{
-    line_code?: string
-    material_code?: string
-    family_code?: string
-    gauge_dimension?: string
-    cooling_time_hours: number
-  }>,
-): number {
-  const rules = coolingRules || []
-  const mCode = materialCode.toUpperCase().trim()
-
-  // 1. Busca exata por line_code e material_code
-  const exact = rules.find(
-    (r) =>
-      (!r.line_code || r.line_code.toUpperCase() === lineCode.toUpperCase()) &&
-      r.material_code &&
-      r.material_code.toUpperCase() === mCode,
-  )
-  if (exact && exact.cooling_time_hours > 0) {
-    return exact.cooling_time_hours
-  }
-
-  // 2. Busca por family_code
-  if (familyCode) {
-    const famMatch = rules.find(
-      (r) =>
-        (!r.line_code || r.line_code.toUpperCase() === lineCode.toUpperCase()) &&
-        r.family_code &&
-        r.family_code.toUpperCase() === familyCode.toUpperCase(),
-    )
-    if (famMatch && famMatch.cooling_time_hours > 0) {
-      return famMatch.cooling_time_hours
-    }
-  }
-
-  // 3. Busca por dimensão/bitola
-  if (dimensions) {
-    const dimMatch = rules.find(
-      (r) =>
-        r.gauge_dimension &&
-        (dimensions.toUpperCase().includes(r.gauge_dimension.toUpperCase()) ||
-          r.gauge_dimension.toUpperCase().includes(dimensions.toUpperCase())),
-    )
-    if (dimMatch && dimMatch.cooling_time_hours > 0) {
-      return dimMatch.cooling_time_hours
-    }
-  }
-
-  // 4. Heurística padrão baseada nas bitolas e famílias oficiais CIAFAL
-  if (mCode.includes('150X50') || mCode.includes('PU-150')) {
-    return 36 // Perfil pesado conformação Contagem
-  }
-  if (mCode.includes('100X100') || mCode.includes('TQ-100') || mCode.includes('TAR-130')) {
-    return 24 // Seção pesada / tarugo estrutural
-  }
-  if (mCode.includes('80X40') || mCode.includes('TR-80')) {
-    return 23 // Tubo retangular
-  }
-  if (mCode.includes('50X50') || mCode.includes('TQ-50')) {
-    return 18 // Seção média padrão
-  }
-
-  return 24 // Padrão metalúrgico CIAFAL
-},
-
-/**
  * Utilitário determinístico de manipulação e cálculo de datas/horas
- */export function formatIsoDateTime(date: Date): string {
+ */
+export function formatIsoDateTime(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
@@ -183,6 +111,109 @@ export interface RawMaterialEngineContext {
 }
 
 export const WeeklyScheduleEngine = {
+  /**
+   * Validação pontual de resfriamento entre conclusão anterior e início programado
+   */
+  validateCoolingTime(
+    materialCode: string,
+    scheduledStartIso: string,
+    upstreamEndIso: string,
+    requiredHours: number,
+  ): {
+    hasViolation: boolean
+    elapsedHours: number
+    requiredHours: number
+    message: string
+  } {
+    const start = new Date(scheduledStartIso.replace(' ', 'T'))
+    const end = new Date(upstreamEndIso.replace(' ', 'T'))
+    const elapsedMs = start.getTime() - end.getTime()
+    const elapsedHours = Number((elapsedMs / (1000 * 60 * 60)).toFixed(1))
+    const hasViolation = elapsedHours < requiredHours
+
+    return {
+      hasViolation,
+      elapsedHours,
+      requiredHours,
+      message: hasViolation
+        ? `🔴 TEMPO DE RESFRIAMENTO NÃO ATENDIDO: Material ${materialCode} exige ${requiredHours}h de resfriamento, mas decorreram apenas ${elapsedHours}h.`
+        : `Tempo de resfriamento atendido (${elapsedHours}h decorridas >= ${requiredHours}h exigidas).`,
+    }
+  },
+
+  /**
+   * Obtém o tempo obrigatório de resfriamento para o material/linha/bitola
+   */
+  getCoolingTimeHours(
+    lineCode: string,
+    materialCode: string,
+    familyCode?: string,
+    dimensions?: string,
+    coolingRules?: Array<{
+      line_code?: string
+      material_code?: string
+      family_code?: string
+      gauge_dimension?: string
+      cooling_time_hours: number
+    }>,
+  ): number {
+    const rules = coolingRules || []
+    const mCode = materialCode.toUpperCase().trim()
+
+    // 1. Busca exata por line_code e material_code
+    const exact = rules.find(
+      (r) =>
+        (!r.line_code || r.line_code.toUpperCase() === lineCode.toUpperCase()) &&
+        r.material_code &&
+        r.material_code.toUpperCase() === mCode,
+    )
+    if (exact && exact.cooling_time_hours > 0) {
+      return exact.cooling_time_hours
+    }
+
+    // 2. Busca por family_code
+    if (familyCode) {
+      const famMatch = rules.find(
+        (r) =>
+          (!r.line_code || r.line_code.toUpperCase() === lineCode.toUpperCase()) &&
+          r.family_code &&
+          r.family_code.toUpperCase() === familyCode.toUpperCase(),
+      )
+      if (famMatch && famMatch.cooling_time_hours > 0) {
+        return famMatch.cooling_time_hours
+      }
+    }
+
+    // 3. Busca por dimensão/bitola
+    if (dimensions) {
+      const dimMatch = rules.find(
+        (r) =>
+          r.gauge_dimension &&
+          (dimensions.toUpperCase().includes(r.gauge_dimension.toUpperCase()) ||
+            r.gauge_dimension.toUpperCase().includes(dimensions.toUpperCase())),
+      )
+      if (dimMatch && dimMatch.cooling_time_hours > 0) {
+        return dimMatch.cooling_time_hours
+      }
+    }
+
+    // 4. Heurística padrão baseada nas bitolas e famílias oficiais CIAFAL
+    if (mCode.includes('150X50') || mCode.includes('PU-150')) {
+      return 36 // Perfil pesado conformação Contagem
+    }
+    if (mCode.includes('100X100') || mCode.includes('TQ-100') || mCode.includes('TAR-130')) {
+      return 24 // Seção pesada / tarugo estrutural
+    }
+    if (mCode.includes('80X40') || mCode.includes('TR-80')) {
+      return 23 // Tubo retangular
+    }
+    if (mCode.includes('50X50') || mCode.includes('TQ-50')) {
+      return 18 // Seção média padrão
+    }
+
+    return 24 // Padrão metalúrgico CIAFAL
+  },
+
   /**
    * Obtém produtividade oficial da Ficha Mestre da Linha para um material
    */
@@ -1070,7 +1101,11 @@ export const WeeklyScheduleEngine = {
       const upstreams = rawMaterialContext.upstreamProductions || []
       const relevantUpstream = upstreams.find((u) => {
         const uGrade = (u.steelGrade || u.materialCode).toUpperCase()
-        return uGrade.includes(gradeKey) || gradeKey.includes(uGrade) || u.materialCode.toUpperCase() === item.material_code.toUpperCase()
+        return (
+          uGrade.includes(gradeKey) ||
+          gradeKey.includes(uGrade) ||
+          u.materialCode.toUpperCase() === item.material_code.toUpperCase()
+        )
       })
 
       if (relevantUpstream) {
@@ -1374,7 +1409,10 @@ export const WeeklyScheduleEngine = {
     let calculatedScore = 100
     if (totalTransitions > 0) {
       const familyRatio = optimalFamilyTransitions / totalTransitions
-      calculatedScore = Math.max(10, Math.min(100, Math.round(50 + familyRatio * 40 - totalSetupPenalty * 0.5)))
+      calculatedScore = Math.max(
+        10,
+        Math.min(100, Math.round(50 + familyRatio * 40 - totalSetupPenalty * 0.5)),
+      )
     }
 
     const sequenceScore = calculatedScore
@@ -1407,8 +1445,10 @@ export const WeeklyScheduleEngine = {
         sequenceRecommendation = {
           hasBetterAlternative: true,
           title: 'SEQUÊNCIA NÃO RECOMENDADA — Existe uma alternativa com menor tempo de setup',
-          currentSequenceSummary: currentNames.slice(0, 4).join(' → ') + (currentNames.length > 4 ? '...' : ''),
-          suggestedSequenceSummary: suggestedNames.slice(0, 4).join(' → ') + (suggestedNames.length > 4 ? '...' : ''),
+          currentSequenceSummary:
+            currentNames.slice(0, 4).join(' → ') + (currentNames.length > 4 ? '...' : ''),
+          suggestedSequenceSummary:
+            suggestedNames.slice(0, 4).join(' → ') + (suggestedNames.length > 4 ? '...' : ''),
           gainMinutesSaved: minutesSaved,
           gainSetupAvoidedCount: avoidedSetups,
           gainCapacityHours: hoursGained,

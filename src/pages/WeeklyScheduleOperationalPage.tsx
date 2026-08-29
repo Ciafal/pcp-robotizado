@@ -72,7 +72,11 @@ import { LineOverviewData, ProductionLine } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { WeeklyIndicatorsBar } from '@/components/weekly-schedule/WeeklyIndicatorsBar'
-import { WeeklyScheduleGrid } from '@/components/weekly-schedule/WeeklyScheduleGrid'
+import {
+  WeeklyScheduleGrid,
+  ScheduleGridFilter,
+} from '@/components/weekly-schedule/WeeklyScheduleGrid'
+import { AwaitingObservationsModal } from '@/components/weekly-schedule/AwaitingObservationsModal'
 import { WeeklyScheduleSummaryPanel } from '@/components/weekly-schedule/WeeklyScheduleSummaryPanel'
 import { SimulationResultsModal } from '@/components/weekly-schedule/SimulationResultsModal'
 import { ScenarioComparisonModal } from '@/components/weekly-schedule/ScenarioComparisonModal'
@@ -142,6 +146,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     'AGUARDANDO_APROVACAO_PCP',
   )
   const [targetTransitionLabel, setTargetTransitionLabel] = useState('Aguardando Aprovação PCP')
+
+  // Modal e Estados de Aguardando Observações & Seleção
+  const [isAwaitingObsModalOpen, setIsAwaitingObsModalOpen] = useState(false)
+  const [selectedScheduleItem, setSelectedScheduleItem] = useState<WeeklyScheduleItem | null>(null)
+  const [gridFilter, setGridFilter] = useState<ScheduleGridFilter>('ALL')
 
   // Modal Vermelho de HARD BLOCK
   const [hardBlockData, setHardBlockData] = useState<HardBlockModalData>({
@@ -551,6 +560,68 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     toast({
       title: 'Item Removido',
       description: 'Atividade removida da programação semanal.',
+    })
+  }
+
+  // Manipulador de Aguardando Observações
+  const handleOpenAwaitingObsModal = (item: WeeklyScheduleItem) => {
+    setSelectedScheduleItem(item)
+    setIsAwaitingObsModalOpen(true)
+  }
+
+  const handleSaveAwaitingObservations = (
+    item: WeeklyScheduleItem,
+    data: {
+      reason: string
+      observation: string
+      responsible: string
+      dateTime: string
+      deadline?: string
+    },
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === item.id) {
+          return {
+            ...it,
+            status: 'AGUARDANDO_OBSERVACOES',
+            awaiting_observations: {
+              is_awaiting: true,
+              reason: data.reason,
+              observation: data.observation,
+              responsible: data.responsible,
+              date_time: data.dateTime,
+              deadline: data.deadline,
+            },
+          }
+        }
+        return it
+      }),
+    )
+
+    toast({
+      title: 'Item em Aguardando Observações',
+      description: `${item.material_code} marcado com pendência. O item continua ativo na capacidade e sequenciamento.`,
+    })
+  }
+
+  const handleClearAwaitingObservations = (item: WeeklyScheduleItem) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === item.id) {
+          return {
+            ...it,
+            status: 'DRAFT',
+            awaiting_observations: undefined,
+          }
+        }
+        return it
+      }),
+    )
+
+    toast({
+      title: 'Pendência Liberada',
+      description: `Observação do item ${item.material_code} concluída e removida.`,
     })
   }
 
@@ -1315,6 +1386,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         <WeeklyScheduleGrid
           items={calculatedItems}
           lineOverview={currentLineOverview}
+          selectedItemId={selectedScheduleItem?.id}
+          onSelectItem={(item) => setSelectedScheduleItem(item)}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
           onDuplicate={handleDuplicate}
@@ -1326,6 +1399,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           }}
           onTransferDayShift={handleTransferDayShift}
           onAddStop={handleAddStop}
+          onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
+          filterOption={gridFilter}
+          onFilterChange={setGridFilter}
         />
       )}
 
@@ -1403,6 +1479,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         currentVersion={currentVersion}
         lineCode={selectedLineCode}
         onConfirm={handleConfirmWorkflowTransition}
+      />
+
+      {/* 13. MODAL DE AGUARDANDO OBSERVAÇÕES */}
+      <AwaitingObservationsModal
+        isOpen={isAwaitingObsModalOpen}
+        onClose={() => setIsAwaitingObsModalOpen(false)}
+        item={selectedScheduleItem}
+        onSave={handleSaveAwaitingObservations}
+        onClearAwaiting={handleClearAwaitingObservations}
       />
     </div>
   )

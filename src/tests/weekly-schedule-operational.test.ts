@@ -563,4 +563,222 @@ describe('WeeklyScheduleEngine - Motor de MP e Disponibilidade Projetada', () =>
     expect(result.indicators.rawMaterialRedCount).toBe(0)
     expect(result.indicators.rawMaterialYellowCount).toBe(0)
   })
+
+  // ==========================================
+  // TESTE 3: Criar item como "Aguardando observações" e vê-lo em amarelo
+  // ==========================================
+  it('[TESTE 3] deve suportar status AGUARDANDO_OBSERVACOES com motivo, observação, responsável, data/hora e prazo, mantendo o item nos cálculos e destacando visualmente', () => {
+    const awaitingItem: WeeklyScheduleItem = {
+      id: 'item-awaiting-1',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'PLANTA_1',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1',
+      shift_name: '1º Turno',
+      crew_name: 'Turma A',
+      sequence_order: 1,
+      item_type: 'PRODUCTION',
+      material_code: 'TQ-100x100',
+      material_description: 'Tubo Quadrado 100x100',
+      order_type: 'MTO',
+      planned_quantity_tons: 40,
+      productivity_rate_th: 15,
+      production_hours: 0,
+      setup_duration_minutes: 0,
+      start_datetime: '2026-08-24 06:00',
+      end_datetime: '',
+      status: 'AGUARDANDO_OBSERVACOES',
+      version: 1,
+      raw_material_req_tons: 0,
+      awaiting_observations: {
+        is_awaiting: true,
+        reason: 'Aguardando liberação de matéria-prima (tarugo/bobina)',
+        observation: 'Lote de tarugo retido na inspeção de qualidade',
+        responsible: 'Qualidade / PCP',
+        date_time: '2026-08-24T08:00',
+        deadline: '2026-08-25',
+      },
+    }
+
+    const regularItem: WeeklyScheduleItem = {
+      id: 'item-regular-2',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'PLANTA_1',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1',
+      shift_name: '1º Turno',
+      crew_name: 'Turma A',
+      sequence_order: 2,
+      item_type: 'PRODUCTION',
+      material_code: 'PU-150x50',
+      material_description: 'Perfil U 150x50',
+      order_type: 'MTS',
+      planned_quantity_tons: 60,
+      productivity_rate_th: 12.5,
+      production_hours: 0,
+      setup_duration_minutes: 0,
+      start_datetime: '',
+      end_datetime: '',
+      status: 'DRAFT',
+      version: 1,
+      raw_material_req_tons: 0,
+    }
+
+    const testList = [awaitingItem, regularItem]
+    const result = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      testList,
+      dummyLineOverview,
+      dummyFilter,
+      {},
+    )
+
+    expect(result.items).toHaveLength(2)
+    // O item em AGUARDANDO_OBSERVACOES deve continuar tendo horas produtivas e consumo de MP calculados
+    expect(result.items[0].production_hours).toBeGreaterThan(0)
+    expect(result.items[0].raw_material_req_tons).toBeGreaterThan(0)
+    expect(result.items[0].status).toBe('AGUARDANDO_OBSERVACOES')
+    expect(result.items[0].awaiting_observations?.is_awaiting).toBe(true)
+    expect(result.items[0].awaiting_observations?.reason).toContain('tarugo/bobina')
+    expect(result.items[0].awaiting_observations?.observation).toContain('inspeção de qualidade')
+    expect(result.items[0].awaiting_observations?.responsible).toBe('Qualidade / PCP')
+
+    // Soma total de toneladas deve incluir o item em aguardo (40t + 60t = 100t)
+    expect(result.indicators.programmedQuantityTons).toBe(100)
+    expect(result.summary.production.totalTons).toBe(100)
+    expect(result.indicators.utilizationPct).toBeGreaterThan(0)
+  })
+
+  // ==========================================
+  // TESTE 4: Trocar sequência e receber score 0–100 + recomendação IA
+  // ==========================================
+  it('[TESTE 4] deve calcular score de sequenciamento de 0 a 100 e emitir recomendação consultiva da IA ao trocar ordem', () => {
+    const itemA: WeeklyScheduleItem = {
+      id: 'item-seq-1',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'PLANTA_1',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1',
+      shift_name: '1º Turno',
+      crew_name: 'Turma A',
+      sequence_order: 1,
+      item_type: 'PRODUCTION',
+      material_code: 'TQ-100x100',
+      material_description: 'Tubo Quadrado 100x100',
+      family_code: 'FAM_TUBO',
+      order_type: 'MTS',
+      planned_quantity_tons: 50,
+      productivity_rate_th: 15,
+      production_hours: 0,
+      setup_duration_minutes: 0,
+      start_datetime: '',
+      end_datetime: '',
+      status: 'DRAFT',
+      version: 1,
+      raw_material_req_tons: 0,
+    }
+
+    const itemB: WeeklyScheduleItem = {
+      id: 'item-seq-2',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'PLANTA_1',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1',
+      shift_name: '1º Turno',
+      crew_name: 'Turma A',
+      sequence_order: 2,
+      item_type: 'PRODUCTION',
+      material_code: 'PU-150x50',
+      material_description: 'Perfil U 150x50',
+      family_code: 'FAM_PERFIL',
+      order_type: 'MTS',
+      planned_quantity_tons: 50,
+      productivity_rate_th: 12.5,
+      production_hours: 0,
+      setup_duration_minutes: 30,
+      start_datetime: '',
+      end_datetime: '',
+      status: 'DRAFT',
+      version: 1,
+      raw_material_req_tons: 0,
+    }
+
+    const result = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      [itemA, itemB],
+      dummyLineOverview,
+      dummyFilter,
+      {},
+    )
+
+    expect(result.indicators.sequenceScore).toBeGreaterThanOrEqual(0)
+    expect(result.indicators.sequenceScore).toBeLessThanOrEqual(100)
+
+    const report = WeeklyScheduleEngine.simulateSchedule(
+      [itemA, itemB],
+      dummyLineOverview,
+      dummyFilter,
+      {},
+    )
+    expect(report.domains.sequencing).toBeDefined()
+    expect(report.domains.sequencing.status).toBeDefined()
+    expect(report.overallResult).toBeDefined()
+  })
+
+  // ==========================================
+  // TESTE 12: Tempo de resfriamento impedir programação antes do prazo mínimo
+  // ==========================================
+  it('[TESTE 12] deve validar tempo de resfriamento e impedir/alertar produção antes do prazo mínimo', () => {
+    const coolingTime = WeeklyScheduleEngine.getCoolingTimeHours(
+      'L1',
+      'PU-150-E300',
+      'FAM_PERFIL',
+      '150x50x3.00',
+    )
+    expect(coolingTime).toBeGreaterThanOrEqual(24)
+
+    // Validação de resfriamento violado
+    const validation = WeeklyScheduleEngine.validateCoolingTime(
+      'PU-150-E300',
+      '2026-08-24 06:00', // Início programado
+      '2026-08-23 20:00', // Conclusão do estágio anterior (apenas 10h antes)
+      coolingTime,
+    )
+
+    expect(validation.hasViolation).toBe(true)
+    expect(validation.elapsedHours).toBe(10)
+    expect(validation.requiredHours).toBe(coolingTime)
+    expect(validation.message).toContain('Tempo de resfriamento violado')
+
+    // Validação de resfriamento respeitado: 40h decorridas
+    const validCooling = WeeklyScheduleEngine.validateCoolingTime(
+      'PU-150-E300',
+      '2026-08-25 12:00',
+      '2026-08-23 20:00',
+      coolingTime,
+    )
+    expect(validCooling.hasViolation).toBe(false)
+  })
 })
