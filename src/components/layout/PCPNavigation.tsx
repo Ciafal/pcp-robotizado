@@ -33,6 +33,10 @@ import {
   Boxes,
   GitCompare,
   AlertTriangle,
+  Scissors,
+  Maximize2,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -43,10 +47,11 @@ const logoCiafalBlue = 'https://img.usecurling.com/i?q=ciafal&color=blue'
 interface NavSubItem {
   title: string
   href: string
-  icon: React.ComponentType<{ className?: string }>
+  badge?: string
   permission?: string
+  description?: string
+  icon?: React.ComponentType<{ className?: string }>
 }
-
 interface NavSectionItem {
   title: string
   href: string
@@ -348,6 +353,85 @@ const navSections: NavSectionItem[] = [
         href: '/pcp/inbox',
         icon: Bell,
         permission: 'pcp.communication.view',
+      },
+    ],
+  },
+  {
+    title: 'PREPARAÇÃO / OTIMIZAÇÃO DE MP',
+    href: '/pcp/otimizacao-mp',
+    icon: Scissors,
+    badge: 'MOTOR IA',
+    permission: 'pcp.mp_opt.view',
+    subItems: [
+      {
+        title: '1. Visão Geral',
+        href: '/pcp/otimizacao-mp/visao-geral',
+        description: 'Painel geral de corte, reaplicação e preservação de MP',
+      },
+      {
+        title: '2. Necessidade de MP',
+        href: '/pcp/otimizacao-mp/necessidade',
+        description: 'Consumo PMP, carteira, compras e horizonte 7 a 90 dias',
+      },
+      {
+        title: '3. MP por Aplicação',
+        href: '/pcp/otimizacao-mp/por-aplicacao',
+        description: 'Requisitos por aplicação ZPPMP e ZBITOLAS SAP',
+      },
+      {
+        title: '4. Plano Inteligente de Corte',
+        href: '/pcp/otimizacao-mp/plano-corte',
+        description: 'Motor multi-placas com 6 cenários comparativos',
+      },
+      {
+        title: '5. Estoque Dimensional',
+        href: '/pcp/otimizacao-mp/estoque-dimensional',
+        description: 'Unidades físicas rastreáveis, blocos, sobras e ZPP86',
+      },
+      {
+        title: '6. Cortes Existentes',
+        href: '/pcp/otimizacao-mp/cortes-existentes',
+        description: 'Avaliação de blocos cortados e liberação A → B',
+      },
+      {
+        title: '7. Oportunidades de Reaplicação',
+        href: '/pcp/otimizacao-mp/reaplicacoes',
+        description: 'Ranking de migração dimensional e economia R$',
+      },
+      {
+        title: '8. Peças Fora do Padrão Ideal',
+        href: '/pcp/otimizacao-mp/fora-padrao-ideal',
+        description: 'ZPP88: Validação de 2ª etapa e produto final conforme',
+      },
+      {
+        title: '9. Análise Dimensional',
+        href: '/pcp/otimizacao-mp/analise-dimensional',
+        description: 'Histogramas de espessura, largura, comprimento e perdas',
+      },
+      {
+        title: '10. Projeção 3D',
+        href: '/pcp/otimizacao-mp/projecao-3d',
+        description: 'Gêmeo digital, nuvem XYZ e envelopes em 360°',
+      },
+      {
+        title: '11. Aprovações',
+        href: '/pcp/otimizacao-mp/aprovacoes',
+        description: 'Governança multi-etapas e liberação de exceções',
+      },
+      {
+        title: '12. Histórico',
+        href: '/pcp/otimizacao-mp/historico',
+        description: 'Auditoria ZPPT058/ZMM029 com versionamento imutável',
+      },
+      {
+        title: '13. Plano x Real',
+        href: '/pcp/otimizacao-mp/plano-x-real',
+        description: 'Aderência dimensional e feedback estatístico para IA',
+      },
+      {
+        title: '14. Indicadores',
+        href: '/pcp/otimizacao-mp/indicadores',
+        description: 'KPIs de rendimento, sucata, economia e governança',
       },
     ],
   },

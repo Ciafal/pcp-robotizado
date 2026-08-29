@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T23:17:29.974Z",
+  "generatedAt": "2026-08-29T23:34:56.808Z",
   "collections": [
     {
       "name": "users",
@@ -9612,6 +9612,1800 @@
         "CREATE INDEX idx_rule_audit_entity ON rule_audit_logs (entity_type, created DESC)",
         "CREATE INDEX idx_rule_audit_param ON rule_audit_logs (parameter_name)"
       ]
+    },
+    {
+      "name": "mp_dimensional_inventory",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "trauml",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "letter_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "current_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "thickness_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "width_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "length_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_kg",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PLACA", "BLOCO", "PECA", "SOBRA_REUTILIZAVEL", "RETALHO", "PARCIAL"]
+        },
+        {
+          "name": "sap_block_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "01_DISPONIVEL",
+            "02_SELECIONADO_ENVIO",
+            "03_TRANSITO",
+            "04_MP_CIAFAL",
+            "05_FORNO",
+            "06_DEVOLVIDO",
+            "07_LAMINADO"
+          ]
+        },
+        {
+          "name": "reservation_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "LIVRE",
+            "SUGESTAO_RESERVA",
+            "RESERVADA",
+            "BLOQUEADA",
+            "EM_PLANO_DE_CORTE",
+            "CORTE_APROVADO",
+            "EM_PROCESSO"
+          ]
+        },
+        {
+          "name": "dimensional_classification",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "NIVEL_1_IDEAL",
+            "NIVEL_2_ADMISSIVEL",
+            "NIVEL_3_FORA_IDEAL_CONFORME",
+            "NIVEL_4_EXCECAO_TECNICA",
+            "NIVEL_5_PROIBIDO"
+          ]
+        },
+        {
+          "name": "is_critical",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criticality_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_parent_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reception_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cut_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "physical_balance_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "possible_applications_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alternative_applications_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_demand_schedule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_destination_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "zppmp_validation_result",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_inv_block ON mp_dimensional_inventory (block_number, heat_number)",
+        "CREATE INDEX idx_mp_inv_status ON mp_dimensional_inventory (sap_block_status, reservation_status)",
+        "CREATE INDEX idx_mp_inv_app ON mp_dimensional_inventory (current_application, original_application)",
+        "CREATE INDEX idx_mp_inv_mat ON mp_dimensional_inventory (material_code, center_code)"
+      ]
+    },
+    {
+      "name": "mp_application_requirements",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "application_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "application_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "zppmp_table_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ideal_thickness_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_thickness_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_thickness_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ideal_width_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_width_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_width_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ideal_length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_length_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_length_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ideal_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allowed_alternatives_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "restrictions_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority_order",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_out_of_ideal",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "zpp88_transformation_rules_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_req_app_steel ON mp_application_requirements (application_code, steel_grade, supplier_code)",
+        "CREATE INDEX idx_mp_req_app ON mp_application_requirements (application_code)"
+      ]
+    },
+    {
+      "name": "mp_cutting_plans",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "RASCUNHO",
+            "IA_SUGERIDO",
+            "REVISADO_PCP",
+            "PENDENTE_APROVACAO",
+            "APROVADO_PCP",
+            "EXCECAO_LIBERADA",
+            "ENVIADO_SAP",
+            "INTEGRADO_SAP",
+            "REJEITADO",
+            "CANCELADO",
+            "HISTORICO"
+          ]
+        },
+        {
+          "name": "selected_scenario",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "RECOMENDADO_IA",
+            "MAIOR_RENDIMENTO",
+            "MENOR_CUSTO",
+            "MENOR_SUCATA",
+            "PRESERVACAO_CRITICA",
+            "MAIOR_CARTEIRA",
+            "PERSONALIZADO_HUMANO"
+          ]
+        },
+        {
+          "name": "source_plates_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_input_weight_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_output_weight_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_reusable_leftover_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_scrap_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overall_yield_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overall_ai_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_score_breakdown_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_explanation_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scenarios_comparison_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cutting_layout_items_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "demands_covered_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_changes_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reviewed_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "reviewed_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approved_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_sync_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_cut_code_ver ON mp_cutting_plans (plan_code, version)",
+        "CREATE INDEX idx_mp_cut_status ON mp_cutting_plans (status)"
+      ]
+    },
+    {
+      "name": "mp_reapplication_opportunities",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "opportunity_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "letter_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "current_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recommended_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "thickness_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "width_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "length_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_kg",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimensional_classification",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "NIVEL_1_IDEAL",
+            "NIVEL_2_ADMISSIVEL",
+            "NIVEL_3_FORA_IDEAL_CONFORME",
+            "NIVEL_4_EXCECAO_TECNICA",
+            "NIVEL_5_PROIBIDO"
+          ]
+        },
+        {
+          "name": "ai_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "confidence_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "potential_savings_brl",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scrap_avoided_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "risk_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["MUITO_BAIXO", "BAIXO", "MEDIO", "ALTO", "CRITICO"]
+        },
+        {
+          "name": "urgency_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["IMEDIATA", "ALTA", "NORMAL", "BAIXA"]
+        },
+        {
+          "name": "historical_precedents_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "historical_success_rate_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_order_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_schedule_week",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_reasoning",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "IDENTIFICADA",
+            "SIMULADA",
+            "SOLICITADA",
+            "APROVADA",
+            "APLICADA_SAP",
+            "REJEITADA"
+          ]
+        },
+        {
+          "name": "evaluated_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_reapp_code ON mp_reapplication_opportunities (opportunity_code)",
+        "CREATE INDEX idx_mp_reapp_block ON mp_reapplication_opportunities (block_number, heat_number)",
+        "CREATE INDEX idx_mp_reapp_status ON mp_reapplication_opportunities (status)"
+      ]
+    },
+    {
+      "name": "mp_workflow_approvals",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "approval_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "approval_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PLANO_CORTE",
+            "ALTERACAO_APLICACAO_ZPP86",
+            "PECA_FORA_PADRAO_ZPP88",
+            "EXCECAO_TECNICA_NIVEL_4",
+            "RESERVA_ESTRATEGICA"
+          ]
+        },
+        {
+          "name": "entity_ref_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "entity_ref_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimensional_classification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_engineering_quality_approval",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_production_approval",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_pcp_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDENTE", "APROVADO", "REJEITADO", "NAO_APLICAVEL"]
+        },
+        {
+          "name": "stage_pcp_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "stage_pcp_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_pcp_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_pcp_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_quality_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDENTE", "APROVADO", "REJEITADO", "NAO_APLICAVEL"]
+        },
+        {
+          "name": "stage_quality_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "stage_quality_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_quality_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_quality_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_production_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDENTE", "APROVADO", "REJEITADO", "NAO_APLICAVEL"]
+        },
+        {
+          "name": "stage_production_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "stage_production_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_production_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage_production_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overall_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["EM_ANALISE", "APROVADO_TOTAL", "REJEITADO", "CANCELADO"]
+        },
+        {
+          "name": "ai_recommendation_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_appr_code ON mp_workflow_approvals (approval_code)",
+        "CREATE INDEX idx_mp_appr_entity ON mp_workflow_approvals (entity_ref_id, approval_type)",
+        "CREATE INDEX idx_mp_appr_overall ON mp_workflow_approvals (overall_status)"
+      ]
+    },
+    {
+      "name": "mp_application_audit_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "event_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plan_version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "letter_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "previous_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "thickness_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "width_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reason_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_registration_matricula",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "event_timestamp",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ai_score_at_time",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scenario_chosen",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "was_human_override",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_override_justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approvers_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_status_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_hist_block ON mp_application_audit_history (block_number, heat_number)",
+        "CREATE INDEX idx_mp_hist_center ON mp_application_audit_history (center_code, event_timestamp DESC)",
+        "CREATE INDEX idx_mp_hist_apps ON mp_application_audit_history (original_application, new_application)"
+      ]
+    },
+    {
+      "name": "mp_planned_vs_realized",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "comparison_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "execution_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_thickness_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_thickness_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_width_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_width_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_yield_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_yield_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_scrap_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_scrap_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_leftover_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_leftover_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "executed_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "final_product_conformance",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["CONFORME", "DESVIO_MENOR", "NAO_CONFORME", "SUCATA"]
+        },
+        {
+          "name": "deviation_analysis",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "feedback_to_ai_model",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_pvr_code ON mp_planned_vs_realized (comparison_code)",
+        "CREATE INDEX idx_mp_pvr_plan ON mp_planned_vs_realized (plan_code, block_number)"
+      ]
+    },
+    {
+      "name": "mp_sap_integration_queue",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "queue_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "block_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "new_application",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "original_dimensions_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result_dimensions_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cutting_plan_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weights_and_losses_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "integration_lifecycle_stage",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PLANO_APROVADO",
+            "ENVIADO_AO_SAP",
+            "PROCESSADO_SAP",
+            "ORDEM_GERADA",
+            "EM_EXECUCAO",
+            "CONCLUIDO",
+            "ERRO_INTEGRACAO"
+          ]
+        },
+        {
+          "name": "sap_bapi_rfc_function",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_order_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_response_documents",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_messages",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_error_details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approved_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dispatched_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_sap_q_code ON mp_sap_integration_queue (queue_code)",
+        "CREATE INDEX idx_mp_sap_q_stage ON mp_sap_integration_queue (integration_lifecycle_stage)",
+        "CREATE INDEX idx_mp_sap_q_plan ON mp_sap_integration_queue (plan_code, plan_version)"
+      ]
+    },
+    {
+      "name": "mp_optimization_parameters",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "config_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "profile_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_yield",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_demand_fulfillment",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_cost_reduction",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_scrap_minimization",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_reutilization",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_critical_mp_preservation",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_rupture_risk",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_future_schedule_adherence",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_dimensional_conformance",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "weight_quality_compliance",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "default_kerf_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "default_margin_trim_mm",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active_default",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_mp_param_key ON mp_optimization_parameters (config_key)"]
     }
   ]
 }

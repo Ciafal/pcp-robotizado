@@ -88,6 +88,70 @@ const AuditPage = lazy(() => import('@/pages/AuditPage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
+
+// Otimização Dimensional de Matéria-Prima (14 Subpáginas)
+const MPOptimizationOverviewPage = lazy(() =>
+  import('@/pages/mp-optimization/MPOptimizationOverviewPage').then((m) => ({
+    default: m.MPOptimizationOverviewPage,
+  })),
+)
+const MPNeedsPage = lazy(() =>
+  import('@/pages/mp-optimization/MPNeedsPage').then((m) => ({ default: m.MPNeedsPage })),
+)
+const MPByApplicationPage = lazy(() =>
+  import('@/pages/mp-optimization/MPByApplicationPage').then((m) => ({
+    default: m.MPByApplicationPage,
+  })),
+)
+const MPCuttingPlanPage = lazy(() =>
+  import('@/pages/mp-optimization/MPCuttingPlanPage').then((m) => ({
+    default: m.MPCuttingPlanPage,
+  })),
+)
+const MPDimensionalInventoryPage = lazy(() =>
+  import('@/pages/mp-optimization/MPDimensionalInventoryPage').then((m) => ({
+    default: m.MPDimensionalInventoryPage,
+  })),
+)
+const MPExistingCutsPage = lazy(() =>
+  import('@/pages/mp-optimization/MPExistingCutsPage').then((m) => ({
+    default: m.MPExistingCutsPage,
+  })),
+)
+const MPReapplicationsPage = lazy(() =>
+  import('@/pages/mp-optimization/MPReapplicationsPage').then((m) => ({
+    default: m.MPReapplicationsPage,
+  })),
+)
+const MPOutOfIdealPage = lazy(() =>
+  import('@/pages/mp-optimization/MPOutOfIdealPage').then((m) => ({ default: m.MPOutOfIdealPage })),
+)
+const MPDimensionalAnalysisPage = lazy(() =>
+  import('@/pages/mp-optimization/MPDimensionalAnalysisPage').then((m) => ({
+    default: m.MPDimensionalAnalysisPage,
+  })),
+)
+const MPProjection3DPage = lazy(() =>
+  import('@/pages/mp-optimization/MPProjection3DPage').then((m) => ({
+    default: m.MPProjection3DPage,
+  })),
+)
+const MPApprovalsPage = lazy(() =>
+  import('@/pages/mp-optimization/MPApprovalsPage').then((m) => ({ default: m.MPApprovalsPage })),
+)
+const MPAuditHistoryPage = lazy(() =>
+  import('@/pages/mp-optimization/MPAuditHistoryPage').then((m) => ({
+    default: m.MPAuditHistoryPage,
+  })),
+)
+const MPPlannedVsRealizedPage = lazy(() =>
+  import('@/pages/mp-optimization/MPPlannedVsRealizedPage').then((m) => ({
+    default: m.MPPlannedVsRealizedPage,
+  })),
+)
+const MPIndicatorsPage = lazy(() =>
+  import('@/pages/mp-optimization/MPIndicatorsPage').then((m) => ({ default: m.MPIndicatorsPage })),
+)
 const RulesEnginePage = lazy(() =>
   import('@/pages/RulesEnginePage').then((m) => ({
     default: m.RulesEnginePage || m.default,
@@ -380,6 +444,124 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.communication.view">
                       <PCPInboxPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* Submódulo: Planejamento e Otimização Dimensional de Matéria-Prima (14 Rotas) */}
+                <Route
+                  path="/pcp/otimizacao-mp"
+                  element={<Navigate to="/pcp/otimizacao-mp/visao-geral" replace />}
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/visao-geral"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPOptimizationOverviewPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/necessidade"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPNeedsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/por-aplicacao"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPByApplicationPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/plano-corte"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.simulate">
+                      <MPCuttingPlanPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/estoque-dimensional"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPDimensionalInventoryPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/cortes-existentes"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.simulate">
+                      <MPExistingCutsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/reaplicacoes"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.simulate">
+                      <MPReapplicationsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/fora-padrao-ideal"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.evaluate_out_of_ideal">
+                      <MPOutOfIdealPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/analise-dimensional"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPDimensionalAnalysisPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/projecao-3d"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPProjection3DPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/aprovacoes"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.approve">
+                      <MPApprovalsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/historico"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPAuditHistoryPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/plano-x-real"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPPlannedVsRealizedPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/indicadores"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPIndicatorsPage />
                     </PermissionGuard>
                   }
                 />
