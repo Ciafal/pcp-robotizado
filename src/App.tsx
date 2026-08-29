@@ -65,7 +65,11 @@ const MeetingPendenciesView = lazy(() =>
 const MasterPlanningLayout = lazy(() =>
   import('@/pages/MasterPlanningLayout').then((m) => ({ default: m.MasterPlanningLayout })),
 )
-const MasterPlanningSubpage = lazy(() => import('@/pages/MasterPlanningSubpage'))
+const MasterPlanningPage = lazy(() =>
+  import('@/components/control-tower/MasterPlanningPage').then((m) => ({
+    default: m.MasterPlanningPage,
+  })),
+)
 
 // Gestão de Linhas & Mapa de Integração
 const LineManagementLayout = lazy(() =>
@@ -130,7 +134,7 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/estoques"
                   element={
-                    <PermissionGuard permission="pcp.inventory.view">
+                    <PermissionGuard permission="pcp.inventory.overview">
                       <InventoryManagementPage />
                     </PermissionGuard>
                   }
@@ -139,6 +143,7 @@ export const App: React.FC = () => {
                   path="/pcp-robotizado/estoques"
                   element={<Navigate to="/pcp/estoques" replace />}
                 />
+                <Route path="/estoque" element={<Navigate to="/pcp/estoques" replace />} />
 
                 {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
                 <Route
@@ -193,52 +198,20 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/planejamento"
                   element={
-                    <PermissionGuard permission="pcp.masterdata.view">
+                    <PermissionGuard permission="pcp.masterplan.overview">
                       <MasterPlanningLayout />
                     </PermissionGuard>
                   }
                 >
-                  <Route
-                    index
-                    element={
-                      <MasterPlanningSubpage
-                        initialHorizon="MENSAL"
-                        title="Planejamento Mestre de Produção (S&OP)"
-                        subtitle="Visão estratégica de médio e longo prazo, balanceamento e conversão para o sequenciamento fino."
-                      />
-                    }
-                  />
-                  <Route
-                    path="anual"
-                    element={
-                      <MasterPlanningSubpage
-                        initialHorizon="ANUAL"
-                        title="Plano Mestre Anual"
-                        subtitle="Capacidade instalada anual, demanda projetada e budget fabril por planta."
-                      />
-                    }
-                  />
-                  <Route
-                    path="mensal"
-                    element={
-                      <MasterPlanningSubpage
-                        initialHorizon="MENSAL"
-                        title="Plano Mestre Mensal"
-                        subtitle="Orçamentação operacional e metas de entrega mensal por linha de produção."
-                      />
-                    }
-                  />
-                  <Route
-                    path="semanal"
-                    element={
-                      <MasterPlanningSubpage
-                        initialHorizon="SEMANAL"
-                        title="Plano Mestre Semanal"
-                        subtitle="Grade tática semanal conectada diretamente à fila de ordens do sequenciamento."
-                      />
-                    }
-                  />
+                  <Route index element={<MasterPlanningPage />} />
+                  <Route path="anual" element={<MasterPlanningPage />} />
+                  <Route path="mensal" element={<MasterPlanningPage />} />
+                  <Route path="semanal" element={<MasterPlanningPage />} />
                 </Route>
+                <Route
+                  path="/planejamento-mestre"
+                  element={<Navigate to="/pcp/planejamento" replace />}
+                />
 
                 {/* 4. Gestão de Linhas (Estrutura da Malha Produtiva e Mapa de Integração) */}
                 <Route

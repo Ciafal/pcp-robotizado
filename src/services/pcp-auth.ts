@@ -59,6 +59,19 @@ export const authService = {
                   'pcp.executive.actions.manage',
                   'pcp.executive.export',
                   'pcp.executive.manage_briefing',
+                  'pcp.inventory.overview',
+                  'pcp.inventory.raw_material',
+                  'pcp.inventory.semi_finished',
+                  'pcp.inventory.finished_goods',
+                  'pcp.inventory.coverage',
+                  'pcp.inventory.discrepancies',
+                  'pcp.inventory.ai',
+                  'pcp.masterplan.overview',
+                  'pcp.masterplan.adherence',
+                  'pcp.masterplan.deviations',
+                  'pcp.masterplan.demand_crm',
+                  'pcp.masterplan.forecast_ai',
+                  'pcp.masterplan.versions',
                 ]
               : role === 'PCP_PROGRAMMER'
                 ? [
@@ -78,12 +91,27 @@ export const authService = {
                     'pcp.routes.create',
                     'pcp.routes.edit',
                     'pcp.routes.simulate',
+                    'pcp.inventory.overview',
+                    'pcp.inventory.raw_material',
+                    'pcp.inventory.semi_finished',
+                    'pcp.inventory.finished_goods',
+                    'pcp.inventory.coverage',
+                    'pcp.inventory.discrepancies',
+                    'pcp.inventory.ai',
+                    'pcp.masterplan.overview',
+                    'pcp.masterplan.adherence',
+                    'pcp.masterplan.deviations',
+                    'pcp.masterplan.demand_crm',
+                    'pcp.masterplan.forecast_ai',
+                    'pcp.masterplan.versions',
                   ]
                 : [
                     'pcp.dashboard.view',
                     'pcp.executive.view',
                     'pcp.optimization.view',
                     'pcp.optimization.compare',
+                    'pcp.inventory.overview',
+                    'pcp.masterplan.overview',
                   ],
       }
     }

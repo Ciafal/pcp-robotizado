@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T18:18:25.110Z",
+  "generatedAt": "2026-08-29T18:40:43.303Z",
   "collections": [
     {
       "name": "users",
@@ -5380,6 +5380,86 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mp_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "application_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_nature",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PRODUCAO_PROPRIA", "INDUSTRIALIZACAO", "TODAS"]
+        },
+        {
+          "name": "days_in_stock",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimensions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shipping_expected_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_process_line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_process_line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_qty_total",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_last_sync",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["OK", "DIVERGENCIA", "ANALISE"]
         }
       ],
       "indexes": [
@@ -7923,6 +8003,776 @@
       ],
       "indexes": [
         "CREATE INDEX idx_qcp_period_lab ON quality_capacity_planning (period_ref, laboratory_or_line)"
+      ]
+    },
+    {
+      "name": "inventory_discrepancies",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "discrepancy_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_qty",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_qty",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diff_qty",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diff_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_sync_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_sync_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDENTE", "EM_TRATAMENTO", "CONCILIADO", "JUSTIFICADO"]
+        },
+        {
+          "name": "occurrence_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolved_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_inv_disc_code ON inventory_discrepancies (discrepancy_code)",
+        "CREATE INDEX idx_inv_disc_mat ON inventory_discrepancies (material_code)",
+        "CREATE INDEX idx_inv_disc_status ON inventory_discrepancies (status)"
+      ]
+    },
+    {
+      "name": "master_plans",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horizon_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ANUAL", "MENSAL", "SEMANAL"]
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "month",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["DRAFT", "EM_APROVACAO", "VIGENTE", "SUPERSEDED", "CANCELADO"]
+        },
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_planned_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_produced_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "firm_demand_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_forecast_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_volume_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_mix_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_temporal_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_overall_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "forecast_accuracy_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "forecast_bias_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "snapshot_crm_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "items_summary_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_analysis_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_code ON master_plans (plan_code)",
+        "CREATE INDEX idx_mp_period ON master_plans (period_ref, horizon_type)",
+        "CREATE INDEX idx_mp_status ON master_plans (status)"
+      ]
+    },
+    {
+      "name": "master_plan_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "item_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plant_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_nature",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PRODUCAO_PROPRIA", "INDUSTRIALIZACAO"]
+        },
+        {
+          "name": "order_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["MTS", "MTO"]
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programmed_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "produced_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "firm_sales_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_forecast_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "final_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_volume_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_mix_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_temporal_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gap_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "forecast_accuracy_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "forecast_bias_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_cause",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action_plan",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mpi_item_code ON master_plan_items (item_code)",
+        "CREATE INDEX idx_mpi_plan ON master_plan_items (plan_code)",
+        "CREATE INDEX idx_mpi_prod ON master_plan_items (product_code, line_code)"
+      ]
+    },
+    {
+      "name": "crm_forecast_records",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "record_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "customer_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sales_rep_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "region",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "segment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "demand_layer",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "DEMANDA_FIRME",
+            "DEMANDA_PLANEJADA",
+            "COMERCIAL_PROVAVEL",
+            "DEMANDA_POTENCIAL"
+          ]
+        },
+        {
+          "name": "funnel_stage",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "probability_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weighted_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_purchase_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "historical_conversion_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_crm_rec_code ON crm_forecast_records (record_code)",
+        "CREATE INDEX idx_crm_prod ON crm_forecast_records (product_code)",
+        "CREATE INDEX idx_crm_period ON crm_forecast_records (period_ref)"
+      ]
+    },
+    {
+      "name": "master_plan_versions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "version_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plan_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "author_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "author_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_planned_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_forecast_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_active_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plan_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mpv_code ON master_plan_versions (version_code)",
+        "CREATE INDEX idx_mpv_plan ON master_plan_versions (plan_code, version_number)"
       ]
     }
   ]

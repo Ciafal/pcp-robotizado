@@ -30,6 +30,9 @@ import {
   Bell,
   Calendar,
   Microscope,
+  Boxes,
+  GitCompare,
+  AlertTriangle,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -70,8 +73,52 @@ const navSections: NavSectionItem[] = [
     title: 'Gestão de Estoques',
     href: '/pcp/estoques',
     icon: Layers,
-    badge: 'SAP ECC',
-    permission: 'pcp.inventory.view',
+    badge: 'SAP &bull; WMS',
+    permission: 'pcp.inventory.overview',
+    subItems: [
+      {
+        title: 'Visão Geral',
+        href: '/pcp/estoques',
+        icon: Layers,
+        permission: 'pcp.inventory.overview',
+      },
+      {
+        title: 'Matéria-Prima — MP',
+        href: '/pcp/estoques?tab=materia-prima',
+        icon: Boxes,
+        permission: 'pcp.inventory.raw_material',
+      },
+      {
+        title: 'Semiacabados',
+        href: '/pcp/estoques?tab=semiacabados',
+        icon: Layers,
+        permission: 'pcp.inventory.semi_finished',
+      },
+      {
+        title: 'Produtos Acabados',
+        href: '/pcp/estoques?tab=produtos-acabados',
+        icon: FileSpreadsheet,
+        permission: 'pcp.inventory.finished_goods',
+      },
+      {
+        title: 'Cobertura & Projeções',
+        href: '/pcp/estoques?tab=cobertura',
+        icon: CalendarRange,
+        permission: 'pcp.inventory.coverage',
+      },
+      {
+        title: 'Divergências SAP × WMS',
+        href: '/pcp/estoques?tab=divergencias',
+        icon: GitCompare,
+        permission: 'pcp.inventory.discrepancies',
+      },
+      {
+        title: 'Alertas & IA',
+        href: '/pcp/estoques?tab=alertas-ia',
+        icon: Sparkles,
+        permission: 'pcp.inventory.ai',
+      },
+    ],
   },
   {
     title: 'Central de Sequenciamento',
@@ -134,32 +181,50 @@ const navSections: NavSectionItem[] = [
     title: 'Planejamento Mestre',
     href: '/pcp/planejamento',
     icon: CalendarRange,
-    badge: 'S&OP',
-    permission: 'pcp.masterdata.view',
+    badge: 'PMP / S&OP',
+    permission: 'pcp.masterplan.overview',
     subItems: [
       {
         title: 'Visão Geral (PMP)',
         href: '/pcp/planejamento',
         icon: Layers,
-        permission: 'pcp.masterdata.view',
+        permission: 'pcp.masterplan.overview',
       },
       {
-        title: 'Plano Anual',
-        href: '/pcp/planejamento/anual',
+        title: 'Plano Anual & Mensal',
+        href: '/pcp/planejamento?tab=plano-mensal',
         icon: CalendarRange,
-        permission: 'pcp.masterdata.view',
+        permission: 'pcp.masterplan.overview',
       },
       {
-        title: 'Plano Mensal',
-        href: '/pcp/planejamento/mensal',
-        icon: CalendarRange,
-        permission: 'pcp.masterdata.view',
+        title: 'Demanda & CRM 360º',
+        href: '/pcp/planejamento?tab=demanda-crm',
+        icon: Briefcase,
+        permission: 'pcp.masterplan.demand_crm',
       },
       {
-        title: 'Plano Semanal',
-        href: '/pcp/planejamento/semanal',
-        icon: CalendarDays,
-        permission: 'pcp.masterdata.view',
+        title: 'Aderência Prog × Real',
+        href: '/pcp/planejamento?tab=aderencia',
+        icon: BarChart3,
+        permission: 'pcp.masterplan.adherence',
+      },
+      {
+        title: 'Desvios & Causas',
+        href: '/pcp/planejamento?tab=desvios-causas',
+        icon: AlertTriangle,
+        permission: 'pcp.masterplan.deviations',
+      },
+      {
+        title: 'Forecast IA & Cenários',
+        href: '/pcp/planejamento?tab=forecast-ia',
+        icon: Sparkles,
+        permission: 'pcp.masterplan.forecast_ai',
+      },
+      {
+        title: 'Histórico & Versões',
+        href: '/pcp/planejamento?tab=historico-versoes',
+        icon: History,
+        permission: 'pcp.masterplan.versions',
       },
     ],
   },
@@ -399,6 +464,7 @@ export const PCPNavbar: React.FC = () => {
 export const PCPSidebar: React.FC = () => {
   const location = useLocation()
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    '/pcp/estoques': true,
     '/pcp/sequenciamento': true,
     '/pcp/planejamento': true,
     '/pcp/linhas': true,

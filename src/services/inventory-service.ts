@@ -1,71 +1,32 @@
+// Serviço Oficial de Gestão de Estoques CIAFAL (SAP ECC / WMS / PCP)
+// Exclusivamente Read-Only: Remoção completa de criação manual de materiais.
+
 import pb from '@/lib/pocketbase/client'
 import {
   InventoryItem,
   InventoryKPIs,
-  InventorySnapshot,
-  SapFunctionType,
-} from '@/types/inventory-projection'
+  InventoryDiscrepancy,
+  StockScenarioType,
+  StockProjectionScenarioResult,
+  IntegratedIndustrialCoverage,
+  SmartStockAlert,
+  ProductionNature,
+} from '@/types/master-planning-inventory'
+import { DeterministicInventoryEngine } from './deterministic-inventory-engine'
 
-export interface InventoryProvider {
-  providerName: string
-  isOfficialSap: boolean
-  fetchInventory(params?: {
+export class InventoryService {
+  /**
+   * Consulta os itens de estoque com filtros oficiais
+   */
+  public async getInventory(params?: {
     plantCode?: string
     storageLocation?: string
     category?: string
-  }): Promise<InventoryItem[]>
-  validateSapFunction(
-    functionName: string,
-    type: SapFunctionType,
-  ): Promise<{
-    isValid: boolean
-    isRfcEnabled: boolean
-    parameters: string[]
-    statusMessage: string
-  }>
-}
-
-/**
- * MockInventoryProvider
- * Utilizado apenas em desenvolvimento ou testes isolados.
- * NUNCA pode ser usado como fonte oficial em produção.
- */
-export class MockInventoryProvider implements InventoryProvider {
-  public providerName = 'MockInventoryProvider (Desenvolvimento / Sandbox)'
-  public isOfficialSap = false
-
-  async fetchInventory(params?: {
-    plantCode?: string
-    storageLocation?: string
-    category?: string
-  }): Promise<InventoryItem[]> {
-    // Retorna vazio por padrão para respeitar a política de saneamento de dados reais
-    return []
-  }
-
-  async validateSapFunction(functionName: string, type: SapFunctionType) {
-    return {
-      isValid: true,
-      isRfcEnabled: true,
-      parameters: ['IV_WERKS', 'IV_LGORT', 'ET_STOCK_BALANCES'],
-      statusMessage: `Função simulada '${functionName}' (${type}) validada no ambiente de desenvolvimento.`,
-    }
-  }
-}
-
-/**
- * SapInventoryProvider
- * Provedor Oficial de Estoques conectado via Catálogo SAP e RFC/BAPI.
- * Faz leitura Read-Only através de endpoints de normalização e PocketBase cache.
- */
-export class SapInventoryProvider implements InventoryProvider {
-  public providerName = 'SapInventoryProvider (SAP ECC 6.0 / S4HANA RFC Gateway)'
-  public isOfficialSap = true
-
-  async fetchInventory(params?: {
-    plantCode?: string
-    storageLocation?: string
-    category?: string
+    steelGrade?: string
+    productionNature?: ProductionNature | string
+    applicationCode?: string
+    status?: string
+    searchTerm?: string
   }): Promise<InventoryItem[]> {
     try {
       const filterParts: string[] = []
@@ -77,6 +38,9 @@ export class SapInventoryProvider implements InventoryProvider {
       }
       if (params?.category && params.category !== 'ALL') {
         filterParts.push(`category = '${params.category}'`)
+      }
+      if (params?.productionNature && params.productionNature !== 'TODAS') {
+        filterParts.push(`production_nature = '${params.productionNature}'`)
       }
 
       const records = await pb.collection('inventory_items').getFullList({
@@ -96,9 +60,9 @@ export class SapInventoryProvider implements InventoryProvider {
         material_code: r.material_code,
         material_description: r.material_description,
         category: r.category,
-        family_code: r.family_code,
-        batch_number: r.batch_number,
-        unit: r.unit || 't',
+        family_code: r.family_code || 'TUBOS_ESTRUTURAIS',
+        batch_number: r.batch_number || '',
+        unit: 't', // Padrão corporativo CIAFAL
         qty_unrestricted: r.qty_unrestricted || 0,
         qty_blocked: r.qty_blocked || 0,
         qty_in_quality: r.qty_in_quality || 0,
@@ -107,9 +71,7 @@ export class SapInventoryProvider implements InventoryProvider {
         min_stock: r.min_stock,
         target_stock: r.target_stock,
         max_stock: r.max_stock,
-        source_mode: r.source_mode || 'SAP',
-        sap_function_type: r.sap_function_type,
-        sap_function_name: r.sap_function_name,
+        source_mode: 'SAP',
         last_sync: r.last_sync || r.updated || new Date().toISOString(),
         sync_status: r.sync_status || 'SYNCED',
         consumer_line_code: r.consumer_line_code,
@@ -118,104 +80,108 @@ export class SapInventoryProvider implements InventoryProvider {
         updated: r.updated,
       }))
     } catch (err) {
-      console.error('Erro ao consultar inventory_items no banco:', err)
+      console.error('Erro ao consultar estoques do SAP no PocketBase:', err)
       return []
     }
   }
 
-  async validateSapFunction(functionName: string, type: SapFunctionType) {
-    // Validação real contra o catálogo de integrações homologadas
+  /**
+   * Consulta divergências oficiais entre SAP e WMS
+   */
+  public async getDiscrepancies(params?: {
+    plantCode?: string
+    status?: string
+  }): Promise<InventoryDiscrepancy[]> {
     try {
-      const records = await pb.collection('sap_integration_catalog').getFullList({
-        filter: `function_name = '${functionName}'`,
+      const filterParts: string[] = []
+      if (params?.plantCode && params.plantCode !== 'ALL') {
+        filterParts.push(`plant_code = '${params.plantCode}'`)
+      }
+      if (params?.status && params.status !== 'ALL') {
+        filterParts.push(`status = '${params.status}'`)
+      }
+
+      const records = await pb.collection('inventory_discrepancies').getFullList({
+        filter: filterParts.length > 0 ? filterParts.join(' && ') : undefined,
+        sort: '-created',
       })
 
-      if (records.length > 0) {
-        const cat = records[0]
-        return {
-          isValid: cat.last_status === 'CONECTADO',
-          isRfcEnabled: cat.integration_type === 'RFC_BAPI',
-          parameters: Object.keys(cat.input_mapping || {}).concat(
-            Object.keys(cat.output_mapping || {}),
-          ),
-          statusMessage: `Função '${functionName}' (${cat.standard_or_z}) homologada no catálogo com status: ${cat.last_status}.`,
-        }
-      }
-
-      // Função padrão BAPI standard permitida pelo dicionário SAP
-      const standardBapis = [
-        'BAPI_MATERIAL_STOCK_REQ_GET',
-        'BAPI_MATERIAL_AVAILABILITY',
-        'RFC_READ_TABLE',
-        'Z_CIAFAL_ESTOQUE_GET',
-      ]
-      if (standardBapis.includes(functionName)) {
-        return {
-          isValid: true,
-          isRfcEnabled: true,
-          parameters: ['PLANT', 'LGORT', 'MATNR', 'RETURN'],
-          statusMessage: `Função '${functionName}' reconhecida no padrão RFC standard CIAFAL.`,
-        }
-      }
-
-      return {
-        isValid: false,
-        isRfcEnabled: false,
-        parameters: [],
-        statusMessage: `Função '${functionName}' não encontrada no catálogo SAP homologado nem na biblioteca standard RFC.`,
-      }
+      return records.map((r: any) => ({
+        id: r.id,
+        discrepancy_code: r.discrepancy_code,
+        plant_code: r.plant_code,
+        storage_location: r.storage_location,
+        material_code: r.material_code,
+        material_description: r.material_description,
+        batch_number: r.batch_number,
+        sap_qty: r.sap_qty || 0,
+        wms_qty: r.wms_qty || 0,
+        diff_qty: r.diff_qty || 0,
+        diff_pct: r.diff_pct || 0,
+        unit: 't',
+        sap_sync_at: r.sap_sync_at,
+        wms_sync_at: r.wms_sync_at,
+        status: r.status || 'PENDENTE',
+        occurrence_notes: r.occurrence_notes,
+        responsible_name: r.responsible_name,
+        resolved_at: r.resolved_at,
+        created: r.created,
+        updated: r.updated,
+      }))
     } catch {
-      return {
-        isValid: false,
-        isRfcEnabled: false,
-        parameters: [],
-        statusMessage: 'Falha ao conectar com o serviço de governança SAP.',
-      }
+      return []
     }
   }
-}
 
-// Singleton Service para Gestão de Estoques
-export class InventoryService {
-  private activeProvider: InventoryProvider = new SapInventoryProvider()
+  /**
+   * Trata ocorrência de divergência (Gera chamado e observação sem alterar saldo automaticamente)
+   */
+  public async updateDiscrepancyStatus(
+    id: string,
+    status: 'EM_TRATAMENTO' | 'CONCILIADO' | 'JUSTIFICADO',
+    notes: string,
+    responsible: string,
+  ): Promise<boolean> {
+    try {
+      await pb.collection('inventory_discrepancies').update(id, {
+        status,
+        occurrence_notes: notes,
+        responsible_name: responsible,
+        resolved_at: status === 'CONCILIADO' ? new Date().toISOString() : undefined,
+      })
 
-  public setProvider(provider: InventoryProvider) {
-    this.activeProvider = provider
+      // Registrar na auditoria
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'SCHEDULE_ACTION',
+        action: 'INVENTORY_DISCREPANCY_UPDATED',
+        resource: 'SAP_WMS_RECONCILIATION',
+        resource_id: id,
+        scope: 'GLOBAL',
+        outcome: 'SUCCESS',
+        details: { status, notes, responsible },
+      })
+
+      return true
+    } catch {
+      return false
+    }
   }
 
-  public getProvider(): InventoryProvider {
-    return this.activeProvider
-  }
-
-  public async getInventory(params?: {
-    plantCode?: string
-    storageLocation?: string
-    category?: string
-  }): Promise<InventoryItem[]> {
-    return this.activeProvider.fetchInventory(params)
-  }
-
+  /**
+   * KPIs Consolidados de Estoque
+   */
   public async getKPIs(items: InventoryItem[]): Promise<InventoryKPIs> {
     const rawMaterialTons = items
       .filter((i) => i.category === 'RAW_MATERIAL')
-      .reduce(
-        (sum, i) => sum + (i.unit === 't' ? i.qty_unrestricted : i.qty_unrestricted / 1000),
-        0,
-      )
+      .reduce((sum, i) => sum + (i.qty_unrestricted || 0), 0)
 
     const semiFinishedTons = items
       .filter((i) => i.category === 'SEMI_FINISHED')
-      .reduce(
-        (sum, i) => sum + (i.unit === 't' ? i.qty_unrestricted : i.qty_unrestricted / 1000),
-        0,
-      )
+      .reduce((sum, i) => sum + (i.qty_unrestricted || 0), 0)
 
     const finishedGoodsTons = items
       .filter((i) => i.category === 'FINISHED_GOOD')
-      .reduce(
-        (sum, i) => sum + (i.unit === 't' ? i.qty_unrestricted : i.qty_unrestricted / 1000),
-        0,
-      )
+      .reduce((sum, i) => sum + (i.qty_unrestricted || 0), 0)
 
     const itemsBelowMinCount = items.filter(
       (i) => i.min_stock !== undefined && i.min_stock !== null && i.qty_unrestricted < i.min_stock,
@@ -227,53 +193,70 @@ export class InventoryService {
 
     const itemsZeroStockCount = items.filter((i) => i.qty_unrestricted <= 0).length
 
-    // Última sincronização
     const latestSync = items.reduce((latest, i) => {
       if (!i.last_sync) return latest
       return new Date(i.last_sync) > new Date(latest) ? i.last_sync : latest
     }, items[0]?.last_sync || new Date().toISOString())
 
     return {
-      rawMaterialTons: Number(rawMaterialTons.toFixed(2)),
-      semiFinishedTons: Number(semiFinishedTons.toFixed(2)),
-      finishedGoodsTons: Number(finishedGoodsTons.toFixed(2)),
+      rawMaterialTons: Number(rawMaterialTons.toFixed(1)),
+      semiFinishedTons: Number(semiFinishedTons.toFixed(1)),
+      finishedGoodsTons: Number(finishedGoodsTons.toFixed(1)),
       itemsBelowMinCount,
       itemsAboveMaxCount,
       itemsZeroStockCount,
       totalItemsCount: items.length,
       lastSyncTime: latestSync,
-      sapConnected: this.activeProvider.isOfficialSap,
+      sapConnected: true,
     }
   }
 
   /**
-   * Dispara sincronização Read-Only com o SAP, gravando snapshots históricos
+   * Executa a projeção temporal nos 3 cenários
+   */
+  public getProjectionScenarios(item: InventoryItem): {
+    scenarioA: StockProjectionScenarioResult
+    scenarioB: StockProjectionScenarioResult
+    scenarioC: StockProjectionScenarioResult
+  } {
+    return {
+      scenarioA: DeterministicInventoryEngine.calculateStockProjection(item, 'SCENARIO_A_APPROVED'),
+      scenarioB: DeterministicInventoryEngine.calculateStockProjection(item, 'SCENARIO_B_HISTORIC'),
+      scenarioC: DeterministicInventoryEngine.calculateStockProjection(
+        item,
+        'SCENARIO_C_AI_FORECAST',
+      ),
+    }
+  }
+
+  /**
+   * Cobertura Industrial Integrada da Cadeia
+   */
+  public getIntegratedCoverage(items: InventoryItem[]): IntegratedIndustrialCoverage[] {
+    return DeterministicInventoryEngine.calculateIntegratedCoverage(items)
+  }
+
+  /**
+   * Alertas Inteligentes com taxonomia e causas
+   */
+  public getSmartAlerts(
+    items: InventoryItem[],
+    discrepancies: InventoryDiscrepancy[],
+  ): SmartStockAlert[] {
+    return DeterministicInventoryEngine.generateSmartAlerts(items, discrepancies)
+  }
+
+  /**
+   * Dispara sincronização Read-Only com o SAP
    */
   public async syncWithSap(
     plantCode = '1000',
   ): Promise<{ success: boolean; message: string; count: number }> {
     try {
-      // Registrar log de início da sincronização na Trilha de Auditoria
-      try {
-        await pb.collection('pcp_audit_logs').create({
-          event_type: 'SCHEDULE_ACTION',
-          action: 'INVENTORY_SYNC_STARTED',
-          resource: 'SAP_INVENTORY',
-          resource_id: plantCode,
-          scope: 'GLOBAL',
-          outcome: 'ALLOW',
-          details: { plantCode, provider: this.activeProvider.providerName },
-        })
-      } catch {
-        /* intentionally ignored */
-      }
-
-      // Busca registros do cache operacional / SAP
       const currentItems = await pb.collection('inventory_items').getFullList({
         filter: plantCode !== 'ALL' ? `plant_code = '${plantCode}'` : undefined,
       })
 
-      // Gerar snapshots para cada registro sincronizado
       const timestamp = new Date().toISOString()
       for (const item of currentItems) {
         try {
@@ -285,73 +268,38 @@ export class InventoryService {
             category: item.category,
             batch_number: item.batch_number || '',
             qty_total: item.qty_total || 0,
-            unit: item.unit || 't',
-            source_type: item.source_mode === 'SAP' ? 'SAP_RFC' : 'MANUAL_AUDITED',
-            source_function: item.sap_function_name || 'BAPI_MATERIAL_STOCK_REQ_GET',
+            unit: 't',
+            source_type: 'SAP_RFC',
+            source_function: 'BAPI_MATERIAL_STOCK_REQ_GET',
             records_count: currentItems.length,
           })
         } catch {
-          /* intentionally ignored */
+          /* ignore */
         }
       }
 
-      // Registrar auditoria de sucesso
-      try {
-        await pb.collection('pcp_audit_logs').create({
-          event_type: 'SCHEDULE_ACTION',
-          action: 'INVENTORY_SYNC_COMPLETED',
-          resource: 'SAP_INVENTORY',
-          resource_id: plantCode,
-          scope: 'GLOBAL',
-          outcome: 'SUCCESS',
-          details: { count: currentItems.length, timestamp },
-        })
-      } catch {
-        /* intentionally ignored */
-      }
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'SCHEDULE_ACTION',
+        action: 'INVENTORY_SYNC_COMPLETED',
+        resource: 'SAP_INVENTORY',
+        resource_id: plantCode,
+        scope: 'GLOBAL',
+        outcome: 'SUCCESS',
+        details: { count: currentItems.length, timestamp },
+      })
 
       return {
         success: true,
-        message: `Sincronização com SAP concluída. ${currentItems.length} registros atualizados e snapshots gerados.`,
+        message: `Sincronização com SAP concluída. ${currentItems.length} materiais atualizados.`,
         count: currentItems.length,
       }
     } catch (err: any) {
-      try {
-        await pb.collection('pcp_audit_logs').create({
-          event_type: 'SCHEDULE_ACTION',
-          action: 'INVENTORY_SYNC_FAILED',
-          resource: 'SAP_INVENTORY',
-          resource_id: plantCode,
-          scope: 'GLOBAL',
-          outcome: 'FAILED',
-          details: { error: err.message },
-        })
-      } catch {
-        /* intentionally ignored */
-      }
-
       return {
         success: false,
         message: `Erro na sincronização SAP: ${err.message}`,
         count: 0,
       }
     }
-  }
-
-  /**
-   * Adicionar/Atualizar Item Manual de Estoque (apenas quando source_mode = MANUAL)
-   */
-  public async saveManualItem(data: Partial<InventoryItem>): Promise<InventoryItem> {
-    if (data.id) {
-      const updated = await pb.collection('inventory_items').update(data.id, data)
-      return updated as unknown as InventoryItem
-    }
-    const created = await pb.collection('inventory_items').create({
-      ...data,
-      source_mode: 'MANUAL',
-      last_sync: new Date().toISOString(),
-    })
-    return created as unknown as InventoryItem
   }
 }
 
