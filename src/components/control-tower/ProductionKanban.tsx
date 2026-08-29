@@ -126,16 +126,54 @@ export const ProductionKanban: React.FC = () => {
                         <span className="font-mono font-bold text-cyan-300 text-[11px]">
                           {ord.orderNumber}
                         </span>
-                        <Badge
-                          variant="outline"
-                          className="text-[9px] px-1 py-0 border-slate-700 text-slate-400"
-                        >
-                          {ord.lineCode}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            className={`text-[8px] font-bold px-1 py-0 ${
+                              ord.productionType === 'MTO'
+                                ? 'bg-purple-950 text-purple-300 border-purple-800'
+                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                            }`}
+                          >
+                            {ord.productionType || 'MTS'}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 py-0 border-slate-700 text-slate-400"
+                          >
+                            {ord.lineCode}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="font-semibold text-white text-[11px] truncate">
                         {ord.familyName}
+                      </div>
+
+                      {/* Badges de Qualidade Discretos US / EM / Status */}
+                      <div className="flex items-center gap-1 text-[9px] pt-0.5">
+                        {ord.requiresUltrasound && (
+                          <span className="px-1 py-0.2 bg-blue-950 text-cyan-300 border border-blue-800 rounded font-bold">
+                            US
+                          </span>
+                        )}
+                        {ord.requiresMechanical && (
+                          <span className="px-1 py-0.2 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded font-bold">
+                            EM
+                          </span>
+                        )}
+                        {ord.qualityStatus && (
+                          <span
+                            className={`px-1 py-0.2 rounded font-medium border ${
+                              ord.qualityStatus === 'APROVADA' || ord.qualityStatus === 'LIBERADA'
+                                ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                : ord.qualityStatus === 'REPROVADA'
+                                  ? 'bg-rose-950 text-rose-300 border-rose-800'
+                                  : 'bg-amber-950 text-amber-300 border-amber-800'
+                            }`}
+                          >
+                            {ord.qualityStatus}
+                          </span>
+                        )}
                       </div>
 
                       <div className="text-[10px] text-slate-400 flex items-center justify-between">

@@ -187,9 +187,21 @@ export const ProcessDrawer: React.FC = () => {
             </div>
           </div>
 
-          {/* Informações da Campanha */}
+          {/* Informações da Campanha e Qualidade Integrada */}
           <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <span className="text-[11px] text-slate-400 font-semibold block">Campanha Ativa:</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-400 font-semibold block">
+                Campanha Ativa:
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] bg-blue-950 text-cyan-300 border border-blue-800 px-1.5 py-0.5 rounded font-bold">
+                  US Monitorado
+                </span>
+                <span className="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-bold">
+                  EM Habilitado
+                </span>
+              </div>
+            </div>
             <div className="font-bold text-white text-xs">{selectedProcess.activeCampaign}</div>
             <div className="text-cyan-300 text-[11px]">
               Material: {selectedProcess.activeMaterial}

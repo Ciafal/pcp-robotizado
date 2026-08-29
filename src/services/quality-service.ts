@@ -230,8 +230,10 @@ export const qualityService = {
     }[],
   ): Promise<{ generatedCount: number; demands: QualityInspectionDemand[] }> {
     const generated: QualityInspectionDemand[] = []
-    const requirements = await this.listProductQualityRequirements()
-    const reqMap = new Map(requirements.map((r) => [r.product_code, r]))
+    const requirements: ProductQualityRequirement[] = await this.listProductQualityRequirements()
+    const reqMap = new Map<string, ProductQualityRequirement>(
+      requirements.map((r) => [r.product_code, r]),
+    )
 
     for (const item of items) {
       const req = reqMap.get(item.productCode)

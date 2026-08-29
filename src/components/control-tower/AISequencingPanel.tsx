@@ -86,11 +86,22 @@ export const AISequencingPanel: React.FC = () => {
                 <span className="w-5 h-5 rounded-full bg-blue-900 border border-cyan-500 text-cyan-200 font-bold flex items-center justify-center shrink-0 text-[10px]">
                   4
                 </span>
-                <span>
-                  <strong>Capacidade de Ultrassom (US)</strong>: Terça-feira acumula 12 ensaios de
-                  Ultrassom para tubos e perfis MTO, acima da capacidade nominal diária do
-                  laboratório (10 ensaios/dia). Risco de atraso de liberação da OP-2026-1015.
-                </span>
+                <div className="space-y-1 flex-1">
+                  <div>
+                    <strong>Capacidade de Ultrassom (US) & Ensaios Mecânicos (EM)</strong>:
+                    Terça-feira acumula 12 ensaios de Ultrassom para tubos e perfis MTO, acima da
+                    capacidade nominal diária do laboratório (10 ensaios/dia). Risco de bloqueio de
+                    liberação da OP-2026-1015.
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-bold">
+                      Classificação: MTO Crítico
+                    </span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                      Hierarquia de Requisitos: Validada
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

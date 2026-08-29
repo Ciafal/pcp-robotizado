@@ -874,6 +874,48 @@ export const ProductQualityHubPage: React.FC = () => {
                     Classificação: <strong>{selectedDemandForInspect.production_type}</strong>
                   </div>
                 </div>
+
+                {selectedDemandForInspect.production_type === 'MTO' && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const sheet = await qualityService.getRequirementSheetByOrder(
+                          selectedDemandForInspect.production_order_number,
+                        )
+                        if (sheet) {
+                          setSelectedSheet(sheet)
+                        } else {
+                          setSelectedSheet({
+                            id: 'modal-inspect-sheet',
+                            sheet_code: `FRS-${selectedDemandForInspect.product_code}`,
+                            order_number: selectedDemandForInspect.production_order_number,
+                            customer_name: selectedDemandForInspect.customer_name || 'Cliente MTO',
+                            sales_order_sap:
+                              selectedDemandForInspect.sales_order_sap || '4500981240',
+                            sales_order_item: selectedDemandForInspect.sales_order_item || '10',
+                            material_code: selectedDemandForInspect.product_code,
+                            material_description: selectedDemandForInspect.product_description,
+                            production_type: 'MTO',
+                            quantity_tons: selectedDemandForInspect.quantity_tons || 50,
+                            desired_delivery_date: selectedDemandForInspect.planned_production_date,
+                            technical_standard:
+                              selectedDemandForInspect.applicable_standard || 'ABNT NBR 6355',
+                            requires_ultrasound:
+                              selectedDemandForInspect.inspection_type === 'ULTRASSOM',
+                            requires_mechanical_tests: true,
+                            validation_status: 'VALIDADO',
+                          })
+                        }
+                        setIsSheetOpen(true)
+                      }}
+                      className="h-6 text-[10px] border-purple-300 text-purple-800 hover:bg-purple-50"
+                    >
+                      <FileText className="w-3 h-3 mr-1" /> Abrir Ficha de Requisitos do Pedido MTO
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div>

@@ -186,13 +186,21 @@ export const ProductionOverview: React.FC = () => {
                       <div className="text-[10px] text-slate-500">{node.sector}</div>
                     </td>
 
-                    {/* Atual */}
+                    {/* Atual com Badges MTS/MTO e Qualidade */}
                     <td className="px-4 py-3">
-                      <div className="text-white font-semibold truncate max-w-[200px]">
-                        {node.activeMaterial || 'Nenhuma ordem ativa'}
+                      <div className="text-white font-semibold truncate max-w-[200px] flex items-center gap-1.5">
+                        <span className="truncate">
+                          {node.activeMaterial || 'Nenhuma ordem ativa'}
+                        </span>
+                        <Badge className="text-[8px] px-1 py-0 bg-slate-800 text-slate-300 border-slate-700">
+                          MTS/MTO
+                        </Badge>
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
-                        {node.activeCampaign}
+                      <div className="text-[10px] text-slate-400 truncate max-w-[200px] flex items-center gap-2">
+                        <span>{node.activeCampaign}</span>
+                        <span className="text-cyan-400 text-[9px] font-mono">
+                          US: OK &bull; EM: OK
+                        </span>
                       </div>
                     </td>
 

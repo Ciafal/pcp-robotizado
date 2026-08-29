@@ -470,6 +470,11 @@ export const mockCentralOrders: ProductOrder[] = [
     delayMinutes: 22,
     alertsCount: 1,
     notes: 'Ritmo real 4 t/h abaixo da meta nominal devido à troca preventiva de guias.',
+    productionType: 'MTO',
+    requiresUltrasound: true,
+    requiresMechanical: true,
+    qualityStatus: 'EM_INSPECAO',
+    sheetCode: 'FRS-2026-1011',
   },
   {
     id: 'ord-102',
@@ -512,6 +517,10 @@ export const mockCentralOrders: ProductOrder[] = [
     programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
+    productionType: 'MTS',
+    requiresUltrasound: false,
+    requiresMechanical: true,
+    qualityStatus: 'PROGRAMADA',
   },
   {
     id: 'ord-103',
@@ -557,6 +566,11 @@ export const mockCentralOrders: ProductOrder[] = [
     alertsCount: 2,
     notes:
       'Buffer L1 -> Acabamento em 183 t (cobertura de 6h20). Risco de sobrecarga se L1 acelerar.',
+    productionType: 'MTO',
+    requiresUltrasound: true,
+    requiresMechanical: true,
+    qualityStatus: 'DISPONIVEL_INSPECAO',
+    sheetCode: 'FRS-2026-1013',
   },
   {
     id: 'ord-104',
@@ -599,6 +613,11 @@ export const mockCentralOrders: ProductOrder[] = [
     delayMinutes: 60,
     alertsCount: 2,
     notes: 'Aguardando bobina #B-8831 da MPL2. Risco de atraso de 1h30 na entrega.',
+    productionType: 'MTO',
+    requiresUltrasound: true,
+    requiresMechanical: true,
+    qualityStatus: 'PROGRAMADA',
+    sheetCode: 'FRS-2026-1014',
   },
   {
     id: 'ord-105',
@@ -641,6 +660,11 @@ export const mockCentralOrders: ProductOrder[] = [
     programmer: 'Juliana Lima',
     delayMinutes: 30,
     alertsCount: 1,
+    productionType: 'MTO',
+    requiresUltrasound: true,
+    requiresMechanical: true,
+    qualityStatus: 'EM_INSPECAO',
+    sheetCode: 'FRS-2026-1015',
   },
   {
     id: 'ord-106',
@@ -681,6 +705,10 @@ export const mockCentralOrders: ProductOrder[] = [
     programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
+    productionType: 'MTS',
+    requiresUltrasound: false,
+    requiresMechanical: false,
+    qualityStatus: 'APROVADA',
   },
   {
     id: 'ord-107',
@@ -723,6 +751,11 @@ export const mockCentralOrders: ProductOrder[] = [
     programmer: 'Lucas Ferreira',
     delayMinutes: 0,
     alertsCount: 0,
+    productionType: 'MTO',
+    requiresUltrasound: true,
+    requiresMechanical: true,
+    qualityStatus: 'PROGRAMADA',
+    sheetCode: 'FRS-2026-1017',
   },
   {
     id: 'ord-108',
@@ -766,6 +799,11 @@ export const mockCentralOrders: ProductOrder[] = [
     alertsCount: 2,
     notes:
       'Linha em manutenção preventiva emergencial nos rolos de tração. Retorno previsto para 18:30.',
+    productionType: 'MTO',
+    requiresUltrasound: false,
+    requiresMechanical: true,
+    qualityStatus: 'PENDENTE',
+    sheetCode: 'FRS-2026-1018',
   },
 ]
 

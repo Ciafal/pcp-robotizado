@@ -198,42 +198,161 @@ export const OrderDrawer: React.FC = () => {
           </div>
         </div>
 
-        {/* Requisitos de Qualidade Integrados (US e EM) */}
+        {/* Requisitos de Qualidade Integrados (US, EM e Status Qualidade) */}
         <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
-          <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
-            Requisitos de Qualidade & Inspeção:
-          </span>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+              Requisitos de Qualidade & Inspeção:
+            </span>
+            <span className="text-[10px] text-slate-400">Clique para abrir Ficha / Detalhe</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {/* Ultrassom (US) */}
             <div
-              onClick={() => setDetailModal({ isOpen: true, type: 'ULTRASSOM' })}
+              onClick={async () => {
+                const sheet = await qualityService.getRequirementSheetByOrder(
+                  selectedOrder.orderNumber,
+                )
+                if (sheet) {
+                  setLoadedSheet(sheet)
+                  setIsSheetOpen(true)
+                } else if (isMto) {
+                  setLoadedSheet({
+                    id: 'mto-drawer-us',
+                    sheet_code: selectedOrder.sheetCode || `FRS-2026-${selectedOrder.materialCode}`,
+                    order_number: selectedOrder.orderNumber,
+                    customer_name: selectedOrder.customerName,
+                    sales_order_sap: selectedOrder.salesOrderId || '4500981240',
+                    sales_order_item: selectedOrder.salesOrderItem || '10',
+                    material_code: selectedOrder.materialCode,
+                    material_description: selectedOrder.materialName,
+                    production_type: 'MTO',
+                    quantity_tons: selectedOrder.plannedTons,
+                    desired_delivery_date: selectedOrder.plannedEnd,
+                    technical_standard: 'ABNT NBR 6355 / ASTM A36',
+                    requires_ultrasound: true,
+                    requires_mechanical_tests: true,
+                    validation_status: 'VALIDADO',
+                  })
+                  setIsSheetOpen(true)
+                } else {
+                  setDetailModal({ isOpen: true, type: 'ULTRASSOM' })
+                }
+              }}
               className="p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-cyan-500 cursor-pointer transition-colors"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-cyan-400" /> Ultrassom (US)
+                  <Sparkles className="w-3 h-3 text-cyan-400" /> US
                 </span>
                 <Badge className="bg-blue-950 text-cyan-300 text-[9px] border-blue-800">
                   {selectedOrder.requiresUltrasound || isMto ? 'Exigido' : 'Isento'}
                 </Badge>
               </div>
-              <span className="text-[10px] text-slate-400 block mt-1">
-                Norma ASME / Phased Array
-              </span>
+              <span className="text-[10px] text-slate-400 block mt-1 truncate">ASME / Phased</span>
             </div>
 
+            {/* Ensaios Mecânicos (EM) */}
             <div
-              onClick={() => setDetailModal({ isOpen: true, type: 'ENSAIOS_MECANICOS' })}
+              onClick={async () => {
+                const sheet = await qualityService.getRequirementSheetByOrder(
+                  selectedOrder.orderNumber,
+                )
+                if (sheet) {
+                  setLoadedSheet(sheet)
+                  setIsSheetOpen(true)
+                } else if (isMto) {
+                  setLoadedSheet({
+                    id: 'mto-drawer-em',
+                    sheet_code: selectedOrder.sheetCode || `FRS-2026-${selectedOrder.materialCode}`,
+                    order_number: selectedOrder.orderNumber,
+                    customer_name: selectedOrder.customerName,
+                    sales_order_sap: selectedOrder.salesOrderId || '4500981240',
+                    sales_order_item: selectedOrder.salesOrderItem || '10',
+                    material_code: selectedOrder.materialCode,
+                    material_description: selectedOrder.materialName,
+                    production_type: 'MTO',
+                    quantity_tons: selectedOrder.plannedTons,
+                    desired_delivery_date: selectedOrder.plannedEnd,
+                    technical_standard: 'ABNT NBR 6355 / ASTM A36',
+                    requires_ultrasound: true,
+                    requires_mechanical_tests: true,
+                    validation_status: 'VALIDADO',
+                  })
+                  setIsSheetOpen(true)
+                } else {
+                  setDetailModal({ isOpen: true, type: 'ENSAIOS_MECANICOS' })
+                }
+              }}
               className="p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-indigo-500 cursor-pointer transition-colors"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                  <Award className="w-3 h-3 text-indigo-400" /> Ensaios Mecânicos
+                  <Award className="w-3 h-3 text-indigo-400" /> EM
                 </span>
                 <Badge className="bg-indigo-950 text-indigo-300 text-[9px] border-indigo-800">
-                  {selectedOrder.requiresMechanical || true ? 'Tração/Dobr' : 'Padrão'}
+                  {selectedOrder.requiresMechanical ? 'Tração' : 'Padrão'}
                 </Badge>
               </div>
-              <span className="text-[10px] text-slate-400 block mt-1">Laudo Tipo 3.1</span>
+              <span className="text-[10px] text-slate-400 block mt-1 truncate">Laudo 3.1</span>
+            </div>
+
+            {/* Status Qualidade */}
+            <div
+              onClick={async () => {
+                const sheet = await qualityService.getRequirementSheetByOrder(
+                  selectedOrder.orderNumber,
+                )
+                if (sheet) {
+                  setLoadedSheet(sheet)
+                  setIsSheetOpen(true)
+                } else if (isMto) {
+                  setLoadedSheet({
+                    id: 'mto-drawer-status',
+                    sheet_code: selectedOrder.sheetCode || `FRS-2026-${selectedOrder.materialCode}`,
+                    order_number: selectedOrder.orderNumber,
+                    customer_name: selectedOrder.customerName,
+                    sales_order_sap: selectedOrder.salesOrderId || '4500981240',
+                    sales_order_item: selectedOrder.salesOrderItem || '10',
+                    material_code: selectedOrder.materialCode,
+                    material_description: selectedOrder.materialName,
+                    production_type: 'MTO',
+                    quantity_tons: selectedOrder.plannedTons,
+                    desired_delivery_date: selectedOrder.plannedEnd,
+                    technical_standard: 'ABNT NBR 6355 / ASTM A36',
+                    requires_ultrasound: true,
+                    requires_mechanical_tests: true,
+                    validation_status: 'VALIDADO',
+                  })
+                  setIsSheetOpen(true)
+                } else {
+                  setDetailModal({ isOpen: true, type: 'STATUS_QUALIDADE' })
+                }
+              }}
+              className="p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-emerald-500 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> Qualidade
+                </span>
+                <Badge
+                  className={`text-[9px] px-1 py-0 ${
+                    selectedOrder.qualityStatus === 'APROVADA' ||
+                    selectedOrder.qualityStatus === 'LIBERADA'
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                      : selectedOrder.qualityStatus === 'REPROVADA'
+                        ? 'bg-rose-950 text-rose-300 border-rose-800'
+                        : selectedOrder.qualityStatus === 'DISPONIVEL_INSPECAO' ||
+                            selectedOrder.qualityStatus === 'EM_INSPECAO'
+                          ? 'bg-blue-950 text-cyan-300 border-blue-800'
+                          : 'bg-amber-950 text-amber-300 border-amber-800'
+                  }`}
+                >
+                  {selectedOrder.qualityStatus ||
+                    (selectedOrder.status === 'COMPLETED' ? 'APROVADA' : 'PROGRAMADA')}
+                </Badge>
+              </div>
+              <span className="text-[10px] text-slate-400 block mt-1 truncate">Ficha & Laudo</span>
             </div>
           </div>
         </div>

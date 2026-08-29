@@ -388,8 +388,23 @@ export const ProductionGantt: React.FC = () => {
                                   }`}
                                 >
                                   <div className="flex items-center justify-between gap-1">
-                                    <span className="font-mono font-bold text-white text-[11px] truncate">
+                                    <span className="font-mono font-bold text-white text-[11px] truncate flex items-center gap-1">
                                       {ord.orderNumber}
+                                      {ord.productionType === 'MTO' && (
+                                        <span className="text-[8px] bg-purple-900 text-purple-200 px-1 rounded font-bold">
+                                          MTO
+                                        </span>
+                                      )}
+                                      {ord.requiresUltrasound && (
+                                        <span className="text-[8px] bg-blue-900 text-cyan-200 px-1 rounded font-bold">
+                                          US
+                                        </span>
+                                      )}
+                                      {ord.requiresMechanical && (
+                                        <span className="text-[8px] bg-indigo-900 text-indigo-200 px-1 rounded font-bold">
+                                          EM
+                                        </span>
+                                      )}
                                     </span>
                                     <span className="text-[10px] text-cyan-300 font-mono">
                                       {ord.plannedTons} t
@@ -424,6 +439,20 @@ export const ProductionGantt: React.FC = () => {
                                 <div className="text-[11px] space-y-1 text-slate-300">
                                   <div>
                                     <strong>Material:</strong> {ord.materialName}
+                                  </div>
+                                  <div>
+                                    <strong>Classificação:</strong>{' '}
+                                    <span className="font-bold text-cyan-300">
+                                      {ord.productionType || 'MTS'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <strong>Qualidade:</strong>{' '}
+                                    <span className="text-emerald-400 font-semibold">
+                                      {ord.qualityStatus || 'PROGRAMADA'}
+                                    </span>{' '}
+                                    {ord.requiresUltrasound && '(Exige US)'}{' '}
+                                    {ord.requiresMechanical && '(Exige EM)'}
                                   </div>
                                   <div>
                                     <strong>Volume:</strong> {ord.producedTons} t /{' '}

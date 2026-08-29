@@ -98,6 +98,31 @@ export const ShopFloorView: React.FC = () => {
                     {currentOrder.currentRatePerHour} t/h
                   </span>
                 </div>
+                <div className="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block font-medium">Qualidade</span>
+                  <div className="flex items-center gap-1 justify-center mt-0.5">
+                    <Badge
+                      className={`text-[9px] font-bold px-1.5 py-0 ${
+                        currentOrder.productionType === 'MTO'
+                          ? 'bg-purple-900 text-purple-200'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {currentOrder.productionType || 'MTS'}
+                    </Badge>
+                    {currentOrder.requiresUltrasound && (
+                      <span className="text-[8px] bg-blue-900 text-cyan-200 px-1 rounded font-bold">
+                        US
+                      </span>
+                    )}
+                    {currentOrder.requiresMechanical && (
+                      <span className="text-[8px] bg-indigo-900 text-indigo-200 px-1 rounded font-bold">
+                        EM
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -168,9 +193,26 @@ export const ShopFloorView: React.FC = () => {
             {nextOrder ? (
               <>
                 <div className="font-bold text-white text-sm">{nextOrder.materialName}</div>
-                <div className="text-slate-400">
-                  OP: <strong className="text-cyan-300 font-mono">{nextOrder.orderNumber}</strong>{' '}
-                  &bull; Volume: <strong className="text-white">{nextOrder.plannedTons} t</strong>
+                <div className="text-slate-400 flex items-center gap-1.5 flex-wrap">
+                  <span>
+                    OP: <strong className="text-cyan-300 font-mono">{nextOrder.orderNumber}</strong>
+                  </span>
+                  <span>
+                    &bull; Volume: <strong className="text-white">{nextOrder.plannedTons} t</strong>
+                  </span>
+                  <Badge className="text-[8px] px-1 py-0 bg-slate-800 text-slate-300">
+                    {nextOrder.productionType || 'MTS'}
+                  </Badge>
+                  {nextOrder.requiresUltrasound && (
+                    <span className="text-[8px] bg-blue-950 text-cyan-300 border border-blue-800 px-1 rounded font-bold">
+                      US
+                    </span>
+                  )}
+                  {nextOrder.requiresMechanical && (
+                    <span className="text-[8px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1 rounded font-bold">
+                      EM
+                    </span>
+                  )}
                 </div>
                 <div className="text-slate-400">
                   Início Previsto:{' '}
