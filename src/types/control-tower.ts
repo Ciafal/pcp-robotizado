@@ -429,6 +429,11 @@ export interface ProductOrder {
   delayMinutes: number
   alertsCount: number
   notes?: string
+  productionType?: 'MTS' | 'MTO'
+  requiresUltrasound?: boolean
+  requiresMechanical?: boolean
+  qualityStatus?: string
+  sheetCode?: string
 }
 
 export interface ProductionProcessNode {

@@ -244,6 +244,10 @@ export interface TabularScheduleItem {
   stockEntryAfterTons?: number
   stockExitProjectedTons?: number
   alerts?: string[]
+  requiresUltrasound?: boolean
+  requiresMechanical?: boolean
+  qualityStatus?: string
+  salesOrderItem?: string
 }
 
 export interface ManualOverridePayload {

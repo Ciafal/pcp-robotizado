@@ -18,7 +18,17 @@ import {
   Lock,
   RotateCcw,
   Plus,
+  Sparkles,
+  Award,
 } from 'lucide-react'
+import { OrderRequirementSheetModal } from '@/components/quality/OrderRequirementSheetModal'
+import { QualityRequirementDetailModal } from '@/components/quality/QualityRequirementDetailModal'
+import { qualityService } from '@/services/quality-service'
+import {
+  OrderRequirementSheet,
+  ProductQualityRequirement,
+  QualityInspectionDemand,
+} from '@/types/product-quality'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -101,12 +111,39 @@ const defaultColumns: TabularColumnConfig[] = [
   { key: 'produto', label: 'Produto', visible: true, required: true, order: 9, minWidth: 200 },
   {
     key: 'mtoOrIndustrializacao',
-    label: 'MTO / Industrialização',
+    label: 'Classif. (MTS/MTO)',
     visible: true,
     required: false,
     order: 10,
     align: 'center',
-    minWidth: 140,
+    minWidth: 100,
+  },
+  {
+    key: 'requiresUltrasound',
+    label: 'US (Ultrassom)',
+    visible: true,
+    required: false,
+    order: 10.1,
+    align: 'center',
+    minWidth: 85,
+  },
+  {
+    key: 'requiresMechanical',
+    label: 'EM (Mecânicos)',
+    visible: true,
+    required: false,
+    order: 10.2,
+    align: 'center',
+    minWidth: 90,
+  },
+  {
+    key: 'qualityStatus',
+    label: 'Status Qualidade',
+    visible: true,
+    required: false,
+    order: 10.3,
+    align: 'center',
+    minWidth: 110,
   },
   { key: 'cliente', label: 'Cliente', visible: true, required: false, order: 11, minWidth: 140 },
   {
@@ -224,6 +261,21 @@ export const TabularScheduleView: React.FC<TabularScheduleViewProps> = ({
   const [justificationNotes, setJustificationNotes] = useState('')
   const [isMtoDrawerOpen, setIsMtoDrawerOpen] = useState(false)
   const [selectedMtoItem, setSelectedMtoItem] = useState<TabularScheduleItem | null>(null)
+  const [selectedSheet, setSelectedSheet] = useState<OrderRequirementSheet | null>(null)
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false)
+  const [detailQualityModal, setDetailQualityModal] = useState<{
+    isOpen: boolean
+    productCode: string
+    productName: string
+    productionType: 'MTS' | 'MTO'
+    demandType: 'ULTRASSOM' | 'ENSAIOS_MECANICOS' | 'STATUS_QUALIDADE'
+  }>({
+    isOpen: false,
+    productCode: '',
+    productName: '',
+    productionType: 'MTS',
+    demandType: 'STATUS_QUALIDADE',
+  })
 
   // Carrega itens da programação operacional do banco / contexto
   const loadScheduleData = async () => {
@@ -414,19 +466,103 @@ export const TabularScheduleView: React.FC<TabularScheduleViewProps> = ({
     }
 
     if (col.key === 'mtoOrIndustrializacao') {
-      return val === 'MTO' ? (
+      const isMto = val === 'MTO'
+      return isMto ? (
         <button
           onClick={() => {
             setSelectedMtoItem(item)
             setIsMtoDrawerOpen(true)
           }}
-          className="bg-purple-100 text-purple-900 hover:bg-purple-200 border border-purple-300 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 mx-auto"
+          className="bg-purple-100 text-purple-900 hover:bg-purple-200 border border-purple-300 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 mx-auto transition-colors"
+          title="Make to Order - Clique para abrir Ficha de Requisitos"
         >
           <span>MTO</span>
-          <Eye className="w-2.5 h-2.5" />
+          <FileText className="w-2.5 h-2.5" />
         </button>
       ) : (
-        <span className="text-[10px] font-mono text-slate-500">{val || 'MTS'}</span>
+        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-mono">
+          MTS
+        </span>
+      )
+    }
+
+    if (col.key === 'requiresUltrasound') {
+      const needsUS =
+        item.requiresUltrasound ||
+        (item.mtoOrIndustrializacao === 'MTO' && item.codigo?.includes('PERFIL'))
+      return needsUS ? (
+        <button
+          onClick={() => {
+            setDetailQualityModal({
+              isOpen: true,
+              productCode: item.codigo,
+              productName: item.produto,
+              productionType: item.mtoOrIndustrializacao as any,
+              demandType: 'ULTRASSOM',
+            })
+          }}
+          className="text-[10px] font-bold text-[#004C97] bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 flex items-center gap-0.5 mx-auto"
+          title="Exige Ultrassom (US) - Clique para ver detalhes"
+        >
+          <Sparkles className="w-2.5 h-2.5 text-[#004C97]" />
+          <span>US</span>
+        </button>
+      ) : (
+        <span className="text-slate-400 text-[10px]">--</span>
+      )
+    }
+
+    if (col.key === 'requiresMechanical') {
+      const needsEM = item.requiresMechanical || true
+      return needsEM ? (
+        <button
+          onClick={() => {
+            setDetailQualityModal({
+              isOpen: true,
+              productCode: item.codigo,
+              productName: item.produto,
+              productionType: item.mtoOrIndustrializacao as any,
+              demandType: 'ENSAIOS_MECANICOS',
+            })
+          }}
+          className="text-[10px] font-bold text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded border border-indigo-200 flex items-center gap-0.5 mx-auto"
+          title="Exige Ensaios Mecânicos (EM) - Tração/Dobramento"
+        >
+          <Award className="w-2.5 h-2.5 text-indigo-700" />
+          <span>EM</span>
+        </button>
+      ) : (
+        <span className="text-slate-400 text-[10px]">--</span>
+      )
+    }
+
+    if (col.key === 'qualityStatus') {
+      const status = item.qualityStatus || (item.status === 'CONCLUIDO' ? 'APROVADA' : 'PROGRAMADA')
+      return (
+        <button
+          onClick={() => {
+            setDetailQualityModal({
+              isOpen: true,
+              productCode: item.codigo,
+              productName: item.produto,
+              productionType: item.mtoOrIndustrializacao as any,
+              demandType: 'STATUS_QUALIDADE',
+            })
+          }}
+          className="mx-auto block"
+        >
+          <Badge
+            className={`text-[9px] font-bold px-1.5 py-0 ${
+              status === 'APROVADA' || status === 'LIBERADA'
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                : status === 'REPROVADA'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-amber-100 text-amber-800 border-amber-300'
+            }`}
+          >
+            {status}
+          </Badge>
+        </button>
       )
     }
 
@@ -903,51 +1039,125 @@ export const TabularScheduleView: React.FC<TabularScheduleViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* 5. Modal MTO Requisitos SAP (Regra 41) */}
+      {/* 5. Modal MTO Requisitos SAP e Ficha de Requisitos */}
       <Dialog open={isMtoDrawerOpen} onOpenChange={setIsMtoDrawerOpen}>
-        <DialogContent className="max-w-md bg-white border-slate-200 text-slate-900">
+        <DialogContent className="max-w-lg bg-white border-slate-200 text-slate-900 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900">
-              Requisitos MTO no SAP ECC ({selectedMtoItem?.codigo})
+            <DialogTitle className="text-base font-bold text-[#004C97] flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Requisitos do Pedido MTO ({selectedMtoItem?.codigo})
             </DialogTitle>
           </DialogHeader>
 
           {selectedMtoItem && (
-            <div className="space-y-3 text-xs py-2">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+            <div className="space-y-3.5 text-xs py-2">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Cliente:</span>
-                  <span className="font-bold text-slate-900">{selectedMtoItem.cliente}</span>
+                  <span className="text-slate-500 font-bold uppercase text-[10px]">Cliente:</span>
+                  <strong className="text-slate-900">{selectedMtoItem.cliente}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Ordem SAP / Sales Order:</span>
-                  <span className="font-mono font-bold text-[#004C97]">SO-892182 / Item 10</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Especificação Especial:</span>
-                  <span className="font-medium text-slate-800">
-                    Comprimento Especial 6.00m ± 2mm
+                  <span className="text-slate-500 font-bold uppercase text-[10px]">
+                    Ordem SAP / Sales Order:
+                  </span>
+                  <span className="font-mono font-bold text-[#004C97]">
+                    {selectedMtoItem.ordemSap || '4500981240'} / Item 10
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Embalagem Requerida:</span>
+                  <span className="text-slate-500 font-bold uppercase text-[10px]">
+                    Quantidade / Comprimento:
+                  </span>
+                  <span className="font-mono text-slate-800">
+                    {selectedMtoItem.programadoTons} t &bull; {selectedMtoItem.comprimentoMetros}m
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-bold uppercase text-[10px]">
+                    Embalagem Requerida:
+                  </span>
                   <span className="font-medium text-slate-800">{selectedMtoItem.embalagem}</span>
                 </div>
+              </div>
+
+              <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 text-purple-900 space-y-1">
+                <strong className="block text-[11px] font-bold">
+                  Ficha de Requisitos Vinculada:
+                </strong>
+                <p className="text-[11px]">
+                  Todos os requisitos técnicos, tolerâncias dimensionais, exigência de Ultrassom
+                  (US) e ensaios mecânicos estão consolidados na Ficha MTO.
+                </p>
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (selectedMtoItem) {
+                  const sheet = await qualityService.getRequirementSheetByOrder(
+                    selectedMtoItem.ordemPcp || selectedMtoItem.codigo,
+                  )
+                  if (sheet) {
+                    setSelectedSheet(sheet)
+                  } else {
+                    setSelectedSheet({
+                      id: 'sample-mto',
+                      sheet_code: `FRS-2026-${selectedMtoItem.codigo}`,
+                      order_number: selectedMtoItem.ordemPcp || 'OP-2026-MTO',
+                      customer_name: selectedMtoItem.cliente || 'Cliente MTO Especial',
+                      sales_order_sap: selectedMtoItem.ordemSap || '4500981240',
+                      sales_order_item: '10',
+                      material_code: selectedMtoItem.codigo,
+                      material_description: selectedMtoItem.produto,
+                      production_type: 'MTO',
+                      quantity_tons: selectedMtoItem.programadoTons,
+                      desired_delivery_date: selectedMtoItem.dataDetalhada,
+                      nominal_dimension: `${selectedMtoItem.comprimentoMetros}m`,
+                      technical_standard: 'ABNT NBR 6355 / ASTM A36',
+                      requires_ultrasound: true,
+                      requires_mechanical_tests: true,
+                      validation_status: 'VALIDADO',
+                    })
+                  }
+                  setIsMtoDrawerOpen(false)
+                  setIsSheetModalOpen(true)
+                }
+              }}
+              className="bg-purple-50 border-purple-300 text-purple-900 hover:bg-purple-100 text-xs font-semibold gap-1"
+            >
+              <FileText className="w-3.5 h-3.5" /> Abrir Ficha Completa MTO
+            </Button>
+
             <Button
               size="sm"
               onClick={() => setIsMtoDrawerOpen(false)}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs"
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold"
             >
               Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Ficha Completa de Requisitos */}
+      <OrderRequirementSheetModal
+        isOpen={isSheetModalOpen}
+        onClose={() => setIsSheetModalOpen(false)}
+        sheet={selectedSheet}
+      />
+
+      {/* Modal Detalhes de Qualidade (US/EM/Status) */}
+      <QualityRequirementDetailModal
+        isOpen={detailQualityModal.isOpen}
+        onClose={() => setDetailQualityModal((prev) => ({ ...prev, isOpen: false }))}
+        productCode={detailQualityModal.productCode}
+        productName={detailQualityModal.productName}
+        productionType={detailQualityModal.productionType}
+        demandType={detailQualityModal.demandType}
+      />
     </div>
   )
 }

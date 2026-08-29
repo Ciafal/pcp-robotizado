@@ -1,0 +1,321 @@
+migrate(
+  (app) => {
+    // 1. Coleção: product_quality_requirements (Cadastro mestre / catálogo de requisitos por produto)
+    const productQualityReqsCol = new Collection({
+      name: 'product_quality_requirements',
+      type: 'base',
+      listRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''",
+      createRule: "@request.auth.id != ''",
+      updateRule: "@request.auth.id != ''",
+      deleteRule: "@request.auth.id != ''",
+      fields: [
+        { name: 'product_code', type: 'text', required: true },
+        { name: 'product_name', type: 'text', required: true },
+        { name: 'family_code', type: 'text' },
+        {
+          name: 'production_type',
+          type: 'select',
+          required: true,
+          values: ['MTS', 'MTO'],
+          maxSelect: 1,
+        },
+        {
+          name: 'ultrasound_requirement',
+          type: 'select',
+          required: true,
+          values: ['SIM', 'NAO', 'CONDICIONAL'],
+          maxSelect: 1,
+        },
+        { name: 'ultrasound_condition_rule', type: 'text' },
+        {
+          name: 'mechanical_test_requirement',
+          type: 'select',
+          required: true,
+          values: ['SIM', 'NAO', 'CONDICIONAL'],
+          maxSelect: 1,
+        },
+        { name: 'mechanical_test_condition_rule', type: 'text' },
+        { name: 'mechanical_test_types', type: 'json' }, // ['TRACAO', 'DOBRAMENTO', 'DUREZA', 'IMPACTO']
+        { name: 'applicable_standards', type: 'text' }, // Ex: NBR 5580 / ASTM A500
+        { name: 'is_blocking_default', type: 'bool' },
+        { name: 'standard_sample_count', type: 'number' },
+        { name: 'estimated_inspection_hours', type: 'number' },
+        { name: 'responsible_laboratory', type: 'text' },
+        { name: 'technical_specifications', type: 'json' },
+        { name: 'active', type: 'bool' },
+        { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+        { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+      ],
+      indexes: [
+        'CREATE INDEX idx_pqr_prod_code ON product_quality_requirements (product_code)',
+        'CREATE INDEX idx_pqr_prod_type ON product_quality_requirements (production_type)',
+      ],
+    })
+    app.save(productQualityReqsCol)
+
+    // 2. Coleção: order_requirement_sheets (Ficha Completa de Requisitos do Pedido MTO)
+    const orderReqSheetsCol = new Collection({
+      name: 'order_requirement_sheets',
+      type: 'base',
+      listRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''",
+      createRule: "@request.auth.id != ''",
+      updateRule: "@request.auth.id != ''",
+      deleteRule: "@request.auth.id != ''",
+      fields: [
+        { name: 'sheet_code', type: 'text', required: true },
+        { name: 'order_number', type: 'text', required: true }, // OP ou Demand ID
+        { name: 'customer_name', type: 'text', required: true },
+        { name: 'customer_code', type: 'text' },
+        { name: 'sales_order_sap', type: 'text', required: true },
+        { name: 'sales_order_item', type: 'text', required: true },
+        { name: 'material_code', type: 'text', required: true },
+        { name: 'material_description', type: 'text', required: true },
+        {
+          name: 'production_type',
+          type: 'select',
+          required: true,
+          values: ['MTO', 'MTS'],
+          maxSelect: 1,
+        },
+        { name: 'quantity_tons', type: 'number', required: true },
+        { name: 'quantity_units', type: 'number' },
+        { name: 'unit_of_measure', type: 'text' },
+        { name: 'order_date', type: 'text' },
+        { name: 'desired_delivery_date', type: 'text', required: true },
+        { name: 'confirmed_delivery_date', type: 'text' },
+        { name: 'commercial_priority', type: 'text' },
+        { name: 'sales_representative', type: 'text' },
+        // Requisitos Dimensionais
+        { name: 'nominal_dimension', type: 'text' },
+        { name: 'dimensional_tolerances', type: 'text' },
+        { name: 'length_meters', type: 'number' },
+        { name: 'weight_kg_per_piece', type: 'number' },
+        { name: 'dimensional_notes', type: 'text' },
+        // Requisitos Técnicos
+        { name: 'technical_standard', type: 'text' },
+        { name: 'steel_grade', type: 'text' },
+        { name: 'chemical_composition_reqs', type: 'json' },
+        { name: 'mechanical_properties_reqs', type: 'json' },
+        { name: 'heat_treatment', type: 'text' },
+        { name: 'surface_finish_condition', type: 'text' },
+        { name: 'packaging_requirements', type: 'text' },
+        { name: 'marking_identification', type: 'text' },
+        { name: 'traceability_level', type: 'text' },
+        // Requisitos de Qualidade
+        { name: 'mandatory_inspections', type: 'json' },
+        { name: 'requires_ultrasound', type: 'bool' },
+        { name: 'ultrasound_standard', type: 'text' },
+        { name: 'requires_mechanical_tests', type: 'bool' },
+        { name: 'mechanical_tests_detail', type: 'json' },
+        { name: 'requires_chemical_analysis', type: 'bool' },
+        { name: 'requires_metallography', type: 'bool' },
+        { name: 'requires_dimensional_inspection', type: 'bool' },
+        { name: 'requires_surface_inspection', type: 'bool' },
+        { name: 'quality_certificates_required', type: 'json' },
+        { name: 'special_customer_requirements', type: 'text' },
+        // Rastreabilidade e Hierarquia de Fontes
+        { name: 'requirements_sources_traceability', type: 'json' },
+        {
+          name: 'validation_status',
+          type: 'select',
+          required: true,
+          values: ['VALIDADO', 'PENDENCIA_VALIDACAO', 'CONFLITO_REQUISITOS', 'EM_ANALISE'],
+          maxSelect: 1,
+        },
+        { name: 'validation_pendency_details', type: 'text' },
+        {
+          name: 'assigned_validator_id',
+          type: 'relation',
+          collectionId: '_pb_users_auth_',
+          maxSelect: 1,
+        },
+        { name: 'validated_at', type: 'text' },
+        { name: 'version', type: 'number' },
+        { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+        { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+      ],
+      indexes: [
+        'CREATE UNIQUE INDEX idx_ors_sheet_code ON order_requirement_sheets (sheet_code)',
+        'CREATE INDEX idx_ors_order_number ON order_requirement_sheets (order_number)',
+        'CREATE INDEX idx_ors_sales_order ON order_requirement_sheets (sales_order_sap, sales_order_item)',
+      ],
+    })
+    app.save(orderReqSheetsCol)
+
+    // 3. Coleção: quality_inspection_demands (Demandas de Ultrassom, Ensaios Mecânicos e Inspeções)
+    const qualityDemandsCol = new Collection({
+      name: 'quality_inspection_demands',
+      type: 'base',
+      listRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''",
+      createRule: "@request.auth.id != ''",
+      updateRule: "@request.auth.id != ''",
+      deleteRule: "@request.auth.id != ''",
+      fields: [
+        { name: 'demand_code', type: 'text', required: true },
+        {
+          name: 'inspection_type',
+          type: 'select',
+          required: true,
+          values: [
+            'ULTRASSOM',
+            'ENSAIO_TRACAO',
+            'ENSAIO_DOBRAMENTO',
+            'DUREZA',
+            'IMPACTO',
+            'ANALISE_QUIMICA',
+            'METALOGRAFIA',
+            'INSPECAO_DIMENSIONAL',
+            'INSPECAO_SUPERFICIAL',
+            'OUTROS',
+          ],
+          maxSelect: 1,
+        },
+        { name: 'line_code', type: 'text', required: true },
+        {
+          name: 'line_id',
+          type: 'relation',
+          collectionId: app.findCollectionByNameOrId('production_lines').id,
+          maxSelect: 1,
+        },
+        { name: 'schedule_code', type: 'text' },
+        {
+          name: 'schedule_id',
+          type: 'relation',
+          collectionId: app.findCollectionByNameOrId('pcp_schedules').id,
+          maxSelect: 1,
+        },
+        { name: 'production_order_number', type: 'text', required: true },
+        { name: 'sales_order_sap', type: 'text' },
+        { name: 'sales_order_item', type: 'text' },
+        { name: 'customer_name', type: 'text' },
+        { name: 'product_code', type: 'text', required: true },
+        { name: 'product_description', type: 'text', required: true },
+        {
+          name: 'production_type',
+          type: 'select',
+          required: true,
+          values: ['MTO', 'MTS'],
+          maxSelect: 1,
+        },
+        { name: 'quantity_tons', type: 'number', required: true },
+        { name: 'sample_count', type: 'number' },
+        { name: 'batch_number', type: 'text' },
+        { name: 'planned_production_date', type: 'text', required: true },
+        { name: 'planned_inspection_date', type: 'text', required: true },
+        { name: 'estimated_duration_hours', type: 'number' },
+        { name: 'applicable_standard', type: 'text' },
+        { name: 'inspection_requirement_details', type: 'text' },
+        { name: 'acceptance_criteria', type: 'text' },
+        { name: 'is_blocking_release', type: 'bool' }, // Bloqueante para liberação
+        {
+          name: 'priority',
+          type: 'select',
+          required: true,
+          values: ['CRITICA', 'ALTA', 'MEDIA', 'BAIXA'],
+          maxSelect: 1,
+        },
+        {
+          name: 'status',
+          type: 'select',
+          required: true,
+          values: [
+            'PREVISTA',
+            'PROGRAMADA',
+            'DISPONIVEL_INSPECAO',
+            'EM_INSPECAO',
+            'APROVADA',
+            'REPROVADA',
+            'PENDENTE',
+            'LIBERADA',
+          ],
+          maxSelect: 1,
+        },
+        { name: 'laboratory_equipment', type: 'text' },
+        {
+          name: 'inspector_user_id',
+          type: 'relation',
+          collectionId: '_pb_users_auth_',
+          maxSelect: 1,
+        },
+        { name: 'inspector_name', type: 'text' },
+        { name: 'inspected_at', type: 'text' },
+        { name: 'result_notes', type: 'text' },
+        { name: 'certificate_number', type: 'text' },
+        { name: 'certificate_url', type: 'text' },
+        { name: 'non_conformity_reason', type: 'text' },
+        { name: 'corrective_action', type: 'text' },
+        { name: 'reschedule_history', type: 'json' },
+        { name: 'audit_log', type: 'json' },
+        { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+        { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+      ],
+      indexes: [
+        'CREATE UNIQUE INDEX idx_qid_code ON quality_inspection_demands (demand_code)',
+        'CREATE INDEX idx_qid_type_status ON quality_inspection_demands (inspection_type, status)',
+        'CREATE INDEX idx_qid_prod_order ON quality_inspection_demands (production_order_number)',
+        'CREATE INDEX idx_qid_line ON quality_inspection_demands (line_code)',
+        'CREATE INDEX idx_qid_plan_date ON quality_inspection_demands (planned_inspection_date)',
+      ],
+    })
+    app.save(qualityDemandsCol)
+
+    // 4. Coleção: quality_capacity_planning (Planejamento de Capacidade da Qualidade / Laboratórios)
+    const qualityCapPlanCol = new Collection({
+      name: 'quality_capacity_planning',
+      type: 'base',
+      listRule: "@request.auth.id != ''",
+      viewRule: "@request.auth.id != ''",
+      createRule: "@request.auth.id != ''",
+      updateRule: "@request.auth.id != ''",
+      deleteRule: "@request.auth.id != ''",
+      fields: [
+        { name: 'period_ref', type: 'text', required: true }, // ex: "2026-W36" ou "2026-09-01"
+        { name: 'laboratory_or_line', type: 'text', required: true },
+        {
+          name: 'inspection_type',
+          type: 'select',
+          required: true,
+          values: [
+            'ULTRASSOM',
+            'ENSAIO_TRACAO',
+            'ENSAIO_DOBRAMENTO',
+            'DUREZA',
+            'IMPACTO',
+            'ANALISE_QUIMICA',
+            'METALOGRAFIA',
+            'INSPECAO_DIMENSIONAL',
+            'INSPECAO_SUPERFICIAL',
+            'TOTAL_CONSOLIDADO',
+          ],
+          maxSelect: 1,
+        },
+        { name: 'planned_tests_count', type: 'number', required: true },
+        { name: 'planned_hours', type: 'number', required: true },
+        { name: 'available_capacity_hours', type: 'number', required: true },
+        { name: 'daily_capacity_tests_limit', type: 'number' },
+        { name: 'utilization_pct', type: 'number', required: true },
+        { name: 'has_overload', type: 'bool' },
+        { name: 'overload_details', type: 'text' },
+        { name: 'ai_capacity_alerts', type: 'json' },
+        { name: 'ai_suggested_rearrangements', type: 'json' },
+        { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+        { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+      ],
+      indexes: [
+        'CREATE INDEX idx_qcp_period_lab ON quality_capacity_planning (period_ref, laboratory_or_line)',
+      ],
+    })
+    app.save(qualityCapPlanCol)
+  },
+  (app) => {
+    try {
+      app.delete(app.findCollectionByNameOrId('quality_capacity_planning'))
+      app.delete(app.findCollectionByNameOrId('quality_inspection_demands'))
+      app.delete(app.findCollectionByNameOrId('order_requirement_sheets'))
+      app.delete(app.findCollectionByNameOrId('product_quality_requirements'))
+    } catch (_) {}
+  },
+)

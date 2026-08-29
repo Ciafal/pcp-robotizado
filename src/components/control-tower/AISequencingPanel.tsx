@@ -1,6 +1,15 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { Sparkles, Zap, Cpu } from 'lucide-react'
+import {
+  Sparkles,
+  Zap,
+  Cpu,
+  ShieldCheck,
+  Microscope,
+  Award,
+  AlertTriangle,
+  CheckCircle2,
+} from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -69,6 +78,18 @@ export const AISequencingPanel: React.FC = () => {
                 <span>
                   <strong>Acabamento L1</strong> operará acima de 100% de ocupação entre as 18:00 e
                   02:00, saturando buffer térmico.
+                </span>
+              </div>
+
+              {/* Novo Ponto Crítico de Qualidade / Ultrassom */}
+              <div className="flex items-start gap-2 bg-blue-950/40 p-2 rounded border border-blue-900">
+                <span className="w-5 h-5 rounded-full bg-blue-900 border border-cyan-500 text-cyan-200 font-bold flex items-center justify-center shrink-0 text-[10px]">
+                  4
+                </span>
+                <span>
+                  <strong>Capacidade de Ultrassom (US)</strong>: Terça-feira acumula 12 ensaios de
+                  Ultrassom para tubos e perfis MTO, acima da capacidade nominal diária do
+                  laboratório (10 ensaios/dia). Risco de atraso de liberação da OP-2026-1015.
                 </span>
               </div>
             </div>

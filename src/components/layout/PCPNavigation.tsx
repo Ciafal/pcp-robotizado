@@ -29,6 +29,7 @@ import {
   FileText,
   Bell,
   Calendar,
+  Microscope,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -276,6 +277,45 @@ const navSections: NavSectionItem[] = [
         href: '/pcp/inbox',
         icon: Bell,
         permission: 'pcp.communication.view',
+      },
+    ],
+  },
+  {
+    title: 'Qualidade do Produto & Ensaios',
+    href: '/pcp/qualidade',
+    icon: Microscope,
+    badge: 'US / EM',
+    permission: 'pcp.quality.view',
+    subItems: [
+      {
+        title: 'Painel de Qualidade',
+        href: '/pcp/qualidade',
+        icon: Microscope,
+        permission: 'pcp.quality.view',
+      },
+      {
+        title: 'Workflow de Ultrassom',
+        href: '/pcp/qualidade?tab=WORKFLOW',
+        icon: Sparkles,
+        permission: 'pcp.quality.view',
+      },
+      {
+        title: 'Fichas de Requisitos MTO',
+        href: '/pcp/qualidade?tab=SHEETS',
+        icon: FileText,
+        permission: 'pcp.requirement.view',
+      },
+      {
+        title: 'Capacidade Laboratórios',
+        href: '/pcp/qualidade?tab=CAPACITY',
+        icon: Cpu,
+        permission: 'pcp.quality.manage',
+      },
+      {
+        title: 'Catálogo Mestre MTS/MTO',
+        href: '/pcp/qualidade?tab=CATALOG',
+        icon: Layers,
+        permission: 'pcp.product.quality',
       },
     ],
   },

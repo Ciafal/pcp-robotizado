@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T17:50:18.017Z",
+  "generatedAt": "2026-08-29T18:18:25.110Z",
   "collections": [
     {
       "name": "users",
@@ -7079,6 +7079,850 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_comm_user_read ON pcp_communication_reads (communication_id, user_id)",
         "CREATE INDEX idx_comm_reads_user ON pcp_communication_reads (user_id)"
+      ]
+    },
+    {
+      "name": "product_quality_requirements",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MTS", "MTO"]
+        },
+        {
+          "name": "ultrasound_requirement",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SIM", "NAO", "CONDICIONAL"]
+        },
+        {
+          "name": "ultrasound_condition_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mechanical_test_requirement",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SIM", "NAO", "CONDICIONAL"]
+        },
+        {
+          "name": "mechanical_test_condition_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mechanical_test_types",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applicable_standards",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_blocking_default",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "standard_sample_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estimated_inspection_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_laboratory",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_specifications",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pqr_prod_code ON product_quality_requirements (product_code)",
+        "CREATE INDEX idx_pqr_prod_type ON product_quality_requirements (production_type)"
+      ]
+    },
+    {
+      "name": "order_requirement_sheets",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "sheet_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "order_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "customer_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_order_sap",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sales_order_item",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "production_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MTO", "MTS"]
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "quantity_units",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit_of_measure",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "desired_delivery_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "confirmed_delivery_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "commercial_priority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_representative",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nominal_dimension",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimensional_tolerances",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "length_meters",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "weight_kg_per_piece",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dimensional_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_standard",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "chemical_composition_reqs",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mechanical_properties_reqs",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "heat_treatment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "surface_finish_condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "packaging_requirements",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "marking_identification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "traceability_level",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mandatory_inspections",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_ultrasound",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ultrasound_standard",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_mechanical_tests",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mechanical_tests_detail",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_chemical_analysis",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_metallography",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_dimensional_inspection",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_surface_inspection",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quality_certificates_required",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "special_customer_requirements",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requirements_sources_traceability",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validation_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["VALIDADO", "PENDENCIA_VALIDACAO", "CONFLITO_REQUISITOS", "EM_ANALISE"]
+        },
+        {
+          "name": "validation_pendency_details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "assigned_validator_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "validated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_ors_sheet_code ON order_requirement_sheets (sheet_code)",
+        "CREATE INDEX idx_ors_order_number ON order_requirement_sheets (order_number)",
+        "CREATE INDEX idx_ors_sales_order ON order_requirement_sheets (sales_order_sap, sales_order_item)"
+      ]
+    },
+    {
+      "name": "quality_inspection_demands",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "demand_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inspection_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ULTRASSOM",
+            "ENSAIO_TRACAO",
+            "ENSAIO_DOBRAMENTO",
+            "DUREZA",
+            "IMPACTO",
+            "ANALISE_QUIMICA",
+            "METALOGRAFIA",
+            "INSPECAO_DIMENSIONAL",
+            "INSPECAO_SUPERFICIAL",
+            "OUTROS"
+          ]
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_schedules"
+        },
+        {
+          "name": "production_order_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sales_order_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_order_item",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "production_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MTO", "MTS"]
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sample_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_production_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "planned_inspection_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "estimated_duration_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applicable_standard",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inspection_requirement_details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acceptance_criteria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_blocking_release",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["CRITICA", "ALTA", "MEDIA", "BAIXA"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "PREVISTA",
+            "PROGRAMADA",
+            "DISPONIVEL_INSPECAO",
+            "EM_INSPECAO",
+            "APROVADA",
+            "REPROVADA",
+            "PENDENTE",
+            "LIBERADA"
+          ]
+        },
+        {
+          "name": "laboratory_equipment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inspector_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "inspector_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inspected_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "certificate_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "certificate_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "non_conformity_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "corrective_action",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reschedule_history",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "audit_log",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_qid_code ON quality_inspection_demands (demand_code)",
+        "CREATE INDEX idx_qid_type_status ON quality_inspection_demands (inspection_type, status)",
+        "CREATE INDEX idx_qid_prod_order ON quality_inspection_demands (production_order_number)",
+        "CREATE INDEX idx_qid_line ON quality_inspection_demands (line_code)",
+        "CREATE INDEX idx_qid_plan_date ON quality_inspection_demands (planned_inspection_date)"
+      ]
+    },
+    {
+      "name": "quality_capacity_planning",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "laboratory_or_line",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inspection_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ULTRASSOM",
+            "ENSAIO_TRACAO",
+            "ENSAIO_DOBRAMENTO",
+            "DUREZA",
+            "IMPACTO",
+            "ANALISE_QUIMICA",
+            "METALOGRAFIA",
+            "INSPECAO_DIMENSIONAL",
+            "INSPECAO_SUPERFICIAL",
+            "TOTAL_CONSOLIDADO"
+          ]
+        },
+        {
+          "name": "planned_tests_count",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "planned_hours",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "available_capacity_hours",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "daily_capacity_tests_limit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "utilization_pct",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "has_overload",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overload_details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_capacity_alerts",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_suggested_rearrangements",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_qcp_period_lab ON quality_capacity_planning (period_ref, laboratory_or_line)"
       ]
     }
   ]

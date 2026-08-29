@@ -82,6 +82,7 @@ const LineResponsiblesPage = lazy(() => import('@/pages/LineResponsiblesPage'))
 const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
 const AuditPage = lazy(() => import('@/pages/AuditPage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
+const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const ModulePreparationPage = lazy(() =>
   import('@/pages/ModulePreparationPage').then((m) => ({
     default: m.ModulePreparationPage || m.default,
@@ -302,6 +303,16 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.communication.view">
                       <PCPInboxPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* 5.1 Módulo de Qualidade do Produto, Ultrassom e Ensaios */}
+                <Route
+                  path="/pcp/qualidade"
+                  element={
+                    <PermissionGuard permission="pcp.quality.view">
+                      <ProductQualityHubPage />
                     </PermissionGuard>
                   }
                 />

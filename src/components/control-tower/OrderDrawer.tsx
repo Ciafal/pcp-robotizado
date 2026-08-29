@@ -1,14 +1,40 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { X, CalendarDays, Zap, Clock, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import {
+  X,
+  CalendarDays,
+  Zap,
+  Clock,
+  ShieldCheck,
+  UserCheck,
+  AlertTriangle,
+  FileText,
+  Sparkles,
+  Award,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { OrderRequirementSheetModal } from '@/components/quality/OrderRequirementSheetModal'
+import { QualityRequirementDetailModal } from '@/components/quality/QualityRequirementDetailModal'
+import { qualityService } from '@/services/quality-service'
+import { OrderRequirementSheet } from '@/types/product-quality'
 
 export const OrderDrawer: React.FC = () => {
   const { selectedOrder, setSelectedOrder, setActiveTab, setIsSimulatorModalOpen } =
     useControlTower()
 
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [loadedSheet, setLoadedSheet] = useState<OrderRequirementSheet | null>(null)
+  const [detailModal, setDetailModal] = useState<{
+    isOpen: boolean
+    type: 'ULTRASSOM' | 'ENSAIOS_MECANICOS' | 'STATUS_QUALIDADE'
+  }>({ isOpen: false, type: 'STATUS_QUALIDADE' })
+
   if (!selectedOrder) return null
+
+  const isMto =
+    selectedOrder.productionType === 'MTO' || selectedOrder.customerName !== 'Mercado Geral'
 
   return (
     <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-slate-950 border-l border-slate-800 text-slate-100 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
@@ -21,6 +47,15 @@ export const OrderDrawer: React.FC = () => {
             </span>
             <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
               Linha: {selectedOrder.lineCode}
+            </Badge>
+            <Badge
+              className={`text-[9px] font-bold ${
+                isMto
+                  ? 'bg-purple-900 text-purple-200 border-purple-700'
+                  : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              {isMto ? 'MTO' : 'MTS'}
             </Badge>
             <Badge
               className={`text-[9px] uppercase ${
@@ -105,9 +140,47 @@ export const OrderDrawer: React.FC = () => {
 
         {/* Drill-down de Pedido e Cliente */}
         <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
-          <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
-            Vínculo Comercial SAP ECC:
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+              Vínculo Comercial SAP ECC:
+            </span>
+            {isMto && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const sheet = await qualityService.getRequirementSheetByOrder(
+                    selectedOrder.orderNumber,
+                  )
+                  if (sheet) {
+                    setLoadedSheet(sheet)
+                  } else {
+                    setLoadedSheet({
+                      id: 'mto-drawer',
+                      sheet_code: `FRS-2026-${selectedOrder.materialCode}`,
+                      order_number: selectedOrder.orderNumber,
+                      customer_name: selectedOrder.customerName,
+                      sales_order_sap: selectedOrder.salesOrderId || '4500981240',
+                      sales_order_item: selectedOrder.salesOrderItem || '10',
+                      material_code: selectedOrder.materialCode,
+                      material_description: selectedOrder.materialName,
+                      production_type: 'MTO',
+                      quantity_tons: selectedOrder.plannedTons,
+                      desired_delivery_date: selectedOrder.plannedEnd,
+                      technical_standard: 'ABNT NBR 6355 / ASTM A36',
+                      requires_ultrasound: true,
+                      requires_mechanical_tests: true,
+                      validation_status: 'VALIDADO',
+                    })
+                  }
+                  setIsSheetOpen(true)
+                }}
+                className="h-6 px-2 text-[10px] bg-purple-950/60 border-purple-600 text-purple-200 hover:bg-purple-900"
+              >
+                <FileText className="w-3 h-3 mr-1" /> Ficha de Requisitos
+              </Button>
+            )}
+          </div>
           <div className="space-y-1 text-slate-300">
             <div>
               Ordem de Venda: <strong>{selectedOrder.salesOrderId}</strong> (Item:{' '}
@@ -121,6 +194,46 @@ export const OrderDrawer: React.FC = () => {
             </div>
             <div>
               Programador PCP: <strong>{selectedOrder.programmer}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Requisitos de Qualidade Integrados (US e EM) */}
+        <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+          <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+            Requisitos de Qualidade & Inspeção:
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            <div
+              onClick={() => setDetailModal({ isOpen: true, type: 'ULTRASSOM' })}
+              className="p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-cyan-500 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-cyan-400" /> Ultrassom (US)
+                </span>
+                <Badge className="bg-blue-950 text-cyan-300 text-[9px] border-blue-800">
+                  {selectedOrder.requiresUltrasound || isMto ? 'Exigido' : 'Isento'}
+                </Badge>
+              </div>
+              <span className="text-[10px] text-slate-400 block mt-1">
+                Norma ASME / Phased Array
+              </span>
+            </div>
+
+            <div
+              onClick={() => setDetailModal({ isOpen: true, type: 'ENSAIOS_MECANICOS' })}
+              className="p-2 bg-slate-950 rounded-lg border border-slate-800 hover:border-indigo-500 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                  <Award className="w-3 h-3 text-indigo-400" /> Ensaios Mecânicos
+                </span>
+                <Badge className="bg-indigo-950 text-indigo-300 text-[9px] border-indigo-800">
+                  {selectedOrder.requiresMechanical || true ? 'Tração/Dobr' : 'Padrão'}
+                </Badge>
+              </div>
+              <span className="text-[10px] text-slate-400 block mt-1">Laudo Tipo 3.1</span>
             </div>
           </div>
         </div>
@@ -141,6 +254,22 @@ export const OrderDrawer: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modais de Qualidade */}
+      <OrderRequirementSheetModal
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        sheet={loadedSheet}
+      />
+
+      <QualityRequirementDetailModal
+        isOpen={detailModal.isOpen}
+        onClose={() => setDetailModal((prev) => ({ ...prev, isOpen: false }))}
+        productCode={selectedOrder.materialCode}
+        productName={selectedOrder.materialName}
+        productionType={isMto ? 'MTO' : 'MTS'}
+        demandType={detailModal.type}
+      />
 
       {/* Footer Drawer */}
       <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2">
