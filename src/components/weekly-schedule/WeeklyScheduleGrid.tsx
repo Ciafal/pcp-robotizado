@@ -27,6 +27,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
+import { ShieldCheck, AlertCircle, HelpCircle } from 'lucide-react'
 
 interface WeeklyScheduleGridProps {
   items: WeeklyScheduleItem[]
@@ -143,7 +144,8 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 <th className="py-2.5 px-3 w-24 text-right">Duração</th>
                 <th className="py-2.5 px-3 min-w-[140px]">Setup / Troca</th>
                 <th className="py-2.5 px-3 w-28 text-center">Ordem / MTO</th>
-                <th className="py-2.5 px-3 w-24 text-right">Demanda MP</th>
+                <th className="py-2.5 px-3 w-28 text-right">Necessidade MP</th>
+                <th className="py-2.5 px-3 w-32 text-center">Status MP</th>
                 <th className="py-2.5 px-3 w-28 text-center">Status</th>
                 <th className="py-2.5 px-3 w-24 text-center">Ações</th>
               </tr>
@@ -153,7 +155,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <tbody className="divide-y divide-slate-200">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="py-12 text-center text-slate-500">
+                  <td colSpan={16} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <Layers className="w-8 h-8 text-slate-300" />
                       <p className="font-bold text-slate-700">
@@ -354,9 +356,43 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                           (item.customer_name ? item.customer_name.substring(0, 12) : '--')}
                       </td>
 
-                      {/* Demanda de Matéria-Prima */}
+                      {/* Necessidade de Matéria-Prima (com Tooltip Explicativo da Regra) */}
                       <td className="py-2 px-3 text-right font-mono whitespace-nowrap text-indigo-950 font-bold">
-                        {!isStop ? (
+                        {!isStop && item.raw_material_calc ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex items-center gap-1 cursor-help justify-end">
+                                <span>
+                                  {item.raw_material_req_tons.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 1,
+                                  })}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-sans font-bold">
+                                  t
+                                </span>
+                                <HelpCircle className="w-3 h-3 text-slate-400" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
+                            >
+                              <p className="font-bold text-blue-300">
+                                Regra de Cálculo de Matéria-Prima:
+                              </p>
+                              <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">
+                                {item.raw_material_calc.calculationRuleExplanation}
+                              </p>
+                              <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between text-[10px] text-slate-300 font-mono">
+                                <span>Rendimento: {item.raw_material_calc.yieldPct}%</span>
+                                <span>Perda: {item.raw_material_calc.lossPct}%</span>
+                                <span>
+                                  Tarugos: ~{item.raw_material_calc.estimatedBilletsCount} un
+                                </span>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : !isStop ? (
                           <span>
                             {item.raw_material_req_tons.toLocaleString('pt-BR', {
                               minimumFractionDigits: 1,
@@ -370,9 +406,79 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         )}
                       </td>
 
-                      {/* Status */}
+                      {/* Semáforo de MP (Verde / Amarelo / Vermelho) */}
                       <td className="py-2 px-3 text-center whitespace-nowrap">
-                        <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[9px] font-bold">
+                        {!isStop && item.raw_material_calc ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                {item.raw_material_calc.status === 'GREEN' && (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                                    MP GARANTIDA
+                                  </Badge>
+                                )}
+                                {item.raw_material_calc.status === 'YELLOW' && (
+                                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                    MP COM RISCO
+                                  </Badge>
+                                )}
+                                {item.raw_material_calc.status === 'RED' && (
+                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit animate-pulse">
+                                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                                    MP INSUFICIENTE
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
+                            >
+                              <div className="space-y-1">
+                                <p
+                                  className={`font-bold ${
+                                    item.raw_material_calc.status === 'GREEN'
+                                      ? 'text-emerald-400'
+                                      : item.raw_material_calc.status === 'YELLOW'
+                                        ? 'text-amber-400'
+                                        : 'text-rose-400'
+                                  }`}
+                                >
+                                  {item.raw_material_calc.statusLabel}
+                                </p>
+                                <p className="text-[11px] text-slate-200">
+                                  {item.raw_material_calc.statusReason}
+                                </p>
+                                <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-300 font-mono space-y-0.5">
+                                  <div>
+                                    Estoque SAP: {item.raw_material_calc.currentSapStockTons} t
+                                  </div>
+                                  <div>
+                                    Entrada Pedidos Compra: {item.raw_material_calc.confirmedPoTons}{' '}
+                                    t
+                                  </div>
+                                  <div>
+                                    Produção Upstream:{' '}
+                                    {item.raw_material_calc.upstreamProductionTons} t
+                                  </div>
+                                  <div>
+                                    Saldo Projetado Final:{' '}
+                                    {item.raw_material_calc.projectedBalanceTons} t
+                                  </div>
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">--</span>
+                        )}
+                      </td>
+
+                      {/* Status da Atividade */}
+                      <td className="py-2 px-3 text-center whitespace-nowrap">
+                        <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">
                           Rascunho
                         </Badge>
                       </td>

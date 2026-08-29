@@ -45,7 +45,11 @@ import { useControlTower } from '@/contexts/ControlTowerContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { lineMasterService } from '@/services/line-master'
 import { weeklyScheduleService } from '@/services/weekly-schedule-service'
-import { WeeklyScheduleEngine, getWeekDateRange } from '@/services/weekly-schedule-engine'
+import {
+  WeeklyScheduleEngine,
+  getWeekDateRange,
+  RawMaterialEngineContext,
+} from '@/services/weekly-schedule-engine'
 import {
   WeeklyScheduleItem,
   WeeklyHeaderFilter,
@@ -77,6 +81,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [lines, setLines] = useState<ProductionLine[]>([])
   const [currentLineOverview, setCurrentLineOverview] = useState<LineOverviewData | null>(null)
   const [officialMaterials, setOfficialMaterials] = useState<OfficialMaterialOption[]>([])
+  const [rawMaterialContext, setRawMaterialContext] = useState<RawMaterialEngineContext>({})
   const [isLoadingLine, setIsLoadingLine] = useState<boolean>(true)
   const [isSaving, setIsSaving] = useState<boolean>(false)
 
@@ -153,15 +158,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           const mats = await weeklyScheduleService.getOfficialMaterialsForLine(lineObj.id, overview)
           setOfficialMaterials(mats)
 
-          // Carrega programação salva existente para a semana
-          const savedItems = await weeklyScheduleService.loadWeeklySchedule({
+          // Carrega contexto completo de MP (Estoque SAP/WMS, Pedidos de Compra SAP, Produção Upstream)
+          const currentFilter: WeeklyHeaderFilter = {
             companyCode,
             plantCode,
             lineCode: lineCodeToLoad,
             year: selectedYear,
             weekNumber: selectedWeekNumber,
             periodDisplay: weekRange.display,
-          })
+          }
+          const rmContext = await weeklyScheduleService.loadRawMaterialContext(currentFilter)
+          setRawMaterialContext(rmContext)
+
+          // Carrega programação salva existente para a semana
+          const savedItems = await weeklyScheduleService.loadWeeklySchedule(currentFilter)
 
           if (savedItems.length > 0) {
             setItems(savedItems)
@@ -306,10 +316,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     setItems(initial)
   }
 
-  // Recalculo Automático Determinístico sempre que os itens ou a Ficha Mestre mudarem
+  // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
   const calculationResult = useMemo(() => {
-    return WeeklyScheduleEngine.recalculateWeeklyTimeline(items, currentLineOverview, headerFilter)
-  }, [items, currentLineOverview, headerFilter])
+    return WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      items,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+  }, [items, currentLineOverview, headerFilter, rawMaterialContext])
 
   const calculatedItems = calculationResult.items
   const indicators: WeeklyIndicators = calculationResult.indicators

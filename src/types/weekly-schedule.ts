@@ -8,6 +8,40 @@ import {
   StandardScheduledStop,
 } from './line-master'
 
+export type RawMaterialTrafficLight = 'GREEN' | 'YELLOW' | 'RED'
+
+export interface RawMaterialItemCalculation {
+  steelGrade: string
+  billetType: string
+  sectionDimension: string
+  billetWeightKg: number
+  estimatedBilletsCount: number
+  netRawMaterialTons: number
+  yieldPct: number
+  lossPct: number
+  origin: string
+  accumulatedWeekTons: number
+  // Disponibilidade Projetada
+  projectedAvailableTons: number
+  currentSapStockTons: number
+  confirmedPoTons: number
+  upstreamProductionTons: number
+  otherEntriesTons: number
+  existingReservationsTons: number
+  otherSchedulesCommittedTons: number
+  priorOwnLineConsumptionTons: number
+  projectedBalanceTons: number
+  status: RawMaterialTrafficLight
+  statusLabel: string
+  statusReason: string
+  deficitTons: number
+  probableRuptureDate?: string
+  hasConflictDualCommitment?: boolean
+  conflictDetails?: string
+  // Tooltip explicativo da regra
+  calculationRuleExplanation: string
+}
+
 export interface WeeklyScheduleItem {
   id: string
   schedule_code: string
@@ -49,6 +83,7 @@ export interface WeeklyScheduleItem {
   pcp_notes?: string
   raw_material_req_tons: number
   raw_material_type?: string
+  raw_material_calc?: RawMaterialItemCalculation
   is_blocked_attempt?: boolean
   metadata?: Record<string, any>
   created?: string
@@ -96,14 +131,85 @@ export interface WeeklySummaryProduction {
   byDay: Record<string, number>
 }
 
+export interface SapPurchaseOrder {
+  orderNumber: string
+  itemNumber?: string
+  materialCode: string
+  materialDescription: string
+  steelGrade?: string
+  sectionDimension?: string
+  supplierCode: string
+  supplierName: string
+  totalQuantityTons: number
+  receivedQuantityTons: number
+  openBalanceTons: number
+  estimatedDeliveryDate: string // YYYY-MM-DD ou ISO
+  status: 'CONFIRMED' | 'IN_TRANSIT' | 'PENDING' | 'LATE'
+  consideredAvailable: boolean
+  availableQuantityTons: number
+  disregardReason?: string
+}
+
+export interface UpstreamProductionPlan {
+  lineCode: string
+  lineName: string
+  scheduleCode: string
+  productionOrder?: string
+  materialCode: string
+  steelGrade: string
+  sectionDimension: string
+  quantityTons: number
+  plannedEndDatetime: string // ISO date
+  confirmed: boolean
+}
+
+export interface DualCommitmentConflict {
+  steelGrade: string
+  sectionDimension: string
+  totalRequiredTons: number
+  projectedAvailableTons: number
+  deficitTons: number
+  consumerSchedules: Array<{
+    lineCode: string
+    quantityTons: number
+    consumptionDateStr: string
+    consumptionDatetime: string
+  }>
+  alertMessage: string
+}
+
+export interface BilletRequirementGroup {
+  steelGrade: string
+  sectionDimension: string
+  billetWeightKg: number
+  requiredTons: number
+  availableTons: number
+  projectedBalanceTons: number
+  status: RawMaterialTrafficLight
+  statusLabel: string
+  estimatedBilletsCount: number
+  currentStockTons: number
+  sapPurchaseOrdersTons: number
+  upstreamProductionTons: number
+  committedOtherSchedulesTons: number
+  dualCommitmentAlert?: string
+  ruleTooltip: string
+}
+
 export interface WeeklySummaryRawMaterial {
   steelGrade: string
   rawMaterialType: string
+  sectionDimension?: string
+  billetWeightKg?: number
   requiredTons: number
   availableStockTons: number | null // null = "Aguardando dados do SAP/WMS"
   futureEntryTons: number | null
   projectedConsumptionTons: number
   projectedBalanceTons: number | null
+  status?: RawMaterialTrafficLight
+  statusLabel?: string
+  deficitTons?: number
+  probableRuptureDate?: string
 }
 
 export interface WeeklySummaryBacklog {
@@ -116,6 +222,9 @@ export interface WeeklyScheduleSummary {
   capacity: WeeklySummaryCapacity
   production: WeeklySummaryProduction
   rawMaterials: WeeklySummaryRawMaterial[]
+  billetRequirements: BilletRequirementGroup[]
+  sapPurchaseOrders: SapPurchaseOrder[]
+  dualCommitments: DualCommitmentConflict[]
   backlog: WeeklySummaryBacklog
 }
 

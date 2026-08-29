@@ -5,6 +5,13 @@ import {
   WeeklyScheduleSummary,
   ValidationResult,
   OfficialMaterialOption,
+  SapPurchaseOrder,
+  UpstreamProductionPlan,
+  DualCommitmentConflict,
+  BilletRequirementGroup,
+  WeeklySummaryRawMaterial,
+  RawMaterialItemCalculation,
+  RawMaterialTrafficLight,
 } from '@/types/weekly-schedule'
 import {
   LineOverviewData,
@@ -14,6 +21,7 @@ import {
   ProductionShift,
   StandardScheduledStop,
 } from '@/types/line-master'
+import { InventoryItem } from '@/types/inventory-projection'
 
 /**
  * Utilitário determinístico de manipulação e cálculo de datas/horas
@@ -23,8 +31,13 @@ export function formatIsoDateTime(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+export function formatBraDateTime(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} – ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export function parseDateTime(str: string): Date {
-  // Trata formatos "YYYY-MM-DD HH:mm" ou ISO
+  if (!str) return new Date()
   const clean = str.replace(' ', 'T')
   const d = new Date(clean)
   if (isNaN(d.getTime())) {
@@ -37,11 +50,9 @@ export function getWeekDateRange(
   year: number,
   weekNumber: number,
 ): { startDate: Date; endDate: Date; display: string } {
-  // Cálculo ISO da semana
   const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7)
   const dayOfWeek = simple.getDay()
   const ISOweekStart = new Date(simple)
-  // Segunda-feira como início da semana (ISO)
   if (dayOfWeek <= 4) {
     ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
   } else {
@@ -75,6 +86,16 @@ export const DAYS_OF_WEEK: Array<{
   { code: 'DOM', label: 'Domingo', offsetDays: 6 },
 ]
 
+/**
+ * Contexto de dados industriais para o Motor de MP
+ */
+export interface RawMaterialEngineContext {
+  inventoryItems?: InventoryItem[]
+  purchaseOrders?: SapPurchaseOrder[]
+  upstreamProductions?: UpstreamProductionPlan[]
+  otherWeeklySchedules?: WeeklyScheduleItem[]
+}
+
 export const WeeklyScheduleEngine = {
   /**
    * Obtém produtividade oficial da Ficha Mestre da Linha para um material
@@ -99,6 +120,88 @@ export const WeeklyScheduleEngine = {
       return Number(lineOverview.master.nominal_hourly_capacity)
     }
     return defaultLineNominalTh
+  },
+
+  /**
+   * Obtém especificação técnica de matéria-prima (Ficha Mestre e rendimento)
+   */
+  getRawMaterialSpecification(
+    materialCode: string,
+    steelGradeHint?: string,
+    dimensionsHint?: string,
+    lineOverview?: LineOverviewData | null,
+  ): {
+    steelGrade: string
+    billetType: string
+    sectionDimension: string
+    billetWeightKg: number
+    yieldPct: number
+    lossPct: number
+    origin: string
+  } {
+    const grade = (steelGradeHint || 'SAE 1020').trim().toUpperCase()
+    let section = '130x130 mm'
+    let billetWeight = 1600 // kg por tarugo standard CIAFAL
+    let yieldPct = 97.5 // 97.5% de rendimento nominal (2.5% perda)
+    let billetType = `Tarugo Laminação ${grade}`
+    let origin = 'Aciaria Própria / Gerdau / Aperam'
+
+    const code = materialCode.toUpperCase()
+
+    if (
+      code.includes('TQ-100') ||
+      code.includes('PESADO') ||
+      (dimensionsHint && dimensionsHint.includes('100x100'))
+    ) {
+      section = '150x150 mm'
+      billetWeight = 2100
+      yieldPct = 96.0 // 4% de perda para perfis extrapesados
+      billetType = `Tarugo Seção Pesada 150x150 ${grade}`
+      origin = 'Fornecimento Gerdau Ouro Branco'
+    } else if (code.includes('GALV')) {
+      section = 'Bobina Z275 #1.50'
+      billetWeight = 5000
+      yieldPct = 98.0
+      billetType = `Bobina Pré-Galvanizada ${grade}`
+      origin = 'CSN Volta Redonda'
+    } else if (code.includes('PU-') || code.includes('PERFIL')) {
+      section = '130x130 mm'
+      billetWeight = 1600
+      yieldPct = 97.0
+      billetType = `Tarugo Perfil U ${grade}`
+      origin = 'Aciaria Divinópolis'
+    } else if (code.includes('TR-')) {
+      section = '130x130 mm'
+      billetWeight = 1600
+      yieldPct = 97.5
+      billetType = `Tarugo Retangular ${grade}`
+      origin = 'Aciaria Divinópolis'
+    }
+
+    // Se houver configuração na Ficha Mestre da linha
+    if (lineOverview?.rawMaterials && lineOverview.rawMaterials.length > 0) {
+      const rmMatch = lineOverview.rawMaterials.find(
+        (rm) =>
+          rm.material_code.toUpperCase() === materialCode.toUpperCase() ||
+          rm.material_code.toUpperCase().includes(grade),
+      )
+      if (rmMatch) {
+        if (rmMatch.material_origin) origin = rmMatch.material_origin
+        if (rmMatch.material_description) billetType = rmMatch.material_description
+      }
+    }
+
+    const lossPct = Number((100 - yieldPct).toFixed(2))
+
+    return {
+      steelGrade: grade,
+      billetType,
+      sectionDimension: section,
+      billetWeightKg: billetWeight,
+      yieldPct,
+      lossPct,
+      origin,
+    }
   },
 
   /**
@@ -133,14 +236,12 @@ export const WeeklyScheduleEngine = {
     }
 
     if (!lineOverview || !lineOverview.setupMatrix || lineOverview.setupMatrix.length === 0) {
-      // Setup padrão se não houver matriz específica: 15 min
       return {
         setupDurationMinutes: 15,
         setupReason: `Troca de bitola padrão [${prevItem.material_code} → ${currentMaterialCode}]: 15 min`,
       }
     }
 
-    // Busca exata por código de produto
     const exactMatch = lineOverview.setupMatrix.find(
       (s) =>
         s.active &&
@@ -156,7 +257,6 @@ export const WeeklyScheduleEngine = {
       }
     }
 
-    // Busca por família de produto
     const prevFam = prevItem.family_code
     const curFam = currentFamilyCode
     if (prevFam && curFam) {
@@ -174,7 +274,6 @@ export const WeeklyScheduleEngine = {
       }
     }
 
-    // Default quando troca de material dentro da mesma família
     return {
       setupDurationMinutes: 15,
       setupReason: `Troca de lote/bitola padrão Ficha Mestre (${prevItem.material_code} → ${currentMaterialCode}): 15 min`,
@@ -182,13 +281,201 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
-   * Cálculo AUTOMÁTICO da grade: Início previsto, fim previsto, setup, encadeamento contínuo
-   * Lógica INVERSA: Programador informa quantidade (t) -> Horas = Quantidade / Produtividade.
+   * MOTOR DE DISPONIBILIDADE PROJETADA DE MATÉRIA-PRIMA (Requisitos 1 a 6)
+   */
+  calculateRawMaterialRequirement(
+    item: WeeklyScheduleItem,
+    itemConsumptionDate: Date,
+    priorCumulativeTons: number,
+    context: RawMaterialEngineContext,
+    lineOverview?: LineOverviewData | null,
+  ): RawMaterialItemCalculation {
+    const plannedTons = Number(item.planned_quantity_tons) || 0
+    const spec = this.getRawMaterialSpecification(
+      item.material_code,
+      item.steel_grade,
+      item.dimensions,
+      lineOverview,
+    )
+
+    // 1. Necessidade Líquida = Qtd Programada / (Rendimento / 100)
+    const netRawMaterialTons =
+      spec.yieldPct > 0 ? Number((plannedTons / (spec.yieldPct / 100)).toFixed(2)) : plannedTons
+
+    // Número estimado de tarugos = (Necessidade em kg) / (Peso do tarugo em kg)
+    const netRawMaterialKg = netRawMaterialTons * 1000
+    const estimatedBilletsCount =
+      spec.billetWeightKg > 0
+        ? Math.ceil(netRawMaterialKg / spec.billetWeightKg)
+        : Math.ceil(netRawMaterialTons)
+
+    const accumulatedWeekTons = Number((priorCumulativeTons + netRawMaterialTons).toFixed(2))
+
+    // 2. DISPONIBILIDADE PROJETADA NA DATA DE CONSUMO
+    // Formula: Estoque SAP + POs anteriores + Upstream anterior + Outras entradas - Reservas - Outros consumos - Consumo anterior da linha
+
+    // A) Estoque SAP / WMS Disponível
+    const stockItems = context.inventoryItems || []
+    const matchingStock = stockItems.filter((st) => {
+      const stGrade = (st.steel_grade || '').toUpperCase()
+      const stCat = st.category
+      const matDesc = (st.material_description || '').toUpperCase()
+      const matCode = (st.material_code || '').toUpperCase()
+
+      const isRm =
+        stCat === 'RAW_MATERIAL' ||
+        stCat === 'SEMI_FINISHED' ||
+        matDesc.includes('TARUGO') ||
+        matDesc.includes('BOBINA') ||
+        matCode.includes('BOB') ||
+        matCode.includes('TAR')
+      const matchesGrade =
+        !stGrade ||
+        stGrade.includes(spec.steelGrade) ||
+        spec.steelGrade.includes(stGrade) ||
+        matDesc.includes(spec.steelGrade) ||
+        matCode.includes(spec.steelGrade)
+      return isRm && matchesGrade
+    })
+
+    const currentSapStockTons = matchingStock.reduce(
+      (sum, st) => sum + (st.qty_unrestricted || 0),
+      0,
+    )
+    const existingReservationsTons = matchingStock.reduce(
+      (sum, st) => sum + (st.qty_reserved || 0),
+      0,
+    )
+    const otherEntriesTons = matchingStock.reduce((sum, st) => sum + (st.qty_in_quality || 0), 0) // entradas em qualidade
+
+    // B) Pedidos de Compra SAP (Chegada estritamente ANTERIOR à data de consumo)
+    const pos = context.purchaseOrders || []
+    let confirmedPoTons = 0
+    pos.forEach((po) => {
+      const poGrade = (po.steelGrade || po.materialDescription || po.materialCode).toUpperCase()
+      const matchesGrade = poGrade.includes(spec.steelGrade) || spec.steelGrade.includes(poGrade)
+      if (matchesGrade) {
+        const poDate = parseDateTime(po.estimatedDeliveryDate)
+        // Data é crítica: chegada ANTERIOR à data de consumo
+        if (poDate <= itemConsumptionDate) {
+          po.consideredAvailable = true
+          po.availableQuantityTons = po.openBalanceTons || po.totalQuantityTons
+          confirmedPoTons += po.availableQuantityTons
+        } else {
+          po.consideredAvailable = false
+          po.availableQuantityTons = 0
+          po.disregardReason = `Entrega prevista em ${formatBraDateTime(poDate)} é POSTERIOR à data de consumo (${formatBraDateTime(itemConsumptionDate)})`
+        }
+      }
+    })
+
+    // C) Produção Upstream em Linhas Anteriores (com data anterior à necessidade)
+    const upstreams = context.upstreamProductions || []
+    let upstreamProductionTons = 0
+    let hasUpstreamDependency = false
+    upstreams.forEach((up) => {
+      const upGrade = (up.steelGrade || up.materialCode).toUpperCase()
+      const matchesGrade = upGrade.includes(spec.steelGrade) || spec.steelGrade.includes(upGrade)
+      if (matchesGrade && up.confirmed) {
+        const upDate = parseDateTime(up.plannedEndDatetime)
+        if (upDate <= itemConsumptionDate) {
+          upstreamProductionTons += up.quantityTons
+          hasUpstreamDependency = true
+        }
+      }
+    })
+
+    // D) Consumo já comprometido em outras programações
+    const otherSchedules = context.otherWeeklySchedules || []
+    let otherSchedulesCommittedTons = 0
+    otherSchedules.forEach((oth) => {
+      // Ignora itens da mesma linha/programação
+      if (oth.line_code !== item.line_code || oth.schedule_code !== item.schedule_code) {
+        const othGrade = (oth.steel_grade || oth.material_code).toUpperCase()
+        if (othGrade.includes(spec.steelGrade) || spec.steelGrade.includes(othGrade)) {
+          otherSchedulesCommittedTons += oth.raw_material_req_tons || oth.planned_quantity_tons || 0
+        }
+      }
+    })
+
+    // E) Consumo anterior da própria linha até este item
+    const priorOwnLineConsumptionTons = priorCumulativeTons
+
+    // F) Cálculo do Saldo Projetado
+    // Projected Available = Stock + POs + Upstream + Other Entries - Reservations - Other Committed
+    const grossAvailable =
+      currentSapStockTons +
+      confirmedPoTons +
+      upstreamProductionTons +
+      otherEntriesTons -
+      existingReservationsTons -
+      otherSchedulesCommittedTons
+    const projectedAvailableTons = Number(Math.max(0, grossAvailable).toFixed(2))
+
+    const projectedBalanceTons = Number(
+      (grossAvailable - priorOwnLineConsumptionTons - netRawMaterialTons).toFixed(2),
+    )
+
+    // 3. SEMÁFORO E ALERTAS DETERMINÍSTICOS
+    let status: RawMaterialTrafficLight = 'GREEN'
+    let statusLabel = 'MP GARANTIDA'
+    let statusReason = 'Estoque e entradas confirmadas suficientes antes do consumo.'
+    let deficitTons = 0
+    let probableRuptureDate: string | undefined = undefined
+
+    if (projectedBalanceTons < 0) {
+      status = 'RED'
+      statusLabel = 'MP INSUFICIENTE'
+      deficitTons = Math.abs(projectedBalanceTons)
+      probableRuptureDate = formatBraDateTime(itemConsumptionDate)
+      statusReason = `Déficit projetado de ${deficitTons.toLocaleString('pt-BR')} t. Ruptura estimada em ${probableRuptureDate}.`
+    } else if (hasUpstreamDependency || confirmedPoTons > 0 || otherEntriesTons > 0) {
+      status = 'YELLOW'
+      statusLabel = 'MP COM RISCO'
+      statusReason = hasUpstreamDependency
+        ? `Depende da produção upstream de outra linha (${upstreamProductionTons} t) antes de ${formatBraDateTime(itemConsumptionDate)}.`
+        : `Depende de recebimento de pedido de compra do fornecedor (${confirmedPoTons} t) antes do consumo.`
+    }
+
+    const calculationRuleExplanation = `Necessidade Líquida = ${plannedTons} t ÷ ${spec.yieldPct}% rendimento (perda de ${spec.lossPct}%) = ${netRawMaterialTons} t. Tarugo ${spec.sectionDimension} (${spec.billetWeightKg} kg/un) &rarr; ${estimatedBilletsCount} tarugos. Disponibilidade Projetada = Estoque SAP (${currentSapStockTons} t) + POs anteriores (${confirmedPoTons} t) + Upstream anterior (${upstreamProductionTons} t) - Reservas (${existingReservationsTons} t) - Outras programações (${otherSchedulesCommittedTons} t) - Consumo anterior desta linha (${priorCumulativeTons} t).`
+
+    return {
+      steelGrade: spec.steelGrade,
+      billetType: spec.billetType,
+      sectionDimension: spec.sectionDimension,
+      billetWeightKg: spec.billetWeightKg,
+      estimatedBilletsCount,
+      netRawMaterialTons,
+      yieldPct: spec.yieldPct,
+      lossPct: spec.lossPct,
+      origin: spec.origin,
+      accumulatedWeekTons,
+      projectedAvailableTons,
+      currentSapStockTons,
+      confirmedPoTons,
+      upstreamProductionTons,
+      otherEntriesTons,
+      existingReservationsTons,
+      otherSchedulesCommittedTons,
+      priorOwnLineConsumptionTons,
+      projectedBalanceTons,
+      status,
+      statusLabel,
+      statusReason,
+      deficitTons,
+      probableRuptureDate,
+      calculationRuleExplanation,
+    }
+  },
+
+  /**
+   * Cálculo AUTOMÁTICO da grade completa com integração total do Motor de MP
    */
   recalculateWeeklyTimeline(
     items: WeeklyScheduleItem[],
     lineOverview: LineOverviewData | null,
     headerFilter: WeeklyHeaderFilter,
+    rawMaterialContext: RawMaterialEngineContext = {},
   ): {
     items: WeeklyScheduleItem[]
     indicators: WeeklyIndicators
@@ -199,7 +486,6 @@ export const WeeklyScheduleEngine = {
     const shifts = lineOverview?.shifts && lineOverview.shifts.length > 0 ? lineOverview.shifts : []
     const scheduledStops = lineOverview?.scheduledStops || []
 
-    // Agrupa e ordena os itens cronologicamente por Dia -> Turno -> Sequência
     const dayOrderMap: Record<string, number> = {
       SEG: 0,
       TER: 1,
@@ -222,27 +508,26 @@ export const WeeklyScheduleEngine = {
     const processedItems: WeeklyScheduleItem[] = []
     const validations: ValidationResult[] = []
 
+    // Rastreamento de acúmulo de MP por Aço / Seção para consumo cronológico sequencial
+    const cumulativeRawMaterialByGrade: Record<string, number> = {}
+
     // Percorre cada item e encadeia cronologicamente
     for (let i = 0; i < sorted.length; i++) {
       const item = { ...sorted[i] }
       const dayMeta = DAYS_OF_WEEK.find((d) => d.code === item.day_of_week) || DAYS_OF_WEEK[0]
 
-      // Data base para o dia corrente
       const itemBaseDate = new Date(startDate)
       itemBaseDate.setDate(startDate.getDate() + dayMeta.offsetDays)
 
-      // Turno correspondente
       const shift = shifts.find((s) => s.code === item.shift_code) || shifts[0]
       const shiftStartParts = shift?.start_time ? shift.start_time.split(':').map(Number) : [6, 0]
 
       let itemStart: Date
 
       if (i === 0 || !previousEndDateTime || sorted[i - 1].day_of_week !== item.day_of_week) {
-        // Primeiro item do dia: começa no início do turno do dia
         itemStart = new Date(itemBaseDate)
         itemStart.setHours(shiftStartParts[0], shiftStartParts[1], 0, 0)
       } else {
-        // Encadeamento contínuo: o término de uma operação alimenta o início da próxima
         itemStart = new Date(previousEndDateTime)
       }
 
@@ -278,20 +563,32 @@ export const WeeklyScheduleEngine = {
       item.setup_duration_minutes = setupDurationMinutes
       item.setup_reason = setupReason
 
-      // 4. Necessidade de MP: 1 t produzida com rendimento nominal (aprox ~1.03t de MP ou 1:1)
-      item.raw_material_req_tons = Number((qtyTons * 1.025).toFixed(2))
-      item.raw_material_type = item.steel_grade
-        ? `Tarugo / Bobina Aço ${item.steel_grade}`
-        : 'Aço Comercial Gerdau/Aperam'
-
-      // 5. Linha do Tempo: Duração total = Setup (minutos) + Produção (horas)
+      // 4. Linha do Tempo
       const totalMinutes = setupDurationMinutes + prodHours * 60
       const itemEnd = new Date(itemStart.getTime() + totalMinutes * 60 * 1000)
       item.start_datetime = formatIsoDateTime(itemStart)
       item.end_datetime = formatIsoDateTime(itemEnd)
 
-      // Validações determinísticas
-      // VAL-01 / VAL-02: Hard Block
+      // 5. MOTOR DE MP (Necessidade Líquida & Disponibilidade Projetada)
+      const gradeKey = (item.steel_grade || 'SAE 1020').trim().toUpperCase()
+      const priorAccumulated = cumulativeRawMaterialByGrade[gradeKey] || 0
+
+      const mpCalc = this.calculateRawMaterialRequirement(
+        item,
+        itemStart, // Data de consumo = início da atividade
+        priorAccumulated,
+        rawMaterialContext,
+        lineOverview,
+      )
+
+      item.raw_material_req_tons = mpCalc.netRawMaterialTons
+      item.raw_material_type = mpCalc.billetType
+      item.raw_material_calc = mpCalc
+
+      cumulativeRawMaterialByGrade[gradeKey] = priorAccumulated + mpCalc.netRawMaterialTons
+
+      // 6. VALIDAÇÕES E ALERTAS DE MP
+      // VAL-02: Hard Block
       const block = this.checkHardBlock(item.material_code, lineOverview)
       if (block) {
         validations.push({
@@ -303,21 +600,182 @@ export const WeeklyScheduleEngine = {
         })
       }
 
+      // VAL-MP-01: Ruptura / Indisponibilidade de MP (Vermelho)
+      if (mpCalc.status === 'RED') {
+        validations.push({
+          code: 'VAL-MP-01',
+          level: 'CRITICAL',
+          title: `MP Indisponível: ${mpCalc.steelGrade} (${item.material_code})`,
+          message: `Déficit de ${mpCalc.deficitTons.toLocaleString('pt-BR')} t em ${mpCalc.probableRuptureDate}. Saldo projetado insuficiente na data necessária.`,
+          itemId: item.id,
+        })
+      } else if (mpCalc.status === 'YELLOW') {
+        validations.push({
+          code: 'VAL-MP-02',
+          level: 'WARNING',
+          title: `Risco de MP: ${mpCalc.steelGrade}`,
+          message: mpCalc.statusReason,
+          itemId: item.id,
+        })
+      }
+
       previousEndDateTime = itemEnd
       previousProductionItem = item
       processedItems.push(item)
     }
 
-    // Cálculo das Capacidades e Resumo da Semana
-    // Turnos ativos e paradas programadas da linha
+    // 7. VERIFICAÇÃO DE DUPLO COMPROMETIMENTO CONSOLIDADO (Requisito 4)
+    // Somar o consumo de TODAS as programações que usam a mesma MP
+    const dualCommitments: DualCommitmentConflict[] = []
+    const stockItems = rawMaterialContext.inventoryItems || []
+    const allSchedules = [...processedItems, ...(rawMaterialContext.otherWeeklySchedules || [])]
+
+    // Agrupa por grau de aço
+    const steelGradesSet = new Set<string>()
+    allSchedules.forEach((it) => {
+      if (it.item_type === 'PRODUCTION') {
+        steelGradesSet.add((it.steel_grade || 'SAE 1020').trim().toUpperCase())
+      }
+    })
+
+    steelGradesSet.forEach((grade) => {
+      const consumers = allSchedules.filter(
+        (it) =>
+          it.item_type === 'PRODUCTION' &&
+          (it.steel_grade || 'SAE 1020').trim().toUpperCase() === grade,
+      )
+      const totalRequired = consumers.reduce(
+        (sum, it) => sum + (it.raw_material_req_tons || it.planned_quantity_tons || 0),
+        0,
+      )
+
+      // Estoque SAP total para o grau
+      const matchingStock = stockItems.filter((st) => {
+        const stGrade = (st.steel_grade || '').toUpperCase()
+        const matDesc = (st.material_description || '').toUpperCase()
+        return stGrade.includes(grade) || matDesc.includes(grade)
+      })
+      const totalStock = matchingStock.reduce((sum, st) => sum + (st.qty_unrestricted || 0), 0)
+
+      // POs para o grau
+      const pos = rawMaterialContext.purchaseOrders || []
+      const totalPos = pos
+        .filter((po) => (po.steelGrade || po.materialDescription).toUpperCase().includes(grade))
+        .reduce((sum, po) => sum + (po.openBalanceTons || po.totalQuantityTons), 0)
+
+      // Upstream para o grau
+      const upstreams = rawMaterialContext.upstreamProductions || []
+      const totalUpstream = upstreams
+        .filter((up) => up.steelGrade.toUpperCase().includes(grade) && up.confirmed)
+        .reduce((sum, up) => sum + up.quantityTons, 0)
+
+      const consolidatedAvailable = totalStock + totalPos + totalUpstream
+      const consolidatedBalance = consolidatedAvailable - totalRequired
+
+      if (consolidatedBalance < 0 && consumers.length > 1) {
+        const deficit = Math.abs(Number(consolidatedBalance.toFixed(2)))
+        const consumerList = consumers.map((c) => ({
+          lineCode: c.line_code,
+          quantityTons: c.raw_material_req_tons || c.planned_quantity_tons,
+          consumptionDateStr: c.date_str || '24/08',
+          consumptionDatetime: c.start_datetime,
+        }))
+
+        const consumerDesc = consumerList
+          .map((c) => `${c.lineCode}: ${c.quantityTons} t em ${c.consumptionDateStr}`)
+          .join(', ')
+        const alertMsg = `Conflito de Duplo Comprometimento: Saldo projetado disponível de ${consolidatedAvailable} t é insuficiente para a demanda consolidada de ${totalRequired} t (${consumerDesc}). Déficit: ${deficit} t.`
+
+        dualCommitments.push({
+          steelGrade: grade,
+          sectionDimension: consumers[0]?.raw_material_calc?.sectionDimension || '130x130 mm',
+          totalRequiredTons: Number(totalRequired.toFixed(2)),
+          projectedAvailableTons: Number(consolidatedAvailable.toFixed(2)),
+          deficitTons: deficit,
+          consumerSchedules: consumerList,
+          alertMessage: alertMsg,
+        })
+
+        validations.push({
+          code: 'VAL-MP-DUAL',
+          level: 'CRITICAL',
+          title: `Duplo Comprometimento: Aço ${grade}`,
+          message: alertMsg,
+        })
+      }
+    })
+
+    // 8. AGRUPAMENTO DA VISÃO "NECESSIDADE DE TARUGOS" POR AÇO E SEÇÃO/DIMENSÃO (Requisito 1)
+    // Colunas: aço, seção/dimensão, peso do tarugo, quantidade necessária, quantidade disponível e saldo projetado
+    const billetMap: Record<string, BilletRequirementGroup> = {}
+
+    processedItems.forEach((it) => {
+      if (it.item_type === 'PRODUCTION' && it.raw_material_calc) {
+        const calc = it.raw_material_calc
+        const key = `${calc.steelGrade}_${calc.sectionDimension}`
+
+        if (!billetMap[key]) {
+          billetMap[key] = {
+            steelGrade: calc.steelGrade,
+            sectionDimension: calc.sectionDimension,
+            billetWeightKg: calc.billetWeightKg,
+            requiredTons: 0,
+            availableTons: calc.projectedAvailableTons,
+            projectedBalanceTons: 0,
+            status: 'GREEN',
+            statusLabel: 'MP GARANTIDA',
+            estimatedBilletsCount: 0,
+            currentStockTons: calc.currentSapStockTons,
+            sapPurchaseOrdersTons: calc.confirmedPoTons,
+            upstreamProductionTons: calc.upstreamProductionTons,
+            committedOtherSchedulesTons: calc.otherSchedulesCommittedTons,
+            ruleTooltip: `Regra de Cálculo: Rendimento médio de ${calc.yieldPct}% (perda de ${calc.lossPct}%). Tarugo com peso unitário de ${calc.billetWeightKg} kg. Saldo Projetado = Estoque SAP + Pedidos de Compra anteriores + Produção Upstream anterior − Consumos programados.`,
+          }
+        }
+
+        billetMap[key].requiredTons += calc.netRawMaterialTons
+        billetMap[key].estimatedBilletsCount += calc.estimatedBilletsCount
+      }
+    })
+
+    // Atualiza saldos projetados e semáforos dos grupos de tarugos
+    const billetRequirements = Object.values(billetMap).map((grp) => {
+      const req = Number(grp.requiredTons.toFixed(2))
+      const avail = Number(grp.availableTons.toFixed(2))
+      const balance = Number((avail - req).toFixed(2))
+
+      let status: RawMaterialTrafficLight = 'GREEN'
+      let statusLabel = 'MP GARANTIDA'
+      if (balance < 0) {
+        status = 'RED'
+        statusLabel = 'MP INSUFICIENTE'
+      } else if (grp.upstreamProductionTons > 0 || grp.sapPurchaseOrdersTons > 0) {
+        status = 'YELLOW'
+        statusLabel = 'MP COM RISCO'
+      }
+
+      // Verifica se há duplo comprometimento neste grupo
+      const conflict = dualCommitments.find((d) => d.steelGrade === grp.steelGrade)
+
+      return {
+        ...grp,
+        requiredTons: req,
+        projectedBalanceTons: balance,
+        status,
+        statusLabel,
+        dualCommitmentAlert: conflict ? conflict.alertMessage : undefined,
+      }
+    })
+
+    // 9. Cálculo de Capacidade e Indicadores Gerais
     const activeShiftsCount = shifts.length || 3
     const hoursPerShift =
       shifts.length > 0
         ? shifts.reduce((acc, s) => acc + (s.duration_hours || 8), 0) / shifts.length
         : 8
-    const operatingDaysCount = 6 // CIAFAL opera Seg a Sab normalmente
-    const calendarHours = 7 * 24 // 168h na semana
-    const nominalAvailableHours = operatingDaysCount * activeShiftsCount * hoursPerShift // ex: 6 * 3 * 8 = 144h
+    const operatingDaysCount = 6
+    const calendarHours = 7 * 24
+    const nominalAvailableHours = operatingDaysCount * activeShiftsCount * hoursPerShift
 
     const programmedQuantityTons = processedItems.reduce(
       (sum, it) => sum + (it.planned_quantity_tons || 0),
@@ -343,7 +801,6 @@ export const WeeklyScheduleEngine = {
         ? Math.min(150, Number(((totalCommittedHours / nominalAvailableHours) * 100).toFixed(1)))
         : 0
 
-    // VAL-03: Capacidade Excedida (>100%)
     if (utilizationPct > 100) {
       validations.push({
         code: 'VAL-03',
@@ -353,7 +810,6 @@ export const WeeklyScheduleEngine = {
       })
     }
 
-    // Score da Sequência (Baseado na minimização de setups e ordenação por bitola/família)
     let setupTransitionsCount = 0
     let optimalTransitionsCount = 0
     for (let j = 1; j < processedItems.length; j++) {
@@ -372,7 +828,6 @@ export const WeeklyScheduleEngine = {
         ? 100
         : Math.round(70 + (optimalTransitionsCount / setupTransitionsCount) * 30)
 
-    // Agrupamentos para o Resumo
     const byFamily: Record<string, number> = {}
     const byMaterial: Record<string, number> = {}
     const byTurno: Record<string, number> = {}
@@ -394,34 +849,25 @@ export const WeeklyScheduleEngine = {
       }
     })
 
-    // Necessidade de MP Consolidada
-    const rawMaterialMap: Record<string, { grade: string; type: string; tons: number }> = {}
-    processedItems.forEach((it) => {
-      if (it.item_type === 'PRODUCTION') {
-        const grade = it.steel_grade || 'SAE 1020'
-        const key = `${grade}_${it.raw_material_type || 'TARUGO'}`
-        if (!rawMaterialMap[key]) {
-          rawMaterialMap[key] = {
-            grade,
-            type: it.raw_material_type || 'Tarugo de Laminação',
-            tons: 0,
-          }
-        }
-        rawMaterialMap[key].tons += it.raw_material_req_tons || 0
-      }
-    })
-
-    const rawMaterialsSummary = Object.values(rawMaterialMap).map((rm) => ({
-      steelGrade: rm.grade,
-      rawMaterialType: rm.type,
-      requiredTons: Number(rm.tons.toFixed(1)),
-      availableStockTons: null, // "Aguardando dados do SAP/WMS" quando não integrado
-      futureEntryTons: null,
-      projectedConsumptionTons: Number(rm.tons.toFixed(1)),
-      projectedBalanceTons: null,
+    // Resumo de MP compatível com a interface existente
+    const rawMaterialsSummary: WeeklySummaryRawMaterial[] = billetRequirements.map((br) => ({
+      steelGrade: br.steelGrade,
+      rawMaterialType: `Tarugo ${br.sectionDimension}`,
+      sectionDimension: br.sectionDimension,
+      billetWeightKg: br.billetWeightKg,
+      requiredTons: br.requiredTons,
+      availableStockTons: rawMaterialContext.inventoryItems ? br.currentStockTons : null,
+      futureEntryTons: rawMaterialContext.purchaseOrders
+        ? br.sapPurchaseOrdersTons + br.upstreamProductionTons
+        : null,
+      projectedConsumptionTons: br.requiredTons,
+      projectedBalanceTons: br.projectedBalanceTons,
+      status: br.status,
+      statusLabel: br.statusLabel,
+      deficitTons: br.projectedBalanceTons < 0 ? Math.abs(br.projectedBalanceTons) : undefined,
     }))
 
-    const totalRawMaterialRequired = Object.values(rawMaterialMap).reduce((s, r) => s + r.tons, 0)
+    const totalRawMaterialRequired = billetRequirements.reduce((s, r) => s + r.requiredTons, 0)
 
     const indicators: WeeklyIndicators = {
       availableCapacityHours: Number(nominalAvailableHours.toFixed(1)),
@@ -457,8 +903,11 @@ export const WeeklyScheduleEngine = {
         byDay,
       },
       rawMaterials: rawMaterialsSummary,
+      billetRequirements,
+      sapPurchaseOrders: rawMaterialContext.purchaseOrders || [],
+      dualCommitments,
       backlog: {
-        totalTons: null, // Aguardando dados do SAP/WMS
+        totalTons: null,
         scheduledTons: Number(programmedQuantityTons.toFixed(1)),
         remainingTons: null,
       },
