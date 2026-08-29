@@ -44,6 +44,22 @@ const ScenariosPage = lazy(() =>
 const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
 const InventoryManagementPage = lazy(() => import('@/pages/InventoryManagementPage'))
 const ExecutiveCockpitPage = lazy(() => import('@/pages/ExecutiveCockpitPage'))
+const PCPMeetingsPage = lazy(() => import('@/pages/PCPMeetingsPage'))
+const PCPCommunicationsPage = lazy(() => import('@/pages/PCPCommunicationsPage'))
+const PCPInboxPage = lazy(() => import('@/pages/PCPInboxPage'))
+const LiveMeetingRoom = lazy(() =>
+  import('@/components/meetings/LiveMeetingRoom').then((m) => ({ default: m.LiveMeetingRoom })),
+)
+const MeetingMinutesView = lazy(() =>
+  import('@/components/meetings/MeetingMinutesView').then((m) => ({
+    default: m.MeetingMinutesView,
+  })),
+)
+const MeetingPendenciesView = lazy(() =>
+  import('@/components/meetings/MeetingPendenciesView').then((m) => ({
+    default: m.MeetingPendenciesView,
+  })),
+)
 
 // Planejamento Mestre
 const MasterPlanningLayout = lazy(() =>
@@ -240,7 +256,57 @@ export const App: React.FC = () => {
                   <Route path="dependencias" element={<LineDependenciesSubpage />} />
                   <Route path="historico" element={<LineHistorySubpage />} />
                 </Route>
-                {/* 5. Módulos Auxiliares & Governança */}
+                {/* 5. Módulos de Reuniões PCP, Central de Comunicados e Inbox */}
+                <Route
+                  path="/pcp/reunioes"
+                  element={
+                    <PermissionGuard permission="pcp.meeting.view">
+                      <PCPMeetingsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/reunioes/andamento"
+                  element={
+                    <PermissionGuard permission="pcp.meeting.conduct">
+                      <LiveMeetingRoom />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/reunioes/atas"
+                  element={
+                    <PermissionGuard permission="pcp.meeting.view">
+                      <PCPMeetingsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/reunioes/pendencias"
+                  element={
+                    <PermissionGuard permission="pcp.meeting.view">
+                      <PCPMeetingsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/comunicados"
+                  element={
+                    <PermissionGuard permission="pcp.communication.view">
+                      <PCPCommunicationsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/inbox"
+                  element={
+                    <PermissionGuard permission="pcp.communication.view">
+                      <PCPInboxPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* 6. Módulos Auxiliares & Governança */}
                 <Route
                   path="/pcp/ficha-mestre"
                   element={

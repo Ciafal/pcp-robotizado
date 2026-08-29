@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -15,6 +15,10 @@ import {
   Package,
   Cpu,
   TrendingUp,
+  Megaphone,
+  ShieldAlert,
+  FileText,
+  ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,8 +35,15 @@ import {
 import { useControlTower } from '@/contexts/ControlTowerContext'
 import { OrderDrawer } from '@/components/control-tower/OrderDrawer'
 import { ControlTowerHeader } from '@/components/control-tower/ControlTowerHeader'
+import { pcpMeetingService } from '@/services/pcp-meeting-service'
+import { pcpCommunicationService } from '@/services/pcp-communication-service'
+import { PCPMinuteItem, PCPCommunication } from '@/types/pcp-meetings-comms'
+import { useNavigate } from 'react-router-dom'
+import { useToast } from '@/hooks/use-toast'
 
 export const OperationalPage: React.FC = () => {
+  const navigate = useNavigate()
+  const { toast } = useToast()
   const {
     filters,
     setCompanyScope,
@@ -49,6 +60,38 @@ export const OperationalPage: React.FC = () => {
   const [selectedShift, setSelectedShift] = useState<string>('ALL')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState<string>('')
+
+  // Estados integrados de Reuniões PCP e Comunicados PCP
+  const [minuteItems, setMinuteItems] = useState<PCPMinuteItem[]>([])
+  const [communications, setCommunications] = useState<PCPCommunication[]>([])
+
+  const loadPcpOperationalAlerts = async () => {
+    try {
+      const items = await pcpMeetingService.listMinuteItems({ isOperationalOnly: true })
+      setMinuteItems(items)
+      const comms = await pcpCommunicationService.listCommunications({ onlyActive: true })
+      setCommunications(comms)
+    } catch (e) {
+      console.warn('Aviso ao sincronizar alertas e comunicados do PCP:', e)
+    }
+  }
+
+  useEffect(() => {
+    loadPcpOperationalAlerts()
+  }, [])
+
+  const handleAcknowledgeComm = async (commId: string) => {
+    try {
+      await pcpCommunicationService.acknowledgeCommunication(commId)
+      toast({
+        title: 'Ciência Registrada pelo Operador',
+        description: 'Assinatura eletrônica de leitura gravada no HUB.',
+      })
+      loadPcpOperationalAlerts()
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao registrar ciência', description: e.message })
+    }
+  }
 
   // Linhas a exibir
   const linesToDisplay = availableLines.filter((l) => {
@@ -192,6 +235,157 @@ export const OperationalPage: React.FC = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* SEÇÃO INTEGRADA: COMUNICADOS & ALERTAS DE REUNIÃO VIGENTES NA LINHA (REGRA PRINCIPAL) */}
+              {(() => {
+                const lineItems = minuteItems.filter(
+                  (it) => it.line_codes?.includes(line.code) || it.line_codes?.length === 0,
+                )
+                const lineComms = communications.filter(
+                  (c) =>
+                    c.target_line_codes?.includes(line.code) ||
+                    c.target_audience_type === 'TODOS' ||
+                    c.target_audience_type === 'OPERACAO',
+                )
+
+                if (lineItems.length === 0 && lineComms.length === 0) return null
+
+                return (
+                  <div className="bg-slate-900/60 p-3 border-b border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                        <Megaphone className="w-3.5 h-3.5" /> COMUNICADOS & ALERTAS VIGENTES (PCP &
+                        REUNIÕES)
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {lineItems.length + lineComms.length} diretrizes ativas
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {/* Comunicados Oficiais PCP */}
+                      {lineComms.map((comm) => {
+                        const isBlocking = comm.criticality === 'BLOQUEANTE' || comm.is_blocking
+                        const isAcked = comm.user_read_state?.is_acknowledged
+
+                        return (
+                          <div
+                            key={comm.id}
+                            className={`p-2.5 rounded border text-xs space-y-1.5 ${
+                              isBlocking
+                                ? 'bg-purple-950/40 border-purple-600/60 text-purple-200'
+                                : comm.criticality === 'CRITICA'
+                                  ? 'bg-rose-950/40 border-rose-600/60 text-rose-200'
+                                  : 'bg-amber-950/30 border-amber-600/40 text-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <Badge
+                                  className={`text-[9px] font-bold ${
+                                    isBlocking
+                                      ? 'bg-purple-900 text-white'
+                                      : comm.criticality === 'CRITICA'
+                                        ? 'bg-rose-700 text-white'
+                                        : 'bg-amber-600 text-white'
+                                  }`}
+                                >
+                                  {comm.criticality}
+                                </Badge>
+                                <span className="font-bold text-white truncate max-w-[220px]">
+                                  {comm.title}
+                                </span>
+                              </div>
+                              <span className="text-[9px] font-mono opacity-70">
+                                Val: {comm.valid_until || comm.valid_from}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] opacity-90 leading-snug line-clamp-2">
+                              {comm.summary || comm.content}
+                            </p>
+
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-700/50 text-[10px]">
+                              <span>
+                                Origem: <strong className="text-white">{comm.origin_type}</strong>
+                              </span>
+
+                              <div className="flex items-center gap-1.5">
+                                {comm.requires_acknowledgement && !isAcked && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAcknowledgeComm(comm.id)}
+                                    className="h-5 text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 font-bold"
+                                  >
+                                    ✓ LI E ESTOU CIENTE
+                                  </Button>
+                                )}
+                                {isAcked && (
+                                  <span className="text-emerald-400 font-bold">✓ Ciente</span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => navigate('/pcp/comunicados')}
+                                  className="h-5 text-[9px] text-cyan-300 hover:text-white px-1.5"
+                                >
+                                  Ver Detalhes
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {/* Alertas & Pendências de Reunião PCP (Regra ATA ➔ Linha) */}
+                      {lineItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded border border-blue-500/40 bg-blue-950/30 text-blue-200 text-xs space-y-1.5"
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <Badge className="bg-[#004C97] text-white text-[9px] font-bold">
+                                ⚠ ALERTA – REUNIÃO PCP
+                              </Badge>
+                              <span className="font-bold text-white truncate max-w-[200px]">
+                                {item.title}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-mono text-amber-300">
+                              Prazo: {item.deadline}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-200 leading-snug line-clamp-2">
+                            {item.description}
+                          </p>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-700/50 text-[10px]">
+                            <span>
+                              Origem:{' '}
+                              <strong className="text-white">
+                                ATA PCP [{item.item_code}] &bull; Resp: {item.responsible_name}
+                              </strong>
+                            </span>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                navigate(`/pcp/reunioes/atas?meetingId=${item.meeting_id}`)
+                              }
+                              className="h-5 text-[9px] text-cyan-300 hover:text-white px-1.5"
+                            >
+                              [ABRIR ITEM NA ATA] <ExternalLink className="w-2.5 h-2.5 ml-1" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Grid de 3 Colunas: AGORA / PRÓXIMO / DEPOIS */}
               <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-800/80 p-0 text-xs">

@@ -23,6 +23,12 @@ import {
   Menu,
   X,
   Compass,
+  Megaphone,
+  Inbox,
+  Clock,
+  FileText,
+  Bell,
+  Calendar,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -192,6 +198,84 @@ const navSections: NavSectionItem[] = [
         href: '/pcp/linhas/historico',
         icon: History,
         permission: 'pcp.masterdata.view',
+      },
+    ],
+  },
+  {
+    title: 'Reuniões PCP',
+    href: '/pcp/reunioes',
+    icon: CalendarDays,
+    badge: 'Semanal',
+    permission: 'pcp.meeting.view',
+    subItems: [
+      {
+        title: 'Próxima Reunião',
+        href: '/pcp/reunioes?tab=proxima',
+        icon: CalendarDays,
+        permission: 'pcp.meeting.view',
+      },
+      {
+        title: 'Atas Digitais',
+        href: '/pcp/reunioes/atas',
+        icon: FileText,
+        permission: 'pcp.meeting.view',
+      },
+      {
+        title: 'Painel de Pendências',
+        href: '/pcp/reunioes/pendencias',
+        icon: Clock,
+        permission: 'pcp.meeting.view',
+      },
+      {
+        title: 'Reunião em Andamento',
+        href: '/pcp/reunioes/andamento',
+        icon: Activity,
+        permission: 'pcp.meeting.conduct',
+      },
+      {
+        title: 'Análise IA das Reuniões',
+        href: '/pcp/reunioes?tab=ia_analise',
+        icon: Sparkles,
+        permission: 'pcp.meeting.view',
+      },
+    ],
+  },
+  {
+    title: 'Comunicados PCP',
+    href: '/pcp/comunicados',
+    icon: Megaphone,
+    badge: 'Diretrizes',
+    permission: 'pcp.communication.view',
+    subItems: [
+      {
+        title: 'Caixa de Comunicados',
+        href: '/pcp/comunicados?tab=todos',
+        icon: Inbox,
+        permission: 'pcp.communication.view',
+      },
+      {
+        title: 'Comunicados Vigentes',
+        href: '/pcp/comunicados?tab=vigentes',
+        icon: Megaphone,
+        permission: 'pcp.communication.view',
+      },
+      {
+        title: 'Comunicados Programados',
+        href: '/pcp/comunicados?tab=programados',
+        icon: Calendar,
+        permission: 'pcp.communication.view',
+      },
+      {
+        title: 'Comunicados Encerrados',
+        href: '/pcp/comunicados?tab=encerrados',
+        icon: History,
+        permission: 'pcp.communication.view',
+      },
+      {
+        title: 'Minha Caixa PCP',
+        href: '/pcp/inbox',
+        icon: Bell,
+        permission: 'pcp.communication.view',
       },
     ],
   },

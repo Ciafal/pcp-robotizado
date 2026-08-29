@@ -29,10 +29,11 @@ interface ChatMessage {
 }
 
 const EXAMPLE_QUESTIONS = [
+  'Quais são as pendências da L01 vindas da reunião de PCP?',
+  'Existe algum comunicado vigente ou alerta crítico para as linhas?',
+  'O que foi decidido na última reunião sobre qualidade e materiais?',
   'Por que a produção da L01 registrou perda de cadência esta semana?',
   'Quais indicadores apresentam risco de não atingir a meta no fechamento?',
-  'Existe risco de ruptura de estoque de matéria-prima nos próximos 30 dias?',
-  'Quais as 3 principais recomendações para elevar o OEE da Trefilação?',
 ]
 
 export const ExecutiveAskHubAi: React.FC<ExecutiveAskHubAiProps> = () => {

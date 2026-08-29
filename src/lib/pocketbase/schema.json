@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-28T19:43:40.947Z",
+  "generatedAt": "2026-08-29T17:50:18.017Z",
   "collections": [
     {
       "name": "users",
@@ -6006,6 +6006,1079 @@
         "CREATE UNIQUE INDEX idx_exec_briefing_code ON executive_briefings (code)",
         "CREATE INDEX idx_exec_briefing_created ON executive_briefings (created DESC)",
         "CREATE INDEX idx_exec_briefing_cadence ON executive_briefings (cadence)"
+      ]
+    },
+    {
+      "name": "pcp_meetings",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reference_week",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meeting_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meeting_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modality",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PRESENCIAL", "ONLINE", "HIBRIDA"]
+        },
+        {
+          "name": "location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "online_link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "organizer_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "conductor_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "minute_taker_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["AGENDADA", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA", "REMARCADA"]
+        },
+        {
+          "name": "agenda_topics",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mandatory_participants",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "optional_participants",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "involved_sectors",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "involved_lines",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "general_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reschedule_history",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_meeting_briefing",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pre_meeting_generated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "audio_recording_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "audio_transcript_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "audio_transcript_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_meetings_code ON pcp_meetings (code)",
+        "CREATE INDEX idx_meetings_week ON pcp_meetings (reference_week)",
+        "CREATE INDEX idx_meetings_date ON pcp_meetings (meeting_date)",
+        "CREATE INDEX idx_meetings_status ON pcp_meetings (status)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_minutes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "pcp_meetings"
+        },
+        {
+          "name": "meeting_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reference_week",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["DRAFT_IA", "REVISAO_PCP", "APROVADA", "PUBLICADA", "CANCELADA"]
+        },
+        {
+          "name": "executive_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "topics_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "participants_present",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reviewed_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "reviewed_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reviewed_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "published_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_dispatched_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_recipients",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_minutes_meeting ON pcp_meeting_minutes (meeting_id)",
+        "CREATE INDEX idx_minutes_status ON pcp_meeting_minutes (status)",
+        "CREATE INDEX idx_minutes_week ON pcp_meeting_minutes (reference_week)"
+      ]
+    },
+    {
+      "name": "pcp_minute_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "pcp_meetings"
+        },
+        {
+          "name": "minute_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_meeting_minutes"
+        },
+        {
+          "name": "item_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "topic_title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "classification",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "INFORMACAO",
+            "OBSERVACAO",
+            "DECISAO",
+            "PENDENCIA",
+            "ALERTA",
+            "RISCO",
+            "ACAO",
+            "ALTERACAO_PROGRAMACAO",
+            "COMUNICADO"
+          ]
+        },
+        {
+          "name": "category",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "GERAL",
+            "QUALIDADE",
+            "MATERIA_PRIMA",
+            "ESTOQUE",
+            "MANUTENCAO",
+            "LOGISTICA",
+            "SEGURANCA",
+            "CAPACIDADE",
+            "PROCESSO"
+          ]
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "impact_level",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sector",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deadline",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ABERTA",
+            "EM_ANDAMENTO",
+            "CONCLUIDA",
+            "CANCELADA",
+            "VENCIDA",
+            "AGUARDANDO_TERCEIRO",
+            "SEM_ATUALIZACAO",
+            "VALIDADO_HUMANO",
+            "IDENTIFICADO_IA"
+          ]
+        },
+        {
+          "name": "is_ai_generated",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_confidence_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "validated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_codes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_ids",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reference_week",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active_operational",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conclusion_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluded_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluded_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "history_log",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attachments",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_minute_items_code ON pcp_minute_items (item_code)",
+        "CREATE INDEX idx_minute_items_meeting ON pcp_minute_items (meeting_id)",
+        "CREATE INDEX idx_minute_items_class ON pcp_minute_items (classification)",
+        "CREATE INDEX idx_minute_items_status ON pcp_minute_items (status)",
+        "CREATE INDEX idx_minute_items_deadline ON pcp_minute_items (deadline)"
+      ]
+    },
+    {
+      "name": "pcp_communications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "comm_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "INFORMATIVO",
+            "ATENCAO",
+            "OPERACIONAL",
+            "ALTERACAO_PROGRAMACAO",
+            "QUALIDADE",
+            "MATERIA_PRIMA",
+            "ESTOQUE",
+            "MANUTENCAO",
+            "LOGISTICA",
+            "SEGURANCA",
+            "URGENTE",
+            "CRITICO",
+            "BLOQUEANTE"
+          ]
+        },
+        {
+          "name": "criticality",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["NORMAL", "ATENCAO", "URGENTE", "CRITICA", "BLOQUEANTE"]
+        },
+        {
+          "name": "origin_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "MANUAL",
+            "REUNIAO_PCP",
+            "ATA_PCP",
+            "PENDENCIA_PCP",
+            "ALERTA_PCP",
+            "ALTERACAO_PROGRAMACAO",
+            "ANALISE_IA",
+            "OCORRENCIA_OPERACIONAL",
+            "QUALIDADE",
+            "ESTOQUE_MATERIA_PRIMA"
+          ]
+        },
+        {
+          "name": "origin_ref_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_ref_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["RASCUNHO", "PROGRAMADO", "VIGENTE", "ENCERRADO", "CANCELADO"]
+        },
+        {
+          "name": "published_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scheduled_publish_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "closed_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "closed_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "close_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "author_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "author_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approver_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approver_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_acknowledgement",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ack_deadline",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "escalation_responsible_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "is_blocking",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "block_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unblock_condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unblocked_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unblocked_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "target_audience_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "TODOS",
+            "PCP",
+            "LINHAS_ESPECIFICAS",
+            "SETORES_ESPECIFICOS",
+            "SUPERVISORES_GESTORES",
+            "OPERACAO",
+            "QUALIDADE",
+            "ESTOQUE",
+            "COMERCIAL",
+            "LOGISTICA",
+            "MANUTENCAO",
+            "USUARIOS_ESPECIFICOS"
+          ]
+        },
+        {
+          "name": "target_line_codes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_sectors",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_user_ids",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "production_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "customer_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_recipients_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "read_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acknowledged_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pending_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attachments",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_ai_assisted",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_comms_code ON pcp_communications (code)",
+        "CREATE INDEX idx_comms_status ON pcp_communications (status)",
+        "CREATE INDEX idx_comms_type ON pcp_communications (comm_type)",
+        "CREATE INDEX idx_comms_crit ON pcp_communications (criticality)",
+        "CREATE INDEX idx_comms_validity ON pcp_communications (valid_from)"
+      ]
+    },
+    {
+      "name": "pcp_communication_reads",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.role = 'PCP_ADMIN'"
+      },
+      "fields": [
+        {
+          "name": "communication_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "pcp_communications"
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delivered_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "viewed_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "read_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acknowledged_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acknowledged_version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_role",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_sector",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_comm_user_read ON pcp_communication_reads (communication_id, user_id)",
+        "CREATE INDEX idx_comm_reads_user ON pcp_communication_reads (user_id)"
       ]
     }
   ]
