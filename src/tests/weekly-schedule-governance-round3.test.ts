@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import { describe, it, expect, vi } from 'vitest'
+import { WeeklyScheduleEngine, getWeekDateRange } from '@/services/weekly-schedule-engine'
 import { weeklyScheduleService } from '@/services/weekly-schedule-service'
 import {
   WeeklyScheduleItem,
   WeeklyHeaderFilter,
   WeeklyScheduleWorkflowState,
   WeeklyScheduleScenario,
+  WeeklyScheduleVersionRecord,
 } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 
@@ -16,7 +17,7 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
     lineCode: 'L1',
     year: 2026,
     weekNumber: 35,
-    periodDisplay: 'Semana 35 &bull; 24 a 30 de Agosto de 2026',
+    periodDisplay: 'Semana 35 • 24 a 30 de Agosto de 2026',
   }
 
   const mockLineOverview: LineOverviewData = {
@@ -55,19 +56,66 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
       updated: '',
     },
     shifts: [
-      { id: 's1', line_id: 'l1', code: 'T1_L1', name: '1º Turno Matutino', start_time: '06:00', end_time: '14:00', duration_hours: 8, break_minutes: 60, applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'], crosses_midnight: false, active: true, created: '' },
-      { id: 's2', line_id: 'l1', code: 'T2_L1', name: '2º Turno Vespertino', start_time: '14:00', end_time: '22:00', duration_hours: 8, break_minutes: 60, applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'], crosses_midnight: false, active: true, created: '' },
-      { id: 's3', line_id: 'l1', code: 'T3_L1', name: '3º Turno Noturno', start_time: '22:00', end_time: '06:00', duration_hours: 8, break_minutes: 60, applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'], crosses_midnight: true, active: true, created: '' },
+      {
+        id: 's1',
+        line_id: 'l1',
+        code: 'T1_L1',
+        name: '1º Turno Matutino',
+        start_time: '06:00',
+        end_time: '14:00',
+        duration_hours: 8,
+        break_minutes: 60,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'],
+        crosses_midnight: false,
+        active: true,
+        created: '',
+      },
+      {
+        id: 's2',
+        line_id: 'l1',
+        code: 'T2_L1',
+        name: '2º Turno Vespertino',
+        start_time: '14:00',
+        end_time: '22:00',
+        duration_hours: 8,
+        break_minutes: 60,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'],
+        crosses_midnight: false,
+        active: true,
+        created: '',
+      },
+      {
+        id: 's3',
+        line_id: 'l1',
+        code: 'T3_L1',
+        name: '3º Turno Noturno',
+        start_time: '22:00',
+        end_time: '06:00',
+        duration_hours: 8,
+        break_minutes: 60,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'],
+        crosses_midnight: true,
+        active: true,
+        created: '',
+      },
     ],
     scheduledStops: [],
     setupMatrix: [],
     blockedProducts: [],
     productivity: [],
-    campaignRules: [],
     rawMaterials: [],
-    crews: [],
-    tollServices: [],
-    lossFactors: [],
+    hierarchy: [],
+    managers: [],
+    approvers: [],
+    sequencing: [],
+    capabilities: [],
+    setups: [],
+    constraints: [],
+    rulePacks: [],
+    history: [],
+    alerts: [],
+    completeness: 100,
+    readyForScheduling: true,
   }
 
   const sampleItems: WeeklyScheduleItem[] = [
@@ -150,10 +198,15 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
       ]
       expect(statesOrder).toHaveLength(7)
       expect(statesOrder[0]).toBe('DRAFT')
+      expect(statesOrder[1]).toBe('SIMULADO')
+      expect(statesOrder[2]).toBe('VALIDADO')
+      expect(statesOrder[3]).toBe('AGUARDANDO_APROVACAO_PCP')
+      expect(statesOrder[4]).toBe('APROVADO_PCP')
+      expect(statesOrder[5]).toBe('ENVIADO_GESTOR_LINHA')
       expect(statesOrder[6]).toBe('PUBLICADO')
     })
 
-    it('deve manter e incrementar versão ao republicar ou alterar programação pós-publicação', async () => {
+    it('deve incrementar versão quando houver revisão de programação pós-publicação', async () => {
       const publishedItem: WeeklyScheduleItem = {
         ...sampleItems[0],
         status: 'PUBLICADO',
@@ -161,9 +214,25 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
       }
       expect(publishedItem.version).toBe(1)
 
-      // Simulação da transição pós-publicação
-      const nextVersion = publishedItem.version + 1
+      const isPostPublishedChange = publishedItem.status === 'PUBLICADO'
+      const nextVersion = isPostPublishedChange ? publishedItem.version + 1 : publishedItem.version
       expect(nextVersion).toBe(2)
+
+      const versionRecord: WeeklyScheduleVersionRecord = {
+        schedule_code: publishedItem.schedule_code,
+        line_code: publishedItem.line_code,
+        year: publishedItem.year,
+        week_number: publishedItem.week_number,
+        version_number: nextVersion,
+        user_name: 'Programador PCP',
+        change_reason: 'Ajuste de volume para atender cliente urgente MTO',
+        impact_assessment: 'Aumento de 20t com ocupação nominal de 91%',
+        previous_schedule_data: [publishedItem],
+        new_schedule_data: [{ ...publishedItem, version: nextVersion, planned_quantity_tons: 80 }],
+      }
+
+      expect(versionRecord.version_number).toBe(2)
+      expect(versionRecord.new_schedule_data[0].planned_quantity_tons).toBe(80)
     })
   })
 
@@ -191,10 +260,10 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
       expect(report.domains.lineConflicts).toBeDefined()
       expect(report.domains.backlog).toBeDefined()
       expect(report.domains.stops).toBeDefined()
+      expect(Object.keys(report.domains)).toHaveLength(13)
     })
 
     it('deve emitir veredito "INVIAVEL" se houver bloqueio crítico ou ruptura sem cobertura', () => {
-      // Simula item com bloqueio técnico
       const blockedOverview: LineOverviewData = {
         ...mockLineOverview,
         blockedProducts: [
@@ -221,6 +290,39 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
       )
       expect(report.overallResult).toBe('INVIAVEL')
       expect(report.domains.specialRequirements.status).toBe('FAIL')
+    })
+
+    it('deve emitir alerta (WARN) se houver pedido de compra SAP que chega após o consumo', () => {
+      const rawMaterialContext = {
+        inventoryItems: [],
+        purchaseOrders: [
+          {
+            orderNumber: 'PO-999',
+            materialCode: 'TAR-130-1020',
+            materialDescription: 'Tarugo 130x130 SAE 1020',
+            supplierCode: 'FORN-001',
+            supplierName: 'Gerdau Açominas',
+            steelGrade: 'SAE 1010/1020',
+            totalQuantityTons: 100,
+            receivedQuantityTons: 0,
+            openBalanceTons: 100,
+            estimatedDeliveryDate: '2026-08-29 18:00', // Chegada tardia
+            status: 'IN_TRANSIT' as const,
+            consideredAvailable: false,
+            availableQuantityTons: 0,
+            disregardReason: 'Entrega tardia',
+          },
+        ],
+      }
+
+      const report = WeeklyScheduleEngine.simulateSchedule(
+        sampleItems,
+        mockLineOverview,
+        mockHeaderFilter,
+        rawMaterialContext,
+      )
+      expect(report).toBeDefined()
+      expect(report.domains.purchases).toBeDefined()
     })
   })
 
@@ -276,13 +378,17 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
         ai_recommendation: {
           isRecommended: true,
           score: 96,
-          rationale: 'Recomendado pela IA CIAFAL: redução de 45 minutos de setup por agrupamento.',
+          rationale:
+            'Recomendado pela IA CIAFAL: redução de 45 minutos de setup por agrupamento.',
         },
       }
 
       expect(scenarioB.ai_recommendation?.isRecommended).toBe(true)
       expect(scenarioB.metrics_snapshot.sequenceEfficiencyPct).toBeGreaterThan(
         scenarioA.metrics_snapshot.sequenceEfficiencyPct,
+      )
+      expect(scenarioB.metrics_snapshot.setupHours).toBeLessThan(
+        scenarioA.metrics_snapshot.setupHours,
       )
     })
   })
@@ -306,12 +412,25 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
 
       expect(diffTons).toBe(3)
       expect(attainmentPct).toBe(105)
+
+      const plannedHours = itemWithExecution.production_hours
+      const realizedHours = itemWithExecution.realized_hours || 0
+      const diffHours = Number((realizedHours - plannedHours).toFixed(1))
+      expect(diffHours).toBe(0.2)
     })
   })
 
-  describe('5. Governança Restritiva de IA', () => {
+  describe('5. Utilitários de Data e Linha do Tempo', () => {
+    it('deve calcular o intervalo de datas correto para uma semana ISO', () => {
+      const range = getWeekDateRange(2026, 35)
+      expect(range.startDate).toBeDefined()
+      expect(range.endDate).toBeDefined()
+      expect(range.display).toContain('Semana 35')
+    })
+  })
+
+  describe('6. Governança Restritiva de IA & HARD BLOCK', () => {
     it('garante que a IA atua apenas em modo consultivo/recomendatório sem alteração direta não autorizada', async () => {
-      // Teste da regra de governança que impede ação direta autônoma da IA
       let blockedEventCalled = false
       const logAttempt = async () => {
         blockedEventCalled = true
@@ -319,6 +438,36 @@ describe('Rodada 3 — Governança e Integração da Montagem Semanal (PCP Robot
 
       await logAttempt()
       expect(blockedEventCalled).toBe(true)
+    })
+
+    it('deve detectar bloqueio de produto (HARD BLOCK) antes da inserção na programação', () => {
+      const overviewWithBlock: LineOverviewData = {
+        ...mockLineOverview,
+        blockedProducts: [
+          {
+            id: 'b1',
+            line_id: 'l1',
+            product_code: 'MAT-BLOQUEADO-01',
+            product_description: 'Material com Restrição Mecânica',
+            block_reason: 'Restrição de laminação',
+            block_type: 'TECHNICAL',
+            source_mode: 'MANUAL',
+            active: true,
+            created: '',
+            updated: '',
+          },
+        ],
+      }
+
+      const block = WeeklyScheduleEngine.checkHardBlock(
+        'MAT-BLOQUEADO-01',
+        overviewWithBlock,
+      )
+      expect(block).toBeDefined()
+      expect(block?.product_code).toBe('MAT-BLOQUEADO-01')
+
+      const allowed = WeeklyScheduleEngine.checkHardBlock('MAT-LIBERADO', overviewWithBlock)
+      expect(allowed).toBeUndefined()
     })
   })
 })

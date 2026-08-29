@@ -106,35 +106,19 @@ export const App: React.FC = () => {
                 {/* Rota Direta de Montagem Semanal (Fácil Acesso & Compatibilidade) */}
                 <Route
                   path="/pcp/montagem-semanal"
-                  element={
-                    <PermissionGuard permission="pcp.schedule.view">
-                      <WeeklyScheduleOperationalPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route
                   path="/pcp-robotizado/programacao/montagem-semanal"
-                  element={
-                    <PermissionGuard permission="pcp.schedule.view">
-                      <WeeklyScheduleOperationalPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route
                   path="/pcp-robotizado/montagem-semanal"
-                  element={
-                    <PermissionGuard permission="pcp.schedule.view">
-                      <WeeklyScheduleOperationalPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
                 <Route
                   path="/montagem-semanal"
-                  element={
-                    <PermissionGuard permission="pcp.schedule.view">
-                      <WeeklyScheduleOperationalPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/sequenciamento/montagem-semanal" replace />}
                 />
 
                 {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
