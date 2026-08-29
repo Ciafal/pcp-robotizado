@@ -501,9 +501,9 @@ const officialNavGroups: NavGroup[] = [
       },
       {
         title: 'Visão Mensal',
-        href: '/pcp/planejamento?tab=plano-mensal',
+        href: '/pcp/sequenciamento/programacao-mensal',
         icon: CalendarRange,
-        permission: 'pcp.masterplan.overview',
+        permission: 'pcp.schedule.view',
       },
       {
         title: 'Cenários e Simulações',
@@ -665,10 +665,13 @@ export const PCPSidebar: React.FC = () => {
               // Identifica seleção ativa
               const isSelected =
                 item.href === '/pcp/sequenciamento/montagem-semanal'
-                  ? location.pathname.includes('montagem-semanal') ||
-                    location.pathname.includes('programacao-semanal')
-                  : location.pathname === item.href ||
-                    (item.href.includes('?') && location.pathname + location.search === item.href)
+                  ? (location.pathname.includes('montagem-semanal') ||
+                      location.pathname.includes('programacao-semanal')) &&
+                    !location.pathname.includes('programacao-mensal')
+                  : item.href === '/pcp/sequenciamento/programacao-mensal'
+                    ? location.pathname.includes('programacao-mensal')
+                    : location.pathname === item.href ||
+                      (item.href.includes('?') && location.pathname + location.search === item.href)
 
               const navLink = (
                 <Link

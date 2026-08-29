@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { useLocation } from 'react-router-dom'
 import { useToast } from '@/hooks/use-toast'
 import { useControlTower } from '@/contexts/ControlTowerContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -86,6 +87,13 @@ import { CreateScenarioModal } from '@/components/weekly-schedule/CreateScenario
 import { VersionHistoryModal } from '@/components/weekly-schedule/VersionHistoryModal'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
 import { PlannedVsRealizedView } from '@/components/weekly-schedule/PlannedVsRealizedView'
+import { MonthlyKpiStrip } from '@/components/weekly-schedule/MonthlyKpiStrip'
+import { MonthlyScheduleGrid } from '@/components/weekly-schedule/MonthlyScheduleGrid'
+import { MonthlyDayDetailPanel } from '@/components/weekly-schedule/MonthlyDayDetailPanel'
+import { MonthlyBottomOperationalPanels } from '@/components/weekly-schedule/MonthlyBottomOperationalPanels'
+import { MonthlyAiAnalysisModal } from '@/components/weekly-schedule/MonthlyAiAnalysisModal'
+import { MonthlyScheduleEngine, MONTH_WEEKS_2026_AUG } from '@/services/monthly-schedule-engine'
+import { MonthlyDayCellData, MonthlyAwaitingObsItem } from '@/types/monthly-schedule'
 import {
   ChevronLeft,
   ChevronRight,
@@ -99,6 +107,7 @@ import {
 export const WeeklyScheduleOperationalPage: React.FC = () => {
   const { toast } = useToast()
   const auth = useAuth()
+  const location = useLocation()
 
   // Estados de Filtro de Cabeçalho (Empresa, Centro, Linha, Ano, Semana)
   const [companyCode, setCompanyCode] = useState<string>('CIAFAL')
@@ -123,8 +132,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     useState<WeeklyScheduleWorkflowState>('DRAFT')
   const [currentVersion, setCurrentVersion] = useState<number>(1)
 
-  // Modo de visualização da grade operacional: "Dia | Semana | Linha do Tempo" (Padrão: Semana)
-  const [scheduleViewType, setScheduleViewType] = useState<'DIA' | 'SEMANA' | 'TIMELINE'>('SEMANA')
+  // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo" (Padrão: Semana, a menos que acesse via rota mensal)
+  const isInitialMonthly = location.pathname.includes('programacao-mensal')
+  const [scheduleViewType, setScheduleViewType] = useState<'SEMANA' | 'MES' | 'TIMELINE'>(
+    isInitialMonthly ? 'MES' : 'SEMANA',
+  )
+  const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
+  const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
   const [gridFormat, setGridFormat] = useState<'OPERATIONAL_TIMELINE' | 'TABULAR'>(
     'OPERATIONAL_TIMELINE',
   )
@@ -529,6 +543,48 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const indicators: WeeklyIndicators = calculationResult.indicators
   const summary: WeeklyScheduleSummary = calculationResult.summary
   const validations: ValidationResult[] = calculationResult.validations
+
+  // -------------------------------------------------------------
+  // VISÃO MENSAL (ETAPA 5) — Mesma Base de Dados, Mesmos Registros
+  // -------------------------------------------------------------
+  const monthlyWeeksGrid = useMemo(() => {
+    return MonthlyScheduleEngine.buildMonthlyGrid(
+      calculatedItems,
+      selectedLineCode,
+      selectedWeekNumber,
+      selectedYear,
+    )
+  }, [calculatedItems, selectedLineCode, selectedWeekNumber, selectedYear])
+
+  const monthlyKpis = useMemo(() => {
+    return MonthlyScheduleEngine.getMonthlyKpis(monthlyWeeksGrid, calculatedItems)
+  }, [monthlyWeeksGrid, calculatedItems])
+
+  const monthlyRawMaterials = useMemo(() => {
+    return MonthlyScheduleEngine.getMonthlyRawMaterials()
+  }, [])
+
+  const monthlyBacklog = useMemo(() => {
+    return MonthlyScheduleEngine.getMonthlyBacklogSummary()
+  }, [])
+
+  const monthlyAwaitingObs = useMemo(() => {
+    return MonthlyScheduleEngine.getMonthlyAwaitingObs(calculatedItems)
+  }, [calculatedItems])
+
+  const monthlyAiReport = useMemo(() => {
+    return MonthlyScheduleEngine.generateMonthlyAiAnalysis(monthlyWeeksGrid, monthlyKpis)
+  }, [monthlyWeeksGrid, monthlyKpis])
+
+  // Dia atualmente selecionado na visão mensal
+  const selectedMonthlyDay = useMemo(() => {
+    for (const w of monthlyWeeksGrid) {
+      const found = w.days.find((d) => d.dateIso === selectedMonthDateIso)
+      if (found) return found
+    }
+    // Fallback: primeiro dia da primeira semana
+    return monthlyWeeksGrid[0]?.days[0] || null
+  }, [monthlyWeeksGrid, selectedMonthDateIso])
 
   // Adiciona Produto com Verificação de HARD BLOCK
   const handleAddProduct = (newItemData: Partial<WeeklyScheduleItem>) => {
@@ -986,194 +1042,296 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   return (
     <div className="space-y-2.5 pb-8 text-slate-900">
-      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL (REQUISITO 2 & 3) */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-        <div>
-          {/* Linha 1: Título Oficial + Selo RASCUNHO */}
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-              PROGRAMAÇÃO SEMANAL - MONTAGEM
-            </h1>
-            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
-              RASCUNHO
-            </Badge>
-            <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
+      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL (SEMANAL OU MENSAL) */}
+      {scheduleViewType === 'MES' ? (
+        /* CABEÇALHO MENSAL (REQUISITO 2) */
+        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div>
+            {/* Linha 1: Título Oficial Mensal + Selo EM PROGRAMAÇÃO */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+                PROGRAMAÇÃO MENSAL - AGOSTO/2026
+              </h1>
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-black uppercase px-2 py-0.5">
+                EM PROGRAMAÇÃO
+              </Badge>
+              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
+            </div>
+
+            {/* Linha 2 Compacta na mesma linguagem da semanal */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Mês:</strong> Agosto/2026 (S35 a S39)
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Cenário:</strong> Principal
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Status:</strong> EM PROGRAMAÇÃO
+              </span>
+            </div>
           </div>
 
-          {/* Linha 2 Compacta em uma única linha */}
-          <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
-            <span className="flex items-center gap-1">
-              <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="flex items-center gap-1">
-              <strong className="text-slate-800">Semana:</strong> 35 (24/08 a 30/08/2026)
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="flex items-center gap-1">
-              <strong className="text-slate-800">Versão:</strong> 03
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="flex items-center gap-1">
-              <strong className="text-slate-800">Cenário:</strong> Principal
-            </span>
-          </div>
-        </div>
-
-        {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRunSimulation}
-            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-          >
-            <Play className="w-3 h-3 mr-1 text-slate-600" />
-            Simular
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAiAnalysis}
-            className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-            Analisar com IA
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveDraft}
-            disabled={isSaving}
-            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-          >
-            <Save className="w-3 h-3 mr-1 text-slate-500" />
-            {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => openTransitionModal('VALIDADO', 'Validado')}
-            className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
-          >
-            <Send className="w-3 h-3 mr-1" />
-            Enviar p/ Revisão
-          </Button>
-        </div>
-      </div>
-
-      {/* 2. LINHA DE KPIs (REQUISITO 4) — Faixa Única de 8 Indicadores */}
-      <OperationalKpiStrip indicators={indicators} lineCode={selectedLineCode} />
-
-      {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO (REQUISITO 5) */}
-      <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
-        {/* Lado Esquerdo: + Adicionar Produto, Remover, Duplicar, Dividir Qtd. */}
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            onClick={() => {
-              setTargetDay('SEG')
-              setTargetShiftCode('T1_L1')
-              setIsAddModalOpen(true)
-            }}
-            className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white flex items-center gap-1 shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5" /> Adicionar Produto
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!selectedScheduleItem}
-            onClick={() => {
-              if (selectedScheduleItem) {
-                const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                if (idx !== -1) handleRemove(idx)
-              }
-            }}
-            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-          >
-            <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
-            Remover
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!selectedScheduleItem}
-            onClick={() => {
-              if (selectedScheduleItem) {
-                const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                if (idx !== -1) handleDuplicate(idx)
-              }
-            }}
-            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-          >
-            <Copy className="w-3 h-3 mr-1 text-slate-500" />
-            Duplicar
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!selectedScheduleItem}
-            onClick={() => {
-              if (selectedScheduleItem) {
+          {/* AÇÕES NA MESMA LINHA (REQUISITO 2): Mês Anterior, Mês Seguinte, Analisar com IA, Comparar Cenários */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
                 toast({
-                  title: 'Dividir Quantidade',
-                  description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
+                  title: 'Navegação Mensal',
+                  description: 'Exibindo programação do mês anterior (Julho/2026).',
                 })
-              }
-            }}
-            className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-          >
-            <Scissors className="w-3 h-3 mr-1 text-slate-500" />
-            Dividir Qtd.
-          </Button>
-        </div>
-
-        {/* Centro / Direita: Dia Anterior, Dia Seguinte e Seletor "Dia | Semana | Linha do Tempo" */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const prev = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
-                setSelectedWeekNumber(prev)
               }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
             >
-              <ChevronLeft className="w-3 h-3 mr-0.5" /> Dia Anterior
+              <ChevronLeft className="w-3 h-3 mr-0.5" /> Mês Anterior
             </Button>
+
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                const next = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
-                setSelectedWeekNumber(next)
+                toast({
+                  title: 'Navegação Mensal',
+                  description: 'Exibindo programação do mês seguinte (Setembro/2026).',
+                })
               }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
             >
-              Dia Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+              Mês Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMonthlyAiModalOpen(true)}
+              className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+              Analisar com IA
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsComparisonModalOpen(true)}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              Comparar Cenários
             </Button>
           </div>
+        </div>
+      ) : (
+        /* CABEÇALHO SEMANAL (BASELINE INTACTO) */
+        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div>
+            {/* Linha 1: Título Oficial + Selo RASCUNHO */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+                PROGRAMAÇÃO SEMANAL - MONTAGEM
+              </h1>
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
+                RASCUNHO
+              </Badge>
+              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
+            </div>
 
-          {/* Seletor "Dia | Semana | Linha do Tempo" (Semana Selecionado) */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setScheduleViewType('DIA')}
-              className={`px-2.5 py-1 rounded transition-all ${
-                scheduleViewType === 'DIA'
-                  ? 'bg-white text-[#004C97] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+            {/* Linha 2 Compacta em uma única linha */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Semana:</strong> {selectedWeekNumber} (
+                {weekRange.display})
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Versão:</strong>{' '}
+                {String(currentVersion).padStart(2, '0')}
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Cenário:</strong> Principal
+              </span>
+            </div>
+          </div>
+
+          {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunSimulation}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
             >
-              Dia
-            </button>
+              <Play className="w-3 h-3 mr-1 text-slate-600" />
+              Simular
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAiAnalysis}
+              className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+              Analisar com IA
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Save className="w-3 h-3 mr-1 text-slate-500" />
+              {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => openTransitionModal('VALIDADO', 'Validado')}
+              className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
+            >
+              <Send className="w-3 h-3 mr-1" />
+              Enviar p/ Revisão
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. LINHA DE KPIs (SEMANAL OU MENSAL) */}
+      {scheduleViewType === 'MES' ? (
+        /* KPIs MENSAIS em UMA ÚNICA faixa horizontal compacta (REQUISITO 3) */
+        <MonthlyKpiStrip kpis={monthlyKpis} lineCode={selectedLineCode} />
+      ) : (
+        /* KPIs SEMANAIS (Faixa Única de 8 Indicadores) */
+        <OperationalKpiStrip indicators={indicators} lineCode={selectedLineCode} />
+      )}
+
+      {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO & SELETOR DE VISÃO (REQUISITO 1) */}
+      <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Lado Esquerdo: Ações específicas da visão */}
+        {scheduleViewType === 'MES' ? (
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800 text-xs">Grade Mensal Consolidada:</span>
+            <span className="text-[11px] text-slate-500 font-mono">
+              Agosto/2026 (Linhas S35 a S39) • 5 Semanas
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-[11px] text-slate-500">
+              Clique em qualquer dia para inspecionar produtos ou abrir a programação semanal.
+            </span>
+          </div>
+        ) : (
+          /* Lado Esquerdo Semanal: + Adicionar Produto, Remover, Duplicar, Dividir Qtd. */
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => {
+                setTargetDay('SEG')
+                setTargetShiftCode('T1_L1')
+                setIsAddModalOpen(true)
+              }}
+              className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white flex items-center gap-1 shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" /> Adicionar Produto
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                  if (idx !== -1) handleRemove(idx)
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
+              Remover
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                  if (idx !== -1) handleDuplicate(idx)
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Copy className="w-3 h-3 mr-1 text-slate-500" />
+              Duplicar
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!selectedScheduleItem}
+              onClick={() => {
+                if (selectedScheduleItem) {
+                  toast({
+                    title: 'Dividir Quantidade',
+                    description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
+                  })
+                }
+              }}
+              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <Scissors className="w-3 h-3 mr-1 text-slate-500" />
+              Dividir Qtd.
+            </Button>
+          </div>
+        )}
+
+        {/* Centro / Direita: Navegação e Seletor Permanente "Semana | Mês | Linha do Tempo" (REQUISITO 1) */}
+        <div className="flex items-center gap-2">
+          {scheduleViewType !== 'MES' && (
+            <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const prev = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
+                  setSelectedWeekNumber(prev)
+                }}
+                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                <ChevronLeft className="w-3 h-3 mr-0.5" /> Dia Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const next = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
+                  setSelectedWeekNumber(next)
+                }}
+                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                Dia Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+              </Button>
+            </div>
+          )}
+
+          {/* SELETOR DE VISÃO PERMANENTE: "Semana | Mês | Linha do Tempo" (REQUISITO 1) */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs font-bold">
             <button
               type="button"
               onClick={() => setScheduleViewType('SEMANA')}
@@ -1187,10 +1345,21 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </button>
             <button
               type="button"
+              onClick={() => setScheduleViewType('MES')}
+              className={`px-2.5 py-1 rounded transition-all ${
+                scheduleViewType === 'MES'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Mês
+            </button>
+            <button
+              type="button"
               onClick={() => setScheduleViewType('TIMELINE')}
               className={`px-2.5 py-1 rounded transition-all ${
                 scheduleViewType === 'TIMELINE'
-                  ? 'bg-white text-[#004C97] shadow-xs'
+                  ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1198,107 +1367,188 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Alternador de Formato (Timeline Proporcional vs Tabela Clássica) */}
-          <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-            <button
-              type="button"
-              onClick={() => setGridFormat('OPERATIONAL_TIMELINE')}
-              title="Grade Operacional com Timeline Proporcional"
-              className={`p-1 rounded ${
-                gridFormat === 'OPERATIONAL_TIMELINE'
-                  ? 'bg-[#004C97] text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setGridFormat('TABULAR')}
-              title="Visualização em Lista/Tabela Tabular"
-              className={`p-1 rounded ${
-                gridFormat === 'TABULAR'
-                  ? 'bg-[#004C97] text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Table className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. ÁREA CENTRAL EM 2 COLUNAS: GRADE OPERACIONAL + PAINEL DIREITO FIXO (SEM MODAL) */}
-      <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
-        {/* Coluna Central Dominante: GRADE OPERACIONAL */}
-        <div className="flex-1 min-w-0 w-full space-y-2.5">
-          {gridFormat === 'OPERATIONAL_TIMELINE' ? (
-            <OperationalTimelineGrid
-              items={calculatedItems}
-              lineOverview={currentLineOverview}
-              selectedItemId={selectedScheduleItem?.id}
-              onSelectItem={(item) => setSelectedScheduleItem(item)}
-              onMoveItem={(from, to) => {
-                if (from < to) handleMoveDown(from)
-                else handleMoveUp(from)
-              }}
-              onDuplicateItem={handleDuplicate}
-              onRemoveItem={handleRemove}
-              onAddItem={(day, shift) => {
-                setTargetDay(day)
-                setTargetShiftCode(shift)
-                setIsAddModalOpen(true)
-              }}
-              onOpenAwaitingModal={handleOpenAwaitingObsModal}
-            />
-          ) : (
-            <WeeklyScheduleGrid
-              items={calculatedItems}
-              lineOverview={currentLineOverview}
-              selectedItemId={selectedScheduleItem?.id}
-              onSelectItem={(item) => setSelectedScheduleItem(item)}
-              onMoveUp={handleMoveUp}
-              onMoveDown={handleMoveDown}
-              onDuplicate={handleDuplicate}
-              onRemove={handleRemove}
-              onOpenAddModal={(d, s) => {
-                setTargetDay(d)
-                setTargetShiftCode(s)
-                setIsAddModalOpen(true)
-              }}
-              onTransferDayShift={handleTransferDayShift}
-              onAddStop={handleAddStop}
-              onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
-              filterOption={gridFilter}
-              onFilterChange={setGridFilter}
-            />
+          {/* Alternador de Formato no modo Semanal */}
+          {scheduleViewType !== 'MES' && (
+            <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+              <button
+                type="button"
+                onClick={() => setGridFormat('OPERATIONAL_TIMELINE')}
+                title="Grade Operacional com Timeline Proporcional"
+                className={`p-1 rounded ${
+                  gridFormat === 'OPERATIONAL_TIMELINE'
+                    ? 'bg-[#004C97] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridFormat('TABULAR')}
+                title="Visualização em Lista/Tabela Tabular"
+                className={`p-1 rounded ${
+                  gridFormat === 'TABULAR'
+                    ? 'bg-[#004C97] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Table className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Coluna 3: PAINEL DIREITO FIXO (REQUISITO 15) SEM MODAL */}
-        <SelectedItemDetailPanel
-          item={selectedScheduleItem}
-          sequenceIndex={selectedIndex !== -1 ? selectedIndex + 1 : 2}
-          previousItem={previousItem}
-          nextItem={nextItem}
-          sequenceScore={sequenceScore}
-          onAiAnalyze={handleAiAnalysis}
-        />
       </div>
 
-      {/* 5. PAINÉIS INFERIORES — 4 LADO A LADO (REQUISITO 17) */}
-      <BottomOperationalPanels
-        summary={summary}
-        indicators={indicators}
-        lineCode={selectedLineCode}
-        onViewAllAlerts={() => setIsSimulationModalOpen(true)}
-        onViewMpAnalysis={() => {
-          window.location.href = '/pcp/estoques?tab=cobertura'
-        }}
-        onViewCarteira={() => {
-          window.location.href = '/pcp/sequenciamento/carteira'
-        }}
-      />
+      {/* 4. ÁREA CENTRAL EM 2 COLUNAS: GRADE OPERACIONAL + PAINEL DIREITO */}
+      {scheduleViewType === 'MES' ? (
+        /* VISÃO MENSAL: GRADE OPERACIONAL S35-S39 + PAINEL DO DIA CLICADO (REQUISITOS 4 & 5) */
+        <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
+          {/* Coluna Central: GRADE MENSAL PRINCIPAL */}
+          <div className="flex-1 min-w-0 w-full space-y-2.5">
+            <MonthlyScheduleGrid
+              weeks={monthlyWeeksGrid}
+              selectedDateIso={selectedMonthDateIso}
+              onSelectDay={(day) => {
+                setSelectedMonthDateIso(day.dateIso)
+                if (day.items && day.items.length > 0) {
+                  setSelectedScheduleItem(day.items[0])
+                }
+              }}
+              onSelectWeek={(weekNum) => {
+                setSelectedWeekNumber(weekNum)
+                setScheduleViewType('SEMANA')
+                toast({
+                  title: `Navegando para Semana ${weekNum}`,
+                  description: `Abrindo grade operacional detalhada da Semana ${weekNum}.`,
+                })
+              }}
+            />
+          </div>
+
+          {/* Coluna Direita: PAINEL DO DIA CLICADO (REQUISITO 5) */}
+          <MonthlyDayDetailPanel
+            day={selectedMonthlyDay}
+            onOpenWeeklySchedule={(weekNum, dateStr, dayCode) => {
+              setSelectedWeekNumber(weekNum)
+              setScheduleViewType('SEMANA')
+              toast({
+                title: 'Programação Semanal Aberta',
+                description: `Focalizando ${dayCode} (${dateStr}) na Semana ${weekNum}.`,
+              })
+            }}
+            onSelectProductItem={(item) => {
+              setSelectedScheduleItem(item)
+              if (item.week_number) setSelectedWeekNumber(item.week_number)
+              setScheduleViewType('SEMANA')
+            }}
+          />
+        </div>
+      ) : (
+        /* VISÃO SEMANAL: GRADE OPERACIONAL + PAINEL DIREITO FIXO (BASELINE OFICIAL) */
+        <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
+          {/* Coluna Central Dominante: GRADE OPERACIONAL */}
+          <div className="flex-1 min-w-0 w-full space-y-2.5">
+            {gridFormat === 'OPERATIONAL_TIMELINE' ? (
+              <OperationalTimelineGrid
+                items={calculatedItems}
+                lineOverview={currentLineOverview}
+                selectedItemId={selectedScheduleItem?.id}
+                onSelectItem={(item) => setSelectedScheduleItem(item)}
+                onMoveItem={(from, to) => {
+                  if (from < to) handleMoveDown(from)
+                  else handleMoveUp(from)
+                }}
+                onDuplicateItem={handleDuplicate}
+                onRemoveItem={handleRemove}
+                onAddItem={(day, shift) => {
+                  setTargetDay(day)
+                  setTargetShiftCode(shift)
+                  setIsAddModalOpen(true)
+                }}
+                onOpenAwaitingModal={handleOpenAwaitingObsModal}
+              />
+            ) : (
+              <WeeklyScheduleGrid
+                items={calculatedItems}
+                lineOverview={currentLineOverview}
+                selectedItemId={selectedScheduleItem?.id}
+                onSelectItem={(item) => setSelectedScheduleItem(item)}
+                onMoveUp={handleMoveUp}
+                onMoveDown={handleMoveDown}
+                onDuplicate={handleDuplicate}
+                onRemove={handleRemove}
+                onOpenAddModal={(d, s) => {
+                  setTargetDay(d)
+                  setTargetShiftCode(s)
+                  setIsAddModalOpen(true)
+                }}
+                onTransferDayShift={handleTransferDayShift}
+                onAddStop={handleAddStop}
+                onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
+                filterOption={gridFilter}
+                onFilterChange={setGridFilter}
+              />
+            )}
+          </div>
+
+          {/* Coluna 3: PAINEL DIREITO FIXO (REQUISITO 15) SEM MODAL */}
+          <SelectedItemDetailPanel
+            item={selectedScheduleItem}
+            sequenceIndex={selectedIndex !== -1 ? selectedIndex + 1 : 2}
+            previousItem={previousItem}
+            nextItem={nextItem}
+            sequenceScore={sequenceScore}
+            onAiAnalyze={handleAiAnalysis}
+          />
+        </div>
+      )}
+
+      {/* 5. PAINÉIS INFERIORES — 4 LADO A LADO (SEMANAL OU MENSAL) */}
+      {scheduleViewType === 'MES' ? (
+        /* CONSOLIDADOS MENSAIS: Desempenho Semanal / MP & Tarugos com 1ª Data de Risco / Carteira / Aguardando Obs (REQUISITOS 6, 7, 8, 9) */
+        <MonthlyBottomOperationalPanels
+          weeks={monthlyWeeksGrid}
+          rawMaterials={monthlyRawMaterials}
+          backlog={monthlyBacklog}
+          awaitingObs={monthlyAwaitingObs}
+          lineCode={selectedLineCode}
+          onSelectWeek={(weekNum) => {
+            setSelectedWeekNumber(weekNum)
+            setScheduleViewType('SEMANA')
+          }}
+          onNavigateToObsItem={(obs) => {
+            setSelectedWeekNumber(obs.weekNumber)
+            setScheduleViewType('SEMANA')
+            const matchedItem = calculatedItems.find(
+              (it) => it.id === obs.scheduleItemId || it.material_code === obs.materialCode,
+            )
+            if (matchedItem) {
+              setSelectedScheduleItem(matchedItem)
+              setIsAwaitingObsModalOpen(true)
+            }
+          }}
+          onViewMpAnalysis={() => {
+            window.location.href = '/pcp/estoques?tab=cobertura'
+          }}
+          onViewCarteira={() => {
+            window.location.href = '/pcp/sequenciamento/carteira'
+          }}
+        />
+      ) : (
+        /* CONSOLIDADOS SEMANAIS (BASELINE OFICIAL) */
+        <BottomOperationalPanels
+          summary={summary}
+          indicators={indicators}
+          lineCode={selectedLineCode}
+          onViewAllAlerts={() => setIsSimulationModalOpen(true)}
+          onViewMpAnalysis={() => {
+            window.location.href = '/pcp/estoques?tab=cobertura'
+          }}
+          onViewCarteira={() => {
+            window.location.href = '/pcp/sequenciamento/carteira'
+          }}
+        />
+      )}
 
       {/* 6. RODAPÉ OPERACIONAL (REQUISITO 18) */}
       <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -1420,6 +1670,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         item={selectedScheduleItem}
         onSave={handleSaveAwaitingObservations}
         onClearAwaiting={handleClearAwaitingObservations}
+      />
+
+      {/* 14. MODAL DE ANÁLISE IA MENSAL (ETAPA 5 - REQUISITO 10) */}
+      <MonthlyAiAnalysisModal
+        isOpen={isMonthlyAiModalOpen}
+        onClose={() => setIsMonthlyAiModalOpen(false)}
+        report={monthlyAiReport}
+        lineCode={selectedLineCode}
       />
     </div>
   )

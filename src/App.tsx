@@ -173,6 +173,22 @@ export const App: React.FC = () => {
                     </PermissionGuard>
                   }
                 />
+                <Route
+                  path="/pcp/programacao-mensal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/programacao-mensal"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
 
                 {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
                 <Route
@@ -230,6 +246,14 @@ export const App: React.FC = () => {
                   <Route index element={<CentralSequenciamentoLandingPage />} />
                   <Route
                     path="montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="programacao-mensal"
                     element={
                       <PermissionGuard permission="pcp.schedule.view">
                         <WeeklyScheduleOperationalPage />
