@@ -5,6 +5,10 @@ import {
   OfficialMaterialOption,
   SapPurchaseOrder,
   UpstreamProductionPlan,
+  WeeklyScheduleWorkflowState,
+  WeeklyScheduleVersionRecord,
+  WeeklyScheduleScenario,
+  WeeklySimulationReport,
 } from '@/types/weekly-schedule'
 import { lineMasterService } from '@/services/line-master'
 import { LineOverviewData } from '@/types/line-master'
@@ -521,11 +525,13 @@ export const weeklyScheduleService = {
   },
 
   /**
-   * Salva os itens da programação semanal (Rascunho)
+   * Salva os itens da programação semanal (com status explícito do workflow)
    */
-  async saveWeeklyScheduleDraft(
+  async saveWeeklyScheduleItems(
     items: WeeklyScheduleItem[],
     filter: WeeklyHeaderFilter,
+    statusOverride?: WeeklyScheduleWorkflowState,
+    versionOverride?: number,
   ): Promise<boolean> {
     const user = pb.authStore.record
     const scheduleCode = `WS-${filter.lineCode}-${filter.year}-W${String(filter.weekNumber).padStart(2, '0')}`
@@ -534,6 +540,19 @@ export const weeklyScheduleService = {
       // 1. Salva ou atualiza cada item na coleção weekly_schedules
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
+        const targetStatus = statusOverride || item.status || 'DRAFT'
+        const targetVersion = versionOverride ?? (item.version || 1)
+        const lifecycleStage =
+          targetStatus === 'PUBLICADO' || targetStatus === 'EXECUTANDO'
+            ? 'EXECUTANDO'
+            : targetStatus === 'REALIZADO'
+              ? 'REALIZADO'
+              : targetStatus === 'ANALISADO'
+                ? 'ANALISADO'
+                : targetStatus === 'APROVADO_PCP' || targetStatus === 'ENVIADO_GESTOR_LINHA'
+                  ? 'APROVADO'
+                  : 'PROGRAMADO'
+
         const payload = {
           schedule_code: scheduleCode,
           company_code: filter.companyCode,
@@ -568,8 +587,15 @@ export const weeklyScheduleService = {
           stop_duration_minutes: item.stop_duration_minutes,
           start_datetime: item.start_datetime,
           end_datetime: item.end_datetime,
-          status: 'DRAFT',
-          version: item.version || 1,
+          status: targetStatus,
+          version: targetVersion,
+          scenario_id: item.scenario_id || '',
+          scenario_name: item.scenario_name || '',
+          realized_quantity_tons: item.realized_quantity_tons ?? 0,
+          realized_hours: item.realized_hours ?? 0,
+          realized_productivity_th: item.realized_productivity_th ?? 0,
+          deviation_notes: item.deviation_notes || '',
+          lifecycle_stage: lifecycleStage,
           pcp_notes: item.pcp_notes,
           raw_material_req_tons: item.raw_material_req_tons,
           raw_material_type: item.raw_material_type,
@@ -586,13 +612,16 @@ export const weeklyScheduleService = {
           const created = await pb.collection('weekly_schedules').create(payload)
           item.id = created.id
         }
+        item.status = targetStatus
+        item.version = targetVersion
+        item.lifecycle_stage = lifecycleStage
       }
 
       // 2. Registra na trilha de auditoria oficial
       try {
         await pb.collection('pcp_audit_logs').create({
           event_type: 'SCHEDULE_ACTION',
-          action: 'WEEKLY_SCHEDULE_DRAFT_SAVED',
+          action: `WEEKLY_SCHEDULE_${statusOverride || 'SAVED'}`,
           resource: 'weekly_schedules',
           resource_id: scheduleCode,
           scope: 'PRODUCTION_LINE',
@@ -601,6 +630,8 @@ export const weeklyScheduleService = {
             lineCode: filter.lineCode,
             year: filter.year,
             weekNumber: filter.weekNumber,
+            status: statusOverride || 'DRAFT',
+            version: versionOverride || 1,
             itemsCount: items.length,
             totalTons: items.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0),
           },
@@ -611,8 +642,236 @@ export const weeklyScheduleService = {
 
       return true
     } catch (err) {
-      console.error('Erro ao salvar rascunho da programação semanal:', err)
+      console.error('Erro ao salvar programação semanal:', err)
       throw err
+    }
+  },
+
+  /**
+   * Salva os itens da programação semanal (Rascunho)
+   */
+  async saveWeeklyScheduleDraft(
+    items: WeeklyScheduleItem[],
+    filter: WeeklyHeaderFilter,
+  ): Promise<boolean> {
+    return this.saveWeeklyScheduleItems(items, filter, 'DRAFT')
+  },
+
+  /**
+   * Transiciona o workflow da programação semanal de forma auditada
+   */
+  async transitionWorkflowState(
+    currentItems: WeeklyScheduleItem[],
+    filter: WeeklyHeaderFilter,
+    targetState: WeeklyScheduleWorkflowState,
+    reason?: string,
+  ): Promise<{ success: boolean; newVersion: number }> {
+    const user = pb.authStore.record
+    const scheduleCode = `WS-${filter.lineCode}-${filter.year}-W${String(filter.weekNumber).padStart(2, '0')}`
+    const currentVersion = currentItems[0]?.version || 1
+    let newVersion = currentVersion
+
+    // Se já estava publicado e sofreu alteração pós-publicação, incrementa a versão
+    const isPostPublishedChange =
+      currentItems.some((i) => i.status === 'PUBLICADO') && targetState === 'PUBLICADO'
+
+    if (isPostPublishedChange) {
+      newVersion = currentVersion + 1
+      // Grava versão no histórico de auditoria
+      await this.recordScheduleVersion({
+        schedule_code: scheduleCode,
+        line_code: filter.lineCode,
+        year: filter.year,
+        week_number: filter.weekNumber,
+        version_number: newVersion,
+        user_name: user?.name || user?.email || 'Programador PCP',
+        user_email: user?.email,
+        change_reason: reason || 'Revisão operacional pós-publicação.',
+        impact_assessment: `Versão revisada para ${newVersion}.0 com atualização de cronograma e balanceamento de MP.`,
+        previous_schedule_data: currentItems,
+        new_schedule_data: currentItems,
+      })
+    }
+
+    await this.saveWeeklyScheduleItems(currentItems, filter, targetState, newVersion)
+
+    // Auditoria de transição de estado
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'WORKFLOW_TRANSITION',
+        action: `TRANSITION_TO_${targetState}`,
+        resource: 'weekly_schedules',
+        resource_id: scheduleCode,
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          lineCode: filter.lineCode,
+          year: filter.year,
+          weekNumber: filter.weekNumber,
+          previousState: currentItems[0]?.status || 'DRAFT',
+          newState: targetState,
+          version: newVersion,
+          reason: reason || 'Transição de fluxo autorizada pelo usuário.',
+          user: user?.name || user?.email,
+        },
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    return { success: true, newVersion }
+  },
+
+  /**
+   * Grava versão formal pós-publicação
+   */
+  async recordScheduleVersion(versionData: WeeklyScheduleVersionRecord): Promise<void> {
+    try {
+      await pb.collection('weekly_schedule_versions').create({
+        schedule_code: versionData.schedule_code,
+        line_code: versionData.line_code,
+        year: versionData.year,
+        week_number: versionData.week_number,
+        version_number: versionData.version_number,
+        user_name: versionData.user_name,
+        user_email: versionData.user_email || '',
+        change_reason: versionData.change_reason,
+        impact_assessment: versionData.impact_assessment,
+        previous_schedule_data: versionData.previous_schedule_data,
+        new_schedule_data: versionData.new_schedule_data,
+        diff_summary: versionData.diff_summary || {},
+      })
+    } catch (err) {
+      console.warn('Falha ao gravar versão de programação:', err)
+    }
+  },
+
+  /**
+   * Busca histórico de versões de uma programação
+   */
+  async getScheduleVersions(scheduleCode: string): Promise<WeeklyScheduleVersionRecord[]> {
+    try {
+      const records = await pb.collection('weekly_schedule_versions').getFullList({
+        filter: `schedule_code = '${scheduleCode}'`,
+        sort: '-version_number',
+      })
+      return records.map((r: any) => ({
+        id: r.id,
+        schedule_code: r.schedule_code,
+        line_code: r.line_code,
+        year: r.year,
+        week_number: r.week_number,
+        version_number: r.version_number,
+        user_id: r.user_id,
+        user_name: r.user_name,
+        user_email: r.user_email,
+        change_reason: r.change_reason,
+        impact_assessment: r.impact_assessment,
+        previous_schedule_data: r.previous_schedule_data || [],
+        new_schedule_data: r.new_schedule_data || [],
+        diff_summary: r.diff_summary,
+        created: r.created,
+      }))
+    } catch (err) {
+      console.warn('Erro ao obter histórico de versões:', err)
+      return []
+    }
+  },
+
+  /**
+   * Salva cenário A/B/C
+   */
+  async saveScenario(scenario: WeeklyScheduleScenario): Promise<boolean> {
+    try {
+      const existing = await pb.collection('weekly_schedule_scenarios').getFullList({
+        filter: `schedule_code = '${scenario.schedule_code}' && scenario_code = '${scenario.scenario_code}'`,
+      })
+
+      const payload = {
+        scenario_code: scenario.scenario_code,
+        scenario_name: scenario.scenario_name,
+        description: scenario.description || '',
+        schedule_code: scenario.schedule_code,
+        line_code: scenario.line_code,
+        year: scenario.year,
+        week_number: scenario.week_number,
+        is_active: scenario.is_active,
+        items_snapshot: scenario.items_snapshot,
+        metrics_snapshot: scenario.metrics_snapshot,
+        ai_recommendation: scenario.ai_recommendation,
+      }
+
+      if (existing.length > 0) {
+        await pb.collection('weekly_schedule_scenarios').update(existing[0].id, payload)
+      } else {
+        await pb.collection('weekly_schedule_scenarios').create(payload)
+      }
+      return true
+    } catch (err) {
+      console.warn('Erro ao salvar cenário:', err)
+      return false
+    }
+  },
+
+  /**
+   * Lista os cenários A/B/C salvos para a programação
+   */
+  async loadScenarios(scheduleCode: string): Promise<WeeklyScheduleScenario[]> {
+    try {
+      const records = await pb.collection('weekly_schedule_scenarios').getFullList({
+        filter: `schedule_code = '${scheduleCode}'`,
+        sort: 'scenario_code',
+      })
+      return records.map((r: any) => ({
+        id: r.id,
+        scenario_code: r.scenario_code,
+        scenario_name: r.scenario_name,
+        description: r.description,
+        schedule_code: r.schedule_code,
+        line_code: r.line_code,
+        year: r.year,
+        week_number: r.week_number,
+        is_active: r.is_active || false,
+        items_snapshot: r.items_snapshot || [],
+        metrics_snapshot: r.metrics_snapshot || {
+          productionTons: 0,
+          utilizationPct: 0,
+          setupHours: 0,
+          switchesCount: 0,
+          rawMaterialRiskCount: 0,
+          ordersMetCount: 0,
+          ordersTotalCount: 0,
+          sequenceEfficiencyPct: 0,
+        },
+        ai_recommendation: r.ai_recommendation,
+        created: r.created,
+      }))
+    } catch (err) {
+      console.warn('Erro ao carregar cenários:', err)
+      return []
+    }
+  },
+
+  /**
+   * Auditoria de tentativa indevida de IA alterar ou aprovar diretamente
+   */
+  async logAiUnauthorizedMutationAttempt(actionAttempted: string, details: string): Promise<void> {
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'UNAUTHORIZED_ACTION_ATTEMPT',
+        action: 'AI_DIRECT_MUTATION_BLOCKED',
+        resource: 'weekly_schedules',
+        scope: 'GOVERNANCE_SYSTEM',
+        outcome: 'DENY',
+        details: {
+          actionAttempted,
+          policy: 'GOVERNANCE_RULE_07: A IA NÃO pode alterar nem aprovar sozinha a programação.',
+          violation: details,
+          blockedAt: new Date().toISOString(),
+        },
+      })
+    } catch {
+      /* intentionally ignored */
     }
   },
 

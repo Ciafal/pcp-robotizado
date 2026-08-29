@@ -12,6 +12,8 @@ import {
   WeeklySummaryRawMaterial,
   RawMaterialItemCalculation,
   RawMaterialTrafficLight,
+  WeeklySimulationReport,
+  SimulationFeasibilityResult,
 } from '@/types/weekly-schedule'
 import {
   LineOverviewData,
@@ -465,6 +467,390 @@ export const WeeklyScheduleEngine = {
       deficitTons,
       probableRuptureDate,
       calculationRuleExplanation,
+    }
+  },
+
+  /**
+   * Cálculo AUTOMÁTICO da grade completa com integração total do Motor de MP
+   */
+  /**
+   * Executa a SIMULAÇÃO ABRANGENTE de programação avaliando os 13 domínios exigidos:
+   * Capacidade, Produtividade, Setups, Sequenciamento, MP, Estoque, Compras SAP,
+   * Produção Upstream, MTO, Requisitos Especiais, Conflitos entre Linhas, Carteira e Paradas.
+   */
+  simulateSchedule(
+    items: WeeklyScheduleItem[],
+    lineOverview: LineOverviewData | null,
+    headerFilter: WeeklyHeaderFilter,
+    rawMaterialContext: RawMaterialEngineContext = {},
+  ): WeeklySimulationReport {
+    const timeline = this.recalculateWeeklyTimeline(
+      items,
+      lineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    const indicators = timeline.indicators
+    const validations = timeline.validations
+    const prodItems = timeline.items.filter((i) => i.item_type === 'PRODUCTION')
+    const stopItems = timeline.items.filter((i) => i.item_type === 'SCHEDULED_STOP')
+
+    // 1. Capacidade
+    let capStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let capScore = 100
+    let capDesc = `Ocupação calculada de ${indicators.utilizationPct}% (${indicators.programmedProductiveHours + indicators.setupHours + indicators.stoppedHours}h de ${indicators.availableCapacityHours}h disponíveis).`
+    if (indicators.utilizationPct > 105) {
+      capStatus = 'FAIL'
+      capScore = 40
+      capDesc = `Sobrecarga crítica de capacidade: ${indicators.utilizationPct}% de ocupação excede em ${(indicators.utilizationPct - 100).toFixed(1)}% o limite semanal da linha.`
+    } else if (indicators.utilizationPct > 95) {
+      capStatus = 'WARN'
+      capScore = 80
+      capDesc = `Ocupação em nível de alerta (${indicators.utilizationPct}%): margem para imprevistos é de apenas ${indicators.freeHours}h.`
+    } else if (indicators.utilizationPct < 50 && prodItems.length > 0) {
+      capStatus = 'WARN'
+      capScore = 85
+      capDesc = `Subutilização da linha (${indicators.utilizationPct}%): há ${indicators.freeHours}h de capacidade ociosa.`
+    }
+
+    // 2. Produtividade
+    let prodStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let prodScore = 95
+    const lowProdItems = prodItems.filter((p) => (p.productivity_rate_th || 0) < 8)
+    let prodDesc = `Taxas de produtividade alinhadas com Ficha Mestre da linha (média ${prodItems.length > 0 ? (prodItems.reduce((s, i) => s + (i.productivity_rate_th || 0), 0) / prodItems.length).toFixed(1) : 12} t/h).`
+    if (lowProdItems.length > 0) {
+      prodStatus = 'WARN'
+      prodScore = 75
+      prodDesc = `${lowProdItems.length} produto(s) com taxa horária abaixo do padrão nominal (menor que 8 t/h).`
+    }
+
+    // 3. Setups
+    let setupStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let setupScore = 95
+    const totalSetupMin = prodItems.reduce((s, i) => s + (i.setup_duration_minutes || 0), 0)
+    let setupDesc = `Tempo total de troca e preparação: ${indicators.setupHours}h (${totalSetupMin} min), de acordo com a Matriz de Setup da Ficha Mestre.`
+    if (indicators.setupHours > 8) {
+      setupStatus = 'FAIL'
+      setupScore = 50
+      setupDesc = `Tempo excessivo de setup (${indicators.setupHours}h): fragmentação de famílias está consumindo mais de um turno de trabalho.`
+    } else if (indicators.setupHours > 4) {
+      setupStatus = 'WARN'
+      setupScore = 80
+      setupDesc = `Tempo moderado de setup (${indicators.setupHours}h): sugestão de reagrupar bitolas para encurtar trocas.`
+    }
+
+    // 4. Sequenciamento
+    let seqStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let seqScore = indicators.sequenceScore
+    let seqDesc = `Índice de aderência e suavidade de campanha: ${indicators.sequenceScore}/100.`
+    if (indicators.sequenceScore < 60) {
+      seqStatus = 'FAIL'
+      seqDesc = `Sequenciamento caótico (${indicators.sequenceScore}/100): trocas bruscas de largura/espessura contraindicadas pelo processo.`
+    } else if (indicators.sequenceScore < 80) {
+      seqStatus = 'WARN'
+      seqDesc = `Sequenciamento aceitável (${indicators.sequenceScore}/100), porém com oportunidades de otimização de matrizes.`
+    }
+
+    // 5. Matéria-Prima (MP)
+    let mpStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let mpScore = 100
+    let mpDesc = 'Demanda líquida de MP coberta com semáforo 100% verde.'
+    if (indicators.rawMaterialRedCount && indicators.rawMaterialRedCount > 0) {
+      mpStatus = 'FAIL'
+      mpScore = 30
+      mpDesc = `Ruptura crítica de MP: ${indicators.rawMaterialRedCount} aço(s) com saldo projetado negativo no momento do consumo.`
+    } else if (indicators.rawMaterialYellowCount && indicators.rawMaterialYellowCount > 0) {
+      mpStatus = 'WARN'
+      mpScore = 75
+      mpDesc = `Atenção à MP: ${indicators.rawMaterialYellowCount} aço(s) dependem de entregas de fornecedores ou de produção anterior.`
+    }
+
+    // 6. Estoque SAP / WMS
+    let stockStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let stockScore = 95
+    const hasZeroStockRequired = timeline.summary.billetRequirements.some(
+      (b) => b.currentStockTons === 0 && b.requiredTons > 0,
+    )
+    let stockDesc = 'Níveis de estoque no WMS/SAP conferidos com reservas da linha.'
+    if (hasZeroStockRequired && mpStatus === 'FAIL') {
+      stockStatus = 'FAIL'
+      stockScore = 40
+      stockDesc = 'Estoque físico em pátio zerado para bitolas requeridas na semana.'
+    } else if (hasZeroStockRequired) {
+      stockStatus = 'WARN'
+      stockScore = 70
+      stockDesc = 'Estoque de pátio insuficiente, dependente de recebimentos programados.'
+    }
+
+    // 7. Compras SAP
+    let poStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let poScore = 95
+    const latePos = (rawMaterialContext.purchaseOrders || []).filter(
+      (po) => po.status === 'LATE' || !po.consideredAvailable,
+    )
+    let poDesc = 'Pedidos de compra SAP confirmados com entregas anteriores à data de laminação.'
+    if (
+      latePos.length > 0 &&
+      indicators.rawMaterialRedCount &&
+      indicators.rawMaterialRedCount > 0
+    ) {
+      poStatus = 'FAIL'
+      poScore = 50
+      poDesc = `${latePos.length} pedido(s) de compra com data de entrega posterior ao consumo planejado.`
+    } else if (latePos.length > 0) {
+      poStatus = 'WARN'
+      poScore = 80
+      poDesc = `${latePos.length} pedido(s) de compra com data de entrega limítrofe à janela da programação.`
+    }
+
+    // 8. Produção Upstream
+    let upstreamStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let upstreamScore = 100
+    const upstreams = rawMaterialContext.upstreamProductions || []
+    let upstreamDesc = 'Integração upstream sem gargalos detectados.'
+    if (upstreams.some((u) => !u.confirmed)) {
+      upstreamStatus = 'WARN'
+      upstreamScore = 75
+      upstreamDesc =
+        'Existem ordens de linhas a montante ainda não confirmadas na programação semanal.'
+    }
+
+    // 9. MTO (Make-to-Order)
+    let mtoStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let mtoScore = 100
+    const mtoItems = prodItems.filter((p) => p.order_type === 'MTO')
+    let mtoDesc = `Pedidos sob encomenda (MTO): ${mtoItems.length} item(ns) identificados e alocados.`
+    const mtoWithoutClient = mtoItems.filter((m) => !m.sales_order_mto && !m.customer_name)
+    if (mtoWithoutClient.length > 0) {
+      mtoStatus = 'WARN'
+      mtoScore = 85
+      mtoDesc = `${mtoWithoutClient.length} item(ns) MTO sem número de pedido de vendas ou cliente especificado.`
+    }
+
+    // 10. Requisitos Especiais & Bloqueios
+    let specialStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let specialScore = 100
+    const blockedValidations = validations.filter((v) => v.level === 'BLOCKED')
+    let specialDesc = 'Nenhum bloqueio técnico ou restrição de qualidade violada na linha.'
+    if (blockedValidations.length > 0) {
+      specialStatus = 'FAIL'
+      specialScore = 0
+      specialDesc = `BLOQUEIO CRÍTICO: ${blockedValidations.length} item(ns) com restrição técnica / HARD BLOCK na Ficha Mestre.`
+    }
+
+    // 11. Conflitos entre Linhas (Duplo Comprometimento)
+    let conflictStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let conflictScore = 100
+    let conflictDesc = 'Sem conflitos de concorrência de matéria-prima com outras linhas ativas.'
+    if (timeline.summary.dualCommitments.length > 0) {
+      conflictStatus = 'FAIL'
+      conflictScore = 35
+      conflictDesc = `Conflito de concorrência: ${timeline.summary.dualCommitments.length} material(is) com consumo simultâneo superior ao estoque total integrado.`
+    }
+
+    // 12. Carteira CRM / WMS
+    let backlogStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let backlogScore = 95
+    let backlogDesc = `Total programado para a semana: ${indicators.programmedQuantityTons} t em ${prodItems.length} lotes de produção.`
+    if (prodItems.length === 0) {
+      backlogStatus = 'WARN'
+      backlogScore = 60
+      backlogDesc = 'Nenhum produto programado na grade para a semana.'
+    }
+
+    // 13. Paradas Programadas
+    let stopsStatus: 'PASS' | 'WARN' | 'FAIL' = 'PASS'
+    let stopsScore = 100
+    let stopsDesc = `Paradas e manutenções programadas: ${indicators.stoppedHours}h reservadas no cronograma.`
+    if (stopItems.length === 0 && (lineOverview?.scheduledStops?.length || 0) > 0) {
+      stopsStatus = 'WARN'
+      stopsScore = 80
+      stopsDesc =
+        'A Ficha Mestre prevê paradas padrão, mas nenhuma parada foi inserida na grade da semana.'
+    }
+
+    // Veredito Global da Simulação
+    const failsCount = [
+      capStatus,
+      prodStatus,
+      setupStatus,
+      seqStatus,
+      mpStatus,
+      stockStatus,
+      poStatus,
+      upstreamStatus,
+      mtoStatus,
+      specialStatus,
+      conflictStatus,
+      backlogStatus,
+      stopsStatus,
+    ].filter((s) => s === 'FAIL').length
+
+    const warnsCount = [
+      capStatus,
+      prodStatus,
+      setupStatus,
+      seqStatus,
+      mpStatus,
+      stockStatus,
+      poStatus,
+      upstreamStatus,
+      mtoStatus,
+      specialStatus,
+      conflictStatus,
+      backlogStatus,
+      stopsStatus,
+    ].filter((s) => s === 'WARN').length
+
+    let overallResult: SimulationFeasibilityResult = 'VIAVEL'
+    let overallTitle = 'Programação viável'
+    let overallDescription =
+      'Todos os critérios operacionais, capacidades, matérias-primas e restrições estão atendidos. A programação pode seguir para validação e aprovação.'
+
+    if (failsCount > 0) {
+      overallResult = 'INVIAVEL'
+      overallTitle = 'Programação inviável'
+      overallDescription = `Foram detectados ${failsCount} ponto(s) impeditivos (bloqueios, ruptura de matéria-prima ou duplo comprometimento). Ajuste a grade antes de submeter à aprovação.`
+    } else if (warnsCount > 0) {
+      overallResult = 'ALERTAS'
+      overallTitle = 'Programação com alertas'
+      overallDescription = `A programação atende aos requisitos essenciais, mas possui ${warnsCount} alerta(s) de atenção (capacidade, setups ou dependência de entregas). Avalie antes de publicar.`
+    }
+
+    const suggestedActions: string[] = []
+    if (indicators.rawMaterialRedCount && indicators.rawMaterialRedCount > 0) {
+      suggestedActions.push(
+        'Postergar lotes com MP em déficit para datas posteriores à chegada dos pedidos de compra.',
+      )
+    }
+    if (timeline.summary.dualCommitments.length > 0) {
+      suggestedActions.push(
+        'Negociar prioridade de tarugo com a programação da outra linha ou antecipar corrida na Aciaria.',
+      )
+    }
+    if (indicators.setupHours > 4) {
+      suggestedActions.push(
+        'Agrupar produtos por família/bitola para reduzir paradas de troca de cilindros.',
+      )
+    }
+    if (indicators.utilizationPct > 100) {
+      suggestedActions.push(
+        'Transferir itens excedentes para o turno de sábado ou remanejar volume para outra linha compatível.',
+      )
+    }
+    if (blockedValidations.length > 0) {
+      suggestedActions.push('Remover imediatamente os produtos com HARD BLOCK da grade.')
+    }
+
+    return {
+      overallResult,
+      overallTitle,
+      overallDescription,
+      timestamp: new Date().toISOString(),
+      indicators,
+      domains: {
+        capacity: {
+          id: 'cap',
+          title: 'Capacidade & Ocupação',
+          status: capStatus,
+          scorePct: capScore,
+          description: capDesc,
+        },
+        productivity: {
+          id: 'prod',
+          title: 'Produtividade Nominal',
+          status: prodStatus,
+          scorePct: prodScore,
+          description: prodDesc,
+        },
+        setups: {
+          id: 'setup',
+          title: 'Matriz de Setup & Trocas',
+          status: setupStatus,
+          scorePct: setupScore,
+          description: setupDesc,
+        },
+        sequencing: {
+          id: 'seq',
+          title: 'Sequenciamento Técnico',
+          status: seqStatus,
+          scorePct: seqScore,
+          description: seqDesc,
+        },
+        rawMaterial: {
+          id: 'mp',
+          title: 'Disponibilidade de Matéria-Prima',
+          status: mpStatus,
+          scorePct: mpScore,
+          description: mpDesc,
+        },
+        stock: {
+          id: 'stock',
+          title: 'Estoque SAP / WMS',
+          status: stockStatus,
+          scorePct: stockScore,
+          description: stockDesc,
+        },
+        purchases: {
+          id: 'po',
+          title: 'Pedidos de Compra SAP',
+          status: poStatus,
+          scorePct: poScore,
+          description: poDesc,
+        },
+        upstream: {
+          id: 'up',
+          title: 'Produção Upstream Linhas Anteriores',
+          status: upstreamStatus,
+          scorePct: upstreamScore,
+          description: upstreamDesc,
+        },
+        mtoOrders: {
+          id: 'mto',
+          title: 'Carteira Sob Encomenda (MTO)',
+          status: mtoStatus,
+          scorePct: mtoScore,
+          description: mtoDesc,
+        },
+        specialRequirements: {
+          id: 'spec',
+          title: 'Requisitos Especiais & Bloqueios',
+          status: specialStatus,
+          scorePct: specialScore,
+          description: specialDesc,
+        },
+        lineConflicts: {
+          id: 'conf',
+          title: 'Conflitos entre Linhas (Duplo Comprometimento)',
+          status: conflictStatus,
+          scorePct: conflictScore,
+          description: conflictDesc,
+        },
+        backlog: {
+          id: 'back',
+          title: 'Atendimento à Carteira',
+          status: backlogStatus,
+          scorePct: backlogScore,
+          description: backlogDesc,
+        },
+        stops: {
+          id: 'stop',
+          title: 'Paradas & Manutenções Programadas',
+          status: stopsStatus,
+          scorePct: stopsScore,
+          description: stopsDesc,
+        },
+      },
+      suggestedActions:
+        suggestedActions.length > 0
+          ? suggestedActions
+          : ['Nenhuma ação corretiva crítica necessária. Grade pronta para envio ao gestor.'],
+      aiSummaryRecommendation:
+        overallResult === 'INVIAVEL'
+          ? 'Recomendação da IA CIAFAL: Reprograme os itens em vermelho antes do envio. A IA sugere ajustar o sequenciamento para mitigar rupturas de MP e evitar bloqueios.'
+          : overallResult === 'ALERTAS'
+            ? 'Recomendação da IA CIAFAL: Programação factível com acompanhamento de entregas de fornecedores. Recomenda-se validar o plano com a liderança de turno.'
+            : 'Recomendação da IA CIAFAL: Programação otimizada e plenamente viável. Alta eficiência de sequência e folga operacional segura.',
     }
   },
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import pb from '@/lib/pocketbase/client'
 import {
   PerspectiveMode,
   ViewTab,
@@ -320,6 +321,112 @@ export const ControlTowerProvider: React.FC<{
 
   // Modelo de Dados Central Único
   const [orders, setOrders] = useState<ProductOrder[]>(mockCentralOrders)
+
+  // Sincronização em tempo real das programações semanais publicadas/aprovadas da coleção weekly_schedules
+  useEffect(() => {
+    const syncWeeklySchedulesToTower = async () => {
+      try {
+        const records = await pb.collection('weekly_schedules').getFullList({
+          sort: 'sequence_order',
+        })
+        if (records && records.length > 0) {
+          const syncedOrders: ProductOrder[] = records.map((r: any, idx: number) => {
+            const planned = Number(r.planned_quantity_tons) || 100
+            const produced =
+              Number(r.realized_quantity_tons) ||
+              (r.status === 'REALIZADO'
+                ? planned
+                : r.status === 'EXECUTANDO'
+                  ? Math.round(planned * 0.6)
+                  : 0)
+            const prodHours = Number(r.production_hours) || 6
+            const orderStatus: ProductOrder['status'] =
+              r.status === 'EXECUTANDO'
+                ? 'IN_PRODUCTION'
+                : r.status === 'REALIZADO'
+                  ? 'COMPLETED'
+                  : r.status === 'PUBLICADO' || r.status === 'APROVADO_PCP'
+                    ? 'RELEASED'
+                    : 'PLANNED'
+
+            return {
+              id: r.id || `ws-ord-${idx}`,
+              orderNumber:
+                r.production_order || `OP-${r.line_code}-2026-${String(idx + 1).padStart(3, '0')}`,
+              campaignId: `CAMP-${r.week_number}`,
+              campaignName: `Semana ${r.week_number} &bull; ${r.day_of_week}`,
+              companyCode: r.company_code || 'CIAFAL',
+              plantCode: r.plant_code || 'PLANTA_1',
+              lineCode: r.line_code || 'L1',
+              processName: 'Laminação Contínua',
+              familyCode: r.family_code || 'GERAL',
+              familyName: r.steel_grade || 'Perfil Aço',
+              materialCode: r.material_code || 'PROD-001',
+              materialName: r.material_description || r.material_code || 'Produto Programado',
+              customerName:
+                r.customer_name ||
+                (r.order_type === 'MTO'
+                  ? 'Cliente Industrial Especial'
+                  : 'Estoque / Reposição MTS'),
+              salesOrderId: r.sales_order_mto || 'SO-2026-001',
+              salesOrderItem: '0010',
+              plannedTons: planned,
+              producedTons: produced,
+              remainingTons: Math.max(0, planned - produced),
+              targetRatePerHour: Number(r.productivity_rate_th) || 12.0,
+              currentRatePerHour: Number(r.productivity_rate_th) || 12.0,
+              adherencePct: planned > 0 ? Math.round((produced / planned) * 100) : 100,
+              plannedStart: r.start_datetime || '2026-08-24 06:00',
+              plannedEnd: r.end_datetime || '2026-08-24 14:00',
+              projectedEnd: r.end_datetime || '2026-08-24 14:00',
+              status: orderStatus,
+              setupMinutes: Number(r.setup_duration_minutes) || 0,
+              setupCompleted: true,
+              rawMaterialAvailable: true,
+              rawMaterialBufferHours: 24,
+              downstreamBufferTons: 50,
+              priority: (r.order_type === 'MTO' ? 1 : 2) as 1 | 2 | 3 | 4 | 5,
+              isCriticalPath: r.order_type === 'MTO',
+              shift: r.shift_name || '1º Turno Matutino',
+              programmer: 'Programador PCP',
+              delayMinutes: 0,
+              alertsCount: r.is_blocked_attempt ? 1 : 0,
+              productionType: (r.order_type === 'MTO' ? 'MTO' : 'MTS') as 'MTS' | 'MTO',
+            }
+          })
+
+          // Mescla ordens sincronizadas da montagem semanal com a base central
+          setOrders((prev) => {
+            const preservedNonWeekly = prev.filter(
+              (o) => !o.id.startsWith('temp-') && !records.some((r) => r.id === o.id),
+            )
+            return [...syncedOrders, ...preservedNonWeekly]
+          })
+        }
+      } catch (err) {
+        console.warn('Sincronização de weekly_schedules com Torre de Controle:', err)
+      }
+    }
+
+    syncWeeklySchedulesToTower()
+
+    let unsubscribe: (() => void) | undefined
+    try {
+      pb.collection('weekly_schedules')
+        .subscribe('*', () => {
+          syncWeeklySchedulesToTower()
+        })
+        .then((unsub) => {
+          unsubscribe = unsub
+        })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
   const [processNodes, setProcessNodes] = useState<ProductionProcessNode[]>(mockProcessNodes)
   const [bottlenecks, setBottlenecks] = useState<BottleneckItem[]>(mockBottlenecks)
   const [buffers, setBuffers] = useState<BufferStatus[]>(mockBuffers)

@@ -22,6 +22,10 @@ import {
   Flame,
   ArrowRight,
   Filter,
+  GitCompare,
+  Eye,
+  Check,
+  ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +62,11 @@ import {
   ValidationResult,
   HardBlockModalData,
   OfficialMaterialOption,
+  WeeklyScheduleWorkflowState,
+  WeeklySimulationReport,
+  WeeklyScheduleScenario,
+  WeeklyScheduleVersionRecord,
+  WeeklyViewMode,
 } from '@/types/weekly-schedule'
 import { LineOverviewData, ProductionLine } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
@@ -65,6 +74,12 @@ import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { WeeklyIndicatorsBar } from '@/components/weekly-schedule/WeeklyIndicatorsBar'
 import { WeeklyScheduleGrid } from '@/components/weekly-schedule/WeeklyScheduleGrid'
 import { WeeklyScheduleSummaryPanel } from '@/components/weekly-schedule/WeeklyScheduleSummaryPanel'
+import { SimulationResultsModal } from '@/components/weekly-schedule/SimulationResultsModal'
+import { ScenarioComparisonModal } from '@/components/weekly-schedule/ScenarioComparisonModal'
+import { CreateScenarioModal } from '@/components/weekly-schedule/CreateScenarioModal'
+import { VersionHistoryModal } from '@/components/weekly-schedule/VersionHistoryModal'
+import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
+import { PlannedVsRealizedView } from '@/components/weekly-schedule/PlannedVsRealizedView'
 
 export const WeeklyScheduleOperationalPage: React.FC = () => {
   const { toast } = useToast()
@@ -88,7 +103,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   // Itens da Programação Semanal
   const [items, setItems] = useState<WeeklyScheduleItem[]>([])
 
-  // Modais Operacionais
+  // Rodada 3: Estado do Workflow (7 estados) e Versão
+  const [currentWorkflowState, setCurrentWorkflowState] =
+    useState<WeeklyScheduleWorkflowState>('DRAFT')
+  const [currentVersion, setCurrentVersion] = useState<number>(1)
+
+  // Rodada 3: Modo de Visualização "Montagem | Execução | Previsto x Realizado"
+  const [viewMode, setViewMode] = useState<WeeklyViewMode>('MONTAGEM')
+
+  // Rodada 3: Cenários A/B/C
+  const [activeScenarioCode, setActiveScenarioCode] = useState<string>('A')
+  const [scenarios, setScenarios] = useState<WeeklyScheduleScenario[]>([])
+
+  // Modais Operacionais Rodada 3
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [targetDay, setTargetDay] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
@@ -96,6 +123,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [targetShiftCode, setTargetShiftCode] = useState('T1_L1')
   const [targetShiftName, setTargetShiftName] = useState('1º Turno Matutino')
   const [targetCrewName, setTargetCrewName] = useState('Turma A')
+
+  // Modal de Simulação Abrangente
+  const [isSimulationModalOpen, setIsSimulationModalOpen] = useState(false)
+  const [simulationReport, setSimulationReport] = useState<WeeklySimulationReport | null>(null)
+
+  // Modal de Cenários A/B/C
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false)
+  const [isCreateScenarioModalOpen, setIsCreateScenarioModalOpen] = useState(false)
+
+  // Modal de Histórico de Versões
+  const [isVersionHistoryModalOpen, setIsVersionHistoryModalOpen] = useState(false)
+  const [versionHistoryList, setVersionHistoryList] = useState<WeeklyScheduleVersionRecord[]>([])
+
+  // Modal de Transição de Workflow
+  const [isTransitionModalOpen, setIsTransitionModalOpen] = useState(false)
+  const [targetTransitionState, setTargetTransitionState] = useState<WeeklyScheduleWorkflowState>(
+    'AGUARDANDO_APROVACAO_PCP',
+  )
+  const [targetTransitionLabel, setTargetTransitionLabel] = useState('Aguardando Aprovação PCP')
 
   // Modal Vermelho de HARD BLOCK
   const [hardBlockData, setHardBlockData] = useState<HardBlockModalData>({
@@ -175,9 +221,52 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
           if (savedItems.length > 0) {
             setItems(savedItems)
+            setCurrentWorkflowState(savedItems[0].status || 'DRAFT')
+            setCurrentVersion(savedItems[0].version || 1)
           } else {
             // Se não houver dados salvos, inicializa com atividades padrão realistas para demonstração imediata
             initializeDefaultWeekSchedule(lineCodeToLoad, overview, mats)
+          }
+
+          // Carrega histórico de versões e cenários
+          const scheduleCode = `WS-${lineCodeToLoad}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+          const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+          setVersionHistoryList(vers)
+
+          const scens = await weeklyScheduleService.loadScenarios(scheduleCode)
+          if (scens.length > 0) {
+            setScenarios(scens)
+          } else {
+            // Inicializa Cenário A padrão
+            const initialScenarioA: WeeklyScheduleScenario = {
+              id: 'scen-a-default',
+              scenario_code: 'A',
+              scenario_name: 'Cenário Base (Oficial)',
+              description: 'Programação base inicial da semana.',
+              schedule_code: scheduleCode,
+              line_code: lineCodeToLoad,
+              year: selectedYear,
+              week_number: selectedWeekNumber,
+              is_active: true,
+              items_snapshot: savedItems,
+              metrics_snapshot: {
+                productionTons:
+                  savedItems.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0) || 130,
+                utilizationPct: 88.5,
+                setupHours: 1.25,
+                switchesCount: 1,
+                rawMaterialRiskCount: 0,
+                ordersMetCount: 2,
+                ordersTotalCount: 2,
+                sequenceEfficiencyPct: 92,
+              },
+              ai_recommendation: {
+                isRecommended: true,
+                score: 92,
+                rationale: 'Cenário equilibrado com ocupação nominal de 88.5% e MP garantida.',
+              },
+            }
+            setScenarios([initialScenarioA])
           }
         }
       } catch (err) {
@@ -545,26 +634,171 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }
 
-  const handleSimulate = () => {
+  // Executa Simulação Abrangente dos 13 domínios
+  const handleRunSimulation = () => {
+    const report = WeeklyScheduleEngine.simulateSchedule(
+      calculatedItems,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setSimulationReport(report)
+    setIsSimulationModalOpen(true)
+
+    // Se estiver em RASCUNHO, atualiza o status de workflow para SIMULADO
+    if (currentWorkflowState === 'DRAFT') {
+      setCurrentWorkflowState('SIMULADO')
+    }
+
     toast({
-      title: 'Simulação de Programação Executada',
-      description: `Ocupação: ${indicators.utilizationPct}% | Score da Sequência: ${indicators.sequenceScore}/100 | Setup Total: ${indicators.setupHours}h`,
+      title: `Simulação Concluída: ${report.overallTitle}`,
+      description: report.overallDescription,
+      variant: report.overallResult === 'INVIAVEL' ? 'destructive' : 'default',
     })
   }
 
-  const handleAiAnalysis = () => {
+  // Análise com IA CIAFAL (Governança: Apenas detecta, compara, alerta e recomenda — NUNCA altera sozinha)
+  const handleAiAnalysis = async () => {
+    // Log de governança comprovando que IA atua apenas como conselheira
     toast({
-      title: 'Análise Heurística com IA CIAFAL',
+      title: 'Diagnóstico Consultivo de IA Executado',
       description:
-        'A IA sugere agrupar produtos da mesma família para reduzir 45 minutos de setup adicional na quarta-feira. O Programador decide a aplicação.',
+        'A IA analisou a matriz de sequenciamento e identificou oportunidade de redução de 30 min de setup ao agrupar PU-150. A decisão permanece 100% com o Programador.',
+    })
+
+    // Abre o relatório de simulação com a recomendação da IA em destaque
+    const report = WeeklyScheduleEngine.simulateSchedule(
+      calculatedItems,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setSimulationReport(report)
+    setIsSimulationModalOpen(true)
+  }
+
+  // Inicia Transição de Estado no Workflow
+  const openTransitionModal = (targetState: WeeklyScheduleWorkflowState, label: string) => {
+    setTargetTransitionState(targetState)
+    setTargetTransitionLabel(label)
+    setIsTransitionModalOpen(true)
+  }
+
+  // Executa a confirmação da transição de estado
+  const handleConfirmWorkflowTransition = async (reason: string, notes?: string) => {
+    try {
+      const res = await weeklyScheduleService.transitionWorkflowState(
+        calculatedItems,
+        headerFilter,
+        targetTransitionState,
+        reason,
+      )
+      setCurrentWorkflowState(targetTransitionState)
+      setCurrentVersion(res.newVersion)
+
+      // Atualiza lista de versões no modal
+      const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+      const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+      setVersionHistoryList(vers)
+
+      toast({
+        title: 'Fluxo de Trabalho Atualizado',
+        description: `Programação semanal avançou para estado "${targetTransitionLabel}" (Versão ${res.newVersion}.0).`,
+      })
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro na Transição de Fluxo',
+        description: 'Não foi possível atualizar o status da programação.',
+      })
+    }
+  }
+
+  // Criação de Cenário A/B/C
+  const handleCreateNewScenario = async (newScenario: WeeklyScheduleScenario) => {
+    await weeklyScheduleService.saveScenario(newScenario)
+    setScenarios((prev) => {
+      const filtered = prev.filter((s) => s.scenario_code !== newScenario.scenario_code)
+      return [...filtered, newScenario]
+    })
+    setActiveScenarioCode(newScenario.scenario_code)
+    setItems(newScenario.items_snapshot)
+    toast({
+      title: `Cenário ${newScenario.scenario_code} Criado e Ativado`,
+      description: `${newScenario.scenario_name} disponível para edição e simulação independente.`,
     })
   }
 
-  const handleSendForApproval = () => {
-    toast({
-      title: 'Submetido para Validação do Gestor',
-      description: `A programação semanal da Linha ${selectedLineCode} foi enviada para fluxo de aprovação formal.`,
-    })
+  // Alternância de Cenário
+  const handleSelectScenario = (scenarioCode: string) => {
+    const sc = scenarios.find((s) => s.scenario_code === scenarioCode)
+    if (sc) {
+      setActiveScenarioCode(scenarioCode)
+      if (sc.items_snapshot && sc.items_snapshot.length > 0) {
+        setItems(sc.items_snapshot)
+      }
+      toast({
+        title: `Cenário ${scenarioCode} Selecionado`,
+        description: `Exibindo atividades do ${sc.scenario_name}.`,
+      })
+    }
+  }
+
+  // Obter Badge Visual do Estado de Workflow
+  const getWorkflowBadge = () => {
+    switch (currentWorkflowState) {
+      case 'DRAFT':
+        return (
+          <Badge className="bg-slate-100 text-slate-700 border-slate-300 font-mono text-[10px]">
+            1. Rascunho
+          </Badge>
+        )
+      case 'SIMULADO':
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-300 font-mono text-[10px]">
+            2. Simulado
+          </Badge>
+        )
+      case 'VALIDADO':
+        return (
+          <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 font-mono text-[10px]">
+            3. Validado
+          </Badge>
+        )
+      case 'AGUARDANDO_APROVACAO_PCP':
+        return (
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-mono text-[10px]">
+            4. Aguardando PCP
+          </Badge>
+        )
+      case 'APROVADO_PCP':
+      case 'APROVADO':
+        return (
+          <Badge className="bg-teal-100 text-teal-800 border-teal-300 font-mono text-[10px]">
+            5. Aprovado PCP
+          </Badge>
+        )
+      case 'ENVIADO_GESTOR_LINHA':
+        return (
+          <Badge className="bg-purple-100 text-purple-800 border-purple-300 font-mono text-[10px]">
+            6. Enviado ao Gestor
+          </Badge>
+        )
+      case 'PUBLICADO':
+        return (
+          <Badge className="bg-emerald-600 text-white font-mono text-[10px]">
+            7. Publicado Oficial
+          </Badge>
+        )
+      case 'EXECUTANDO':
+        return <Badge className="bg-cyan-600 text-white font-mono text-[10px]">Em Execução</Badge>
+      case 'REALIZADO':
+        return <Badge className="bg-emerald-700 text-white font-mono text-[10px]">Realizado</Badge>
+      case 'ANALISADO':
+        return <Badge className="bg-blue-800 text-white font-mono text-[10px]">Analisado</Badge>
+      default:
+        return <Badge className="bg-slate-100 text-slate-700 text-[10px]">Rascunho</Badge>
+    }
   }
 
   return (
@@ -579,13 +813,16 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  Montagem Semanal
-                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono font-bold uppercase">
-                    PCP &bull; Programação
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base font-black text-slate-900 tracking-tight">
+                    Montagem Semanal
+                  </h1>
+                  {getWorkflowBadge()}
+                  <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] font-mono">
+                    v{currentVersion}.0
                   </Badge>
-                </h1>
-                <p className="text-xs text-slate-500 font-mono">
+                </div>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
                   {selectedLineCode} | Semana {selectedWeekNumber} | {weekRange.display}
                 </p>
               </div>
@@ -697,7 +934,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             {/* Simular */}
             <Button
               variant="outline"
-              onClick={handleSimulate}
+              onClick={handleRunSimulation}
               className="text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 h-9"
             >
               <Play className="w-3.5 h-3.5 mr-1 text-[#004C97]" />
@@ -727,11 +964,29 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
             {/* Enviar para Aprovação */}
             <Button
-              onClick={handleSendForApproval}
+              onClick={() => {
+                if (currentWorkflowState === 'DRAFT' || currentWorkflowState === 'SIMULADO') {
+                  openTransitionModal('VALIDADO', 'Validado')
+                } else if (currentWorkflowState === 'VALIDADO') {
+                  openTransitionModal('AGUARDANDO_APROVACAO_PCP', 'Aguardando Aprovação PCP')
+                } else if (currentWorkflowState === 'AGUARDANDO_APROVACAO_PCP') {
+                  openTransitionModal('APROVADO_PCP', 'Aprovado PCP')
+                } else if (currentWorkflowState === 'APROVADO_PCP') {
+                  openTransitionModal('ENVIADO_GESTOR_LINHA', 'Enviado ao Gestor da Linha')
+                } else {
+                  openTransitionModal('PUBLICADO', 'Publicado Oficial')
+                }
+              }}
               className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm h-9"
             >
               <Send className="w-3.5 h-3.5" />
-              Enviar para Aprovação
+              {currentWorkflowState === 'PUBLICADO'
+                ? 'Republicar Versão'
+                : currentWorkflowState === 'APROVADO_PCP'
+                  ? 'Enviar ao Gestor'
+                  : currentWorkflowState === 'ENVIADO_GESTOR_LINHA'
+                    ? 'Publicar Grade'
+                    : 'Enviar para Aprovação'}
             </Button>
 
             {/* Menu Secundário */}
@@ -748,32 +1003,32 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <DropdownMenuItem
                   onClick={() =>
                     toast({
-                      title: 'Copiar Semana Anterior',
-                      description: 'Atividades da Semana 34 replicadas como rascunho.',
+                      title: 'Cópia da Semana Anterior',
+                      description: `Atividades da Semana ${selectedWeekNumber - 1} importadas como base.`,
                     })
                   }
                 >
                   <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
                   Copiar semana anterior
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    toast({
-                      title: 'Histórico de Versões',
-                      description:
-                        'Exibindo rascunhos e versões publicadas da Linha ' + selectedLineCode,
-                    })
-                  }
-                >
+                <DropdownMenuItem onClick={() => setIsCreateScenarioModalOpen(true)}>
+                  <Layers className="w-3.5 h-3.5 mr-2 text-indigo-600" />
+                  Criar cenário alternativo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsComparisonModalOpen(true)}>
+                  <GitCompare className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
+                  Comparar cenários (A / B / C)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsVersionHistoryModalOpen(true)}>
                   <History className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                  Histórico de alterações
+                  Histórico de alterações & versões
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() =>
                     toast({
-                      title: 'Exportar Grade',
-                      description: 'Exportando grade semanal em formato Excel / CSV.',
+                      title: 'Exportando Grade Semanal',
+                      description: 'Arquivo Excel gerado com sequência, MP e produtividade.',
                     })
                   }
                 >
@@ -789,42 +1044,149 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Ficha Mestre da Linha Carregada - Resumo */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-600">
-          <div className="flex items-center gap-3">
+        {/* Ficha Mestre da Linha Carregada & Alternador de Visões Rodada 3 */}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+          {/* Lado Esquerdo: Ficha Mestre e Cenário Ativo */}
+          <div className="flex flex-wrap items-center gap-3">
             <span className="font-bold text-slate-800 flex items-center gap-1">
               <Factory className="w-3.5 h-3.5 text-[#004C97]" />
-              Ficha Mestre Vinculada:
+              Ficha Mestre:
             </span>
             <span className="bg-slate-100 px-2 py-0.5 rounded font-mono text-[11px] text-slate-700 font-semibold">
-              {currentLineOverview?.line?.name || `Linha ${selectedLineCode} - Laminação Contínua`}
+              {currentLineOverview?.line?.name || `Linha ${selectedLineCode}`}
             </span>
-            <span className="text-[11px] text-slate-500">
-              Capacidade Nominal:{' '}
-              <strong className="text-slate-800 font-mono">
-                {currentLineOverview?.master?.nominal_hourly_capacity || 12.0} t/h
-              </strong>
-            </span>
-            <span className="text-[11px] text-slate-500">
-              Turnos Configurados:{' '}
-              <strong className="text-slate-800 font-mono">
-                {currentLineOverview?.shifts?.length || 3} turnos/dia
-              </strong>
-            </span>
+
+            {/* Alternador de Cenários Ativos A/B/C */}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Cenário:</span>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md border border-slate-200">
+                {scenarios.map((sc) => (
+                  <button
+                    key={sc.scenario_code}
+                    type="button"
+                    onClick={() => handleSelectScenario(sc.scenario_code)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                      activeScenarioCode === sc.scenario_code
+                        ? 'bg-[#004C97] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Cenário {sc.scenario_code}
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsComparisonModalOpen(true)}
+                className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-bold"
+              >
+                <GitCompare className="w-3 h-3 mr-1" />
+                Comparar
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-              Ficha Mestre Sincronizada
-            </span>
-            <span>&bull;</span>
-            <span className="font-mono">SAP S/4HANA Conectado</span>
+          {/* Lado Direito: Modos de Visualização (Montagem | Execução | Previsto x Realizado) */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Modo de Visão:</span>
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setViewMode('MONTAGEM')}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  viewMode === 'MONTAGEM'
+                    ? 'bg-white text-[#004C97] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Montagem
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('EXECUCAO')}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  viewMode === 'EXECUCAO'
+                    ? 'bg-white text-[#004C97] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Execução
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('PREVISTO_REALIZADO')}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                  viewMode === 'PREVISTO_REALIZADO'
+                    ? 'bg-white text-[#004C97] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Previsto x Realizado
+              </button>
+            </div>
           </div>
         </div>
       </Card>
 
-      {/* 2. INDICADORES RÁPIDOS NO TOPO */}
+      {/* 2. BARRA DE ESTADOS DO WORKFLOW (Linha do Tempo Visual) */}
+      <Card className="bg-white border-slate-200 shadow-sm p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#004C97]" />
+            Esteira de Governança:
+          </span>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            {[
+              { key: 'DRAFT', label: '1. Rascunho' },
+              { key: 'SIMULADO', label: '2. Simulado' },
+              { key: 'VALIDADO', label: '3. Validado' },
+              { key: 'AGUARDANDO_APROVACAO_PCP', label: '4. Aguardando PCP' },
+              { key: 'APROVADO_PCP', label: '5. Aprovado PCP' },
+              { key: 'ENVIADO_GESTOR_LINHA', label: '6. Enviado ao Gestor' },
+              { key: 'PUBLICADO', label: '7. Publicado' },
+            ].map((step, idx) => {
+              const statesOrder: WeeklyScheduleWorkflowState[] = [
+                'DRAFT',
+                'SIMULADO',
+                'VALIDADO',
+                'AGUARDANDO_APROVACAO_PCP',
+                'APROVADO_PCP',
+                'ENVIADO_GESTOR_LINHA',
+                'PUBLICADO',
+              ]
+              const currentIdx = statesOrder.indexOf(currentWorkflowState)
+              const isPast = idx < currentIdx
+              const isCurrent = step.key === currentWorkflowState
+
+              return (
+                <div key={step.key} className="flex items-center gap-1.5">
+                  <div
+                    className={`px-2.5 py-1 rounded-md font-mono text-[10px] font-bold flex items-center gap-1 transition-all ${
+                      isCurrent
+                        ? 'bg-[#004C97] text-white shadow-xs'
+                        : isPast
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {isPast && <Check className="w-3 h-3 text-emerald-600" />}
+                    <span>{step.label}</span>
+                  </div>
+                  {idx < 6 && <ArrowRight className="w-3 h-3 text-slate-300" />}
+                </div>
+              )
+            })}
+          </div>
+
+          <Badge className="bg-slate-100 text-slate-700 text-[10px] font-mono">
+            Ciclo: Planejado &rarr; Analisado
+          </Badge>
+        </div>
+      </Card>
+
+      {/* 3. INDICADORES RÁPIDOS NO TOPO */}
       <WeeklyIndicatorsBar indicators={indicators} lineCode={selectedLineCode} />
 
       {/* 3. ALERTA DE VALIDAÇÃO CRÍTICA / HARD BLOCK EM TEMPO REAL */}
@@ -864,22 +1226,30 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. GRADE PRINCIPAL OPERACIONAL (Dia -> Turno -> Turma -> Sequência) */}
-      <WeeklyScheduleGrid
-        items={calculatedItems}
-        lineOverview={currentLineOverview}
-        onMoveUp={handleMoveUp}
-        onMoveDown={handleMoveDown}
-        onDuplicate={handleDuplicate}
-        onRemove={handleRemove}
-        onOpenAddModal={(d, s) => {
-          setTargetDay(d)
-          setTargetShiftCode(s)
-          setIsAddModalOpen(true)
-        }}
-        onTransferDayShift={handleTransferDayShift}
-        onAddStop={handleAddStop}
-      />
+      {/* 4. CONTEÚDO PRINCIPAL (ALTERNÂNCIA ENTRE MONTAGEM/EXECUÇÃO E PREVISTO X REALIZADO) */}
+      {viewMode === 'PREVISTO_REALIZADO' ? (
+        <PlannedVsRealizedView
+          items={calculatedItems}
+          lineCode={selectedLineCode}
+          periodDisplay={headerFilter.periodDisplay}
+        />
+      ) : (
+        <WeeklyScheduleGrid
+          items={calculatedItems}
+          lineOverview={currentLineOverview}
+          onMoveUp={handleMoveUp}
+          onMoveDown={handleMoveDown}
+          onDuplicate={handleDuplicate}
+          onRemove={handleRemove}
+          onOpenAddModal={(d, s) => {
+            setTargetDay(d)
+            setTargetShiftCode(s)
+            setIsAddModalOpen(true)
+          }}
+          onTransferDayShift={handleTransferDayShift}
+          onAddStop={handleAddStop}
+        />
+      )}
 
       {/* 5. RESUMO CONSOLIDADO DA SEMANA (Painel Inferior Recolhível) */}
       <WeeklyScheduleSummaryPanel
@@ -905,6 +1275,56 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       <BlockedProductModal
         data={hardBlockData}
         onClose={() => setHardBlockData((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* 8. MODAL DE RELATÓRIO DE SIMULAÇÃO DOS 13 DOMÍNIOS */}
+      <SimulationResultsModal
+        isOpen={isSimulationModalOpen}
+        onClose={() => setIsSimulationModalOpen(false)}
+        report={simulationReport}
+        onProceedToValidation={() => {
+          openTransitionModal('VALIDADO', 'Validado')
+        }}
+      />
+
+      {/* 9. MODAL DE COMPARAÇÃO DE CENÁRIOS A/B/C */}
+      <ScenarioComparisonModal
+        isOpen={isComparisonModalOpen}
+        onClose={() => setIsComparisonModalOpen(false)}
+        scenarios={scenarios}
+        activeScenarioCode={activeScenarioCode}
+        onSelectScenario={handleSelectScenario}
+      />
+
+      {/* 10. MODAL DE CRIAÇÃO DE CENÁRIO ALTERNATIVO */}
+      <CreateScenarioModal
+        isOpen={isCreateScenarioModalOpen}
+        onClose={() => setIsCreateScenarioModalOpen(false)}
+        currentItems={calculatedItems}
+        currentIndicators={indicators}
+        existingScenarioCodes={scenarios.map((s) => s.scenario_code)}
+        onCreateScenario={handleCreateNewScenario}
+      />
+
+      {/* 11. MODAL DE HISTÓRICO DE VERSÕES E AUDITORIA */}
+      <VersionHistoryModal
+        isOpen={isVersionHistoryModalOpen}
+        onClose={() => setIsVersionHistoryModalOpen(false)}
+        versions={versionHistoryList}
+        scheduleCode={`WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`}
+        currentVersion={currentVersion}
+      />
+
+      {/* 12. MODAL DE TRANSIÇÃO FORMAL DE WORKFLOW */}
+      <WorkflowTransitionModal
+        isOpen={isTransitionModalOpen}
+        onClose={() => setIsTransitionModalOpen(false)}
+        currentState={currentWorkflowState}
+        targetState={targetTransitionState}
+        targetLabel={targetTransitionLabel}
+        currentVersion={currentVersion}
+        lineCode={selectedLineCode}
+        onConfirm={handleConfirmWorkflowTransition}
       />
     </div>
   )

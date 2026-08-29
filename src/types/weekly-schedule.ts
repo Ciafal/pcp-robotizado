@@ -42,6 +42,28 @@ export interface RawMaterialItemCalculation {
   calculationRuleExplanation: string
 }
 
+export type WeeklyScheduleWorkflowState =
+  | 'DRAFT'
+  | 'SIMULADO'
+  | 'VALIDADO'
+  | 'AGUARDANDO_APROVACAO_PCP'
+  | 'APROVADO_PCP'
+  | 'ENVIADO_GESTOR_LINHA'
+  | 'PUBLICADO'
+  | 'EXECUTANDO'
+  | 'REALIZADO'
+  | 'ANALISADO'
+  | 'EM_ANALISE' // legado
+  | 'APROVADO' // legado
+
+export type WeeklyLifecycleStage =
+  | 'PLANEJADO'
+  | 'PROGRAMADO'
+  | 'APROVADO'
+  | 'EXECUTANDO'
+  | 'REALIZADO'
+  | 'ANALISADO'
+
 export interface WeeklyScheduleItem {
   id: string
   schedule_code: string
@@ -78,17 +100,116 @@ export interface WeeklyScheduleItem {
   stop_duration_minutes?: number
   start_datetime: string
   end_datetime: string
-  status: 'DRAFT' | 'EM_ANALISE' | 'APROVADO' | 'PUBLICADO'
+  status: WeeklyScheduleWorkflowState
   version: number
   pcp_notes?: string
   raw_material_req_tons: number
   raw_material_type?: string
   raw_material_calc?: RawMaterialItemCalculation
   is_blocked_attempt?: boolean
+  scenario_id?: string
+  scenario_name?: string
+  // Previsto x Realizado
+  realized_quantity_tons?: number
+  realized_hours?: number
+  realized_productivity_th?: number
+  deviation_notes?: string
+  lifecycle_stage?: WeeklyLifecycleStage
   metadata?: Record<string, any>
   created?: string
   updated?: string
 }
+
+export type SimulationFeasibilityResult = 'VIAVEL' | 'ALERTAS' | 'INVIAVEL'
+
+export interface SimulationDomainCheck {
+  id: string
+  title: string
+  status: 'PASS' | 'WARN' | 'FAIL'
+  scorePct: number // 0-100%
+  description: string
+  details?: string
+}
+
+export interface WeeklySimulationReport {
+  overallResult: SimulationFeasibilityResult
+  overallTitle: string
+  overallDescription: string
+  timestamp: string
+  indicators: WeeklyIndicators
+  domains: {
+    capacity: SimulationDomainCheck
+    productivity: SimulationDomainCheck
+    setups: SimulationDomainCheck
+    sequencing: SimulationDomainCheck
+    rawMaterial: SimulationDomainCheck
+    stock: SimulationDomainCheck
+    purchases: SimulationDomainCheck
+    upstream: SimulationDomainCheck
+    mtoOrders: SimulationDomainCheck
+    specialRequirements: SimulationDomainCheck
+    lineConflicts: SimulationDomainCheck
+    backlog: SimulationDomainCheck
+    stops: SimulationDomainCheck
+  }
+  suggestedActions: string[]
+  aiSummaryRecommendation: string
+}
+
+export interface WeeklyScheduleScenario {
+  id: string
+  scenario_code: 'A' | 'B' | 'C' | string
+  scenario_name: string
+  description?: string
+  schedule_code: string
+  line_code: string
+  year: number
+  week_number: number
+  is_active: boolean
+  items_snapshot: WeeklyScheduleItem[]
+  metrics_snapshot: {
+    productionTons: number
+    utilizationPct: number
+    setupHours: number
+    switchesCount: number
+    rawMaterialRiskCount: number
+    ordersMetCount: number
+    ordersTotalCount: number
+    sequenceEfficiencyPct: number
+  }
+  ai_recommendation?: {
+    isRecommended: boolean
+    score: number
+    rationale: string
+  }
+  created?: string
+  updated?: string
+}
+
+export interface WeeklyScheduleVersionRecord {
+  id?: string
+  schedule_code: string
+  line_code: string
+  year: number
+  week_number: number
+  version_number: number
+  user_id?: string
+  user_name: string
+  user_email?: string
+  change_reason: string
+  impact_assessment: string
+  previous_schedule_data: WeeklyScheduleItem[]
+  new_schedule_data: WeeklyScheduleItem[]
+  diff_summary?: {
+    itemsAdded: number
+    itemsRemoved: number
+    itemsModified: number
+    netTonsDiff: number
+  }
+  created?: string
+}
+
+export type WeeklyViewMode = 'MONTAGEM' | 'EXECUCAO' | 'PREVISTO_REALIZADO'
 
 export interface WeeklyHeaderFilter {
   companyCode: string

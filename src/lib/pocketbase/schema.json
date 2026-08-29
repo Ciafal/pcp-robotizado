@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T21:23:24.315Z",
+  "generatedAt": "2026-08-29T21:31:57.580Z",
   "collections": [
     {
       "name": "users",
@@ -8998,7 +8998,20 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["DRAFT", "EM_ANALISE", "APROVADO", "PUBLICADO"]
+          "selectValues": [
+            "DRAFT",
+            "SIMULADO",
+            "VALIDADO",
+            "AGUARDANDO_APROVACAO_PCP",
+            "APROVADO_PCP",
+            "ENVIADO_GESTOR_LINHA",
+            "PUBLICADO",
+            "EXECUTANDO",
+            "REALIZADO",
+            "ANALISADO",
+            "EM_ANALISE",
+            "APROVADO"
+          ]
         },
         {
           "name": "version",
@@ -9049,12 +9062,267 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "scenario_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scenario_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "realized_productivity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lifecycle_stage",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PLANEJADO",
+            "PROGRAMADO",
+            "APROVADO",
+            "EXECUTANDO",
+            "REALIZADO",
+            "ANALISADO"
+          ]
         }
       ],
       "indexes": [
         "CREATE INDEX idx_ws_line_week ON weekly_schedules (line_code, year, week_number)",
         "CREATE INDEX idx_ws_seq ON weekly_schedules (day_of_week, shift_code, sequence_order)",
         "CREATE INDEX idx_ws_status ON weekly_schedules (status)"
+      ]
+    },
+    {
+      "name": "weekly_schedule_versions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "week_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_reason",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "impact_assessment",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "previous_schedule_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_schedule_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diff_summary",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_wsv_schedule ON weekly_schedule_versions (schedule_code, version_number DESC)",
+        "CREATE INDEX idx_wsv_line_week ON weekly_schedule_versions (line_code, year, week_number)"
+      ]
+    },
+    {
+      "name": "weekly_schedule_scenarios",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "scenario_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "scenario_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "week_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "items_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metrics_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_recommendation",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_wsc_schedule ON weekly_schedule_scenarios (schedule_code, scenario_code)"
       ]
     }
   ]
