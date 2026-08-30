@@ -31,38 +31,38 @@ export const AISequencingPanel: React.FC = () => {
 
   return (
     <Dialog open={isAIPanelOpen} onOpenChange={setIsAIPanelOpen}>
-      <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-xl shadow-2xl">
+      <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-xl shadow-lg">
         <DialogHeader>
-          <DialogTitle className="text-white text-base flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-400" /> Motor de Inteligência Artificial do
+          <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#004C97]" /> Motor de Inteligência Artificial do
             Sequenciamento
           </DialogTitle>
-          <DialogDescription className="text-xs text-slate-400">
+          <DialogDescription className="text-xs text-slate-600">
             Análise preditiva e prescritiva considerando restrições de setup, buffers, materiais e
             carteira.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2 text-xs">
-          {/* Exemplo Solicitado no Prompt */}
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
-            <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-[#004C97]" /> Diagnóstico IA & Riscos Identificados:
+          {/* Diagnóstico Estruturado */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <Cpu className="w-4 h-4 text-[#004C97]" /> Diagnóstico da IA & Riscos Identificados:
             </h4>
 
-            <div className="space-y-2 text-slate-300 text-[11px] leading-relaxed">
-              <div className="flex items-start gap-2 bg-slate-950/60 p-2 rounded border border-slate-850">
-                <span className="w-5 h-5 rounded-full bg-rose-950 border border-rose-700 text-rose-300 font-bold flex items-center justify-center shrink-0 text-[10px]">
+            <div className="space-y-2 text-slate-700 text-[11px] leading-relaxed">
+              <div className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+                <span className="w-5 h-5 rounded-full bg-rose-100 border border-rose-300 text-rose-800 font-bold flex items-center justify-center shrink-0 text-[10px]">
                   1
                 </span>
                 <span>
-                  <strong>Família B (OP-1014)</strong> programada 6h antes da disponibilidade de
+                  <strong>Família B (OP-1014)</strong> programada 6 h antes da disponibilidade de
                   matéria-prima (MPL2).
                 </span>
               </div>
 
-              <div className="flex items-start gap-2 bg-slate-950/60 p-2 rounded border border-slate-850">
-                <span className="w-5 h-5 rounded-full bg-amber-950 border border-amber-700 text-amber-300 font-bold flex items-center justify-center shrink-0 text-[10px]">
+              <div className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+                <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 font-bold flex items-center justify-center shrink-0 text-[10px]">
                   2
                 </span>
                 <span>
@@ -71,19 +71,19 @@ export const AISequencingPanel: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-start gap-2 bg-slate-950/60 p-2 rounded border border-slate-850">
-                <span className="w-5 h-5 rounded-full bg-orange-950 border border-orange-700 text-orange-300 font-bold flex items-center justify-center shrink-0 text-[10px]">
+              <div className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+                <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 font-bold flex items-center justify-center shrink-0 text-[10px]">
                   3
                 </span>
                 <span>
-                  <strong>Acabamento L1</strong> operará acima de 100% de ocupação entre as 18:00 e
+                  <strong>Acabamento L1</strong> operará acima de 100 % de ocupação entre as 18:00 e
                   02:00, saturando buffer térmico.
                 </span>
               </div>
 
-              {/* Novo Ponto Crítico de Qualidade / Ultrassom */}
-              <div className="flex items-start gap-2 bg-blue-950/40 p-2 rounded border border-blue-900">
-                <span className="w-5 h-5 rounded-full bg-blue-900 border border-cyan-500 text-cyan-200 font-bold flex items-center justify-center shrink-0 text-[10px]">
+              {/* Qualidade / Ultrassom */}
+              <div className="flex items-start gap-2 bg-blue-50/70 p-2.5 rounded-lg border border-blue-200">
+                <span className="w-5 h-5 rounded-full bg-[#004C97] text-white font-bold flex items-center justify-center shrink-0 text-[10px]">
                   4
                 </span>
                 <div className="space-y-1 flex-1">
@@ -94,10 +94,10 @@ export const AISequencingPanel: React.FC = () => {
                     liberação da OP-2026-1015.
                   </div>
                   <div className="flex items-center gap-2 pt-1">
-                    <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-bold">
+                    <span className="text-[10px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded font-bold">
                       Classificação: MTO Crítico
                     </span>
-                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
                       Hierarquia de Requisitos: Validada
                     </span>
                   </div>
@@ -107,21 +107,22 @@ export const AISequencingPanel: React.FC = () => {
           </div>
 
           {/* Alternativa Recomendada */}
-          <div className="bg-[#004C97]/20 border border-blue-800/80 p-4 rounded-xl space-y-3">
+          <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-cyan-300 text-xs flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-cyan-300" /> Prescrição Otimizada: Sequência A ➔ B
-                ➔ C
+              <span className="font-bold text-[#004C97] text-xs flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#004C97]" /> Prescrição Otimizada: Sequência A ➔
+                B ➔ C
               </span>
-              <Badge className="bg-emerald-950 text-emerald-300 border-emerald-700 text-[10px]">
-                Confiança: 91%
+              <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-bold">
+                Confiança: 91 %
               </Badge>
             </div>
 
-            <p className="text-[11px] text-blue-100">
+            <p className="text-[11px] text-slate-700">
               Impacto projetado:{' '}
-              <strong className="text-emerald-400">
-                -2 trocas de setup &bull; +3,2% aderência &bull; -4h atraso &bull; -120 t no buffer
+              <strong className="text-emerald-800">
+                -2 trocas de setup &bull; +3,2 % aderência &bull; -4 h atraso &bull; -120 t no
+                buffer
               </strong>
             </p>
 
@@ -129,9 +130,9 @@ export const AISequencingPanel: React.FC = () => {
               <Button
                 size="sm"
                 onClick={handleSimulateAlternative}
-                className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs gap-1.5"
+                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5 shadow-2xs"
               >
-                <Zap className="w-3.5 h-3.5 fill-slate-950" /> Simular Alternativa Recomendada
+                <Zap className="w-3.5 h-3.5 fill-white" /> Simular Alternativa Recomendada
               </Button>
             </div>
           </div>
@@ -142,7 +143,7 @@ export const AISequencingPanel: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsAIPanelOpen(false)}
-            className="border-slate-800 bg-slate-900 text-slate-300 text-xs"
+            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs"
           >
             Fechar Diagnóstico
           </Button>

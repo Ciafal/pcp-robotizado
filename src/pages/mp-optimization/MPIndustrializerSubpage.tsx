@@ -42,6 +42,7 @@ import {
   Boxes,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import SuggestedNextStepsSection from '@/components/common/SuggestedNextStepsSection'
 import { MPModuleLayout } from '@/components/mp-optimization/MPModuleLayout'
 import { CalculationExplainerModal } from '@/components/mp-optimization/CalculationExplainerModal'
 import { IndustrializerSimulationModal } from '@/components/mp-optimization/IndustrializerSimulationModal'
@@ -1300,6 +1301,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
         {/* TAB 3: AÇÕES AUTOMÁTICAS E TRATAMENTO DE DESVIOS */}
         {activeTab === 'ACOES' && (
           <div className="space-y-4">
+            {/* Seção Estruturada Corporativa de Próximos Passos & Plano de Ação */}
+            <SuggestedNextStepsSection
+              title="Próximos Passos Sugeridos & Ações Mitigadoras Arcelor"
+              subtitle="Recomendações corporativas integradas entre Comercial, Torre de Controle PCP, KS Corte e Logística de Pátio."
+            />
+
             <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div>
