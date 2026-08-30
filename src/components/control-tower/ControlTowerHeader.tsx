@@ -141,16 +141,40 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
 
           <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">{subtitle}</p>
 
-          {/* Linha de Contexto Hierárquico e Sincronização */}
+          {/* Linha de Contexto Hierárquico, Conectores e Sincronização */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-300 mt-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900/90 border border-slate-700/60 font-mono text-cyan-300">
               <Building2 className="w-3.5 h-3.5 text-pantone-2945" />
               <span>{scopeBreadcrumb}</span>
             </div>
 
+            {/* Painel de Saúde das Integrações (Requisito 10: SAP 🟢 MES 🟢 CRM 🟢 TMS 🟡 WMS 🟢) */}
+            <Link
+              to="/pcp/integracoes/monitor"
+              className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-700 font-mono text-[11px] text-slate-200 transition-colors shadow-xs"
+              title="Clique para abrir o Monitor de Integrações Ponta a Ponta"
+            >
+              <span className="font-bold text-slate-400">Integrações:</span>
+              <span className="flex items-center gap-1">
+                SAP <span className="text-emerald-400 font-black">🟢</span>
+              </span>
+              <span className="flex items-center gap-1">
+                MES <span className="text-emerald-400 font-black">🟢</span>
+              </span>
+              <span className="flex items-center gap-1">
+                CRM <span className="text-emerald-400 font-black">🟢</span>
+              </span>
+              <span className="flex items-center gap-1">
+                TMS <span className="text-amber-400 font-black">🟡</span>
+              </span>
+              <span className="flex items-center gap-1">
+                WMS <span className="text-emerald-400 font-black">🟢</span>
+              </span>
+            </Link>
+
             <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-mono">
               <Clock className="w-3.5 h-3.5 text-slate-500" />
-              <span>Última sincronização SAP: {lastSyncTime}</span>
+              <span>Última sinc. SAP: {lastSyncTime}</span>
             </div>
 
             {/* Indicador de Herança de Regras */}

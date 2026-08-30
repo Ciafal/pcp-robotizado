@@ -205,6 +205,7 @@ export interface VersionImpactAssessment {
 
 export interface ScheduleVersionRecord {
   id: string
+  event_id?: string
   version_code: string // ex: "PCP-L1-2026-S35-V01"
   schedule_code: string // ex: "WS-L1-2026-W35"
   line_code: string
@@ -241,6 +242,7 @@ export interface ScheduleVersionRecord {
 
 export interface ScheduleMesAlert {
   id: string
+  event_id?: string
   alert_code: string
   programacao_id: string
   version_code: string
@@ -275,6 +277,7 @@ export interface ScheduleMesAlert {
 
 export interface ScheduleCrmAlert {
   id?: string
+  event_id?: string
   alert_code: string
   programacao_id: string
   version_code: string
@@ -319,6 +322,7 @@ export interface ScheduleCrmAlert {
 }
 export interface ScheduleTmsEvent {
   id: string
+  event_id?: string
   event_code: string
   programacao_id: string
   version_code: string
@@ -350,6 +354,7 @@ export interface ScheduleTmsEvent {
 
 export interface ScheduleSapQueueItem {
   id: string
+  event_id?: string
   queue_code: string
   programacao_id: string
   version_code: string

@@ -40,7 +40,9 @@ import {
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
+import { EnvironmentSelectorBadge } from './EnvironmentSelectorBadge'
 import { Button } from '@/components/ui/button'
+import { Network } from 'lucide-react'
 
 const logoCiafalBlue = 'https://img.usecurling.com/i?q=ciafal&color=blue'
 
@@ -541,10 +543,7 @@ export const PCPNavbar: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="text-xs text-slate-600 font-medium hidden lg:flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Ambiente Corporativo</span>
-        </div>
+        <EnvironmentSelectorBadge />
         <ADSimulatorSwitcher />
       </div>
     </header>
@@ -709,19 +708,31 @@ const officialNavGroups: NavGroup[] = [
     ],
   },
   {
-    groupTitle: 'GOVERNANÇA',
+    groupTitle: 'INTEGRAÇÕES & GOVERNANÇA',
     items: [
       {
-        title: 'Configurações',
-        href: '/pcp/admin/acessos',
-        icon: KeyRound,
-        permission: 'pcp.admin.manage',
+        title: 'Integrações PCP',
+        href: '/pcp/integracoes',
+        icon: Network,
+        permission: 'pcp.integrations.view',
+      },
+      {
+        title: 'Monitor de Eventos',
+        href: '/pcp/integracoes/monitor',
+        icon: Activity,
+        permission: 'pcp.integrations.view',
       },
       {
         title: 'Trilha de Auditoria',
         href: '/pcp/auditoria',
         icon: ShieldCheck,
         permission: 'pcp.audit.view',
+      },
+      {
+        title: 'Configurações & Acessos',
+        href: '/pcp/admin/acessos',
+        icon: KeyRound,
+        permission: 'pcp.admin.manage',
       },
     ],
   },

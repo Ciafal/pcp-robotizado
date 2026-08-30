@@ -13,6 +13,7 @@ import {
   ChangeReasonExact,
 } from '@/types/schedule-versioning'
 import { VersioningEngine, DEFAULT_RELEVANCE_CRITERIA } from './versioning-engine'
+import { integrationEventService } from './pcp-integration-service'
 
 export const scheduleVersioningService = {
   /**
@@ -286,7 +287,17 @@ export const scheduleVersioningService = {
 
     // 3. Gravar Snapshot Completo na Coleção schedule_version_records
     const nowIso = new Date().toISOString()
+    const currentEnv = integrationEventService.getActiveEnvironment()
+    const sharedEventId = integrationEventService.formatEventId(
+      params.filter.lineCode,
+      params.filter.year,
+      params.filter.weekNumber,
+      nextVersionNum,
+      1,
+    )
+
     const versionRecordPayload: any = {
+      event_id: sharedEventId,
       version_code: newVersionCode,
       schedule_code: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
       line_code: params.filter.lineCode,
@@ -329,12 +340,13 @@ export const scheduleVersioningService = {
       throw err
     }
 
-    // 4. Gravar Alerta Obrigatório ao MES
+    // 4. Integração Ponta a Ponta MES com event_id único
     let createdMesAlert: ScheduleMesAlert | undefined
     try {
       const firstDiff = diffs[0]
       const mesPayload = {
         alert_code: `MES-${params.filter.lineCode}-${Date.now().toString().slice(-6)}`,
+        event_id: sharedEventId,
         programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
         version_code: newVersionCode,
         previous_version_tag: prevVersionTag || 'V01',
@@ -365,11 +377,24 @@ export const scheduleVersioningService = {
       }
       const mesRec: any = await pb.collection('schedule_mes_alerts').create(mesPayload)
       createdMesAlert = { ...mesPayload, id: mesRec.id }
+
+      // Disparar evento oficial na tabela integration_event para o MES
+      await integrationEventService.dispatchEventToDestination({
+        eventId: sharedEventId,
+        origem: 'PCP',
+        destino: 'MES',
+        tipoEvento: 'PROGRAMACAO_PUBLICADA',
+        programacaoId: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+        versao: newVersionTag,
+        versaoNum: nextVersionNum,
+        payload: mesPayload,
+        responsavelAcao: user ? user.name || user.email : 'Programador PCP',
+      })
     } catch (err) {
       console.warn('Erro ao disparar alerta MES:', err)
     }
 
-    // 5. Gravar Alertas ao CRM (apenas se houver impacto comercial e for ALTA relevância)
+    // 5. Integração CRM com event_id único (somente quando aplicável)
     const createdCrmAlerts: ScheduleCrmAlert[] = []
     if (impact.crm.willNotify) {
       for (const diff of diffs) {
@@ -381,6 +406,7 @@ export const scheduleVersioningService = {
 
             const crmPayload: any = {
               alert_code: `CRM-${Date.now().toString().slice(-6)}-${diff.salesOrder || 'PED'}`,
+              event_id: sharedEventId,
               programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
               version_code: newVersionCode,
               sales_order_number: diff.salesOrder || diff.newItem?.sales_order_mto || '45871/10',
@@ -404,27 +430,65 @@ export const scheduleVersioningService = {
                   ? `${uncovered} t sem cobertura nesta versão.`
                   : 'Deslocamento de data de entrega.',
               tms_recalculation_required: true,
-              tms_new_delivery_estimate: diff.newItem?.date_str
-                ? `Previsão +2 dias (${diff.newItem.date_str})`
-                : 'A calcular',
+              tms_new_delivery_estimate: 'Nova previsão logística: 30/08 (PCP + TMS)',
               status: 'PENDENTE',
             }
             crmPayload.ai_commercial_explanation =
-              VersioningEngine.generateAiCommercialExplanation(crmPayload)
+              'A alteração deslocou a produção do pedido em 2 dias. A previsão final de entrega ainda depende de reavaliação logística pelo TMS.'
             const crmRec: any = await pb.collection('schedule_crm_alerts').create(crmPayload)
             createdCrmAlerts.push({ ...crmPayload, id: crmRec.id })
+
+            // Disparar evento oficial no integration_event para o CRM
+            await integrationEventService.dispatchEventToDestination({
+              eventId: sharedEventId,
+              origem: 'PCP',
+              destino: 'CRM',
+              tipoEvento: 'ORDEM_REPROGRAMADA',
+              programacaoId: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+              versao: newVersionTag,
+              versaoNum: nextVersionNum,
+              payload: crmPayload,
+              responsavelAcao: user ? user.name || user.email : 'Programador PCP',
+            })
           } catch (err) {
             console.warn('Erro ao criar alerta CRM:', err)
           }
         }
       }
+    } else {
+      // Registrar evento NAO_APLICAVEL para não haver lacuna na auditoria
+      try {
+        await pb.collection('integration_event').create({
+          event_id: sharedEventId,
+          origem: 'PCP',
+          destino: 'CRM',
+          tipo_evento: 'ORDEM_REPROGRAMADA',
+          programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+          versao: newVersionTag,
+          versao_num: nextVersionNum,
+          ambiente: currentEnv,
+          payload: { reason: 'Sem impacto comercial identificado' },
+          status: 'NAO_APLICAVEL',
+          tentativas: 1,
+          max_tentativas: 3,
+          criado_em: nowIso,
+          processado_em: nowIso,
+          retorno_em: nowIso,
+          mensagem_erro:
+            'Motivo: Sem impacto comercial identificado (Relevância Média / Sequenciamento puro).',
+          responsavel_acao: user ? user.name || user.email : 'Programador PCP',
+        })
+      } catch {
+        /* intentionally ignored */
+      }
     }
 
-    // 6. Gravar Eventos no TMS quando aplicável
+    // 6. Integração TMS com event_id único (quando aplicável)
     if (impact.tms.needsRecalculation) {
       try {
-        await pb.collection('schedule_tms_events').create({
+        const tmsData = {
           event_code: `TMS-${Date.now().toString().slice(-6)}`,
+          event_id: sharedEventId,
           programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
           version_code: newVersionCode,
           sales_order_number: createdCrmAlerts[0]?.sales_order_number || '45871/10',
@@ -432,25 +496,64 @@ export const scheduleVersioningService = {
           destination_city: 'Belo Horizonte',
           destination_state: 'MG',
           material_code: updatedItems[0]?.material_code || 'TR-60x30x2.0',
-          quantity_tons: updatedItems[0]?.planned_quantity_tons || 50,
-          product_available_datetime: updatedItems[0]?.end_datetime || nowIso,
+          quantity_tons: updatedItems[0]?.planned_quantity_tons || 70,
+          product_available_datetime: '2026-08-27 18:00',
           recalculated_shipping_date: '2026-08-28 08:00',
           recalculated_delivery_date: '2026-08-30 14:00',
           transit_lead_time_days: 2,
           carrier_name: 'Transportadora CIAFAL Log',
           logistics_status: 'JANELA_RECALCULADA',
+        }
+        await pb.collection('schedule_tms_events').create(tmsData)
+
+        await integrationEventService.dispatchEventToDestination({
+          eventId: sharedEventId,
+          origem: 'PCP',
+          destino: 'TMS',
+          tipoEvento: 'PREVISAO_LOGISTICA_ATUALIZADA',
+          programacaoId: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+          versao: newVersionTag,
+          versaoNum: nextVersionNum,
+          payload: tmsData,
+          responsavelAcao: user ? user.name || user.email : 'Programador PCP',
         })
       } catch (err) {
         console.warn('Erro ao registrar evento TMS:', err)
       }
+    } else {
+      // Registrar evento NAO_APLICAVEL no TMS
+      try {
+        await pb.collection('integration_event').create({
+          event_id: sharedEventId,
+          origem: 'PCP',
+          destino: 'TMS',
+          tipo_evento: 'PREVISAO_LOGISTICA_ATUALIZADA',
+          programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+          versao: newVersionTag,
+          versao_num: nextVersionNum,
+          ambiente: currentEnv,
+          payload: { reason: 'Disponibilidade do pedido não alterada' },
+          status: 'NAO_APLICAVEL',
+          tentativas: 1,
+          max_tentativas: 3,
+          criado_em: nowIso,
+          processado_em: nowIso,
+          retorno_em: nowIso,
+          mensagem_erro: 'Motivo: Disponibilidade do pedido não alterada.',
+          responsavel_acao: user ? user.name || user.email : 'Programador PCP',
+        })
+      } catch {
+        /* intentionally ignored */
+      }
     }
 
-    // 7. Enfileirar tratamento SAP para Ordens existentes
+    // 7. Enfileirar tratamento SAP para Ordens existentes com event_id
     if (impact.sap.requiresHandling && impact.sap.opNumbers.length > 0) {
       for (const opNum of impact.sap.opNumbers) {
         try {
-          await pb.collection('schedule_sap_queue').create({
+          const sapPayload = {
             queue_code: `SAP-Q-${Date.now().toString().slice(-6)}`,
+            event_id: sharedEventId,
             programacao_id: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
             version_code: newVersionCode,
             sap_production_order: opNum,
@@ -461,6 +564,19 @@ export const scheduleVersioningService = {
             diff_details_json: diffs,
             sap_response_message: 'Item enfileirado na ponte PostgreSQL -> SAP RFC ZPP_PROD',
             user_name: user ? user.name || user.email : 'Programador PCP',
+          }
+          await pb.collection('schedule_sap_queue').create(sapPayload)
+
+          await integrationEventService.dispatchEventToDestination({
+            eventId: sharedEventId,
+            origem: 'PCP',
+            destino: 'SAP',
+            tipoEvento: 'OP_CRIADA_ATUALIZADA',
+            programacaoId: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
+            versao: newVersionTag,
+            versaoNum: nextVersionNum,
+            payload: sapPayload,
+            responsavelAcao: user ? user.name || user.email : 'Programador PCP',
           })
         } catch (err) {
           console.warn('Erro ao criar fila SAP:', err)

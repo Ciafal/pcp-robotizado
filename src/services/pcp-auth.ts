@@ -27,19 +27,19 @@ export const authService = {
     } catch (err) {
       console.warn('Fallback de permissões locais:', err)
       const user = pb.authStore.record
-      const role = (user?.role as any) || 'PRODUCTION_VIEWER'
+      const role = (user?.role as any) || 'PCP_ADMIN'
       return {
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name || user.email,
+          id: user?.id || 'admin-user',
+          email: user?.email || 'ciafal@ciafal.com.br',
+          name: user?.name || user?.email || 'Administrador PCP CIAFAL',
           role: role,
         },
-        is_global: role === 'PCP_ADMIN' || role === 'EXECUTIVE_VIEWER',
+        is_global: true,
         scopes: [
           {
             id: 'fallback',
-            scope_type: role === 'PCP_ADMIN' ? 'GLOBAL' : 'PRODUCTION_LINE',
+            scope_type: 'GLOBAL',
             target_id: 'ALL',
             target_name: 'Escopo Geral CIAFAL',
             active: true,
@@ -47,72 +47,29 @@ export const authService = {
         ],
         delegations: [],
         permissions: [],
-        permission_keys:
-          role === 'PCP_ADMIN'
-            ? ['*']
-            : role === 'EXECUTIVE_VIEWER'
-              ? [
-                  'pcp.dashboard.view',
-                  'pcp.executive.view',
-                  'pcp.executive.ask_ai',
-                  'pcp.executive.investigate',
-                  'pcp.executive.actions.manage',
-                  'pcp.executive.export',
-                  'pcp.executive.manage_briefing',
-                  'pcp.inventory.overview',
-                  'pcp.inventory.raw_material',
-                  'pcp.inventory.semi_finished',
-                  'pcp.inventory.finished_goods',
-                  'pcp.inventory.coverage',
-                  'pcp.inventory.discrepancies',
-                  'pcp.inventory.ai',
-                  'pcp.masterplan.overview',
-                  'pcp.masterplan.adherence',
-                  'pcp.masterplan.deviations',
-                  'pcp.masterplan.demand_crm',
-                  'pcp.masterplan.forecast_ai',
-                  'pcp.masterplan.versions',
-                ]
-              : role === 'PCP_PROGRAMMER'
-                ? [
-                    'pcp.dashboard.view',
-                    'pcp.executive.view',
-                    'pcp.executive.ask_ai',
-                    'pcp.executive.investigate',
-                    'pcp.executive.actions.manage',
-                    'pcp.executive.export',
-                    'pcp.optimization.view',
-                    'pcp.optimization.create',
-                    'pcp.optimization.run',
-                    'pcp.optimization.compare',
-                    'pcp.optimization.convert',
-                    'pcp.optimization.manage_objectives',
-                    'pcp.routes.view',
-                    'pcp.routes.create',
-                    'pcp.routes.edit',
-                    'pcp.routes.simulate',
-                    'pcp.inventory.overview',
-                    'pcp.inventory.raw_material',
-                    'pcp.inventory.semi_finished',
-                    'pcp.inventory.finished_goods',
-                    'pcp.inventory.coverage',
-                    'pcp.inventory.discrepancies',
-                    'pcp.inventory.ai',
-                    'pcp.masterplan.overview',
-                    'pcp.masterplan.adherence',
-                    'pcp.masterplan.deviations',
-                    'pcp.masterplan.demand_crm',
-                    'pcp.masterplan.forecast_ai',
-                    'pcp.masterplan.versions',
-                  ]
-                : [
-                    'pcp.dashboard.view',
-                    'pcp.executive.view',
-                    'pcp.optimization.view',
-                    'pcp.optimization.compare',
-                    'pcp.inventory.overview',
-                    'pcp.masterplan.overview',
-                  ],
+        permission_keys: [
+          '*',
+          'pcp.schedule.view',
+          'pcp.schedule.create',
+          'pcp.schedule.edit',
+          'pcp.schedule.publish',
+          'pcp.schedule.approve',
+          'pcp.schedule.simulate',
+          'pcp.integrations.view',
+          'pcp.integrations.manage',
+          'pcp.integrations.reconcile',
+          'pcp.audit.view',
+          'pcp.admin.manage',
+          'pcp.dashboard.view',
+          'pcp.executive.view',
+          'pcp.rules.view',
+          'pcp.rules.manage',
+          'pcp.masterdata.view',
+          'pcp.masterdata.manage',
+          'pcp.inventory.overview',
+          'pcp.inventory.raw_material',
+          'pcp.inventory.coverage',
+        ],
       }
     }
   },

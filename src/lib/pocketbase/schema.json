@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T01:23:06.575Z",
+  "generatedAt": "2026-08-30T01:43:29.458Z",
   "collections": [
     {
       "name": "users",
@@ -12441,6 +12441,327 @@
         "CREATE INDEX idx_ssq_op ON schedule_sap_queue (sap_production_order)",
         "CREATE INDEX idx_ssq_prog ON schedule_sap_queue (programacao_id)",
         "CREATE INDEX idx_ssq_status ON schedule_sap_queue (status)"
+      ]
+    },
+    {
+      "name": "integration_event",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "event_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "destino",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo_evento",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "programacao_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "programacao_item_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "versao_num",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ambiente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "PENDENTE",
+            "ENVIANDO",
+            "ENVIADO",
+            "RECEBIDO",
+            "PROCESSADO",
+            "ERRO",
+            "INTERVENCAO_NECESSARIA",
+            "EVENTO_JA_PROCESSADO",
+            "NAO_APLICAVEL"
+          ]
+        },
+        {
+          "name": "tentativas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_tentativas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_em",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "enviado_em",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recebido_em",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "processado_em",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retorno_em",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mensagem_erro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retorno_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_acao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reconciliado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reconciliado_em",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_ie_event_dest ON integration_event (event_id, destino)",
+        "CREATE INDEX idx_ie_prog_ver ON integration_event (programacao_id, versao)",
+        "CREATE INDEX idx_ie_status ON integration_event (status)",
+        "CREATE INDEX idx_ie_dest_env ON integration_event (destino, ambiente)"
+      ]
+    },
+    {
+      "name": "integration_connector_configs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "system_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "system_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ambiente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "interface_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "endpoint",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "method",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["CONECTADO", "DESCONECTADO", "DEGRADADO", "EM_TESTE"]
+        },
+        {
+          "name": "latency_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pending_queue_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "errors_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_communication_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_success_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_error_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retry_policy_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "admin_permission_required",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_icc_sys_env ON integration_connector_configs (system_code, ambiente)"
       ]
     }
   ]

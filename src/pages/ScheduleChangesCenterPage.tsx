@@ -658,6 +658,33 @@ export const ScheduleChangesCenterPage: React.FC = () => {
       {/* ABA 3: ALERTAS CRM 360º (Requisitos 17 a 25) */}
       {activeTab === 'CRM' && (
         <div className="space-y-4">
+          {/* Banner de Falha de Comunicação se houver erro (Requisito 11) */}
+          {crmAlerts.some((a) => a.status === 'PENDENTE' && a.tms_recalculation_required) && (
+            <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-xl text-xs text-rose-950 flex items-center justify-between shadow-xs animate-pulse">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🔴</span>
+                <div>
+                  <strong className="block font-black text-rose-900 text-sm">
+                    FALHA DE COMUNICAÇÃO COM CRM — Alteração de alta relevância ainda não foi
+                    entregue ao Comercial.
+                  </strong>
+                  <span className="text-rose-700 text-[11px]">
+                    O evento permanece seguro na fila de retentativas e a versão vigente continua
+                    ativa no PCP.
+                  </span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/pcp/integracoes/monitor')}
+                className="border-rose-400 text-rose-900 bg-white hover:bg-rose-100 font-bold text-xs shrink-0"
+              >
+                Abrir Fila de Retentativas
+              </Button>
+            </div>
+          )}
+
           <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-start justify-between">
             <div>
               <strong className="block font-bold">Filtro Antirruído CRM:</strong>

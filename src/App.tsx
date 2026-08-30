@@ -87,6 +87,8 @@ const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
 const AuditPage = lazy(() => import('@/pages/AuditPage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ScheduleChangesCenterPage = lazy(() => import('@/pages/ScheduleChangesCenterPage'))
+const PCPIntegrationsPage = lazy(() => import('@/pages/PCPIntegrationsPage'))
+const PCPIntegrationMonitorPage = lazy(() => import('@/pages/PCPIntegrationMonitorPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 
@@ -623,6 +625,22 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.schedule.view">
                       <ScheduleChangesCenterPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/integracoes"
+                  element={
+                    <PermissionGuard permission="pcp.integrations.view">
+                      <PCPIntegrationsPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/integracoes/monitor"
+                  element={
+                    <PermissionGuard permission="pcp.integrations.view">
+                      <PCPIntegrationMonitorPage />
                     </PermissionGuard>
                   }
                 />
