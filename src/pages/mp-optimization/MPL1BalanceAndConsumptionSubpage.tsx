@@ -292,7 +292,10 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
               Consumo Total L1 ({selectedHorizon.replace('_', ' ')})
             </span>
             <div className="text-xl font-black text-slate-900 font-mono mt-1">
-              {totalL1Consumption.toFixed(1)}{' '}
+              {totalL1Consumption.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-slate-500 block mt-0.5">Ordens programadas</span>
@@ -305,7 +308,11 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
               Necessário Produzir na L2
             </span>
             <div className="text-xl font-black text-rose-600 font-mono mt-1">
-              {totalL2Need.toFixed(1)} <span className="text-xs font-normal text-slate-500">t</span>
+              {totalL2Need.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
               Demanda de abastecimento L1
@@ -319,9 +326,12 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
               Estoque KS + Corte KS
             </span>
             <div className="text-xl font-black text-[#004C97] font-mono mt-1">
-              {(totalKsStock + matrixRows.reduce((a, b) => a + b.ks_cut_tons, 0)).toFixed(1)}{' '}
+              {totalSupplierBalance.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
-            </div>
+            </div>{' '}
             <span className="text-[10px] text-blue-600 font-semibold block mt-0.5">
               Pronto para laminação
             </span>
@@ -445,26 +455,54 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-slate-800">
-                      {(r.stock_ks_tons + r.ks_cut_tons).toFixed(1)}
+                      {(r.stock_ks_tons + r.ks_cut_tons).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
                       <div className="text-[9px] text-slate-400">
-                        Corte: {r.ks_cut_tons.toFixed(1)}t
+                        Corte:{' '}
+                        {r.ks_cut_tons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
+                        t
                       </div>
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-slate-700">
-                      {(r.stock_dp07_tons + r.stock_dp04_tons).toFixed(1)}
+                      {(r.stock_dp07_tons + r.stock_dp04_tons).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
                       <div className="text-[9px] text-slate-400">
-                        DP07: {r.stock_dp07_tons.toFixed(1)}t | DP04: {r.stock_dp04_tons.toFixed(1)}
+                        DP07:{' '}
+                        {r.stock_dp07_tons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
+                        t | DP04:{' '}
+                        {r.stock_dp04_tons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
                         t
                       </div>
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-emerald-700 font-semibold">
-                      +{r.l2_production_weekly_tons.toFixed(1)}
+                      +
+                      {r.l2_production_weekly_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-blue-700 font-semibold">
-                      +{r.po_supplier_balance_tons.toFixed(1)}
+                      +
+                      {r.po_supplier_balance_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
                       {r.suppliers_breakdown_json && r.suppliers_breakdown_json.length > 0 && (
                         <div className="text-[9px] text-slate-400">
                           {r.suppliers_breakdown_json[0].supplier.split(' ')[0]}
@@ -473,7 +511,11 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-amber-700 font-bold">
-                      -{r.total_consumption_tons.toFixed(1)}
+                      -
+                      {r.total_consumption_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs font-black bg-blue-50/40">
@@ -484,15 +526,26 @@ export const MPL1BalanceAndConsumptionSubpage: React.FC = () => {
                             : 'text-[#004C97]'
                         }
                       >
-                        {r.projected_balance_tons.toFixed(1)} t
+                        {r.projected_balance_tons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
+                        t
                       </span>
                       <div className="text-[9px] text-slate-400">
-                        Mín: {r.min_stock_tons.toFixed(1)}t
+                        Mín:{' '}
+                        {r.min_stock_tons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
+                        t
                       </div>
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs font-black text-rose-600 bg-rose-50/40">
-                      {r.need_produce_l2_tons > 0 ? `${r.need_produce_l2_tons.toFixed(1)} t` : '-'}
+                      {r.need_produce_l2_tons > 0
+                        ? `${r.need_produce_l2_tons.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} t`
+                        : '-'}
                       {r.need_l2_week && (
                         <div className="text-[9px] text-rose-500 font-semibold">
                           {r.need_l2_week}

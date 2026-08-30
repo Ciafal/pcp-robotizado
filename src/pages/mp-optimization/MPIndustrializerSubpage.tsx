@@ -498,11 +498,15 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 <span className="font-semibold text-slate-700">
                   {activeContract.contract_code} (v{activeContract.version})
                 </span>{' '}
-                • Rendimento Metálico:{' '}
+                &bull; Rendimento Metálico:{' '}
                 <span className="font-semibold text-[#004C97]">
-                  {(activeContract.metallic_yield_rate * 100).toFixed(1)}%
+                  {(activeContract.metallic_yield_rate * 100).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}{' '}
+                  %
                 </span>{' '}
-                • Norma Técnica:{' '}
+                &bull; Norma Técnica:{' '}
                 <span className="font-semibold text-slate-700">
                   {activeContract.technical_doc_ref || 'TB-002'}
                 </span>
@@ -551,8 +555,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 Carteira Programada L1
               </span>
               <span className="text-lg font-black text-slate-900 mt-1 block">
-                {projectionResult.totalProgrammedTons.toFixed(1)} t
-              </span>
+                {projectionResult.totalProgrammedTons.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{' '}
+                t
+              </span>{' '}
               <span className="text-[10px] text-slate-500 font-mono">
                 {programmedOrders.length} ordens de laminação
               </span>
@@ -566,8 +574,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 MP Física na CIAFAL
               </span>
               <span className="text-lg font-black text-slate-900 mt-1 block">
-                {totalPhysicalTons.toFixed(1)} t
-              </span>
+                {totalPhysicalTons.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{' '}
+                t
+              </span>{' '}
               <span className="text-[10px] text-emerald-700 font-semibold">
                 DP18 + DP07 + DP20 + Descarga
               </span>
@@ -581,8 +593,13 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 MP em Trânsito
               </span>
               <span className="text-lg font-black text-[#004C97] mt-1 block">
-                +{totalTransitTons.toFixed(1)} t
-              </span>
+                +
+                {totalTransitTons.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{' '}
+                t
+              </span>{' '}
               <span className="text-[10px] text-blue-600 font-mono">
                 {activeTransits.length} veículos rastreados
               </span>
@@ -596,8 +613,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 Pronta p/ Laminação (DP07)
               </span>
               <span className="text-lg font-black text-slate-900 mt-1 block">
-                {totalAvailableReadyTons.toFixed(1)} t
-              </span>
+                {totalAvailableReadyTons.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{' '}
+                t
+              </span>{' '}
               <span className="text-[10px] text-slate-500">Tarugos cortados e liberados</span>
             </CardContent>
           </Card>
@@ -622,11 +643,19 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 </button>
               </div>
               <span className="text-lg font-black text-slate-900 mt-1 block">
-                {totalConsumptionTons.toFixed(1)} t
+                {totalConsumptionTons.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{' '}
+                t
               </span>
               <span className="text-[10px] text-slate-500">
-                Rendimento {(activeContract.metallic_yield_rate * 100).toFixed(0)}% aplicado
-              </span>
+                Rendimento{' '}
+                {(activeContract.metallic_yield_rate * 100).toLocaleString('pt-BR', {
+                  maximumFractionDigits: 0,
+                })}{' '}
+                % aplicado
+              </span>{' '}
             </CardContent>
           </Card>
 
@@ -652,9 +681,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                 }`}
               >
                 {totalProjectedBalance >= 0
-                  ? `+${totalProjectedBalance.toFixed(1)}`
-                  : totalProjectedBalance.toFixed(1)}{' '}
-                t
+                  ? `+${totalProjectedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+                  : totalProjectedBalance.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{' '}
+                t{' '}
               </span>
               <span className="text-[10px] font-semibold text-slate-700 block truncate">
                 {projectionResult.firstRupture
@@ -678,8 +710,13 @@ export const MPIndustrializerSubpage: React.FC = () => {
                     PREVISÃO DE PARADA DE LINHA L1 POR FALTA DE MP
                   </span>
                   <Badge className="bg-rose-600 text-white text-[10px] font-bold">
-                    Déficit: {projectionResult.firstRupture.missing_tons.toFixed(1)} t
-                  </Badge>
+                    Déficit:{' '}
+                    {projectionResult.firstRupture.missing_tons.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{' '}
+                    t
+                  </Badge>{' '}
                 </div>
                 <p className="text-xs text-rose-800 mt-0.5">
                   Primeira data de ruptura: <strong>{projectionResult.firstRupture.date}</strong> •
@@ -776,8 +813,14 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Prep. KS (DP20)
                     </span>
                     <span className="font-mono font-bold text-slate-900">
-                      {(stock130.dp20_ks_pointed_tons + stock150.dp20_ks_pointed_tons).toFixed(1)} t
-                    </span>
+                      {(
+                        stock130.dp20_ks_pointed_tons + stock150.dp20_ks_pointed_tons
+                      ).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -785,8 +828,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Estoque Pronto (DP07)
                     </span>
                     <span className="font-mono font-bold text-slate-900">
-                      {(stock130.dp07_cut_ready_tons + stock150.dp07_cut_ready_tons).toFixed(1)} t
-                    </span>
+                      {(stock130.dp07_cut_ready_tons + stock150.dp07_cut_ready_tons).toLocaleString(
+                        'pt-BR',
+                        { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+                      )}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -794,8 +841,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Trânsito 130×130
                     </span>
                     <span className="font-mono font-bold text-[#004C97]">
-                      {sum130.in_transit_tons.toFixed(1)} t
-                    </span>
+                      {sum130.in_transit_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -803,8 +854,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Trânsito 150×150
                     </span>
                     <span className="font-mono font-bold text-[#004C97]">
-                      {sum150.in_transit_tons.toFixed(1)} t
-                    </span>
+                      {sum150.in_transit_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -812,8 +867,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Total MP (Fís+Trn)
                     </span>
                     <span className="font-mono font-bold text-slate-900">
-                      {(totalPhysicalTons + totalTransitTons).toFixed(1)} t
-                    </span>
+                      {(totalPhysicalTons + totalTransitTons).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -821,8 +880,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       Consumo L1
                     </span>
                     <span className="font-mono font-bold text-slate-900">
-                      {totalConsumptionTons.toFixed(1)} t
-                    </span>
+                      {totalConsumptionTons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
 
                   <div className="p-2 bg-white rounded border border-slate-200">
@@ -834,8 +897,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                         totalNeedToReceiveTons > 0 ? 'text-amber-700' : 'text-emerald-700'
                       }`}
                     >
-                      {totalNeedToReceiveTons.toFixed(1)} t
-                    </span>
+                      {totalNeedToReceiveTons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
+                    </span>{' '}
                   </div>
                 </div>
               </CardContent>
@@ -921,38 +988,90 @@ export const MPIndustrializerSubpage: React.FC = () => {
                           {dim.dimension === '130x130' ? 'Tarugo 130×130' : 'Tarugo 150×150'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {dim.supplied_monthly_target_tons.toFixed(1)}
+                          {dim.supplied_monthly_target_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right font-bold text-[#004C97]">
-                          +{dim.in_transit_tons.toFixed(1)}
+                          +
+                          {dim.in_transit_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
-                        <TableCell className="text-right">{dim.received_tons.toFixed(1)}</TableCell>
-                        <TableCell className="text-right">{dim.received_pct.toFixed(1)}%</TableCell>
                         <TableCell className="text-right">
-                          {dim.to_receive_tons.toFixed(1)}
+                          {dim.received_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
-                        <TableCell className="text-right">{dim.dp18_tons.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">
+                          {dim.received_pct.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          %
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {dim.to_receive_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {dim.dp18_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                        </TableCell>
                         <TableCell className="text-right text-emerald-700 font-semibold">
-                          {dim.dp07_tons.toFixed(1)}
+                          {dim.dp07_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
-                        <TableCell className="text-right">{dim.dp20_tons.toFixed(1)}</TableCell>
                         <TableCell className="text-right">
-                          {dim.awaiting_unloading_tons.toFixed(1)}
+                          {dim.dp20_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {dim.awaiting_unloading_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right font-bold text-slate-900 bg-slate-100/50">
-                          {dim.total_physical_ciafal_tons.toFixed(1)}
+                          {dim.total_physical_ciafal_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right">
-                          {dim.programmed_consumption_week_tons.toFixed(1)}
+                          {dim.programmed_consumption_week_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right font-bold text-slate-800">
-                          {dim.need_week_current_tons.toFixed(1)}
+                          {dim.need_week_current_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right">
-                          {dim.programmed_consumption_total_tons.toFixed(1)}
+                          {dim.programmed_consumption_total_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell className="text-right font-bold text-[#004C97] bg-blue-50/60">
-                          {dim.physical_plus_transit_tons.toFixed(1)}
+                          {dim.physical_plus_transit_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
                         </TableCell>
                         <TableCell
                           className={`text-right font-black ${
@@ -960,12 +1079,18 @@ export const MPIndustrializerSubpage: React.FC = () => {
                           }`}
                         >
                           {dim.projected_balance_tons >= 0
-                            ? `+${dim.projected_balance_tons.toFixed(1)}`
-                            : dim.projected_balance_tons.toFixed(1)}
+                            ? `+${dim.projected_balance_tons.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+                            : dim.projected_balance_tons.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 1,
+                              })}
                         </TableCell>
                         <TableCell className="text-right font-bold text-amber-800">
-                          {dim.total_need_tons.toFixed(1)}
-                        </TableCell>
+                          {dim.total_need_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}
+                        </TableCell>{' '}
                         <TableCell className="text-center font-sans">
                           <Badge
                             className={`text-[9px] ${
@@ -991,44 +1116,96 @@ export const MPIndustrializerSubpage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right">6.000,0</TableCell>
                       <TableCell className="text-right text-[#004C97]">
-                        +{totalTransitTons.toFixed(1)}
+                        +
+                        {totalTransitTons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(sum130.received_tons + sum150.received_tons).toFixed(1)}
+                        {(sum130.received_tons + sum150.received_tons).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(((sum130.received_tons + sum150.received_tons) / 6000) * 100).toFixed(1)}%
+                        {(
+                          ((sum130.received_tons + sum150.received_tons) / 6000) *
+                          100
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{' '}
+                        %
                       </TableCell>
                       <TableCell className="text-right">
-                        {(sum130.to_receive_tons + sum150.to_receive_tons).toFixed(1)}
+                        {(sum130.to_receive_tons + sum150.to_receive_tons).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(stock130.dp18_whole_tons + stock150.dp18_whole_tons).toFixed(1)}
+                        {(stock130.dp18_whole_tons + stock150.dp18_whole_tons).toLocaleString(
+                          'pt-BR',
+                          { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-emerald-700">
-                        {(stock130.dp07_cut_ready_tons + stock150.dp07_cut_ready_tons).toFixed(1)}
+                        {(
+                          stock130.dp07_cut_ready_tons + stock150.dp07_cut_ready_tons
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(stock130.dp20_ks_pointed_tons + stock150.dp20_ks_pointed_tons).toFixed(1)}
+                        {(
+                          stock130.dp20_ks_pointed_tons + stock150.dp20_ks_pointed_tons
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
-                      <TableCell className="text-right">{totalUnloadingTons.toFixed(1)}</TableCell>
+                      <TableCell className="text-right">
+                        {totalUnloadingTons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
+                      </TableCell>
                       <TableCell className="text-right text-slate-900 bg-slate-200">
-                        {totalPhysicalTons.toFixed(1)}
+                        {totalPhysicalTons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
                         {(
                           sum130.programmed_consumption_week_tons +
                           sum150.programmed_consumption_week_tons
-                        ).toFixed(1)}
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(sum130.need_week_current_tons + sum150.need_week_current_tons).toFixed(1)}
+                        {(
+                          sum130.need_week_current_tons + sum150.need_week_current_tons
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
-                        {totalConsumptionTons.toFixed(1)}
+                        {totalConsumptionTons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell className="text-right text-[#004C97] bg-blue-100">
-                        {(totalPhysicalTons + totalTransitTons).toFixed(1)}
+                        {(totalPhysicalTons + totalTransitTons).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
                       </TableCell>
                       <TableCell
                         className={`text-right font-black ${
@@ -1036,12 +1213,18 @@ export const MPIndustrializerSubpage: React.FC = () => {
                         }`}
                       >
                         {totalProjectedBalance >= 0
-                          ? `+${totalProjectedBalance.toFixed(1)}`
-                          : totalProjectedBalance.toFixed(1)}
+                          ? `+${totalProjectedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+                          : totalProjectedBalance.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            })}
                       </TableCell>
                       <TableCell className="text-right text-amber-800">
-                        {totalNeedToReceiveTons.toFixed(1)}
-                      </TableCell>
+                        {totalNeedToReceiveTons.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
+                      </TableCell>{' '}
                       <TableCell className="text-center font-sans">
                         <Badge className="bg-[#004C97] text-white text-[9px]">
                           {globalTrafficLight}
@@ -1069,10 +1252,14 @@ export const MPIndustrializerSubpage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-
                 <Badge variant="outline" className="text-[10px] text-slate-600">
-                  Total em Trânsito: {totalTransitTons.toFixed(1)} t
-                </Badge>
+                  Total em Trânsito:{' '}
+                  {totalTransitTons.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}{' '}
+                  t
+                </Badge>{' '}
               </div>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -1101,8 +1288,12 @@ export const MPIndustrializerSubpage: React.FC = () => {
                           {trn.dimension_section}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900">
-                          {trn.quantity_tons.toFixed(1)} t
-                        </TableCell>
+                          {trn.quantity_tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
+                        </TableCell>{' '}
                         <TableCell className="font-mono text-slate-700">
                           {trn.vehicle_plate || '—'}
                         </TableCell>
@@ -1141,8 +1332,11 @@ export const MPIndustrializerSubpage: React.FC = () => {
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     Sequência oficial de ordens com rendimento de{' '}
-                    {(activeContract.metallic_yield_rate * 100).toFixed(1)}% e alocação inteligente
-                    de tarugos.
+                    {(activeContract.metallic_yield_rate * 100).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{' '}
+                    % e alocação inteligente de tarugos.
                   </p>
                 </div>
 

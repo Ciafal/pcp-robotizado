@@ -437,11 +437,19 @@ export const MPProjectionsSubpage: React.FC = () => {
               MP Total Disponível
             </span>
             <div className="text-xl font-black text-slate-900 font-mono mt-1">
-              {totalStockTons.toFixed(1)}{' '}
+              {totalStockTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
-              Livre: {totalFreeTons.toFixed(1)} t
+              Livre:{' '}
+              {totalFreeTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              t
             </span>
           </CardContent>
         </Card>
@@ -452,7 +460,10 @@ export const MPProjectionsSubpage: React.FC = () => {
               Controle de Qualidade
             </span>
             <div className="text-xl font-black text-amber-700 font-mono mt-1">
-              {totalQualityTons.toFixed(1)}{' '}
+              {totalQualityTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-slate-500 block mt-0.5">Aguardando liberação CQ</span>
@@ -465,7 +476,10 @@ export const MPProjectionsSubpage: React.FC = () => {
               Pedidos SAP em Trânsito
             </span>
             <div className="text-xl font-black text-[#004C97] font-mono mt-1">
-              {totalConfirmedReceiptsTons.toFixed(1)}{' '}
+              {totalConfirmedReceiptsTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-blue-600 font-semibold block mt-0.5">
@@ -480,7 +494,11 @@ export const MPProjectionsSubpage: React.FC = () => {
               Simulação Adicional
             </span>
             <div className="text-xl font-black text-purple-700 font-mono mt-1">
-              +{totalSimulatedTons.toFixed(1)}{' '}
+              +
+              {totalSimulatedTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-purple-600 font-semibold block mt-0.5">
@@ -652,36 +670,88 @@ export const MPProjectionsSubpage: React.FC = () => {
                           )}
                         </div>
                         <div className="text-[10px] text-slate-400 font-normal">
-                          {p.shape} • KS: {p.ksAvailableTons.toFixed(1)}t • Outros:{' '}
-                          {p.otherDepotsTons.toFixed(1)}t
+                          {p.shape} &bull; KS:{' '}
+                          {p.ksAvailableTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t &bull; Outros:{' '}
+                          {p.otherDepotsTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                       </TableCell>
 
                       <TableCell className="text-right font-mono text-xs text-slate-800">
-                        <div className="font-bold">{p.totalAvailableTons.toFixed(1)} t</div>
+                        <div className="font-bold">
+                          {p.totalAvailableTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
+                        </div>
                         <div className="text-[10px] text-slate-400">
-                          Livre: {p.unrestrictedTons.toFixed(1)}t | CQ:{' '}
-                          {p.qualityControlTons.toFixed(1)}t
+                          Livre:{' '}
+                          {p.unrestrictedTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t | CQ:{' '}
+                          {p.qualityControlTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                       </TableCell>
 
                       <TableCell className="text-right font-mono text-xs text-slate-700">
                         <div className="font-bold">
-                          -{p.totalProgrammedConsumptionTons.toFixed(1)} t
+                          -
+                          {p.totalProgrammedConsumptionTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          L1: {p.programmedL1Tons.toFixed(1)}t | L2: {p.programmedL2Tons.toFixed(1)}
+                          L1:{' '}
+                          {p.programmedL1Tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t | L2:{' '}
+                          {p.programmedL2Tons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
                           t
                         </div>
                       </TableCell>
 
                       <TableCell className="text-right font-mono text-xs text-blue-700">
                         <div className="font-bold">
-                          +{(p.confirmedReceiptsTons + p.transitOrdersTons).toFixed(1)} t
+                          +
+                          {(p.confirmedReceiptsTons + p.transitOrdersTons).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          SAP: {p.confirmedReceiptsTons.toFixed(1)}t | L2 útil:{' '}
-                          {p.projectedIntermedProdTons.toFixed(1)}t
+                          SAP:{' '}
+                          {p.confirmedReceiptsTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t | L2 útil:{' '}
+                          {p.projectedIntermedProdTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                       </TableCell>
 
@@ -689,10 +759,19 @@ export const MPProjectionsSubpage: React.FC = () => {
                         <span
                           className={`font-black ${p.projectedBalanceTons < p.minStockLimitTons ? 'text-rose-600' : 'text-slate-900'}`}
                         >
-                          {p.projectedBalanceTons.toFixed(1)} t
+                          {p.projectedBalanceTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </span>
                         <div className="text-[10px] text-slate-400">
-                          Mínimo: {p.minStockLimitTons.toFixed(1)}t
+                          Mínimo:{' '}
+                          {p.minStockLimitTons.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </div>
                       </TableCell>
 

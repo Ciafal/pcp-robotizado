@@ -143,7 +143,10 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
             Estoque Atual Físico
           </span>
           <div className="text-lg font-black text-slate-900 mt-1">
-            {totalRealStockTons.toFixed(1)}{' '}
+            {totalRealStockTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-xs font-normal text-slate-500">t</span>
           </div>
           <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">
@@ -156,7 +159,10 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
             Pedidos de Compra (PO)
           </span>
           <div className="text-lg font-black text-[#004C97] mt-1">
-            {totalPendingPoTons.toFixed(1)}{' '}
+            {totalPendingPoTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-xs font-normal text-slate-500">t</span>
           </div>
           <span className="text-[10px] text-blue-600 font-semibold mt-0.5 block">
@@ -169,7 +175,10 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
             Recebimentos Previstos
           </span>
           <div className="text-lg font-black text-blue-900 mt-1">
-            {totalExpectedReceptionsTons.toFixed(1)}{' '}
+            {totalExpectedReceptionsTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-xs font-normal text-slate-500">t</span>
           </div>
           <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
@@ -185,7 +194,7 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
             {delayedOrders.length} <span className="text-xs font-normal text-slate-500">un</span>
           </div>
           <span className="text-[10px] text-rose-600 font-semibold mt-0.5 block">
-            Atraso médio: 4.2 dias
+            Atraso médio: 4,2 dias
           </span>
         </Card>
 
@@ -194,7 +203,10 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
             Estoque Futuro Líquido
           </span>
           <div className="text-lg font-black text-emerald-800 mt-1">
-            {(totalRealStockTons + totalExpectedReceptionsTons).toFixed(1)}{' '}
+            {(totalRealStockTons + totalExpectedReceptionsTons).toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-xs font-normal text-slate-500">t</span>
           </div>
           <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
@@ -557,16 +569,43 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
                           {p.steel_grade} &bull; {p.material_code}
                         </td>
                         <td className="p-2.5">{p.center_code}</td>
-                        <td className="p-2.5 font-bold">{p.current_stock_tons || 0} t</td>
-                        <td className="p-2.5 text-blue-700">+{p.confirmed_po_tons || 0} t</td>
+                        <td className="p-2.5 font-bold">
+                          {(p.current_stock_tons || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
+                        </td>
+                        <td className="p-2.5 text-blue-700">
+                          +
+                          {(p.confirmed_po_tons || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
+                        </td>
                         <td className="p-2.5 text-emerald-700">
-                          +{p.future_receptions_tons || 0} t
+                          +
+                          {(p.future_receptions_tons || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </td>
                         <td className="p-2.5 text-rose-700">
-                          -{p.scheduled_consumption_tons || 0} t
+                          -
+                          {(p.scheduled_consumption_tons || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </td>
                         <td className="p-2.5 font-black text-slate-900 bg-slate-50">
-                          {p.projected_future_stock_tons} t
+                          {Number(p.projected_future_stock_tons).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </td>
                         <td className="p-2.5 font-bold">{p.coverage_days || 30} dias</td>
                         <td className="p-2.5">
@@ -627,11 +666,15 @@ export const MPOrdersAndReceiptPage: React.FC = () => {
                           {it.steel_grade || 'SAE 1045'}
                         </td>
                         <td className="p-2.5">{it.current_application}</td>
-                        <td className="p-2.5">18.5 t</td>
+                        <td className="p-2.5">18,5 t</td>
                         <td className="p-2.5 text-emerald-700 font-bold">
-                          {((it.weight_kg || 4000) / 1000).toFixed(1)} t
+                          {((it.weight_kg || 4000) / 1000).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
                         </td>
-                        <td className="p-2.5 text-blue-700">12.0 t</td>
+                        <td className="p-2.5 text-blue-700">12,0 t</td>
                         <td className="p-2.5 font-sans">
                           <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px]">
                             Atendido

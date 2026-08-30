@@ -152,7 +152,10 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
             MP Física Disponível
           </span>
           <div className="text-base sm:text-lg font-black text-slate-900 mt-1">
-            {totalPhysicalStockTons.toFixed(1)}{' '}
+            {totalPhysicalStockTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-[11px] font-normal text-slate-500">t</span>
           </div>
           <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">
@@ -165,7 +168,10 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
             MP em Pedido (PO)
           </span>
           <div className="text-base sm:text-lg font-black text-[#004C97] mt-1">
-            {totalPoPendingTons.toFixed(1)}{' '}
+            {totalPoPendingTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-[11px] font-normal text-slate-500">t</span>
           </div>
           <span className="text-[9px] text-blue-600 font-bold block mt-0.5">
@@ -178,10 +184,13 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
             Recebimento Previsto
           </span>
           <div className="text-base sm:text-lg font-black text-blue-900 mt-1">
-            {totalExpectedTons.toFixed(1)}{' '}
+            {totalExpectedTons.toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
             <span className="text-[11px] font-normal text-slate-500">t</span>
           </div>
-          <span className="text-[9px] text-slate-500 font-bold block mt-0.5">Horiz. 7-90d</span>
+          <span className="text-[9px] text-slate-500 font-bold block mt-0.5">Horiz. 7-90 dias</span>
         </Card>
 
         <Card className="border-slate-200 bg-white p-3 shadow-xs">
@@ -232,10 +241,18 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
             Economia Potencial
           </span>
           <div className="text-base sm:text-lg font-black text-emerald-700 mt-1">
-            R$ {(potentialSavings / 1000).toFixed(0)}k
+            {potentialSavings.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+              maximumFractionDigits: 0,
+            })}
           </div>
           <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">
-            {(potentialScrapAvoidedKg / 1000).toFixed(1)}t sucata evitada
+            {(potentialScrapAvoidedKg / 1000).toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
+            t sucata evitada
           </span>
         </Card>
       </div>
@@ -278,7 +295,13 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Entradas Previstas:</span>
-                  <span className="font-bold text-blue-700">{totalExpectedTons.toFixed(1)} t</span>
+                  <span className="font-bold text-blue-700">
+                    {totalExpectedTons.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{' '}
+                    t
+                  </span>
                 </div>
               </div>
             </div>
@@ -318,7 +341,7 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Rendimento Médio:</span>
-                  <span className="font-bold text-emerald-800">92.4%</span>
+                  <span className="font-bold text-emerald-800">92,4 %</span>
                 </div>
               </div>
             </div>
@@ -359,7 +382,11 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-slate-500">Economia R$:</span>
                   <span className="font-bold text-emerald-700">
-                    R$ {(potentialSavings / 1000).toFixed(0)}k
+                    {potentialSavings.toLocaleString('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                      maximumFractionDigits: 0,
+                    })}
                   </span>
                 </div>
               </div>
@@ -394,7 +421,7 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
               <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Primeira Ruptura:</span>
-                  <span className="font-bold text-rose-600">SAE 1045 (18d)</span>
+                  <span className="font-bold text-rose-600">SAE 1045 (18 dias)</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Cobertura 1020:</span>
@@ -432,11 +459,11 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
               <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Industrializadores:</span>
-                  <span className="font-bold text-blue-700">58.0 t</span>
+                  <span className="font-bold text-blue-700">58,0 t</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Sobras (&lt;0,35t):</span>
-                  <span className="font-bold text-amber-700">0.59 t</span>
+                  <span className="text-slate-500">Sobras (&lt; 0,35 t):</span>
+                  <span className="font-bold text-amber-700">0,59 t</span>
                 </div>
               </div>
             </div>
@@ -470,7 +497,7 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
               <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Fator Atendimento L2:</span>
-                  <span className="font-bold text-emerald-700">95.0%</span>
+                  <span className="font-bold text-emerald-700">95,0 %</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Granularidade:</span>
@@ -508,11 +535,11 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
               <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Necessário L2:</span>
-                  <span className="font-bold text-rose-600">120.0 t</span>
+                  <span className="font-bold text-rose-600">120,0 t</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Saldo Fornecedores:</span>
-                  <span className="font-bold text-blue-700">185.0 t</span>
+                  <span className="font-bold text-blue-700">185,0 t</span>
                 </div>
               </div>
             </div>
@@ -546,11 +573,11 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
               <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
                 <div className="flex justify-between">
                   <span className="text-slate-500">% 1020 no lugar de AC:</span>
-                  <span className="font-bold text-rose-600">27.4%</span>
+                  <span className="font-bold text-rose-600">27,4 %</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Enfornamento Quente:</span>
-                  <span className="font-bold text-orange-600">71.8%</span>
+                  <span className="font-bold text-orange-600">71,8 %</span>
                 </div>
               </div>
             </div>

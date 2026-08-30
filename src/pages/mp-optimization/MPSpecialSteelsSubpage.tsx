@@ -312,7 +312,8 @@ export const MPSpecialSteelsSubpage: React.FC = () => {
             className="h-8 w-20 text-xs text-right font-mono bg-slate-50 font-bold text-[#004C97]"
           />
           <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700">
-            {(l2YieldFactor * 100).toFixed(0)}% rendimento
+            {(l2YieldFactor * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} %
+            rendimento
           </Badge>
         </div>
       </div>
@@ -441,27 +442,46 @@ export const MPSpecialSteelsSubpage: React.FC = () => {
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-slate-700">
-                      {r.initial_stock_tons.toFixed(2)}
+                      {r.initial_stock_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-blue-700">
-                      {(r.receptions_tons || 0) > 0 ? `+${r.receptions_tons?.toFixed(2)}` : '-'}
+                      {(r.receptions_tons || 0) > 0
+                        ? `+${r.receptions_tons?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : '-'}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-slate-500">
-                      {r.l2_production_tons?.toFixed(2)}
+                      {r.l2_production_tons?.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs font-bold text-emerald-700 bg-emerald-50/40">
-                      +{r.l2_useful_production_tons?.toFixed(2)}
+                      +
+                      {r.l2_useful_production_tons?.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs text-amber-700">
-                      -{r.scheduled_consumption_tons.toFixed(2)}
+                      -
+                      {r.scheduled_consumption_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs font-black text-[#004C97] bg-blue-50/50">
-                      {r.final_stock_tons.toFixed(2)}
+                      {r.final_stock_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </TableCell>
 
                     <TableCell className="text-center">

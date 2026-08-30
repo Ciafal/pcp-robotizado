@@ -580,3 +580,66 @@ export const CiafalErrorState: React.FC<CiafalErrorStateProps> = ({
     </div>
   )
 }
+
+/* =========================================================================================
+ * 6. CONVENIÊNCIAS E COMPONENTES ADICIONAIS CIAFAL
+ * ========================================================================================= */
+
+export const CiafalCard: React.FC<{
+  title?: string
+  subtitle?: string
+  badge?: string
+  action?: ReactNode
+  icon?: React.ComponentType<{ className?: string }>
+  className?: string
+  children: ReactNode
+}> = ({ title, subtitle, badge, action, icon: Icon, className = '', children }) => {
+  return (
+    <Card className={`bg-white border-slate-200 shadow-2xs overflow-hidden ${className}`}>
+      {(title || action) && (
+        <CardHeader className="bg-slate-50/70 p-3.5 border-b border-slate-100 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            {Icon && <Icon className="w-4 h-4 text-[#004C97]" />}
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  {title}
+                </CardTitle>
+                {badge && (
+                  <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-[10px] font-bold">
+                    {badge}
+                  </Badge>
+                )}
+              </div>
+              {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
+            </div>
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </CardHeader>
+      )}
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
+  )
+}
+
+export const CiafalTooltip: React.FC<{
+  content: ReactNode
+  children: ReactNode
+  className?: string
+}> = ({ content, children, className }) => {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent
+          className={`bg-slate-900 text-white text-xs border-slate-700 max-w-xs ${className || ''}`}
+        >
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+export const CiafalKPI = CiafalKPICard
+export const CiafalBreadcrumb = CiafalPageHeader

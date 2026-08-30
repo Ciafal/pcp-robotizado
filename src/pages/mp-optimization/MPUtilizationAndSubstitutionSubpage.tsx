@@ -255,10 +255,23 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
               % 1020 no Lugar de AC
             </span>
             <div className="text-xl font-black text-rose-600 font-mono mt-1">
-              {pctSubstitution.toFixed(1)}%
+              {pctSubstitution.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              %
             </div>
             <span className="text-[10px] text-slate-500 block mt-0.5">
-              {totalSubstitutedTons.toFixed(1)} t de {totalEligibleAcTons.toFixed(1)} t elegíveis
+              {totalSubstitutedTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              t de{' '}
+              {totalEligibleAcTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              t elegíveis
             </span>
           </CardContent>
         </Card>
@@ -270,11 +283,19 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
               Enfornamento a Quente
             </span>
             <div className="text-xl font-black text-orange-600 font-mono mt-1">
-              {pctHotCharging.toFixed(1)}%
+              {pctHotCharging.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              %
             </div>
-            <span className="text-[10px] text-slate-500 block mt-0.5">
-              {totalHotChargingTons.toFixed(1)} t direto da L2
-            </span>
+            <span className="text-[10px] text-orange-600 font-semibold block mt-0.5">
+              {totalHotChargingTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              t direto da L2
+            </span>{' '}
           </CardContent>
         </Card>
 
@@ -285,10 +306,18 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
               Enfornamento a Frio
             </span>
             <div className="text-xl font-black text-blue-600 font-mono mt-1">
-              {(100 - pctHotCharging).toFixed(1)}%
+              {(100 - pctHotCharging).toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              %
             </div>
             <span className="text-[10px] text-slate-500 block mt-0.5">
-              {totalColdChargingTons.toFixed(1)} t do pátio
+              {totalColdChargingTons.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              t do pátio
             </span>
           </CardContent>
         </Card>
@@ -446,7 +475,11 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
                     </TableCell>
 
                     <TableCell className="text-right font-mono text-xs font-bold text-slate-800">
-                      {r.mp_consumed_tons.toFixed(1)} t
+                      {r.mp_consumed_tons.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}
+                      t
                     </TableCell>
 
                     <TableCell className="text-center">
