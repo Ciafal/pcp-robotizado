@@ -85,7 +85,19 @@ import { SimulationResultsModal } from '@/components/weekly-schedule/SimulationR
 import { ScenarioComparisonModal } from '@/components/weekly-schedule/ScenarioComparisonModal'
 import { CreateScenarioModal } from '@/components/weekly-schedule/CreateScenarioModal'
 import { VersionHistoryModal } from '@/components/weekly-schedule/VersionHistoryModal'
+import { FullVersionHistoryModal } from '@/components/weekly-schedule/FullVersionHistoryModal'
+import { PrePublishImpactModal } from '@/components/weekly-schedule/PrePublishImpactModal'
+import { MesAlertBanner } from '@/components/weekly-schedule/MesAlertBanner'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
+import { scheduleVersioningService } from '@/services/schedule-versioning-service'
+import { VersioningEngine } from '@/services/versioning-engine'
+import {
+  ScheduleVersionRecord,
+  ScheduleMesAlert,
+  ScheduleItemDiff,
+  VersionImpactAssessment,
+  ChangeReasonExact,
+} from '@/types/schedule-versioning'
 import { PlannedVsRealizedView } from '@/components/weekly-schedule/PlannedVsRealizedView'
 import { MonthlyKpiStrip } from '@/components/weekly-schedule/MonthlyKpiStrip'
 import { MonthlyScheduleGrid } from '@/components/weekly-schedule/MonthlyScheduleGrid'
@@ -165,9 +177,22 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false)
   const [isCreateScenarioModalOpen, setIsCreateScenarioModalOpen] = useState(false)
 
-  // Modal de Histórico de Versões
+  // Controle Completo de Versionamento & Governança (V01 -> V02 -> V03...)
   const [isVersionHistoryModalOpen, setIsVersionHistoryModalOpen] = useState(false)
+  const [fullVersionHistoryList, setFullVersionHistoryList] = useState<ScheduleVersionRecord[]>([])
   const [versionHistoryList, setVersionHistoryList] = useState<WeeklyScheduleVersionRecord[]>([])
+
+  // Modal de Painel de Impacto Pré-Publicação
+  const [isImpactModalOpen, setIsImpactModalOpen] = useState(false)
+  const [pendingImpact, setPendingImpact] = useState<VersionImpactAssessment | null>(null)
+  const [pendingDiffs, setPendingDiffs] = useState<ScheduleItemDiff[]>([])
+  const [isPublishingNewVersion, setIsPublishingNewVersion] = useState(false)
+
+  // Alertas MES Ativos
+  const [mesAlertsList, setMesAlertsList] = useState<ScheduleMesAlert[]>([])
+
+  // Baseline de itens salvos para cálculo de diffs
+  const [savedBaselineItems, setSavedBaselineItems] = useState<WeeklyScheduleItem[]>([])
 
   // Modal de Transição de Workflow
   const [isTransitionModalOpen, setIsTransitionModalOpen] = useState(false)
@@ -259,6 +284,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
           if (savedItems.length > 0) {
             setItems(savedItems)
+            setSavedBaselineItems(savedItems)
             setCurrentWorkflowState(savedItems[0].status || 'DRAFT')
             setCurrentVersion(savedItems[0].version || 1)
           } else {
@@ -266,7 +292,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             initializeDefaultWeekSchedule(lineCodeToLoad, overview, mats)
           }
 
-          // Carrega histórico de versões e cenários
+          // Carrega histórico de versões estruturado e alertas MES
+          const fullVers = await scheduleVersioningService.getVersionHistory(
+            lineCodeToLoad,
+            selectedYear,
+            selectedWeekNumber,
+          )
+          setFullVersionHistoryList(fullVers)
+
+          const mesList = await scheduleVersioningService.listMesAlerts(lineCodeToLoad)
+          setMesAlertsList(mesList)
+
           const scheduleCode = `WS-${lineCodeToLoad}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
           const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
           setVersionHistoryList(vers)
@@ -526,6 +562,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     ]
 
     setItems(initial)
+    setSavedBaselineItems(initial)
     setSelectedScheduleItem(initial[1])
   }
 
@@ -905,8 +942,104 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     setIsSimulationModalOpen(true)
   }
 
+  // Abre o Painel de Impacto antes de publicar formalmente a versão (Requisito 12)
+  const handleOpenPublishImpact = async () => {
+    try {
+      const criteria = await scheduleVersioningService.getRelevanceCriteria()
+      const wasApproved =
+        currentWorkflowState === 'APROVADO' ||
+        currentWorkflowState === 'APROVADO_PCP' ||
+        currentWorkflowState === 'PUBLICADO'
+      const diffs = VersioningEngine.computeScheduleDiffs(
+        savedBaselineItems,
+        calculatedItems,
+        criteria,
+        wasApproved,
+      )
+      const impact = VersioningEngine.evaluateImpact(
+        diffs,
+        savedBaselineItems,
+        calculatedItems,
+        selectedLineCode,
+        wasApproved,
+      )
+      setPendingDiffs(diffs)
+      setPendingImpact(impact)
+      setIsImpactModalOpen(true)
+    } catch (err) {
+      console.error('Erro ao avaliar impacto:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro na Avaliação de Impacto',
+        description: 'Não foi possível calcular a matriz de impacto.',
+      })
+    }
+  }
+
+  // Confirma a Publicação Oficial da Nova Versão (Requisito 11, 12, 13, 17, 36)
+  const handleConfirmPublishVersion = async (reason: ChangeReasonExact | string, notes: string) => {
+    setIsPublishingNewVersion(true)
+    try {
+      const wasApproved =
+        currentWorkflowState === 'APROVADO' ||
+        currentWorkflowState === 'APROVADO_PCP' ||
+        currentWorkflowState === 'PUBLICADO'
+
+      const result = await scheduleVersioningService.publishNewVersion({
+        filter: headerFilter,
+        newItems: calculatedItems,
+        previousItems: savedBaselineItems,
+        changeReason: reason,
+        changeNotes: notes,
+        wasApprovedBefore: wasApproved,
+      })
+
+      if (result.success) {
+        setIsImpactModalOpen(false)
+        setCurrentWorkflowState('PUBLICADO')
+        const nextV = result.versionRecord.version_number
+        setCurrentVersion(nextV)
+        setSavedBaselineItems(calculatedItems)
+
+        // Atualiza histórico
+        const updatedHist = await scheduleVersioningService.getVersionHistory(
+          selectedLineCode,
+          selectedYear,
+          selectedWeekNumber,
+        )
+        setFullVersionHistoryList(updatedHist)
+
+        // Atualiza alertas MES
+        const mesList = await scheduleVersioningService.listMesAlerts(selectedLineCode)
+        setMesAlertsList(mesList)
+
+        toast({
+          title: `Versão ${result.versionRecord.version_tag} Publicada com Sucesso!`,
+          description: `MES alertado em tempo real. ${
+            result.crmAlerts && result.crmAlerts.length > 0
+              ? `${result.crmAlerts.length} alerta(s) comercial(is) enviado(s) ao CRM.`
+              : 'Sem impacto comercial direto (CRM sem ruído).'
+          }`,
+        })
+      }
+    } catch (err) {
+      console.error('Erro ao publicar versão:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha na Publicação de Versão',
+        description: 'Verifique conexão e tente novamente.',
+      })
+    } finally {
+      setIsPublishingNewVersion(false)
+    }
+  }
+
   // Inicia Transição de Estado no Workflow
   const openTransitionModal = (targetState: WeeklyScheduleWorkflowState, label: string) => {
+    if (targetState === 'PUBLICADO') {
+      handleOpenPublishImpact()
+      return
+    }
     setTargetTransitionState(targetState)
     setTargetTransitionLabel(label)
     setIsTransitionModalOpen(true)
@@ -1144,10 +1277,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
             </div>
 
-            {/* Linha 2 Compacta em uma única linha */}
+            {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 4, 33) */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - Laminação de
+                Perfis Leves
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -1155,14 +1289,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 {weekRange.display})
               </span>
               <span className="text-slate-300">•</span>
-              <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Versão:</strong>{' '}
+              <span className="flex items-center gap-1 font-mono font-bold text-[#004C97]">
+                <strong className="text-slate-800">Versão:</strong> V
                 {String(currentVersion).padStart(2, '0')}
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Cenário:</strong> Principal
+                <strong className="text-slate-800">Estabilidade:</strong>
+                <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-[9px] font-bold">
+                  88/100 (Estável)
+                </Badge>
               </span>
+              <span className="text-slate-300">•</span>
+              <button
+                type="button"
+                onClick={() => (window.location.href = '/pcp/alteracoes')}
+                className="text-[#004C97] hover:underline font-bold text-[10.5px] inline-flex items-center gap-0.5"
+              >
+                Ver Alterações &rarr;
+              </button>
             </div>
           </div>
 
@@ -1210,6 +1355,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Banner de Alerta MES em Chão de Fábrica (Requisito 14, 15) */}
+      <MesAlertBanner
+        alerts={mesAlertsList}
+        onAcknowledge={async (alertId, notes) => {
+          const ok = await scheduleVersioningService.acknowledgeMesAlert(alertId, notes)
+          if (ok) {
+            toast({
+              title: 'Ciência Registrada',
+              description: 'Terminal MES atualizado com ciência do operador.',
+            })
+            const updated = await scheduleVersioningService.listMesAlerts(selectedLineCode)
+            setMesAlertsList(updated)
+          }
+        }}
+        onViewDetails={() => (window.location.href = '/pcp/alteracoes')}
+      />
 
       {/* 2. LINHA DE KPIs (SEMANAL OU MENSAL) */}
       {scheduleViewType === 'MES' ? (
@@ -1642,13 +1804,29 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         onCreateScenario={handleCreateNewScenario}
       />
 
-      {/* 11. MODAL DE HISTÓRICO DE VERSÕES E AUDITORIA */}
-      <VersionHistoryModal
+      {/* 11. MODAL DE HISTÓRICO COMPLETO DE VERSÕES E AUDITORIA (REQUISITO 4, 5, 6, 7) */}
+      <FullVersionHistoryModal
         isOpen={isVersionHistoryModalOpen}
         onClose={() => setIsVersionHistoryModalOpen(false)}
-        versions={versionHistoryList}
+        versions={fullVersionHistoryList}
         scheduleCode={`WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`}
-        currentVersion={currentVersion}
+        currentVersionNumber={currentVersion}
+        lineCode={selectedLineCode}
+        weekDisplay={`Semana ${selectedWeekNumber} (${weekRange.display})`}
+      />
+
+      {/* 11.1 MODAL DE PAINEL DE IMPACTO PRÉ-PUBLICAÇÃO (REQUISITO 12) */}
+      <PrePublishImpactModal
+        isOpen={isImpactModalOpen}
+        onClose={() => setIsImpactModalOpen(false)}
+        onConfirmPublish={handleConfirmPublishVersion}
+        impact={pendingImpact}
+        diffs={pendingDiffs}
+        nextVersionTag={VersioningEngine.formatVersionTag(currentVersion + 1)}
+        previousVersionTag={VersioningEngine.formatVersionTag(currentVersion)}
+        lineCode={selectedLineCode}
+        weekDisplay={`Semana ${selectedWeekNumber}`}
+        isPublishing={isPublishingNewVersion}
       />
 
       {/* 12. MODAL DE TRANSIÇÃO FORMAL DE WORKFLOW */}

@@ -614,6 +614,12 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.masterdata.view',
       },
       {
+        title: 'Central de Alterações & Versões',
+        href: '/pcp/alteracoes',
+        icon: History,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Histórico de Programações',
         href: '/pcp/sequenciamento/historico',
         icon: History,
