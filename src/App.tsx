@@ -93,6 +93,28 @@ const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage')
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
+const MPOverviewConsolidatedPage = lazy(() =>
+  import('@/pages/mp-optimization/MPOverviewConsolidatedPage').then((m) => ({
+    default: m.MPOverviewConsolidatedPage,
+  })),
+)
+const MPOrdersAndReceiptPage = lazy(() =>
+  import('@/pages/mp-optimization/MPOrdersAndReceiptPage').then((m) => ({
+    default: m.MPOrdersAndReceiptPage,
+  })),
+)
+const MPCuttingPlansUnifiedPage = lazy(() =>
+  import('@/pages/mp-optimization/MPCuttingPlansUnifiedPage').then((m) => ({
+    default: m.MPCuttingPlansUnifiedPage,
+  })),
+)
+const MPOptimizeApplicationsUnifiedPage = lazy(() =>
+  import('@/pages/mp-optimization/MPOptimizeApplicationsUnifiedPage').then((m) => ({
+    default: m.MPOptimizeApplicationsUnifiedPage,
+  })),
+)
+
+// Subpáginas legadas / rotas de detalhe compatíveis
 const MPOptimizationOverviewPage = lazy(() =>
   import('@/pages/mp-optimization/MPOptimizationOverviewPage').then((m) => ({
     default: m.MPOptimizationOverviewPage,
@@ -451,122 +473,100 @@ export const App: React.FC = () => {
                   }
                 />
 
-                {/* Submódulo: Planejamento e Otimização Dimensional de Matéria-Prima (14 Rotas) */}
+                {/* SUBMÓDULO PRINCIPAL: GESTÃO DE MATÉRIA-PRIMA (Estrutura Obrigatória Oficial CIAFAL) */}
+                <Route
+                  path="/pcp/gestao-materia-prima"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPOverviewConsolidatedPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/pedidos-recebimento"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPOrdersAndReceiptPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/planos-corte"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.simulate">
+                      <MPCuttingPlansUnifiedPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/otimizar-aplicacoes"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.simulate">
+                      <MPOptimizeApplicationsUnifiedPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* Rotas de Compatibilidade e Detalhes Específicos do Módulo MP */}
                 <Route
                   path="/pcp/otimizacao-mp"
-                  element={<Navigate to="/pcp/otimizacao-mp/visao-geral" replace />}
+                  element={<Navigate to="/pcp/gestao-materia-prima" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/visao-geral"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPOptimizationOverviewPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/necessidade"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPNeedsPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/pedidos-recebimento" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/por-aplicacao"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPByApplicationPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/plano-corte"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.simulate">
-                      <MPCuttingPlanPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/estoque-dimensional"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPDimensionalInventoryPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/cortes-existentes"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.simulate">
-                      <MPExistingCutsPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/reaplicacoes"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.simulate">
-                      <MPReapplicationsPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/fora-padrao-ideal"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.evaluate_out_of_ideal">
-                      <MPOutOfIdealPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/analise-dimensional"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPDimensionalAnalysisPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/projecao-3d"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPProjection3DPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/aprovacoes"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.approve">
-                      <MPApprovalsPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/historico"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPAuditHistoryPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/plano-x-real"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPPlannedVsRealizedPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
                 />
                 <Route
                   path="/pcp/otimizacao-mp/indicadores"
-                  element={
-                    <PermissionGuard permission="pcp.mp_opt.view">
-                      <MPIndicatorsPage />
-                    </PermissionGuard>
-                  }
+                  element={<Navigate to="/pcp/gestao-materia-prima" replace />}
                 />
 
                 {/* 5.1 Módulo de Qualidade do Produto, Ultrassom e Ensaios */}

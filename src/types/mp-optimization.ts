@@ -1,5 +1,8 @@
 /**
- * Tipos e Interfaces para o Submódulo de Planejamento e Otimização Dimensional de Matéria-Prima (PCP Robotizado CIAFAL)
+ * Tipos e Interfaces para o Submódulo Principal: GESTÃO DE MATÉRIA-PRIMA (PCP Robotizado CIAFAL)
+ * 1. PEDIDOS E RECEBIMENTO DE MP
+ * 2. PLANOS DE CORTE
+ * 3. OTIMIZAR APLICAÇÕES
  */
 
 export type DimensionalClassification =
@@ -26,6 +29,13 @@ export type ReservationStatus =
   | 'EM_PLANO_DE_CORTE'
   | 'CORTE_APROVADO'
   | 'EM_PROCESSO'
+
+export type LeftoverClassification =
+  | 'REUTILIZAVEL'
+  | 'RESERVAR'
+  | 'REAPLICAVEL'
+  | 'ANALISE_TECNICA'
+  | 'SUCATA'
 
 export type MPItemType = 'PLACA' | 'BLOCO' | 'PECA' | 'SOBRA_REUTILIZAVEL' | 'RETALHO' | 'PARCIAL'
 
@@ -62,6 +72,37 @@ export type StageApprovalStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'NAO_A
 
 export type OverallApprovalStatus = 'EM_ANALISE' | 'APROVADO_TOTAL' | 'REJEITADO' | 'CANCELADO'
 
+export type HorizonCategory = 'HOJE' | '7_DIAS' | '15_DIAS' | '30_DIAS' | '60_DIAS' | '90_DIAS'
+
+export type PurchaseOrderStatus =
+  | 'ABERTO'
+  | 'PARCIALMENTE_RECEBIDO'
+  | 'CONCLUIDO'
+  | 'ATRASADO'
+  | 'BLOQUEADO'
+  | 'CANCELADO'
+
+export type GlobalMPAlertType =
+  | 'PEDIDO_ATRASADO'
+  | 'RISCO_FALTA_MP'
+  | 'RECEBIMENTO_APOS_PRODUCAO'
+  | 'DIMENSAO_RECEBIDA_DIVERGENTE'
+  | 'QUANTIDADE_RECEBIDA_DIVERGENTE'
+  | 'MP_BLOQUEADA'
+  | 'MP_CRITICA_NAO_RECEBIDA'
+  | 'RECEBIMENTO_FUTURO_COBRE_NECESSIDADE'
+  | 'EXCESSO_FUTURO_MP'
+  | 'APLICACAO_NAO_PERMITIDA'
+  | 'BLOCO_EM_TRANSITO'
+  | 'BLOCO_JA_ENFORNADO'
+  | 'BLOCO_JA_LAMINADO'
+  | 'NOVA_APLICACAO_IDENTIFICADA'
+  | 'PECA_FORA_IDEAL_COM_POTENCIAL'
+  | 'SOBRA_REAPROVEITAVEL'
+  | 'OPORTUNIDADE_REAPLICACAO'
+  | 'RISCO_RUPTURA_FUTURA'
+  | 'MP_SEM_DEMANDA'
+
 export interface ZPPMPValidationResult {
   is_valid: boolean
   thickness: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
@@ -70,6 +111,93 @@ export interface ZPPMPValidationResult {
   weight?: { value: number; min?: number; max?: number; status: 'GREEN' | 'RED' }
 }
 
+// 1. PEDIDOS DE COMPRA SAP ECC ME23N
+export interface MPPurchaseOrder {
+  id: string
+  po_number: string
+  po_item: string
+  supplier_code: string
+  supplier_name: string
+  material_code: string
+  material_description?: string
+  steel_grade: string
+  ordered_qty?: number
+  ordered_weight_kg: number
+  center_code: string
+  storage_location?: string
+  order_date: string
+  delivery_date_contracted: string
+  delivery_date_updated?: string
+  received_qty?: number
+  received_weight_kg?: number
+  pending_weight_kg?: number
+  po_status: PurchaseOrderStatus
+  is_delayed?: boolean
+  delay_days?: number
+  contracted_thickness_mm?: number
+  contracted_width_mm?: number
+  contracted_length_mm?: number
+  contracted_diameter_mm?: number
+  contracted_dimensions_text?: string
+  target_application?: string
+  target_production_lines_json?: string[]
+  risk_rupture_level?: 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+  sap_sync_timestamp?: string
+  created?: string
+  updated?: string
+}
+
+// 2. RECEBIMENTOS FUTUROS
+export interface MPFutureReception {
+  id: string
+  reception_code: string
+  po_number: string
+  po_item?: string
+  supplier_name: string
+  material_code: string
+  material_description?: string
+  steel_grade: string
+  dimensions_text?: string
+  expected_tons: number
+  expected_date: string
+  horizon_category: HorizonCategory
+  target_application?: string
+  target_lines_json?: string[]
+  risk_delay_level?: 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+  risk_delay_reason?: string
+  covers_critical_demand?: boolean
+  critical_order_ref?: string
+  created?: string
+  updated?: string
+}
+
+// 3. ESTOQUE FUTURO PROJETADO
+export interface MPFutureInventoryProjection {
+  id: string
+  projection_code: string
+  material_code: string
+  material_description?: string
+  steel_grade: string
+  center_code: string
+  storage_location?: string
+  application_target?: string
+  line_target?: string
+  supplier_code?: string
+  horizon_category: HorizonCategory
+  current_stock_tons?: number
+  confirmed_po_tons?: number
+  future_receptions_tons?: number
+  scheduled_consumption_tons?: number
+  projected_future_stock_tons: number
+  coverage_days?: number
+  balance_status: 'NORMAL' | 'CRITICO_RUPTURA' | 'EXCESSO_ESTOQUE' | 'RECEBIMENTO_ATRASADO'
+  alerts_json?: string[]
+  calculated_at?: string
+  created?: string
+  updated?: string
+}
+
+// 4. ESTOQUE DIMENSIONAL REAL / INDIVIDUAL
 export interface MPDimensionalItem {
   id: string
   material_code: string
@@ -84,11 +212,14 @@ export interface MPDimensionalItem {
   block_number?: string
   supplier_code?: string
   supplier_name?: string
+  invoice_number?: string
+  reception_date?: string
   original_application: string
   current_application: string
   thickness_mm: number
   width_mm: number
   length_mm: number
+  diameter_mm?: number
   weight_kg: number
   item_type: MPItemType
   sap_block_status: SapBlockStatus
@@ -96,19 +227,23 @@ export interface MPDimensionalItem {
   dimensional_classification: DimensionalClassification
   is_critical?: boolean
   criticality_reason?: string
+  opportunity_cost_score?: number
+  strategic_value_score?: number
+  applicable_scenarios_count?: number
   origin_parent_id?: string
-  reception_date?: string
   cut_date?: string
   physical_balance_status?: string
   possible_applications_json?: string[]
   alternative_applications_json?: string[]
   next_demand_schedule?: string
   line_destination_code?: string
+  leftover_classification?: LeftoverClassification
   zppmp_validation_result?: ZPPMPValidationResult
   created?: string
   updated?: string
 }
 
+// 5. MATRIZ OFICIAL DE REQUISITOS (ZPPMP, ZBITOLAS, ZPPT045, ZPPT058)
 export interface MPApplicationRequirement {
   id: string
   application_code: string
@@ -160,6 +295,7 @@ export interface CutPieceResult {
   status: 'PRODUTIVA' | 'SOBRA_REUTILIZAVEL' | 'RETALHO' | 'SUCATA'
   destination_order?: string
   is_reusable_leftover: boolean
+  leftover_classification?: LeftoverClassification
 }
 
 export interface ScenarioDetail {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T11:41:14.167Z",
+  "generatedAt": "2026-08-30T12:09:10.125Z",
   "collections": [
     {
       "name": "users",
@@ -12762,6 +12762,506 @@
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_icc_sys_env ON integration_connector_configs (system_code, ambiente)"
+      ]
+    },
+    {
+      "name": "mp_purchase_orders",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "po_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "po_item",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ordered_qty",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ordered_weight_kg",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "delivery_date_contracted",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "delivery_date_updated",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received_qty",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pending_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "po_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "ABERTO",
+            "PARCIALMENTE_RECEBIDO",
+            "CONCLUIDO",
+            "ATRASADO",
+            "BLOQUEADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "name": "is_delayed",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delay_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contracted_thickness_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contracted_width_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contracted_length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contracted_diameter_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contracted_dimensions_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_production_lines_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "risk_rupture_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["BAIXO", "MEDIO", "ALTO", "CRITICO"]
+        },
+        {
+          "name": "sap_sync_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_po_num_item ON mp_purchase_orders (po_number, po_item)",
+        "CREATE INDEX idx_mp_po_status ON mp_purchase_orders (po_status, is_delayed)",
+        "CREATE INDEX idx_mp_po_delivery ON mp_purchase_orders (delivery_date_contracted, delivery_date_updated)",
+        "CREATE INDEX idx_mp_po_mat ON mp_purchase_orders (material_code, steel_grade, center_code)"
+      ]
+    },
+    {
+      "name": "mp_future_receptions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "reception_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "po_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "po_item",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimensions_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expected_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "horizon_category",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["HOJE", "7_DIAS", "15_DIAS", "30_DIAS", "60_DIAS", "90_DIAS"]
+        },
+        {
+          "name": "target_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_lines_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "risk_delay_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["BAIXO", "MEDIO", "ALTO", "CRITICO"]
+        },
+        {
+          "name": "risk_delay_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "covers_critical_demand",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "critical_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_fut_code ON mp_future_receptions (reception_code)",
+        "CREATE INDEX idx_mp_fut_horizon ON mp_future_receptions (horizon_category, expected_date)",
+        "CREATE INDEX idx_mp_fut_po ON mp_future_receptions (po_number, steel_grade)"
+      ]
+    },
+    {
+      "name": "mp_future_inventory_projection",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "projection_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "application_target",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_target",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "horizon_category",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["HOJE", "7_DIAS", "15_DIAS", "30_DIAS", "60_DIAS", "90_DIAS"]
+        },
+        {
+          "name": "current_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "confirmed_po_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "future_receptions_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scheduled_consumption_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "projected_future_stock_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "coverage_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "balance_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["NORMAL", "CRITICO_RUPTURA", "EXCESSO_ESTOQUE", "RECEBIMENTO_ATRASADO"]
+        },
+        {
+          "name": "alerts_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calculated_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_futinv_code ON mp_future_inventory_projection (projection_code)",
+        "CREATE INDEX idx_mp_futinv_mat_hor ON mp_future_inventory_projection (material_code, steel_grade, horizon_category)",
+        "CREATE INDEX idx_mp_futinv_status ON mp_future_inventory_projection (balance_status)"
       ]
     }
   ]
