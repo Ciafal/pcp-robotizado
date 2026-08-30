@@ -123,3 +123,68 @@ export interface ReconciliationResult {
   divergenceCount?: number
   lastSyncAttempt?: string
 }
+
+export interface CorrelatedAuditTrail {
+  eventId: string
+  lineCode: string
+  versionCode: string
+  versionTag: string
+  changeReason?: string
+  overallRelevance?: string
+  pcp: {
+    publishedBy: string
+    publishedAt: string
+    itemsCount: number
+    status: string
+  }
+  mes: {
+    alertCode?: string
+    ackStatus: 'NAO_LIDO' | 'VISUALIZADO' | 'RECONHECIDO'
+    acknowledgedBy?: string
+    acknowledgedAt?: string
+    viewedBy?: string
+    viewedAt?: string
+    status: string
+  }
+  crm: {
+    alertCode?: string
+    status:
+      | 'PENDENTE'
+      | 'VISUALIZADO_VENDEDOR'
+      | 'REAVALIACAO_SOLICITADA'
+      | 'NAO_APLICAVEL'
+      | 'FALHA_COMUNICACAO'
+    salesOrder?: string
+    customerName?: string
+    viewedBy?: string
+    viewedAt?: string
+    errorMessage?: string
+  }
+  tms: {
+    eventCode?: string
+    logisticsStatus:
+      | 'JANELA_RECALCULADA'
+      | 'REAVALIACAO_NECESSARIA'
+      | 'REPLANEJADO'
+      | 'MANTIDO_COM_RESSALVA'
+      | 'NAO_APLICAVEL'
+    recalculatedBy?: string
+    recalculatedAt?: string
+    newDeliveryEstimate?: string
+    status: string
+  }
+  sap: {
+    queueCode?: string
+    opNumber?: string
+    syncStatus:
+      | 'PROCESSADO_COM_SUCESSO'
+      | 'AGUARDANDO_INTEGRACAO_SAP'
+      | 'DIVERGENCIA_SAP'
+      | 'NAO_APLICAVEL'
+    syncedByJob?: string
+    syncedAt?: string
+    responseMessage?: string
+    status: string
+  }
+  events: IntegrationEventPayload[]
+}

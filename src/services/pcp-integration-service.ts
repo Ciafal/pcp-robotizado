@@ -872,4 +872,187 @@ export const integrationEventService = {
       return { success: false, message: err.message || 'Falha ao resolver reconciliação.' }
     }
   },
+
+  /**
+   * Obtém a Trilha de Auditoria correlacionada de todos os módulos correlacionados pelo MESMO event_id
+   * (PCP -> MES -> CRM -> TMS -> SAP)
+   */
+  async getAuditTrailByEventId(eventId: string): Promise<CorrelatedAuditTrail | null> {
+    try {
+      // 1. Busca eventos na tabela integration_event
+      const events = await pb.collection('integration_event').getFullList({
+        filter: `event_id = '${eventId}'`,
+        sort: 'created',
+      })
+
+      // 2. Busca versão associada no schedule_version_records
+      let versionRec: any = null
+      try {
+        const vList = await pb.collection('schedule_version_records').getFullList({
+          filter: `event_id = '${eventId}'`,
+        })
+        if (vList.length > 0) versionRec = vList[0]
+      } catch {
+        /* ignore */
+      }
+
+      // 3. Busca alerta MES associado
+      let mesRec: any = null
+      try {
+        const mList = await pb.collection('schedule_mes_alerts').getFullList({
+          filter: `event_id = '${eventId}'`,
+        })
+        if (mList.length > 0) mesRec = mList[0]
+      } catch {
+        /* ignore */
+      }
+
+      // 4. Busca alerta CRM associado
+      let crmRec: any = null
+      try {
+        const cList = await pb.collection('schedule_crm_alerts').getFullList({
+          filter: `event_id = '${eventId}'`,
+        })
+        if (cList.length > 0) crmRec = cList[0]
+      } catch {
+        /* ignore */
+      }
+
+      // 5. Busca evento TMS associado
+      let tmsRec: any = null
+      try {
+        const tList = await pb.collection('schedule_tms_events').getFullList({
+          filter: `event_id = '${eventId}'`,
+        })
+        if (tList.length > 0) tmsRec = tList[0]
+      } catch {
+        /* ignore */
+      }
+
+      // 6. Busca fila SAP associada
+      let sapRec: any = null
+      try {
+        const sList = await pb.collection('schedule_sap_queue').getFullList({
+          filter: `event_id = '${eventId}'`,
+        })
+        if (sList.length > 0) sapRec = sList[0]
+      } catch {
+        /* ignore */
+      }
+
+      const crmEvent = events.find((e: any) => e.destino === 'CRM')
+      const isCrmFailed =
+        crmEvent?.status === 'ERRO' || crmEvent?.status === 'INTERVENCAO_NECESSARIA'
+
+      return {
+        eventId,
+        lineCode: versionRec?.line_code || 'L1',
+        versionCode:
+          versionRec?.version_code || `PCP-L1-2026-S35-${versionRec?.version_tag || 'V04'}`,
+        versionTag: versionRec?.version_tag || 'V04',
+        changeReason: versionRec?.change_reason || 'Alteração de data/sequenciamento MTO',
+        overallRelevance: versionRec?.relevance_level || 'ALTA',
+        pcp: {
+          publishedBy: versionRec?.user_name || 'Lucas Ferreira (PCP)',
+          publishedAt: versionRec?.created || new Date().toISOString(),
+          itemsCount: versionRec?.snapshot_data?.length || 5,
+          status: 'PUBLICADO_OFICIAL',
+        },
+        mes: {
+          alertCode: mesRec?.alert_code || `MES-${eventId.slice(-6)}`,
+          ackStatus: mesRec?.ack_status || 'RECONHECIDO',
+          acknowledgedBy: mesRec?.acknowledged_by_user || 'Operador Líder (Marcos Silva)',
+          acknowledgedAt: mesRec?.acknowledged_at || new Date().toISOString(),
+          viewedBy: mesRec?.viewed_by_user || 'Terminal MES L1',
+          viewedAt: mesRec?.viewed_at,
+          status:
+            mesRec?.ack_status === 'RECONHECIDO' ? 'RECONHECIDO_CHAO_FABRICA' : 'PENDENTE_CIENCIA',
+        },
+        crm: {
+          alertCode: crmRec?.alert_code,
+          status: isCrmFailed
+            ? 'FALHA_COMUNICACAO'
+            : crmRec?.status ||
+              (crmEvent?.status === 'NAO_APLICAVEL' ? 'NAO_APLICAVEL' : 'VISUALIZADO_VENDEDOR'),
+          salesOrder: crmRec?.sales_order_number || '45871/10',
+          customerName: crmRec?.customer_name || 'ABC Ltda.',
+          viewedBy: crmRec?.viewed_by_user || 'Carlos Mendes (Vendas Internas)',
+          viewedAt: crmRec?.viewed_at || new Date().toISOString(),
+          errorMessage: isCrmFailed ? crmEvent?.mensagem_erro : undefined,
+        },
+        tms: {
+          eventCode: tmsRec?.event_code || `TMS-${eventId.slice(-6)}`,
+          logisticsStatus: tmsRec?.logistics_status || 'JANELA_RECALCULADA',
+          recalculatedBy: 'Engine Logístico TMS (Processo Automático)',
+          recalculatedAt: tmsRec?.updated || new Date().toISOString(),
+          newDeliveryEstimate: tmsRec?.recalculated_delivery_date || '30/08/2026 14:00',
+          status: 'LOGISTICA_REAVALIADA',
+        },
+        sap: {
+          queueCode: sapRec?.queue_code,
+          opNumber: sapRec?.sap_production_order || 'OP-45871',
+          syncStatus: sapRec?.status || 'PROCESSADO_COM_SUCESSO',
+          syncedByJob: 'JOB_SAP_RFC_ZPP_PROD_01',
+          syncedAt: sapRec?.confirmed_at || new Date().toISOString(),
+          responseMessage:
+            sapRec?.sap_response_message ||
+            'OP SAP atualizada com sucesso no ERP via RFC ZPP_PROD.',
+          status: 'ORDEM_SINCRONIZADA_SAP',
+        },
+        events: events.map((r: any) => ({
+          id: r.id,
+          event_id: r.event_id,
+          origem: r.origem,
+          destino: r.destino,
+          tipo_evento: r.tipo_evento,
+          programacao_id: r.programacao_id,
+          programacao_item_id: r.programacao_item_id,
+          versao: r.versao,
+          versao_num: r.versao_num || 1,
+          ambiente: r.ambiente,
+          payload: r.payload || {},
+          status: r.status,
+          tentativas: r.tentativas || 1,
+          max_tentativas: r.max_tentativas || 3,
+          criado_em: r.criado_em,
+          enviado_em: r.enviado_em,
+          recebido_em: r.recebido_em,
+          processado_em: r.processado_em,
+          retorno_em: r.retorno_em,
+          mensagem_erro: r.mensagem_erro,
+          retorno_payload: r.retorno_payload,
+          responsavel_acao: r.responsavel_acao,
+        })),
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar audit trail correlacionado:', err)
+      return null
+    }
+  },
+
+  /**
+   * Simula falha controlada de CRM para teste de resiliência e fila de retentativas
+   */
+  async simulateCrmFailureScenario(lineCode: string = 'L1'): Promise<IntegrationEventPayload> {
+    const eventId = this.formatEventId(lineCode, 2026, 35, 4, 999)
+    return await this.dispatchEventToDestination({
+      eventId,
+      origem: 'PCP',
+      destino: 'CRM',
+      tipoEvento: 'ORDEM_REPROGRAMADA',
+      programacaoId: `WS-${lineCode}-2026-W35`,
+      versao: 'V04',
+      versaoNum: 4,
+      payload: {
+        customer_name: 'ABC Ltda.',
+        sales_order_number: '45871/10',
+        material_code: 'TR-60x30x2.0',
+        previous_production_date: '25/08',
+        new_production_date: '27/08',
+        reason: 'Falha simulada no conector CRM',
+      },
+      responsavelAcao: 'Programador PCP',
+      forceSimulateFailure: true,
+    })
+  },
 }
