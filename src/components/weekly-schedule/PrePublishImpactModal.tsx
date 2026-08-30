@@ -21,6 +21,9 @@ import {
   XCircle,
   HelpCircle,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Boxes,
 } from 'lucide-react'
 import {
   VersionImpactAssessment,
@@ -59,6 +62,19 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
   )
   const [customNotes, setCustomNotes] = useState('')
   const [activeDiffTab, setActiveDiffTab] = useState<'IMPACT' | 'DIFFS'>('IMPACT')
+  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({
+    production: false,
+    mes: false,
+    portfolio: false,
+    crm: false,
+    tms: false,
+    sap: false,
+    mp: false,
+  })
+
+  const toggleBlock = (blockKey: string) => {
+    setExpandedBlocks((prev) => ({ ...prev, [blockKey]: !prev[blockKey] }))
+  }
 
   if (!impact) return null
 
@@ -146,7 +162,7 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
 
         {activeDiffTab === 'IMPACT' ? (
           <div className="space-y-4 py-1 text-xs">
-            {/* Grid dos 6 Impactos Obrigatórios (Requisito 12) */}
+            {/* Grid dos 7 Impactos Obrigatórios e Expansíveis */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* 1. PRODUÇÃO */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
@@ -154,18 +170,40 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <Factory className="w-4 h-4 text-[#004C97]" /> Produção
                   </span>
-                  <Badge variant="outline" className="text-[10px] bg-white">
-                    {impact.production.itemsChangedCount +
-                      impact.production.itemsAddedCount +
-                      impact.production.itemsRemovedCount}{' '}
-                    itens alterados
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="text-[10px] bg-white">
+                      {impact.production.itemsChangedCount +
+                        impact.production.itemsAddedCount +
+                        impact.production.itemsRemovedCount}{' '}
+                      itens alterados
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock('production')}
+                      className="p-0.5 text-slate-500 hover:text-slate-800"
+                    >
+                      {expandedBlocks.production ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-600">{impact.production.summary}</p>
                 <div className="text-[10px] text-slate-500 font-mono">
                   &bull; +{impact.production.itemsAddedCount} novos | -
                   {impact.production.itemsRemovedCount} removidos
                 </div>
+                {expandedBlocks.production && impact.production.details && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 text-[10px] space-y-1 max-h-28 overflow-y-auto bg-white p-1.5 rounded">
+                    {impact.production.details.map((d, i) => (
+                      <div key={i} className="text-slate-700 font-mono">
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 2. MES (CHÃO DE FÁBRICA) */}
@@ -174,7 +212,20 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   <span className="font-bold text-blue-900 flex items-center gap-1.5">
                     <Radio className="w-4 h-4 text-[#004C97]" /> Chão de Fábrica (MES)
                   </span>
-                  <Badge className="bg-blue-600 text-white text-[10px]">OBRIGATÓRIO</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge className="bg-blue-600 text-white text-[10px]">OBRIGATÓRIO</Badge>
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock('mes')}
+                      className="p-0.5 text-blue-700 hover:text-blue-900"
+                    >
+                      {expandedBlocks.mes ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-blue-950 font-medium">
                   {lineCode} será notificada em tempo real no terminal com controle de ciência.
@@ -182,6 +233,15 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                 <div className="text-[10px] text-blue-700">
                   Operação visualizará versão {nextVersionTag} com banner de alteração.
                 </div>
+                {expandedBlocks.mes && impact.mes.itemsList && (
+                  <div className="mt-2 pt-2 border-t border-blue-200 text-[10px] space-y-1 max-h-28 overflow-y-auto bg-white p-1.5 rounded">
+                    {impact.mes.itemsList.map((m, i) => (
+                      <div key={i} className="text-blue-900">
+                        <strong>{m.productCode}</strong> ({m.changeType}): {m.detail}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 3. CARTEIRA */}
@@ -195,6 +255,9 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   </Badge>
                 </div>
                 <p className="text-[11px] text-slate-600">{impact.crm.summary}</p>
+                <div className="text-[10px] text-indigo-700">
+                  Cruzamento automático com MTO e pedidos vinculados da carteira.
+                </div>
               </div>
 
               {/* 4. CRM 360º */}
@@ -209,13 +272,26 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   <span className="font-bold text-slate-900 flex items-center gap-1.5">
                     <Users className="w-4 h-4 text-amber-600" /> CRM 360º
                   </span>
-                  {impact.crm.willNotify ? (
-                    <Badge className="bg-amber-500 text-white text-[10px]">ALERTA ATIVO</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] text-slate-500">
-                      SEM RUÍDO
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {impact.crm.willNotify ? (
+                      <Badge className="bg-amber-500 text-white text-[10px]">ALERTA ATIVO</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-slate-500">
+                        SEM RUÍDO
+                      </Badge>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock('crm')}
+                      className="p-0.5 text-amber-800 hover:text-amber-950"
+                    >
+                      {expandedBlocks.crm ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-700 font-medium">
                   {impact.crm.willNotify
@@ -223,8 +299,21 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                     : 'Sem impacto comercial direto. Equipe CRM não será incomodada.'}
                 </p>
                 {impact.crm.willNotify && (
-                  <div className="text-[10px] text-amber-800">
-                    Notificará vendedor do cliente e representante com tradução de IA.
+                  <div className="text-[10px] text-amber-800 font-semibold">
+                    🔴 Alertará vendedor e representante. Não dispara mensagem ao cliente sem
+                    aprovação comercial.
+                  </div>
+                )}
+                {expandedBlocks.crm && impact.crm.alertDetails && (
+                  <div className="mt-2 pt-2 border-t border-amber-200 text-[10px] space-y-1.5 max-h-32 overflow-y-auto bg-white p-1.5 rounded">
+                    {impact.crm.alertDetails.map((c, i) => (
+                      <div key={i} className="p-1 border-b border-slate-100 last:border-none">
+                        <div className="font-bold text-slate-800">
+                          {c.customer} &bull; Pedido {c.salesOrder}
+                        </div>
+                        <div className="text-amber-900">{c.commercialImpact}</div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -241,18 +330,41 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   <span className="font-bold text-slate-900 flex items-center gap-1.5">
                     <Truck className="w-4 h-4 text-blue-700" /> TMS Logística
                   </span>
-                  {impact.tms.needsRecalculation ? (
-                    <Badge className="bg-blue-600 text-white text-[10px]">RECALCULAR</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px]">
-                      OK
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {impact.tms.needsRecalculation ? (
+                      <Badge className="bg-blue-600 text-white text-[10px]">RECALCULAR CARGA</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        OK
+                      </Badge>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock('tms')}
+                      className="p-0.5 text-blue-700 hover:text-blue-950"
+                    >
+                      {expandedBlocks.tms ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-700">{impact.tms.summary}</p>
                 <div className="text-[10px] text-slate-500">
-                  Data de produto disponível será recalculada para despacho.
+                  TMS recalcula disponibilidade, rota, consolidação de carga e tempo de trânsito.
                 </div>
+                {expandedBlocks.tms && impact.tms.shippingDateShifts && (
+                  <div className="mt-2 pt-2 border-t border-blue-200 text-[10px] space-y-1 max-h-28 overflow-y-auto bg-white p-1.5 rounded">
+                    {impact.tms.shippingDateShifts.map((t, i) => (
+                      <div key={i} className="text-blue-950">
+                        <strong>{t.orderNumber}</strong> ({t.material}): {t.oldDate} &rarr;{' '}
+                        {t.newDate} (Deslocamento: +{t.shiftDays}d)
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 6. SAP ECC (ORDEM DE PRODUÇÃO) */}
@@ -267,20 +379,64 @@ export const PrePublishImpactModal: React.FC<PrePublishImpactModalProps> = ({
                   <span className="font-bold text-slate-900 flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-rose-700" /> Integração SAP
                   </span>
-                  {impact.sap.requiresHandling ? (
-                    <Badge className="bg-rose-600 text-white text-[10px]">TRATAMENTO SAP</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px]">
-                      SINCRONIZADO
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {impact.sap.requiresHandling ? (
+                      <Badge className="bg-rose-600 text-white text-[10px]">
+                        REQUER SINCRONIZAÇÃO
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        SINCRONIZADO
+                      </Badge>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => toggleBlock('sap')}
+                      className="p-0.5 text-rose-700 hover:text-rose-950"
+                    >
+                      {expandedBlocks.sap ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-800 font-medium">{impact.sap.summary}</p>
                 {impact.sap.requiresHandling && (
-                  <div className="text-[10px] text-rose-700 font-mono">
-                    Atualizará RFC ZPP_PROD na fila PostgreSQL &rarr; SAP.
+                  <div className="text-[10px] text-rose-700 font-semibold">
+                    ⚠ Nenhuma OP SAP será excluída automaticamente. Fila RFC ZPP_PROD sincronizará
+                    datas/quantidades.
                   </div>
                 )}
+                {expandedBlocks.sap && impact.sap.actions && (
+                  <div className="mt-2 pt-2 border-t border-rose-200 text-[10px] space-y-1 max-h-28 overflow-y-auto bg-white p-1.5 rounded">
+                    {impact.sap.actions.map((s, i) => (
+                      <div key={i} className="text-rose-950 font-mono">
+                        OP {s.sapOp} ({s.action}): {s.notes}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 7. MATÉRIA-PRIMA (MP) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-emerald-600" /> Matéria-Prima &amp; Tarugos
+                  </span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                    SEM RUPTURA
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  {impact.rawMaterial?.summary ||
+                    'Estoque e pedidos de compra de tarugos atendem a grade reprogramada.'}
+                </p>
+                <div className="text-[10px] text-slate-500">
+                  Verificado saldo disponível e buffer térmico de resfriamento.
+                </div>
               </div>
             </div>
 

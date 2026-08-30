@@ -1277,7 +1277,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
             </div>
 
-            {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 4, 33) */}
+            {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 25 e 26) */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
                 <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - Laminação de
@@ -1292,12 +1292,22 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <span className="flex items-center gap-1 font-mono font-bold text-[#004C97]">
                 <strong className="text-slate-800">Versão:</strong> V
                 {String(currentVersion).padStart(2, '0')}
+                {fullVersionHistoryList.length > 1 && (
+                  <span className="text-slate-500 font-normal text-[10px] ml-1">
+                    ({fullVersionHistoryList.length - 1} alteraç
+                    {fullVersionHistoryList.length - 1 === 1 ? 'ão' : 'ões'} desde aprovação)
+                  </span>
+                )}
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
                 <strong className="text-slate-800">Estabilidade:</strong>
-                <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-[9px] font-bold">
-                  88/100 (Estável)
+                <Badge
+                  onClick={() => setIsVersionHistoryModalOpen(true)}
+                  className="bg-emerald-100 text-emerald-900 hover:bg-emerald-200 border-emerald-300 font-mono text-[9px] font-bold cursor-pointer transition-colors"
+                  title="Clique para abrir Histórico & Auditoria de Alterações"
+                >
+                  82/100 (Estável)
                 </Badge>
               </span>
               <span className="text-slate-300">•</span>
@@ -1306,7 +1316,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 onClick={() => (window.location.href = '/pcp/alteracoes')}
                 className="text-[#004C97] hover:underline font-bold text-[10.5px] inline-flex items-center gap-0.5"
               >
-                Ver Alterações &rarr;
+                Central de Alterações &rarr;
               </button>
             </div>
           </div>

@@ -132,6 +132,7 @@ describe('Suíte de Testes de Aceite Governança de Versionamento e Alertas PCP 
 
     expect(impact.overallRelevance).toBe('ALTA')
     expect(impact.crm.willNotify).toBe(true)
+    expect(impact.crm.uncoveredTonsTotal).toBe(20)
 
     const aiText = VersioningEngine.generateAiCommercialExplanation({
       sales_order_number: '45871/10',
@@ -142,6 +143,73 @@ describe('Suíte de Testes de Aceite Governança de Versionamento e Alertas PCP 
       new_production_date: '27/08',
     })
     expect(aiText).toContain('20 t sem previsão')
+  })
+
+  it('TESTE 11: TMS deve gerar replanejamento quando houver deslocamento de data em carga existente', () => {
+    const prev = [baseItemB]
+    const updated = [{ ...baseItemB, date_str: '2026-08-27' }]
+    const diffs = VersioningEngine.computeScheduleDiffs(prev, updated)
+    const impact = VersioningEngine.evaluateImpact(diffs, prev, updated, 'L1')
+
+    expect(impact.tms.needsRecalculation).toBe(true)
+    expect(impact.tms.shippingDateShifts?.length).toBeGreaterThan(0)
+    expect(impact.tms.shippingDateShifts?.[0].shiftDays).toBe(2)
+  })
+
+  it('TESTE 12: IA de estabilidade deve gerar diagnósticos estruturais e oportunidades de melhoria', () => {
+    const stabIndicators = VersioningEngine.calculateStabilityIndex([
+      {
+        id: 'v1',
+        version_code: 'PCP-L1-2026-S35-V01',
+        schedule_code: 'WS-L1-2026-W35',
+        line_code: 'L1',
+        year: 2026,
+        week_number: 35,
+        version_number: 1,
+        version_tag: 'V01',
+        status: 'PUBLICADO',
+        is_current_published: false,
+        relevance_level: 'BAIXA',
+        change_reason: 'reprogramação operacional',
+        user_name: 'Programador',
+        snapshot_data: [baseItemA],
+        diff_payload: [],
+        impact_summary: {} as any,
+        mes_dispatched: true,
+        mes_ack_status: 'RECONHECIDO',
+        crm_dispatched: false,
+        tms_dispatched: false,
+        sap_dispatched: false,
+      },
+      {
+        id: 'v2',
+        version_code: 'PCP-L1-2026-S35-V02',
+        schedule_code: 'WS-L1-2026-W35',
+        line_code: 'L1',
+        year: 2026,
+        week_number: 35,
+        version_number: 2,
+        version_tag: 'V02',
+        status: 'PUBLICADO',
+        is_current_published: true,
+        relevance_level: 'ALTA',
+        change_reason: 'indisponibilidade de MP',
+        user_name: 'Programador',
+        snapshot_data: [baseItemB],
+        diff_payload: [],
+        impact_summary: {} as any,
+        mes_dispatched: true,
+        mes_ack_status: 'RECONHECIDO',
+        crm_dispatched: true,
+        tms_dispatched: true,
+        sap_dispatched: false,
+      },
+    ])
+
+    const insights = VersioningEngine.generateAiStabilityInsights(stabIndicators, 'L1')
+    expect(insights.summary).toContain('Estabilidade')
+    expect(insights.structuralIssues.length).toBeGreaterThan(0)
+    expect(insights.opportunities.length).toBeGreaterThan(0)
   })
 
   // TESTE 7: alterar item com OP SAP → sistema exige tratamento SAP

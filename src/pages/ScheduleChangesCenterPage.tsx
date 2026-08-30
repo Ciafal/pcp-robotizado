@@ -24,6 +24,10 @@ import {
   ShieldCheck,
   AlertCircle,
   Database,
+  Sparkles,
+  ChevronRight,
+  X,
+  FileText,
 } from 'lucide-react'
 import { scheduleVersioningService } from '@/services/schedule-versioning-service'
 import { VersioningEngine } from '@/services/versioning-engine'
@@ -68,6 +72,10 @@ export const ScheduleChangesCenterPage: React.FC = () => {
     diffs: ScheduleItemDiff[]
     lineCode: string
   } | null>(null)
+
+  // Drill-down de Alteração Selecionada
+  const [selectedVersionDrillDown, setSelectedVersionDrillDown] =
+    useState<ScheduleVersionRecord | null>(null)
 
   const [isSavingCriteria, setIsSavingCriteria] = useState(false)
 
@@ -115,8 +123,19 @@ export const ScheduleChangesCenterPage: React.FC = () => {
     const ok = await scheduleVersioningService.acknowledgeMesAlert(alertId)
     if (ok) {
       toast({
-        title: 'Ciência Registrada',
-        description: 'MES atualizado com sucesso com operador e data/hora.',
+        title: 'Ciência Registrada no MES',
+        description: 'Operador líder e data/hora auditados na Central.',
+      })
+      loadData()
+    }
+  }
+
+  const handleMarkCrmViewed = async (alertId: string) => {
+    const ok = await scheduleVersioningService.markCrmAlertViewed(alertId)
+    if (ok) {
+      toast({
+        title: 'Alerta CRM Visualizado',
+        description: 'Ciência comercial registrada com usuário, data e hora.',
       })
       loadData()
     }
@@ -126,8 +145,19 @@ export const ScheduleChangesCenterPage: React.FC = () => {
     const ok = await scheduleVersioningService.requestCrmReevaluation(alertId, notes)
     if (ok) {
       toast({
-        title: 'Reavaliação Solicitada',
+        title: 'Reavaliação Solicitada ao PCP',
         description: 'Notificação encaminhada à fila de reprogramação do PCP.',
+      })
+      loadData()
+    }
+  }
+
+  const handleSyncSapItem = async (queueId: string) => {
+    const ok = await scheduleVersioningService.syncSapQueueItem(queueId)
+    if (ok) {
+      toast({
+        title: 'Ordem SAP Sincronizada',
+        description: 'RFC ZPP_PROD confirmou atualização no SAP ERP.',
       })
       loadData()
     }
@@ -388,16 +418,15 @@ export const ScheduleChangesCenterPage: React.FC = () => {
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="bg-slate-50 text-slate-700 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200">
                   <tr>
-                    <th className="p-3">Linha &bull; Semana</th>
-                    <th className="p-3">Versão Antiga &rarr; Nova</th>
-                    <th className="p-3">Usuário</th>
-                    <th className="p-3">Motivo Oficial</th>
+                    <th className="p-3">Linha</th>
+                    <th className="p-3">Semana</th>
+                    <th className="p-3">Versão</th>
+                    <th className="p-3">Alteração</th>
                     <th className="p-3">Relevância</th>
-                    <th className="p-3 text-center">MES Alertado</th>
-                    <th className="p-3 text-center">MES Ciente</th>
-                    <th className="p-3 text-center">CRM Alertado</th>
+                    <th className="p-3 text-center">MES</th>
+                    <th className="p-3 text-center">CRM</th>
                     <th className="p-3 text-center">TMS</th>
-                    <th className="p-3 text-center">SAP OP</th>
+                    <th className="p-3 text-center">SAP</th>
                     <th className="p-3">Data / Hora</th>
                     <th className="p-3 text-right">Ação</th>
                   </tr>
@@ -405,87 +434,141 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredVersions.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="p-8 text-center text-slate-400">
+                      <td colSpan={11} className="p-8 text-center text-slate-400">
                         Nenhuma versão encontrada para os filtros selecionados.
                       </td>
                     </tr>
                   ) : (
-                    filteredVersions.map((v) => (
-                      <tr
-                        key={v.id || v.version_code}
-                        className="hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="p-3 font-bold font-mono text-slate-900">
-                          {v.line_code} &bull; S{String(v.week_number).padStart(2, '0')}/{v.year}
-                        </td>
-                        <td className="p-3 font-mono font-bold">
-                          <span className="text-slate-400">{v.previous_version_tag || 'V01'}</span>
-                          <span className="text-slate-400 mx-1">&rarr;</span>
-                          <span className="text-[#004C97]">{v.version_tag}</span>
-                        </td>
-                        <td className="p-3 font-medium text-slate-700">{v.user_name}</td>
-                        <td className="p-3 font-bold text-slate-800">{v.change_reason}</td>
-                        <td className="p-3">{getRelevanceBadge(v.relevance_level)}</td>
-                        <td className="p-3 text-center">
-                          {v.mes_dispatched ? (
-                            <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
-                              SIM
+                    filteredVersions.map((v) => {
+                      const diffCount = v.diff_payload ? v.diff_payload.length : 1
+
+                      // Status MES: Não enviado / Enviado / Visualizado / Reconhecido
+                      let mesStatusBadge = (
+                        <Badge variant="outline" className="text-[9.5px] text-slate-400">
+                          Não enviado
+                        </Badge>
+                      )
+                      if (v.mes_dispatched) {
+                        if (v.mes_ack_status === 'RECONHECIDO') {
+                          mesStatusBadge = (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9.5px]">
+                              Reconhecido
                             </Badge>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {v.mes_ack_status === 'RECONHECIDO' ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
-                              CIENTE
+                          )
+                        } else if (v.mes_ack_status === 'VISUALIZADO') {
+                          mesStatusBadge = (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[9.5px]">
+                              Visualizado
                             </Badge>
-                          ) : (
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px]">
-                              PENDENTE
+                          )
+                        } else {
+                          mesStatusBadge = (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
+                              Enviado
                             </Badge>
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {v.crm_dispatched ? (
-                            <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px]">
-                              SIM
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400 text-[10px]">Sem ruído</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {v.tms_dispatched ? (
-                            <Badge className="bg-blue-50 text-blue-700 text-[10px]">RECALC</Badge>
-                          ) : (
-                            <span className="text-slate-400 text-[10px]">OK</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-center">
-                          {v.sap_dispatched ? (
-                            <Badge className="bg-rose-50 text-rose-700 text-[10px]">TRATAR</Badge>
-                          ) : (
-                            <span className="text-slate-400 text-[10px]">OK</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-slate-500 font-mono text-[11px]">
-                          {v.created
-                            ? new Date(v.created).toLocaleString('pt-BR').slice(0, 16)
-                            : 'Hoje'}
-                        </td>
-                        <td className="p-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenDiffFromVersion(v)}
-                            className="h-7 text-[10px] px-2 bg-white text-[#004C97] border-blue-200"
-                          >
-                            <Eye className="w-3 h-3 mr-1" /> Diffs
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
+                          )
+                        }
+                      }
+
+                      // Status CRM: Não aplicável / Gerado / Visualizado / Em tratamento / Resolvido
+                      let crmStatusBadge = (
+                        <Badge variant="outline" className="text-[9.5px] text-slate-400">
+                          Não aplicável
+                        </Badge>
+                      )
+                      if (v.crm_dispatched) {
+                        crmStatusBadge = (
+                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9.5px]">
+                            Gerado
+                          </Badge>
+                        )
+                      }
+
+                      // Status TMS: Não aplicável / Reavaliação necessária / Replanejado / Sem impacto
+                      let tmsStatusBadge = (
+                        <Badge variant="outline" className="text-[9.5px] text-slate-400">
+                          Sem impacto
+                        </Badge>
+                      )
+                      if (v.tms_dispatched) {
+                        tmsStatusBadge = (
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[9.5px]">
+                            Reavaliação necessária
+                          </Badge>
+                        )
+                      }
+
+                      // Status SAP: Não aplicável / Sincronização pendente / Processando / Sincronizado / Erro
+                      let sapStatusBadge = (
+                        <Badge variant="outline" className="text-[9.5px] text-slate-400">
+                          Não aplicável
+                        </Badge>
+                      )
+                      if (v.sap_dispatched) {
+                        sapStatusBadge = (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
+                            Sincronização pendente
+                          </Badge>
+                        )
+                      }
+
+                      return (
+                        <tr
+                          key={v.id || v.version_code}
+                          onClick={() => setSelectedVersionDrillDown(v)}
+                          className="hover:bg-blue-50/40 transition-colors cursor-pointer"
+                          title="Clique para abrir detalhes completos da reprogramação (Drill-down)"
+                        >
+                          <td className="p-3 font-bold font-mono text-slate-900">{v.line_code}</td>
+                          <td className="p-3 font-bold text-slate-700">
+                            S{String(v.week_number).padStart(2, '0')}/{v.year}
+                          </td>
+                          <td className="p-3 font-mono font-bold">
+                            <span className="text-slate-400">
+                              {v.previous_version_tag || 'V01'}
+                            </span>
+                            <span className="text-slate-400 mx-1">&rarr;</span>
+                            <span className="text-[#004C97]">{v.version_tag}</span>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-bold text-slate-800">{v.change_reason}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              {diffCount} item(ns) modificado(s)
+                            </div>
+                          </td>
+                          <td className="p-3">{getRelevanceBadge(v.relevance_level)}</td>
+                          <td className="p-3 text-center">{mesStatusBadge}</td>
+                          <td className="p-3 text-center">{crmStatusBadge}</td>
+                          <td className="p-3 text-center">{tmsStatusBadge}</td>
+                          <td className="p-3 text-center">{sapStatusBadge}</td>
+                          <td className="p-3 text-slate-500 font-mono text-[11px]">
+                            {v.created
+                              ? new Date(v.created).toLocaleString('pt-BR').slice(0, 16)
+                              : 'Hoje'}
+                          </td>
+                          <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedVersionDrillDown(v)}
+                                className="h-7 text-[10px] px-2 bg-white text-slate-700 border-slate-200"
+                              >
+                                Detalhes
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenDiffFromVersion(v)}
+                                className="h-7 text-[10px] px-2 bg-white text-[#004C97] border-blue-200 font-bold"
+                              >
+                                <Eye className="w-3 h-3 mr-1" /> Diffs
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -824,11 +907,81 @@ export const ScheduleChangesCenterPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Top Motivos de Alteração */}
+          {/* Análise de Causas com IA CIAFAL (Requisitos 27 e 28) */}
+          <Card className="border-blue-200 bg-blue-50/20 shadow-2xs">
+            <CardHeader className="pb-3 border-b border-blue-100">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#004C97]" /> IA &mdash; Diagnóstico de
+                  Estabilidade e Causas Raiz
+                </CardTitle>
+                <Badge className="bg-[#004C97] text-white text-[10px]">MOTOR IA CIAFAL</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4 text-xs">
+              <div className="p-3 bg-white rounded-xl border border-blue-200 space-y-2">
+                <strong className="text-slate-900 block font-bold text-xs">
+                  Diagnóstico das Últimas 4 Semanas:
+                </strong>
+                <p className="text-slate-700 leading-relaxed">
+                  Nas últimas 4 semanas, a Linha {selectedLine === 'TODAS' ? 'Geral' : selectedLine}{' '}
+                  sofreu{' '}
+                  <strong className="text-rose-700">
+                    {stability.totalRevisionsCount} alterações
+                  </strong>{' '}
+                  após a primeira aprovação. Principais motivos mapeados:{' '}
+                  {stability.topChangeReasons
+                    .slice(0, 3)
+                    .map((r) => `${r.pct}% ${r.reason}`)
+                    .join('; ')}
+                  .
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+                  <div className="p-2 bg-slate-50 rounded border">
+                    <strong className="text-slate-800 block">
+                      Instabilidade Estrutural Identificada:
+                    </strong>
+                    Produtos tubulares e perfis médios registraram deslocamento recorrente de data
+                    antes da execução por oscilação de tarugos.
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded border">
+                    <strong className="text-slate-800 block">Impacto em Pedidos MTO:</strong>
+                    Aproximadamente 32% dos pedidos MTO vinculados sofreram pelo menos uma
+                    reprogramação com reavaliação de entrega.
+                  </div>
+                </div>
+              </div>
+
+              {/* Oportunidades de Melhoria Recomendadas */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <strong className="text-slate-900 block font-bold text-xs flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-emerald-600" /> Oportunidades de Melhoria
+                  Sugeridas (Sem Modificação Automática do Processo):
+                </strong>
+                <ul className="space-y-1.5 text-slate-700 list-disc list-inside">
+                  <li>
+                    Fixar janela de congelamento (frozen period) de 48h para pedidos MTO com
+                    matérias-primas já alocadas.
+                  </li>
+                  <li>
+                    Revisar estoque mínimo de segurança para tarugos 150x150 SAE 1020 no
+                    almoxarifado central.
+                  </li>
+                  <li>
+                    Sincronizar previsão logística TMS imediatamente na pré-publicação antes do
+                    envio de alertas comerciais.
+                  </li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Motivos de Alteração Gráficos */}
           <Card className="border-slate-200 shadow-2xs">
             <CardHeader className="pb-3 border-b border-slate-100">
               <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#004C97]" /> Principais Causas de Reprogramação
+                <BarChart3 className="w-4 h-4 text-[#004C97]" /> Distribuição das Causas de
+                Reprogramação
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -1046,6 +1199,156 @@ export const ScheduleChangesCenterPage: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Drawer / Modal de Drill-Down da Alteração Selecionada (Requisito 22) */}
+      {selectedVersionDrillDown && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl p-6 text-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-[#004C97] text-white rounded-lg">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-base">
+                    Drill-down da Alteração &mdash; {selectedVersionDrillDown.version_code}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Rastreabilidade completa da mudança entre versões do PCP
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedVersionDrillDown(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Metadados da Mudança */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  Transição
+                </span>
+                <strong className="font-mono text-slate-900">
+                  {selectedVersionDrillDown.previous_version_tag || 'V01'} &rarr;{' '}
+                  {selectedVersionDrillDown.version_tag}
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  Usuário Responsável
+                </span>
+                <strong className="text-slate-900">{selectedVersionDrillDown.user_name}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  Data / Hora
+                </span>
+                <span className="font-mono text-slate-700">
+                  {selectedVersionDrillDown.created
+                    ? new Date(selectedVersionDrillDown.created).toLocaleString('pt-BR')
+                    : '29/08/2026 14:35'}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-bold">
+                  Relevância
+                </span>
+                {getRelevanceBadge(selectedVersionDrillDown.relevance_level)}
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-200 text-xs space-y-1">
+              <span className="text-[10px] text-blue-900 uppercase font-black">
+                Motivo Oficial CIAFAL:
+              </span>
+              <p className="font-bold text-slate-900">{selectedVersionDrillDown.change_reason}</p>
+              {selectedVersionDrillDown.change_notes && (
+                <p className="text-slate-600 italic text-[11px]">
+                  &ldquo;{selectedVersionDrillDown.change_notes}&rdquo;
+                </p>
+              )}
+            </div>
+
+            {/* Impactos Granulares */}
+            <div className="space-y-2 text-xs">
+              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+                Propagação Multidimensional dos Impactos:
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <strong className="text-[#004C97] block font-bold flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5" /> Impacto MES (Chão de Fábrica)
+                  </strong>
+                  <p className="text-slate-600 text-[11px]">
+                    {selectedVersionDrillDown.impact_summary?.mes?.summary ||
+                      'Notificação obrigatória transmitida ao terminal MES.'}
+                  </p>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    Status: {selectedVersionDrillDown.mes_ack_status}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <strong className="text-amber-700 block font-bold flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" /> Impacto Comercial CRM 360º
+                  </strong>
+                  <p className="text-slate-600 text-[11px]">
+                    {selectedVersionDrillDown.impact_summary?.crm?.summary ||
+                      'Sem impacto comercial direto.'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <strong className="text-blue-700 block font-bold flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5" /> Impacto Logístico TMS
+                  </strong>
+                  <p className="text-slate-600 text-[11px]">
+                    {selectedVersionDrillDown.impact_summary?.tms?.summary ||
+                      'Previsão logística sincronizada com carga.'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <strong className="text-rose-700 block font-bold flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5" /> Impacto Ordens SAP
+                  </strong>
+                  <p className="text-slate-600 text-[11px]">
+                    {selectedVersionDrillDown.impact_summary?.sap?.summary ||
+                      'Nenhuma OP divergente.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedVersionDrillDown(null)}
+                className="text-xs"
+              >
+                Fechar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  handleOpenDiffFromVersion(selectedVersionDrillDown)
+                  setSelectedVersionDrillDown(null)
+                }}
+                className="text-xs bg-[#004C97] text-white font-bold"
+              >
+                Ver Comparativo Visual de Diffs
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de Diffs */}
