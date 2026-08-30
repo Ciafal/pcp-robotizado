@@ -177,6 +177,31 @@ const MPPlannedVsRealizedPage = lazy(() =>
 const MPIndicatorsPage = lazy(() =>
   import('@/pages/mp-optimization/MPIndicatorsPage').then((m) => ({ default: m.MPIndicatorsPage })),
 )
+const MPProjectionsSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPProjectionsSubpage').then((m) => ({
+    default: m.MPProjectionsSubpage,
+  })),
+)
+const MPDestinationAndAvailabilitySubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPDestinationAndAvailabilitySubpage').then((m) => ({
+    default: m.MPDestinationAndAvailabilitySubpage,
+  })),
+)
+const MPSpecialSteelsSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPSpecialSteelsSubpage').then((m) => ({
+    default: m.MPSpecialSteelsSubpage,
+  })),
+)
+const MPL1BalanceAndConsumptionSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPL1BalanceAndConsumptionSubpage').then((m) => ({
+    default: m.MPL1BalanceAndConsumptionSubpage,
+  })),
+)
+const MPUtilizationAndSubstitutionSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPUtilizationAndSubstitutionSubpage').then((m) => ({
+    default: m.MPUtilizationAndSubstitutionSubpage,
+  })),
+)
 const RulesEnginePage = lazy(() =>
   import('@/pages/RulesEnginePage').then((m) => ({
     default: m.RulesEnginePage || m.default,
@@ -503,6 +528,47 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.mp_opt.simulate">
                       <MPOptimizeApplicationsUnifiedPage />
+                    </PermissionGuard>
+                  }
+                />
+                {/* 5 Novos Subtópicos Oficiais da Gestão de Matéria-Prima */}
+                <Route
+                  path="/pcp/gestao-materia-prima/projecoes-mp"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPProjectionsSubpage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/saldo-disponibilidade-destino"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPDestinationAndAvailabilitySubpage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/niveis-estoque-acos-especiais"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPSpecialSteelsSubpage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPL1BalanceAndConsumptionSubpage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/utilizacao-substituicao-mp"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPUtilizationAndSubstitutionSubpage />
                     </PermissionGuard>
                   }
                 />

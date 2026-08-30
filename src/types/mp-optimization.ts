@@ -1,8 +1,6 @@
 /**
- * Tipos e Interfaces para o Submódulo Principal: GESTÃO DE MATÉRIA-PRIMA (PCP Robotizado CIAFAL)
- * 1. PEDIDOS E RECEBIMENTO DE MP
- * 2. PLANOS DE CORTE
- * 3. OTIMIZAR APLICAÇÕES
+ * Tipos Oficiais e Estruturas para a Gestão de Matéria-Prima — CIAFAL
+ * Subtópicos 1 a 8 com Tipagem Estrita
  */
 
 export type DimensionalClassification =
@@ -38,6 +36,16 @@ export type LeftoverClassification =
   | 'SUCATA'
 
 export type MPItemType = 'PLACA' | 'BLOCO' | 'PECA' | 'SOBRA_REUTILIZAVEL' | 'RETALHO' | 'PARCIAL'
+
+export type MPShape = 'PLACA' | 'PALANQUILHA' | 'TARUGO' | 'LINGOTE' | 'OUTRO'
+
+export type DestinationType =
+  | 'PRODUCAO_PROPRIA'
+  | 'CLIENTE_INDUSTRIALIZADOR'
+  | 'LINHA_INTERNA'
+  | 'SEPARACAO'
+  | 'SEM_APLICACAO'
+  | 'OUTRO'
 
 export type CuttingScenarioType =
   | 'RECOMENDADO_IA'
@@ -82,36 +90,20 @@ export type PurchaseOrderStatus =
   | 'BLOQUEADO'
   | 'CANCELADO'
 
-export type GlobalMPAlertType =
-  | 'PEDIDO_ATRASADO'
-  | 'RISCO_FALTA_MP'
-  | 'RECEBIMENTO_APOS_PRODUCAO'
-  | 'DIMENSAO_RECEBIDA_DIVERGENTE'
-  | 'QUANTIDADE_RECEBIDA_DIVERGENTE'
-  | 'MP_BLOQUEADA'
-  | 'MP_CRITICA_NAO_RECEBIDA'
-  | 'RECEBIMENTO_FUTURO_COBRE_NECESSIDADE'
-  | 'EXCESSO_FUTURO_MP'
-  | 'APLICACAO_NAO_PERMITIDA'
-  | 'BLOCO_EM_TRANSITO'
-  | 'BLOCO_JA_ENFORNADO'
-  | 'BLOCO_JA_LAMINADO'
-  | 'NOVA_APLICACAO_IDENTIFICADA'
-  | 'PECA_FORA_IDEAL_COM_POTENCIAL'
-  | 'SOBRA_REAPROVEITAVEL'
-  | 'OPORTUNIDADE_REAPLICACAO'
-  | 'RISCO_RUPTURA_FUTURA'
-  | 'MP_SEM_DEMANDA'
+export type RiskTrafficLight = 'VERDE' | 'AMARELO' | 'LARANJA' | 'VERMELHO' | 'CINZA'
 
-export interface ZPPMPValidationResult {
-  is_valid: boolean
-  thickness: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
-  width: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
-  length: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
-  weight?: { value: number; min?: number; max?: number; status: 'GREEN' | 'RED' }
-}
+export type L1AutoStatus =
+  | 'OK_SOBRA'
+  | 'ATENCAO'
+  | 'FALTA_MP'
+  | 'NECESSARIO_PRODUZIR_L2'
+  | 'DEPENDENTE_RECEBIMENTO'
+  | 'RECEBIMENTO_ATRASADO'
+  | 'ESTOQUE_ABAIXO_MINIMO'
+  | 'SEM_COBERTURA_PROGRAMACAO'
+  | 'DIVERGENCIA_SALDO'
 
-// 1. PEDIDOS DE COMPRA SAP ECC ME23N
+// Subtópico 1: Pedidos e Recebimento
 export interface MPPurchaseOrder {
   id: string
   po_number: string
@@ -147,7 +139,6 @@ export interface MPPurchaseOrder {
   updated?: string
 }
 
-// 2. RECEBIMENTOS FUTUROS
 export interface MPFutureReception {
   id: string
   reception_code: string
@@ -171,7 +162,6 @@ export interface MPFutureReception {
   updated?: string
 }
 
-// 3. ESTOQUE FUTURO PROJETADO
 export interface MPFutureInventoryProjection {
   id: string
   projection_code: string
@@ -197,7 +187,15 @@ export interface MPFutureInventoryProjection {
   updated?: string
 }
 
-// 4. ESTOQUE DIMENSIONAL REAL / INDIVIDUAL
+// Subtópico 2 & 3: Estoque Dimensional, Requisitos, Planos de Corte, Otimização
+export interface ZPPMPValidationResult {
+  is_valid: boolean
+  thickness: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
+  width: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
+  length: { value: number; min: number; max: number; status: 'GREEN' | 'RED' }
+  weight?: { value: number; min?: number; max?: number; status: 'GREEN' | 'RED' }
+}
+
 export interface MPDimensionalItem {
   id: string
   material_code: string
@@ -243,7 +241,6 @@ export interface MPDimensionalItem {
   updated?: string
 }
 
-// 5. MATRIZ OFICIAL DE REQUISITOS (ZPPMP, ZBITOLAS, ZPPT045, ZPPT058)
 export interface MPApplicationRequirement {
   id: string
   application_code: string
@@ -298,57 +295,6 @@ export interface CutPieceResult {
   leftover_classification?: LeftoverClassification
 }
 
-export interface ScenarioDetail {
-  scenario_type: CuttingScenarioType
-  name: string
-  description: string
-  total_plates_used: number
-  total_weight_tons: number
-  yield_pct: number
-  scrap_pct: number
-  reusable_leftover_pct: number
-  cost_estimate_brl: number
-  potential_savings_brl: number
-  orders_covered_count: number
-  demands_covered_pct: number
-  critical_mp_preserved_count: number
-  risk_score: 'BAIXO' | 'MEDIO' | 'ALTO'
-  requires_approval: boolean
-  approval_reason?: string
-  score_ia: number
-  pieces_generated: CutPieceResult[]
-}
-
-export interface AIScoreBreakdown {
-  overall_score: number
-  yield_component: { value: number; weight: number; contribution: number }
-  demand_fulfillment_component: { value: number; weight: number; contribution: number }
-  cost_reduction_component: { value: number; weight: number; contribution: number }
-  scrap_minimization_component: { value: number; weight: number; contribution: number }
-  reutilization_component: { value: number; weight: number; contribution: number }
-  critical_mp_preservation_component: { value: number; weight: number; contribution: number }
-  rupture_risk_component: { value: number; weight: number; contribution: number }
-  schedule_adherence_component: { value: number; weight: number; contribution: number }
-  dimensional_conformance_component: { value: number; weight: number; contribution: number }
-  quality_compliance_component: { value: number; weight: number; contribution: number }
-}
-
-export interface AIExplanation {
-  headline: string
-  why_chosen: string
-  historical_precedents_summary: string
-  similar_cases_count: number
-  successful_conforming_cases: number
-  average_historical_yield_pct: number
-  confidence_pct: number
-  human_approval_mandatory: boolean
-  sensitivity_analysis: {
-    best_case: string
-    probable_case: string
-    worst_case: string
-  }
-}
-
 export interface MPCuttingPlan {
   id: string
   plan_code: string
@@ -363,26 +309,9 @@ export interface MPCuttingPlan {
   total_scrap_tons?: number
   overall_yield_pct?: number
   overall_ai_score?: number
-  ai_score_breakdown_json?: AIScoreBreakdown
-  ai_explanation_json?: AIExplanation
-  scenarios_comparison_json?: Record<string, ScenarioDetail>
-  cutting_layout_items_json?: {
-    kerf_mm: number
-    margin_trim_mm: number
-    plates: {
-      plate_id: string
-      block_number: string
-      dimensions: { thickness: number; width: number; length: number; weight: number }
-      pieces: CutPieceResult[]
-    }[]
-  }
-  demands_covered_json?: Array<{
-    order_number: string
-    customer_name: string
-    product_code: string
-    required_tons: number
-    allocated_tons: number
-  }>
+  scenarios_comparison_json?: Record<string, any>
+  cutting_layout_items_json?: any
+  demands_covered_json?: any
   human_changes_notes?: string
   created_by_user_id?: string
   created_by_user_name?: string
@@ -596,4 +525,300 @@ export interface MPOptimizationParameters {
   updated_by_user_id?: string
   created?: string
   updated?: string
+}
+
+export interface AIScoreComponent {
+  value: number
+  weight: number
+  contribution: number
+}
+
+export interface AIScoreBreakdown {
+  overall_score: number
+  yield_component: AIScoreComponent
+  demand_fulfillment_component: AIScoreComponent
+  cost_reduction_component: AIScoreComponent
+  scrap_minimization_component: AIScoreComponent
+  reutilization_component: AIScoreComponent
+  critical_mp_preservation_component: AIScoreComponent
+  rupture_risk_component: AIScoreComponent
+  schedule_adherence_component: AIScoreComponent
+  dimensional_conformance_component: AIScoreComponent
+  quality_compliance_component: AIScoreComponent
+}
+
+export interface ScenarioDetail {
+  scenario_type: CuttingScenarioType
+  name: string
+  description: string
+  total_plates_used: number
+  total_weight_tons: number
+  yield_pct: number
+  scrap_pct: number
+  reusable_leftover_pct: number
+  cost_estimate_brl: number
+  potential_savings_brl: number
+  orders_covered_count: number
+  demands_covered_pct: number
+  critical_mp_preserved_count: number
+  risk_score: 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+  requires_approval: boolean
+  approval_reason?: string
+  score_ia: number
+  pieces_generated: CutPieceResult[]
+}
+
+// ============================================================================
+// NOVAS ENTIDADES DOS SUBTÓPICOS 4 A 8
+// ============================================================================
+
+// 4. Projeções de MP por Aço / Cadeia Completa
+export interface SteelProjectionSummary {
+  steelGrade: string
+  shape: MPShape
+  totalAvailableTons: number
+  ksAvailableTons: number
+  otherDepotsTons: number
+  slabsTons: number // Placas
+  billetsTons: number // Palanquilhas
+  bloomsTons: number // Tarugos
+  otherShapesTons: number
+  unrestrictedTons: number
+  qualityControlTons: number
+  blockedTons: number
+  operationalAvailableTons: number
+  // Consumo programado
+  programmedL1Tons: number
+  programmedL2Tons: number
+  totalProgrammedConsumptionTons: number
+  monthlyAverageConsumptionTons: number
+  // Entradas
+  confirmedReceiptsTons: number
+  transitOrdersTons: number
+  projectedIntermedProdTons: number
+  // Saldo projetado
+  projectedBalanceTons: number
+  minStockLimitTons: number
+  // Metodologia 1: Excel
+  excelCoverageMonths: number
+  excelCoverageDays: number
+  excelRuptureDate: string
+  // Metodologia 2: Motor Diário
+  dailyRuptureDate: string
+  dailyRuptureDays: number
+  methodDiffDays: number
+  // Cadeia MP -> Semiacabado -> Acabado
+  finishedSemiStockTons: number
+  finishedMonthlyDemandTons: number
+  finishedCoverageMonths: number
+  finishedRuptureDate: string
+  totalChainCoverageDays: number
+  totalChainCoverageMonths: number
+  totalChainEndDate: string
+  riskLevel: RiskTrafficLight
+  dataSourceInfo: {
+    source: string
+    lastUpdated: string
+    isOfficial: boolean
+  }
+}
+
+// Simulação de Compras (Compra Objetivada)
+export interface SimulatedPurchaseItem {
+  id: string
+  steelGrade: string
+  shape: MPShape
+  dimension: string
+  quantityTons: number
+  supplierName: string
+  expectedArrivalDate: string
+  notes?: string
+}
+
+// 5. Destinos e Lotes
+export interface MPDestinationItem {
+  id: string
+  batch_number: string
+  material_code: string
+  material_text?: string
+  steel_grade: string
+  mp_shape: MPShape
+  storage_location: string
+  storage_name?: string
+  qty_unrestricted_tons: number
+  qty_quality_tons?: number
+  qty_blocked_tons?: number
+  qty_total_tons: number
+  destination_type: DestinationType
+  destination_name: string
+  client_name?: string
+  client_code?: string
+  application_code?: string
+  physical_location?: string
+  status?: string
+  is_leftover?: boolean
+  leftover_age_days?: number
+  qty_reserved_tons?: number
+  qty_committed_tons?: number
+  qty_effectively_free_tons?: number
+  coverage_days?: number
+  data_source?: string
+  last_sync_date?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPBatchClassificationHistory {
+  id: string
+  batch_number: string
+  material_code: string
+  change_type: string
+  previous_destination?: string
+  current_destination?: string
+  previous_steel?: string
+  current_steel?: string
+  previous_application?: string
+  current_application?: string
+  previous_tons?: number
+  current_tons?: number
+  delta_tons?: number
+  changed_at: string
+  responsible_user_or_system: string
+  alert_severity?: 'INFO' | 'AVISO' | 'CRITICO'
+  notes?: string
+  created?: string
+  updated?: string
+}
+
+// 6. Níveis de Estoque — Aços Especiais
+export interface MPSpecialSteelRow {
+  id: string
+  scenario_name: string
+  dimension_pool: string // 525 kg, 510 kg, 533, 472, 480, 540...
+  steel_class: string // A, B, C, D, AC, 1020, 1045, 1522...
+  steel_grade: string
+  period_ref: string
+  date_str: string
+  shift_code?: string // T1, T2, T3
+  initial_stock_tons: number
+  receptions_tons?: number
+  l2_production_tons?: number
+  l2_useful_production_tons?: number
+  l2_factor_applied?: number
+  scheduled_consumption_tons: number
+  final_stock_tons: number
+  min_stock_limit_tons?: number
+  is_rupture?: boolean
+  created?: string
+  updated?: string
+}
+
+// 7. Saldo MP L1 e Previsão de Consumo
+export interface MPL1RequirementRow {
+  id: string
+  steel_grade: string
+  dimension_desc: string
+  stock_ks_tons: number
+  stock_dp07_tons: number
+  stock_dp04_tons: number
+  stock_other_depots_tons: number
+  ks_cut_tons: number
+  l2_production_weekly_tons: number
+  po_supplier_balance_tons: number
+  l1_schedule_weekly_tons: number
+  total_consumption_tons: number
+  projected_balance_tons: number
+  min_stock_tons: number
+  need_produce_l2_tons: number
+  need_l2_week?: string
+  need_l2_deadline?: string
+  impacted_l1_orders_json?: string[]
+  auto_status: L1AutoStatus
+  human_observation?: string
+  physical_location_summary?: string
+  suppliers_breakdown_json?: Array<{
+    supplier: string
+    poNumber: string
+    orderedTons: number
+    receivedTons: number
+    balanceTons: number
+    expectedDate: string
+    delayDays: number
+  }>
+  created?: string
+  updated?: string
+}
+
+// 8. Utilização e Substituição de MP
+export interface MPUtilizationItem {
+  id: string
+  order_number: string
+  period_week?: string
+  period_month?: string
+  period_year?: number
+  product_code: string
+  product_description?: string
+  produced_tons: number
+  mp_consumed_code: string
+  mp_consumed_tons: number
+  steel_grade: string
+  origin_group?: string // Arcelor, Vallourec, Ciafal, Faca, Aço Especial, Fura Forno, Aço Comercial B/C/D, A, 1020 L2...
+  supplier_name?: string
+  hot_charging_tons?: number
+  cold_charging_tons?: number
+  charging_type?: 'QUENTE' | 'FRIO' | 'MISTO'
+  standard_mp_rule?: string
+  could_be_ac?: boolean
+  could_be_a?: boolean
+  should_be_1020?: boolean
+  is_substitute_application?: boolean
+  substitution_category?: string // '1020 no lugar de AC', '1020 MPI no lugar de AC', '1020 L2 no lugar de AC'...
+  deviation_detected?: boolean
+  deviation_impact_tons?: number
+  deviation_reason?: string
+  observation?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPGovernanceParameter {
+  id: string
+  param_key: string
+  param_name: string
+  param_value: number
+  unit?: string
+  version: number
+  valid_from?: string
+  valid_until?: string
+  line_target?: string
+  source_authority?: string
+  responsible_name?: string
+  description?: string
+  created?: string
+  updated?: string
+}
+
+// Explicabilidade e Homologação contra Excel Legado
+export interface CalculationExplainPayload {
+  title: string
+  formula: string
+  variables: Record<string, number | string>
+  stepByStep: string[]
+  result: number | string
+  resultFormatted: string
+  unit: string
+  regulatoryStandardRef?: string
+  excelLegacyRef?: string
+}
+
+export interface ExcelHomologationComparisonItem {
+  steelOrMetric: string
+  dimensionOrTopic: string
+  excelLegacyValue: number | string
+  systemCalculatedValue: number | string
+  delta: number
+  pctDiff: number
+  status: 'CONFORME' | 'DIVERGENCIA_JUSTIFICADA' | 'DIVERGENCIA_CRITICA'
+  justification: string
+  sourceSheet: string
 }

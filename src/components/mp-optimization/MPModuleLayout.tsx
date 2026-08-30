@@ -16,7 +16,16 @@ import { Badge } from '@/components/ui/badge'
 
 interface MPModuleLayoutProps {
   children: React.ReactNode
-  activeTopic?: 'visao-geral' | 'pedidos-recebimento' | 'planos-corte' | 'otimizar-aplicacoes'
+  activeTopic?:
+    | 'visao-geral'
+    | 'pedidos-recebimento'
+    | 'planos-corte'
+    | 'otimizar-aplicacoes'
+    | 'projecoes-mp'
+    | 'saldo-disponibilidade-destino'
+    | 'niveis-estoque-acos-especiais'
+    | 'saldo-mp-l1-previsao-consumo'
+    | 'utilizacao-substituicao-mp'
   currentStep?: number
   headerActions?: React.ReactNode
 }
@@ -24,8 +33,8 @@ interface MPModuleLayoutProps {
 export const mpMainTopics = [
   {
     id: 'visao-geral',
-    title: 'Visão Geral',
-    number: '•',
+    title: 'Visão Geral Consolidada',
+    number: '0',
     path: '/pcp/gestao-materia-prima',
     icon: LayoutDashboard,
     description: 'Cockpit do ciclo completo de MP, KPIs e Alertas Globais',
@@ -44,18 +53,57 @@ export const mpMainTopics = [
     number: '2',
     path: '/pcp/gestao-materia-prima/planos-corte',
     icon: Scissors,
-    description: 'Estoque dimensional, Motor de Corte IA, Matriz Oficial e Gêmeo 3D',
+    description: 'Nesting 1D/2D/3D, Algoritmos Heurísticos e Simulação de Cenários',
   },
   {
     id: 'otimizar-aplicacoes',
     title: '3. Otimizar Aplicações',
     number: '3',
     path: '/pcp/gestao-materia-prima/otimizar-aplicacoes',
-    icon: RefreshCw,
-    description: 'ZPP86 (modificar aplicação), ZPP88 (fora do padrão ideal) e Matriz IA',
+    icon: Sparkles,
+    description: 'Reaplicação Estratégica, Redução de Sucata e Preservação de MP Nobre',
+  },
+  {
+    id: 'projecoes-mp',
+    title: '4. Projeções de MP',
+    number: '4',
+    path: '/pcp/gestao-materia-prima/projecoes-mp',
+    icon: CalendarRange,
+    description: 'Projeção de Ruptura diária vs Excel e Cobertura Total MP + Acabado',
+  },
+  {
+    id: 'saldo-disponibilidade-destino',
+    title: '5. Saldo e Disponibilidade por Destino',
+    number: '5',
+    path: '/pcp/gestao-materia-prima/saldo-disponibilidade-destino',
+    icon: Boxes,
+    description: 'Visão por Lote, Industrializadores (SDC) e Sobras Sem Aplicação',
+  },
+  {
+    id: 'niveis-estoque-acos-especiais',
+    title: '6. Níveis de Estoque — Aços Especiais',
+    number: '6',
+    path: '/pcp/gestao-materia-prima/niveis-estoque-acos-especiais',
+    icon: Layers,
+    description: 'Projeção contínua semana/dia/turno, Pools 525kg/510kg e Fator L2',
+  },
+  {
+    id: 'saldo-mp-l1-previsao-consumo',
+    title: '7. Saldo MP L1 e Previsão de Consumo',
+    number: '7',
+    path: '/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo',
+    icon: Layers,
+    description: 'Matriz L1, Depósitos KS/DP07/DP04, Necessidade L2 e Fornecedores',
+  },
+  {
+    id: 'utilizacao-substituicao-mp',
+    title: '8. Utilização e Substituição de MP',
+    number: '8',
+    path: '/pcp/gestao-materia-prima/utilizacao-substituicao-mp',
+    icon: ShieldCheck,
+    description: 'Substituição 1020 vs AC, Enfornamento Quente/Frio e Desvios por Ordem',
   },
 ]
-
 export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
   children,
   activeTopic,

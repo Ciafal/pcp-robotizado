@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T12:09:10.125Z",
+  "generatedAt": "2026-08-30T14:32:44.836Z",
   "collections": [
     {
       "name": "users",
@@ -13263,6 +13263,892 @@
         "CREATE INDEX idx_mp_futinv_mat_hor ON mp_future_inventory_projection (material_code, steel_grade, horizon_category)",
         "CREATE INDEX idx_mp_futinv_status ON mp_future_inventory_projection (balance_status)"
       ]
+    },
+    {
+      "name": "mp_destinations_inventory",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mp_shape",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PLACA", "PALANQUILHA", "TARUGO", "LINGOTE", "OUTRO"]
+        },
+        {
+          "name": "storage_location",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_unrestricted_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "qty_quality_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_blocked_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_total_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "destination_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PRODUCAO_PROPRIA",
+            "CLIENTE_INDUSTRIALIZADOR",
+            "LINHA_INTERNA",
+            "SEPARACAO",
+            "SEM_APLICACAO",
+            "OUTRO"
+          ]
+        },
+        {
+          "name": "destination_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "application_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "physical_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_leftover",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "leftover_age_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_reserved_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_committed_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qty_effectively_free_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "coverage_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_destinv_batch ON mp_destinations_inventory (batch_number)",
+        "CREATE INDEX idx_mp_destinv_mat ON mp_destinations_inventory (material_code, steel_grade)",
+        "CREATE INDEX idx_mp_destinv_dest ON mp_destinations_inventory (destination_name, destination_type)",
+        "CREATE INDEX idx_mp_destinv_client ON mp_destinations_inventory (client_name)"
+      ]
+    },
+    {
+      "name": "mp_batch_classification_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "batch_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "change_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "previous_destination",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_destination",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_steel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_steel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delta_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "changed_at",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible_user_or_system",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "alert_severity",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_batchhist_batch ON mp_batch_classification_history (batch_number)",
+        "CREATE INDEX idx_mp_batchhist_date ON mp_batch_classification_history (changed_at DESC)"
+      ]
+    },
+    {
+      "name": "mp_special_steels_projection",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "scenario_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_pool",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_class",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "date_str",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "shift_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "initial_stock_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "receptions_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "l2_production_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "l2_useful_production_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "l2_factor_applied",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scheduled_consumption_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "final_stock_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_stock_limit_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_rupture",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_specsteel_scen ON mp_special_steels_projection (scenario_name, dimension_pool, steel_class)",
+        "CREATE INDEX idx_mp_specsteel_date ON mp_special_steels_projection (date_str, period_ref)"
+      ]
+    },
+    {
+      "name": "mp_l1_requirements_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_desc",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "stock_ks_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stock_dp07_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stock_dp04_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stock_other_depots_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ks_cut_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "l2_production_weekly_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "po_supplier_balance_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "l1_schedule_weekly_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_consumption_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "projected_balance_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "need_produce_l2_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "need_l2_week",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "need_l2_deadline",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacted_l1_orders_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "auto_status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "human_observation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "physical_location_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "suppliers_breakdown_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_l1req_steel ON mp_l1_requirements_matrix (steel_grade, dimension_desc)",
+        "CREATE INDEX idx_mp_l1req_status ON mp_l1_requirements_matrix (auto_status)"
+      ]
+    },
+    {
+      "name": "mp_utilization_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "order_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "period_week",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "period_month",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "period_year",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "produced_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mp_consumed_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mp_consumed_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "supplier_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hot_charging_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cold_charging_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "charging_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["QUENTE", "FRIO", "MISTO"]
+        },
+        {
+          "name": "standard_mp_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "could_be_ac",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "could_be_a",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "should_be_1020",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_substitute_application",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "substitution_category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_detected",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_impact_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_util_order ON mp_utilization_history (order_number, product_code)",
+        "CREATE INDEX idx_mp_util_steel ON mp_utilization_history (steel_grade, period_month, period_year)",
+        "CREATE INDEX idx_mp_util_dev ON mp_utilization_history (deviation_detected, is_substitute_application)"
+      ]
+    },
+    {
+      "name": "mp_governance_parameters",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "param_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "param_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "param_value",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_target",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_authority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_mp_gov_key ON mp_governance_parameters (param_key, version)"]
     }
   ]
 }

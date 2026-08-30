@@ -13,6 +13,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { MPAIAgentAnalystCard } from '@/components/mp-optimization/MPAIAgentAnalystCard'
 import {
   Boxes,
   FileSpreadsheet,
@@ -141,6 +142,9 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
         </Badge>
       </div>
 
+      {/* Agente Especialista IA em MP */}
+      <MPAIAgentAnalystCard />
+
       {/* 2. Grid com 8 Cards Estratégicos de Matéria-Prima */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
         <Card className="border-slate-200 bg-white p-3 shadow-xs">
@@ -236,161 +240,328 @@ export const MPOverviewConsolidatedPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* 3. OS TRÊS GRANDES CARDS OPERACIONAIS OBRIGATÓRIOS DO SUBMÓDULO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* SUBTÓPICO 1: PEDIDOS E RECEBIMENTO DE MP */}
-        <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-5 shadow-xs flex flex-col justify-between group">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#004C97] font-black text-sm flex items-center justify-center border border-blue-200">
-                1
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono text-slate-600">
-                ME23N &bull; MIGO &bull; 7-90d
-              </Badge>
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
-                PEDIDOS E RECEBIMENTO DE MP
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Consolidação oficial:{' '}
-                <strong>
-                  Necessidade + Pedidos de Compra SAP ECC + Previsão de Entrega + Recebimento Real
-                  (Dimensão Real Medida) + Estoque Futuro
-                </strong>{' '}
-                nos horizontes Hoje / 7 / 15 / 30 / 60 / 90 dias.
-              </p>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Pedidos SAP Cadastrados:</span>
-                <span className="font-bold text-slate-900">{purchaseOrders.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Recebimentos Futuros Previstos:</span>
-                <span className="font-bold text-blue-700">{totalExpectedTons.toFixed(1)} t</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Risco Ruptura Monitorado:</span>
-                <span className="font-bold text-rose-700">{delayedOrders.length} pedido(s)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2">
-            <Link to="/pcp/gestao-materia-prima/pedidos-recebimento">
-              <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2">
-                <span>Acessar Pedidos e Recebimento</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-          </div>
+      {/* 3. OS 8 GRANDES CARDS OPERACIONAIS DO SUBMÓDULO DE MATÉRIA-PRIMA */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+            8 Subtópicos Oficiais da Gestão de Matéria-Prima
+          </h3>
+          <Badge className="bg-[#004C97] text-white text-[10px]">
+            100% Regras Nativas Integradas
+          </Badge>
         </div>
 
-        {/* SUBTÓPICO 2: PLANOS DE CORTE */}
-        <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-5 shadow-xs flex flex-col justify-between group">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#004C97] font-black text-sm flex items-center justify-center border border-blue-200">
-                2
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono text-slate-600">
-                Motor IA &bull; Gêmeo 3D &bull; 6 Cenários
-              </Badge>
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
-                PLANOS DE CORTE
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Ambiente estratégico para responder{' '}
-                <strong>
-                  qual MP usar, como cortar e como preservar o melhor resultado global
-                </strong>
-                : Estoque dimensional, Matriz Oficial (ZPPMP), Motor IA de 6 cenários, Gêmeo Digital
-                3D e Reserva Inteligente.
-              </p>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Placas/Blocos em Estoque:</span>
-                <span className="font-bold text-slate-900">{items.length} un</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Rendimento Médio Calculado:</span>
-                <span className="font-bold text-emerald-800">92.4%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Planos de Corte Salvos:</span>
-                <span className="font-bold text-[#004C97]">{cuttingPlans.length}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 mt-2">
-            <Link to="/pcp/gestao-materia-prima/planos-corte">
-              <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2">
-                <span>Acessar Planos de Corte</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* SUBTÓPICO 3: OTIMIZAR APLICAÇÕES */}
-        <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-5 shadow-xs flex flex-col justify-between group">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#004C97] font-black text-sm flex items-center justify-center border border-blue-200">
-                3
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono text-slate-600">
-                ZPP86 &bull; ZPP88 &bull; ZPPT058
-              </Badge>
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
-                OTIMIZAR APLICAÇÕES
-              </h2>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Avaliação contínua de blocos já cortados:{' '}
-                <strong>
-                  ZPP86 (modificar aplicação KS preservando aplicação original) + ZPP88 (peças fora
-                  do padrão ideal com produto final conforme) + Matriz de Reaplicação e Nuvem
-                  Dimensional 3D
-                </strong>
-                .
-              </p>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Oportunidades Mapeadas:</span>
-                <span className="font-bold text-emerald-800">{opportunities.length} blocos</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Economia R$ Estimada:</span>
-                <span className="font-bold text-emerald-700">
-                  R$ {potentialSavings.toLocaleString('pt-BR')}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* SUBTÓPICO 1: PEDIDOS E RECEBIMENTO DE MP */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  1
                 </span>
+                <Badge variant="outline" className="text-[9px] font-mono text-slate-600">
+                  ME23N &bull; 7-90d
+                </Badge>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Aprovações Governança:</span>
-                <span className="font-bold text-[#004C97]">{approvals.length} registros</span>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  1. Pedidos e Recebimento de MP
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Necessidade, Pedidos de Compra SAP, Previsões de Entrega e Horizontes.
+                </p>
               </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Pedidos SAP:</span>
+                  <span className="font-bold text-slate-900">{purchaseOrders.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Entradas Previstas:</span>
+                  <span className="font-bold text-blue-700">{totalExpectedTons.toFixed(1)} t</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/pedidos-recebimento">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
             </div>
           </div>
 
-          <div className="pt-4 mt-2">
-            <Link to="/pcp/gestao-materia-prima/otimizar-aplicacoes">
-              <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2">
-                <span>Acessar Otimizar Aplicações</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
+          {/* SUBTÓPICO 2: PLANOS DE CORTE */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  2
+                </span>
+                <Badge variant="outline" className="text-[9px] font-mono text-slate-600">
+                  IA &bull; Gêmeo 3D
+                </Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  2. Planos de Corte
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Nesting dimensional, Matriz ZPPMP, 6 cenários IA e Gêmeo 3D.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Blocos em Estoque:</span>
+                  <span className="font-bold text-slate-900">{items.length} un</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Rendimento Médio:</span>
+                  <span className="font-bold text-emerald-800">92.4%</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/planos-corte">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 3: OTIMIZAR APLICAÇÕES */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  3
+                </span>
+                <Badge variant="outline" className="text-[9px] font-mono text-slate-600">
+                  ZPP86 &bull; ZPP88
+                </Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  3. Otimizar Aplicações
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Reaplicação estratégica de blocos cortados e peças fora do ideal.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Oportunidades IA:</span>
+                  <span className="font-bold text-emerald-800">{opportunities.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Economia R$:</span>
+                  <span className="font-bold text-emerald-700">
+                    R$ {(potentialSavings / 1000).toFixed(0)}k
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/otimizar-aplicacoes">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 4: PROJEÇÕES DE MP */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  4
+                </span>
+                <Badge className="bg-[#004C97] text-white text-[9px] font-mono">Novo</Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  4. Projeções de MP
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Ruptura diária vs Excel, Cobertura Total MP+Acabado e Simulação de Compras.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Primeira Ruptura:</span>
+                  <span className="font-bold text-rose-600">SAE 1045 (18d)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Cobertura 1020:</span>
+                  <span className="font-bold text-emerald-700">125 dias</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/projecoes-mp">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar Projeções</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 5: SALDO E DISPONIBILIDADE POR DESTINO */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  5
+                </span>
+                <Badge className="bg-[#004C97] text-white text-[9px] font-mono">Novo</Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  5. Saldo & Destino
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Lotes, Industrializadores (SDC), Sobras Sem Aplicação e Matriz Aço x Destino.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Industrializadores:</span>
+                  <span className="font-bold text-blue-700">58.0 t</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Sobras (&lt;0,35t):</span>
+                  <span className="font-bold text-amber-700">0.59 t</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/saldo-disponibilidade-destino">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar Destinos</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 6: NÍVEIS DE ESTOQUE — AÇOS ESPECIAIS */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  6
+                </span>
+                <Badge className="bg-[#004C97] text-white text-[9px] font-mono">Novo</Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  6. Aços Especiais
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Projeção contínua semana/dia/turno, Pools 525kg/510kg e Fator L2 versionado.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Fator Atendimento L2:</span>
+                  <span className="font-bold text-emerald-700">95.0%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Granularidade:</span>
+                  <span className="font-bold text-slate-800">T1 / T2 / T3</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/niveis-estoque-acos-especiais">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar Aços Especiais</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 7: SALDO MP L1 E PREVISÃO DE CONSUMO */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  7
+                </span>
+                <Badge className="bg-[#004C97] text-white text-[9px] font-mono">Novo</Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  7. Saldo MP L1
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Matriz de Necessidade L1, KS, DP07/04, Necessidade L2 e Fornecedores.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Necessário L2:</span>
+                  <span className="font-bold text-rose-600">120.0 t</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Saldo Fornecedores:</span>
+                  <span className="font-bold text-blue-700">185.0 t</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar Saldo L1</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* SUBTÓPICO 8: UTILIZAÇÃO E SUBSTITUIÇÃO DE MP */}
+          <div className="bg-white border-2 border-slate-200 hover:border-[#004C97] transition-all rounded-xl p-4 shadow-xs flex flex-col justify-between group">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-[#004C97] font-black text-xs flex items-center justify-center border border-blue-200">
+                  8
+                </span>
+                <Badge className="bg-[#004C97] text-white text-[9px] font-mono">Novo</Badge>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
+                  8. Utilização MP
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Substituição 1020 vs AC, Enfornamento Quente/Frio e Desvios por Ordem.
+                </p>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded text-[11px] space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">% 1020 no lugar de AC:</span>
+                  <span className="font-bold text-rose-600">27.4%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Enfornamento Quente:</span>
+                  <span className="font-bold text-orange-600">71.8%</span>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3">
+              <Link to="/pcp/gestao-materia-prima/utilizacao-substituicao-mp">
+                <Button className="w-full bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold h-8 gap-1.5">
+                  <span>Acessar Utilização</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
