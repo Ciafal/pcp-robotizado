@@ -642,18 +642,61 @@ export const scheduleVersioningService = {
 
   /**
    * Registra ciência/reconhecimento do Alerta no MES (com usuário, data/hora)
+   * Retorna event_id + usuário + status + timestamp
    */
-  async acknowledgeMesAlert(alertId: string, notes?: string): Promise<boolean> {
+  async acknowledgeMesAlert(
+    alertId: string,
+    notes?: string,
+  ): Promise<{
+    success: boolean
+    event_id?: string
+    user?: string
+    status?: string
+    timestamp?: string
+  }> {
     const user = pb.authStore.record
     const nowIso = new Date().toISOString()
+    const userName = user ? user.name || user.email : 'Operador Líder MES'
     try {
+      let eventId = `EVT-MES-${alertId}`
+      try {
+        const alertRec = await pb.collection('schedule_mes_alerts').getOne(alertId)
+        if (alertRec?.alert_code) eventId = `EVT-MES-${alertRec.alert_code}`
+      } catch {
+        /* ignore */
+      }
+
       await pb.collection('schedule_mes_alerts').update(alertId, {
         ack_status: 'RECONHECIDO',
         acknowledged_at: nowIso,
-        acknowledged_by_user: user ? user.name || user.email : 'Operador Líder MES',
+        acknowledged_by_user: userName,
         acknowledgment_notes: notes || 'Ciência registrada pelo operador de linha no terminal MES.',
         is_active_banner: false,
       })
+
+      // Atualiza também integration_event se houver
+      try {
+        const events = await pb.collection('integration_event').getFullList({
+          filter: `destino = 'MES' && status != 'CONFIRMADO'`,
+          sort: '-created',
+        })
+        if (events.length > 0) {
+          eventId = events[0].event_id || eventId
+          await pb.collection('integration_event').update(events[0].id, {
+            status: 'CONFIRMADO',
+            acknowledged_by: userName,
+            acknowledged_at: nowIso,
+            payload_resposta: {
+              event_id: eventId,
+              user: userName,
+              status: 'RECONHECIDO',
+              timestamp: nowIso,
+            },
+          })
+        }
+      } catch {
+        /* ignore */
+      }
 
       // Auditoria
       try {
@@ -666,8 +709,9 @@ export const scheduleVersioningService = {
           outcome: 'SUCCESS',
           details: {
             alertId,
+            eventId,
             acknowledgedAt: nowIso,
-            user: user?.name || user?.email,
+            user: userName,
             notes,
           },
         })
@@ -675,10 +719,16 @@ export const scheduleVersioningService = {
         /* intentionally ignored */
       }
 
-      return true
+      return {
+        success: true,
+        event_id: eventId,
+        user: userName,
+        status: 'RECONHECIDO',
+        timestamp: nowIso,
+      }
     } catch (err) {
       console.error('Erro ao reconhecer alerta MES:', err)
-      return false
+      return { success: false }
     }
   },
 
@@ -801,19 +851,60 @@ export const scheduleVersioningService = {
   /**
    * Marca alerta CRM como visualizado pelo vendedor/representante
    */
-  async markCrmAlertViewed(alertId: string): Promise<boolean> {
+  async markCrmAlertViewed(
+    alertId: string,
+  ): Promise<{ success: boolean; event_id?: string; user?: string; timestamp?: string }> {
     const user = pb.authStore.record
     const nowIso = new Date().toISOString()
+    const userName = user ? user.name || user.email : 'Vendedor Responsável (Carlos Mendes)'
     try {
+      let eventId = `EVT-CRM-${alertId}`
+      try {
+        const crmRec = await pb.collection('schedule_crm_alerts').getOne(alertId)
+        if (crmRec?.alert_code) eventId = `EVT-CRM-${crmRec.alert_code}`
+      } catch {
+        /* ignore */
+      }
+
       await pb.collection('schedule_crm_alerts').update(alertId, {
         status: 'VISUALIZADO_VENDEDOR',
         viewed_at: nowIso,
-        viewed_by_user: user ? user.name || user.email : 'Vendedor Responsável (Carlos Mendes)',
+        viewed_by_user: userName,
       })
-      return true
+
+      // Atualiza também integration_event se houver
+      try {
+        const events = await pb.collection('integration_event').getFullList({
+          filter: `destino = 'CRM'`,
+          sort: '-created',
+        })
+        if (events.length > 0) {
+          eventId = events[0].event_id || eventId
+          await pb.collection('integration_event').update(events[0].id, {
+            status: 'ENTREGUE',
+            viewed_by: userName,
+            viewed_at: nowIso,
+            payload_resposta: {
+              event_id: eventId,
+              user: userName,
+              status: 'VISUALIZADO_VENDEDOR',
+              timestamp: nowIso,
+            },
+          })
+        }
+      } catch {
+        /* ignore */
+      }
+
+      return {
+        success: true,
+        event_id: eventId,
+        user: userName,
+        timestamp: nowIso,
+      }
     } catch (err) {
       console.warn('Erro ao marcar CRM como visualizado:', err)
-      return false
+      return { success: false }
     }
   },
 
@@ -842,33 +933,116 @@ export const scheduleVersioningService = {
   async updateTmsEventStatus(
     eventId: string,
     actionStatus: 'REPLANEJADO' | 'MANTIDO_COM_RESSALVA' | 'REAVALIACAO_NECESSARIA',
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; event_id?: string; actor?: string; timestamp?: string }> {
+    const user = pb.authStore.record
+    const nowIso = new Date().toISOString()
+    const actorName = user ? user.name || user.email : 'Processo Automático Logística TMS'
     try {
+      let tmsEventId = `EVT-TMS-${eventId}`
+      try {
+        const tmsRec = await pb.collection('schedule_tms_events').getOne(eventId)
+        if (tmsRec?.event_code) tmsEventId = `EVT-TMS-${tmsRec.event_code}`
+      } catch {
+        /* ignore */
+      }
+
       await pb.collection('schedule_tms_events').update(eventId, {
         logistics_status: actionStatus,
       })
-      return true
+
+      // Auditoria no integration_event
+      try {
+        const events = await pb.collection('integration_event').getFullList({
+          filter: `destino = 'TMS'`,
+          sort: '-created',
+        })
+        if (events.length > 0) {
+          tmsEventId = events[0].event_id || tmsEventId
+          await pb.collection('integration_event').update(events[0].id, {
+            status: 'CONFIRMADO',
+            recalculated_by: actorName,
+            recalculated_at: nowIso,
+            payload_resposta: {
+              event_id: tmsEventId,
+              actor: actorName,
+              actionStatus,
+              timestamp: nowIso,
+            },
+          })
+        }
+      } catch {
+        /* ignore */
+      }
+
+      return {
+        success: true,
+        event_id: tmsEventId,
+        actor: actorName,
+        timestamp: nowIso,
+      }
     } catch (err) {
       console.warn('Erro ao atualizar TMS event:', err)
-      return false
+      return { success: false }
     }
   },
 
   /**
    * Ação Fila SAP: Sincronizar OP ou Reprocessar
    */
-  async syncSapQueueItem(queueId: string): Promise<boolean> {
+  async syncSapQueueItem(
+    queueId: string,
+  ): Promise<{ success: boolean; event_id?: string; jobName?: string; timestamp?: string }> {
+    const nowIso = new Date().toISOString()
+    const jobName = 'JOB_SAP_RFC_ZPP_PROD_01'
     try {
+      let sapEventId = `EVT-SAP-${queueId}`
+      try {
+        const sapRec = await pb.collection('schedule_sap_queue').getOne(queueId)
+        if (sapRec?.queue_code) sapEventId = `EVT-SAP-${sapRec.queue_code}`
+      } catch {
+        /* ignore */
+      }
+
       await pb.collection('schedule_sap_queue').update(queueId, {
         status: 'PROCESSADO_COM_SUCESSO',
-        confirmed_at: new Date().toISOString(),
+        confirmed_at: nowIso,
         sap_response_message:
           'Sincronização RFC confirmada pelo SAP ERP S/4HANA (Ordem atualizada com sucesso).',
       })
-      return true
+
+      // Auditoria no integration_event
+      try {
+        const events = await pb.collection('integration_event').getFullList({
+          filter: `destino = 'SAP'`,
+          sort: '-created',
+        })
+        if (events.length > 0) {
+          sapEventId = events[0].event_id || sapEventId
+          await pb.collection('integration_event').update(events[0].id, {
+            status: 'CONFIRMADO',
+            sap_synced_by: jobName,
+            sap_synced_at: nowIso,
+            payload_resposta: {
+              event_id: sapEventId,
+              job: jobName,
+              status: 'OP_ATUALIZADA_SAP',
+              timestamp: nowIso,
+            },
+          })
+        }
+      } catch {
+        /* ignore */
+      }
+
+      return {
+        success: true,
+        event_id: sapEventId,
+        jobName,
+        timestamp: nowIso,
+      }
     } catch (err) {
       console.warn('Erro ao sincronizar item SAP:', err)
-      return false
+      return { success: false }
     }
   },
 

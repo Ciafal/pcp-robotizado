@@ -96,6 +96,21 @@ export interface IntegrationMonitorKPIs {
   avgProcessingTimeMs: number
 }
 
+export interface ReconciliationItemComparison {
+  programacao_item_id: string
+  material_code: string
+  versao_pcp: string
+  versao_destino: string
+  op_sap_pcp?: string
+  op_sap_destino?: string
+  quantidade_pcp: number
+  quantidade_destino: number
+  data_pcp: string
+  data_destino: string
+  divergente: boolean
+  motivo_divergencia?: string
+}
+
 export interface ReconciliationResult {
   hasDivergence: boolean
   system: IntegrationDestination
@@ -103,4 +118,8 @@ export interface ReconciliationResult {
   targetSystemVersion: string
   divergenceDetails: string
   suggestedAction: string
+  actionType?: 'RESEND_VERSION' | 'SYNC_SAP_RFC' | 'RETRY_CRM' | 'RECALC_TMS' | 'NONE'
+  itemsCompared?: ReconciliationItemComparison[]
+  divergenceCount?: number
+  lastSyncAttempt?: string
 }

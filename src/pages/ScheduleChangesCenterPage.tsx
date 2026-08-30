@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +47,7 @@ import { CrmAlertCard } from '@/components/weekly-schedule/CrmAlertCard'
 import { useToast } from '@/hooks/use-toast'
 
 export const ScheduleChangesCenterPage: React.FC = () => {
+  const navigate = useNavigate()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<
     'VERSIONS' | 'MES' | 'CRM' | 'TMS' | 'SAP' | 'STABILITY' | 'CRITERIA'
@@ -120,22 +122,28 @@ export const ScheduleChangesCenterPage: React.FC = () => {
   }, [selectedLine])
 
   const handleAcknowledgeMes = async (alertId: string) => {
-    const ok = await scheduleVersioningService.acknowledgeMesAlert(alertId)
-    if (ok) {
+    const result = await scheduleVersioningService.acknowledgeMesAlert(alertId)
+    if (result.success) {
       toast({
         title: 'Ciência Registrada no MES',
-        description: 'Operador líder e data/hora auditados na Central.',
+        description: `Confirmado por ${result.user || 'Operador Líder'} [${result.event_id || alertId}] às ${result.timestamp ? new Date(result.timestamp).toLocaleTimeString('pt-BR') : 'agora'}.`,
       })
       loadData()
+    } else {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível registrar ciência no MES.',
+        variant: 'destructive',
+      })
     }
   }
 
   const handleMarkCrmViewed = async (alertId: string) => {
-    const ok = await scheduleVersioningService.markCrmAlertViewed(alertId)
-    if (ok) {
+    const res = await scheduleVersioningService.markCrmAlertViewed(alertId)
+    if (res.success) {
       toast({
         title: 'Alerta CRM Visualizado',
-        description: 'Ciência comercial registrada com usuário, data e hora.',
+        description: `Visualizado por ${res.user || 'Comercial'} [${res.event_id || alertId}] às ${res.timestamp ? new Date(res.timestamp).toLocaleTimeString('pt-BR') : 'agora'}.`,
       })
       loadData()
     }
@@ -153,11 +161,11 @@ export const ScheduleChangesCenterPage: React.FC = () => {
   }
 
   const handleSyncSapItem = async (queueId: string) => {
-    const ok = await scheduleVersioningService.syncSapQueueItem(queueId)
-    if (ok) {
+    const res = await scheduleVersioningService.syncSapQueueItem(queueId)
+    if (res.success) {
       toast({
         title: 'Ordem SAP Sincronizada',
-        description: 'RFC ZPP_PROD confirmou atualização no SAP ERP.',
+        description: `Processado por ${res.jobName || 'JOB SAP'} [${res.event_id || queueId}] às ${res.timestamp ? new Date(res.timestamp).toLocaleTimeString('pt-BR') : 'agora'}.`,
       })
       loadData()
     }
@@ -442,7 +450,7 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                     filteredVersions.map((v) => {
                       const diffCount = v.diff_payload ? v.diff_payload.length : 1
 
-                      // Status MES: Não enviado / Enviado / Visualizado / Reconhecido
+                      // Status MES: Não enviado / Enviado ✓ / Visualizado ✓ / Reconhecido ✓
                       let mesStatusBadge = (
                         <Badge variant="outline" className="text-[9.5px] text-slate-400">
                           Não enviado
@@ -451,40 +459,55 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                       if (v.mes_dispatched) {
                         if (v.mes_ack_status === 'RECONHECIDO') {
                           mesStatusBadge = (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9.5px]">
-                              Reconhecido
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9.5px] font-bold">
+                              MES ✓ Reconhecido
                             </Badge>
                           )
                         } else if (v.mes_ack_status === 'VISUALIZADO') {
                           mesStatusBadge = (
                             <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[9.5px]">
-                              Visualizado
+                              MES ✓ Visualizado
                             </Badge>
                           )
                         } else {
                           mesStatusBadge = (
                             <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
-                              Enviado
+                              MES ✓ Enviado
                             </Badge>
                           )
                         }
                       }
 
-                      // Status CRM: Não aplicável / Gerado / Visualizado / Em tratamento / Resolvido
+                      // Status CRM: Não aplicável / Gerado / Visualizado / 🔴 Erro de comunicação
                       let crmStatusBadge = (
                         <Badge variant="outline" className="text-[9.5px] text-slate-400">
                           Não aplicável
                         </Badge>
                       )
                       if (v.crm_dispatched) {
-                        crmStatusBadge = (
-                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9.5px]">
-                            Gerado
-                          </Badge>
+                        // Verifica se há falha de comunicação com o CRM
+                        const crmHasError = crmAlerts.some(
+                          (ca) =>
+                            ca.programacao_id === v.schedule_code &&
+                            ca.status === 'PENDENTE' &&
+                            ca.tms_recalculation_required,
                         )
+                        if (crmHasError) {
+                          crmStatusBadge = (
+                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9.5px] font-bold">
+                              🔴 Erro de comunicação
+                            </Badge>
+                          )
+                        } else {
+                          crmStatusBadge = (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
+                              CRM ✓ Entregue
+                            </Badge>
+                          )
+                        }
                       }
 
-                      // Status TMS: Não aplicável / Reavaliação necessária / Replanejado / Sem impacto
+                      // Status TMS: Não aplicável / Reavaliação necessária / Replanejado / TMS ✓
                       let tmsStatusBadge = (
                         <Badge variant="outline" className="text-[9.5px] text-slate-400">
                           Sem impacto
@@ -492,24 +515,37 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                       )
                       if (v.tms_dispatched) {
                         tmsStatusBadge = (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[9.5px]">
-                            Reavaliação necessária
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[9.5px] font-bold">
+                            TMS ✓ Replanejado
                           </Badge>
                         )
                       }
 
-                      // Status SAP: Não aplicável / Sincronização pendente / Processando / Sincronizado / Erro
+                      // Status SAP: Não aplicável / Sincronização pendente / Processando / SAP ✓
                       let sapStatusBadge = (
                         <Badge variant="outline" className="text-[9.5px] text-slate-400">
                           Não aplicável
                         </Badge>
                       )
                       if (v.sap_dispatched) {
-                        sapStatusBadge = (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
-                            Sincronização pendente
-                          </Badge>
+                        const sapPending = sapQueue.some(
+                          (sq) =>
+                            sq.line_code === v.line_code &&
+                            sq.status === 'AGUARDANDO_INTEGRACAO_SAP',
                         )
+                        if (sapPending) {
+                          sapStatusBadge = (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9.5px]">
+                              SAP Fila RFC
+                            </Badge>
+                          )
+                        } else {
+                          sapStatusBadge = (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9.5px] font-bold">
+                              SAP ✓ Sincronizado
+                            </Badge>
+                          )
+                        }
                       }
 
                       return (
@@ -607,40 +643,88 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Radio className="w-4 h-4 text-[#004C97]" />
-                      <span className="font-bold text-slate-900 text-xs">
-                        PCP &rarr; Linha {alert.line_code} ({alert.previous_version_tag || 'V01'}{' '}
-                        &rarr; {alert.new_version_tag})
+                      <span className="font-bold text-slate-900 text-xs uppercase tracking-tight">
+                        PROGRAMAÇÃO ALTERADA &bull; Linha {alert.line_code} (
+                        {alert.previous_version_tag || 'V03'} &rarr; {alert.new_version_tag})
                       </span>
                       {getRelevanceBadge(alert.relevance)}
+                      <Badge variant="outline" className="text-[9.5px] font-mono text-slate-500">
+                        {alert.ack_status === 'RECONHECIDO'
+                          ? 'RECONHECIDO'
+                          : alert.ack_status === 'VISUALIZADO'
+                            ? 'VISUALIZADO'
+                            : 'NÃO LIDO'}
+                      </Badge>
                     </div>
                     <div>
                       {alert.ack_status === 'RECONHECIDO' ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
                           CIÊNCIA REGISTRADA: {alert.acknowledged_by_user} (
                           {alert.acknowledged_at
                             ? new Date(alert.acknowledged_at).toLocaleTimeString('pt-BR')
                             : ''}
                           )
                         </Badge>
+                      ) : alert.ack_status === 'VISUALIZADO' ? (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">
+                            Visualizado por {alert.viewed_by_user || 'Operador'}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcknowledgeMes(alert.id)}
+                            className="h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Reconhecer Programação
+                          </Button>
+                        </div>
                       ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleAcknowledgeMes(alert.id)}
-                          className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Registrar Ciência Operador
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await scheduleVersioningService.markMesAlertViewed(alert.id)
+                              toast({
+                                title: 'Terminal MES',
+                                description: 'Alerta marcado como VISUALIZADO.',
+                              })
+                              loadData()
+                            }}
+                            className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" /> Visualizar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcknowledgeMes(alert.id)}
+                            className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Registrar Ciência Operador
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-4 gap-2 text-[11px]">
                     <div>
-                      <span className="text-slate-500 block">Produto:</span>
-                      <strong className="text-slate-800">{alert.product_code}</strong>
+                      <span className="text-slate-500 block">Linha / Material:</span>
+                      <strong className="text-slate-800">
+                        Linha {alert.line_code} &bull; {alert.product_code}
+                      </strong>
                     </div>
                     <div>
-                      <span className="text-slate-500 block">Motivo:</span>
+                      <span className="text-slate-500 block">Data Anterior &rarr; Nova:</span>
+                      <strong className="text-slate-900 font-mono">
+                        {alert.previous_date ? alert.previous_date.slice(0, 10) : '25/08'} &rarr;{' '}
+                        <span className="text-[#004C97]">
+                          {alert.new_date ? alert.new_date.slice(0, 10) : '27/08'}
+                        </span>
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Motivo PCP:</span>
                       <strong className="text-[#004C97]">{alert.reason}</strong>
                     </div>
                     <div>
@@ -648,6 +732,21 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                       <span className="text-slate-700">{alert.user_name}</span>
                     </div>
                   </div>
+                  {alert.integration_event_id && (
+                    <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between px-1">
+                      <span>event_id: {alert.integration_event_id}</span>
+                      <span>
+                        Status Central: Enviado ✓ |{' '}
+                        {alert.viewed_at
+                          ? `Visualizado ✓ (${alert.viewed_by_user || 'Líder'})`
+                          : 'Aguardando Leitura'}{' '}
+                        |{' '}
+                        {alert.acknowledged_at
+                          ? `Reconhecido ✓ (${alert.acknowledged_by_user})`
+                          : 'Pendente Reconhecimento'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))
             )}

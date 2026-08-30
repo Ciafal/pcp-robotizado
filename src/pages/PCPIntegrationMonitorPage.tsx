@@ -615,64 +615,147 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Reconciliação Periódica */}
+      {/* Modal de Reconciliação Periódica Aprofundada (Requisito 1) */}
       <Dialog open={isReconcileModalOpen} onOpenChange={setIsReconcileModalOpen}>
-        <DialogContent className="max-w-xl bg-white border-slate-200 text-slate-900">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white border-slate-200 text-slate-900">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-black text-slate-900">
               <RotateCw className="w-5 h-5 text-[#004C97]" />
-              Resultado da Reconciliação Periódica de Versões
+              Resultado da Reconciliação Periódica de Versões &amp; Ordens
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Comparação automática entre a versão vigente do PCP e o estado registrado em MES, CRM
-              e SAP.
+              Processo periódico que compara a versão vigente do PCP com MES, CRM, TMS e SAP
+              (programacao_item_id, versão, OP, quantidade e datas).
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
+          <div className="space-y-4 py-2 text-xs">
             {reconcileResults?.map((res, i) => (
               <div
                 key={i}
-                className={`p-3 rounded-lg border flex items-start justify-between gap-3 ${
+                className={`p-3.5 rounded-xl border space-y-2 ${
                   res.hasDivergence
-                    ? 'bg-rose-50/70 border-rose-300 text-rose-950'
-                    : 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                    ? 'bg-rose-50/60 border-rose-300 text-rose-950'
+                    : 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
                 }`}
               >
-                <div>
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs uppercase">{res.system}</span>
+                    <span className="font-black text-xs uppercase px-2 py-0.5 bg-white border rounded">
+                      {res.system}
+                    </span>
                     <Badge
                       variant="outline"
                       className={
                         res.hasDivergence
-                          ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold text-[10px]'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 font-black text-[10px]'
                           : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-[10px]'
                       }
                     >
-                      {res.hasDivergence ? '🔴 DIVERGÊNCIA' : '🟢 SINCRONIZADO'}
+                      {res.hasDivergence ? '🔴 DIVERGÊNCIA DE VERSÃO' : '🟢 SINCRONIZADO'}
                     </Badge>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      PCP: {res.pcpVersion} | Destino: {res.targetSystemVersion}
+                    </span>
                   </div>
-                  <p className="text-[11px] mt-1">{res.divergenceDetails}</p>
+
+                  {res.hasDivergence && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          const actionRes =
+                            await integrationEventService.resolveReconciliationDivergence(
+                              res.system,
+                              'L1',
+                              res.pcpVersion,
+                            )
+                          toast({
+                            title: 'Reconciliação Executada',
+                            description: actionRes.message,
+                          })
+                          await handleRunReconciliation()
+                        }}
+                        className="h-7 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold"
+                      >
+                        {res.suggestedAction}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="text-right shrink-0">
-                  <span className="text-[10px] text-slate-500 font-mono block">Ação sugerida:</span>
-                  <span className="font-semibold text-xs text-slate-800">
-                    {res.suggestedAction}
-                  </span>
-                </div>
+                <p className="text-[11px] leading-relaxed">{res.divergenceDetails}</p>
+
+                {/* Tabela de Comparação Granular de Itens se houver */}
+                {res.itemsCompared && res.itemsCompared.length > 0 && (
+                  <div className="mt-2 bg-white rounded-lg border border-slate-200 overflow-hidden text-[11px]">
+                    <div className="p-2 bg-slate-50 border-b border-slate-200 font-bold text-slate-700 flex justify-between items-center text-[10px]">
+                      <span>COMPARAÇÃO GRANULAR (PROGRAMAÇÃO / OP / QTDE / DATA)</span>
+                      <span>{res.itemsCompared.length} itens analisados</span>
+                    </div>
+                    <div className="overflow-x-auto max-h-36 overflow-y-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-100 text-[10px] text-slate-600 uppercase">
+                          <tr>
+                            <th className="p-1.5">Material</th>
+                            <th className="p-1.5">Versão (PCP &rarr; Destino)</th>
+                            <th className="p-1.5">OP SAP</th>
+                            <th className="p-1.5">Qtd (t)</th>
+                            <th className="p-1.5">Data Programada</th>
+                            <th className="p-1.5">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {res.itemsCompared.map((it, idx) => (
+                            <tr
+                              key={idx}
+                              className={
+                                it.divergente
+                                  ? 'bg-rose-50/40 text-rose-900 font-medium'
+                                  : 'text-slate-700'
+                              }
+                            >
+                              <td className="p-1.5 font-mono font-bold">{it.material_code}</td>
+                              <td className="p-1.5 font-mono">
+                                {it.versao_pcp} &rarr; {it.versao_destino}
+                              </td>
+                              <td className="p-1.5 font-mono">{it.op_sap_destino || '—'}</td>
+                              <td className="p-1.5 font-mono">
+                                {it.quantidade_pcp} t{' '}
+                                {it.divergente && `(vs ${it.quantidade_destino} t)`}
+                              </td>
+                              <td className="p-1.5 font-mono">
+                                {it.data_pcp} {it.divergente && `(vs ${it.data_destino})`}
+                              </td>
+                              <td className="p-1.5">
+                                {it.divergente ? (
+                                  <Badge className="bg-rose-100 text-rose-800 text-[9px] font-bold">
+                                    DIVERGENTE
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-emerald-100 text-emerald-800 text-[9px]">
+                                    OK
+                                  </Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t border-slate-100 pt-3">
             <Button
               size="sm"
               onClick={() => setIsReconcileModalOpen(false)}
               className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold"
             >
-              Concluir Reconciliação
+              Fechar Reconciliação
             </Button>
           </DialogFooter>
         </DialogContent>
