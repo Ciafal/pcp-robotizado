@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   formatAbntUnit,
   formatAbntNumber,
+  formatAbntDate,
   sanitizeDisplay,
   formatUpdateTimestamp,
 } from '@/lib/ciafal-standards'
@@ -643,3 +644,11 @@ export const CiafalTooltip: React.FC<{
 
 export const CiafalKPI = CiafalKPICard
 export const CiafalBreadcrumb = CiafalPageHeader
+export {
+  formatAbntUnit,
+  formatAbntNumber,
+  formatAbntCurrency,
+  formatAbntDate,
+  formatUpdateTimestamp,
+  sanitizeDisplay,
+} from '@/lib/ciafal-standards'

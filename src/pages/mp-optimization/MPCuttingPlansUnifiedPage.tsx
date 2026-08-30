@@ -16,6 +16,7 @@ import {
   DEFAULT_OPTIMIZATION_PARAMETERS,
 } from '@/services/mp-optimization-engine'
 import { MP3DCanvasViewer } from '@/components/mp-optimization/MP3DCanvasViewer'
+import { CuttingPlanBottleneckValidationSection } from '@/components/mp-optimization/CuttingPlanBottleneckValidationSection'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +30,7 @@ import {
   Sliders,
   History,
   ShieldCheck,
+  ShieldAlert,
   Send,
   Lock,
   CheckCircle2,
@@ -258,6 +260,13 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
               <Sliders className="w-3.5 h-3.5 mr-1.5" />6 CENÁRIOS COMPARATIVOS
             </TabsTrigger>
             <TabsTrigger
+              value="VALIDACAO_GARGALOS"
+              className="text-xs font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
+              VALIDAÇÃO MATRIZ DE GARGALOS
+            </TabsTrigger>
+            <TabsTrigger
               value="PROJECAO_3D"
               className="text-xs font-bold data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
             >
@@ -465,23 +474,64 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
             </div>
           </div>
 
-          {/* PARTE INFERIOR: CARTEIRA + PROGRAMAÇÕES FUTURAS + 6 CENÁRIOS */}
+          {/* PARTE INFERIOR: VALIDAÇÃO DA MATRIZ DE GARGALOS INTEGRADA */}
+          {activeScenario && (
+            <CuttingPlanBottleneckValidationSection
+              scenario={activeScenario}
+              scenariosMap={scenarios || undefined}
+              lineCode={selectedPlate?.line_destination_code || 'L1'}
+              plateInfo={{
+                blockNumber: selectedPlate?.block_number || 'BL-01',
+                steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
+                dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
+                weightKg: selectedPlate?.weight_kg || 795,
+              }}
+              onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
+              onApproveSuccess={loadData}
+            />
+          )}
+
+          {/* PARTE INFERIOR: CARTEIRA + PROGRAMAÇÕES FUTURAS */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#004C97]" />
-                Carteira Ativa SAP &bull; Programação Futura (7-90 dias) &bull; Cenários IA
+                Carteira Ativa SAP &bull; Programação Futura (7-90 dias) &bull; Integração
+                Sequenciador
               </h3>
               <Badge variant="outline" className="text-xs font-mono text-[#004C97]">
-                Integração Direta com ZPPMP
+                Integração Direta com ZPPMP & Matriz de Gargalos
               </Badge>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              O motor de plano de corte avalia o portfólio completo antes de autorizar qualquer
-              corte, impedindo que placas versáteis sejam consumidas em aplicações banais quando
-              existem produções futuras críticas dependendo do mesmo aço.
+              O motor de plano de corte subordina a aprovação às restrições soberanas da linha,
+              impedindo que planos com alto rendimento metálico mas que sobrecarregam a TCC ou a
+              tesoura TR2 sejam liberados para o sequenciador semanal.
             </p>
           </div>
+        </TabsContent>
+
+        {/* ABA DEDICADA: VALIDAÇÃO MATRIZ DE GARGALOS */}
+        <TabsContent value="VALIDACAO_GARGALOS" className="space-y-4">
+          {activeScenario ? (
+            <CuttingPlanBottleneckValidationSection
+              scenario={activeScenario}
+              scenariosMap={scenarios || undefined}
+              lineCode={selectedPlate?.line_destination_code || 'L1'}
+              plateInfo={{
+                blockNumber: selectedPlate?.block_number || 'BL-01',
+                steelGrade: selectedPlate?.steel_grade || 'SAE 1020',
+                dimensions: `${selectedPlate?.thickness_mm || 130}x${selectedPlate?.width_mm || 130}x${selectedPlate?.length_mm || 6000} mm`,
+                weightKg: selectedPlate?.weight_kg || 795,
+              }}
+              onSelectScenario={(k) => setSelectedScenarioType(k as CuttingScenarioType)}
+              onApproveSuccess={loadData}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white border border-slate-200 rounded-xl text-xs text-slate-500">
+              Gere um plano com a IA para visualizar a validação da Matriz de Gargalos.
+            </div>
+          )}
         </TabsContent>
 
         {/* ABA 2: ESTOQUE DIMENSIONAL COMPLETO */}

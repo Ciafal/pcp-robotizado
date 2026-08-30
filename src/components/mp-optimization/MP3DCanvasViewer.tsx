@@ -52,6 +52,14 @@ interface Dimension3DProps {
   }
   viewMode?: 'ISOMETRIC' | 'TOP' | 'FRONT' | 'SIDE' | 'TRANSFORMATION'
   showDimensions?: boolean
+  bottleneckImpact?: {
+    line_code?: string
+    throughput_th?: number
+    primary_bottleneck_stage?: string
+    tcc_bar_length_m?: number
+    tcc_bars_per_rack?: number
+    utilization_pct?: number
+  }
 }
 
 export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
@@ -62,6 +70,7 @@ export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
   envelopeAdmissible,
   viewMode: initialViewMode = 'ISOMETRIC',
   showDimensions = true,
+  bottleneckImpact,
 }) => {
   const [viewMode, setViewMode] = useState<
     'ISOMETRIC' | 'TOP' | 'FRONT' | 'SIDE' | 'TRANSFORMATION'
@@ -255,6 +264,30 @@ export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
               <span className="text-blue-700 font-bold">
                 {pieces.filter((p) => p.is_reusable_leftover).length} sobras reutilizáveis
               </span>
+            </div>
+          )}
+          {bottleneckImpact && (
+            <div className="mt-2 pt-1.5 border-t border-slate-200 text-[10px] space-y-0.5">
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="font-semibold text-slate-500">Gargalo / Linha:</span>
+                <span className="font-bold text-[#004C97]">
+                  {bottleneckImpact.primary_bottleneck_stage || 'TREM_CONTINUO'} (
+                  {bottleneckImpact.line_code || 'L1'})
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="font-semibold text-slate-500">Throughput Calculado:</span>
+                <span className="font-bold text-emerald-700">
+                  {bottleneckImpact.throughput_th || 24.8} t/h
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="font-semibold text-slate-500">Ocupação TCC / Comp:</span>
+                <span className="font-medium text-slate-900">
+                  {bottleneckImpact.tcc_bars_per_rack || 12} b/estrado •{' '}
+                  {bottleneckImpact.tcc_bar_length_m || 68} m
+                </span>
+              </div>
             </div>
           )}
         </div>

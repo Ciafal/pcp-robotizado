@@ -565,6 +565,7 @@ export interface ScenarioDetail {
   requires_approval: boolean
   approval_reason?: string
   score_ia: number
+  bottleneck_impact?: any
   pieces_generated: CutPieceResult[]
 }
 

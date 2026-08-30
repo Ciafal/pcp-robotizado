@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T15:10:50.193Z",
+  "generatedAt": "2026-08-30T15:42:18.816Z",
   "collections": [
     {
       "name": "users",
@@ -15006,6 +15006,578 @@
       ],
       "indexes": [
         "CREATE INDEX idx_mp_ind_snp_client ON mp_industrializer_snapshots (client_code, snapshot_date DESC)"
+      ]
+    },
+    {
+      "name": "line_bottleneck_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "line_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_family",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile_shape",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gauge_dimension",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "billet_section_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "billet_length_m",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "billet_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "route_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "passes_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "veins_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "furnace_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "roughing_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "continuous_mill_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shear_tr2_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cooling_bed_tcc_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "straightener_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "packaging_capacity_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "primary_bottleneck_stage",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "primary_bottleneck_rate_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "secondary_bottleneck_stage",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "secondary_bottleneck_rate_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bottleneck_gap_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_tcc_bar_length_m",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_tcc_bars_per_rack",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_bar_interval_seconds",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_crop_end_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "standard_furnace_temp_c",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "thermal_curve_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["VIGENTE", "EM_REVISAO", "SUPERSEDED", "RASCUNHO"]
+        },
+        {
+          "name": "reference_doc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_authority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approver_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_parameters_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lbm_line_mat ON line_bottleneck_matrix (line_code, material_code)",
+        "CREATE INDEX idx_lbm_gauge_steel ON line_bottleneck_matrix (gauge_dimension, steel_grade)",
+        "CREATE INDEX idx_lbm_status ON line_bottleneck_matrix (status)"
+      ]
+    },
+    {
+      "name": "line_process_constraints",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "rule_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "stage",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "MP",
+            "FORNO",
+            "DESBASTE",
+            "TREM_CONTINUO",
+            "TESOURA_TR2",
+            "TCC_RESFRIAMENTO",
+            "ENDIREITAMENTO",
+            "EMPACOTAMENTO",
+            "GERAL_LINHA"
+          ]
+        },
+        {
+          "name": "constraint_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["HARD_CONSTRAINT", "SOFT_CONSTRAINT", "SAFETY_CONSTRAINT"]
+        },
+        {
+          "name": "parameter_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_limit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "max_limit",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_value",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bypass_allowed",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bypass_authority_required",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "failure_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_doc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_lpc_line_code ON line_process_constraints (line_code, rule_code)",
+        "CREATE INDEX idx_lpc_stage ON line_process_constraints (stage)"
+      ]
+    },
+    {
+      "name": "pcp_test_requests",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "request_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mp_block_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposed_application",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "test_quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estimated_test_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "test_parameters_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bottleneck_matrix_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_throughput_gain_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_risks",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "SOLICITADO",
+            "EM_AVALIACAO_ENGENHARIA",
+            "APROVADO_PARA_TESTE",
+            "TESTE_EXECUTADO",
+            "HOMOLOGADO",
+            "REJEITADO"
+          ]
+        },
+        {
+          "name": "requester_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "engineering_evaluator_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "engineering_parecer",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_actual_result_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ptr_code ON pcp_test_requests (request_code)",
+        "CREATE INDEX idx_ptr_line ON pcp_test_requests (line_code, status)"
       ]
     }
   ]

@@ -53,6 +53,7 @@ import {
   SapIntegrationDefinition,
   StandardScheduledStop,
 } from '@/types/line-master'
+import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
 import { UserProfile } from '@/types/pcp-auth'
 import { lineMasterService } from '@/services/line-master'
 import { Can } from '@/components/auth/Can'
@@ -109,10 +110,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
   // Sub-aba ativa no agrupamento de Governança/Processo/Ficha Mestre
   const [mainGroup, setMainGroup] = useState<
-    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'GOVERNANCE'
+    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
   >('OVERVIEW')
   const [masterSubTab, setMasterSubTab] = useState<
     | 'CAPACITY'
+    | 'MATRIZ_GARGALOS'
     | 'PRODUCTIVITY'
     | 'RAW_MATERIALS'
     | 'BLOCKED'
@@ -474,6 +476,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           }`}
         >
           <Sliders className="w-3.5 h-3.5" /> FICHA MESTRE EXPANDIDA
+        </button>
+
+        <button
+          onClick={() => setMainGroup('BOTTLENECK_MATRIX')}
+          className={`px-4 py-2 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            mainGroup === 'BOTTLENECK_MATRIX'
+              ? 'bg-rose-600 text-white shadow-md'
+              : 'text-rose-400 hover:text-rose-200 hover:bg-slate-900'
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5" /> MATRIZ DE GARGALOS DINÂMICA
         </button>
 
         <button
@@ -961,6 +974,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <Button
               size="sm"
+              variant={masterSubTab === 'MATRIZ_GARGALOS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('MATRIZ_GARGALOS')}
+              className={`text-xs h-7 gap-1 font-bold ${
+                masterSubTab === 'MATRIZ_GARGALOS' ? 'bg-rose-600 text-white' : 'text-rose-400'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" /> Matriz de Gargalos Integrada
+            </Button>
+
+            <Button
+              size="sm"
               variant={masterSubTab === 'PRODUCTIVITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PRODUCTIVITY')}
               className={`text-xs h-7 gap-1 font-bold ${
@@ -1004,6 +1028,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <Wrench className="w-3.5 h-3.5" /> Matriz de Setup De&rarr;Para ({setupMatrix.length})
             </Button>
           </div>
+
+          {/* SUB-ABA MATRIZ DE GARGALOS */}
+          {masterSubTab === 'MATRIZ_GARGALOS' && (
+            <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
+          )}
 
           {/* SUB-ABA 1: CAPACIDADE & PARADAS PROGRAMADAS (Regra 15) */}
           {masterSubTab === 'CAPACITY' && (
@@ -1421,6 +1450,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
         </div>
+      )}
+
+      {/* NOVO GRUPO: MATRIZ DE GARGALOS DINÂMICA */}
+      {mainGroup === 'BOTTLENECK_MATRIX' && (
+        <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
       )}
 
       {/* 7. CONTEÚDO: GRUPO 5 - GOVERNANÇA & FONTES SAP */}

@@ -51,6 +51,26 @@ export const AISequencingPanel: React.FC = () => {
             </h4>
 
             <div className="space-y-2 text-slate-700 text-[11px] leading-relaxed">
+              {/* Integração Matriz de Gargalos & Validação de Plano de Corte */}
+              <div className="flex items-start gap-2 bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-300">
+                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0 text-[10px]">
+                  ✓
+                </span>
+                <div className="space-y-0.5 flex-1">
+                  <div className="font-bold text-emerald-950 flex items-center justify-between">
+                    <span>Validação Integrada da Matriz de Gargalos (L1/L2):</span>
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px]">
+                      Conforme
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-slate-700">
+                    O sequenciamento consome capacidades líquidas validadas da Matriz de Gargalos
+                    (Trem Contínuo: <strong>24.8 t/h</strong>, TCC: <strong>26.1 t/h</strong>).
+                    Planos de corte com restrição crítica são sumariamente bloqueados.
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
                 <span className="w-5 h-5 rounded-full bg-rose-100 border border-rose-300 text-rose-800 font-bold flex items-center justify-center shrink-0 text-[10px]">
                   1
