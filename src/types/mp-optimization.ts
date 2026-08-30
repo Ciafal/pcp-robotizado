@@ -822,3 +822,268 @@ export interface ExcelHomologationComparisonItem {
   justification: string
   sourceSheet: string
 }
+
+// ==========================================
+// 9. NOVO TÓPICO: MATÉRIA-PRIMA – INDUSTRIALIZADOR (ARCELOR E DEMAIS CLIENTES)
+// ==========================================
+
+export type IndustrializerStatus = 'VERDE' | 'AMARELO' | 'LARANJA' | 'VERMELHO' | 'CINZA'
+
+export type TransitStatus =
+  | 'EM_TRANSITO'
+  | 'PORTARIA'
+  | 'AGUARDANDO_DESCARGA'
+  | 'RECEBIDA'
+  | 'DISPONIVEL'
+  | 'PREPARACAO_KS'
+  | 'PRONTA_PRODUCAO'
+
+export type TransitSourceSystem =
+  | 'INTEGRACAO_API'
+  | 'TMS'
+  | 'ARQUIVO_ESTRUTURADO'
+  | 'EMAIL_INTEGRADO'
+  | 'CONTINGENCIA_MANUAL'
+
+export type ActionStatus = 'PENDENTE' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'CANCELADO'
+export type ActionSeverity = 'CRITICO' | 'ALTO' | 'MEDIO' | 'BAIXO'
+
+export type CommunicationMode = 'MODO_REVISAO_PCP' | 'MODO_ENVIO_AUTOMATICO'
+export type CommunicationApprovalStatus =
+  | 'RASCUNHO'
+  | 'AGUARDANDO_APROVACAO_PCP'
+  | 'APROVADO'
+  | 'ENVIADO'
+  | 'CANCELADO'
+
+export interface MPIndustrializerContract {
+  id: string
+  contract_code: string
+  client_code: string // Ex: 'ARCELOR'
+  client_name: string // Ex: 'ArcelorMittal'
+  line_code: string // Ex: 'L1'
+  product_group?: string
+  metallic_yield_rate: number // Ex: 0.93 (93%)
+  monthly_order_avg_tons: number // Ex: 6000
+  source_authority: string // Ex: 'Contrato Vigente CIAFAL-Arcelor 2026'
+  technical_doc_ref?: string // Ex: 'TB-002 Rev.05'
+  version: number
+  valid_from?: string
+  valid_until?: string
+  responsible_name: string
+  status: 'ATIVO' | 'EM_REVISAO' | 'HISTORICO'
+  schedule_check_routine_days: string // 'SEG_QUA_SEX'
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerMatrixItem {
+  id: string
+  client_code: string
+  client_name: string
+  sap_material_code: string // Ex: 'ST930001AI', 'ST950001AI'
+  sap_description?: string
+  material_family: string
+  steel_grade: string
+  dimension_section: '130x130' | '150x150' | string
+  dimension_display: string
+  billet_length_mm?: number
+  billet_unit_weight_kg?: number
+  standard_depot?: 'DP07' | 'DP18' | 'DP20' | string
+  consuming_line: string
+  meta_productivity_threshold_th: number // Ex: 18.0 t/h (TB-002)
+  eligibility_rule_text?: string
+  technical_doc_ref?: string // 'TB-002'
+  version?: number
+  status: 'ATIVO' | 'INATIVO'
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerInventoryItem {
+  id: string
+  client_code: string
+  center_code: string // 'CFPL'
+  dimension_section: '130x130' | '150x150' | string
+  steel_grade: string
+  dp18_whole_tons: number // Tarugos inteiros
+  dp07_cut_ready_tons: number // Tarugos cortados prontos
+  dp20_ks_pointed_tons: number // Apontados KS aguardando transferência
+  awaiting_unloading_tons: number // Carretas na portaria/descarga
+  in_transit_tons: number // Em trânsito
+  received_tons: number // Quantidade já recebida
+  remaining_to_receive_tons: number // Quantidade a receber do plano
+  total_physical_ciafal_tons: number // DP18 + DP07 + DP20 + Descarga
+  total_ciafal_plus_transit_tons: number // Físico + Trânsito
+  data_source_official: string
+  last_sync_timestamp?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerTransitItem {
+  id: string
+  client_code: string
+  supplier_mill: string
+  material_code?: string
+  steel_grade: string
+  dimension_section: '130x130' | '150x150' | string
+  quantity_tons: number
+  vehicle_plate?: string
+  invoice_number?: string
+  departure_date?: string
+  expected_arrival_date: string
+  status: TransitStatus
+  source_system: TransitSourceSystem
+  driver_info?: string
+  notes?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerCommunication {
+  id: string
+  communication_code: string
+  client_code: string
+  subject: string
+  mode: CommunicationMode
+  approval_status: CommunicationApprovalStatus
+  approved_by_user?: string
+  approved_at?: string
+  sent_at?: string
+  recipients_roles_json: {
+    comercial: boolean
+    pcp: boolean
+    estoque: boolean
+    industria: boolean
+  }
+  recipients_emails_json?: string[]
+  schedule_version_ref?: string
+  ai_summary_text?: string
+  full_body_html?: string
+  rupture_detected?: boolean
+  rupture_date?: string
+  linked_to_meeting_minutes?: boolean
+  meeting_minutes_id?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerAction {
+  id: string
+  action_code: string
+  client_code: string
+  origin_trigger: 'RUPTURA_MP' | 'ATRASO_TRANSITO' | 'REVISAO_L1' | 'DESVIO_RENDIMENTO' | string
+  action_type:
+    | 'CONFIRMAR_TRANSITO'
+    | 'ANTECIPAR_RECEBIMENTO'
+    | 'REVISAR_L1'
+    | 'REVISAR_KS'
+    | 'MP_ALTERNATIVA'
+    | 'COMUNICAR_COMERCIAL'
+    | 'COMUNICAR_INDUSTRIA'
+    | 'EVENTO_CRM'
+  title: string
+  description?: string
+  responsible_name: string
+  target_deadline?: string
+  status: ActionStatus
+  severity: ActionSeverity
+  impacted_tons?: number
+  impacted_orders_json?: string[]
+  evidence_notes?: string
+  crm_event_dispatched?: boolean
+  control_tower_synced?: boolean
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerSnapshot {
+  id: string
+  snapshot_code: string
+  client_code: string
+  snapshot_date: string
+  schedule_version?: string
+  physical_stock_tons: number
+  transit_stock_tons: number
+  projected_consumption_tons: number
+  projected_balance_tons: number
+  predicted_rupture_date?: string
+  requested_tons?: number
+  effective_received_tons?: number
+  outcome_status?:
+    | 'RUPTURA_EVITADA'
+    | 'RUPTURA_OCORRIDA'
+    | 'AJUSTE_PROGRAMACAO'
+    | 'EM_MONITORAMENTO'
+  accuracy_score_pct?: number
+  notes?: string
+  created?: string
+  updated?: string
+}
+
+export interface MPIndustrializerScheduleRow {
+  date: string
+  week: string
+  order_number: string
+  product_code: string
+  product_name: string
+  steel_grade: string
+  meta_productivity_th: number // Meta t/h (ex: 22.5 > 18 -> aceita 130 ou 150)
+  programmed_quantity_tons: number
+  metallic_yield_applied: number // Ex: 0.93
+  required_mp_tons: number // programmed_quantity_tons / yield
+  standard_billet: '130x130' | '150x150'
+  authorized_alternative_billet?: '130x130' | '150x150'
+  allocated_billet: '130x130' | '150x150'
+  balance_before_tons: number
+  consumption_tons: number
+  balance_after_tons: number
+  transit_available_date?: number
+  operational_status:
+    | 'DISPONIVEL_AREA'
+    | 'DEPENDENTE_DESCARGA'
+    | 'DEPENDENTE_TRANSITO'
+    | 'DEPENDENTE_CORTE_KS'
+    | 'ATENCAO'
+    | 'FALTA_DE_MP'
+  observation: string
+  is_rupture: boolean
+  impacted_hours?: number
+}
+
+export interface MPIndustrializerDimensionSummary {
+  dimension: '130x130' | '150x150' | string
+  supplied_monthly_target_tons: number
+  in_transit_tons: number
+  received_tons: number
+  received_pct: number
+  to_receive_tons: number
+  dp18_tons: number
+  dp07_tons: number
+  dp20_tons: number
+  awaiting_unloading_tons: number
+  total_physical_ciafal_tons: number
+  programmed_consumption_week_tons: number
+  need_week_current_tons: number
+  programmed_consumption_total_tons: number
+  physical_plus_transit_tons: number
+  projected_balance_tons: number
+  accumulated_received_tons: number
+  total_need_tons: number
+  status: IndustrializerStatus
+}
+
+export interface MPIndustrializerKpis {
+  raw_material_availability_pct: number // Ex: 94.2%
+  need_fulfillment_pct: number // Ex: 96.8%
+  ruptures_count_month: number // Ex: 0
+  lost_production_hours_mp: number // Ex: 0 h
+  lost_production_tons_mp: number // Ex: 0 t
+  transit_eta_accuracy_pct: number // Ex: 91.5%
+  rupture_prediction_accuracy_pct: number // Ex: 98.2%
+  requested_vs_received_ratio_pct: number // Ex: 95.0%
+  avg_alert_lead_time_days: number // Ex: 6.4 dias
+  schedule_dependent_on_transit_pct: number // Ex: 18.5%
+  occurrences_prevented_after_alert_pct: number // Ex: 92.0%
+}

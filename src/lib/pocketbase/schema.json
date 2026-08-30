@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T14:32:44.836Z",
+  "generatedAt": "2026-08-30T14:54:14.755Z",
   "collections": [
     {
       "name": "users",
@@ -14149,6 +14149,864 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_mp_gov_key ON mp_governance_parameters (param_key, version)"]
+    },
+    {
+      "name": "mp_industrializer_contracts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "contract_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metallic_yield_rate",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "monthly_order_avg_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_authority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_doc_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_check_routine_days",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_ind_ctr_code_ver ON mp_industrializer_contracts (contract_code, version)",
+        "CREATE INDEX idx_mp_ind_ctr_client ON mp_industrializer_contracts (client_code, line_code)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_family",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_section",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_display",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "billet_length_mm",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "billet_unit_weight_kg",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "standard_depot",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "consuming_line",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meta_productivity_threshold_th",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "eligibility_rule_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_doc_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_ind_mat_client ON mp_industrializer_matrix (client_code, consuming_line)",
+        "CREATE INDEX idx_mp_ind_mat_sap ON mp_industrializer_matrix (sap_material_code, dimension_section)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_inventory",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_section",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dp18_whole_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp07_cut_ready_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp20_ks_pointed_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "awaiting_unloading_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "in_transit_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "remaining_to_receive_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_physical_ciafal_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "total_ciafal_plus_transit_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_source_official",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_ind_inv_client ON mp_industrializer_inventory (client_code, dimension_section)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_transit",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "supplier_mill",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dimension_section",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "vehicle_plate",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "invoice_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "departure_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_arrival_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source_system",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "driver_info",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_ind_trn_client ON mp_industrializer_transit (client_code, status)",
+        "CREATE INDEX idx_mp_ind_trn_date ON mp_industrializer_transit (expected_arrival_date, dimension_section)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_communications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "communication_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mode",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "approval_status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "approved_by_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sent_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recipients_roles_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recipients_emails_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_version_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_summary_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "full_body_html",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rupture_detected",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rupture_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linked_to_meeting_minutes",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "meeting_minutes_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_ind_comm_code ON mp_industrializer_communications (communication_code)",
+        "CREATE INDEX idx_mp_ind_comm_client ON mp_industrializer_communications (client_code, approval_status)",
+        "CREATE INDEX idx_mp_ind_comm_date ON mp_industrializer_communications (sent_at DESC)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_actions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "action_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_trigger",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "action_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_deadline",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "severity",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacted_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacted_orders_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidence_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "crm_event_dispatched",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "control_tower_synced",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_ind_act_code ON mp_industrializer_actions (action_code)",
+        "CREATE INDEX idx_mp_ind_act_client ON mp_industrializer_actions (client_code, status)"
+      ]
+    },
+    {
+      "name": "mp_industrializer_snapshots",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "snapshot_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "client_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "snapshot_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "schedule_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "physical_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "transit_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "projected_consumption_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "projected_balance_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "predicted_rupture_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requested_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "effective_received_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "outcome_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "accuracy_score_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_ind_snp_client ON mp_industrializer_snapshots (client_code, snapshot_date DESC)"
+      ]
     }
   ]
 }

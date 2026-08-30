@@ -26,6 +26,7 @@ interface MPModuleLayoutProps {
     | 'niveis-estoque-acos-especiais'
     | 'saldo-mp-l1-previsao-consumo'
     | 'utilizacao-substituicao-mp'
+    | 'materia-prima-industrializador'
   currentStep?: number
   headerActions?: React.ReactNode
 }
@@ -33,7 +34,7 @@ interface MPModuleLayoutProps {
 export const mpMainTopics = [
   {
     id: 'visao-geral',
-    title: 'Visão Geral Consolidada',
+    title: 'Visão Geral de MP',
     number: '0',
     path: '/pcp/gestao-materia-prima',
     icon: LayoutDashboard,
@@ -41,67 +42,75 @@ export const mpMainTopics = [
   },
   {
     id: 'pedidos-recebimento',
-    title: '1. Pedidos e Recebimento de MP',
+    title: 'Pedidos e Recebimento de MP',
     number: '1',
     path: '/pcp/gestao-materia-prima/pedidos-recebimento',
     icon: FileSpreadsheet,
     description: 'Necessidade, Pedidos SAP ECC, Horizontes (7-90d) e Estoque Futuro',
   },
   {
-    id: 'planos-corte',
-    title: '2. Planos de Corte',
-    number: '2',
-    path: '/pcp/gestao-materia-prima/planos-corte',
-    icon: Scissors,
-    description: 'Nesting 1D/2D/3D, Algoritmos Heurísticos e Simulação de Cenários',
-  },
-  {
-    id: 'otimizar-aplicacoes',
-    title: '3. Otimizar Aplicações',
-    number: '3',
-    path: '/pcp/gestao-materia-prima/otimizar-aplicacoes',
-    icon: Sparkles,
-    description: 'Reaplicação Estratégica, Redução de Sucata e Preservação de MP Nobre',
-  },
-  {
     id: 'projecoes-mp',
-    title: '4. Projeções de MP',
-    number: '4',
+    title: 'Projeções de MP',
+    number: '2',
     path: '/pcp/gestao-materia-prima/projecoes-mp',
     icon: CalendarRange,
     description: 'Projeção de Ruptura diária vs Excel e Cobertura Total MP + Acabado',
   },
   {
     id: 'saldo-disponibilidade-destino',
-    title: '5. Saldo e Disponibilidade por Destino',
-    number: '5',
+    title: 'Saldo e Disponibilidade por Destino',
+    number: '3',
     path: '/pcp/gestao-materia-prima/saldo-disponibilidade-destino',
     icon: Boxes,
-    description: 'Visão por Lote, Industrializadores (SDC) e Sobras Sem Aplicação',
+    description: 'Visão por Lote, Depósitos, Produção Própria, Reservas e Sobras',
   },
   {
     id: 'niveis-estoque-acos-especiais',
-    title: '6. Níveis de Estoque — Aços Especiais',
-    number: '6',
+    title: 'Níveis de Estoque – Aços Especiais',
+    number: '4',
     path: '/pcp/gestao-materia-prima/niveis-estoque-acos-especiais',
     icon: Layers,
     description: 'Projeção contínua semana/dia/turno, Pools 525kg/510kg e Fator L2',
   },
   {
     id: 'saldo-mp-l1-previsao-consumo',
-    title: '7. Saldo MP L1 e Previsão de Consumo',
-    number: '7',
+    title: 'Saldo MP L1 e Previsão de Consumo',
+    number: '5',
     path: '/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo',
     icon: Layers,
     description: 'Matriz L1, Depósitos KS/DP07/DP04, Necessidade L2 e Fornecedores',
   },
   {
     id: 'utilizacao-substituicao-mp',
-    title: '8. Utilização e Substituição de MP',
-    number: '8',
+    title: 'Utilização e Substituição de MP',
+    number: '6',
     path: '/pcp/gestao-materia-prima/utilizacao-substituicao-mp',
     icon: ShieldCheck,
     description: 'Substituição 1020 vs AC, Enfornamento Quente/Frio e Desvios por Ordem',
+  },
+  {
+    id: 'planos-corte',
+    title: 'Planos de Corte',
+    number: '7',
+    path: '/pcp/gestao-materia-prima/planos-corte',
+    icon: Scissors,
+    description: 'Nesting 1D/2D/3D, Algoritmos Heurísticos e Simulação de Cenários',
+  },
+  {
+    id: 'otimizar-aplicacoes',
+    title: 'Otimizar Aplicações',
+    number: '8',
+    path: '/pcp/gestao-materia-prima/otimizar-aplicacoes',
+    icon: Sparkles,
+    description: 'Reaplicação Estratégica, Redução de Sucata e Preservação de MP Nobre',
+  },
+  {
+    id: 'materia-prima-industrializador',
+    title: 'Matéria-prima – Industrializador',
+    number: '9',
+    path: '/pcp/gestao-materia-prima/industrializador',
+    icon: Sparkles,
+    description: 'Acompanhamento Operacional, DP07/18/20, Trânsito, TB-002, Rupturas e Comunicados',
   },
 ]
 export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({

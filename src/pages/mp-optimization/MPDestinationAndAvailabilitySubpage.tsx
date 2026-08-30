@@ -599,9 +599,20 @@ export const MPDestinationAndAvailabilitySubpage: React.FC = () => {
               a clientes industrializadores. Responde: quanto de MP realmente existe disponível e
               quanto já está comprometido por ordens vinculadas?
             </div>
-            <Badge className="bg-[#004C97] text-white text-xs">
-              Total SDC: {totalIndustrializerTons.toFixed(1)} t
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate('/pcp/gestao-materia-prima/industrializador')}
+                className="h-7 text-xs text-[#004C97] border-[#004C97]/40 hover:bg-blue-50 font-semibold gap-1"
+              >
+                Abrir Acompanhamento Operacional do Industrializador{' '}
+                <ExternalLink className="w-3 h-3" />
+              </Button>
+              <Badge className="bg-[#004C97] text-white text-xs">
+                Total SDC: {totalIndustrializerTons.toFixed(1)} t
+              </Badge>
+            </div>
           </div>
 
           <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">

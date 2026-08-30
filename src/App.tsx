@@ -202,6 +202,11 @@ const MPUtilizationAndSubstitutionSubpage = lazy(() =>
     default: m.MPUtilizationAndSubstitutionSubpage,
   })),
 )
+const MPIndustrializerSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPIndustrializerSubpage').then((m) => ({
+    default: m.MPIndustrializerSubpage,
+  })),
+)
 const RulesEnginePage = lazy(() =>
   import('@/pages/RulesEnginePage').then((m) => ({
     default: m.RulesEnginePage || m.default,
@@ -571,6 +576,23 @@ export const App: React.FC = () => {
                       <MPUtilizationAndSubstitutionSubpage />
                     </PermissionGuard>
                   }
+                />
+                {/* 9. NOVO TÓPICO: Matéria-prima – Industrializador */}
+                <Route
+                  path="/pcp/gestao-materia-prima/industrializador"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPIndustrializerSubpage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/gestao-materia-prima/materia-prima-industrializador"
+                  element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
+                />
+                <Route
+                  path="/pcp/otimizacao-mp/industrializador"
+                  element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
                 />
 
                 {/* Rotas de Compatibilidade e Detalhes Específicos do Módulo MP */}
