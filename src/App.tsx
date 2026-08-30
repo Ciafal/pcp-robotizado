@@ -599,7 +599,7 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/aprovacoes"
                   element={
-                    <PermissionGuard permission="pcp.schedule.approve">
+                    <PermissionGuard permission="pcp.approval.view">
                       <SchedulesPage />
                     </PermissionGuard>
                   }
@@ -607,7 +607,7 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/linhas-responsaveis"
                   element={
-                    <PermissionGuard permission="pcp.masterdata.edit">
+                    <PermissionGuard permission="pcp.masterdata.view">
                       <LineResponsiblesPage />
                     </PermissionGuard>
                   }

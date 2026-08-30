@@ -494,13 +494,13 @@ const navSections: NavSectionItem[] = [
     href: '/pcp/aprovacoes',
     icon: CheckCircle2,
     badge: '2 Fases',
-    permission: 'pcp.schedule.approve',
+    permission: 'pcp.approval.view',
   },
   {
     title: 'Responsáveis de Linha',
     href: '/pcp/linhas-responsaveis',
     icon: Users,
-    permission: 'pcp.masterdata.edit',
+    permission: 'pcp.masterdata.view',
   },
   {
     title: 'Trilha de Auditoria',
@@ -598,13 +598,13 @@ const officialNavGroups: NavGroup[] = [
         title: 'Em Aprovação',
         href: '/pcp/aprovacoes',
         icon: CheckCircle2,
-        permission: 'pcp.schedule.approve',
+        permission: 'pcp.approval.view',
       },
       {
         title: 'Aprovadas',
         href: '/pcp/aprovacoes?filter=approved',
         icon: ShieldCheck,
-        permission: 'pcp.schedule.approve',
+        permission: 'pcp.approval.view',
       },
       {
         title: 'Integração SAP / Ordens',

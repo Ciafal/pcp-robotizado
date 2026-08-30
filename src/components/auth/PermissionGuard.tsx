@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { ShieldAlert, ArrowLeft } from 'lucide-react'
+import { ShieldAlert, ArrowLeft, RefreshCw, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
 
@@ -15,15 +15,28 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   children,
   lineId,
 }) => {
-  const { can, hasLineScope, isLoading, user } = useAuth()
+  const { can, hasLineScope, isLoading, user, refreshPermissions } = useAuth()
+  const [isRetrying, setIsRetrying] = useState(false)
   const navigate = useNavigate()
 
-  if (isLoading) {
+  const handleRetry = async () => {
+    setIsRetrying(true)
+    try {
+      await refreshPermissions()
+    } finally {
+      setIsRetrying(false)
+    }
+  }
+
+  if (isLoading || isRetrying) {
     return (
-      <div className="p-12 flex flex-col items-center justify-center space-y-4">
-        <div className="w-8 h-8 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium text-slate-600">
-          Validando credenciais e escopos de acesso...
+      <div className="p-12 min-h-[50vh] flex flex-col items-center justify-center space-y-4 bg-slate-50/50">
+        <div className="w-9 h-9 border-3 border-[#004C97] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-semibold text-slate-700">
+          Validando credenciais e escopos de acesso CIAFAL...
+        </p>
+        <p className="text-xs text-slate-500 font-mono">
+          Sincronizando permissões do Active Directory / RBAC
         </p>
       </div>
     )
@@ -34,50 +47,74 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   if (!hasPerm || !hasScope) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-6 bg-slate-950">
-        <div className="max-w-md w-full bg-slate-900 border border-rose-900/40 rounded-xl p-8 shadow-xl text-center">
-          <div className="w-14 h-14 bg-rose-950/40 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-800/60">
-            <ShieldAlert className="w-7 h-7" />
+      <div className="min-h-[65vh] flex items-center justify-center p-6 bg-slate-50/80">
+        <div className="max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200/80 shadow-xs">
+            <ShieldAlert className="w-8 h-8" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-2">Acesso Negado (403 Forbidden)</h2>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 mb-2">
+            <Lock className="w-3 h-3" /> Acesso Negado (403 Forbidden)
+          </div>
+
+          <h2 className="text-xl font-black text-slate-900 tracking-tight mb-2">
+            Permissão Insuficiente para Visualização
+          </h2>
 
           {!hasPerm ? (
-            <p className="text-sm text-slate-300 mb-4">
-              Seu perfil (
-              <span className="font-semibold text-cyan-300">{user?.role || 'Nenhum'}</span>) não
-              possui a permissão corporativa requerida para acessar este recurso.
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+              O perfil ativo (
+              <span className="font-bold text-[#004C97] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                {user?.role || 'Não identificado'}
+              </span>
+              ) não possui a credencial requerida para abrir este módulo no HUB CIAFAL.
             </p>
           ) : (
-            <p className="text-sm text-slate-300 mb-4">
-              Esta linha ou processo industrial não faz parte do seu escopo de autorização ativo no
+            <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+              Esta linha ou centro de trabalho não está dentro do seu escopo de autorização ativo no
               HUB CIAFAL.
             </p>
           )}
 
-          <div className="bg-slate-950 p-3 rounded-lg text-left text-xs text-slate-300 mb-6 border border-slate-800">
-            <div className="flex justify-between py-1 border-b border-slate-800">
-              <span className="font-semibold text-slate-400">Permissão Exigida:</span>
-              <code className="text-rose-400 font-mono">{permission}</code>
+          <div className="bg-slate-50 p-3.5 rounded-xl text-left text-xs text-slate-700 mb-6 border border-slate-200 space-y-1.5">
+            <div className="flex justify-between items-center py-1 border-b border-slate-200">
+              <span className="font-semibold text-slate-500">Permissão Exigida:</span>
+              <code className="text-rose-600 font-mono font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                {permission}
+              </code>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-800">
-              <span className="font-semibold text-slate-400">Identidade:</span>
-              <span className="text-white">{user?.email || 'Anônimo'}</span>
+            <div className="flex justify-between items-center py-1 border-b border-slate-200">
+              <span className="font-semibold text-slate-500">Identidade Autenticada:</span>
+              <span className="text-slate-900 font-medium">{user?.email || 'Anônimo'}</span>
             </div>
-            <div className="flex justify-between py-1">
-              <span className="font-semibold text-slate-400">Origem:</span>
-              <span>CIAFAL Active Directory (RBAC v0.0.2)</span>
+            <div className="flex justify-between items-center py-1">
+              <span className="font-semibold text-slate-500">Origem de Governança:</span>
+              <span className="text-slate-600 font-mono text-[11px]">CIAFAL RBAC v0.0.2</span>
             </div>
           </div>
 
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button
+              variant="default"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+              Tentar novamente
+            </Button>
             <Button
               variant="outline"
               onClick={() => navigate('/pcp/sequenciamento')}
-              className="gap-2 bg-slate-800 border-slate-700 text-slate-200 hover:text-white"
+              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
             >
-              <ArrowLeft className="w-4 h-4" /> Voltar ao Cockpit
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
             </Button>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-400">
+            Caso necessite deste acesso, solicite a inclusão do escopo ao Administrador do PCP
+            CIAFAL.
           </div>
         </div>
       </div>

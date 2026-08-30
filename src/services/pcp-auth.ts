@@ -12,7 +12,102 @@ import {
 
 export const authService = {
   /**
-   * Resolve permissões e escopos do usuário atual a partir do backend
+   * Retorna conjunto de permissões estáticas por perfil
+   */
+  getPermissionsForRole(role: string): string[] {
+    const roleUpper = (role || '').toUpperCase()
+    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN') {
+      return [
+        'pcp.schedule.view',
+        'pcp.schedule.edit',
+        'pcp.schedule.approve',
+        'pcp.schedule.publish',
+        'pcp.schedule.delete',
+        'pcp.masterdata.view',
+        'pcp.masterdata.edit',
+        'pcp.integrations.view',
+        'pcp.integrations.manage',
+        'pcp.audit.view',
+        'pcp.rules.view',
+        'pcp.rules.edit',
+        'pcp.security.manage',
+        'pcp.approval.view',
+        'pcp.approval.decide',
+        'pcp.masterplan.overview',
+        'pcp.masterplan.view',
+        'pcp.masterplan.adherence',
+        'pcp.masterplan.deviations',
+        'pcp.masterplan.demand_crm',
+        'pcp.masterplan.forecast_ai',
+        'pcp.masterplan.versions',
+        'pcp.inventory.overview',
+        'pcp.inventory.raw_material',
+        'pcp.inventory.semi_finished',
+        'pcp.inventory.finished_goods',
+        'pcp.inventory.coverage',
+        'pcp.inventory.discrepancies',
+        'pcp.inventory.ai',
+        'pcp.mp_opt.view',
+        'pcp.mp_opt.simulate',
+        'pcp.mp_opt.modify_app',
+        'pcp.mp_opt.evaluate_out_of_ideal',
+        'pcp.mp_opt.request_approval',
+        'pcp.mp_opt.approve',
+        'pcp.quality.view',
+        'pcp.meeting.view',
+        'pcp.meeting.conduct',
+        'pcp.communication.view',
+      ]
+    }
+    if (roleUpper === 'PCP_PROGRAMMER') {
+      return [
+        'pcp.schedule.view',
+        'pcp.schedule.edit',
+        'pcp.approval.view',
+        'pcp.masterplan.view',
+        'pcp.inventory.view',
+        'pcp.inventory.overview',
+        'pcp.mp_opt.view',
+        'pcp.mp_opt.simulate',
+        'pcp.masterdata.view',
+        'pcp.integrations.view',
+        'pcp.rules.view',
+        'pcp.quality.view',
+        'pcp.meeting.view',
+        'pcp.communication.view',
+      ]
+    }
+    if (roleUpper === 'PCP_PLANNER') {
+      return [
+        'pcp.schedule.view',
+        'pcp.approval.view',
+        'pcp.masterplan.view',
+        'pcp.inventory.view',
+        'pcp.inventory.overview',
+        'pcp.mp_opt.view',
+        'pcp.rules.view',
+        'pcp.meeting.view',
+        'pcp.communication.view',
+      ]
+    }
+    if (roleUpper === 'LINE_MANAGER') {
+      return [
+        'pcp.schedule.view',
+        'pcp.approval.view',
+        'pcp.schedule.approve',
+        'pcp.masterdata.view',
+        'pcp.quality.view',
+        'pcp.meeting.view',
+      ]
+    }
+    if (roleUpper === 'OPERATOR') {
+      return ['pcp.schedule.view', 'pcp.quality.view']
+    }
+    return ['pcp.schedule.view']
+  },
+
+  /**
+   * Resolução unificada de permissões via Active Directory / Backend RBAC
    */
   async resolvePermissions(): Promise<AuthPermissionsResponse> {
     if (!pb.authStore.isValid || !pb.authStore.record) {
@@ -66,9 +161,32 @@ export const authService = {
           'pcp.rules.manage',
           'pcp.masterdata.view',
           'pcp.masterdata.manage',
+          'pcp.approval.view',
+          'pcp.approval.decide',
+          'pcp.masterplan.overview',
+          'pcp.masterplan.view',
+          'pcp.masterplan.adherence',
+          'pcp.masterplan.deviations',
+          'pcp.masterplan.demand_crm',
+          'pcp.masterplan.forecast_ai',
+          'pcp.masterplan.versions',
           'pcp.inventory.overview',
           'pcp.inventory.raw_material',
+          'pcp.inventory.semi_finished',
+          'pcp.inventory.finished_goods',
           'pcp.inventory.coverage',
+          'pcp.inventory.discrepancies',
+          'pcp.inventory.ai',
+          'pcp.mp_opt.view',
+          'pcp.mp_opt.simulate',
+          'pcp.mp_opt.modify_app',
+          'pcp.mp_opt.evaluate_out_of_ideal',
+          'pcp.mp_opt.request_approval',
+          'pcp.mp_opt.approve',
+          'pcp.quality.view',
+          'pcp.meeting.view',
+          'pcp.meeting.conduct',
+          'pcp.communication.view',
         ],
       }
     }

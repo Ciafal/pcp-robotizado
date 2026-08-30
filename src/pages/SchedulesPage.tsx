@@ -4,7 +4,7 @@ import { PermissionGuard } from '@/components/auth/PermissionGuard'
 
 export const SchedulesPage: React.FC = () => {
   return (
-    <PermissionGuard permission="pcp.schedule.view">
+    <PermissionGuard permission="pcp.approval.view">
       <ProductionControlTower />
     </PermissionGuard>
   )

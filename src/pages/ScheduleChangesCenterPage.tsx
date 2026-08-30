@@ -489,7 +489,9 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                         const crmHasError = crmAlerts.some(
                           (ca) =>
                             ca.programacao_id === v.schedule_code &&
-                            ca.status === 'PENDENTE' &&
+                            (ca.status === 'GERADO' ||
+                              ca.status === 'REAVALIACAO_SOLICITADA' ||
+                              (ca.status as any) === 'PENDENTE') &&
                             ca.tms_recalculation_required,
                         )
                         if (crmHasError) {
@@ -717,9 +719,14 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                     <div>
                       <span className="text-slate-500 block">Data Anterior &rarr; Nova:</span>
                       <strong className="text-slate-900 font-mono">
-                        {alert.previous_date ? alert.previous_date.slice(0, 10) : '25/08'} &rarr;{' '}
+                        {alert.datetime_prev || (alert as any).previous_date
+                          ? (alert.datetime_prev || (alert as any).previous_date).slice(0, 10)
+                          : '25/08'}{' '}
+                        &rarr;{' '}
                         <span className="text-[#004C97]">
-                          {alert.new_date ? alert.new_date.slice(0, 10) : '27/08'}
+                          {alert.datetime_new || (alert as any).new_date
+                            ? (alert.datetime_new || (alert as any).new_date).slice(0, 10)
+                            : '27/08'}
                         </span>
                       </strong>
                     </div>
@@ -732,9 +739,9 @@ export const ScheduleChangesCenterPage: React.FC = () => {
                       <span className="text-slate-700">{alert.user_name}</span>
                     </div>
                   </div>
-                  {alert.integration_event_id && (
+                  {(alert.event_id || (alert as any).integration_event_id) && (
                     <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between px-1">
-                      <span>event_id: {alert.integration_event_id}</span>
+                      <span>event_id: {alert.event_id || (alert as any).integration_event_id}</span>
                       <span>
                         Status Central: Enviado ✓ |{' '}
                         {alert.viewed_at
@@ -758,7 +765,13 @@ export const ScheduleChangesCenterPage: React.FC = () => {
       {activeTab === 'CRM' && (
         <div className="space-y-4">
           {/* Banner de Falha de Comunicação se houver erro (Requisito 11) */}
-          {crmAlerts.some((a) => a.status === 'PENDENTE' && a.tms_recalculation_required) && (
+          {crmAlerts.some(
+            (a) =>
+              (a.status === 'GERADO' ||
+                a.status === 'REAVALIACAO_SOLICITADA' ||
+                (a.status as any) === 'PENDENTE') &&
+              a.tms_recalculation_required,
+          ) && (
             <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-xl text-xs text-rose-950 flex items-center justify-between shadow-xs animate-pulse">
               <div className="flex items-center gap-3">
                 <span className="text-xl">🔴</span>

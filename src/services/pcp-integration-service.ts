@@ -7,6 +7,8 @@ import {
   ConnectorConfig,
   IntegrationMonitorKPIs,
   ReconciliationResult,
+  ReconciliationItemComparison,
+  CorrelatedAuditTrail,
 } from '@/types/pcp-integration'
 import { WeeklyScheduleItem, WeeklyHeaderFilter } from '@/types/weekly-schedule'
 import { VersionImpactAssessment, ScheduleItemDiff } from '@/types/schedule-versioning'
