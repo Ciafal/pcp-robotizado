@@ -109,6 +109,50 @@ export interface CarteiraEntradaFutura {
   created?: string
 }
 
+export type TipoClassificacaoLinha =
+  | 'REGISTRO_DADOS'
+  | 'LINHA_VAZIA'
+  | 'LINHA_TOTALIZACAO'
+  | 'CABECALHO_RODAPE'
+  | 'LINHA_INVALIDA'
+
+export type NivelSeveridadeValidacao =
+  | 'NIVEL_1_INFORMATIVO'
+  | 'NIVEL_2_ERRO_REGISTRO'
+  | 'NIVEL_3_ERRO_ESTRUTURAL'
+
+export type StatusCargaLote =
+  | 'VALIDADO'
+  | 'AGUARDANDO_CONFIRMACAO'
+  | 'PROCESSANDO'
+  | 'IMPORTADO_COMPLETO'
+  | 'IMPORTADO_PARCIAL'
+  | 'FALHA'
+  | 'ROLLBACK'
+  | 'PROCESSADO'
+  | 'REJEITADO'
+  | 'REVERTIDO'
+
+export interface LinhaRejeitadaDetalhe {
+  linhaExcel: number
+  linhaLogica: number
+  material?: string
+  coluna: string
+  valorEncontrado?: string
+  motivoRejeicao: string
+  severidade: NivelSeveridadeValidacao
+  acaoSugerida: string
+  dadosOriginais?: Record<string, any>
+}
+
+export interface LinhaIgnoradaDetalhe {
+  linhaExcel: number
+  linhaLogica: number
+  tipo: 'LINHA_VAZIA' | 'LINHA_TOTALIZACAO' | 'CABECALHO_RODAPE'
+  motivo: string
+  totaisIdentificados?: Record<string, number>
+}
+
 export interface CarteiraUpload {
   id?: string
   upload_code: string
@@ -125,8 +169,17 @@ export interface CarteiraUpload {
   valid_rows: number
   warning_rows: number
   rejected_rows: number
-  status: 'EM_ANALISE' | 'PROCESSADO' | 'REJEITADO' | 'REVERTIDO'
-  source_mode: 'EXCEL_QAS' | 'SAP_ECC_RFC' | 'CSV_MANUAL' | 'MOCK_DEMO'
+  ignored_rows?: number
+  empty_rows?: number
+  total_aggregation_rows?: number
+  status: StatusCargaLote
+  source_mode:
+    | 'EXCEL_QAS'
+    | 'SAP_ECC_RFC'
+    | 'CSV_MANUAL'
+    | 'MOCK_DEMO'
+    | 'SAP_ECC_ZSD28C'
+    | 'EXCEL_ZSD28C'
   user_name: string
   user_email: string
   version_tag: string

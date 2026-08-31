@@ -10,17 +10,44 @@ import {
 } from '@/types/carteira-analise'
 import { CarteiraZSD28CEngine, REGRAS_PADRAO } from './carteira-engine'
 
+import {
+  LinhaRejeitadaDetalhe,
+  LinhaIgnoradaDetalhe,
+  TipoClassificacaoLinha,
+  NivelSeveridadeValidacao,
+} from '@/types/carteira-analise'
+
 export interface ValidacaoUploadResultado {
   valido: boolean
-  erros: Array<{ linha: number; campo: string; mensagem: string; valor?: string }>
+  podeImportarParcial: boolean
+  temErroCriticoEstrutural: boolean
+  mensagemEstrutural?: string
+  erros: Array<{
+    linha: number
+    linhaLogica?: number
+    campo: string
+    mensagem: string
+    valor?: string
+    severidade?: NivelSeveridadeValidacao
+    acaoSugerida?: string
+    material?: string
+  }>
+  linhasRejeitadasDetalhes: LinhaRejeitadaDetalhe[]
+  linhasIgnoradasDetalhes: LinhaIgnoradaDetalhe[]
   alertas: Array<{ linha: number; campo: string; mensagem: string }>
   duplicados: Array<{ pedido: string; item: string; material: string }>
   itensValidos: CarteiraItem[]
   entradasFuturasValidas: CarteiraEntradaFutura[]
   totalLinhas: number
+  totalRegistrosIdentificados: number
   linhasValidas: number
   linhasComAlerta: number
   linhasRejeitadas: number
+  linhasIgnoradasTotalizacao: number
+  linhasVaziasIgnoradas: number
+  linhasCabecalhoRodapeIgnoradas: number
+  linhasTotalIgnoradas: number
+  logsProcessamento: string[]
 }
 
 export class CarteiraService {
@@ -193,46 +220,361 @@ export class CarteiraService {
     }
   }
 
+  /**
+   * Classificação Semântica e Estrutural de uma Linha Bruta antes da validação de regras de negócio.
+   * Tipos:
+   * A. REGISTRO_DADOS
+   * B. LINHA_VAZIA
+   * C. LINHA_TOTALIZACAO (sem material/pedido, com valores numéricos agregados ou texto de Total/Geral)
+   * D. CABECALHO_RODAPE (repetição de cabeçalhos, paginação SAP, 'Página 1 de N', etc.)
+   * E. LINHA_INVALIDA (dados corrompidos ou ilegíveis)
+   */
+  public static classificarLinhaBruta(row: any): {
+    tipo: TipoClassificacaoLinha
+    motivo: string
+    totais?: Record<string, number>
+  } {
+    if (!row || typeof row !== 'object') {
+      return { tipo: 'LINHA_VAZIA', motivo: 'Objeto de linha nulo ou indefinido' }
+    }
+
+    const keys = Object.keys(row)
+    if (keys.length === 0) {
+      return { tipo: 'LINHA_VAZIA', motivo: 'Linha sem colunas' }
+    }
+
+    // 1. Identificar se está totalmente vazia
+    const valoresNaoVazios = keys
+      .map((k) => String(row[k] ?? '').trim())
+      .filter((v) => v !== '' && v !== 'undefined' && v !== 'null')
+
+    if (valoresNaoVazios.length === 0) {
+      return { tipo: 'LINHA_VAZIA', motivo: 'Todos os campos estão vazios' }
+    }
+
+    // 2. Extração dos campos candidatos
+    const matRaw = String(
+      row['Código do material'] ||
+        row['codigo_material'] ||
+        row['Material'] ||
+        row['material'] ||
+        row['Cod. Material'] ||
+        row['Cód. Material'] ||
+        '',
+    ).trim()
+
+    const descMatRaw = String(
+      row['Descrição do material'] ||
+        row['descricao_material'] ||
+        row['Descrição'] ||
+        row['Descricao'] ||
+        '',
+    ).trim()
+
+    const ordemRaw = String(
+      row['Ordem de venda'] ||
+        row['ordem_venda'] ||
+        row['Pedido'] ||
+        row['pedido'] ||
+        row['Doc. Vendas'] ||
+        '',
+    ).trim()
+
+    const clienteRaw = String(
+      row['Cliente'] ||
+        row['nome_cliente'] ||
+        row['Nome do cliente'] ||
+        row['Emissor da ordem'] ||
+        '',
+    ).trim()
+
+    const todosTextosConcat = valoresNaoVazios.join(' ').toUpperCase()
+
+    // 3. Identificar Cabeçalho / Rodapé SAP
+    if (
+      todosTextosConcat.includes('PÁGINA ') ||
+      todosTextosConcat.includes('PAGINA ') ||
+      todosTextosConcat.includes('EXTRATO DE CARTEIRA') ||
+      todosTextosConcat.includes('SISTEMA SAP') ||
+      todosTextosConcat.includes('EMITIDO EM:') ||
+      (matRaw.toUpperCase() === 'MATERIAL' && ordemRaw.toUpperCase() === 'ORDEM DE VENDA') ||
+      (matRaw.toUpperCase() === 'CÓDIGO DO MATERIAL' &&
+        descMatRaw.toUpperCase() === 'DESCRIÇÃO DO MATERIAL')
+    ) {
+      return {
+        tipo: 'CABECALHO_RODAPE',
+        motivo: 'Cabeçalho repetido ou rodapé de paginação do relatório SAP',
+      }
+    }
+
+    // 4. Identificar Linha de Totalização Semântica / Estrutural
+    // Exemplos:
+    // a) material contém "TOTAL", "RESULTADO GERAL", "SOMA", "TOTAIS", "GERAL"
+    // b) material vazio, cliente/ordem vazios, mas colunas de quantidade/estoque/saldo possuem valores numéricos agregados
+    const palavrasChaveTotal = [
+      'TOTAL',
+      'TOTAIS',
+      'RESULTADO GERAL',
+      'TOTAL GERAL',
+      'SOMA',
+      'SUBTOTAL',
+    ]
+    const hasTextoTotal =
+      palavrasChaveTotal.some((kw) => matRaw.toUpperCase().includes(kw)) ||
+      palavrasChaveTotal.some((kw) => descMatRaw.toUpperCase().includes(kw)) ||
+      palavrasChaveTotal.some((kw) => clienteRaw.toUpperCase().includes(kw)) ||
+      palavrasChaveTotal.some((kw) => ordemRaw.toUpperCase().includes(kw))
+
+    // Coleta valores numéricos
+    let totalColunasNumericasComValor = 0
+    let somaValoresNumericos = 0
+    const totaisEncontrados: Record<string, number> = {}
+
+    keys.forEach((k) => {
+      const valStr = String(row[k] ?? '').trim()
+      if (valStr !== '') {
+        const num = CarteiraService.parseNumeroTons(valStr)
+        if (num !== 0) {
+          totalColunasNumericasComValor++
+          somaValoresNumericos += Math.abs(num)
+          totaisEncontrados[k] = num
+        }
+      }
+    })
+
+    const semMaterialEOrdem = matRaw === '' && ordemRaw === ''
+    const apenasNumerosAgregados = semMaterialEOrdem && totalColunasNumericasComValor >= 1
+
+    if (hasTextoTotal || apenasNumerosAgregados) {
+      return {
+        tipo: 'LINHA_TOTALIZACAO',
+        motivo: hasTextoTotal
+          ? 'Linha com marcador explícito de Totalização do relatório SAP'
+          : 'Linha sem Material/Pedido contendo valores agregados das colunas de estoque e carteira',
+        totais: totaisEncontrados,
+      }
+    }
+
+    // Se possui código de material ou pedido com formato transacional, é REGISTRO_DADOS
+    if (matRaw !== '' || ordemRaw !== '' || clienteRaw !== '') {
+      return {
+        tipo: 'REGISTRO_DADOS',
+        motivo: 'Registro transacional de carteira',
+      }
+    }
+
+    return {
+      tipo: 'LINHA_INVALIDA',
+      motivo: 'Linha não classificada estruturalmente',
+    }
+  }
+
+  /**
+   * Validação robusta de colunas essenciais do arquivo (Nível 3 - Estrutural)
+   */
+  public static validarEstruturaArquivo(linhasBrutas: any[]): {
+    valido: boolean
+    mensagem?: string
+  } {
+    if (!Array.isArray(linhasBrutas) || linhasBrutas.length === 0) {
+      return {
+        valido: false,
+        mensagem: 'Arquivo vazio ou sem registros na planilha.',
+      }
+    }
+
+    // Verifica se pelo menos uma linha tem chave correspondente a Material
+    const primeiraLinha = linhasBrutas[0] || {}
+    const keys = Object.keys(primeiraLinha).map((k) => k.trim().toLowerCase())
+
+    const temColunaMaterial = keys.some(
+      (k) =>
+        k.includes('material') ||
+        k.includes('codigo') ||
+        k.includes('código') ||
+        k.includes('produto') ||
+        k.includes('item'),
+    )
+
+    if (!temColunaMaterial) {
+      return {
+        valido: false,
+        mensagem:
+          'ERRO CRÍTICO (Nível 3): Coluna obrigatória de Material não foi encontrada no arquivo. Verifique se o template ZSD28C correto foi utilizado.',
+      }
+    }
+
+    return { valido: true }
+  }
+
   public static validarLinhasCarteira(
     linhasBrutas: any[],
     entradasFuturasBrutas: any[] = [],
   ): ValidacaoUploadResultado {
-    const erros: Array<{ linha: number; campo: string; mensagem: string; valor?: string }> = []
+    const erros: Array<{
+      linha: number
+      linhaLogica?: number
+      campo: string
+      mensagem: string
+      valor?: string
+      severidade?: NivelSeveridadeValidacao
+      acaoSugerida?: string
+      material?: string
+    }> = []
+    const linhasRejeitadasDetalhes: LinhaRejeitadaDetalhe[] = []
+    const linhasIgnoradasDetalhes: LinhaIgnoradaDetalhe[] = []
     const alertas: Array<{ linha: number; campo: string; mensagem: string }> = []
     const duplicados: Array<{ pedido: string; item: string; material: string }> = []
     const itensValidos: CarteiraItem[] = []
+    const logsProcessamento: string[] = []
+
+    // 1. Validação Nível 3 (Estrutural)
+    const validacaoEstrutura = this.validarEstruturaArquivo(linhasBrutas)
+    if (!validacaoEstrutura.valido) {
+      return {
+        valido: false,
+        podeImportarParcial: false,
+        temErroCriticoEstrutural: true,
+        mensagemEstrutural: validacaoEstrutura.mensagem,
+        erros: [
+          {
+            linha: 1,
+            campo: 'Estrutura do Arquivo',
+            mensagem: validacaoEstrutura.mensagem || 'Estrutura inválida',
+            severidade: 'NIVEL_3_ERRO_ESTRUTURAL',
+            acaoSugerida:
+              'Baixar o template oficial ZSD28C e reenviar o arquivo com cabeçalhos corretos.',
+          },
+        ],
+        linhasRejeitadasDetalhes: [],
+        linhasIgnoradasDetalhes: [],
+        alertas: [],
+        duplicados: [],
+        itensValidos: [],
+        entradasFuturasValidas: [],
+        totalLinhas: linhasBrutas?.length || 0,
+        totalRegistrosIdentificados: 0,
+        linhasValidas: 0,
+        linhasComAlerta: 0,
+        linhasRejeitadas: 0,
+        linhasIgnoradasTotalizacao: 0,
+        linhasVaziasIgnoradas: 0,
+        linhasCabecalhoRodapeIgnoradas: 0,
+        linhasTotalIgnoradas: 0,
+        logsProcessamento: [validacaoEstrutura.mensagem || 'Erro estrutural'],
+      }
+    }
 
     const entradasFuturasValidas = this.validarLinhasEntradasFuturas(entradasFuturasBrutas)
-
     const mapDuplicidade = new Set<string>()
 
+    let contLinhasVazias = 0
+    let contLinhasTotalizacao = 0
+    let contLinhasCabecalhoRodape = 0
+    let linhaLogicaIndex = 0
+
+    // 2. Classificação Semântica e Validação Linha a Linha
     linhasBrutas.forEach((row, index) => {
-      const numLinha = index + 2
+      const numLinhaExcel = index + 2 // Linha 1 é o cabeçalho no Excel
+      const classificacao = this.classificarLinhaBruta(row)
+
+      // NÍVEL 1: INFORMATIVO / LINHAS NÃO TRANSACIONAIS (Ignorar automaticamente, registrar log e NÃO considerar erro)
+      if (classificacao.tipo === 'LINHA_VAZIA') {
+        contLinhasVazias++
+        linhasIgnoradasDetalhes.push({
+          linhaExcel: numLinhaExcel,
+          linhaLogica: linhaLogicaIndex,
+          tipo: 'LINHA_VAZIA',
+          motivo: 'Linha em branco desconsiderada automaticamente da carga.',
+        })
+        return
+      }
+
+      if (classificacao.tipo === 'LINHA_TOTALIZACAO') {
+        contLinhasTotalizacao++
+        linhasIgnoradasDetalhes.push({
+          linhaExcel: numLinhaExcel,
+          linhaLogica: linhaLogicaIndex,
+          tipo: 'LINHA_TOTALIZACAO',
+          motivo: classificacao.motivo,
+          totaisIdentificados: classificacao.totais,
+        })
+        logsProcessamento.push(
+          `Linha ${numLinhaExcel}: 1 linha de totalização identificada e desconsiderada da importação.`,
+        )
+        return
+      }
+
+      if (classificacao.tipo === 'CABECALHO_RODAPE') {
+        contLinhasCabecalhoRodape++
+        linhasIgnoradasDetalhes.push({
+          linhaExcel: numLinhaExcel,
+          linhaLogica: linhaLogicaIndex,
+          tipo: 'CABECALHO_RODAPE',
+          motivo: classificacao.motivo,
+        })
+        logsProcessamento.push(
+          `Linha ${numLinhaExcel}: Linha de cabeçalho/rodapé repetido desconsiderada.`,
+        )
+        return
+      }
+
+      // Se for registro de dados ou linha que deve ser analisada
+      linhaLogicaIndex++
+
       const codMaterial = this.sanitizarCampoTexto(
-        row['Código do material'] || row['codigo_material'] || row['Material'] || row['material'],
+        row['Código do material'] ||
+          row['codigo_material'] ||
+          row['Material'] ||
+          row['material'] ||
+          row['Cod. Material'] ||
+          row['Cód. Material'],
       )
       const ordemVenda = this.sanitizarCampoTexto(
-        row['Ordem de venda'] || row['ordem_venda'] || row['Pedido'] || row['pedido'],
+        row['Ordem de venda'] ||
+          row['ordem_venda'] ||
+          row['Pedido'] ||
+          row['pedido'] ||
+          row['Doc. Vendas'],
       )
       const itemOrdem = this.sanitizarCampoTexto(
         row['Item'] || row['item'] || row['Item da ordem'] || '10',
       )
 
+      // NÍVEL 2: ERRO DE REGISTRO DE NEGÓCIO (Material ausente em registro de dados real)
       if (!codMaterial) {
-        erros.push({
-          linha: numLinha,
+        const erroObj = {
+          linha: numLinhaExcel,
+          linhaLogica: linhaLogicaIndex,
           campo: 'Código do material',
           mensagem: 'Código do material é obrigatório e não pode ser nulo.',
+          valor: '(vazio)',
+          severidade: 'NIVEL_2_ERRO_REGISTRO' as NivelSeveridadeValidacao,
+          acaoSugerida: 'Preencher o código do material ou remover a linha defeituosa.',
+          material: undefined,
+        }
+        erros.push(erroObj)
+        linhasRejeitadasDetalhes.push({
+          linhaExcel: numLinhaExcel,
+          linhaLogica: linhaLogicaIndex,
+          material: '',
+          coluna: 'Código do material',
+          valorEncontrado: '(vazio)',
+          motivoRejeicao: 'Código do material é obrigatório para registros transacionais.',
+          severidade: 'NIVEL_2_ERRO_REGISTRO',
+          acaoSugerida: 'Preencher o código SAP do material na planilha original.',
+          dadosOriginais: row,
         })
         return
       }
 
+      // Validação de Duplicidade / Alertas
       if (ordemVenda && itemOrdem) {
         const key = `${ordemVenda}_${itemOrdem}_${codMaterial}`
         if (mapDuplicidade.has(key)) {
           duplicados.push({ pedido: ordemVenda, item: itemOrdem, material: codMaterial })
           alertas.push({
-            linha: numLinha,
+            linha: numLinhaExcel,
             campo: 'Ordem/Item/Material',
             mensagem: `Duplicidade identificada no arquivo: Pedido ${ordemVenda}, Item ${itemOrdem}, Material ${codMaterial}.`,
           })
@@ -397,18 +739,43 @@ export class CarteiraService {
     const linhasValidas = itensValidos.length
     const linhasComAlerta = alertas.length
     const linhasRejeitadas = erros.length
+    const totalRegistrosIdentificados = linhasValidas + linhasRejeitadas
+    const linhasTotalIgnoradas =
+      contLinhasVazias + contLinhasTotalizacao + contLinhasCabecalhoRodape
+
+    const validoCompleto = erros.length === 0 && itensValidos.length > 0
+    const podeImportarParcial = itensValidos.length > 0
+
+    if (contLinhasTotalizacao > 0) {
+      logsProcessamento.push(
+        `${contLinhasTotalizacao} linha(s) de totalização identificada(s) e desconsiderada(s) da importação.`,
+      )
+    }
+    if (contLinhasVazias > 0) {
+      logsProcessamento.push(`${contLinhasVazias} linha(s) vazia(s) ignorada(s) automaticamente.`)
+    }
 
     return {
-      valido: erros.length === 0 && itensValidos.length > 0,
+      valido: validoCompleto,
+      podeImportarParcial,
+      temErroCriticoEstrutural: false,
       erros,
+      linhasRejeitadasDetalhes,
+      linhasIgnoradasDetalhes,
       alertas,
       duplicados,
       itensValidos,
       entradasFuturasValidas,
       totalLinhas,
+      totalRegistrosIdentificados,
       linhasValidas,
       linhasComAlerta,
       linhasRejeitadas,
+      linhasIgnoradasTotalizacao: contLinhasTotalizacao,
+      linhasVaziasIgnoradas: contLinhasVazias,
+      linhasCabecalhoRodapeIgnoradas: contLinhasCabecalhoRodape,
+      linhasTotalIgnoradas,
+      logsProcessamento,
     }
   }
 
@@ -1126,27 +1493,44 @@ export class CarteiraService {
     return null
   }
 
+  /**
+   * Gravação Transacional/Atômica de Carga da Carteira.
+   * Se houver qualquer falha durante a inserção dos itens ou do lote,
+   * executa ROLLBACK imediato (revertendo os registros criados e restaurando a integridade).
+   */
   public static async salvarCargaNoPocketBase(
     upload: CarteiraUpload,
     itens: CarteiraItem[],
     entradas: CarteiraEntradaFutura[],
+    auditContext?: {
+      usuarioConfirmouParcial?: boolean
+      rejeitadosDesconsideradosQtd?: number
+    },
   ): Promise<CarteiraUpload> {
+    let uploadRecordId: string | null = null
+    const itensCriadosIds: string[] = []
+    const entradasCriadasIds: string[] = []
+    const insightsCriadosIds: string[] = []
+
     try {
-      try {
-        const anteriores = await pb.collection('carteira_uploads').getFullList({
+      // 1. Desativa temporariamente cargas anteriores
+      const anteriores = await pb
+        .collection('carteira_uploads')
+        .getFullList({
           filter: 'is_active_current = true',
         })
-        for (const ant of anteriores) {
-          await pb.collection('carteira_uploads').update(ant.id, {
-            is_active_current: false,
-          })
-        }
-      } catch {
-        /* ignore */
-      }
+        .catch(() => [])
 
       const snapshotVersion = upload.snapshot_version || `SNAP-${upload.upload_code}`
       const fileHashVal = upload.file_hash_sha256 || upload.file_hash || `HASH-${Date.now()}`
+
+      const statusGravacao =
+        upload.status === 'IMPORTADO_PARCIAL' ||
+        (auditContext?.usuarioConfirmouParcial && upload.rejected_rows > 0)
+          ? 'IMPORTADO_PARCIAL'
+          : upload.rejected_rows > 0 && itens.length > 0
+            ? 'IMPORTADO_PARCIAL'
+            : 'IMPORTADO_COMPLETO'
 
       const uploadRecord = await pb.collection('carteira_uploads').create({
         upload_code: upload.upload_code,
@@ -1154,7 +1538,10 @@ export class CarteiraService {
         file_hash: fileHashVal,
         file_hash_sha256: fileHashVal,
         snapshot_version: snapshotVersion,
-        execution_status: 'SUCESSO_HOMOLOGADO',
+        execution_status:
+          statusGravacao === 'IMPORTADO_PARCIAL'
+            ? 'SUCESSO_PARCIAL_HOMOLOGADO'
+            : 'SUCESSO_HOMOLOGADO',
         reconciliation_status: 'PARIDADE_100',
         environment: 'QAS',
         lineage_summary: {
@@ -1162,15 +1549,18 @@ export class CarteiraService {
           source_transaction: 'ZSD28C',
           total_rows_imported: itens.length,
           entradas_futuras_count: entradas.length,
+          rejected_rows_count: upload.rejected_rows,
+          ignored_rows_count: upload.ignored_rows || 0,
           timestamp: new Date().toISOString(),
+          audit_context: auditContext || null,
         },
         file_size_bytes: upload.file_size_bytes || 0,
         total_rows: upload.total_rows,
         valid_rows: upload.valid_rows,
         warning_rows: upload.warning_rows,
         rejected_rows: upload.rejected_rows,
-        status: upload.status,
-        source_mode: upload.source_mode,
+        status: statusGravacao === 'IMPORTADO_PARCIAL' ? 'PROCESSADO' : 'PROCESSADO',
+        source_mode: upload.source_mode || 'EXCEL_ZSD28C',
         user_name: upload.user_name || 'Usuário PCP',
         user_email: upload.user_email || 'pcp@ciafal.com.br',
         version_tag: upload.version_tag,
@@ -1179,9 +1569,12 @@ export class CarteiraService {
         is_active_current: true,
       })
 
+      uploadRecordId = uploadRecord.id
+
+      // 2. Gravação de Itens com rastreamento para rollback
       let rowIdx = 1
       for (const item of itens) {
-        await pb.collection('carteira_items').create({
+        const itemRec = await pb.collection('carteira_items').create({
           upload_id: uploadRecord.id,
           upload_code: upload.upload_code,
           source_system: 'SAP_ECC_SD',
@@ -1191,8 +1584,8 @@ export class CarteiraService {
           source_row: rowIdx++,
           rule_version_applied: 'V001',
           environment: 'QAS',
-          empresa: item.empresa,
-          centro: item.centro,
+          empresa: item.empresa || 'CIAFAL',
+          centro: item.centro || '1000',
           linha: item.linha,
           ordem_venda: item.ordem_venda,
           item_ordem: item.item_ordem,
@@ -1239,13 +1632,15 @@ export class CarteiraService {
           memoria_calculo: item.memoria_calculo,
           calculation_memory: item.memoria_calculo || null,
         })
+        itensCriadosIds.push(itemRec.id)
       }
 
+      // 3. Gravação de Entradas Futuras
       for (const ent of entradas) {
-        await pb.collection('carteira_entradas_futuras').create({
+        const entRec = await pb.collection('carteira_entradas_futuras').create({
           upload_code: upload.upload_code,
-          empresa: ent.empresa,
-          centro: ent.centro,
+          empresa: ent.empresa || 'CIAFAL',
+          centro: ent.centro || '1000',
           codigo_material: ent.codigo_material,
           descricao_material: ent.descricao_material,
           origem: ent.origem,
@@ -1258,12 +1653,14 @@ export class CarteiraService {
           status_entrada: ent.status_entrada,
           observacao: ent.observacao,
         })
+        entradasCriadasIds.push(entRec.id)
       }
 
+      // 4. Geração de Insights IA
       const insights = CarteiraZSD28CEngine.gerarInsightsIA(itens, entradas)
       for (const ins of insights) {
         try {
-          await pb.collection('carteira_ia_insights').create({
+          const insRec = await pb.collection('carteira_ia_insights').create({
             insight_code: ins.insight_code,
             titulo: ins.titulo,
             criticidade: ins.criticidade,
@@ -1277,15 +1674,34 @@ export class CarteiraService {
             materiais_afetados: ins.materiais_afetados || [],
             duplicidade_envolvida: ins.duplicidade_envolvida || false,
           })
+          insightsCriadosIds.push(insRec.id)
         } catch {
-          /* ignore */
+          /* ignore insight insertion error */
         }
       }
 
+      // 5. Sucesso confirmado: desativa anteriores de fato
+      for (const ant of anteriores) {
+        await pb
+          .collection('carteira_uploads')
+          .update(ant.id, {
+            is_active_current: false,
+          })
+          .catch(() => {})
+      }
+
+      // 6. Auditoria de Governança
       try {
+        const auditLogMensagem = auditContext?.usuarioConfirmouParcial
+          ? `Usuário confirmou importação parcial desconsiderando ${auditContext.rejeitadosDesconsideradosQtd || upload.rejected_rows} registros rejeitados.`
+          : 'Carga completa de carteira gravada e homologada com sucesso.'
+
         await pb.collection('pcp_audit_logs').create({
           event_type: 'SCHEDULE_ACTION',
-          action: 'CARTEIRA_UPLOAD_PROCESSADA',
+          action:
+            statusGravacao === 'IMPORTADO_PARCIAL'
+              ? 'CARTEIRA_IMPORTACAO_PARCIAL'
+              : 'CARTEIRA_UPLOAD_PROCESSADA',
           resource: 'CARTEIRA_ZSD28C',
           resource_id: upload.upload_code,
           scope: 'GLOBAL',
@@ -1294,21 +1710,111 @@ export class CarteiraService {
             filename: upload.filename,
             total_rows: upload.total_rows,
             valid_rows: upload.valid_rows,
+            rejected_rows: upload.rejected_rows,
+            ignored_rows: upload.ignored_rows,
             user: upload.user_name,
+            audit_message: auditLogMensagem,
+            status: statusGravacao,
           },
         })
       } catch {
-        /* ignore */
+        /* ignore audit log write error */
       }
 
       return {
         ...upload,
         id: uploadRecord.id,
+        status: statusGravacao,
       }
     } catch (err: any) {
-      console.error('Erro ao salvar carga no PocketBase:', err)
-      throw new Error(`Falha na persistência da carga: ${err.message}`)
+      console.error('Falha durante gravação de carga da carteira. Executando ROLLBACK...', err)
+
+      // ROLLBACK ATÔMICO: remove quaisquer itens parciais criados para não deixar a base inconsistente
+      try {
+        for (const itId of itensCriadosIds) {
+          await pb
+            .collection('carteira_items')
+            .delete(itId)
+            .catch(() => {})
+        }
+        for (const entId of entradasCriadasIds) {
+          await pb
+            .collection('carteira_entradas_futuras')
+            .delete(entId)
+            .catch(() => {})
+        }
+        for (const insId of insightsCriadosIds) {
+          await pb
+            .collection('carteira_ia_insights')
+            .delete(insId)
+            .catch(() => {})
+        }
+        if (uploadRecordId) {
+          await pb
+            .collection('carteira_uploads')
+            .delete(uploadRecordId)
+            .catch(() => {})
+        }
+      } catch (rbErr) {
+        console.error('Erro durante execução do rollback:', rbErr)
+      }
+
+      throw new Error(
+        `Falha transacional na persistência da carga (Rollback executado): ${err.message}`,
+      )
     }
+  }
+
+  /**
+   * Exporta arquivo Excel/CSV formatado apenas com os registros rejeitados e os motivos detalhados
+   */
+  public static gerarRelatorioErrosBlob(
+    rejeitados: LinhaRejeitadaDetalhe[],
+    formato: 'xlsx' | 'csv' = 'xlsx',
+  ): Blob {
+    const cabecalho = [
+      'Linha Excel',
+      'Linha Lógica',
+      'Código Material',
+      'Coluna com Inconsistência',
+      'Valor Encontrado',
+      'Severidade',
+      'Motivo da Rejeição',
+      'Ação Sugerida',
+    ]
+
+    const linhas = rejeitados.map((r) => [
+      r.linhaExcel,
+      r.linhaLogica || '-',
+      r.material || '(vazio)',
+      r.coluna,
+      r.valorEncontrado || '',
+      r.severidade === 'NIVEL_3_ERRO_ESTRUTURAL'
+        ? 'Nível 3 (Estrutural/Crítico)'
+        : r.severidade === 'NIVEL_2_ERRO_REGISTRO'
+          ? 'Nível 2 (Erro de Registro)'
+          : 'Nível 1 (Informativo)',
+      r.motivoRejeicao,
+      r.acaoSugerida,
+    ])
+
+    if (formato === 'csv') {
+      const csvContent =
+        cabecalho.join(';') +
+        '\n' +
+        linhas
+          .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+          .join('\n')
+      return new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' })
+    }
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas])
+    XLSX.utils.book_append_sheet(wb, ws, 'REGISTROS_REJEITADOS')
+    const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    return new Blob([wbOut], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
   }
 
   public static async carregarCarteiraAtual(): Promise<{
