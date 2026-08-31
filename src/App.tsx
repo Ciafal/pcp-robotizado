@@ -90,6 +90,8 @@ const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ScheduleChangesCenterPage = lazy(() => import('@/pages/ScheduleChangesCenterPage'))
 const PCPIntegrationsPage = lazy(() => import('@/pages/PCPIntegrationsPage'))
 const PCPIntegrationMonitorPage = lazy(() => import('@/pages/PCPIntegrationMonitorPage'))
+const PCPDataQualityPage = lazy(() => import('@/pages/PCPDataQualityPage'))
+const PCPHomologationStatusPage = lazy(() => import('@/pages/PCPHomologationStatusPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 
@@ -747,6 +749,22 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.masterdata.view">
                       <LineResponsiblesPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/qualidade-dados"
+                  element={
+                    <PermissionGuard permission="pcp.audit.view">
+                      <PCPDataQualityPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/status-homologacao"
+                  element={
+                    <PermissionGuard permission="pcp.audit.view">
+                      <PCPHomologationStatusPage />
                     </PermissionGuard>
                   }
                 />

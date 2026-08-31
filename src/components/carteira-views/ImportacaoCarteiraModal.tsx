@@ -230,6 +230,19 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
         validacaoResultado.entradasFuturasValidas,
       )
 
+      // Notifica o barramento central PCPDataLayer (CARTEIRA_UPDATED)
+      const { pcpDataLayer } = await import('@/services/pcp-data-layer')
+      pcpDataLayer.publish(
+        'CARTEIRA_UPDATED',
+        'CARTEIRA_ZSD28C',
+        {
+          upload_code: uploadSalvo.upload_code,
+          total_itens: validacaoResultado.itensValidos.length,
+          timestamp: new Date().toISOString(),
+        },
+        uploadSalvo.upload_code,
+      )
+
       toast({
         title: 'Carteira Processada com Sucesso!',
         description: `Carga ${uploadCode} homologada no backend com ${validacaoResultado.itensValidos.length} itens.`,

@@ -805,6 +805,18 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.integrations.view',
       },
       {
+        title: 'Qualidade dos Dados PCP',
+        href: '/pcp/qualidade-dados',
+        icon: ShieldCheck,
+        permission: 'pcp.audit.view',
+      },
+      {
+        title: 'Status de Homologação',
+        href: '/pcp/status-homologacao',
+        icon: Layers,
+        permission: 'pcp.audit.view',
+      },
+      {
         title: 'Trilha de Auditoria',
         href: '/pcp/auditoria',
         icon: ShieldCheck,

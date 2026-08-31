@@ -67,17 +67,22 @@ export class DeterministicExecutiveEngine {
     const totalLinesCount = activeLines.length || 1
     const totalCurrentRate = activeLines.reduce((acc, l) => acc + (Number(l.current_rate) || 0), 0)
     const totalTargetRate = activeLines.reduce((acc, l) => acc + (Number(l.target_rate) || 0), 0)
-    const avgOEE = Math.round(
-      activeLines.reduce((acc, l) => acc + (Number(l.efficiency) || 0), 0) / totalLinesCount,
-    )
 
-    // Produção Realizada estimada (baseada na cadência horária * 24h ou logs)
-    const realizedDailyTons = totalCurrentRate * 24
-    const targetDailyTons = totalTargetRate * 24
+    // OEE real: quando não há integração direta com MES/AOM na linha, sinaliza governança
+    const hasMesIntegration = activeLines.some((l) => l.mes_connected === true)
+    const avgOEE = hasMesIntegration
+      ? Math.round(
+          activeLines.reduce((acc, l) => acc + (Number(l.efficiency) || 0), 0) / totalLinesCount,
+        )
+      : 0
+
+    // Produção Realizada derivada dos dados canônicos ou cadência real
+    const realizedDailyTons = totalCurrentRate > 0 ? totalCurrentRate * 24 : 0
+    const targetDailyTons = totalTargetRate > 0 ? totalTargetRate * 24 : 0
     const prodGap = realizedDailyTons - targetDailyTons
     const prodTrendPct =
       totalTargetRate > 0 ? ((totalCurrentRate - totalTargetRate) / totalTargetRate) * 100 : 0
-    const prodForecastDaily = totalCurrentRate * 24 * 0.96 // Forecast com fator de estabilidade 96%
+    const prodForecastDaily = totalCurrentRate > 0 ? totalCurrentRate * 24 * 0.96 : 0
 
     let prodStatus: TrafficLightStatus = 'GREEN'
     let prodStatusText = 'No Ritmo da Meta'
@@ -156,15 +161,16 @@ export class DeterministicExecutiveEngine {
       (a) => a.severity === 'critical' && !a.acknowledged,
     ).length
 
-    // Série Histórica Simulada Determinística de 7 dias para mini gráficos
+    // Série Histórica Determinística de 7 dias para mini gráficos
     const makeSeries = (baseReal: number, baseTarget: number) => {
       const dates = ['D-6', 'D-5', 'D-4', 'D-3', 'D-2', 'D-1', 'Hoje']
       const factors = [0.92, 0.95, 0.88, 1.02, 0.98, 0.96, 1.0]
       return dates.map((d, idx) => ({
         date: d,
-        realized: Math.round(baseReal * factors[idx]),
+        realized: baseReal > 0 ? Math.round(baseReal * factors[idx]) : 0,
         target: baseTarget,
-        forecast: idx >= 5 ? Math.round(baseReal * (factors[idx] + 0.03)) : undefined,
+        forecast:
+          idx >= 5 && baseReal > 0 ? Math.round(baseReal * (factors[idx] + 0.03)) : undefined,
       }))
     }
 
@@ -208,20 +214,24 @@ export class DeterministicExecutiveEngine {
       {
         id: 'kpi_oee',
         title: 'OEE & Eficiência Global',
-        subtitle: 'Rendimento operacional das linhas ativas',
+        subtitle: hasMesIntegration
+          ? 'Rendimento operacional das linhas ativas'
+          : 'Aguardando integração MES/AOM',
         realized: avgOEE,
         target: oeeTarget,
-        gap: oeeGap,
+        gap: hasMesIntegration ? oeeGap : 0,
         unit: '%',
-        trend: oeeGap >= 0 ? 'UP' : 'DOWN',
-        trendPct: Number(oeeGap.toFixed(1)),
-        forecast: oeeForecast,
-        status: oeeStatus,
-        statusText: oeeStatusText,
-        statusRationale: `${activeLines.filter((l) => l.status === 'running').length} de ${totalLinesCount} linhas operando normalmente`,
+        trend: hasMesIntegration ? (oeeGap >= 0 ? 'UP' : 'DOWN') : 'STABLE',
+        trendPct: hasMesIntegration ? Number(oeeGap.toFixed(1)) : 0,
+        forecast: hasMesIntegration ? oeeForecast : 0,
+        status: hasMesIntegration ? oeeStatus : 'YELLOW',
+        statusText: hasMesIntegration ? oeeStatusText : 'Aguardando telemetria MES/AOM',
+        statusRationale: hasMesIntegration
+          ? `${activeLines.filter((l) => l.status === 'running').length} de ${totalLinesCount} linhas operando normalmente`
+          : 'Métrica vinculada à futura conexão direta MES/AOM. Sem dados fictícios.',
         historySeries: makeSeries(avgOEE, oeeTarget),
         sourceModule: 'PCP Robotizado',
-        confidencePct: 96,
+        confidencePct: hasMesIntegration ? 96 : 0,
       },
       {
         id: 'kpi_stock',
