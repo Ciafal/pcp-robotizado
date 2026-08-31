@@ -99,6 +99,37 @@ export interface WeeklyScheduleItem {
   stop_code?: string
   stop_description?: string
   stop_duration_minutes?: number
+  // Estrutura explícita de Setup (Troca + Acerto + SMED + Oficina)
+  setup_breakdown?: {
+    from_material_code?: string
+    to_material_code?: string
+    from_family_code?: string
+    to_family_code?: string
+    change_type?: string
+    planned_change_minutes: number
+    planned_tuning_minutes: number
+    planned_total_minutes: number
+    responsible_area?: 'OFICINA_CILINDROS' | 'PRODUCAO' | 'MANUTENCAO'
+    cylinder_set_code?: string
+    cylinder_set_name?: string
+    guides_code?: string
+    tools_code?: string
+    readiness_status?:
+      | 'READY'
+      | 'IN_PREPARATION'
+      | 'DELAY_RISK'
+      | 'NOT_STARTED'
+      | 'BLOCKED_UNAVAILABLE'
+    preparation_deadline?: string
+    is_missing_standard_param?: boolean
+    realized_change_minutes?: number
+    realized_tuning_minutes?: number
+    realized_total_minutes?: number
+    is_bottleneck_resource?: boolean
+    bottleneck_stage_name?: string
+    bottleneck_loss_capacity_th?: number
+    bottleneck_potential_tons?: number
+  }
   start_datetime: string
   end_datetime: string
   status: WeeklyScheduleWorkflowState
@@ -247,9 +278,15 @@ export interface WeeklyIndicators {
   programmedQuantityTons: number
   programmedProductiveHours: number
   setupHours: number
+  tuningHours?: number
   stoppedHours: number
+  maintenanceHours?: number
+  coolingHours?: number
   freeHours: number
   utilizationPct: number
+  setupsCount?: number
+  avgSetupMinutes?: number
+  capacityLossTons?: number
   programmedProductsCount: number
   rawMaterialRequiredTons: number
   rawMaterialAvailableTons?: number

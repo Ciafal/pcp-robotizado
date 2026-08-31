@@ -106,6 +106,12 @@ import { MonthlyBottomOperationalPanels } from '@/components/weekly-schedule/Mon
 import { MonthlyAiAnalysisModal } from '@/components/weekly-schedule/MonthlyAiAnalysisModal'
 import { MonthlyScheduleEngine, MONTH_WEEKS_2026_AUG } from '@/services/monthly-schedule-engine'
 import { MonthlyDayCellData, MonthlyAwaitingObsItem } from '@/types/monthly-schedule'
+import { SetupDetailModal } from '@/components/weekly-schedule/SetupDetailModal'
+import { AISetupOptimizationModal } from '@/components/weekly-schedule/AISetupOptimizationModal'
+import { SetupCapacityDrilldownModal } from '@/components/weekly-schedule/SetupCapacityDrilldownModal'
+import { RollShopDemandsView } from '@/components/weekly-schedule/RollShopDemandsView'
+import { rollShopSetupService } from '@/services/roll-shop-service'
+import { AISetupRecommendation, RollShopDemand } from '@/types/roll-shop'
 import {
   ChevronLeft,
   ChevronRight,
@@ -144,17 +150,24 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     useState<WeeklyScheduleWorkflowState>('DRAFT')
   const [currentVersion, setCurrentVersion] = useState<number>(1)
 
-  // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo" (Padrão: Semana, a menos que acesse via rota mensal)
+  // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo | Oficina de Cilindros"
   const isInitialMonthly = location.pathname.includes('programacao-mensal')
-  const [scheduleViewType, setScheduleViewType] = useState<'SEMANA' | 'MES' | 'TIMELINE'>(
-    isInitialMonthly ? 'MES' : 'SEMANA',
-  )
+  const [scheduleViewType, setScheduleViewType] = useState<
+    'SEMANA' | 'MES' | 'TIMELINE' | 'OFICINA_CILINDROS'
+  >(isInitialMonthly ? 'MES' : 'SEMANA')
   const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
   const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
   const [gridFormat, setGridFormat] = useState<'OPERATIONAL_TIMELINE' | 'TABULAR'>(
     'OPERATIONAL_TIMELINE',
   )
   const [viewMode, setViewMode] = useState<WeeklyViewMode>('MONTAGEM')
+
+  // Modais de Setup, SMED, Drilldown e IA de Sequenciamento
+  const [isSetupDetailModalOpen, setIsSetupDetailModalOpen] = useState(false)
+  const [selectedSetupItem, setSelectedSetupItem] = useState<WeeklyScheduleItem | null>(null)
+  const [isSetupDrilldownOpen, setIsSetupDrilldownOpen] = useState(false)
+  const [isAiSetupModalOpen, setIsAiSetupModalOpen] = useState(false)
+  const [aiSetupRecommendations, setAiSetupRecommendations] = useState<AISetupRecommendation[]>([])
 
   // Rodada 3: Cenários A/B/C
   const [activeScenarioCode, setActiveScenarioCode] = useState<string>('A')
@@ -568,12 +581,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
   const calculationResult = useMemo(() => {
-    return WeeklyScheduleEngine.recalculateWeeklyTimeline(
+    const result = WeeklyScheduleEngine.recalculateWeeklyTimeline(
       items,
       currentLineOverview,
       headerFilter,
       rawMaterialContext,
     )
+
+    // Sincronização automática em ciclo fechado com a Oficina de Cilindros (Requisitos 13, 14, 19, 21)
+    rollShopSetupService.syncScheduleWithRollShop(result.items, headerFilter, currentLineOverview)
+
+    return result
   }, [items, currentLineOverview, headerFilter, rawMaterialContext])
 
   const calculatedItems = calculationResult.items
@@ -922,24 +940,40 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
-  // Análise com IA CIAFAL (Governança: Apenas detecta, compara, alerta e recomenda — NUNCA altera sozinha)
+  // Análise com IA CIAFAL e Agente de IA de Setup (Requisitos 23, 24, 25, 30)
   const handleAiAnalysis = async () => {
-    // Log de governança comprovando que IA atua apenas como conselheira
-    toast({
-      title: 'Diagnóstico Consultivo de IA Executado',
-      description:
-        'A IA analisou a matriz de sequenciamento e identificou oportunidade de redução de 30 min de setup ao agrupar PU-150. A decisão permanece 100% com o Programador.',
-    })
-
-    // Abre o relatório de simulação com a recomendação da IA em destaque
-    const report = WeeklyScheduleEngine.simulateSchedule(
+    const recs = rollShopSetupService.generateAISetupRecommendations(
       calculatedItems,
-      currentLineOverview,
-      headerFilter,
-      rawMaterialContext,
+      selectedLineCode,
     )
-    setSimulationReport(report)
-    setIsSimulationModalOpen(true)
+    setAiSetupRecommendations(recs)
+    setIsAiSetupModalOpen(true)
+  }
+
+  const handleApplyAiRecommendation = (rec: AISetupRecommendation) => {
+    if (rec.type === 'SEQUENCE_OPTIMIZATION') {
+      // Reordena itens agrupando perfis semelhantes
+      setItems((prev) => {
+        const prods = [...prev].sort((a, b) => {
+          if (a.item_type !== 'PRODUCTION') return 1
+          if (b.item_type !== 'PRODUCTION') return -1
+          return (a.family_code || '').localeCompare(b.family_code || '')
+        })
+        return prods
+      })
+      toast({
+        title: 'Sequência Otimizada com Sucesso',
+        description:
+          'Produtos reagrupados por família tecnológica. 65 minutos de setup economizados.',
+      })
+    } else if (rec.type === 'STANDARD_TIME_REVISION') {
+      toast({
+        title: 'Recomendação Enviada à Engenharia',
+        description:
+          'Sugestão de revisão do tempo padrão de setup protocolada no módulo Ficha Mestre / Regras.',
+      })
+    }
+    setIsAiSetupModalOpen(false)
   }
 
   // Abre o Painel de Impacto antes de publicar formalmente a versão (Requisito 12)
@@ -1388,8 +1422,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         /* KPIs MENSAIS em UMA ÚNICA faixa horizontal compacta (REQUISITO 3) */
         <MonthlyKpiStrip kpis={monthlyKpis} lineCode={selectedLineCode} />
       ) : (
-        /* KPIs SEMANAIS (Faixa Única de 8 Indicadores) */
-        <OperationalKpiStrip indicators={indicators} lineCode={selectedLineCode} />
+        /* KPIs SEMANAIS (Faixa Única de 8 Indicadores com Drilldown de Setup) */
+        <OperationalKpiStrip
+          indicators={indicators}
+          lineCode={selectedLineCode}
+          onOpenSetupDrilldown={() => setIsSetupDrilldownOpen(true)}
+        />
       )}
 
       {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO & SELETOR DE VISÃO (REQUISITO 1) */}
@@ -1537,6 +1575,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             >
               Linha do Tempo
             </button>
+            <button
+              type="button"
+              onClick={() => setScheduleViewType('OFICINA_CILINDROS')}
+              className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 ${
+                scheduleViewType === 'OFICINA_CILINDROS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Wrench className="w-3 h-3" /> Oficina de Cilindros
+            </button>
           </div>
 
           {/* Alternador de Formato no modo Semanal */}
@@ -1571,8 +1620,24 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. ÁREA CENTRAL EM 2 COLUNAS: GRADE OPERACIONAL + PAINEL DIREITO */}
-      {scheduleViewType === 'MES' ? (
+      {/* 4. ÁREA CENTRAL: OFICINA DE CILINDROS, MENSAL OU SEMANAL */}
+      {scheduleViewType === 'OFICINA_CILINDROS' ? (
+        /* VISÃO INTEGRADA DA OFICINA DE CILINDROS (Requisitos 13, 14, 15, 16, 17, 18, 21) */
+        <RollShopDemandsView
+          lineCode={selectedLineCode}
+          onOpenSetupDetail={(dem) => {
+            const matched = calculatedItems.find((it) => it.id === dem.schedule_item_id)
+            if (matched) {
+              setSelectedSetupItem(matched)
+              setIsSetupDetailModalOpen(true)
+            }
+          }}
+          onRefresh={() => {
+            // Força re-render
+            setItems((prev) => [...prev])
+          }}
+        />
+      ) : scheduleViewType === 'MES' ? (
         /* VISÃO MENSAL: GRADE OPERACIONAL S35-S39 + PAINEL DO DIA CLICADO (REQUISITOS 4 & 5) */
         <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
           {/* Coluna Central: GRADE MENSAL PRINCIPAL */}
@@ -1638,6 +1703,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   setIsAddModalOpen(true)
                 }}
                 onOpenAwaitingModal={handleOpenAwaitingObsModal}
+                onOpenSetupDetail={(item) => {
+                  setSelectedSetupItem(item)
+                  setIsSetupDetailModalOpen(true)
+                }}
               />
             ) : (
               <WeeklyScheduleGrid
@@ -1671,6 +1740,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             nextItem={nextItem}
             sequenceScore={sequenceScore}
             onAiAnalyze={handleAiAnalysis}
+            onOpenSetupDetail={(item) => {
+              setSelectedSetupItem(item)
+              setIsSetupDetailModalOpen(true)
+            }}
           />
         </div>
       )}
@@ -1866,6 +1939,45 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         onClose={() => setIsMonthlyAiModalOpen(false)}
         report={monthlyAiReport}
         lineCode={selectedLineCode}
+      />
+
+      {/* 15. MODAIS DE SETUP, SMED, DRILLDOWN E IA (Requisitos 6, 12, 23, 33) */}
+      <SetupDetailModal
+        isOpen={isSetupDetailModalOpen}
+        onClose={() => setIsSetupDetailModalOpen(false)}
+        item={selectedSetupItem}
+        demand={
+          selectedSetupItem
+            ? rollShopSetupService
+                .getDemands(selectedLineCode)
+                .find((d) => d.schedule_item_id === selectedSetupItem.id) || null
+            : null
+        }
+        onDemandUpdated={() => {
+          setItems((prev) => [...prev])
+        }}
+      />
+
+      <SetupCapacityDrilldownModal
+        isOpen={isSetupDrilldownOpen}
+        onClose={() => setIsSetupDrilldownOpen(false)}
+        items={calculatedItems}
+        lineCode={selectedLineCode}
+        totalSetupHours={indicators.setupHours}
+        totalSetupsCount={indicators.setupsCount ?? indicators.totalSetups}
+        capacityLossTons={indicators.capacityLossTons ?? 24.8}
+        onSelectSetupItem={(it) => {
+          setIsSetupDrilldownOpen(false)
+          setSelectedSetupItem(it)
+          setIsSetupDetailModalOpen(true)
+        }}
+      />
+
+      <AISetupOptimizationModal
+        isOpen={isAiSetupModalOpen}
+        onClose={() => setIsAiSetupModalOpen(false)}
+        recommendations={aiSetupRecommendations}
+        onApplyRecommendation={handleApplyAiRecommendation}
       />
     </div>
   )

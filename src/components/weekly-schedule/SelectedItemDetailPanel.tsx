@@ -25,6 +25,7 @@ interface SelectedItemDetailPanelProps {
   nextItem?: WeeklyScheduleItem | null
   sequenceScore?: number
   onAiAnalyze?: () => void
+  onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
 }
 
 export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = ({
@@ -34,6 +35,7 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
   nextItem,
   sequenceScore = 72,
   onAiAnalyze,
+  onOpenSetupDetail,
 }) => {
   if (!item) {
     return (
@@ -158,9 +160,19 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                   {prodHours.toFixed(2)} h
                 </span>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-500 block">Setup Previsto:</span>
-                <span className="font-mono font-bold text-amber-700">{setupMin} min</span>
+              <div
+                className="cursor-pointer hover:bg-amber-100/60 p-0.5 rounded transition-colors"
+                onClick={() => onOpenSetupDetail && onOpenSetupDetail(item)}
+                title="Clique para abrir detalhes de Troca x Acerto"
+              >
+                <span className="text-[10px] text-slate-500 block underline flex items-center gap-0.5">
+                  Setup Previsto:
+                </span>
+                <span className="font-mono font-bold text-[#004C97]">
+                  {item.setup_breakdown
+                    ? `${item.setup_breakdown.planned_change_minutes}m + ${item.setup_breakdown.planned_tuning_minutes}m`
+                    : `${setupMin} min`}
+                </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">Início Previsto:</span>

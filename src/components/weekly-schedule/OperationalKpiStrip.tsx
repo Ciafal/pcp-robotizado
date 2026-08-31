@@ -18,6 +18,7 @@ import { WeeklyIndicators } from '@/types/weekly-schedule'
 interface OperationalKpiStripProps {
   indicators: WeeklyIndicators
   lineCode?: string
+  onOpenSetupDrilldown?: () => void
 }
 
 export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
@@ -87,13 +88,22 @@ export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
           </div>
         </div>
 
-        {/* 3. Setup / Troca */}
-        <div className="flex-1 px-3 flex flex-col justify-center min-w-[130px]">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight truncate">
-            Setup / Troca
-          </span>
+        {/* 3. Setup / Troca (com Drilldown e Troca x Acerto) */}
+        <div
+          className="flex-1 px-3 flex flex-col justify-center min-w-[130px] cursor-pointer hover:bg-blue-50/50 transition-colors group"
+          onClick={onOpenSetupDrilldown}
+          title="Clique para ver Drill-down de Setups e SMED"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#004C97] uppercase tracking-tight truncate group-hover:underline">
+              Setup / Troca
+            </span>
+            <span className="text-[9px] text-[#004C97] font-semibold">
+              {indicators.setupsCount ? `${indicators.setupsCount} un` : ''}
+            </span>
+          </div>
           <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className="text-sm font-black font-mono text-slate-900">
+            <span className="text-sm font-black font-mono text-[#004C97]">
               {setupHours.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,

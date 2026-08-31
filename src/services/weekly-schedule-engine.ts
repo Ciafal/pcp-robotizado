@@ -336,30 +336,97 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
-   * Determina o tempo de setup entre dois produtos/famílias conforme Matriz de Setup
+   * Determina o tempo de setup completo (Troca + Acerto) entre dois produtos/famílias
+   * conforme Matriz de Setup da Ficha Mestre e SMED (Requisitos 5, 6, 7, 8, 11)
    */
   calculateSetup(
     prevItem: WeeklyScheduleItem | null,
     currentMaterialCode: string,
     currentFamilyCode: string | undefined,
     lineOverview: LineOverviewData | null,
-  ): { setupDurationMinutes: number; setupReason: string } {
+    lineCode = 'L1',
+  ): {
+    setupDurationMinutes: number
+    setupReason: string
+    breakdown: {
+      planned_change_minutes: number
+      planned_tuning_minutes: number
+      planned_total_minutes: number
+      from_material_code?: string
+      to_material_code?: string
+      from_family_code?: string
+      to_family_code?: string
+      change_type: string
+      responsible_area: 'OFICINA_CILINDROS' | 'PRODUCAO' | 'MANUTENCAO'
+      is_missing_standard_param: boolean
+      cylinder_set_code?: string
+      cylinder_set_name?: string
+      is_bottleneck_resource: boolean
+      bottleneck_stage_name: string
+      bottleneck_loss_capacity_th: number
+      bottleneck_potential_tons: number
+    }
+  } {
+    const isBottleneck = lineCode === 'L1' || lineCode.includes('L1')
+    const bottleneckCap = isBottleneck ? 24.8 : 20.0
+
     if (!prevItem || prevItem.item_type !== 'PRODUCTION') {
-      return { setupDurationMinutes: 0, setupReason: 'Início de lote ou primeiro item do turno' }
-    }
-
-    if (prevItem.material_code.toUpperCase() === currentMaterialCode.toUpperCase()) {
-      return { setupDurationMinutes: 0, setupReason: 'Mesmo material (continuidade de campanha)' }
-    }
-
-    if (!lineOverview || !lineOverview.setupMatrix || lineOverview.setupMatrix.length === 0) {
       return {
-        setupDurationMinutes: 15,
-        setupReason: `Troca de bitola padrão [${prevItem.material_code} → ${currentMaterialCode}]: 15 min`,
+        setupDurationMinutes: 0,
+        setupReason: 'Início de lote ou primeiro item do turno (sem setup prévio)',
+        breakdown: {
+          planned_change_minutes: 0,
+          planned_tuning_minutes: 0,
+          planned_total_minutes: 0,
+          from_material_code: undefined,
+          to_material_code: currentMaterialCode,
+          from_family_code: undefined,
+          to_family_code: currentFamilyCode,
+          change_type: 'INICIO_CAMPANHA',
+          responsible_area: 'PRODUCAO',
+          is_missing_standard_param: false,
+          is_bottleneck_resource: isBottleneck,
+          bottleneck_stage_name: 'Trem Contínuo de Laminação',
+          bottleneck_loss_capacity_th: bottleneckCap,
+          bottleneck_potential_tons: 0,
+        },
       }
     }
 
-    const exactMatch = lineOverview.setupMatrix.find(
+    if (prevItem.material_code.toUpperCase() === currentMaterialCode.toUpperCase()) {
+      return {
+        setupDurationMinutes: 0,
+        setupReason: 'Mesmo material (continuidade de campanha sem troca física)',
+        breakdown: {
+          planned_change_minutes: 0,
+          planned_tuning_minutes: 0,
+          planned_total_minutes: 0,
+          from_material_code: prevItem.material_code,
+          to_material_code: currentMaterialCode,
+          from_family_code: prevItem.family_code,
+          to_family_code: currentFamilyCode,
+          change_type: 'CONTINUIDADE',
+          responsible_area: 'PRODUCAO',
+          is_missing_standard_param: false,
+          is_bottleneck_resource: isBottleneck,
+          bottleneck_stage_name: 'Trem Contínuo de Laminação',
+          bottleneck_loss_capacity_th: bottleneckCap,
+          bottleneck_potential_tons: 0,
+        },
+      }
+    }
+
+    let changeMin = 20
+    let tuningMin = 10
+    let reason = ''
+    let isMissingParam = false
+
+    const prevFam = prevItem.family_code || 'TQ_LEVES'
+    const curFam = currentFamilyCode || 'TR_LEVES'
+    const isFamilyChange = prevFam !== curFam
+
+    // Busca exata produto a produto na Matriz de Setup
+    const exactMatch = lineOverview?.setupMatrix?.find(
       (s) =>
         s.active &&
         s.from_product_code &&
@@ -367,33 +434,64 @@ export const WeeklyScheduleEngine = {
         s.from_product_code.toUpperCase() === prevItem.material_code.toUpperCase() &&
         s.to_product_code.toUpperCase() === currentMaterialCode.toUpperCase(),
     )
-    if (exactMatch) {
-      return {
-        setupDurationMinutes: exactMatch.setup_duration_minutes,
-        setupReason: `${exactMatch.setup_description} (${exactMatch.setup_duration_minutes} min)`,
-      }
-    }
 
-    const prevFam = prevItem.family_code
-    const curFam = currentFamilyCode
-    if (prevFam && curFam) {
-      const familyMatch = lineOverview.setupMatrix.find(
+    if (exactMatch) {
+      const tot = exactMatch.setup_duration_minutes || 30
+      changeMin = Math.round(tot * 0.65)
+      tuningMin = tot - changeMin
+      reason = `${exactMatch.setup_description || 'Troca Ficha Mestre'} (Troca: ${changeMin} min + Acerto: ${tuningMin} min = ${tot} min)`
+    } else {
+      // Busca família a família
+      const familyMatch = lineOverview?.setupMatrix?.find(
         (s) =>
           s.active &&
           s.expand?.from_family_id?.code === prevFam &&
           s.expand?.to_family_id?.code === curFam,
       )
       if (familyMatch) {
-        return {
-          setupDurationMinutes: familyMatch.setup_duration_minutes,
-          setupReason: `${familyMatch.setup_description} (${familyMatch.setup_duration_minutes} min)`,
+        const tot = familyMatch.setup_duration_minutes || 35
+        changeMin = Math.round(tot * 0.65)
+        tuningMin = tot - changeMin
+        reason = `${familyMatch.setup_description || 'Troca de Família'} (Troca: ${changeMin} min + Acerto: ${tuningMin} min = ${tot} min)`
+      } else {
+        // Heurística metalúrgica padrão CIAFAL
+        if (isFamilyChange) {
+          changeMin = 35
+          tuningMin = 15
+          reason = `Troca de Família [${prevFam} → ${curFam}]: Troca ${changeMin} min + Acerto ${tuningMin} min (Total: 50 min)`
+        } else {
+          changeMin = 15
+          tuningMin = 5
+          reason = `Troca de Bitola [${prevItem.material_code} → ${currentMaterialCode}]: Troca ${changeMin} min + Acerto ${tuningMin} min (Total: 20 min)`
         }
+        isMissingParam = !lineOverview?.setupMatrix || lineOverview.setupMatrix.length === 0
       }
     }
 
+    const totalMinutes = changeMin + tuningMin
+    const potentialLostTons = Number(((totalMinutes / 60) * bottleneckCap).toFixed(1))
+
     return {
-      setupDurationMinutes: 15,
-      setupReason: `Troca de lote/bitola padrão Ficha Mestre (${prevItem.material_code} → ${currentMaterialCode}): 15 min`,
+      setupDurationMinutes: totalMinutes,
+      setupReason: reason,
+      breakdown: {
+        planned_change_minutes: changeMin,
+        planned_tuning_minutes: tuningMin,
+        planned_total_minutes: totalMinutes,
+        from_material_code: prevItem.material_code,
+        to_material_code: currentMaterialCode,
+        from_family_code: prevFam,
+        to_family_code: curFam,
+        change_type: isFamilyChange ? 'TROCA_FAMILIA_COMPLETA' : 'TROCA_BITOLA',
+        responsible_area: isFamilyChange ? 'OFICINA_CILINDROS' : 'PRODUCAO',
+        is_missing_standard_param: isMissingParam,
+        cylinder_set_code: `CJ-${lineCode}-${curFam.replace('_', '-')}`,
+        cylinder_set_name: `Jogo de Cilindros ${curFam}`,
+        is_bottleneck_resource: isBottleneck,
+        bottleneck_stage_name: 'Trem Contínuo de Laminação',
+        bottleneck_loss_capacity_th: bottleneckCap,
+        bottleneck_potential_tons: potentialLostTons,
+      },
     }
   },
 
@@ -1054,15 +1152,17 @@ export const WeeklyScheduleEngine = {
       const prodHours = productivity > 0 ? qtyTons / productivity : 0
       item.production_hours = Number(prodHours.toFixed(2))
 
-      // 3. Setup de troca
-      const { setupDurationMinutes, setupReason } = this.calculateSetup(
+      // 3. Setup de troca explícito (Troca + Acerto + SMED + Oficina de Cilindros)
+      const { setupDurationMinutes, setupReason, breakdown } = this.calculateSetup(
         previousProductionItem,
         item.material_code,
         item.family_code,
         lineOverview,
+        headerFilter.lineCode,
       )
       item.setup_duration_minutes = setupDurationMinutes
       item.setup_reason = setupReason
+      item.setup_breakdown = breakdown
 
       // 4. Linha do Tempo
       const totalMinutes = setupDurationMinutes + prodHours * 60
@@ -1367,12 +1467,55 @@ export const WeeklyScheduleEngine = {
       0,
     )
 
-    const totalCommittedHours = programmedProductiveHours + setupHours + stoppedHours
+    const setupItems = processedItems.filter((it) => (it.setup_duration_minutes || 0) > 0)
+    let totalChangeMin = 0
+    let totalTuningMin = 0
+    let totalSetupMin = 0
+
+    setupItems.forEach((it) => {
+      if (it.setup_breakdown) {
+        totalChangeMin += it.setup_breakdown.planned_change_minutes || 0
+        totalTuningMin += it.setup_breakdown.planned_tuning_minutes || 0
+        totalSetupMin += it.setup_breakdown.planned_total_minutes || it.setup_duration_minutes || 0
+      } else {
+        totalSetupMin += it.setup_duration_minutes || 0
+      }
+    })
+
+    const totalSetupHours = Number((totalSetupMin / 60).toFixed(1))
+    const totalTuningHours = Number((totalTuningMin / 60).toFixed(1))
+
+    // Paradas detalhadas (Manutenção, Resfriamento, Outras)
+    const stopItems = processedItems.filter((it) => it.item_type === 'STOP')
+    const maintenanceMin = stopItems
+      .filter(
+        (it) =>
+          it.stop_code?.toUpperCase().includes('MANUT') ||
+          it.notes?.toLowerCase().includes('manuten'),
+      )
+      .reduce((acc, it) => acc + (it.duration_minutes || it.stop_duration_minutes || 0), 0)
+
+    const coolingMin = stopItems
+      .filter(
+        (it) =>
+          it.stop_code?.toUpperCase().includes('RESF') ||
+          it.notes?.toLowerCase().includes('resfria'),
+      )
+      .reduce((acc, it) => acc + (it.duration_minutes || it.stop_duration_minutes || 0), 0)
+
+    const maintenanceHours = Number((maintenanceMin / 60).toFixed(1))
+    const coolingHoursTotal = Number((coolingMin / 60).toFixed(1))
+
+    const totalCommittedHours = programmedProductiveHours + totalSetupHours + stoppedHours
     const freeHours = Math.max(0, nominalAvailableHours - totalCommittedHours)
     const utilizationPct =
       nominalAvailableHours > 0
         ? Math.min(150, Number(((totalCommittedHours / nominalAvailableHours) * 100).toFixed(1)))
         : 0
+
+    const setupsCount = setupItems.length
+    const avgSetupMinutes = setupsCount > 0 ? Math.round(totalSetupMin / setupsCount) : 0
+    const capacityLossTons = Number(((totalSetupMin / 60) * 24.8).toFixed(1))
 
     if (utilizationPct > 100) {
       validations.push({
@@ -1511,10 +1654,16 @@ export const WeeklyScheduleEngine = {
       availableCapacityHours: Number(nominalAvailableHours.toFixed(1)),
       programmedQuantityTons: Number(programmedQuantityTons.toFixed(1)),
       programmedProductiveHours: Number(programmedProductiveHours.toFixed(1)),
-      setupHours: Number(setupHours.toFixed(1)),
+      setupHours: Number(totalSetupHours.toFixed(1)),
+      tuningHours: Number(totalTuningHours.toFixed(1)),
       stoppedHours: Number(stoppedHours.toFixed(1)),
+      maintenanceHours: Number(maintenanceHours.toFixed(1)),
+      coolingHours: Number(coolingHoursTotal.toFixed(1)),
       freeHours: Number(freeHours.toFixed(1)),
       utilizationPct,
+      setupsCount,
+      avgSetupMinutes,
+      capacityLossTons,
       programmedProductsCount: processedItems.filter((it) => it.item_type === 'PRODUCTION').length,
       rawMaterialRequiredTons: Number(totalRawMaterialRequired.toFixed(1)),
       rawMaterialAvailableTons: Number(totalRawMaterialAvailable.toFixed(1)),
@@ -1535,10 +1684,16 @@ export const WeeklyScheduleEngine = {
         calendarHours,
         availableHours: Number(nominalAvailableHours.toFixed(1)),
         productionHours: Number(programmedProductiveHours.toFixed(1)),
-        setupHours: Number(setupHours.toFixed(1)),
+        setupHours: Number(totalSetupHours.toFixed(1)),
+        tuningHours: Number(totalTuningHours.toFixed(1)),
         stoppedHours: Number(stoppedHours.toFixed(1)),
+        maintenanceHours: Number(maintenanceHours.toFixed(1)),
+        coolingHours: Number(coolingHoursTotal.toFixed(1)),
         freeHours: Number(freeHours.toFixed(1)),
         utilizationPct,
+        setupsCount,
+        avgSetupMinutes,
+        capacityLossTons,
       },
       production: {
         totalTons: Number(programmedQuantityTons.toFixed(1)),

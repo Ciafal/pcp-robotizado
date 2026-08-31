@@ -34,6 +34,7 @@ interface OperationalTimelineGridProps {
     shiftCode: string,
   ) => void
   onOpenAwaitingModal?: (item: WeeklyScheduleItem) => void
+  onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
 }
 
 // Horários para a régua da linha do tempo: 06:00 até 22:00 (17 colunas de 1h)
@@ -81,6 +82,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   onRemoveItem,
   onAddItem,
   onOpenAwaitingModal,
+  onOpenSetupDetail,
 }) => {
   // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({
@@ -377,33 +379,92 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                               {/* Linhas verticais de fundo a cada hora */}
                               <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
 
-                              {/* BLOCO DE SETUP ENTRE PRODUTOS (se houver setup > 0 antes da produção) */}
+                              {/* BLOCO DE SETUP EXPLÍCITO (TROCA + ACERTO) (Requisitos 5, 6, 11, 12, 18, 28) */}
                               {hasSetupBefore && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div
                                       style={{
-                                        left: `${Math.max(0, timelinePos.leftPct - 4)}%`,
-                                        width: '3.8%',
+                                        left: `${Math.max(0, timelinePos.leftPct - 7.5)}%`,
+                                        width: '7.2%',
                                       }}
-                                      className="absolute h-7 bg-slate-200 text-slate-800 border border-slate-400 rounded-sm flex items-center justify-center text-[9px] font-mono font-bold cursor-help z-10"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                      }}
+                                      className="absolute h-7 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-between px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors z-20 shadow-xs group/setup"
                                     >
-                                      <Clock className="w-2.5 h-2.5 mr-0.5 text-slate-600" />
-                                      {item.setup_duration_minutes}m
+                                      <span className="flex items-center gap-0.5 text-[9px] text-slate-800 font-extrabold truncate">
+                                        🔧{' '}
+                                        {item.setup_breakdown?.planned_change_minutes ||
+                                          Math.round((item.setup_duration_minutes || 30) * 0.65)}
+                                        m
+                                      </span>
+                                      <span className="flex items-center gap-0.5 text-[9px] text-[#004C97] font-extrabold truncate">
+                                        ⚙{' '}
+                                        {item.setup_breakdown?.planned_tuning_minutes ||
+                                          Math.max(
+                                            5,
+                                            (item.setup_duration_minutes || 30) -
+                                              Math.round(
+                                                (item.setup_duration_minutes || 30) * 0.65,
+                                              ),
+                                          )}
+                                        m
+                                      </span>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent
                                     side="top"
-                                    className="bg-slate-900 text-white text-xs p-2"
+                                    className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
                                   >
-                                    <p className="font-bold text-amber-300">
-                                      Tempo de Setup / Troca
-                                    </p>
+                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5">
+                                      <span className="font-bold text-amber-300 flex items-center gap-1">
+                                        🔧 SETUP EXPLÍCITO — LINHA {item.line_code}
+                                      </span>
+                                      <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                                        Total: {item.setup_duration_minutes} min
+                                      </span>
+                                    </div>
                                     <p className="text-[11px] text-slate-200">
-                                      Setup: {item.setup_duration_minutes} min / Acerto: 20 min
+                                      De:{' '}
+                                      <strong className="text-slate-100">
+                                        {item.setup_breakdown?.from_material_code || 'Início'}
+                                      </strong>{' '}
+                                      &rarr; Para:{' '}
+                                      <strong className="text-blue-300">
+                                        {item.material_code}
+                                      </strong>
+                                    </p>
+                                    <p className="text-[11px] text-slate-300 mt-1">
+                                      • Troca Prevista:{' '}
+                                      <strong className="text-slate-100">
+                                        {item.setup_breakdown?.planned_change_minutes ||
+                                          Math.round(
+                                            (item.setup_duration_minutes || 30) * 0.65,
+                                          )}{' '}
+                                        min
+                                      </strong>{' '}
+                                      | Acerto Previsto:{' '}
+                                      <strong className="text-[#004C97]/40 text-blue-300">
+                                        {item.setup_breakdown?.planned_tuning_minutes ||
+                                          Math.max(
+                                            5,
+                                            (item.setup_duration_minutes || 30) -
+                                              Math.round(
+                                                (item.setup_duration_minutes || 30) * 0.65,
+                                              ),
+                                          )}{' '}
+                                        min
+                                      </strong>
                                     </p>
                                     <p className="text-[10px] text-slate-400 mt-1">
-                                      {item.setup_reason || 'Troca de matrizes e guias de perfil.'}
+                                      Responsável:{' '}
+                                      {item.setup_breakdown?.responsible_area ===
+                                      'OFICINA_CILINDROS'
+                                        ? 'Oficina de Cilindros'
+                                        : 'Produção'}{' '}
+                                      • Clique para detalhamento SMED
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>

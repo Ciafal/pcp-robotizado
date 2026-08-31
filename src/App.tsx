@@ -301,6 +301,22 @@ export const App: React.FC = () => {
                   }
                 />
                 <Route
+                  path="/pcp/oficina-cilindros"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/oficina-cilindros"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <WeeklyScheduleOperationalPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
                   path="/programacao-mensal"
                   element={
                     <PermissionGuard permission="pcp.schedule.view">

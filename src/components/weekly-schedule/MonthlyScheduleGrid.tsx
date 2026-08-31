@@ -185,14 +185,14 @@ export const MonthlyScheduleGrid: React.FC<MonthlyScheduleGridProps> = ({
                         <div className="text-[10px] text-slate-600 font-medium flex items-center justify-between">
                           <span>
                             {day.productsCount} {day.productsCount === 1 ? 'prod' : 'prods'}
-                            {day.setupsCount > 0 && ` • ${day.setupsCount} set`}
+                            {day.setupsCount > 0 &&
+                              ` • ${day.setupsCount} set (${day.setupHours}h)`}
                           </span>
-                          {/* Exibição de Revisões no Dia (Requisito 34) */}
                           <span
                             className="text-[9px] font-mono text-blue-700 bg-blue-50 px-1 rounded font-bold"
                             title="Revisões de versão nesta data"
                           >
-                            🔄 2 rev
+                            🔧 Troca x Acerto
                           </span>
                         </div>
                       </div>
