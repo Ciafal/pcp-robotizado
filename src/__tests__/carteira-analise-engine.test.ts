@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import * as XLSX from 'xlsx'
 import { CarteiraZSD28CEngine, REGRAS_PADRAO } from '@/services/carteira-engine'
 import { CarteiraService } from '@/services/carteira-service'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
@@ -338,10 +339,83 @@ describe('Motor de Cálculos da Análise de Carteira & Paridade ZSD28C', () => {
     })
   })
 
-  it('9. Deve gerar template de download do Excel oficial com as 3 abas sem dados fictícios', () => {
+  it('9. Deve gerar template de download do Excel oficial com as 3 abas sem dados fictícios', async () => {
     const blob = CarteiraService.gerarTemplateExcelBlob()
     expect(blob).toBeDefined()
-    expect(blob.type).toContain('csv')
+    expect(blob.type).toContain('spreadsheetml.sheet')
+
+    // Ler buffer e verificar que o parser real lê as abas geradas perfeitamente
+    const arrayBuffer = await blob.arrayBuffer()
+    const parsed = CarteiraService.parseArquivoBuffer(
+      arrayBuffer,
+      'Template_Carteira_PCP_ZSD28C_QAS.xlsx',
+    )
+    expect(parsed.linhasCarteira.length).toBeGreaterThan(0)
+    expect(parsed.linhasEntradasFuturas.length).toBeGreaterThan(0)
+
+    const validacao = CarteiraService.validarLinhasCarteira(
+      parsed.linhasCarteira,
+      parsed.linhasEntradasFuturas,
+    )
+    expect(validacao.valido).toBe(true)
+    expect(validacao.itensValidos.length).toBeGreaterThan(0)
+    expect(validacao.entradasFuturasValidas.length).toBeGreaterThan(0)
+  })
+
+  it('11. Deve fazer parse real de arquivo XLSX binário contendo aba principal e aba ENTRADAS FUTURAS', () => {
+    // Simula criação direta de workbook XLSX em memória
+    const wb = XLSX.utils.book_new()
+    const wsCarteira = XLSX.utils.aoa_to_sheet([
+      [
+        'Código do material',
+        'Descrição do material',
+        'Ordem de venda',
+        'Item',
+        'Quantidade da ordem (t)',
+        'Quantidade faturada (t)',
+        'Estoque livre (t)',
+        'Tipo de atendimento',
+        'Origem do produto',
+      ],
+      [
+        'C1020-050',
+        'Barra Chata 1020',
+        '4500999888',
+        '10',
+        '100',
+        '20',
+        '30',
+        'MTS',
+        'PRODUCAO_PROPRIA',
+      ],
+    ])
+    const wsEntradas = XLSX.utils.aoa_to_sheet([
+      [
+        'Material',
+        'Origem',
+        'Pedido/Documento',
+        'Quantidade prevista (t)',
+        'Quantidade recebida (t)',
+      ],
+      ['C1020-050', 'REVENDA', 'PO-REV-888', '25', '0'],
+    ])
+    XLSX.utils.book_append_sheet(wb, wsCarteira, 'CARTEIRA ZSD28C')
+    XLSX.utils.book_append_sheet(wb, wsEntradas, 'ENTRADAS FUTURAS')
+
+    const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const { linhasCarteira, linhasEntradasFuturas } = CarteiraService.parseArquivoBuffer(
+      bin,
+      'relatorio_qas.xlsx',
+    )
+
+    expect(linhasCarteira.length).toBe(1)
+    expect(linhasEntradasFuturas.length).toBe(1)
+
+    const validacao = CarteiraService.validarLinhasCarteira(linhasCarteira, linhasEntradasFuturas)
+    expect(validacao.valido).toBe(true)
+    expect(validacao.itensValidos[0].codigo_material).toBe('C1020-050')
+    expect(validacao.entradasFuturasValidas[0].quantidade_prevista_tons).toBe(25)
+    expect(validacao.itensValidos[0].necessidade_liquida_tons).toBe(25) // Carteira aberta 80 - Estoque 30 - Entradas 25 = 25t
   })
 
   it('10. Deve calcular hash SHA-256 e reconciliar com SAP identificando OK, DIVERGENCIA e SOMENTE_PCP/SAP', async () => {

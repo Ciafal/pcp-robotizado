@@ -293,10 +293,10 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
             <div className="p-3 bg-blue-50 text-[#004C97] w-12 h-12 rounded-full mx-auto flex items-center justify-center shadow-xs">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">Nenhuma Carga de Carteira Ativa</h3>
+            <h3 className="text-base font-bold text-slate-900">Nenhuma carteira carregada</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              O submódulo de Análise de Carteira está pronto para operação em QAS. Baixe o template
-              padrão Excel e realize a primeira carga para visualizar a consolidação ZSD28C.
+              Utilize "Importar Carteira" para iniciar a análise. O arquivo Excel QAS ZSD28C
+              alimentará automaticamente todos os 6 tópicos da base única de carteira.
             </p>
             <Button
               onClick={onOpenImportModal}

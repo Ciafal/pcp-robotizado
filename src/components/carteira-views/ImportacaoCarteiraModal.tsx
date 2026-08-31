@@ -59,7 +59,7 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'Template_Carteira_PCP_ZSD28C_QAS.csv'
+    a.download = 'Template_Carteira_PCP_ZSD28C_QAS.xlsx'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -68,7 +68,7 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
     toast({
       title: 'Template Gerado com Sucesso',
       description:
-        'Arquivo Template_Carteira_PCP_ZSD28C_QAS baixado com abas de Carteira, Entradas Futuras e Dicionário.',
+        'Arquivo Template_Carteira_PCP_ZSD28C_QAS.xlsx baixado com abas CARTEIRA, ENTRADAS FUTURAS e DICIONÁRIO.',
     })
   }
 
@@ -77,12 +77,12 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
     if (!file) return
 
     const ext = file.name.split('.').pop()?.toLowerCase()
-    if (ext !== 'csv' && ext !== 'txt' && ext !== 'xlsx') {
+    if (ext !== 'csv' && ext !== 'txt' && ext !== 'xlsx' && ext !== 'xls') {
       toast({
         variant: 'destructive',
         title: 'Formato Não Autorizado',
         description:
-          'Selecione apenas arquivos no formato autorizado (.csv, .xlsx) do layout CIAFAL.',
+          'Selecione apenas arquivos no formato autorizado (.xlsx, .xls, .csv, .txt) do layout CIAFAL.',
       })
       return
     }
@@ -90,46 +90,31 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
     setSelectedFile(file)
     const reader = new FileReader()
     reader.onload = async (event) => {
-      const content = event.target?.result as string
-      const hash = await CarteiraService.calcularHashSHA256(content)
+      const buffer = event.target?.result as ArrayBuffer
+      const hash = await CarteiraService.calcularHashSHA256(buffer)
       setFileHashHex(hash)
-      executarValidacao(content, hash)
+      executarValidacao(buffer, file.name, hash)
     }
-    reader.readAsText(file, 'UTF-8')
+    reader.readAsArrayBuffer(file)
   }
 
-  const executarValidacao = async (csvContent: string, hash: string) => {
+  const executarValidacao = async (buffer: ArrayBuffer, fileName: string, hash: string) => {
     try {
-      const lines = csvContent
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0 && !l.startsWith('#'))
-      if (lines.length === 0) {
+      const { linhasCarteira, linhasEntradasFuturas } = CarteiraService.parseArquivoBuffer(
+        buffer,
+        fileName,
+      )
+
+      if (linhasCarteira.length === 0) {
         toast({
           variant: 'destructive',
-          title: 'Arquivo Vazio',
-          description: 'O arquivo enviado não contém linhas de dados válidas.',
+          title: 'Arquivo Vazio ou Aba Incorreta',
+          description: 'Não foram encontradas linhas de carteira válidas no arquivo enviado.',
         })
         return
       }
 
-      const firstLine = lines[0]
-      const delimiter = firstLine.includes(';') ? ';' : ','
-      const headers = firstLine.split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim())
-
-      const rows: any[] = []
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(delimiter).map((c) => c.replace(/^["']|["']$/g, '').trim())
-        if (cols.length === headers.length || cols.length >= 5) {
-          const rowObj: any = {}
-          headers.forEach((h, idx) => {
-            rowObj[h] = cols[idx] || ''
-          })
-          rows.push(rowObj)
-        }
-      }
-
-      const res = CarteiraService.validarLinhasCarteira(rows)
+      const res = CarteiraService.validarLinhasCarteira(linhasCarteira, linhasEntradasFuturas)
       setValidacaoResultado(res)
       setActiveStep('VALIDACAO')
 
@@ -366,17 +351,17 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
               <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
                 <UploadCloud className="w-10 h-10 text-[#004C97] mx-auto mb-2" />
                 <h4 className="text-sm font-bold text-slate-800">
-                  Arraste ou selecione o arquivo da Carteira QAS (.csv, .xlsx)
+                  Arraste ou selecione o arquivo da Carteira QAS (.xlsx, .xls, .csv)
                 </h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                  O arquivo será validado contra fórmulas maliciosas, estrutura obrigatória e
-                  consistência de pedidos.
+                  O arquivo será validado contra fórmulas maliciosas, estrutura obrigatória,
+                  consistência de pedidos e entradas futuras.
                 </p>
 
                 <label className="mt-4 inline-block">
                   <input
                     type="file"
-                    accept=".csv,.xlsx,.txt"
+                    accept=".xlsx,.xls,.csv,.txt"
                     onChange={handleFileChange}
                     className="hidden"
                   />

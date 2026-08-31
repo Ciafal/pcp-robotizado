@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T14:23:15.760Z",
+  "generatedAt": "2026-08-31T16:23:54.434Z",
   "collections": [
     {
       "name": "users",
@@ -15702,6 +15702,42 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "file_hash_sha256",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "snapshot_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "execution_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reconciliation_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "environment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lineage_summary",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -16066,6 +16102,54 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "source_load_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_row",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_transaction",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_system",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rule_version_applied",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calculation_memory",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "environment",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

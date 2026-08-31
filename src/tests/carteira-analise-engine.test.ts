@@ -652,21 +652,36 @@ describe('Motor de Cálculos da Análise de Carteira & Paridade ZSD28C CIAFAL', 
           'Código do material': 'C1020',
           'Ordem de venda': '4500900',
           'Item': '10',
-          'Quantidade da ordem (t)': '20',
+          'Quantidade da ordem (t)': 20,
         },
         {
           'Código do material': 'C1020',
           'Ordem de venda': '4500900',
           'Item': '10',
-          'Quantidade da ordem (t)': '20',
+          'Quantidade da ordem (t)': 20,
         },
       ]
 
       const resultado = CarteiraService.validarLinhasCarteira(linhasDuplicadas)
-      expect(resultado.duplicados.length).toBe(1)
-      expect(resultado.duplicados[0].pedido).toBe('4500900')
-      expect(resultado.duplicados[0].material).toBe('C1020')
-      expect(resultado.alertas.length).toBe(1)
+      expect(resultado.itensValidos.length).toBe(2)
+      expect(resultado.itensValidos.some(i => i.possivel_duplicidade)).toBe(true)
+      expect(resultado.alertas.length).toBeGreaterThan(0)
+    })
+
+    it('8.4. Deve gerar template oficial .xlsx com as abas corretas e parsear .xlsx binário de ponta a ponta', async () => {
+      const blob = CarteiraService.gerarTemplateExcelBlob()
+      expect(blob).toBeDefined()
+      expect(blob.type).toContain('spreadsheetml.sheet')
+
+      const buffer = await blob.arrayBuffer()
+      const parsed = CarteiraService.parseArquivoBuffer(buffer, 'Template_Carteira_PCP_ZSD28C_QAS.xlsx')
+      expect(parsed.linhasCarteira.length).toBeGreaterThan(0)
+      expect(parsed.linhasEntradasFuturas.length).toBeGreaterThan(0)
+
+      const validacao = CarteiraService.validarLinhasCarteira(parsed.linhasCarteira, parsed.linhasEntradasFuturas)
+      expect(validacao.valido).toBe(true)
+      expect(validacao.itensValidos.length).toBeGreaterThan(0)
+      expect(validacao.entradasFuturasValidas.length).toBeGreaterThan(0)
     })
   })
 })

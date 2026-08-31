@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx'
 import pb from '@/lib/pocketbase/client'
 import {
   CarteiraItem,
@@ -40,14 +41,168 @@ export class CarteiraService {
     return isNaN(parsed) ? 0 : parsed
   }
 
+  public static parseArquivoBuffer(
+    buffer: ArrayBuffer,
+    fileName: string,
+  ): { linhasCarteira: any[]; linhasEntradasFuturas: any[] } {
+    const ext = fileName.split('.').pop()?.toLowerCase() || ''
+
+    // Verificação de assinatura binária (magic bytes) para identificar ZIP/XLSX (PK\x03\x04) ou OLE2/XLS (\xD0\xCF\x11\xE0)
+    const uint8 = new Uint8Array(buffer)
+    const isZip =
+      uint8.length >= 4 &&
+      uint8[0] === 0x50 &&
+      uint8[1] === 0x4b &&
+      uint8[2] === 0x03 &&
+      uint8[3] === 0x04
+    const isOle =
+      uint8.length >= 4 &&
+      uint8[0] === 0xd0 &&
+      uint8[1] === 0xcf &&
+      uint8[2] === 0x11 &&
+      uint8[3] === 0xe0
+
+    if (ext === 'xlsx' || ext === 'xls' || isZip || isOle) {
+      // Leitura de planilha binária sem macros (read without executing or evaluating formulas/macros)
+      const wb = XLSX.read(buffer, {
+        type: 'array',
+        cellFormula: false,
+        cellHTML: false,
+        raw: false,
+        dateNF: 'yyyy-mm-dd',
+      })
+      let linhasCarteira: any[] = []
+      let linhasEntradasFuturas: any[] = []
+
+      // Procura por abas nominais ou usa primeira/segunda
+      const sheetNames = wb.SheetNames
+      const carteiraSheetName =
+        sheetNames.find((s) => {
+          const u = s.toUpperCase()
+          return (
+            u.includes('CARTEIRA') ||
+            u.includes('ZSD28C') ||
+            u.includes('PRINCIPAL') ||
+            u.includes('GERAL')
+          )
+        }) || sheetNames[0]
+
+      const entradasSheetName = sheetNames.find((s) => {
+        const u = s.toUpperCase()
+        return (
+          u.includes('ENTRADA') ||
+          u.includes('FUTURA') ||
+          u.includes('REVENDA') ||
+          u.includes('IMPORTAD') ||
+          u.includes('RECEBIMENTO')
+        )
+      })
+
+      if (carteiraSheetName && wb.Sheets[carteiraSheetName]) {
+        linhasCarteira = XLSX.utils.sheet_to_json(wb.Sheets[carteiraSheetName], {
+          defval: '',
+          raw: false,
+        })
+      }
+
+      if (entradasSheetName && wb.Sheets[entradasSheetName]) {
+        linhasEntradasFuturas = XLSX.utils.sheet_to_json(wb.Sheets[entradasSheetName], {
+          defval: '',
+          raw: false,
+        })
+      } else if (
+        sheetNames.length > 1 &&
+        sheetNames[1] !== carteiraSheetName &&
+        !sheetNames[1].toUpperCase().includes('DICION')
+      ) {
+        linhasEntradasFuturas = XLSX.utils.sheet_to_json(wb.Sheets[sheetNames[1]], {
+          defval: '',
+          raw: false,
+        })
+      }
+
+      return { linhasCarteira, linhasEntradasFuturas }
+    } else {
+      // CSV / TXT estruturado
+      const decoder = new TextDecoder('utf-8')
+      const text = decoder.decode(buffer)
+      return this.parseCsvCompleto(text)
+    }
+  }
+
+  public static parseCsvCompleto(csvContent: string): {
+    linhasCarteira: any[]
+    linhasEntradasFuturas: any[]
+  } {
+    const allLines = csvContent
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+
+    let secaoAtual: 'CARTEIRA' | 'ENTRADAS' | 'OUTROS' = 'CARTEIRA'
+    const carteiraLines: string[] = []
+    const entradasLines: string[] = []
+
+    for (const line of allLines) {
+      if (line.startsWith('#')) {
+        const upper = line.toUpperCase()
+        if (upper.includes('CARTEIRA')) {
+          secaoAtual = 'CARTEIRA'
+        } else if (
+          upper.includes('ENTRADA') ||
+          upper.includes('FUTURA') ||
+          upper.includes('REVENDA')
+        ) {
+          secaoAtual = 'ENTRADAS'
+        } else if (upper.includes('DICION')) {
+          secaoAtual = 'OUTROS'
+        }
+        continue
+      }
+
+      if (secaoAtual === 'CARTEIRA') {
+        carteiraLines.push(line)
+      } else if (secaoAtual === 'ENTRADAS') {
+        entradasLines.push(line)
+      }
+    }
+
+    const parseSection = (lines: string[]): any[] => {
+      if (lines.length === 0) return []
+      const firstLine = lines[0]
+      const delimiter = firstLine.includes(';') ? ';' : ','
+      const headers = firstLine.split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim())
+
+      const rows: any[] = []
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(delimiter).map((c) => c.replace(/^["']|["']$/g, '').trim())
+        if (cols.length >= 2) {
+          const rowObj: any = {}
+          headers.forEach((h, idx) => {
+            rowObj[h] = cols[idx] || ''
+          })
+          rows.push(rowObj)
+        }
+      }
+      return rows
+    }
+
+    return {
+      linhasCarteira: parseSection(carteiraLines),
+      linhasEntradasFuturas: parseSection(entradasLines),
+    }
+  }
+
   public static validarLinhasCarteira(
     linhasBrutas: any[],
-    entradasFuturas: CarteiraEntradaFutura[] = [],
+    entradasFuturasBrutas: any[] = [],
   ): ValidacaoUploadResultado {
     const erros: Array<{ linha: number; campo: string; mensagem: string; valor?: string }> = []
     const alertas: Array<{ linha: number; campo: string; mensagem: string }> = []
     const duplicados: Array<{ pedido: string; item: string; material: string }> = []
     const itensValidos: CarteiraItem[] = []
+
+    const entradasFuturasValidas = this.validarLinhasEntradasFuturas(entradasFuturasBrutas)
 
     const mapDuplicidade = new Set<string>()
 
@@ -232,7 +387,7 @@ export class CarteiraService {
 
       const itemCalculado = CarteiraZSD28CEngine.calcularItem(
         rawItem,
-        entradasFuturas,
+        entradasFuturasValidas,
         REGRAS_PADRAO,
       )
       itensValidos.push(itemCalculado)
@@ -249,7 +404,7 @@ export class CarteiraService {
       alertas,
       duplicados,
       itensValidos,
-      entradasFuturasValidas: [],
+      entradasFuturasValidas,
       totalLinhas,
       linhasValidas,
       linhasComAlerta,
@@ -261,36 +416,70 @@ export class CarteiraService {
     const entradas: CarteiraEntradaFutura[] = []
     linhasBrutas.forEach((row) => {
       const mat = this.sanitizarCampoTexto(
-        row['Material'] || row['codigo_material'] || row['Código do material'],
+        row['Material'] ||
+          row['material'] ||
+          row['codigo_material'] ||
+          row['Codigo do material'] ||
+          row['Código do material'] ||
+          row['Código Material'] ||
+          row['CODIGO_MATERIAL'],
       )
       if (!mat) return
 
       let origem: 'REVENDA' | 'IMPORTADO' | 'PRODUCAO_INTERNA' | 'OUTROS' = 'REVENDA'
-      const rawOrigem = this.sanitizarCampoTexto(row['Origem'] || row['origem'] || '').toUpperCase()
+      const rawOrigem = this.sanitizarCampoTexto(
+        row['Origem'] || row['origem'] || row['ORIGEM'] || row['Tipo Origem'] || '',
+      ).toUpperCase()
       if (rawOrigem.includes('IMPORT')) origem = 'IMPORTADO'
-      else if (rawOrigem.includes('PROD')) origem = 'PRODUCAO_INTERNA'
+      else if (rawOrigem.includes('PROD') || rawOrigem.includes('INTERN'))
+        origem = 'PRODUCAO_INTERNA'
+      else if (rawOrigem.includes('OUTRO')) origem = 'OUTROS'
 
       const qtdPrevista = this.parseNumeroTons(
-        row['Quantidade prevista (t)'] || row['quantidade_prevista_tons'] || 0,
+        row['Quantidade prevista (t)'] ||
+          row['quantidade_prevista_tons'] ||
+          row['Qtd Prevista'] ||
+          row['Quantidade Prevista'] ||
+          row['Quantidade'] ||
+          0,
       )
       const qtdRecebida = this.parseNumeroTons(
-        row['Quantidade recebida (t)'] || row['quantidade_recebida_tons'] || 0,
+        row['Quantidade recebida (t)'] ||
+          row['quantidade_recebida_tons'] ||
+          row['Qtd Recebida'] ||
+          row['Quantidade Recebida'] ||
+          0,
       )
       const qtdPendente = Math.max(0, qtdPrevista - qtdRecebida)
 
       entradas.push({
-        empresa: this.sanitizarCampoTexto(row['Empresa'] || 'CIAFAL'),
-        centro: this.sanitizarCampoTexto(row['Centro'] || '1000'),
+        empresa: this.sanitizarCampoTexto(row['Empresa'] || row['empresa'] || 'CIAFAL'),
+        centro: this.sanitizarCampoTexto(row['Centro'] || row['centro'] || '1000'),
         codigo_material: mat,
         descricao_material: this.sanitizarCampoTexto(
-          row['Descrição'] || row['descricao_material'] || mat,
+          row['Descrição'] ||
+            row['descricao'] ||
+            row['Descricao'] ||
+            row['descricao_material'] ||
+            row['Descrição do material'] ||
+            mat,
         ),
         origem,
         documento_ref: this.sanitizarCampoTexto(
-          row['Pedido/Documento'] || row['documento_ref'] || 'PO-FUT-01',
+          row['Pedido/Documento'] ||
+            row['pedido_documento'] ||
+            row['Documento'] ||
+            row['documento_ref'] ||
+            row['Pedido'] ||
+            row['OC'] ||
+            'PO-FUT-01',
         ),
         fornecedor_origem: this.sanitizarCampoTexto(
-          row['Fornecedor/origem'] || row['fornecedor_origem'] || 'Gerdau / Arcelor / Import',
+          row['Fornecedor/origem'] ||
+            row['fornecedor_origem'] ||
+            row['Fornecedor'] ||
+            row['fornecedor'] ||
+            'Gerdau / Arcelor / Import',
         ),
         quantidade_prevista_tons: qtdPrevista,
         quantidade_recebida_tons: qtdRecebida,
@@ -298,19 +487,27 @@ export class CarteiraService {
         data_prevista_entrada: this.sanitizarCampoTexto(
           row['Data prevista de entrada'] ||
             row['data_prevista_entrada'] ||
+            row['Data Prevista'] ||
+            row['Previsão'] ||
             new Date().toISOString().split('T')[0],
         ),
         status_entrada: this.sanitizarCampoTexto(
-          row['Status da entrada'] || row['status_entrada'] || 'CONFIRMADO',
+          row['Status da entrada'] ||
+            row['status_entrada'] ||
+            row['Status'] ||
+            row['status'] ||
+            'CONFIRMADO',
         ),
-        observacao: this.sanitizarCampoTexto(row['Observação'] || row['observacao'] || ''),
+        observacao: this.sanitizarCampoTexto(
+          row['Observação'] || row['observacao'] || row['Observacoes'] || '',
+        ),
       })
     })
     return entradas
   }
 
   public static gerarTemplateExcelBlob(): Blob {
-    const aba1Cabecalho = [
+    const cabecalhoCarteira = [
       'Empresa',
       'Centro',
       'Linha',
@@ -335,80 +532,539 @@ export class CarteiraService {
       'Estoque MTO (t)',
       'Carteira MTO (t)',
       'Estoque semiacabado (t)',
+      'Estoque Semiacabado CIAFAL',
+      'Estoque Semiacabado Vallourec',
       'Estoque acabado (t)',
       'Quantidade programada (t)',
       'Data programada',
+      'Semana programada',
+      'Linha programada',
       'Média de faturamento diário (t/dia)',
       'Data de apuração',
       'Bloqueio',
       'Motivo do bloqueio',
       'Observação',
-    ].join(';')
+      'ZSD24',
+      'Material DP04',
+      'Utilização Livre',
+      'Material Vallourec',
+      'DP27',
+    ]
 
-    const aba2Cabecalho = [
+    // Linha de exemplo mínima para guiar o usuário na aba CARTEIRA
+    const exemploCarteira = [
+      'CIAFAL',
+      '1000',
+      'L1',
+      '4500100200',
+      '10',
+      '2025-01-10',
+      '2025-02-15',
+      'CLI-00120',
+      'Aço & Estruturas Ltda',
+      'C1020-050',
+      'Barra Chata 1020 1/2 x 1/8',
+      'BARRA_CHATA',
+      'A',
+      'MTS',
+      'MTS',
+      'PRODUCAO_PROPRIA',
+      '50.000',
+      '50.000',
+      '10.000',
+      '40.000',
+      '20.000',
+      '0.000',
+      '0.000',
+      '15.000',
+      '15.000',
+      '0.000',
+      '20.000',
+      '0.000',
+      '2025-02-05',
+      'Semana 06',
+      'L1',
+      '2.500',
+      '2025-01-20',
+      'NAO',
+      '',
+      'Priorizar entrega lote 1',
+      '0.000',
+      '',
+      '',
+      '',
+      '',
+    ]
+
+    const cabecalhoEntradas = [
       'Empresa',
       'Centro',
       'Material',
       'Descrição',
       'Origem',
       'Pedido/Documento',
+      'Fornecedor/origem',
       'Quantidade prevista (t)',
+      'Quantidade recebida (t)',
       'Data prevista de entrada',
       'Status da entrada',
-      'Fornecedor/origem',
       'Observação',
-    ].join(';')
+    ]
 
-    const dicionario = [
-      '# DICIONÁRIO DE CAMPOS - TEMPLATE CARTEIRA PCP ZSD28C QAS CIAFAL',
-      'Campo;Descrição;Formato;Unidade;Obrigatório;Valores Permitidos',
-      'Empresa;Código da empresa CIAFAL;Texto;-;Sim;CIAFAL',
-      'Centro;Código do centro fabril/filial;Texto;-;Sim;1000 / 2000',
-      'Linha;Linha de Laminação / Acabamento;Texto;-;Sim;L1 / L2 / GERAL',
-      'Ordem de venda;Número da ordem de venda SAP ECC;Texto;-;Sim;Ex: 4500981240',
-      'Item;Item da ordem de venda;Texto;-;Sim;Ex: 10, 20',
-      'Data da ordem;Data de emissão do pedido;Data (AAAA-MM-DD);-;Sim;AAAA-MM-DD',
-      'Data desejada;Data solicitada pelo cliente;Data (AAAA-MM-DD);-;Sim;AAAA-MM-DD',
-      'Código do cliente;Código do cliente SAP;Texto;-;Sim;Ex: CLI-10024',
-      'Cliente;Razão social ou nome fantasia;Texto;-;Sim;Nome do cliente',
-      'Código do material;Código SAP do produto acabado/perfil;Texto;-;Sim;Ex: C1020, R0500',
-      'Descrição do material;Descrição comercial/técnica;Texto;-;Sim;Descrição',
-      'Família;Família produtiva;Texto;-;Sim;Barra Chata, Cantoneira, Redondo, Quadrado',
-      'Curva ABC;Classificação de relevância;Texto;-;Sim;A, B, C',
-      'MTS/MTO;Tipo de atendimento fabril;Texto;-;Sim;MTS, MTO',
-      'Origem do produto;Origem do suprimento;Texto;-;Sim;Produção própria, Revenda, Importado, Industrialização',
-      'Quantidade da ordem (t);Volume total do pedido em toneladas;Numérico;t;Sim;>= 0.000',
-      'Quantidade faturada (t);Volume já faturado e expedido;Numérico;t;Sim;>= 0.000',
-      'Estoque livre (t);Estoque físico disponível sem reserva;Numérico;t;Sim;>= 0.000',
-      'Estoque MTO (t);Estoque físico reservado para ordem MTO;Numérico;t;Não;>= 0.000',
-      'Estoque semiacabado (t);Estoque de tarugos/placas disponíveis;Numérico;t;Não;>= 0.000',
-      'Estoque acabado (t);Estoque no depósito de acabados;Numérico;t;Não;>= 0.000',
-      'Quantidade programada (t);Volume alocado na programação PCP;Numérico;t;Não;>= 0.000',
-      'Média de faturamento diário (t/dia);Consumo médio diário histórico;Numérico;t/dia;Não;>= 0.000 (0 = sem consumo suficiente)',
-      'Bloqueio;Indicador de bloqueio de qualidade/comercial;Booleano;-;Não;SIM / NÃO',
-    ].join('\n')
+    // Linha de exemplo para a aba ENTRADAS FUTURAS
+    const exemploEntradas = [
+      'CIAFAL',
+      '1000',
+      'C1020-050',
+      'Barra Chata 1020 1/2 x 1/8',
+      'REVENDA',
+      'PO-REV-2025-001',
+      'Gerdau / ArcelorMittal',
+      '30.000',
+      '0.000',
+      '2025-02-10',
+      'CONFIRMADO',
+      'Lote 01 trânsito rodoviário',
+    ]
 
-    const conteudoCompleto = [
-      '# ABA 1 - CARTEIRA (ZSD28C QAS)',
-      aba1Cabecalho,
-      '',
-      '# ABA 2 - ENTRADAS FUTURAS (REVENDA / IMPORTADO)',
-      aba2Cabecalho,
-      '',
-      dicionario,
-    ].join('\n')
+    const dicionarioRows = [
+      [
+        'Nome do Campo',
+        'Aba',
+        'Descrição',
+        'Formato',
+        'Unidade',
+        'Obrigatoriedade',
+        'Exemplo de Formato',
+      ],
+      [
+        'Empresa',
+        'CARTEIRA',
+        'Código da empresa no SAP ECC',
+        'Texto (Alfa)',
+        '-',
+        'Obrigatório',
+        'CIAFAL',
+      ],
+      [
+        'Centro',
+        'CARTEIRA',
+        'Centro de distribuição/fabril',
+        'Texto (Numérico 4 posições)',
+        '-',
+        'Obrigatório',
+        '1000',
+      ],
+      [
+        'Linha',
+        'CARTEIRA',
+        'Linha de laminação ou agrupamento',
+        'Texto (L1, L2, GERAL)',
+        '-',
+        'Obrigatório',
+        'L1',
+      ],
+      [
+        'Ordem de venda',
+        'CARTEIRA',
+        'Número da ordem de venda SAP',
+        'Texto (Numérico)',
+        '-',
+        'Obrigatório',
+        '4500100200',
+      ],
+      ['Item', 'CARTEIRA', 'Item da ordem de venda', 'Texto (Numérico)', '-', 'Obrigatório', '10'],
+      [
+        'Data da ordem',
+        'CARTEIRA',
+        'Data de criação da ordem no SAP',
+        'Data (AAAA-MM-DD)',
+        '-',
+        'Obrigatório',
+        '2025-01-10',
+      ],
+      [
+        'Data desejada',
+        'CARTEIRA',
+        'Data de entrega desejada pelo cliente',
+        'Data (AAAA-MM-DD)',
+        '-',
+        'Obrigatório',
+        '2025-02-15',
+      ],
+      [
+        'Código do cliente',
+        'CARTEIRA',
+        'Código SAP do cliente',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'CLI-00120',
+      ],
+      [
+        'Cliente',
+        'CARTEIRA',
+        'Razão social / Nome do cliente',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'Aço & Estruturas Ltda',
+      ],
+      [
+        'Código do material',
+        'CARTEIRA',
+        'Código único SAP do material',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'C1020-050',
+      ],
+      [
+        'Descrição do material',
+        'CARTEIRA',
+        'Descrição técnica e comercial do material',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'Barra Chata 1020 1/2 x 1/8',
+      ],
+      [
+        'Família',
+        'CARTEIRA',
+        'Família de produto acabado',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'BARRA_CHATA',
+      ],
+      [
+        'Curva ABC',
+        'CARTEIRA',
+        'Classificação ABC de relevância comercial',
+        'Texto (A, B, C)',
+        '-',
+        'Obrigatório',
+        'A',
+      ],
+      [
+        'Tipo de atendimento',
+        'CARTEIRA',
+        'Modalidade de atendimento comercial',
+        'Texto (MTS, MTO)',
+        '-',
+        'Obrigatório',
+        'MTS',
+      ],
+      [
+        'MTS/MTO',
+        'CARTEIRA',
+        'Estratégia de manufatura',
+        'Texto (MTS, MTO)',
+        '-',
+        'Obrigatório',
+        'MTS',
+      ],
+      [
+        'Origem do produto',
+        'CARTEIRA',
+        'Origem de suprimento',
+        'Texto (PRODUCAO_PROPRIA, REVENDA, IMPORTADO)',
+        '-',
+        'Obrigatório',
+        'PRODUCAO_PROPRIA',
+      ],
+      [
+        'Carteira de vendas (t)',
+        'CARTEIRA',
+        'Volume em carteira de vendas (MTS)',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '50.000',
+      ],
+      [
+        'Quantidade da ordem (t)',
+        'CARTEIRA',
+        'Quantidade total solicitada na ordem',
+        'Numérico decimal',
+        't',
+        'Obrigatório',
+        '50.000',
+      ],
+      [
+        'Quantidade faturada (t)',
+        'CARTEIRA',
+        'Quantidade já faturada na ordem',
+        'Numérico decimal',
+        't',
+        'Obrigatório',
+        '10.000',
+      ],
+      [
+        'Carteira aberta (t)',
+        'CARTEIRA',
+        'Saldo em aberto (Qtd Ordem - Qtd Faturada)',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '40.000',
+      ],
+      [
+        'Estoque livre (t)',
+        'CARTEIRA',
+        'Estoque físico desimpedido em depósito',
+        'Numérico decimal',
+        't',
+        'Obrigatório',
+        '20.000',
+      ],
+      [
+        'Estoque MTO (t)',
+        'CARTEIRA',
+        'Estoque reservado especificamente para ordens MTO',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      [
+        'Carteira MTO (t)',
+        'CARTEIRA',
+        'Volume em carteira sob encomenda (MTO)',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      [
+        'Estoque semiacabado (t)',
+        'CARTEIRA',
+        'Estoque de tarugos/placas disponíveis',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '15.000',
+      ],
+      [
+        'Estoque Semiacabado CIAFAL',
+        'CARTEIRA',
+        'Estoque semiacabado próprio CIAFAL (Ciclo L2)',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '15.000',
+      ],
+      [
+        'Estoque Semiacabado Vallourec',
+        'CARTEIRA',
+        'Estoque semiacabado parceiro Vallourec (Ciclo L2)',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      [
+        'Estoque acabado (t)',
+        'CARTEIRA',
+        'Estoque total no armazém de produtos acabados',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '20.000',
+      ],
+      [
+        'Quantidade programada (t)',
+        'CARTEIRA',
+        'Volume alocado na programação oficial do PCP',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      [
+        'Data programada',
+        'CARTEIRA',
+        'Data prevista na programação fabril',
+        'Data (AAAA-MM-DD)',
+        '-',
+        'Opcional',
+        '2025-02-05',
+      ],
+      [
+        'Média de faturamento diário (t/dia)',
+        'CARTEIRA',
+        'Consumo médio histórico para apuração de ruptura',
+        'Numérico decimal',
+        't/dia',
+        'Opcional',
+        '2.500',
+      ],
+      [
+        'Data de apuração',
+        'CARTEIRA',
+        'Data de extração do relatório QAS ZSD28C',
+        'Data (AAAA-MM-DD)',
+        '-',
+        'Opcional',
+        '2025-01-20',
+      ],
+      [
+        'Bloqueio',
+        'CARTEIRA',
+        'Status de bloqueio comercial/crédito/qualidade',
+        'Texto/Booleano (SIM/NAO)',
+        '-',
+        'Opcional',
+        'NAO',
+      ],
+      [
+        'Motivo do bloqueio',
+        'CARTEIRA',
+        'Justificativa do bloqueio quando aplicável',
+        'Texto',
+        '-',
+        'Opcional',
+        'Aguardando liberação de crédito',
+      ],
+      [
+        'Observação',
+        'CARTEIRA',
+        'Notas operacionais do PCP',
+        'Texto',
+        '-',
+        'Opcional',
+        'Priorizar entrega no lote 1',
+      ],
+      [
+        'ZSD24',
+        'CARTEIRA',
+        'Volume de demanda ZSD24 para Ciclo L2',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      ['', '', '', '', '', '', ''],
+      ['-- ABA ENTRADAS FUTURAS --', '', '', '', '', '', ''],
+      ['Empresa', 'ENTRADAS FUTURAS', 'Código da empresa', 'Texto', '-', 'Obrigatório', 'CIAFAL'],
+      ['Centro', 'ENTRADAS FUTURAS', 'Centro receptor', 'Texto', '-', 'Obrigatório', '1000'],
+      [
+        'Material',
+        'ENTRADAS FUTURAS',
+        'Código SAP do material da entrada futura',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'C1020-050',
+      ],
+      [
+        'Descrição',
+        'ENTRADAS FUTURAS',
+        'Descrição técnica do material da entrada',
+        'Texto',
+        '-',
+        'Opcional',
+        'Barra Chata 1020',
+      ],
+      [
+        'Origem',
+        'ENTRADAS FUTURAS',
+        'Origem da entrada prevista',
+        'Texto (REVENDA, IMPORTADO, PRODUCAO_INTERNA)',
+        '-',
+        'Obrigatório',
+        'REVENDA',
+      ],
+      [
+        'Pedido/Documento',
+        'ENTRADAS FUTURAS',
+        'Número da OC, Pedido de Compra ou DI',
+        'Texto',
+        '-',
+        'Obrigatório',
+        'PO-REV-2025-001',
+      ],
+      [
+        'Fornecedor/origem',
+        'ENTRADAS FUTURAS',
+        'Razão social da siderúrgica ou porto',
+        'Texto',
+        '-',
+        'Opcional',
+        'Gerdau / ArcelorMittal',
+      ],
+      [
+        'Quantidade prevista (t)',
+        'ENTRADAS FUTURAS',
+        'Volume total encomendado em toneladas',
+        'Numérico decimal',
+        't',
+        'Obrigatório',
+        '30.000',
+      ],
+      [
+        'Quantidade recebida (t)',
+        'ENTRADAS FUTURAS',
+        'Volume já entregue em toneladas',
+        'Numérico decimal',
+        't',
+        'Opcional',
+        '0.000',
+      ],
+      [
+        'Data prevista de entrada',
+        'ENTRADAS FUTURAS',
+        'Data estimada de chegada/liberação',
+        'Data (AAAA-MM-DD)',
+        '-',
+        'Obrigatório',
+        '2025-02-10',
+      ],
+      [
+        'Status da entrada',
+        'ENTRADAS FUTURAS',
+        'Status operacional da compra/trânsito',
+        'Texto (CONFIRMADO, EM_TRANSITO, PREVISTO)',
+        '-',
+        'Opcional',
+        'CONFIRMADO',
+      ],
+      [
+        'Observação',
+        'ENTRADAS FUTURAS',
+        'Notas de comércio exterior / compras',
+        'Texto',
+        '-',
+        'Opcional',
+        'Lote 01 trânsito rodoviário',
+      ],
+    ]
 
-    return new Blob(['\uFEFF' + conteudoCompleto], { type: 'text/csv;charset=utf-8;' })
+    const wb = XLSX.utils.book_new()
+    const wsCarteira = XLSX.utils.aoa_to_sheet([cabecalhoCarteira, exemploCarteira])
+    const wsEntradas = XLSX.utils.aoa_to_sheet([cabecalhoEntradas, exemploEntradas])
+    const wsDicionario = XLSX.utils.aoa_to_sheet(dicionarioRows)
+
+    XLSX.utils.book_append_sheet(wb, wsCarteira, 'CARTEIRA')
+    XLSX.utils.book_append_sheet(wb, wsEntradas, 'ENTRADAS FUTURAS')
+    XLSX.utils.book_append_sheet(wb, wsDicionario, 'DICIONÁRIO')
+
+    const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    return new Blob([wbOut], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
   }
 
   /**
    * Calcula hash SHA-256 de um texto para idempotência e integridade da carga
    */
-  public static async calcularHashSHA256(conteudo: string): Promise<string> {
+  public static async calcularHashSHA256(conteudo: string | ArrayBuffer): Promise<string> {
     try {
       if (typeof window !== 'undefined' && window.crypto?.subtle) {
-        const encoder = new TextEncoder()
-        const data = encoder.encode(conteudo)
+        const data =
+          typeof conteudo === 'string'
+            ? new TextEncoder().encode(conteudo)
+            : new Uint8Array(conteudo)
         const hashBuffer = await window.crypto.subtle.digest('SHA-256', data)
         const hashArray = Array.from(new Uint8Array(hashBuffer))
         return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
@@ -416,9 +1072,10 @@ export class CarteiraService {
     } catch {
       // Fallback
     }
+    const str = typeof conteudo === 'string' ? conteudo : new Uint8Array(conteudo).join(',')
     let hash = 0
-    for (let i = 0; i < conteudo.length; i++) {
-      hash = (hash << 5) - hash + conteudo.charCodeAt(i)
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i)
       hash |= 0
     }
     return `SHA256_FALLBACK_${Math.abs(hash).toString(16)}`
@@ -858,42 +1515,57 @@ export class CarteiraService {
     justificativa: string,
   ): Promise<boolean> {
     try {
+      let versaoNum = 1
       try {
         const ativas = await pb.collection('carteira_regras_config').getFullList({
-          filter: 'is_active = true',
+          filter: 'ativo = true',
+          sort: '-versao',
         })
+        if (ativas.length > 0 && typeof (ativas[0] as any).versao === 'number') {
+          versaoNum = ((ativas[0] as any).versao || 0) + 1
+        }
         for (const at of ativas) {
-          await pb.collection('carteira_regras_config').update(at.id, { is_active: false })
+          await pb.collection('carteira_regras_config').update(at.id, { ativo: false })
         }
       } catch {
         /* ignore */
       }
 
-      const versionNumber = `V${Date.now().toString().slice(-4)}`
+      const chaveRegra = `REGRAS_ZSD28C_V${versaoNum}`
       await pb.collection('carteira_regras_config').create({
-        version_number: versionNumber,
+        chave_regra: chaveRegra,
+        nome_regra: 'Regras de Cálculo ZSD28C e Ciclos L1/L2',
+        categoria: 'CALCULO_CARTEIRA',
+        versao: versaoNum,
+        payload: regras,
         descricao: 'Regras Parametrizadas de Cálculo ZSD28C e Ciclos L1/L2',
-        justificativa: justificativa || 'Atualização de parâmetros operacionais',
-        is_active: true,
-        autor_email: autorEmail || 'pcp@ciafal.com.br',
-        regras_json: regras,
+        responsavel_nome: autorEmail ? autorEmail.split('@')[0] : 'Usuário PCP',
+        responsavel_email: autorEmail || 'pcp@ciafal.com.br',
+        justificativa_alteracao: justificativa || 'Atualização de parâmetros operacionais',
+        ativo: true,
       })
 
-      await pb.collection('pcp_audit_logs').create({
-        event_type: 'CONFIG_CHANGED',
-        action: 'UPDATE_CARTEIRA_REGRAS',
-        resource: 'CARTEIRA_REGRAS_CONFIG',
-        resource_id: versionNumber,
-        scope: 'GLOBAL',
-        outcome: 'SUCCESS',
-        details: {
-          version_number: versionNumber,
-          regras,
-          autor: autorEmail,
-          justificativa,
-          timestamp: new Date().toISOString(),
-        },
-      })
+      // Auditoria com event_type válido em pcp_audit_logs ('RULE_ACTION')
+      try {
+        await pb.collection('pcp_audit_logs').create({
+          event_type: 'RULE_ACTION',
+          action: 'UPDATE_CARTEIRA_REGRAS',
+          resource: 'CARTEIRA_REGRAS_CONFIG',
+          resource_id: chaveRegra,
+          scope: 'GLOBAL',
+          outcome: 'SUCCESS',
+          details: {
+            chave_regra: chaveRegra,
+            versao: versaoNum,
+            regras,
+            autor_email: autorEmail,
+            justificativa,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      } catch {
+        /* ignore audit log error if permissions differ */
+      }
       return true
     } catch (err) {
       console.error('Erro ao salvar regras no PocketBase:', err)
@@ -904,13 +1576,13 @@ export class CarteiraService {
   public static async carregarRegrasVigentes(): Promise<any | null> {
     try {
       const records = await pb.collection('carteira_regras_config').getList(1, 1, {
-        filter: 'is_active = true',
-        sort: '-created',
+        filter: 'ativo = true',
+        sort: '-versao,-created',
       })
       if (records.items && records.items.length > 0) {
         const item: any = records.items[0]
-        if (item.regras_json) {
-          return item.regras_json
+        if (item.payload) {
+          return item.payload
         }
       }
     } catch {

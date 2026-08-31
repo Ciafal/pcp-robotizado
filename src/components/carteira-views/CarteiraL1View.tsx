@@ -151,71 +151,89 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({ itens, onOpenMem
         </Card>
       )}
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#004C97] text-white text-[11px]">
-              <tr>
-                <th className="p-2.5">Material</th>
-                <th className="p-2.5">Descrição</th>
-                <th className="p-2.5 text-center">Família</th>
-                <th className="p-2.5 text-center">Origem</th>
-                <th className="p-2.5 text-right">Carteira Vendas (t)</th>
-                <th className="p-2.5 text-right">Estoque Livre (t)</th>
-                <th className="p-2.5 text-right">Estoque MTO (t)</th>
-                <th className="p-2.5 text-right">Semiacabado (t)</th>
-                <th className="p-2.5 text-right">Carteira Negativa (t)</th>
-                <th className="p-2.5 text-right">Saldo Estoque (+)</th>
-                <th className="p-2.5 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {itensFiltrados.map((it, idx) => (
-                <tr key={idx} className="hover:bg-blue-50/40 text-[11px]">
-                  <td className="p-2.5 font-mono font-bold text-slate-900">{it.codigo_material}</td>
-                  <td className="p-2.5 text-slate-700 max-w-[200px] truncate">
-                    {it.descricao_material}
-                  </td>
-                  <td className="p-2.5 text-center font-semibold text-slate-600">{it.familia}</td>
-                  <td className="p-2.5 text-center">
-                    <Badge className="bg-slate-100 text-slate-700 text-[9px]">
-                      {it.origem_produto}
-                    </Badge>
-                  </td>
-                  <td className="p-2.5 text-right font-mono text-slate-800">
-                    {it.carteira_aberta_tons.toFixed(1)}
-                  </td>
-                  <td className="p-2.5 text-right font-mono text-slate-700">
-                    {it.estoque_livre_tons.toFixed(1)}
-                  </td>
-                  <td className="p-2.5 text-right font-mono text-purple-800">
-                    {it.estoque_mto_tons.toFixed(1)}
-                  </td>
-                  <td className="p-2.5 text-right font-mono text-[#004C97]">
-                    {it.estoque_semiacabado_tons.toFixed(1)}
-                  </td>
-                  <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                    {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
-                  </td>
-                  <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                    {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
-                  </td>
-                  <td className="p-2.5 text-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onOpenMemoria(it)}
-                      className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50"
-                    >
-                      <Eye className="w-3 h-3 mr-0.5" /> Memória
-                    </Button>
-                  </td>
+      {itensL1.length === 0 ? (
+        <Card className="bg-white border-slate-200 text-center py-12 px-4 shadow-xs">
+          <div className="max-w-md mx-auto space-y-2">
+            <div className="p-3 bg-blue-50 text-[#004C97] w-12 h-12 rounded-full mx-auto flex items-center justify-center">
+              <Eye className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">
+              Nenhuma carteira carregada para Linha L1
+            </h3>
+            <p className="text-xs text-slate-500">
+              Utilize 'Importar Carteira' para iniciar a análise dos perfis e barras leves L1.
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-[#004C97] text-white text-[11px]">
+                <tr>
+                  <th className="p-2.5">Material</th>
+                  <th className="p-2.5">Descrição</th>
+                  <th className="p-2.5 text-center">Família</th>
+                  <th className="p-2.5 text-center">Origem</th>
+                  <th className="p-2.5 text-right">Carteira Vendas (t)</th>
+                  <th className="p-2.5 text-right">Estoque Livre (t)</th>
+                  <th className="p-2.5 text-right">Estoque MTO (t)</th>
+                  <th className="p-2.5 text-right">Semiacabado (t)</th>
+                  <th className="p-2.5 text-right">Carteira Negativa (t)</th>
+                  <th className="p-2.5 text-right">Saldo Estoque (+)</th>
+                  <th className="p-2.5 text-center">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {itensFiltrados.map((it, idx) => (
+                  <tr key={idx} className="hover:bg-blue-50/40 text-[11px]">
+                    <td className="p-2.5 font-mono font-bold text-slate-900">
+                      {it.codigo_material}
+                    </td>
+                    <td className="p-2.5 text-slate-700 max-w-[200px] truncate">
+                      {it.descricao_material}
+                    </td>
+                    <td className="p-2.5 text-center font-semibold text-slate-600">{it.familia}</td>
+                    <td className="p-2.5 text-center">
+                      <Badge className="bg-slate-100 text-slate-700 text-[9px]">
+                        {it.origem_produto}
+                      </Badge>
+                    </td>
+                    <td className="p-2.5 text-right font-mono text-slate-800">
+                      {it.carteira_aberta_tons.toFixed(1)}
+                    </td>
+                    <td className="p-2.5 text-right font-mono text-slate-700">
+                      {it.estoque_livre_tons.toFixed(1)}
+                    </td>
+                    <td className="p-2.5 text-right font-mono text-purple-800">
+                      {it.estoque_mto_tons.toFixed(1)}
+                    </td>
+                    <td className="p-2.5 text-right font-mono text-[#004C97]">
+                      {it.estoque_semiacabado_tons.toFixed(1)}
+                    </td>
+                    <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                      {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
+                    </td>
+                    <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                      {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onOpenMemoria(it)}
+                        className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50"
+                      >
+                        <Eye className="w-3 h-3 mr-0.5" /> Memória
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
