@@ -134,7 +134,7 @@ export const MonthlyScheduleGrid: React.FC<MonthlyScheduleGridProps> = ({
               </div>
 
               <div className="pt-1 border-t border-slate-200 text-[9px] text-slate-500 font-medium flex items-center justify-between">
-                <span>Setup: {week.setupHours}h</span>
+                <span>Setup: {week.setupHours} h</span>
                 {week.alertsCount > 0 ? (
                   <span className="text-rose-600 font-bold bg-rose-50 px-1 rounded">
                     {week.alertsCount} 🔴
@@ -186,7 +186,7 @@ export const MonthlyScheduleGrid: React.FC<MonthlyScheduleGridProps> = ({
                           <span>
                             {day.productsCount} {day.productsCount === 1 ? 'prod' : 'prods'}
                             {day.setupsCount > 0 &&
-                              ` • ${day.setupsCount} set (${day.setupHours}h)`}
+                              ` • ${day.setupsCount} set (${day.setupHours ?? 0} h)`}
                           </span>
                           <span
                             className="text-[9px] font-mono text-blue-700 bg-blue-50 px-1 rounded font-bold"

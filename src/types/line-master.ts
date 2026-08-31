@@ -319,15 +319,19 @@ export interface LineSetupMatrix {
 export interface ProductionShift {
   id: string
   line_id: string
+  line_master_id?: string
   code: string
   name: string
   start_time: string
   end_time: string
   duration_hours: number
-  break_minutes: number
-  applicable_days: string[]
-  crosses_midnight: boolean
+  break_minutes?: number
+  applicable_days?: string[]
+  crosses_midnight?: boolean
+  is_special_shift?: boolean
   active: boolean
+  valid_from?: string
+  valid_until?: string
   created?: string
 }
 

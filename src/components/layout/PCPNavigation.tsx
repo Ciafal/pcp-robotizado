@@ -1033,6 +1033,7 @@ export const PCPSidebar: React.FC = () => {
                       <Link
                         key={item.title}
                         to={item.href}
+                        title={item.title}
                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                           isSelected
                             ? 'bg-[#004C97] text-white font-bold shadow-xs'
@@ -1044,7 +1045,9 @@ export const PCPSidebar: React.FC = () => {
                             isSelected ? 'text-white' : 'text-slate-500'
                           }`}
                         />
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate" title={item.title}>
+                          {item.title}
+                        </span>
                       </Link>
                     )
 

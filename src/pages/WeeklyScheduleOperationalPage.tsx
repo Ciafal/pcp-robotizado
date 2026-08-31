@@ -168,6 +168,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [location.pathname])
   const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
   const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
+  const [monthlyFilterShift, setMonthlyFilterShift] = useState<string>('ALL')
+  const [monthlyFilterProduct, setMonthlyFilterProduct] = useState<string>('ALL')
+  const [monthlyFilterCustomer, setMonthlyFilterCustomer] = useState<string>('ALL')
   const [gridFormat, setGridFormat] = useState<'OPERATIONAL_TIMELINE' | 'TABULAR'>(
     'OPERATIONAL_TIMELINE',
   )
@@ -611,20 +614,30 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const validations: ValidationResult[] = calculationResult.validations
 
   // -------------------------------------------------------------
-  // VISÃO MENSAL (ETAPA 5) — Mesma Base de Dados, Mesmos Registros
+  // VISÃO MENSAL (ETAPA 5) — Mesma Base de Dados, Mesmos Registros + Filtros Interdependentes
   // -------------------------------------------------------------
+  const filteredMonthlyItems = useMemo(() => {
+    return calculatedItems.filter((it) => {
+      if (monthlyFilterShift !== 'ALL' && it.shift_code !== monthlyFilterShift) return false
+      if (monthlyFilterProduct !== 'ALL' && it.material_code !== monthlyFilterProduct) return false
+      if (monthlyFilterCustomer !== 'ALL' && (it.customer_name || 'MTS') !== monthlyFilterCustomer)
+        return false
+      return true
+    })
+  }, [calculatedItems, monthlyFilterShift, monthlyFilterProduct, monthlyFilterCustomer])
+
   const monthlyWeeksGrid = useMemo(() => {
     return MonthlyScheduleEngine.buildMonthlyGrid(
-      calculatedItems,
+      filteredMonthlyItems,
       selectedLineCode,
       selectedWeekNumber,
       selectedYear,
     )
-  }, [calculatedItems, selectedLineCode, selectedWeekNumber, selectedYear])
+  }, [filteredMonthlyItems, selectedLineCode, selectedWeekNumber, selectedYear])
 
   const monthlyKpis = useMemo(() => {
-    return MonthlyScheduleEngine.getMonthlyKpis(monthlyWeeksGrid, calculatedItems)
-  }, [monthlyWeeksGrid, calculatedItems])
+    return MonthlyScheduleEngine.getMonthlyKpis(monthlyWeeksGrid, filteredMonthlyItems)
+  }, [monthlyWeeksGrid, filteredMonthlyItems])
 
   const monthlyRawMaterials = useMemo(() => {
     return MonthlyScheduleEngine.getMonthlyRawMaterials()
@@ -635,8 +648,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [])
 
   const monthlyAwaitingObs = useMemo(() => {
-    return MonthlyScheduleEngine.getMonthlyAwaitingObs(calculatedItems)
-  }, [calculatedItems])
+    return MonthlyScheduleEngine.getMonthlyAwaitingObs(filteredMonthlyItems)
+  }, [filteredMonthlyItems])
 
   const monthlyAiReport = useMemo(() => {
     return MonthlyScheduleEngine.generateMonthlyAiAnalysis(monthlyWeeksGrid, monthlyKpis)
@@ -1443,17 +1456,113 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
       {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO & SELETOR DE VISÃO (REQUISITO 1) */}
       <div className="bg-white border border-slate-200 rounded-lg p-2 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
-        {/* Lado Esquerdo: Ações específicas da visão */}
+        {/* Lado Esquerdo: Ações específicas da visão com Barra de Filtros Interdependentes para Visão Mensal */}
         {scheduleViewType === 'MES' ? (
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800 text-xs">Grade Mensal Consolidada:</span>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Agosto/2026 (Linhas S35 a S39) • 5 Semanas
-            </span>
-            <span className="text-slate-300">|</span>
-            <span className="text-[11px] text-slate-500">
-              Clique em qualquer dia para inspecionar produtos ou abrir a programação semanal.
-            </span>
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            {/* Filtro Empresa */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Empresa:</span>
+              <select
+                value={companyCode}
+                onChange={(e) => setCompanyCode(e.target.value)}
+                aria-label="Empresa"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="CIAFAL">CIAFAL Matriz</option>
+                <option value="CIAFAL_SUL">CIAFAL Sul</option>
+              </select>
+            </div>
+
+            {/* Filtro Linha Produtiva */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Linha:</span>
+              <select
+                value={selectedLineCode}
+                onChange={(e) => setSelectedLineCode(e.target.value)}
+                aria-label="Linha Produtiva"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                {lines.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.code} - {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Turno da Ficha Mestra */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Turno:</span>
+              <select
+                value={monthlyFilterShift}
+                onChange={(e) => setMonthlyFilterShift(e.target.value)}
+                aria-label="Turno da Ficha Mestra"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="ALL">Todos os Turnos</option>
+                {(currentLineOverview?.shifts || []).map((sh) => (
+                  <option key={sh.code} value={sh.code}>
+                    {sh.name} ({sh.start_time}–{sh.end_time})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Produto */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Produto:</span>
+              <select
+                value={monthlyFilterProduct}
+                onChange={(e) => setMonthlyFilterProduct(e.target.value)}
+                aria-label="Produto"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="ALL">Todos os Produtos</option>
+                {Array.from(new Set(calculatedItems.map((it) => it.material_code))).map((mat) => (
+                  <option key={mat} value={mat}>
+                    {mat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Cliente */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Cliente:</span>
+              <select
+                value={monthlyFilterCustomer}
+                onChange={(e) => setMonthlyFilterCustomer(e.target.value)}
+                aria-label="Cliente"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="ALL">Todos os Clientes</option>
+                {Array.from(
+                  new Set(calculatedItems.map((it) => it.customer_name || 'MTS (Estoque)')),
+                ).map((cli) => (
+                  <option key={cli} value={cli}>
+                    {cli}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Botão Limpar Filtros */}
+            {(monthlyFilterShift !== 'ALL' ||
+              monthlyFilterProduct !== 'ALL' ||
+              monthlyFilterCustomer !== 'ALL') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMonthlyFilterShift('ALL')
+                  setMonthlyFilterProduct('ALL')
+                  setMonthlyFilterCustomer('ALL')
+                }}
+                className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" /> Limpar Filtros
+              </Button>
+            )}
           </div>
         ) : (
           /* Lado Esquerdo Semanal: + Adicionar Produto, Remover, Duplicar, Dividir Qtd. */

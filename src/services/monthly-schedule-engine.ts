@@ -78,9 +78,14 @@ export const MonthlyScheduleEngine = {
             (it.stop_duration_minutes || 0) / 60,
           0,
         )
+        const setupsDurationMinutes = dayItems.reduce(
+          (acc, it) => acc + (it.setup_duration_minutes || 0),
+          0,
+        )
+        const setupHours = Number((setupsDurationMinutes / 60).toFixed(1))
         const capacityHours = 16.0 // 2 turnos nominais de 8h = 16h disponíveis
         const occupancyPct =
-          capacityHours > 0 ? Math.min(100, Math.round((programmedHours / capacityHours) * 100)) : 0
+          capacityHours > 0 ? Number(((programmedHours / capacityHours) * 100).toFixed(1)) : 0
         const productsCount = prodItems.length
         const setupsCount = dayItems.filter((it) => (it.setup_duration_minutes || 0) > 0).length
         const stopsCount = dayItems.filter((it) => it.item_type === 'SCHEDULED_STOP').length
@@ -203,6 +208,7 @@ export const MonthlyScheduleEngine = {
           occupancyPct,
           productsCount,
           setupsCount,
+          setupHours,
           stopsCount,
           status,
           statusLabel,

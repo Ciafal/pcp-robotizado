@@ -37,22 +37,25 @@ export const OrderDrawer: React.FC = () => {
     selectedOrder.productionType === 'MTO' || selectedOrder.customerName !== 'Mercado Geral'
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-slate-950 border-l border-slate-800 text-slate-100 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white border-l border-slate-200 text-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="p-4 border-b border-slate-800 flex items-start justify-between gap-3 bg-slate-900/60">
+      <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-slate-50">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-black text-cyan-400 text-base">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono font-black text-[#004C97] text-base">
               {selectedOrder.orderNumber}
             </span>
-            <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
+            <Badge
+              variant="outline"
+              className="text-[10px] border-slate-300 text-slate-700 bg-white"
+            >
               Linha: {selectedOrder.lineCode}
             </Badge>
             <Badge
               className={`text-[9px] font-bold ${
                 isMto
-                  ? 'bg-purple-900 text-purple-200 border-purple-700'
-                  : 'bg-slate-800 text-slate-300'
+                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                  : 'bg-slate-100 text-slate-700 border-slate-300'
               }`}
             >
               {isMto ? 'MTO' : 'MTS'}
@@ -60,20 +63,20 @@ export const OrderDrawer: React.FC = () => {
             <Badge
               className={`text-[9px] uppercase ${
                 selectedOrder.status === 'IN_PRODUCTION'
-                  ? 'bg-emerald-950 text-emerald-400 border-emerald-700'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                   : selectedOrder.status === 'SETUP'
-                    ? 'bg-amber-950 text-amber-400 border-amber-700'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300'
                     : selectedOrder.status === 'BLOCKED'
-                      ? 'bg-rose-950 text-rose-400 border-rose-700'
-                      : 'bg-slate-900 text-slate-300'
+                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-300'
               }`}
             >
               {selectedOrder.status}
             </Badge>
           </div>
-          <h3 className="text-sm font-bold text-white mt-1">{selectedOrder.materialName}</h3>
-          <p className="text-xs text-slate-400">
-            Cliente: <strong className="text-slate-200">{selectedOrder.customerName}</strong>
+          <h3 className="text-sm font-bold text-slate-900 mt-1">{selectedOrder.materialName}</h3>
+          <p className="text-xs text-slate-500">
+            Cliente: <strong className="text-slate-800">{selectedOrder.customerName}</strong>
           </p>
         </div>
 
@@ -81,7 +84,7 @@ export const OrderDrawer: React.FC = () => {
           variant="ghost"
           size="sm"
           onClick={() => setSelectedOrder(null)}
-          className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800"
+          className="h-8 w-8 p-0 text-slate-400 hover:text-slate-900 hover:bg-slate-100"
         >
           <X className="w-4 h-4" />
         </Button>
@@ -90,38 +93,38 @@ export const OrderDrawer: React.FC = () => {
       {/* Conteúdo */}
       <div className="p-4 space-y-4 flex-1 overflow-y-auto text-xs">
         {/* Tonelagem e Aderência */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
+        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
           <div>
-            <span className="text-slate-400 block text-[11px]">Volume Programado:</span>
-            <strong className="text-white text-base font-mono">
+            <span className="text-slate-500 block text-[11px]">Volume Programado:</span>
+            <strong className="text-slate-900 text-base font-mono">
               {selectedOrder.plannedTons} t
             </strong>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">Realizado / Restante:</span>
-            <strong className="text-emerald-400 text-base font-mono">
+            <span className="text-slate-500 block text-[11px]">Realizado / Restante:</span>
+            <strong className="text-emerald-700 text-base font-mono">
               {selectedOrder.producedTons} t{' '}
               <span className="text-slate-500 font-normal">({selectedOrder.remainingTons} t)</span>
             </strong>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">Ritmo Atual:</span>
-            <strong className="text-cyan-300 font-mono">
+            <span className="text-slate-500 block text-[11px]">Ritmo Atual:</span>
+            <strong className="text-[#004C97] font-mono">
               {selectedOrder.currentRatePerHour} t/h (Meta: {selectedOrder.targetRatePerHour} t/h)
             </strong>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">Aderência:</span>
-            <strong className="text-emerald-400 font-mono">{selectedOrder.adherencePct}%</strong>
+            <span className="text-slate-500 block text-[11px]">Aderência:</span>
+            <strong className="text-emerald-700 font-mono">{selectedOrder.adherencePct}%</strong>
           </div>
         </div>
 
         {/* Datas e Horários */}
-        <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
-          <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
             Cronograma Operacional:
           </span>
-          <div className="grid grid-cols-2 gap-2 text-slate-300">
+          <div className="grid grid-cols-2 gap-2 text-slate-700">
             <div>
               Início Previsto: <strong>{selectedOrder.plannedStart}</strong>
             </div>
@@ -130,7 +133,7 @@ export const OrderDrawer: React.FC = () => {
             </div>
             <div>
               Conclusão Projetada:{' '}
-              <strong className="text-cyan-300">{selectedOrder.projectedEnd}</strong>
+              <strong className="text-[#004C97]">{selectedOrder.projectedEnd}</strong>
             </div>
             <div>
               Setup: <strong>{selectedOrder.setupMinutes} min</strong>
@@ -139,9 +142,9 @@ export const OrderDrawer: React.FC = () => {
         </div>
 
         {/* Drill-down de Pedido e Cliente */}
-        <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
               Vínculo Comercial SAP ECC:
             </span>
             {isMto && (
@@ -175,13 +178,13 @@ export const OrderDrawer: React.FC = () => {
                   }
                   setIsSheetOpen(true)
                 }}
-                className="h-6 px-2 text-[10px] bg-purple-950/60 border-purple-600 text-purple-200 hover:bg-purple-900"
+                className="h-6 px-2 text-[10px] bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
               >
                 <FileText className="w-3 h-3 mr-1" /> Ficha de Requisitos
               </Button>
             )}
           </div>
-          <div className="space-y-1 text-slate-300">
+          <div className="space-y-1 text-slate-700">
             <div>
               Ordem de Venda: <strong>{selectedOrder.salesOrderId}</strong> (Item:{' '}
               {selectedOrder.salesOrderItem})
@@ -391,7 +394,7 @@ export const OrderDrawer: React.FC = () => {
       />
 
       {/* Footer Drawer */}
-      <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-2">
+      <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -399,9 +402,9 @@ export const OrderDrawer: React.FC = () => {
             setActiveTab('GANTT')
             setSelectedOrder(null)
           }}
-          className="border-slate-700 bg-slate-950 text-slate-200 text-xs h-8 gap-1.5"
+          className="border-slate-300 bg-white text-slate-700 hover:text-slate-900 text-xs h-8 gap-1.5"
         >
-          <CalendarDays className="w-3.5 h-3.5 text-cyan-400" /> Ver Bloco no Gantt
+          <CalendarDays className="w-3.5 h-3.5 text-[#004C97]" /> Ver Bloco no Gantt
         </Button>
 
         <Button
@@ -410,7 +413,7 @@ export const OrderDrawer: React.FC = () => {
             setIsSimulatorModalOpen(true)
             setSelectedOrder(null)
           }}
-          className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-8 gap-1.5"
+          className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-8 gap-1.5 shadow-2xs"
         >
           <Zap className="w-3.5 h-3.5" /> Simular Cenário com Esta OP
         </Button>
