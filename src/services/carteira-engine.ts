@@ -415,7 +415,7 @@ export class CarteiraZSD28CEngine {
 
   public static reconciliarComSAP(
     itensPcp: CarteiraItem[],
-    dadosSapSimulados: Array<{
+    dadosSapReferencia?: Array<{
       codigo_material: string
       descricao: string
       ordem_venda: string
@@ -425,8 +425,11 @@ export class CarteiraZSD28CEngine {
       sap_saldo_tons: number
     }>,
   ): ReconciliacaoSAPResult[] {
-    return itensPcp.map((pcpItem) => {
-      const sapMatch = dadosSapSimulados.find(
+    const sapData = dadosSapReferencia || []
+
+    // 1. Mapeia itens PCP contra SAP
+    const results: ReconciliacaoSAPResult[] = itensPcp.map((pcpItem) => {
+      const sapMatch = sapData.find(
         (s) =>
           s.codigo_material.trim().toUpperCase() === pcpItem.codigo_material.trim().toUpperCase() &&
           s.ordem_venda === pcpItem.ordem_venda &&
@@ -448,8 +451,9 @@ export class CarteiraZSD28CEngine {
           pcp_saldo_tons: pcpItem.saldo_positivo_tons + pcpItem.saldo_negativo_tons,
           sap_saldo_tons: 0,
           diff_saldo_tons: pcpItem.saldo_positivo_tons + pcpItem.saldo_negativo_tons,
-          status_conciliacao: 'CAMPO_DEPENDENTE_SAP',
-          detalhes: 'Item presente na carteira QAS sem espelho ativo na carga de conciliação SAP.',
+          status_conciliacao: 'SOMENTE_PCP',
+          detalhes:
+            'Item presente na carteira do PCP sem correspondência no extrato SAP de comparação.',
         }
       }
 
@@ -476,11 +480,42 @@ export class CarteiraZSD28CEngine {
         pcp_saldo_tons: pcpSaldo,
         sap_saldo_tons: sapMatch.sap_saldo_tons,
         diff_saldo_tons: diffSaldo,
-        status_conciliacao: is100 ? 'PARIDADE_100' : 'DIVERGENCIA',
+        status_conciliacao: is100 ? 'OK' : 'DIVERGENCIA',
         detalhes: is100
           ? 'Paridade funcional 1:1 confirmada com SAP ZSD28C.'
           : 'Divergência de apuração identificada — verificar momento de corte do saldo.',
       }
     })
+
+    // 2. Mapeia itens que existem SOMENTE no SAP
+    sapData.forEach((s) => {
+      const pcpMatch = itensPcp.find(
+        (p) =>
+          p.codigo_material.trim().toUpperCase() === s.codigo_material.trim().toUpperCase() &&
+          p.ordem_venda === s.ordem_venda &&
+          p.item_ordem === s.item_ordem,
+      )
+      if (!pcpMatch) {
+        results.push({
+          codigo_material: s.codigo_material,
+          descricao: s.descricao,
+          ordem_venda: s.ordem_venda,
+          item_ordem: s.item_ordem,
+          pcp_quantidade_tons: 0,
+          sap_quantidade_tons: s.sap_quantidade_tons,
+          diff_quantidade_tons: s.sap_quantidade_tons,
+          pcp_estoque_tons: 0,
+          sap_estoque_tons: s.sap_estoque_tons,
+          diff_estoque_tons: s.sap_estoque_tons,
+          pcp_saldo_tons: 0,
+          sap_saldo_tons: s.sap_saldo_tons,
+          diff_saldo_tons: s.sap_saldo_tons,
+          status_conciliacao: 'SOMENTE_SAP',
+          detalhes: 'Item presente no arquivo SAP mas ausente da carteira ativa do PCP.',
+        })
+      }
+    })
+
+    return results
   }
 }

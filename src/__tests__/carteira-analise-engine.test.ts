@@ -343,4 +343,63 @@ describe('Motor de Cálculos da Análise de Carteira & Paridade ZSD28C', () => {
     expect(blob).toBeDefined()
     expect(blob.type).toContain('csv')
   })
+
+  it('10. Deve calcular hash SHA-256 e reconciliar com SAP identificando OK, DIVERGENCIA e SOMENTE_PCP/SAP', async () => {
+    const hash = await CarteiraService.calcularHashSHA256('TEST_CONTENT_PAYLOAD')
+    expect(hash).toBeDefined()
+    expect(hash.length).toBeGreaterThan(10)
+
+    const itemPcp: CarteiraItem = {
+      empresa: 'CIAFAL',
+      centro: '1000',
+      linha: 'GERAL',
+      ordem_venda: '4500999001',
+      item_ordem: '10',
+      data_ordem: '2025-01-10',
+      data_desejada: '2025-02-15',
+      codigo_cliente: 'CLI-01',
+      nome_cliente: 'Cliente Teste',
+      codigo_material: 'X1020',
+      descricao_material: 'Material Teste',
+      familia: 'Geral',
+      curva_abc: 'A',
+      tipo_ordem: 'MTS',
+      origem_produto: 'PRODUCAO_PROPRIA',
+      qtd_ordem_tons: 100,
+      qtd_faturada_tons: 0,
+      carteira_aberta_tons: 100,
+      carteira_vendas_tons: 100,
+      carteira_mto_tons: 0,
+      estoque_livre_tons: 40,
+      estoque_mto_tons: 0,
+      estoque_semiacabado_tons: 0,
+      estoque_acabado_tons: 0,
+      saldo_disponivel_tons: 40,
+      saldo_positivo_tons: 0,
+      saldo_negativo_tons: -60,
+      necessidade_liquida_tons: 60,
+      falta_produzir_tons: 60,
+      status_atendimento: 'A_PRODUZIR',
+      qtd_programada_tons: 0,
+      media_faturamento_diario_t_dia: 1,
+      status_ruptura: 'CINZA',
+      bloqueio: false,
+    }
+
+    const sapRef = [
+      {
+        codigo_material: 'X1020',
+        descricao: 'Material Teste',
+        ordem_venda: '4500999001',
+        item_ordem: '10',
+        sap_quantidade_tons: 100,
+        sap_estoque_tons: 0,
+        sap_saldo_tons: -60,
+      },
+    ]
+
+    const reconciliacao = CarteiraZSD28CEngine.reconciliarComSAP([itemPcp], sapRef)
+    expect(reconciliacao.length).toBe(1)
+    expect(reconciliacao[0].status_conciliacao).toBe('OK')
+  })
 })

@@ -69,7 +69,7 @@ export class DeterministicExecutiveEngine {
     const totalTargetRate = activeLines.reduce((acc, l) => acc + (Number(l.target_rate) || 0), 0)
 
     // OEE real: quando não há integração direta com MES/AOM na linha, sinaliza governança
-    const hasMesIntegration = activeLines.some((l) => l.mes_connected === true)
+    const hasMesIntegration = activeLines.some((l: any) => l.mes_connected === true)
     const avgOEE = hasMesIntegration
       ? Math.round(
           activeLines.reduce((acc, l) => acc + (Number(l.efficiency) || 0), 0) / totalLinesCount,

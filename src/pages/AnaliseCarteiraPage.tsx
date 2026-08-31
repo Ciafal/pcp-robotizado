@@ -10,6 +10,7 @@ import {
   CarteiraIAInsight,
 } from '@/types/carteira-analise'
 import { CarteiraService } from '@/services/carteira-service'
+import { CarteiraZSD28CEngine } from '@/services/carteira-engine'
 
 // Componentes da Análise de Carteira
 import CarteiraGeralView from '@/components/carteira-views/CarteiraGeralView'
@@ -47,8 +48,19 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const carregarDados = async () => {
     setIsLoading(true)
     try {
+      const regrasDb = await CarteiraService.carregarRegrasVigentes()
       const res = await CarteiraService.carregarCarteiraAtual()
-      setItens(res.itens)
+
+      // Se houver regras cadastradas no backend, recalcula itens para assegurar paridade
+      if (regrasDb && res.itens.length > 0) {
+        const recalculados = res.itens.map((item) =>
+          CarteiraZSD28CEngine.calcularItem(item, res.entradasFuturas, regrasDb),
+        )
+        setItens(recalculados)
+      } else {
+        setItens(res.itens)
+      }
+
       setEntradasFuturas(res.entradasFuturas)
       setUploadAtual(res.uploadAtual)
       setHistoricoUploads(res.historicoUploads)
@@ -312,7 +324,12 @@ export const AnaliseCarteiraPage: React.FC = () => {
       <GovernancaRegrasModal
         isOpen={isRegrasModalOpen}
         onClose={() => setIsRegrasModalOpen(false)}
-        onSalvarRegras={() => {
+        onSalvarRegras={async (regrasAtualizadas) => {
+          await CarteiraService.salvarRegrasParametrizadas(
+            regrasAtualizadas,
+            'pcp.admin@ciafal.com.br',
+            'Atualização de parâmetros via Modal de Governança',
+          )
           carregarDados()
         }}
       />

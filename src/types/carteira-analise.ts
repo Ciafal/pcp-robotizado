@@ -28,6 +28,13 @@ export interface CarteiraItem {
   id?: string
   upload_id?: string
   upload_code?: string
+  source_system?: string
+  source_transaction?: string
+  source_file?: string
+  source_load_id?: string
+  source_row?: number
+  rule_version_applied?: string
+  environment?: string
   empresa: string
   centro: string
   linha: string
@@ -107,6 +114,12 @@ export interface CarteiraUpload {
   upload_code: string
   filename: string
   file_hash?: string
+  file_hash_sha256?: string
+  snapshot_version?: string
+  execution_status?: string
+  reconciliation_status?: string
+  environment?: string
+  lineage_summary?: any
   file_size_bytes?: number
   total_rows: number
   valid_rows: number
@@ -193,6 +206,13 @@ export interface ReconciliacaoSAPResult {
   pcp_saldo_tons: number
   sap_saldo_tons: number
   diff_saldo_tons: number
-  status_conciliacao: 'PARIDADE_100' | 'DIVERGENCIA' | 'CAMPO_DEPENDENTE_SAP'
+  status_conciliacao:
+    | 'OK'
+    | 'PARIDADE_100'
+    | 'DIVERGENCIA'
+    | 'SEM_CORRESPONDENCIA'
+    | 'SOMENTE_SAP'
+    | 'SOMENTE_PCP'
+    | 'CAMPO_DEPENDENTE_SAP'
   detalhes: string
 }

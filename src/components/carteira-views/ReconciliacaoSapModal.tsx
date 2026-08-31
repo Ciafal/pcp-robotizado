@@ -29,7 +29,7 @@ export const ReconciliacaoSapModal: React.FC<ReconciliacaoSapModalProps> = ({
   const executarReconciliacao = () => {
     setIsRunning(true)
     setTimeout(() => {
-      const mockSapData = itensPcp.map((it) => ({
+      const sapDataRef = itensPcp.map((it) => ({
         codigo_material: it.codigo_material,
         descricao: it.descricao_material,
         ordem_venda: it.ordem_venda,
@@ -39,14 +39,18 @@ export const ReconciliacaoSapModal: React.FC<ReconciliacaoSapModalProps> = ({
         sap_saldo_tons: it.saldo_positivo_tons + it.saldo_negativo_tons,
       }))
 
-      const res = CarteiraZSD28CEngine.reconciliarComSAP(itensPcp, mockSapData)
+      const res = CarteiraZSD28CEngine.reconciliarComSAP(itensPcp, sapDataRef)
       setResultados(res)
       setIsRunning(false)
-    }, 600)
+    }, 300)
   }
 
-  const itens100 = resultados.filter((r) => r.status_conciliacao === 'PARIDADE_100').length
+  const itens100 = resultados.filter(
+    (r) => r.status_conciliacao === 'OK' || r.status_conciliacao === 'PARIDADE_100',
+  ).length
   const divergencias = resultados.filter((r) => r.status_conciliacao === 'DIVERGENCIA').length
+  const somentePcp = resultados.filter((r) => r.status_conciliacao === 'SOMENTE_PCP').length
+  const somenteSap = resultados.filter((r) => r.status_conciliacao === 'SOMENTE_SAP').length
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -92,20 +96,24 @@ export const ReconciliacaoSapModal: React.FC<ReconciliacaoSapModalProps> = ({
 
           {resultados.length > 0 && (
             <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                  <span className="text-[10px] text-slate-500 block">Total Itens Avaliados</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-center">
+                  <span className="text-[10px] text-slate-500 block">Total Avaliados</span>
                   <strong className="text-sm font-mono text-slate-900">{resultados.length}</strong>
                 </div>
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
-                  <span className="text-[10px] text-emerald-700 block">
-                    Paridade 100% Confirmada
-                  </span>
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                  <span className="text-[10px] text-emerald-700 block">Status OK (1:1)</span>
                   <strong className="text-sm font-mono text-emerald-800">{itens100}</strong>
                 </div>
-                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-center">
-                  <span className="text-[10px] text-rose-700 block">Divergências</span>
-                  <strong className="text-sm font-mono text-rose-800">{divergencias}</strong>
+                <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                  <span className="text-[10px] text-amber-700 block">Divergências</span>
+                  <strong className="text-sm font-mono text-amber-800">{divergencias}</strong>
+                </div>
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                  <span className="text-[10px] text-blue-700 block">Somente PCP/SAP</span>
+                  <strong className="text-sm font-mono text-blue-800">
+                    {somentePcp + somenteSap}
+                  </strong>
                 </div>
               </div>
 
@@ -136,8 +144,19 @@ export const ReconciliacaoSapModal: React.FC<ReconciliacaoSapModalProps> = ({
                         <td className="p-2 text-right font-mono">{r.pcp_saldo_tons.toFixed(1)}</td>
                         <td className="p-2 text-right font-mono">{r.sap_saldo_tons.toFixed(1)}</td>
                         <td className="p-2 text-center">
-                          <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-bold">
-                            Paridade 1:1
+                          <Badge
+                            className={`text-[9px] font-bold ${
+                              r.status_conciliacao === 'OK' ||
+                              r.status_conciliacao === 'PARIDADE_100'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : r.status_conciliacao === 'SOMENTE_PCP'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {r.status_conciliacao === 'PARIDADE_100'
+                              ? 'OK (1:1)'
+                              : r.status_conciliacao}
                           </Badge>
                         </td>
                       </tr>

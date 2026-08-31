@@ -273,11 +273,19 @@ export class PCPDataLayer {
           product_origin: it.origem_produto,
           production_line: it.linha,
           lineage: {
-            source_system: currentUpload?.source_mode === 'EXCEL_QAS' ? 'EXCEL_QAS' : 'SAP_ECC',
-            source_transaction: 'ZSD28C',
-            source_file: currentUpload?.filename,
-            source_load_id: currentUpload?.upload_code,
-            source_row: index + 2,
+            source_system:
+              it.source_system === 'SAP_ECC' ||
+              it.source_system === 'EXCEL_QAS' ||
+              it.source_system === 'SAP_QAS' ||
+              it.source_system === 'PCP_ENGINE'
+                ? it.source_system
+                : currentUpload?.source_mode === 'EXCEL_QAS'
+                  ? 'EXCEL_QAS'
+                  : 'SAP_ECC',
+            source_transaction: it.source_transaction || 'ZSD28C',
+            source_file: it.source_file || currentUpload?.filename,
+            source_load_id: it.source_load_id || currentUpload?.upload_code,
+            source_row: it.source_row || index + 2,
             imported_at: currentUpload?.created || new Date().toISOString(),
             imported_by: currentUpload?.user_name || 'Operador QAS',
           },
