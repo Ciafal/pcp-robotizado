@@ -2,21 +2,25 @@ import React, { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileSpreadsheet, Eye } from 'lucide-react'
+import { FileSpreadsheet, Eye, Download, UploadCloud } from 'lucide-react'
 import { CarteiraItem, StatusRuptura } from '@/types/carteira-analise'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
+  isLoading?: boolean
   onOpenMemoria: (item: CarteiraItem) => void
   onOpenImportModal: () => void
+  onDownloadTemplate?: () => void
   filtroMaterial?: string
 }
 
 export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   itens,
+  isLoading,
   onOpenMemoria,
   onOpenImportModal,
-  filtroMaterial = '',
+  onDownloadTemplate,
+  filtroMaterial,
 }) => {
   const [searchTerm, setSearchTerm] = useState(filtroMaterial)
   const [filtroLinha, setFiltroLinha] = useState<string>('TODAS')
@@ -88,6 +92,46 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           </Badge>
         )
     }
+  }
+
+  const handleBaixarTemplate = () => {
+    if (onDownloadTemplate) {
+      onDownloadTemplate()
+      return
+    }
+  }
+
+  // Se a lista geral de itens estiver vazia e não estiver carregando
+  if (!isLoading && itens.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#004C97] flex items-center justify-center mx-auto border border-blue-100 shadow-inner">
+          <FileSpreadsheet className="w-8 h-8" />
+        </div>
+        <div className="max-w-md mx-auto space-y-2">
+          <h3 className="text-base font-bold text-slate-900">Nenhuma carteira carregada</h3>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Nenhuma carteira carregada. Baixe o template ou importe uma carteira QAS para iniciar a
+            análise.
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button
+            variant="outline"
+            onClick={handleBaixarTemplate}
+            className="gap-2 text-xs border-slate-300 hover:bg-slate-50 font-semibold"
+          >
+            <Download className="w-4 h-4 text-slate-600" /> Baixar Template
+          </Button>
+          <Button
+            onClick={onOpenImportModal}
+            className="gap-2 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-bold"
+          >
+            <UploadCloud className="w-4 h-4" /> Importar Carteira
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { Layers, RefreshCw, UploadCloud, Sliders, ShieldCheck, Clock, Database } from 'lucide-react'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
+import {
+  Layers,
+  RefreshCw,
+  UploadCloud,
+  Sliders,
+  ShieldCheck,
+  Clock,
+  Database,
+  Download,
+  Briefcase,
+  ChevronRight,
+  PackageCheck,
+  ShoppingBag,
+  Globe2,
+  FileSpreadsheet,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
@@ -29,8 +45,36 @@ type TopicoCarteira = 'GERAL' | 'L1' | 'L2' | 'MTO' | 'REVENDA' | 'IMPORTADO'
 
 export const AnaliseCarteiraPage: React.FC = () => {
   const { toast } = useToast()
+  const location = useLocation()
+  const navigate = useNavigate()
 
-  const [topicoAtivo, setTopicoAtivo] = useState<TopicoCarteira>('GERAL')
+  // Sincronizar topicoAtivo com a rota atual (/pcp/analise-carteira/l1, etc.)
+  const getTopicoFromPath = (pathname: string): TopicoCarteira => {
+    if (pathname.includes('/analise-carteira/l1')) return 'L1'
+    if (pathname.includes('/analise-carteira/l2')) return 'L2'
+    if (pathname.includes('/analise-carteira/mto')) return 'MTO'
+    if (pathname.includes('/analise-carteira/revenda')) return 'REVENDA'
+    if (pathname.includes('/analise-carteira/importado')) return 'IMPORTADO'
+    return 'GERAL'
+  }
+
+  const [topicoAtivo, setTopicoAtivo] = useState<TopicoCarteira>(() =>
+    getTopicoFromPath(location.pathname),
+  )
+
+  useEffect(() => {
+    const t = getTopicoFromPath(location.pathname)
+    setTopicoAtivo(t)
+  }, [location.pathname])
+
+  const handleSelectTab = (topico: TopicoCarteira) => {
+    setTopicoAtivo(topico)
+    const subpath =
+      topico === 'GERAL'
+        ? '/pcp/analise-carteira/geral'
+        : `/pcp/analise-carteira/${topico.toLowerCase()}`
+    navigate(subpath)
+  }
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [itens, setItens] = useState<CarteiraItem[]>([])
   const [entradasFuturas, setEntradasFuturas] = useState<CarteiraEntradaFutura[]>([])
@@ -115,29 +159,100 @@ export const AnaliseCarteiraPage: React.FC = () => {
 
   const handleFiltrarMaterialIA = (material: string) => {
     setFiltroMaterialDireto(material)
-    setTopicoAtivo('GERAL')
+    handleSelectTab('GERAL')
+  }
+
+  const getSubtopicName = (t: TopicoCarteira) => {
+    switch (t) {
+      case 'L1':
+        return 'Carteira L1'
+      case 'L2':
+        return 'Carteira L2'
+      case 'MTO':
+        return 'Carteira MTO'
+      case 'REVENDA':
+        return 'Carteira Revenda'
+      case 'IMPORTADO':
+        return 'Carteira Importado'
+      default:
+        return 'Carteira Geral'
+    }
+  }
+
+  const handleDownloadTemplate = () => {
+    try {
+      const blob = CarteiraService.gerarTemplateExcelBlob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'Template_Carteira_PCP_ZSD28C_QAS.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast({
+        title: 'Template Baixado com Sucesso',
+        description: 'Arquivo Template_Carteira_PCP_ZSD28C_QAS.xlsx pronto para preenchimento.',
+      })
+    } catch (err) {
+      console.error('Erro ao baixar template:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar template',
+        description: 'Não foi possível gerar a planilha modelo.',
+      })
+    }
   }
 
   return (
     <div className="space-y-4 pb-12">
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* Header Geral com Breadcrumb Oficial */}
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
+          {/* Breadcrumb padrão: PCP Robotizado > Análise de Carteira > Carteira L1 etc. */}
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1.5 text-xs text-slate-500 mb-2"
+          >
+            <Link
+              to="/pcp/sequenciamento"
+              className="hover:text-[#004C97] font-medium transition-colors"
+            >
+              PCP Robotizado
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <Link
+              to="/pcp/analise-carteira/geral"
+              className="hover:text-[#004C97] font-medium transition-colors"
+            >
+              Análise de Carteira
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-bold text-[#004C97]">{getSubtopicName(topicoAtivo)}</span>
+          </nav>
+
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-sm">
-              <Layers className="w-5 h-5" />
+              <Briefcase className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-slate-900 leading-none">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 leading-none">
                   Análise de Carteira
                 </h1>
                 <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
                   Paridade SAP ZSD28C
                 </Badge>
+                <Badge
+                  variant="outline"
+                  className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-semibold"
+                >
+                  SAP ECC / ZSD28C — integração pendente
+                </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                PCP Robotizado &bull; Central de Carteira Aberta, Saldos, Ruptura e Detecção de
-                Duplicidades CIAFAL.
+                Base única de carteira &bull; Central de Carteira Aberta, Saldos
+                L1/L2/MTO/Revenda/Importado e Rupturas CIAFAL.
               </p>
             </div>
           </div>
@@ -173,84 +288,91 @@ export const AnaliseCarteiraPage: React.FC = () => {
       </div>
 
       <div className="px-3.5 py-2 bg-slate-100/80 rounded-lg border border-slate-200 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 font-semibold text-slate-800">
-            <Database className="w-3.5 h-3.5 text-[#004C97]" /> Fonte:{' '}
-            {uploadAtual
-              ? `${uploadAtual.source_mode} (${uploadAtual.upload_code})`
-              : 'Excel QAS / Aguardando Carga'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 font-bold text-slate-800">
+            <Database className="w-3.5 h-3.5 text-[#004C97]" /> Fonte atual:{' '}
+            <span className="text-[#004C97]">
+              {uploadAtual
+                ? `${uploadAtual.source_mode === 'EXCEL_QAS' ? 'Carga Excel QAS' : uploadAtual.source_mode} (${uploadAtual.upload_code})`
+                : 'Carga Excel QAS'}
+            </span>
           </span>
           <span className="text-slate-400">&bull;</span>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-slate-500" /> Dados atualizados em:{' '}
+          <span className="flex items-center gap-1 text-slate-500 font-mono text-[10px]">
+            SAP ECC / ZSD28C — integração pendente
+          </span>
+          <span className="text-slate-400">&bull;</span>
+          <span className="flex items-center gap-1 text-slate-500">
+            <Clock className="w-3.5 h-3.5 text-slate-500" /> Carga:{' '}
             {uploadAtual?.created
               ? new Date(uploadAtual.created).toLocaleString('pt-BR')
-              : 'Tempo Real'}
+              : 'Padrão QAS Ativo'}
           </span>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-[10px]">
           <span className="text-slate-500">
-            Unidades: <strong>Toneladas (t) & ABNT/SI</strong>
+            Unidades: <strong>Toneladas (t)</strong>
           </span>
           <button
             onClick={carregarDados}
             className="text-[#004C97] hover:underline font-bold flex items-center gap-1 ml-2"
           >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} /> Recarregar
+            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} /> Atualizar
           </button>
         </div>
       </div>
 
       <AnalistaIACard insights={insightsIA} onFiltrarMaterial={handleFiltrarMaterialIA} />
 
+      {/* 6 Subtópicos Oficiais da Análise de Carteira */}
       <div className="flex items-center gap-1.5 border-b border-slate-200 overflow-x-auto pb-1">
         <button
-          onClick={() => setTopicoAtivo('GERAL')}
+          onClick={() => handleSelectTab('GERAL')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'GERAL'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          1. Carteira Geral (ZSD28C)
+          1. Carteira Geral
         </button>
 
         <button
-          onClick={() => setTopicoAtivo('L1')}
+          onClick={() => handleSelectTab('L1')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'L1'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          2. Carteira L1 (Ciclo L1)
+          2. Carteira L1
         </button>
 
         <button
-          onClick={() => setTopicoAtivo('L2')}
+          onClick={() => handleSelectTab('L2')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'L2'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          3. Carteira L2 (Ciclo L2)
+          3. Carteira L2
         </button>
 
         <button
-          onClick={() => setTopicoAtivo('MTO')}
+          onClick={() => handleSelectTab('MTO')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'MTO'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
               : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          4. Carteira MTO (L1 / L2)
+          4. Carteira MTO
         </button>
 
         <button
-          onClick={() => setTopicoAtivo('REVENDA')}
+          onClick={() => handleSelectTab('REVENDA')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'REVENDA'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
@@ -261,7 +383,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setTopicoAtivo('IMPORTADO')}
+          onClick={() => handleSelectTab('IMPORTADO')}
           className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
             topicoAtivo === 'IMPORTADO'
               ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
@@ -276,8 +398,10 @@ export const AnaliseCarteiraPage: React.FC = () => {
         {topicoAtivo === 'GERAL' && (
           <CarteiraGeralView
             itens={itens}
+            isLoading={isLoading}
             onOpenMemoria={handleOpenMemoria}
             onOpenImportModal={() => setIsImportModalOpen(true)}
+            onDownloadTemplate={handleDownloadTemplate}
             filtroMaterial={filtroMaterialDireto}
           />
         )}

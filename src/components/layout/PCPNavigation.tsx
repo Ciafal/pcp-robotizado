@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -38,6 +38,10 @@ import {
   RefreshCw,
   TrendingUp,
   Wrench,
+  PieChart,
+  PackageCheck,
+  Globe2,
+  ShoppingBag,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -372,6 +376,51 @@ const navSections: NavSectionItem[] = [
     ],
   },
   {
+    title: 'Análise de Carteira',
+    href: '/pcp/analise-carteira',
+    icon: Briefcase,
+    badge: 'ZSD28C',
+    permission: 'pcp.carteira.view',
+    subItems: [
+      {
+        title: 'Carteira Geral',
+        href: '/pcp/analise-carteira/geral',
+        icon: LayoutDashboard,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira L1',
+        href: '/pcp/analise-carteira/l1',
+        icon: Layers,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira L2',
+        href: '/pcp/analise-carteira/l2',
+        icon: Layers,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira MTO',
+        href: '/pcp/analise-carteira/mto',
+        icon: PackageCheck,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira Revenda',
+        href: '/pcp/analise-carteira/revenda',
+        icon: ShoppingBag,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira Importado',
+        href: '/pcp/analise-carteira/importado',
+        icon: Globe2,
+        permission: 'pcp.carteira.view',
+      },
+    ],
+  },
+  {
     title: 'GESTÃO DE MATÉRIA-PRIMA',
     href: '/pcp/gestao-materia-prima',
     icon: Boxes,
@@ -661,6 +710,47 @@ const officialNavGroups: NavGroup[] = [
     ],
   },
   {
+    groupTitle: 'ANÁLISE DE CARTEIRA',
+    items: [
+      {
+        title: 'Carteira Geral',
+        href: '/pcp/analise-carteira/geral',
+        icon: LayoutDashboard,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira L1',
+        href: '/pcp/analise-carteira/l1',
+        icon: Layers,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira L2',
+        href: '/pcp/analise-carteira/l2',
+        icon: Layers,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira MTO',
+        href: '/pcp/analise-carteira/mto',
+        icon: PackageCheck,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira Revenda',
+        href: '/pcp/analise-carteira/revenda',
+        icon: ShoppingBag,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira Importado',
+        href: '/pcp/analise-carteira/importado',
+        icon: Globe2,
+        permission: 'pcp.carteira.view',
+      },
+    ],
+  },
+  {
     groupTitle: 'GESTÃO DE MP',
     items: [
       {
@@ -835,8 +925,32 @@ const officialNavGroups: NavGroup[] = [
 export const PCPSidebar: React.FC = () => {
   const location = useLocation()
 
+  // Estado de expansão dos grupos colapsáveis
+  // Por padrão, mantemos todos os grupos abertos, permitindo recolher/expandir com persistência ou toggle
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+
+  // Garante que o grupo ativo esteja sempre expandido na navegação
+  useEffect(() => {
+    if (location.pathname.includes('/analise-carteira')) {
+      setCollapsedGroups((prev) => ({ ...prev, 'ANÁLISE DE CARTEIRA': false }))
+    }
+    if (
+      location.pathname.includes('/gestao-materia-prima') ||
+      location.pathname.includes('/otimizacao-mp')
+    ) {
+      setCollapsedGroups((prev) => ({ ...prev, 'GESTÃO DE MP': false }))
+    }
+  }, [location.pathname])
+
+  const toggleGroup = (groupTitle: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupTitle]: !prev[groupTitle],
+    }))
+  }
+
   return (
-    <aside className="w-[210px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none">
+    <aside className="w-[215px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none">
       {/* Topo do menu lateral */}
       <div className="p-3 border-b border-slate-200 bg-white">
         <div className="flex items-center gap-2">
@@ -849,60 +963,106 @@ export const PCPSidebar: React.FC = () => {
       </div>
 
       {/* Itens agrupados compactos */}
-      <nav className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-3 text-xs">
-        {officialNavGroups.map((group) => (
-          <div key={group.groupTitle} className="space-y-0.5">
-            <div className="px-2 py-1 text-[9px] font-black tracking-widest text-slate-900 uppercase">
-              {group.groupTitle}
+      <nav className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2.5 text-xs">
+        {officialNavGroups.map((group) => {
+          const isCollapsed = collapsedGroups[group.groupTitle] ?? false
+          const isCarteiraGroup = group.groupTitle === 'ANÁLISE DE CARTEIRA'
+          const isMpGroup = group.groupTitle === 'GESTÃO DE MP'
+          const isCollapsibleGroup = isCarteiraGroup || isMpGroup
+
+          return (
+            <div key={group.groupTitle} className="space-y-0.5">
+              <div
+                onClick={() => isCollapsibleGroup && toggleGroup(group.groupTitle)}
+                className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase flex items-center justify-between select-none ${
+                  isCollapsibleGroup
+                    ? 'cursor-pointer text-[#004C97] hover:bg-blue-50/50 rounded transition-colors'
+                    : 'text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  {isCarteiraGroup && <Briefcase className="w-3 h-3 text-[#004C97]" />}
+                  {isMpGroup && <Boxes className="w-3 h-3 text-[#004C97]" />}
+                  <span>{group.groupTitle}</span>
+                </div>
+                {isCollapsibleGroup && (
+                  <span className="text-slate-400">
+                    {isCollapsed ? (
+                      <ChevronRight className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {!isCollapsed && (
+                <div className="space-y-0.5 pl-0.5">
+                  {group.items.map((item) => {
+                    const ItemIcon = item.icon
+                    // Identifica seleção ativa
+                    const isSelected =
+                      item.href === '/pcp/oficina-cilindros' || item.href === '/oficina-cilindros'
+                        ? location.pathname.includes('oficina-cilindros')
+                        : item.href === '/pcp/sequenciamento/montagem-semanal'
+                          ? (location.pathname.includes('montagem-semanal') ||
+                              location.pathname.includes('programacao-semanal')) &&
+                            !location.pathname.includes('programacao-mensal') &&
+                            !location.pathname.includes('oficina-cilindros')
+                          : item.href === '/pcp/sequenciamento/programacao-mensal'
+                            ? location.pathname.includes('programacao-mensal')
+                            : item.href === '/pcp/analise-carteira/geral'
+                              ? location.pathname === '/pcp/analise-carteira/geral' ||
+                                location.pathname === '/pcp/analise-carteira' ||
+                                location.pathname === '/pcp/analise-carteira/'
+                              : item.href === '/pcp/analise-carteira/l1'
+                                ? location.pathname === '/pcp/analise-carteira/l1'
+                                : item.href === '/pcp/analise-carteira/l2'
+                                  ? location.pathname === '/pcp/analise-carteira/l2'
+                                  : item.href === '/pcp/analise-carteira/mto'
+                                    ? location.pathname === '/pcp/analise-carteira/mto'
+                                    : item.href === '/pcp/analise-carteira/revenda'
+                                      ? location.pathname === '/pcp/analise-carteira/revenda'
+                                      : item.href === '/pcp/analise-carteira/importado'
+                                        ? location.pathname === '/pcp/analise-carteira/importado'
+                                        : location.pathname === item.href ||
+                                          (item.href.includes('?') &&
+                                            location.pathname + location.search === item.href)
+
+                    const navLink = (
+                      <Link
+                        key={item.title}
+                        to={item.href}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-[#004C97] text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <ItemIcon
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            isSelected ? 'text-white' : 'text-slate-500'
+                          }`}
+                        />
+                        <span className="truncate">{item.title}</span>
+                      </Link>
+                    )
+
+                    if (item.permission) {
+                      return (
+                        <Can key={item.title} permission={item.permission}>
+                          {navLink}
+                        </Can>
+                      )
+                    }
+
+                    return navLink
+                  })}
+                </div>
+              )}
             </div>
-            {group.items.map((item) => {
-              const ItemIcon = item.icon
-              // Identifica seleção ativa
-              const isSelected =
-                item.href === '/pcp/oficina-cilindros' || item.href === '/oficina-cilindros'
-                  ? location.pathname.includes('oficina-cilindros')
-                  : item.href === '/pcp/sequenciamento/montagem-semanal'
-                    ? (location.pathname.includes('montagem-semanal') ||
-                        location.pathname.includes('programacao-semanal')) &&
-                      !location.pathname.includes('programacao-mensal') &&
-                      !location.pathname.includes('oficina-cilindros')
-                    : item.href === '/pcp/sequenciamento/programacao-mensal'
-                      ? location.pathname.includes('programacao-mensal')
-                      : location.pathname === item.href ||
-                        (item.href.includes('?') &&
-                          location.pathname + location.search === item.href)
-
-              const navLink = (
-                <Link
-                  key={item.title}
-                  to={item.href}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
-                    isSelected
-                      ? 'bg-[#004C97] text-white font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <ItemIcon
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      isSelected ? 'text-white' : 'text-slate-500'
-                    }`}
-                  />
-                  <span className="truncate">{item.title}</span>
-                </Link>
-              )
-
-              if (item.permission) {
-                return (
-                  <Can key={item.title} permission={item.permission}>
-                    {navLink}
-                  </Can>
-                )
-              }
-
-              return navLink
-            })}
-          </div>
-        ))}
+          )
+        })}
       </nav>
     </aside>
   )

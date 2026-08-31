@@ -336,7 +336,55 @@ export const App: React.FC = () => {
                 <Route
                   path="/pcp/analise-carteira"
                   element={
-                    <PermissionGuard permission="pcp.schedule.view">
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/geral"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/l1"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/l2"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/mto"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/revenda"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp/analise-carteira/importado"
+                  element={
+                    <PermissionGuard permission="pcp.carteira.view">
                       <AnaliseCarteiraPage />
                     </PermissionGuard>
                   }
@@ -346,11 +394,23 @@ export const App: React.FC = () => {
                   element={<Navigate to="/pcp/analise-carteira" replace />}
                 />
                 <Route
+                  path="/pcp-robotizado/analise-carteira/*"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                <Route
                   path="/analise-carteira"
                   element={<Navigate to="/pcp/analise-carteira" replace />}
                 />
                 <Route
+                  path="/analise-carteira/*"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                <Route
                   path="/carteira-analise"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                <Route
+                  path="/carteira-analise/*"
                   element={<Navigate to="/pcp/analise-carteira" replace />}
                 />
                 {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}{' '}

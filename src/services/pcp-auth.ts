@@ -57,6 +57,10 @@ export const authService = {
         'pcp.meeting.view',
         'pcp.meeting.conduct',
         'pcp.communication.view',
+        'pcp.carteira.view',
+        'pcp.carteira.import',
+        'pcp.carteira.manage_rules',
+        'pcp.carteira.reconcile',
       ]
     }
     if (roleUpper === 'PCP_PROGRAMMER') {
@@ -75,6 +79,9 @@ export const authService = {
         'pcp.quality.view',
         'pcp.meeting.view',
         'pcp.communication.view',
+        'pcp.carteira.view',
+        'pcp.carteira.import',
+        'pcp.carteira.reconcile',
       ]
     }
     if (roleUpper === 'PCP_PLANNER') {
@@ -88,6 +95,9 @@ export const authService = {
         'pcp.rules.view',
         'pcp.meeting.view',
         'pcp.communication.view',
+        'pcp.carteira.view',
+        'pcp.carteira.import',
+        'pcp.carteira.reconcile',
       ]
     }
     if (roleUpper === 'LINE_MANAGER') {
@@ -98,12 +108,13 @@ export const authService = {
         'pcp.masterdata.view',
         'pcp.quality.view',
         'pcp.meeting.view',
+        'pcp.carteira.view',
       ]
     }
-    if (roleUpper === 'OPERATOR') {
-      return ['pcp.schedule.view', 'pcp.quality.view']
+    if (roleUpper === 'OPERATOR' || roleUpper === 'PRODUCTION_VIEWER') {
+      return ['pcp.schedule.view', 'pcp.quality.view', 'pcp.carteira.view']
     }
-    return ['pcp.schedule.view']
+    return ['pcp.schedule.view', 'pcp.carteira.view']
   },
 
   /**
@@ -187,6 +198,10 @@ export const authService = {
           'pcp.meeting.view',
           'pcp.meeting.conduct',
           'pcp.communication.view',
+          'pcp.carteira.view',
+          'pcp.carteira.import',
+          'pcp.carteira.manage_rules',
+          'pcp.carteira.reconcile',
         ],
       }
     }

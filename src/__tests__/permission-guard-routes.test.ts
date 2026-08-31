@@ -25,4 +25,19 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     // Planner can view approvals list, but approval action is reserved for authorized approver roles
     expect(plannerPerms).toContain('pcp.schedule.view')
   })
+
+  it('should have pcp.carteira.view permission registered for pcp roles', () => {
+    const adminPerms = authService.getPermissionsForRole('PCP_ADMIN')
+    expect(adminPerms).toContain('pcp.carteira.view')
+    expect(adminPerms).toContain('pcp.carteira.import')
+
+    const progPerms = authService.getPermissionsForRole('PCP_PROGRAMMER')
+    expect(progPerms).toContain('pcp.carteira.view')
+
+    const planPerms = authService.getPermissionsForRole('PCP_PLANNER')
+    expect(planPerms).toContain('pcp.carteira.view')
+
+    const linePerms = authService.getPermissionsForRole('LINE_MANAGER')
+    expect(linePerms).toContain('pcp.carteira.view')
+  })
 })
