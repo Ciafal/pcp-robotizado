@@ -37,6 +37,7 @@ import {
   Maximize2,
   RefreshCw,
   TrendingUp,
+  Wrench,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -144,6 +145,12 @@ const navSections: NavSectionItem[] = [
         title: 'Montagem Semanal',
         href: '/pcp/sequenciamento/montagem-semanal',
         icon: CalendarDays,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Oficina de Cilindros',
+        href: '/pcp/oficina-cilindros',
+        icon: Wrench,
         permission: 'pcp.schedule.view',
       },
       {
@@ -575,6 +582,12 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Oficina de Cilindros',
+        href: '/pcp/oficina-cilindros',
+        icon: Wrench,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Visão Mensal',
         href: '/pcp/sequenciamento/programacao-mensal',
         icon: CalendarRange,
@@ -799,37 +812,41 @@ export const PCPSidebar: React.FC = () => {
   const location = useLocation()
 
   return (
-    <aside className="w-[210px] bg-[#0F172A] text-slate-300 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-800 select-none">
+    <aside className="w-[210px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none">
       {/* Topo do menu lateral */}
-      <div className="p-3 border-b border-slate-800 bg-[#0B1120]">
+      <div className="p-3 border-b border-slate-200 bg-white">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#004C97] ring-2 ring-blue-400/40" />
-          <span className="font-black text-xs tracking-wider text-white uppercase">
+          <div className="w-2 h-2 rounded-full bg-[#004C97] ring-2 ring-[#004C97]/30" />
+          <span className="font-black text-xs tracking-wider text-slate-900 uppercase">
             PCP ROBOTIZADO
           </span>
         </div>
-        <div className="text-[10px] text-slate-400 font-mono mt-0.5 pl-4">CIAFAL • Divinópolis</div>
+        <div className="text-[10px] text-slate-500 font-mono mt-0.5 pl-4">CIAFAL • Divinópolis</div>
       </div>
 
       {/* Itens agrupados compactos */}
       <nav className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-3 text-xs">
         {officialNavGroups.map((group) => (
           <div key={group.groupTitle} className="space-y-0.5">
-            <div className="px-2 py-1 text-[9px] font-black tracking-widest text-slate-400 uppercase">
+            <div className="px-2 py-1 text-[9px] font-black tracking-widest text-slate-900 uppercase">
               {group.groupTitle}
             </div>
             {group.items.map((item) => {
               const ItemIcon = item.icon
               // Identifica seleção ativa
               const isSelected =
-                item.href === '/pcp/sequenciamento/montagem-semanal'
-                  ? (location.pathname.includes('montagem-semanal') ||
-                      location.pathname.includes('programacao-semanal')) &&
-                    !location.pathname.includes('programacao-mensal')
-                  : item.href === '/pcp/sequenciamento/programacao-mensal'
-                    ? location.pathname.includes('programacao-mensal')
-                    : location.pathname === item.href ||
-                      (item.href.includes('?') && location.pathname + location.search === item.href)
+                item.href === '/pcp/oficina-cilindros' || item.href === '/oficina-cilindros'
+                  ? location.pathname.includes('oficina-cilindros')
+                  : item.href === '/pcp/sequenciamento/montagem-semanal'
+                    ? (location.pathname.includes('montagem-semanal') ||
+                        location.pathname.includes('programacao-semanal')) &&
+                      !location.pathname.includes('programacao-mensal') &&
+                      !location.pathname.includes('oficina-cilindros')
+                    : item.href === '/pcp/sequenciamento/programacao-mensal'
+                      ? location.pathname.includes('programacao-mensal')
+                      : location.pathname === item.href ||
+                        (item.href.includes('?') &&
+                          location.pathname + location.search === item.href)
 
               const navLink = (
                 <Link
@@ -838,12 +855,12 @@ export const PCPSidebar: React.FC = () => {
                   className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                     isSelected
                       ? 'bg-[#004C97] text-white font-bold shadow-xs'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
                   <ItemIcon
                     className={`w-3.5 h-3.5 shrink-0 ${
-                      isSelected ? 'text-white' : 'text-slate-400'
+                      isSelected ? 'text-white' : 'text-slate-500'
                     }`}
                   />
                   <span className="truncate">{item.title}</span>

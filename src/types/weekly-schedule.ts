@@ -314,9 +314,15 @@ export interface WeeklySummaryCapacity {
   availableHours: number
   productionHours: number
   setupHours: number
+  tuningHours?: number
   stoppedHours: number
+  maintenanceHours?: number
+  coolingHours?: number
   freeHours: number
   utilizationPct: number
+  setupsCount?: number
+  avgSetupMinutes?: number
+  capacityLossTons?: number
 }
 
 export interface WeeklySummaryProduction {

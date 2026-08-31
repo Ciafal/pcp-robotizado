@@ -120,6 +120,7 @@ import {
   CalendarDays,
   Trash2,
   Scissors,
+  Wrench,
 } from 'lucide-react'
 
 export const WeeklyScheduleOperationalPage: React.FC = () => {
@@ -152,9 +153,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo | Oficina de Cilindros"
   const isInitialMonthly = location.pathname.includes('programacao-mensal')
+  const isInitialRollShop = location.pathname.includes('oficina-cilindros')
   const [scheduleViewType, setScheduleViewType] = useState<
     'SEMANA' | 'MES' | 'TIMELINE' | 'OFICINA_CILINDROS'
-  >(isInitialMonthly ? 'MES' : 'SEMANA')
+  >(isInitialRollShop ? 'OFICINA_CILINDROS' : isInitialMonthly ? 'MES' : 'SEMANA')
+
+  // Sincroniza se a rota mudar dinamicamente
+  useEffect(() => {
+    if (location.pathname.includes('oficina-cilindros')) {
+      setScheduleViewType('OFICINA_CILINDROS')
+    } else if (location.pathname.includes('programacao-mensal')) {
+      setScheduleViewType('MES')
+    }
+  }, [location.pathname])
   const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
   const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
   const [gridFormat, setGridFormat] = useState<'OPERATIONAL_TIMELINE' | 'TABULAR'>(
@@ -1964,7 +1975,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         items={calculatedItems}
         lineCode={selectedLineCode}
         totalSetupHours={indicators.setupHours}
-        totalSetupsCount={indicators.setupsCount ?? indicators.totalSetups}
+        totalSetupsCount={indicators.setupsCount ?? 0}
         capacityLossTons={indicators.capacityLossTons ?? 24.8}
         onSelectSetupItem={(it) => {
           setIsSetupDrilldownOpen(false)

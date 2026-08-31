@@ -39,6 +39,7 @@ export interface MonthlyDayCellData {
   occupancyPct: number
   productsCount: number
   setupsCount: number
+  setupHours?: number
   stopsCount: number
 
   // Semáforos e badges

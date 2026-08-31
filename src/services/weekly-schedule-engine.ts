@@ -1486,22 +1486,24 @@ export const WeeklyScheduleEngine = {
     const totalTuningHours = Number((totalTuningMin / 60).toFixed(1))
 
     // Paradas detalhadas (Manutenção, Resfriamento, Outras)
-    const stopItems = processedItems.filter((it) => it.item_type === 'STOP')
+    const stopItems = processedItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
     const maintenanceMin = stopItems
       .filter(
         (it) =>
           it.stop_code?.toUpperCase().includes('MANUT') ||
-          it.notes?.toLowerCase().includes('manuten'),
+          it.stop_description?.toLowerCase().includes('manuten') ||
+          it.pcp_notes?.toLowerCase().includes('manuten'),
       )
-      .reduce((acc, it) => acc + (it.duration_minutes || it.stop_duration_minutes || 0), 0)
+      .reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
 
     const coolingMin = stopItems
       .filter(
         (it) =>
           it.stop_code?.toUpperCase().includes('RESF') ||
-          it.notes?.toLowerCase().includes('resfria'),
+          it.stop_description?.toLowerCase().includes('resfria') ||
+          it.pcp_notes?.toLowerCase().includes('resfria'),
       )
-      .reduce((acc, it) => acc + (it.duration_minutes || it.stop_duration_minutes || 0), 0)
+      .reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
 
     const maintenanceHours = Number((maintenanceMin / 60).toFixed(1))
     const coolingHoursTotal = Number((coolingMin / 60).toFixed(1))

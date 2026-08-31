@@ -24,6 +24,7 @@ interface OperationalKpiStripProps {
 export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
   indicators,
   lineCode = 'L1',
+  onOpenSetupDrilldown,
 }) => {
   // Valores da especificação
   const capDisponivel =
