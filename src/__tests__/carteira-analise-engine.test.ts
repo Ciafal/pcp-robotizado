@@ -255,15 +255,90 @@ describe('Motor de Cálculos da Análise de Carteira & Paridade ZSD28C', () => {
     expect(res.dias_cobertura).toBeUndefined()
     expect(res.data_fim_estoque).toBeUndefined()
     expect(isFinite(res.saldo_negativo_tons)).toBe(true)
+    expect(res.memoria_calculo?.campos_utilizados.dias_cobertura).toBe('Sem consumo histórico')
   })
 
-  it('6. Deve sanitizar fórmula maliciosa no parser para evitar Excel Formula Injection', () => {
-    const formulaMaliciosa = '=CMD|"/C calc"!A0'
-    const sanitizado = CarteiraService.sanitizarCampoTexto(formulaMaliciosa)
-    expect(sanitizado.startsWith("'")).toBe(true)
+  it('6. Deve calcular Saldo MTO L2 conforme fórmula legada exata', () => {
+    // Regra MTO L2: Saldo = -Quantidade Ordem + Quantidade Faturada + Estoque Semiacabado + Estoque Acabado
+    const saldoL2 = CarteiraZSD28CEngine.calcularSaldoMTOL2(100, 30, 20, 10)
+    // -100 + 30 + 20 + 10 = -40
+    expect(saldoL2).toBe(-40)
+
+    const saldoL2Superavit = CarteiraZSD28CEngine.calcularSaldoMTOL2(50, 20, 30, 10)
+    // -50 + 20 + 30 + 10 = +10
+    expect(saldoL2Superavit).toBe(10)
   })
 
-  it('7. Deve gerar template de download do Excel oficial com as 3 abas sem dados fictícios', () => {
+  it('7. Deve classificar MTO L1 corretamente: A FATURAR (<= 0) e A PRODUZIR (> 0)', () => {
+    // Cenário MTO L1 totalmente coberto por estoque MTO
+    const itemMtoCoberto: CarteiraItem = {
+      empresa: 'CIAFAL',
+      centro: '1000',
+      linha: 'L1',
+      ordem_venda: '4500100500',
+      item_ordem: '10',
+      data_ordem: '2025-01-10',
+      data_desejada: '2025-02-15',
+      codigo_cliente: 'CLI-05',
+      nome_cliente: 'Cliente MTO 1',
+      codigo_material: 'C1020',
+      descricao_material: 'Barra Chata 1020',
+      familia: 'BARRA_CHATA',
+      curva_abc: 'A',
+      tipo_ordem: 'MTO',
+      origem_produto: 'PRODUCAO_PROPRIA',
+      qtd_ordem_tons: 50,
+      qtd_faturada_tons: 10,
+      carteira_aberta_tons: 40,
+      carteira_vendas_tons: 0,
+      carteira_mto_tons: 40,
+      estoque_livre_tons: 0,
+      estoque_mto_tons: 45, // Maior que a carteira aberta (40t)
+      estoque_semiacabado_tons: 0,
+      estoque_acabado_tons: 0,
+      saldo_disponivel_tons: 0,
+      saldo_positivo_tons: 0,
+      saldo_negativo_tons: 0,
+      necessidade_liquida_tons: 0,
+      falta_produzir_tons: 0,
+      status_atendimento: 'A_PRODUZIR',
+      qtd_programada_tons: 0,
+      media_faturamento_diario_t_dia: 1,
+      status_ruptura: 'CINZA',
+      bloqueio: false,
+    }
+
+    const resCoberto = CarteiraZSD28CEngine.calcularItem(itemMtoCoberto, [])
+    expect(resCoberto.carteira_aberta_tons).toBe(40) // 50 - 10
+    expect(resCoberto.falta_produzir_tons).toBe(0) // 40 - 45 <= 0
+    expect(resCoberto.status_atendimento).toBe('A_FATURAR')
+
+    // Cenário MTO L1 com falta produzir pendente
+    const itemMtoPendente: CarteiraItem = {
+      ...itemMtoCoberto,
+      estoque_mto_tons: 15,
+    }
+    const resPendente = CarteiraZSD28CEngine.calcularItem(itemMtoPendente, [])
+    expect(resPendente.falta_produzir_tons).toBe(25) // 40 - 15 = 25t
+    expect(resPendente.status_atendimento).toBe('A_PRODUZIR')
+  })
+
+  it('8. Deve sanitizar caracteres de injeção de fórmula (=, +, -, @, tab, cr)', () => {
+    const formulas = [
+      '=SUM(A1:A10)',
+      '+12345',
+      '-CMD("calc")',
+      '@HYPERLINK("http://evil.com")',
+      '\tTabbedValue',
+      '\rReturnVal',
+    ]
+    formulas.forEach((f) => {
+      const sanitizado = CarteiraService.sanitizarCampoTexto(f)
+      expect(sanitizado.startsWith("'")).toBe(true)
+    })
+  })
+
+  it('9. Deve gerar template de download do Excel oficial com as 3 abas sem dados fictícios', () => {
     const blob = CarteiraService.gerarTemplateExcelBlob()
     expect(blob).toBeDefined()
     expect(blob.type).toContain('csv')

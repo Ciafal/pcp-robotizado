@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T11:13:42.076Z",
+  "generatedAt": "2026-08-31T13:03:43.658Z",
   "collections": [
     {
       "name": "users",
@@ -15578,6 +15578,938 @@
       "indexes": [
         "CREATE INDEX idx_ptr_code ON pcp_test_requests (request_code)",
         "CREATE INDEX idx_ptr_line ON pcp_test_requests (line_code, status)"
+      ]
+    },
+    {
+      "name": "carteira_uploads",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "upload_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "filename",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "file_hash",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "file_size_bytes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_rows",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_rows",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "warning_rows",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rejected_rows",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PROCESSADO", "VALIDADO", "REJEITADO", "REVERTIDO", "EM_PROCESSAMENTO"]
+        },
+        {
+          "name": "source_mode",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["EXCEL_QAS", "SAP_ECC_ZSD28C", "MANUAL_SIMULADO"]
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version_tag",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validation_log",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "summary_kpis",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active_current",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_carteira_up_code ON carteira_uploads (upload_code)",
+        "CREATE INDEX idx_carteira_up_status ON carteira_uploads (status)",
+        "CREATE INDEX idx_carteira_up_curr ON carteira_uploads (is_active_current)"
+      ]
+    },
+    {
+      "name": "carteira_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "upload_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "upload_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "empresa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ordem_venda",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "item_ordem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_ordem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_desejada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nome_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_material",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao_material",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "familia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "curva_abc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_atendimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_ordem",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["MTS", "MTO"]
+        },
+        {
+          "name": "origem_produto",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PRODUCAO_PROPRIA", "REVENDA", "IMPORTADO", "INDUSTRIALIZACAO"]
+        },
+        {
+          "name": "qtd_ordem_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qtd_faturada_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carteira_aberta_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carteira_vendas_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carteira_mto_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_livre_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_mto_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_semiacabado_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_semiacabado_ciafal_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_semiacabado_vallourec_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_acabado_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_disponivel_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_positivo_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_negativo_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "necessidade_liquida_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "falta_produzir_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "zsd24_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_atendimento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "qtd_programada_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_programada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "semana_programada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha_programada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_faturamento_diario_t_dia",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dias_cobertura",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_fim_estoque",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_ruptura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bloqueio",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_bloqueio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_dp04",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "utilizacao_livre",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_vallourec",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp27",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requisitos_tecnicos",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "possivel_duplicidade",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duplicidade_detalhes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "memoria_calculo",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_carteira_item_up ON carteira_items (upload_code)",
+        "CREATE INDEX idx_carteira_item_mat ON carteira_items (codigo_material)",
+        "CREATE INDEX idx_carteira_item_ord ON carteira_items (ordem_venda, item_ordem)",
+        "CREATE INDEX idx_carteira_item_origem ON carteira_items (origem_produto, tipo_ordem)",
+        "CREATE INDEX idx_carteira_item_lin ON carteira_items (linha)"
+      ]
+    },
+    {
+      "name": "carteira_entradas_futuras",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "upload_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "empresa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_material",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "descricao_material",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["REVENDA", "IMPORTADO", "PRODUCAO_INTERNA", "OUTROS"]
+        },
+        {
+          "name": "documento_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fornecedor_origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_prevista_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_recebida_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_pendente_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_prevista_entrada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_entrada",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "vinculo_pedido_venda",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_entradas_mat ON carteira_entradas_futuras (codigo_material)",
+        "CREATE INDEX idx_entradas_up ON carteira_entradas_futuras (upload_code)"
+      ]
+    },
+    {
+      "name": "carteira_regras_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "chave_regra",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome_regra",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justificativa_alteracao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ativo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_regras_chave ON carteira_regras_config (chave_regra)"]
+    },
+    {
+      "name": "carteira_ciclo_snapshots",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "snapshot_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ciclo_tipo",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["L1", "L2", "GERAL"]
+        },
+        {
+          "name": "ano",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "semana",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "periodo_rotulo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_apuracao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_carteira_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_estoque_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_saldo_positivo_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_saldo_negativo_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_mto_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_semiacabado_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "itens_criticos_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload_detalhes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_carteira_snp_code ON carteira_ciclo_snapshots (snapshot_code)",
+        "CREATE INDEX idx_carteira_snp_sem ON carteira_ciclo_snapshots (ciclo_tipo, ano, semana)"
+      ]
+    },
+    {
+      "name": "carteira_ia_insights",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "insight_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "criticidade",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["CRITICA", "ALTA", "MEDIA", "INFORMATIVA"]
+        },
+        {
+          "name": "categoria",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "problema_encontrado",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacto",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "causa_provavel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acao_sugerida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "nivel_confianca_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "materiais_afetados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pedidos_afetados",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duplicidade_envolvida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_carteira_ia_code ON carteira_ia_insights (insight_code)",
+        "CREATE INDEX idx_carteira_ia_crit ON carteira_ia_insights (criticidade)"
       ]
     }
   ]

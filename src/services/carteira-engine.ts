@@ -96,6 +96,7 @@ export class CarteiraZSD28CEngine {
       saldoNegativo = Math.min(0, balancoL1)
       saldoPositivo = Math.max(0, balancoL1)
       necessidadeLiquida = Math.max(0, -saldoNegativo - totalEntradasFuturas)
+      // MTO L1: Falta Produzir = Saldo do Pedido (carteiraAberta) - Estoque disponível elegível (estoqueMto)
       faltaProduzir =
         item.tipo_ordem === 'MTO' ? Math.max(0, carteiraAberta - estoqueMto) : necessidadeLiquida
     } else if (linha === 'L2') {
@@ -109,6 +110,7 @@ export class CarteiraZSD28CEngine {
       saldoPositivo = Math.max(0, dispSaldoL2 - demandaSaldoL2)
 
       necessidadeLiquida = Math.max(0, -saldoNegativo - totalEntradasFuturas)
+      // MTO L2: Falta Produzir baseada nos estoques elegíveis de semiacabado e acabado
       faltaProduzir =
         item.tipo_ordem === 'MTO'
           ? Math.max(0, carteiraAberta - (estoqueSemiCiafal + estoqueAcabado))
@@ -396,6 +398,19 @@ export class CarteiraZSD28CEngine {
     }
 
     return insights
+  }
+
+  /**
+   * Cálculo específico de Saldo MTO L2 conforme regra legada da planilha:
+   * Saldo = -Quantidade Ordem + Quantidade Faturada + Estoque Semiacabado + Estoque Acabado
+   */
+  public static calcularSaldoMTOL2(
+    qtdOrdem: number,
+    qtdFaturada: number,
+    estoqueSemiacabado: number,
+    estoqueAcabado: number,
+  ): number {
+    return -qtdOrdem + qtdFaturada + estoqueSemiacabado + estoqueAcabado
   }
 
   public static reconciliarComSAP(
