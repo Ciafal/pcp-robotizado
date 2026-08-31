@@ -178,6 +178,12 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Análise de Carteira (ZSD28C)',
+        href: '/pcp/analise-carteira',
+        icon: Briefcase,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Carteira (CRM / WMS)',
         href: '/pcp/sequenciamento/carteira',
         icon: Briefcase,

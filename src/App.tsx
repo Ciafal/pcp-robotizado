@@ -38,6 +38,7 @@ const EfficiencyLinesSubpage = lazy(() => import('@/pages/EfficiencyLinesSubpage
 const EfficiencyPlantsSubpage = lazy(() => import('@/pages/EfficiencyPlantsSubpage'))
 const EfficiencyAssertivenessSubpage = lazy(() => import('@/pages/EfficiencyAssertivenessSubpage'))
 const BacklogPage = lazy(() => import('@/pages/BacklogPage'))
+const AnaliseCarteiraPage = lazy(() => import('@/pages/AnaliseCarteiraPage'))
 const ScenariosPage = lazy(() =>
   import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
 )
@@ -324,8 +325,28 @@ export const App: React.FC = () => {
                     </PermissionGuard>
                   }
                 />
-
-                {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}
+                {/* SUBMÓDULO OFICIAL: ANÁLISE DE CARTEIRA (ZSD28C / CICLOS L1 & L2 / MTO / REVENDA / IMPORTADO) */}
+                <Route
+                  path="/pcp/analise-carteira"
+                  element={
+                    <PermissionGuard permission="pcp.schedule.view">
+                      <AnaliseCarteiraPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/pcp-robotizado/analise-carteira"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                <Route
+                  path="/analise-carteira"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                <Route
+                  path="/carteira-analise"
+                  element={<Navigate to="/pcp/analise-carteira" replace />}
+                />
+                {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}{' '}
                 <Route
                   path="/pcp/cockpit-executivo"
                   element={
@@ -342,7 +363,6 @@ export const App: React.FC = () => {
                   path="/dwp/cockpit-executivo"
                   element={<Navigate to="/pcp/cockpit-executivo" replace />}
                 />
-
                 {/* Cockpit de Chão de Fábrica & Landing Raiz */}
                 <Route path="/" element={<Index />} />
                 <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
@@ -352,7 +372,6 @@ export const App: React.FC = () => {
                   path="/pcp-robotizado/cockpit"
                   element={<Navigate to="/pcp/cockpit" replace />}
                 />
-
                 {/* Gestão de Estoques SAP / PCP */}
                 <Route
                   path="/pcp/estoques"
@@ -367,7 +386,6 @@ export const App: React.FC = () => {
                   element={<Navigate to="/pcp/estoques" replace />}
                 />
                 <Route path="/estoque" element={<Navigate to="/pcp/estoques" replace />} />
-
                 {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
                 <Route
                   path="/pcp/sequenciamento"
@@ -416,9 +434,17 @@ export const App: React.FC = () => {
                     element={<EfficiencyAssertivenessSubpage />}
                   />
 
+                  {/* Análise de Carteira Integrada */}
+                  <Route
+                    path="analise-carteira"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
                   {/* Carteira CRM / WMS */}
                   <Route path="carteira" element={<BacklogPage />} />
-
                   {/* Cenários & Simulações */}
                   <Route
                     path="cenarios"
@@ -432,7 +458,6 @@ export const App: React.FC = () => {
                   {/* Histórico & Trilha de Versões */}
                   <Route path="historico" element={<HistoryPage />} />
                 </Route>
-
                 {/* 3. Planejamento Mestre (S&OP / PMP) */}
                 <Route
                   path="/pcp/planejamento"
@@ -451,7 +476,6 @@ export const App: React.FC = () => {
                   path="/planejamento-mestre"
                   element={<Navigate to="/pcp/planejamento" replace />}
                 />
-
                 {/* 4. Gestão de Linhas (Estrutura da Malha Produtiva e Mapa de Integração) */}
                 <Route
                   path="/pcp/linhas"
@@ -518,7 +542,6 @@ export const App: React.FC = () => {
                     </PermissionGuard>
                   }
                 />
-
                 {/* SUBMÓDULO PRINCIPAL: GESTÃO DE MATÉRIA-PRIMA (Estrutura Obrigatória Oficial CIAFAL) */}
                 <Route
                   path="/pcp/gestao-materia-prima"
@@ -610,7 +633,6 @@ export const App: React.FC = () => {
                   path="/pcp/otimizacao-mp/industrializador"
                   element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
                 />
-
                 {/* Rotas de Compatibilidade e Detalhes Específicos do Módulo MP */}
                 <Route
                   path="/pcp/otimizacao-mp"
@@ -672,7 +694,6 @@ export const App: React.FC = () => {
                   path="/pcp/otimizacao-mp/indicadores"
                   element={<Navigate to="/pcp/gestao-materia-prima" replace />}
                 />
-
                 {/* 5.1 Módulo de Qualidade do Produto, Ultrassom e Ensaios */}
                 <Route
                   path="/pcp/qualidade"
@@ -682,7 +703,6 @@ export const App: React.FC = () => {
                     </PermissionGuard>
                   }
                 />
-
                 {/* 6. Módulos Auxiliares & Governança */}
                 <Route
                   path="/pcp/ficha-mestre"
@@ -756,7 +776,6 @@ export const App: React.FC = () => {
                     </PermissionGuard>
                   }
                 />
-
                 {/* Aliases e Redirecionamentos de Compatibilidade */}
                 <Route
                   path="/pcp-robotizado/programacoes"
