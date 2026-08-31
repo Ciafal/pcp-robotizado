@@ -42,6 +42,7 @@ import {
   PackageCheck,
   Globe2,
   ShoppingBag,
+  HelpCircle,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -904,6 +905,12 @@ const officialNavGroups: NavGroup[] = [
         title: 'Status de Homologação',
         href: '/pcp/status-homologacao',
         icon: Layers,
+        permission: 'pcp.audit.view',
+      },
+      {
+        title: 'Motivos & Justificativas',
+        href: '/pcp/motivos-justificativas',
+        icon: HelpCircle,
         permission: 'pcp.audit.view',
       },
       {

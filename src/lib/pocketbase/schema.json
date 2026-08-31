@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T18:33:51.384Z",
+  "generatedAt": "2026-08-31T18:57:44.817Z",
   "collections": [
     {
       "name": "users",
@@ -17174,6 +17174,1053 @@
       ],
       "indexes": [
         "CREATE INDEX idx_mp_sdc_l2_prd ON mp_sdc_l2_planned_vs_realized (period_ref, steel_grade)"
+      ]
+    },
+    {
+      "name": "pcp_reason_families",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "icon_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sort_order",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_rf_code ON pcp_reason_families (code)"]
+    },
+    {
+      "name": "pcp_change_reasons",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_reason_families"
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "severity",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["BAIXA", "MEDIA", "ALTA", "CRITICA"]
+        },
+        {
+          "name": "source_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "related_modules",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_types_allowed",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_date_change",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_sequence_change",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_quantity_change",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_line_change",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allows_shift_change",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "require_comment",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "require_evidence",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "require_approval",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criticality",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["NORMAL", "ATENCAO", "CRITICA", "BLOQUEANTE"]
+        },
+        {
+          "name": "notify_mes",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_crm",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_tms",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_pcm",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notify_roll_shop",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "generate_sgq_occurrence",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "generate_action_plan",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "count_as_reprogram_cause",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_cr_code ON pcp_change_reasons (code)"]
+    },
+    {
+      "name": "pcp_version_diffs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_version_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_version_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_version_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "current_version_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "change_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["INCLUIDO", "ALTERADO", "REMOVIDO"]
+        },
+        {
+          "name": "field",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "field_name_pt",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "old_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delta_numeric",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delta_display",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "relevance",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["BAIXA", "MEDIA", "ALTA"]
+        },
+        {
+          "name": "customer_affected",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_order",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_op_affected",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "diff_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_vd_sch_ver ON pcp_version_diffs (schedule_code, current_version_code)",
+        "CREATE INDEX idx_vd_mat ON pcp_version_diffs (material_code)"
+      ]
+    },
+    {
+      "name": "pcp_change_justifications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shift_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "period_display",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version_from",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version_to",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_change_reasons"
+        },
+        {
+          "name": "reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "family_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "specific_cause",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "leadership_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_generated",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_confidence",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_suggested_reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_suggested_reason_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_decision",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ACCEPTED", "EDITED", "REJECTED", "MANUAL"]
+        },
+        {
+          "name": "evidence_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "SYSTEM_CONFIRMED",
+            "PARTIAL_EVIDENCE",
+            "EXTERNAL_UNAVAILABLE",
+            "HUMAN_ONLY"
+          ]
+        },
+        {
+          "name": "impact_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_orders_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_customers_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "related_modules",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_role",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_cj_sch_ver ON pcp_change_justifications (schedule_code, version_to)",
+        "CREATE INDEX idx_cj_reason ON pcp_change_justifications (reason_code)"
+      ]
+    },
+    {
+      "name": "pcp_change_evidence",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "justification_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_change_justifications"
+        },
+        {
+          "name": "source_system",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "SAP",
+            "WMS",
+            "MES",
+            "AOM",
+            "PCM",
+            "QUALIDADE",
+            "CRM",
+            "TMS",
+            "OFICINA_CILINDROS",
+            "FICHA_MESTRE",
+            "MATRIZ_GARGALO",
+            "MOTOR_REGRAS"
+          ]
+        },
+        {
+          "name": "source_entity",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_reference",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidence_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "old_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "confidence_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidence_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ce_just ON pcp_change_evidence (justification_id)",
+        "CREATE INDEX idx_ce_source ON pcp_change_evidence (source_system)"
+      ]
+    },
+    {
+      "name": "pcp_ai_reason_suggestions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "diff_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "suggested_reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "suggested_reason_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "suggested_family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "confidence",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "explanation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidences_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidences_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_action",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDING", "ACCEPTED", "EDITED", "REJECTED"]
+        },
+        {
+          "name": "final_reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "final_reason_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_by_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "validated_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "feedback_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ais_sch ON pcp_ai_reason_suggestions (schedule_code)",
+        "CREATE INDEX idx_ais_status ON pcp_ai_reason_suggestions (human_action)"
+      ]
+    },
+    {
+      "name": "pcp_reason_clusters",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "cluster_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proposed_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "proposed_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposed_family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposed_family_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "occurrence_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "similarity_score",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_hours",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recurring_terms",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sample_justifications",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "affected_lines",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PROPOSED", "APPROVED", "MERGED", "REJECTED"]
+        },
+        {
+          "name": "approved_reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "merged_into_reason_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reviewed_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reviewed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_rc_code ON pcp_reason_clusters (cluster_code)",
+        "CREATE INDEX idx_rc_status ON pcp_reason_clusters (status)"
       ]
     }
   ]

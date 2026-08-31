@@ -1,15 +1,26 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeftRight, Check, AlertCircle } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  Check,
+  AlertCircle,
+  Sparkles,
+  Layers,
+  Building,
+  Calendar,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Info,
+} from 'lucide-react'
 import { ScheduleItemDiff } from '@/types/schedule-versioning'
 
 interface VersionComparisonDiffModalProps {
@@ -20,6 +31,10 @@ interface VersionComparisonDiffModalProps {
   diffs: ScheduleItemDiff[]
   lineCode: string
   weekDisplay: string
+  associatedReasonCode?: string
+  associatedReasonName?: string
+  associatedFamilyName?: string
+  evidenceStatus?: string
 }
 
 export const VersionComparisonDiffModal: React.FC<VersionComparisonDiffModalProps> = ({
@@ -30,167 +45,336 @@ export const VersionComparisonDiffModal: React.FC<VersionComparisonDiffModalProp
   diffs,
   lineCode,
   weekDisplay,
+  associatedReasonCode,
+  associatedReasonName,
+  associatedFamilyName,
+  evidenceStatus,
 }) => {
+  const [filterType, setFilterType] = useState<'ALL' | 'INCLUIDO' | 'ALTERADO' | 'REMOVIDO'>('ALL')
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  // Resumo inteligente das causas estruturado (Seção 14)
+  const causeBreakdown = useMemo(() => {
+    const total = diffs.length
+    let mpCount = 0
+    let setCount = 0
+    let comCount = 0
+    let prdCount = 0
+
+    diffs.forEach((d) => {
+      const isQty = d.fieldDiffs.some((f) => f.field === 'QUANTIDADE')
+      const isSeq = d.fieldDiffs.some((f) => f.field === 'SEQUENCIA')
+      const isCust = Boolean(d.customerAffected || d.salesOrder)
+
+      if (isQty) mpCount++
+      else if (isSeq) setCount++
+      else if (isCust) comCount++
+      else prdCount++
+    })
+
+    return { total, mpCount, setCount, comCount, prdCount }
+  }, [diffs])
+
+  const filteredDiffs = useMemo(() => {
+    if (filterType === 'ALL') return diffs
+    return diffs.filter((d) => d.changeType === filterType)
+  }, [diffs, filterType])
+
+  const addedCount = diffs.filter((d) => d.changeType === 'INCLUIDO').length
+  const modifiedCount = diffs.filter((d) => d.changeType === 'ALTERADO').length
+  const removedCount = diffs.filter((d) => d.changeType === 'REMOVIDO').length
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-white border-slate-200 text-slate-800 p-6">
         <DialogHeader className="border-b border-slate-100 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-[#004C97] text-white rounded-lg">
+              <div className="p-2 bg-blue-50 text-[#004C97] rounded-lg">
                 <ArrowLeftRight className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-base font-black text-slate-900">
-                  Comparação de Versões: {versionA} &times; {versionB}
+                <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  Comparador Formal de Versões: {versionA} &harr; {versionB}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Exibindo exclusivamente as diferenças identificadas entre as revisões da Linha{' '}
-                  {lineCode}.
-                </DialogDescription>
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Building className="w-3.5 h-3.5" /> Linha {lineCode}
+                  </span>
+                  <span>&bull;</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" /> {weekDisplay}
+                  </span>
+                </div>
               </div>
             </div>
-            <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-xs font-mono">
-              {diffs.length} diferença(s)
-            </Badge>
+            <div className="flex items-center gap-1.5 font-mono text-xs">
+              <Badge variant="outline" className="bg-slate-50 border-slate-300">
+                Origem: {versionA}
+              </Badge>
+              <span>&rarr;</span>
+              <Badge className="bg-[#004C97] text-white">Destino: {versionB}</Badge>
+            </div>
           </div>
         </DialogHeader>
 
-        {/* Legenda de Cores Oficiais: Verde = incluído, Amarelo = alterado, Vermelho = removido */}
-        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
-          <span className="font-bold text-slate-700">Legenda de Cores CIAFAL:</span>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 font-medium text-emerald-800">
-              <span className="w-3 h-3 rounded bg-emerald-500 inline-block" /> Verde = Incluído
-            </span>
-            <span className="flex items-center gap-1 font-medium text-amber-800">
-              <span className="w-3 h-3 rounded bg-amber-400 inline-block" /> Amarelo = Alterado
-            </span>
-            <span className="flex items-center gap-1 font-medium text-rose-800">
-              <span className="w-3 h-3 rounded bg-rose-500 inline-block" /> Vermelho = Removido
-            </span>
-          </div>
-        </div>
-
-        {/* Lista de Diffs */}
-        <div className="space-y-3 py-2 text-xs max-h-[55vh] overflow-y-auto pr-1">
-          {diffs.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-              <Check className="w-6 h-6 text-emerald-600 mx-auto" />
-              <p className="font-bold text-slate-700">Versões Idênticas</p>
-              <p className="text-slate-500 text-xs">
-                Nenhuma alteração detectada entre {versionA} e {versionB}.
-              </p>
+        <div className="py-4 space-y-4">
+          {/* CARDS DE RESUMO OPERACIONAL */}
+          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-2 bg-slate-50 border border-slate-200 rounded">
+              <span className="text-[10px] text-slate-500 uppercase block font-semibold">
+                Total Alterações
+              </span>
+              <span className="text-lg font-bold text-slate-800">{diffs.length}</span>
             </div>
-          ) : (
-            diffs.map((diff, i) => (
-              <div
-                key={diff.id || i}
-                className={`p-3.5 rounded-xl border space-y-2 transition-all ${
-                  diff.changeType === 'INCLUIDO'
-                    ? 'bg-emerald-50/70 border-emerald-300'
-                    : diff.changeType === 'REMOVIDO'
-                      ? 'bg-rose-50/70 border-rose-300'
-                      : 'bg-amber-50/70 border-amber-300'
+            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded">
+              <span className="text-[10px] text-emerald-700 uppercase block font-semibold">
+                Itens Adicionados
+              </span>
+              <span className="text-lg font-bold text-emerald-700">{addedCount}</span>
+            </div>
+            <div className="p-2 bg-amber-50 border border-amber-200 rounded">
+              <span className="text-[10px] text-amber-700 uppercase block font-semibold">
+                Itens Modificados
+              </span>
+              <span className="text-lg font-bold text-amber-700">{modifiedCount}</span>
+            </div>
+            <div className="p-2 bg-rose-50 border border-rose-200 rounded">
+              <span className="text-[10px] text-rose-700 uppercase block font-semibold">
+                Itens Removidos
+              </span>
+              <span className="text-lg font-bold text-rose-700">{removedCount}</span>
+            </div>
+          </div>
+
+          {/* RESUMO INTELIGENTE DA REPROGRAMAÇÃO DERIVADO DOS DADOS REAIS (SEÇÃO 14) */}
+          <div className="bg-blue-50/80 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 space-y-1.5">
+            <div className="flex items-center justify-between font-bold">
+              <span className="flex items-center gap-1.5 text-[#004C97]">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                Resumo Inteligente das Causas (Version Diff):
+              </span>
+              {associatedReasonCode && (
+                <Badge className="bg-[#004C97] text-white text-[10px]">
+                  {associatedReasonCode} — {associatedReasonName}
+                </Badge>
+              )}
+            </div>
+            <p className="text-slate-700 leading-relaxed text-[11.5px]">
+              {diffs.length > 0 ? (
+                <>
+                  Identificadas <strong>{diffs.length} alterações</strong> entre {versionA} e{' '}
+                  {versionB}:{' '}
+                  {causeBreakdown.mpCount > 0 &&
+                    `${causeBreakdown.mpCount} com impacto em Matéria-prima (saldo/lote); `}
+                  {causeBreakdown.setCount > 0 &&
+                    `${causeBreakdown.setCount} por alteração de Setup ou Sequenciamento; `}
+                  {causeBreakdown.comCount > 0 &&
+                    `${causeBreakdown.comCount} por Demanda Comercial / CRM; `}
+                  {causeBreakdown.prdCount > 0 &&
+                    `${causeBreakdown.prdCount} por Parada/Capacidade Operacional. `}
+                  {evidenceStatus === 'HUMAN_ONLY' && (
+                    <span className="text-amber-700 font-semibold">
+                      (Registro exclusivamente humano sem evidência sistêmica vinculada).
+                    </span>
+                  )}
+                </>
+              ) : (
+                'Nenhuma alteração de grade detectada entre estas duas versões.'
+              )}
+            </p>
+          </div>
+
+          {/* FILTRO DE TIPOS */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Detalhamento dos Itens ({filteredDiffs.length})
+            </span>
+            <div className="flex items-center gap-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setFilterType('ALL')}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition ${
+                  filterType === 'ALL'
+                    ? 'bg-[#004C97] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                        diff.changeType === 'INCLUIDO'
-                          ? 'bg-emerald-600 text-white'
-                          : diff.changeType === 'REMOVIDO'
-                            ? 'bg-rose-600 text-white'
-                            : 'bg-amber-500 text-white'
-                      }`}
-                    >
-                      {diff.changeType}
-                    </span>
-                    <strong className="text-slate-900 font-mono text-sm">
-                      {diff.materialCode}
-                    </strong>
-                    <span className="text-slate-600 text-[11px]">{diff.materialDescription}</span>
-                  </div>
+                Todos ({diffs.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('ALTERADO')}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition ${
+                  filterType === 'ALTERADO'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Modificados ({modifiedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('INCLUIDO')}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition ${
+                  filterType === 'INCLUIDO'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Inclusões ({addedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('REMOVIDO')}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition ${
+                  filterType === 'REMOVIDO'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Remoções ({removedCount})
+              </button>
+            </div>
+          </div>
 
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] font-bold ${
-                      diff.relevance === 'ALTA'
-                        ? 'border-rose-400 text-rose-700 bg-rose-50'
-                        : diff.relevance === 'MEDIA'
-                          ? 'border-amber-400 text-amber-800 bg-amber-50'
-                          : 'border-emerald-400 text-emerald-700 bg-emerald-50'
-                    }`}
+          {/* LISTA TABULAR ESTRUTURADA DE ALTERAÇÕES (SEÇÃO 7 e 14) */}
+          {filteredDiffs.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 border border-slate-100 rounded text-xs text-slate-500">
+              Nenhuma alteração para o filtro selecionado.
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredDiffs.map((d) => {
+                const isExp = expandedItems[d.itemId] || false
+                return (
+                  <div
+                    key={d.itemId}
+                    className="p-3 border border-slate-200 rounded-lg bg-white shadow-2xs hover:border-slate-300 transition"
                   >
-                    {diff.relevance} Relevância
-                  </Badge>
-                </div>
-
-                {/* Grid comparativo Antes x Depois */}
-                <div className="bg-white/90 p-3 rounded-lg border border-slate-200 space-y-2">
-                  {diff.fieldDiffs.map((fd, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-12 gap-2 text-xs items-center font-mono"
-                    >
-                      <span className="col-span-3 font-bold text-slate-700 font-sans">
-                        {fd.fieldNamePt}:
-                      </span>
-                      <div className="col-span-4 p-1.5 rounded bg-slate-100 text-slate-600 line-through truncate">
-                        {fd.previousValue}
+                    {/* Cabeçalho do item */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={`text-[10px] font-bold ${
+                            d.changeType === 'INCLUIDO'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : d.changeType === 'REMOVIDO'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {d.changeType}
+                        </Badge>
+                        <span className="text-xs font-mono font-bold text-slate-900">
+                          {d.materialCode}
+                        </span>
+                        {d.materialDescription && (
+                          <span className="text-xs text-slate-600 font-medium">
+                            ({d.materialDescription})
+                          </span>
+                        )}
                       </div>
-                      <span className="col-span-1 text-center font-bold text-slate-400">
-                        &rarr;
-                      </span>
-                      <div
-                        className={`col-span-4 p-1.5 rounded font-bold truncate ${
-                          fd.highlightColor === 'green'
-                            ? 'bg-emerald-100 text-emerald-900'
-                            : fd.highlightColor === 'red'
-                              ? 'bg-rose-100 text-rose-900'
-                              : 'bg-amber-100 text-amber-950'
-                        }`}
-                      >
-                        {fd.newValue}
+
+                      <div className="flex items-center gap-2">
+                        {d.relevance === 'ALTA' && (
+                          <Badge className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px]">
+                            Alta Relevância
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpand(d.itemId)}
+                          className="h-6 text-[11px] text-slate-500 px-1.5"
+                        >
+                          {isExp ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* Detalhes de rastreabilidade */}
-                {(diff.customerAffected || diff.sapOpAffected || diff.notes) && (
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 pt-1">
-                    {diff.customerAffected && (
+                    {/* Tabela de Campos: | Campo | Versão Anterior | Versão Atual | Alteração | */}
+                    <div className="mt-2.5 overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse font-mono">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] uppercase">
+                            <th className="p-1.5 font-semibold">Campo</th>
+                            <th className="p-1.5 font-semibold">{versionA} (Antes)</th>
+                            <th className="p-1.5 font-semibold">{versionB} (Depois)</th>
+                            <th className="p-1.5 font-semibold text-right">Variação / Delta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.fieldDiffs.map((fd, fIdx) => (
+                            <tr
+                              key={fIdx}
+                              className="border-b border-slate-100 hover:bg-slate-50/50"
+                            >
+                              <td className="p-1.5 font-bold text-slate-700">{fd.fieldNamePt}</td>
+                              <td className="p-1.5 text-slate-500 line-through">
+                                {fd.previousValue}
+                              </td>
+                              <td className="p-1.5 font-bold text-slate-800">{fd.newValue}</td>
+                              <td className="p-1.5 text-right font-bold">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                    fd.highlightColor === 'green'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : fd.highlightColor === 'red'
+                                        ? 'bg-rose-100 text-rose-800'
+                                        : 'bg-blue-100 text-blue-800'
+                                  }`}
+                                >
+                                  {fd.previousValue} &rarr; {fd.newValue}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Detalhes de Cliente / PV */}
+                    <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                       <span>
-                        Cliente: <strong className="text-slate-800">{diff.customerAffected}</strong>
+                        {d.customerAffected
+                          ? `Cliente: ${d.customerAffected}`
+                          : 'Ordem MTS de Estoque'}
                       </span>
-                    )}
-                    {diff.salesOrder && (
-                      <span>
-                        Pedido MTO: <strong>{diff.salesOrder}</strong>
-                      </span>
-                    )}
-                    {diff.sapOpAffected && (
-                      <span className="text-rose-700 font-bold font-mono">
-                        OP SAP: {diff.sapOpAffected}
-                      </span>
-                    )}
-                    {diff.notes && <span className="text-slate-500 italic">({diff.notes})</span>}
+                      {d.salesOrder && (
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          PV: {d.salesOrder}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))
+                )
+              })}
+            </div>
           )}
         </div>
 
-        <DialogFooter className="border-t border-slate-100 pt-3">
-          <Button variant="outline" onClick={onClose} className="text-xs h-9">
-            Fechar Comparação
+        <DialogFooter className="border-t border-slate-100 pt-3 flex items-center justify-between">
+          <span className="text-[11px] text-slate-400">
+            Comparação formal auditada pelo Motor de Versionamento PCP CIAFAL.
+          </span>
+          <Button
+            onClick={onClose}
+            size="sm"
+            className="bg-[#004C97] hover:bg-[#003B75] text-white text-xs"
+          >
+            Fechar Comparador
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
-export default VersionComparisonDiffModal

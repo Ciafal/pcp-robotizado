@@ -87,6 +87,7 @@ const LineMasterPage = lazy(() => import('@/pages/LineMasterPage'))
 const LineResponsiblesPage = lazy(() => import('@/pages/LineResponsiblesPage'))
 const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
 const AuditPage = lazy(() => import('@/pages/AuditPage'))
+const ReasonsAndGovernancePage = lazy(() => import('@/pages/ReasonsAndGovernancePage'))
 const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
 const ScheduleChangesCenterPage = lazy(() => import('@/pages/ScheduleChangesCenterPage'))
 const PCPIntegrationsPage = lazy(() => import('@/pages/PCPIntegrationsPage'))
@@ -845,6 +846,26 @@ export const App: React.FC = () => {
                         <PCPHomologationStatusPage />
                       </PermissionGuard>
                     }
+                  />
+                  <Route
+                    path="/pcp/motivos-justificativas"
+                    element={
+                      <PermissionGuard permission="pcp.audit.view">
+                        <ReasonsAndGovernancePage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/motivos"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
+                  />
+                  <Route
+                    path="/pcp/justificativas"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/motivos-justificativas"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
                   />
                   <Route
                     path="/pcp/auditoria"
