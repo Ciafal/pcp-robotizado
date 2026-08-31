@@ -208,6 +208,11 @@ const MPIndustrializerSubpage = lazy(() =>
     default: m.MPIndustrializerSubpage,
   })),
 )
+const MPSidercentroSubpage = lazy(() =>
+  import('@/pages/mp-optimization/MPSidercentroSubpage').then((m) => ({
+    default: m.MPSidercentroSubpage,
+  })),
+)
 const RulesEnginePage = lazy(() =>
   import('@/pages/RulesEnginePage').then((m) => ({
     default: m.RulesEnginePage || m.default,
@@ -622,6 +627,15 @@ export const App: React.FC = () => {
                   element={
                     <PermissionGuard permission="pcp.mp_opt.view">
                       <MPIndustrializerSubpage />
+                    </PermissionGuard>
+                  }
+                />
+                {/* 10. NOVO TÓPICO: Matéria-prima – Sidercentro */}
+                <Route
+                  path="/pcp/gestao-materia-prima/sidercentro"
+                  element={
+                    <PermissionGuard permission="pcp.mp_opt.view">
+                      <MPSidercentroSubpage />
                     </PermissionGuard>
                   }
                 />

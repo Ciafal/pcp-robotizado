@@ -1088,3 +1088,191 @@ export interface MPIndustrializerKpis {
   schedule_dependent_on_transit_pct: number // Ex: 18.5%
   occurrences_prevented_after_alert_pct: number // Ex: 92.0%
 }
+
+// ==========================================
+// 10. NOVO TÓPICO: MATÉRIA-PRIMA – SIDERCENTRO (SDC)
+// ==========================================
+
+export type SdcSteelConclusion =
+  | 'ESTOQUE_ADEQUADO'
+  | 'ESTOQUE_ABAIXO_MINIMO'
+  | 'PRODUCAO_L2_NECESSARIA'
+  | 'PRODUCAO_PREVISTA_SUFICIENTE'
+  | 'DEPENDENTE_PRODUCAO_L2'
+  | 'DEPENDENTE_RECEBIMENTO'
+  | 'RISCO_RUPTURA'
+  | 'SEM_COBERTURA'
+  | 'MATERIAL_ALTERNATIVO_DISPONIVEL'
+  | 'REVISAR_PROGRAMACAO'
+
+export type SdcOwnershipType = 'SIDERCENTRO' | 'CIAFAL' | 'COMPARTILHAVEL' | 'TERCEIROS'
+export type SdcStockCategory =
+  | 'PROPRIO_SDC'
+  | 'CIAFAL_ELEGIVEL'
+  | 'KS_ELEGIVEL'
+  | 'RECLASSIFICAVEL'
+  | 'BLOQUEADO'
+
+export interface MPSdcStockSource {
+  id: string
+  company_code: 'CIAFAL' | 'SIDERCENTRO_SDC' | 'KS' | string
+  company_name: string
+  plant_center: string // 'CFPL', 'SDC1', 'KS01'
+  storage_deposit: string // 'DS03', 'DP04', 'DP07', 'DP18', 'DP20', 'KS_DEP'
+  deposit_description?: string
+  operation_type:
+    | 'ESTOQUE_SDC'
+    | 'ESTOQUE_CIAFAL'
+    | 'ESTOQUE_KS'
+    | 'PLACAS_FINAS'
+    | 'SUCATA_UTILIZAVEL'
+    | 'ENTRADAS_PROGRAMADAS'
+  mp_owner: SdcOwnershipType
+  stock_type: SdcStockCategory
+  utilization_rule?: string // 'LIBERADO_SDC', 'AVALIACAO_TECNICA', 'CESSAO_RESTRITA'
+  valid_from?: string
+  valid_until?: string
+  is_active: boolean
+  created?: string
+  updated?: string
+}
+
+export interface MPSdcPool {
+  id: string
+  pool_code: string // 'POOL_AC_B', 'POOL_A_C', 'POOL_AC_1020', 'POOL_AC_IF_Z', 'POOL_A_C_1020', 'POOL_A_B_C'
+  pool_name: string
+  participating_steels_json: string[] // ['AC', 'Classe B']
+  participating_classes_json?: string[]
+  target_line?: string // 'L1', 'L2', 'SDC_CORTE_DOBRA', 'TODAS'
+  target_product_family?: string
+  substitution_rule_description: string
+  consumption_priority_json: string[]
+  technical_restrictions?: string
+  requires_quality_validation?: boolean
+  valid_from?: string
+  valid_until?: string
+  is_active: boolean
+  created?: string
+  updated?: string
+}
+
+export interface MPSdcMinStockParameter {
+  id: string
+  company_code: string // 'SIDERCENTRO_SDC'
+  operation_code: string // 'CORTE_DOBRA', 'LAMINACAO'
+  steel_grade?: string // 'AC', '1020', '1045', '1522', 'IF', etc.
+  steel_class?: string
+  pool_code?: string
+  line_code?: string
+  min_stock_tons: number
+  reorder_point_tons?: number
+  valid_from?: string
+  valid_until?: string
+  responsible_name: string
+  justification_origin: string
+  rule_source_authority?: string
+  version?: number
+  is_active: boolean
+  created?: string
+  updated?: string
+}
+
+export interface MPSdcDailyConsumption {
+  id: string
+  consumption_date: string
+  week_ref: string // 'W34'
+  steel_grade: string
+  steel_class?: string
+  pool_code?: string
+  programmed_tons: number
+  realized_tons?: number
+  variance_tons?: number
+  need_origin: 'PROGRAMACAO_OFICIAL_PCP' | 'ORDEM_SAP_PP' | 'AJUSTE_SDC' | string
+  production_order_ref?: string
+  sap_order_ref?: string
+  yielding_rate_applied?: number
+  scrap_loss_rate?: number
+  compatible_steels_json?: string[]
+  allocated_steel?: string
+  status: 'PROGRAMADO' | 'EM_CORTE' | 'CONSUMIDO' | 'REMARCADO' | string
+  created?: string
+  updated?: string
+}
+
+export interface MPSdcL2PlannedVsRealized {
+  id: string
+  period_ref: string // 'W34', '2026-08'
+  steel_grade: string
+  steel_class?: string
+  planned_l2_tons: number
+  realized_l2_tons: number
+  deviation_tons: number
+  adherence_pct: number
+  useful_yield_factor?: number
+  useful_tons_for_sdc: number
+  availability_date?: string
+  impact_on_sdc_coverage_days?: number
+  traffic_light: 'VERDE' | 'AMARELO' | 'LARANJA' | 'VERMELHO'
+  operational_risk_summary?: string
+  human_notes?: string
+  is_official_sync?: boolean
+  created?: string
+  updated?: string
+}
+
+export interface MPSdcSteelMatrixRow {
+  steel_grade: string // 'AC', 'Classe A', 'Classe B', 'Classe C', 'Classe D', 'Classe Z', 'FX', '1522', '1524', '1020', '1045', 'IF', 'Total'
+  steel_class: string
+  pool_code?: string
+  stock_sdc_ds03_tons: number
+  stock_ciafal_dp04_tons: number
+  stock_ciafal_eligible_tons: number
+  stock_ks_tons: number
+  stock_thin_plates_tons: number
+  stock_usable_scrap_sdc_tons: number
+  expected_receipts_tons: number
+  total_stock_tons: number
+  projected_l2_useful_tons: number
+  projected_consumption_sdc_tons: number
+  projected_balance_tons: number
+  min_stock_tons: number
+  need_mp_tons: number
+  statistical_coverage_days: number
+  chronological_coverage_date: string
+  rupture_risk_level: RiskTrafficLight
+  auto_conclusion: SdcSteelConclusion
+  human_comment?: string
+  eligible_alternatives_json?: string[]
+  drilldown_batches_count?: number
+}
+
+export interface MPSdcRuptureAlert {
+  id: string
+  steel_grade: string
+  steel_class?: string
+  pool_code?: string
+  week_ref: string
+  estimated_date: string
+  missing_quantity_tons: number
+  needed_l2_production_tons: number
+  impacted_orders: string[]
+  recommended_action: string
+  severity: 'CRITICO' | 'ALTO' | 'MEDIO'
+}
+
+export interface MPSdcCockpitKpis {
+  stock_sdc_tons: number
+  stock_ciafal_eligible_tons: number
+  stock_ks_eligible_tons: number
+  stock_usable_scrap_tons: number
+  expected_entries_tons: number
+  projected_l2_prod_tons: number
+  programmed_sdc_consumption_tons: number
+  projected_balance_tons: number
+  steels_below_min_count: number
+  first_rupture_date: string
+  first_rupture_steel: string
+  avg_coverage_days: number
+  total_mp_need_tons: number
+  l2_adherence_pct: number
+}

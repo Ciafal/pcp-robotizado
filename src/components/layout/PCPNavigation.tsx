@@ -720,7 +720,13 @@ const officialNavGroups: NavGroup[] = [
       {
         title: 'Matéria-prima – Industrializador',
         href: '/pcp/gestao-materia-prima/industrializador',
-        icon: Sparkles,
+        icon: Building2,
+        permission: 'pcp.mp_opt.view',
+      },
+      {
+        title: 'Matéria-prima – Sidercentro',
+        href: '/pcp/gestao-materia-prima/sidercentro',
+        icon: Building2,
         permission: 'pcp.mp_opt.view',
       },
     ],

@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   CalendarRange,
   ArrowRight,
+  Building2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -27,6 +28,7 @@ interface MPModuleLayoutProps {
     | 'saldo-mp-l1-previsao-consumo'
     | 'utilizacao-substituicao-mp'
     | 'materia-prima-industrializador'
+    | 'materia-prima-sidercentro'
   currentStep?: number
   headerActions?: React.ReactNode
 }
@@ -111,6 +113,15 @@ export const mpMainTopics = [
     path: '/pcp/gestao-materia-prima/industrializador',
     icon: Sparkles,
     description: 'Acompanhamento Operacional, DP07/18/20, Trânsito, TB-002, Rupturas e Comunicados',
+  },
+  {
+    id: 'materia-prima-sidercentro',
+    title: 'Matéria-prima – Sidercentro',
+    number: '10',
+    path: '/pcp/gestao-materia-prima/sidercentro',
+    icon: Building2,
+    description:
+      'Operação SDC, Estoque DS03/DP04/KS/Sucata, Projeção Diária/Semanal/Mensal, Pools e PxR L2',
   },
 ]
 export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({

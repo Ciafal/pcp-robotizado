@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T13:03:43.658Z",
+  "generatedAt": "2026-08-31T13:24:50.158Z",
   "collections": [
     {
       "name": "users",
@@ -16510,6 +16510,586 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_carteira_ia_code ON carteira_ia_insights (insight_code)",
         "CREATE INDEX idx_carteira_ia_crit ON carteira_ia_insights (criticidade)"
+      ]
+    },
+    {
+      "name": "mp_sdc_stock_sources",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "plant_center",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "storage_deposit",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "deposit_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operation_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mp_owner",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "stock_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "utilization_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_sdc_src_comp_dep ON mp_sdc_stock_sources (company_code, plant_center, storage_deposit)",
+        "CREATE INDEX idx_mp_sdc_src_owner ON mp_sdc_stock_sources (mp_owner, stock_type)"
+      ]
+    },
+    {
+      "name": "mp_sdc_pools",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "pool_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "pool_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "participating_steels_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "participating_classes_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "target_product_family",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "substitution_rule_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "consumption_priority_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_restrictions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_quality_validation",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_mp_sdc_pool_code ON mp_sdc_pools (pool_code)",
+        "CREATE INDEX idx_mp_sdc_pool_active ON mp_sdc_pools (is_active)"
+      ]
+    },
+    {
+      "name": "mp_sdc_min_stock_parameters",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "operation_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_class",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pool_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "min_stock_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reorder_point_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "justification_origin",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "rule_source_authority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_sdc_min_steel ON mp_sdc_min_stock_parameters (steel_grade, is_active)",
+        "CREATE INDEX idx_mp_sdc_min_pool ON mp_sdc_min_stock_parameters (pool_code, is_active)"
+      ]
+    },
+    {
+      "name": "mp_sdc_daily_consumption",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "consumption_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "week_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_class",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pool_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programmed_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "realized_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "variance_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "need_origin",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "production_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "yielding_rate_applied",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "scrap_loss_rate",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "compatible_steels_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allocated_steel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_sdc_cns_date ON mp_sdc_daily_consumption (consumption_date, steel_grade)",
+        "CREATE INDEX idx_mp_sdc_cns_week ON mp_sdc_daily_consumption (week_ref, steel_grade)"
+      ]
+    },
+    {
+      "name": "mp_sdc_l2_planned_vs_realized",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "period_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "steel_class",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_l2_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "realized_l2_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "deviation_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "adherence_pct",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "useful_yield_factor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "useful_tons_for_sdc",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "availability_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impact_on_sdc_coverage_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "traffic_light",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "operational_risk_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_official_sync",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_mp_sdc_l2_prd ON mp_sdc_l2_planned_vs_realized (period_ref, steel_grade)"
       ]
     }
   ]
