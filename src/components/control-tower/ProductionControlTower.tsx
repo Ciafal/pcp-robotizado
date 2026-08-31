@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ControlTowerProvider, useControlTower } from '@/contexts/ControlTowerContext'
+import { useControlTower } from '@/contexts/ControlTowerContext'
 import { PerspectiveMode, ViewTab } from '@/types/control-tower'
 
 // Icons
@@ -305,9 +305,5 @@ const ControlTowerInner: React.FC = () => {
 }
 
 export const ProductionControlTower: React.FC = () => {
-  return (
-    <ControlTowerProvider>
-      <ControlTowerInner />
-    </ControlTowerProvider>
-  )
+  return <ControlTowerInner />
 }

@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public handleGoHome = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
-    window.location.href = '/pcp/sequenciamento'
+    window.location.href = '/'
   }
 
   public render() {
@@ -45,6 +45,13 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback
       }
+
+      const isDevOrQas =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+          window.location.hostname.includes('qas') ||
+          window.location.hostname.includes('127.0.0.1') ||
+          import.meta.env.DEV)
 
       return (
         <div className="min-h-[70vh] flex items-center justify-center p-6 bg-slate-50 text-slate-800">
@@ -61,21 +68,27 @@ export class ErrorBoundary extends Component<Props, State> {
                 Instabilidade Temporária no Módulo
               </h2>
               <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
-                Ocorreu uma exceção de renderização. O sistema isolou a falha para prevenir tela em
-                branco e preservar a integridade dos dados industriais.
+                Não foi possível carregar esta área. Tente novamente ou retorne ao Cockpit.
               </p>
             </div>
 
-            {this.state.error && (
-              <div className="bg-slate-50 p-3.5 rounded-xl text-left text-[11px] font-mono text-slate-700 border border-slate-200 space-y-2 max-h-40 overflow-y-auto">
-                <div className="flex items-center gap-1.5 text-rose-600 font-semibold">
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Mensagem Técnica:</span>
+            {isDevOrQas && this.state.error && (
+              <details className="text-left bg-slate-50 p-3.5 rounded-xl border border-slate-200 group">
+                <summary className="text-[11px] font-mono text-slate-600 cursor-pointer flex items-center gap-1.5 select-none font-semibold">
+                  <FileText className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Diagnóstico Técnico (Ambiente de Testes/QAS)</span>
+                </summary>
+                <div className="mt-2 text-[10px] font-mono text-slate-700 space-y-1 max-h-40 overflow-y-auto">
+                  <div className="text-rose-600 font-bold break-all">
+                    {this.state.error.message || 'Erro desconhecido'}
+                  </div>
+                  {this.state.error.stack && (
+                    <pre className="text-slate-500 whitespace-pre-wrap text-[9px] leading-tight">
+                      {this.state.error.stack}
+                    </pre>
+                  )}
                 </div>
-                <div className="text-slate-600 text-[10px] break-all">
-                  {this.state.error.message || 'Erro desconhecido'}
-                </div>
-              </div>
+              </details>
             )}
 
             <div className="flex flex-wrap gap-3 justify-center pt-2">

@@ -231,9 +231,9 @@ const NotFound = lazy(() => import('@/pages/NotFound'))
 export const App: React.FC = () => {
   return (
     <ErrorBoundary moduleName="Aplicação Principal">
-      <AuthProvider>
-        <ControlTowerProvider>
-          <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
+          <ControlTowerProvider>
             <Suspense fallback={<ModuleFallback />}>
               <Routes>
                 <Route element={<Layout />}>
@@ -942,9 +942,9 @@ export const App: React.FC = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-          </BrowserRouter>
-        </ControlTowerProvider>
-      </AuthProvider>
+          </ControlTowerProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   )
 }
