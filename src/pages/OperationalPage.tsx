@@ -35,6 +35,7 @@ import {
 import { useControlTower } from '@/contexts/ControlTowerContext'
 import { OrderDrawer } from '@/components/control-tower/OrderDrawer'
 import { ControlTowerHeader } from '@/components/control-tower/ControlTowerHeader'
+import { AIProgrammerCopilotSection } from '@/components/control-tower/AIProgrammerCopilotSection'
 import { pcpMeetingService } from '@/services/pcp-meeting-service'
 import { pcpCommunicationService } from '@/services/pcp-communication-service'
 import { PCPMinuteItem, PCPCommunication } from '@/types/pcp-meetings-comms'
@@ -127,6 +128,13 @@ export const OperationalPage: React.FC = () => {
         subtitle="Acompanhamento da execução fabril em tempo real: Agora, Próximo e Fila por linha."
         breadcrumbSubmodule="Operacional"
       />
+
+      {/* COPILOTO DETERMINÍSTICO & IA PROGRAMADORA */}
+      <div className="bg-white rounded-xl p-4 border border-slate-200 text-slate-900 shadow-sm">
+        <AIProgrammerCopilotSection
+          defaultLine={filters.lineCode !== 'ALL' ? filters.lineCode : 'L1'}
+        />
+      </div>
 
       {/* Barra de Filtros Operacionais Clean */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950 border border-slate-800 p-3 rounded-lg text-xs">

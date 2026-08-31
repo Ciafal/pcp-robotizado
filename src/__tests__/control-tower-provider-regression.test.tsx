@@ -3,30 +3,29 @@ import { renderHook } from '@testing-library/react'
 import { useControlTower, ControlTowerProvider } from '@/contexts/ControlTowerContext'
 import React from 'react'
 
+import { MemoryRouter } from 'react-router-dom'
+
 describe('ControlTowerProvider & useControlTower Regression Test', () => {
   it('should return valid context when used inside ControlTowerProvider', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <ControlTowerProvider>{children}</ControlTowerProvider>
+      <MemoryRouter>
+        <ControlTowerProvider>{children}</ControlTowerProvider>
+      </MemoryRouter>
     )
 
     const { result } = renderHook(() => useControlTower(), { wrapper })
 
     expect(result.current).toBeDefined()
-    expect(result.current.selectedPlant).toBeDefined()
-    expect(result.current.selectedLine).toBeDefined()
-    expect(typeof result.current.setSelectedPlant).toBe('function')
-    expect(typeof result.current.setSelectedLine).toBe('function')
-    expect(typeof result.current.setSelectedShift).toBe('function')
-    expect(typeof result.current.setSelectedProduct).toBe('function')
-    expect(typeof result.current.setSelectedCustomer).toBe('function')
+    expect(result.current.filters).toBeDefined()
+    expect(typeof result.current.setPlantScope).toBe('function')
+    expect(typeof result.current.setLineScope).toBe('function')
+    expect(typeof result.current.setCompanyScope).toBe('function')
+    expect(Array.isArray(result.current.orders)).toBe(true)
   })
 
-  it('should not throw runtime exception if rendered outside provider (graceful fallback)', () => {
-    const { result } = renderHook(() => useControlTower())
-
-    expect(result.current).toBeDefined()
-    expect(result.current.selectedPlant).toBeDefined()
-    expect(result.current.selectedLine).toBeDefined()
-    expect(typeof result.current.setSelectedPlant).toBe('function')
+  it('should throw error when used outside ControlTowerProvider', () => {
+    expect(() => renderHook(() => useControlTower())).toThrow(
+      'useControlTower must be used within a ControlTowerProvider',
+    )
   })
 })

@@ -121,6 +121,7 @@ import {
   Trash2,
   Scissors,
   Wrench,
+  RotateCcw,
 } from 'lucide-react'
 
 export const WeeklyScheduleOperationalPage: React.FC = () => {

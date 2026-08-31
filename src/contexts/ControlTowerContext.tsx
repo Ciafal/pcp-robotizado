@@ -1087,10 +1087,7 @@ export const ControlTowerProvider: React.FC<{
 export const useControlTower = () => {
   const context = useContext(ControlTowerContext)
   if (!context) {
-    console.warn(
-      '[ControlTower] useControlTower chamado fora de um ControlTowerProvider explícito. Retornando fallback seguro do contexto.',
-    )
-    return defaultContextValue
+    throw new Error('useControlTower must be used within a ControlTowerProvider')
   }
   return context
 }

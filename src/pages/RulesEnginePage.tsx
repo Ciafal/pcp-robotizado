@@ -58,6 +58,7 @@ import { SetupDetailDrawer } from '@/components/rules-engine/SetupDetailDrawer'
 import { NewRevisionModal } from '@/components/rules-engine/NewRevisionModal'
 import { ImportPreviewModal } from '@/components/rules-engine/ImportPreviewModal'
 import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalculatorWidget'
+import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndustrialRulesTab'
 import { downloadOfficialTemplate } from '@/services/rules-template-export'
 
 export const RulesEnginePage: React.FC = () => {
@@ -547,6 +548,20 @@ export const RulesEnginePage: React.FC = () => {
           <div className="border-b border-slate-200 px-4 pt-3 bg-slate-50/50 rounded-t-xl overflow-x-auto">
             <TabsList className="h-9 bg-slate-200/60 p-0.5 gap-1">
               <TabsTrigger
+                value="regras-industriais-master"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>0. Biblioteca Mestre de Regras</span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1 py-0 h-4 border-slate-300 bg-blue-50 text-[#004C97]"
+                >
+                  Ativo
+                </Badge>
+              </TabsTrigger>
+
+              <TabsTrigger
                 value="setup-acerto"
                 className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
               >
@@ -613,6 +628,13 @@ export const RulesEnginePage: React.FC = () => {
               </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* ========================================================================= */}
+          {/* ABA 0 — BIBLIOTECA MESTRE DE REGRAS INDUSTRIAIS (PARAMETRIZÁVEIS)           */}
+          {/* ========================================================================= */}
+          <TabsContent value="regras-industriais-master" className="m-0 p-4 space-y-3">
+            <MasterIndustrialRulesTab />
+          </TabsContent>
 
           {/* ========================================================================= */}
           {/* ABA 1 — SETUP & ACERTO (ALTA DENSIDADE, SAP STYLE, DE -> PARA)             */}
