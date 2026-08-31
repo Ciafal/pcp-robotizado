@@ -10,6 +10,68 @@ import {
   UserProfile,
 } from '@/types/pcp-auth'
 
+const PERMISSIONS_CACHE_KEY = 'ciafal_pcp_permissions_cache_v1'
+const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutos de cache para revalidação suave
+
+interface CachedPermissionsEntry {
+  userId: string
+  data: AuthPermissionsResponse
+  timestamp: number
+}
+
+let permissionsCache: CachedPermissionsEntry | null = null
+let inFlightPromise: Promise<AuthPermissionsResponse> | null = null
+
+export function getCachedPermissions(): AuthPermissionsResponse | null {
+  if (
+    permissionsCache &&
+    pb.authStore.isValid &&
+    pb.authStore.record?.id === permissionsCache.userId
+  ) {
+    return permissionsCache.data
+  }
+
+  try {
+    const raw = localStorage.getItem(PERMISSIONS_CACHE_KEY)
+    if (!raw) return null
+    const parsed: CachedPermissionsEntry = JSON.parse(raw)
+    if (parsed && parsed.userId && parsed.data) {
+      if (pb.authStore.isValid && pb.authStore.record?.id === parsed.userId) {
+        permissionsCache = parsed
+        return parsed.data
+      }
+    }
+  } catch {
+    /* intentionally ignored */
+  }
+
+  return null
+}
+
+export function savePermissionsCache(data: AuthPermissionsResponse): void {
+  if (!data?.user?.id) return
+  const entry: CachedPermissionsEntry = {
+    userId: data.user.id,
+    data,
+    timestamp: Date.now(),
+  }
+  permissionsCache = entry
+  try {
+    localStorage.setItem(PERMISSIONS_CACHE_KEY, JSON.stringify(entry))
+  } catch {
+    /* intentionally ignored */
+  }
+}
+
+export function clearPermissionsCache(): void {
+  permissionsCache = null
+  try {
+    localStorage.removeItem(PERMISSIONS_CACHE_KEY)
+  } catch {
+    /* intentionally ignored */
+  }
+}
+
 export const authService = {
   /**
    * Retorna conjunto de permissões estáticas por perfil
@@ -119,92 +181,84 @@ export const authService = {
 
   /**
    * Resolução unificada de permissões via Active Directory / Backend RBAC
+   * Com suporte a cache em memória e localStorage com revalidação em background (stale-while-revalidate)
    */
-  async resolvePermissions(): Promise<AuthPermissionsResponse> {
+  async resolvePermissions(options?: { forceRefresh?: boolean }): Promise<AuthPermissionsResponse> {
     if (!pb.authStore.isValid || !pb.authStore.record) {
       throw new Error('Sessão não autenticada no HUB CIAFAL')
     }
 
-    try {
-      const response = await pb.send<AuthPermissionsResponse>('/backend/v1/auth/permissions', {
-        method: 'GET',
-      })
-      return response
-    } catch (err) {
-      console.warn('Fallback de permissões locais:', err)
-      const user = pb.authStore.record
-      const role = (user?.role as any) || 'PCP_ADMIN'
-      return {
-        user: {
-          id: user?.id || 'admin-user',
-          email: user?.email || 'ciafal@ciafal.com.br',
-          name: user?.name || user?.email || 'Administrador PCP CIAFAL',
-          role: role,
-        },
-        is_global: true,
-        scopes: [
-          {
-            id: 'fallback',
-            scope_type: 'GLOBAL',
-            target_id: 'ALL',
-            target_name: 'Escopo Geral CIAFAL',
-            active: true,
-          },
-        ],
-        delegations: [],
-        permissions: [],
-        permission_keys: [
-          '*',
-          'pcp.schedule.view',
-          'pcp.schedule.create',
-          'pcp.schedule.edit',
-          'pcp.schedule.publish',
-          'pcp.schedule.approve',
-          'pcp.schedule.simulate',
-          'pcp.integrations.view',
-          'pcp.integrations.manage',
-          'pcp.integrations.reconcile',
-          'pcp.audit.view',
-          'pcp.admin.manage',
-          'pcp.dashboard.view',
-          'pcp.executive.view',
-          'pcp.rules.view',
-          'pcp.rules.manage',
-          'pcp.masterdata.view',
-          'pcp.masterdata.manage',
-          'pcp.approval.view',
-          'pcp.approval.decide',
-          'pcp.masterplan.overview',
-          'pcp.masterplan.view',
-          'pcp.masterplan.adherence',
-          'pcp.masterplan.deviations',
-          'pcp.masterplan.demand_crm',
-          'pcp.masterplan.forecast_ai',
-          'pcp.masterplan.versions',
-          'pcp.inventory.overview',
-          'pcp.inventory.raw_material',
-          'pcp.inventory.semi_finished',
-          'pcp.inventory.finished_goods',
-          'pcp.inventory.coverage',
-          'pcp.inventory.discrepancies',
-          'pcp.inventory.ai',
-          'pcp.mp_opt.view',
-          'pcp.mp_opt.simulate',
-          'pcp.mp_opt.modify_app',
-          'pcp.mp_opt.evaluate_out_of_ideal',
-          'pcp.mp_opt.request_approval',
-          'pcp.mp_opt.approve',
-          'pcp.quality.view',
-          'pcp.meeting.view',
-          'pcp.meeting.conduct',
-          'pcp.communication.view',
-          'pcp.carteira.view',
-          'pcp.carteira.import',
-          'pcp.carteira.manage_rules',
-          'pcp.carteira.reconcile',
-        ],
+    const currentUserId = pb.authStore.record.id
+    const forceRefresh = options?.forceRefresh ?? false
+
+    // Se temos cache em memória válido e não é forceRefresh, retorna imediatamente
+    if (!forceRefresh && permissionsCache && permissionsCache.userId === currentUserId) {
+      const age = Date.now() - permissionsCache.timestamp
+      if (age < CACHE_TTL_MS) {
+        return permissionsCache.data
       }
     }
+
+    // Se temos cache no localStorage para este usuário, usar enquanto busca
+    const localCached = getCachedPermissions()
+    if (!forceRefresh && localCached && localCached.user.id === currentUserId) {
+      // Se há request em andamento, aguarda ele para não duplicar requisições em paralelo
+      if (inFlightPromise) {
+        return localCached
+      }
+    }
+
+    // Evita duplicar requests simultâneos
+    if (inFlightPromise) {
+      return inFlightPromise
+    }
+
+    inFlightPromise = (async () => {
+      try {
+        const response = await pb.send<AuthPermissionsResponse>('/backend/v1/auth/permissions', {
+          method: 'GET',
+        })
+        savePermissionsCache(response)
+        return response
+      } catch (err) {
+        console.warn('Fallback de permissões locais:', err)
+        // Se temos cache local existente, preserva
+        const existingCache = getCachedPermissions()
+        if (existingCache && existingCache.user.id === currentUserId) {
+          return existingCache
+        }
+
+        const user = pb.authStore.record
+        const role = (user?.role as any) || 'PCP_ADMIN'
+        const fallbackResponse: AuthPermissionsResponse = {
+          user: {
+            id: user?.id || 'admin-user',
+            email: user?.email || 'ciafal@ciafal.com.br',
+            name: user?.name || user?.email || 'Administrador PCP CIAFAL',
+            role: role,
+          },
+          is_global: role === 'PCP_ADMIN',
+          scopes: [
+            {
+              id: 'fallback',
+              scope_type: 'GLOBAL',
+              target_id: 'ALL',
+              target_name: 'Escopo Geral CIAFAL',
+              active: true,
+            },
+          ],
+          delegations: [],
+          permissions: [],
+          permission_keys: authService.getPermissionsForRole(role),
+        }
+        savePermissionsCache(fallbackResponse)
+        return fallbackResponse
+      } finally {
+        inFlightPromise = null
+      }
+    })()
+
+    return inFlightPromise
   },
 
   /**

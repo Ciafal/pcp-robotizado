@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T18:57:44.817Z",
+  "generatedAt": "2026-08-31T19:16:35.477Z",
   "collections": [
     {
       "name": "users",
@@ -311,7 +311,10 @@
           "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": ["CREATE UNIQUE INDEX idx_pcp_roles_code ON pcp_roles (code)"]
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_roles_code ON pcp_roles (code)",
+        "CREATE INDEX `idx_pcp_roles_code_fast` ON `pcp_roles` (code)"
+      ]
     },
     {
       "name": "pcp_permissions",
@@ -371,7 +374,8 @@
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_pcp_permissions_key ON pcp_permissions (key)",
-        "CREATE INDEX idx_pcp_permissions_category ON pcp_permissions (category)"
+        "CREATE INDEX idx_pcp_permissions_category ON pcp_permissions (category)",
+        "CREATE INDEX `idx_pcp_permissions_key_fast` ON `pcp_permissions` (key)"
       ]
     },
     {
@@ -415,7 +419,9 @@
         }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_pcp_role_perm ON pcp_role_permissions (role_id, permission_id)"
+        "CREATE UNIQUE INDEX idx_pcp_role_perm ON pcp_role_permissions (role_id, permission_id)",
+        "CREATE INDEX `idx_pcp_role_perm_role_id` ON `pcp_role_permissions` (role_id)",
+        "CREATE INDEX `idx_pcp_role_perm_perm_id` ON `pcp_role_permissions` (permission_id)"
       ]
     },
     {
@@ -566,7 +572,8 @@
         }
       ],
       "indexes": [
-        "CREATE UNIQUE INDEX idx_pcp_perm_exc ON pcp_permission_exceptions (user_id, permission_id)"
+        "CREATE UNIQUE INDEX idx_pcp_perm_exc ON pcp_permission_exceptions (user_id, permission_id)",
+        "CREATE INDEX `idx_pcp_perm_exc_user_id` ON `pcp_permission_exceptions` (user_id)"
       ]
     },
     {

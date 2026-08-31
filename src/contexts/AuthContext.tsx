@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import pb from '@/lib/pocketbase/client'
-import { authService } from '@/services/pcp-auth'
+import { authService, getCachedPermissions, clearPermissionsCache } from '@/services/pcp-auth'
 import {
   AuthPermissionsResponse,
   PCPUserRole,
@@ -35,61 +35,93 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [isGlobal, setIsGlobal] = useState<boolean>(false)
-  const [scopes, setScopes] = useState<AccessScope[]>([])
-  const [delegations, setDelegations] = useState<Delegation[]>([])
-  const [permissions, setPermissions] = useState<Permission[]>([])
-  const [permissionKeys, setPermissionKeys] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  // Inicialização síncrona inteligente a partir do cache local de permissões válido
+  const cached = getCachedPermissions()
+  const initialValid = pb.authStore.isValid && cached !== null
+
+  const [user, setUser] = useState<UserProfile | null>(initialValid && cached ? cached.user : null)
+  const [isGlobal, setIsGlobal] = useState<boolean>(
+    initialValid && cached ? cached.is_global || cached.user.role === 'PCP_ADMIN' : false,
+  )
+  const [scopes, setScopes] = useState<AccessScope[]>(
+    initialValid && cached ? cached.scopes || [] : [],
+  )
+  const [delegations, setDelegations] = useState<Delegation[]>(
+    initialValid && cached ? cached.delegations || [] : [],
+  )
+  const [permissions, setPermissions] = useState<Permission[]>(
+    initialValid && cached ? cached.permissions || [] : [],
+  )
+  const [permissionKeys, setPermissionKeys] = useState<Set<string>>(
+    initialValid && cached ? new Set(cached.permission_keys || []) : new Set(),
+  )
+  const [isLoading, setIsLoading] = useState<boolean>(!initialValid)
   const [activeScopeFilter, setActiveScopeFilter] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const loadPermissions = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      if (!pb.authStore.isValid) {
-        // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
-        try {
-          await pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass')
-        } catch (_) {
-          // Sem credencial disponível, zera o contexto
-          setUser(null)
-          setIsGlobal(false)
-          setScopes([])
-          setDelegations([])
-          setPermissions([])
-          setPermissionKeys(new Set())
-          setIsLoading(false)
-          return
-        }
+  const loadPermissions = useCallback(
+    async (options?: { force?: boolean }) => {
+      const force = options?.force ?? false
+      // Se não for forçado e já temos permissões carregadas, não exibe tela de loading bloqueante
+      // mas ainda revalida em segundo plano
+      const hasInitialState = !force && (getCachedPermissions() !== null || user !== null)
+      if (!hasInitialState) {
+        setIsLoading(true)
       }
 
-      const res: AuthPermissionsResponse = await authService.resolvePermissions()
-      setUser(res.user)
-      setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
-      setScopes(res.scopes || [])
-      setDelegations(res.delegations || [])
-      setPermissions(res.permissions || [])
-      setPermissionKeys(new Set(res.permission_keys || []))
-    } catch (err: any) {
-      console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
-      // Em caso de falha de rede/backend temporária com sessão válida, usar fallback resiliente
-      if (pb.authStore.isValid && pb.authStore.record) {
-        const u = pb.authStore.record
-        const fallbackRole = (u.role as any) || 'PCP_ADMIN'
-        setUser({
-          id: u.id,
-          email: u.email,
-          name: u.name || u.email,
-          role: fallbackRole,
+      try {
+        if (!pb.authStore.isValid) {
+          // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
+          try {
+            await pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass')
+          } catch (_) {
+            // Sem credencial disponível, zera o contexto
+            clearPermissionsCache()
+            setUser(null)
+            setIsGlobal(false)
+            setScopes([])
+            setDelegations([])
+            setPermissions([])
+            setPermissionKeys(new Set())
+            setIsLoading(false)
+            return
+          }
+        }
+
+        const res: AuthPermissionsResponse = await authService.resolvePermissions({
+          forceRefresh: force,
         })
-        setIsGlobal(fallbackRole === 'PCP_ADMIN')
+        setUser(res.user)
+        setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
+        setScopes(res.scopes || [])
+        setDelegations(res.delegations || [])
+        setPermissions(res.permissions || [])
+        setPermissionKeys(new Set(res.permission_keys || []))
+      } catch (err: unknown) {
+        console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
+        // Em caso de falha de rede/backend temporária com sessão válida, usar fallback resiliente
+        if (pb.authStore.isValid && pb.authStore.record) {
+          const u = pb.authStore.record as unknown as {
+            id: string
+            email: string
+            name?: string
+            role?: PCPUserRole
+          }
+          const fallbackRole: PCPUserRole = u.role || 'PCP_ADMIN'
+          setUser({
+            id: u.id,
+            email: u.email,
+            name: u.name || u.email,
+            role: fallbackRole,
+          })
+          setIsGlobal(fallbackRole === 'PCP_ADMIN')
+        }
+      } finally {
+        setIsLoading(false)
       }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    },
+    [user],
+  )
 
   useEffect(() => {
     loadPermissions()
@@ -185,11 +217,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: 'Autenticado via AD CIAFAL',
         description: `Sessão iniciada como ${email} com sincronização corporativa.`,
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Credenciais corporativas inválidas.'
       toast({
         variant: 'destructive',
         title: 'Falha na autenticação AD',
-        description: err?.message || 'Credenciais corporativas inválidas.',
+        description: msg,
       })
       throw err
     } finally {
@@ -204,17 +237,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true)
     try {
       await pb.collection('users').authWithPassword(email, 'Skip@Pass')
-      await loadPermissions()
+      await loadPermissions({ force: true })
 
       toast({
         title: 'Perfil AD CIAFAL Alternado',
         description: `Ambiente contextualizado para o usuário: ${email}`,
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao trocar perfil'
       toast({
         variant: 'destructive',
         title: 'Erro ao trocar perfil',
-        description: err.message,
+        description: msg,
       })
     } finally {
       setIsLoading(false)
@@ -222,6 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const logout = () => {
+    clearPermissionsCache()
     pb.authStore.clear()
     setUser(null)
     setScopes([])
@@ -235,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const refreshPermissions = async () => {
-    await loadPermissions()
+    await loadPermissions({ force: true })
   }
 
   const value = useMemo(

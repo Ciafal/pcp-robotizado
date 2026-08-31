@@ -20,40 +20,63 @@ routerAdd(
       roleRecord = $app.findFirstRecordByData('pcp_roles', 'code', userRoleCode)
     } catch (_) {}
 
-    // 2. Coletar permissões base do perfil
+    // 2. Coletar todas as permissões cadastradas de uma só vez (bulk fetch em memória)
+    const allPermsByKey = {}
+    const allPermsById = {}
+    try {
+      const allPermRecords = $app.findRecordsByFilter('pcp_permissions', '', '', 500, 0)
+      for (const p of allPermRecords) {
+        const item = {
+          id: p.id,
+          key: p.getString('key'),
+          name: p.getString('name'),
+          category: p.getString('category'),
+          is_critical: p.getBool('is_critical'),
+        }
+        allPermsById[p.id] = item
+        if (item.key) allPermsByKey[item.key] = item
+      }
+    } catch (_) {}
+
+    // Se o perfil for PCP_ADMIN, atribui todas as permissões cadastradas diretamente
     const permissionsMap = {}
-    if (roleRecord) {
+    if (userRoleCode === 'PCP_ADMIN') {
+      for (const permKey in allPermsByKey) {
+        const p = allPermsByKey[permKey]
+        permissionsMap[permKey] = {
+          key: p.key,
+          name: p.name,
+          category: p.category,
+          is_critical: p.is_critical,
+          source: 'ROLE_ADMIN',
+        }
+      }
+    } else if (roleRecord) {
       try {
         const rolePerms = $app.findRecordsByFilter(
           'pcp_role_permissions',
           `role_id = '${roleRecord.id}'`,
           '',
-          200,
+          500,
           0,
         )
         for (const rp of rolePerms) {
-          try {
-            const perm = $app.findCollectionByNameOrId('pcp_permissions')
-            const permRec = $app.findFirstRecordByData(
-              'pcp_permissions',
-              'id',
-              rp.getString('permission_id'),
-            )
-            if (permRec) {
-              permissionsMap[permRec.getString('key')] = {
-                key: permRec.getString('key'),
-                name: permRec.getString('name'),
-                category: permRec.getString('category'),
-                is_critical: permRec.getBool('is_critical'),
-                source: 'ROLE',
-              }
+          const permId = rp.getString('permission_id')
+          const perm = allPermsById[permId]
+          if (perm && perm.key) {
+            permissionsMap[perm.key] = {
+              key: perm.key,
+              name: perm.name,
+              category: perm.category,
+              is_critical: perm.is_critical,
+              source: 'ROLE',
             }
-          } catch (_) {}
+          }
         }
       } catch (_) {}
     }
 
-    // 3. Aplicar Exceções de Permissão (GRANT / DENY)
+    // 3. Aplicar Exceções de Permissão (GRANT / DENY) usando o mapa em memória
     try {
       const exceptions = $app.findRecordsByFilter(
         'pcp_permission_exceptions',
@@ -63,28 +86,23 @@ routerAdd(
         0,
       )
       for (const exc of exceptions) {
-        try {
-          const permRec = $app.findFirstRecordByData(
-            'pcp_permissions',
-            'id',
-            exc.getString('permission_id'),
-          )
-          if (permRec) {
-            const pKey = permRec.getString('key')
-            const excType = exc.getString('type')
-            if (excType === 'DENY') {
-              delete permissionsMap[pKey]
-            } else if (excType === 'GRANT') {
-              permissionsMap[pKey] = {
-                key: pKey,
-                name: permRec.getString('name'),
-                category: permRec.getString('category'),
-                is_critical: permRec.getBool('is_critical'),
-                source: 'EXCEPTION_GRANT',
-              }
+        const permId = exc.getString('permission_id')
+        const perm = allPermsById[permId]
+        if (perm && perm.key) {
+          const pKey = perm.key
+          const excType = exc.getString('type')
+          if (excType === 'DENY') {
+            delete permissionsMap[pKey]
+          } else if (excType === 'GRANT') {
+            permissionsMap[pKey] = {
+              key: pKey,
+              name: perm.name,
+              category: perm.category,
+              is_critical: perm.is_critical,
+              source: 'EXCEPTION_GRANT',
             }
           }
-        } catch (_) {}
+        }
       }
     } catch (_) {}
 
