@@ -17,6 +17,7 @@ import {
   Layers,
   ChevronRight,
 } from 'lucide-react'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { useControlTower } from '@/contexts/ControlTowerContext'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -284,19 +285,24 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                     {/* Barra de Eficiência */}
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-400">Eficiência Realizada:</span>
-                        <span
+                        <span className="text-slate-400">Eficiência Realizada (OEE):</span>
+                        <OeeInteractiveValue
+                          value={prod.currentEfficiencyPct}
+                          context={{
+                            lineCode: prod.lineCode,
+                            productCode: prod.productCode,
+                            productName: prod.productName,
+                            period: 'SHIFT',
+                          }}
                           className={cn(
-                            'font-bold',
+                            'font-bold cursor-pointer',
                             isCritical
                               ? 'text-rose-400'
                               : isBelowExpected
                                 ? 'text-amber-400'
                                 : 'text-emerald-400',
                           )}
-                        >
-                          {prod.currentEfficiencyPct}%
-                        </span>
+                        />
                       </div>
                       <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden flex border border-slate-800 relative">
                         {/* Linha de Referência Minima */}
@@ -409,7 +415,11 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                   <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded border border-slate-800 text-center font-mono text-xs">
                     <div>
                       <div className="text-[10px] text-slate-500">OEE Linha</div>
-                      <div className="text-emerald-400 font-bold text-sm">89.4%</div>
+                      <OeeInteractiveValue
+                        value={89.4}
+                        context={{ lineCode: l.code, lineName: l.name, period: 'DAY' }}
+                        className="text-emerald-400 hover:text-sky-300 font-bold text-sm justify-center"
+                      />
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Disponibilidade</div>

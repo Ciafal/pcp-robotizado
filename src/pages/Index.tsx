@@ -22,6 +22,7 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -277,18 +278,31 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-sky-300 transition-colors">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-[11px] text-slate-500 font-medium">
               Eficiência Média OEE
             </CardDescription>
             <CardTitle className="text-2xl font-black text-emerald-600">
-              {metrics.avgEfficiency}%
+              <OeeInteractiveValue
+                value={metrics.avgEfficiency}
+                context={{ lineCode: 'L1', period: 'DAY', periodLabel: 'Visão Consolidada' }}
+                className="text-emerald-600 hover:text-sky-600"
+              />
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-            Meta corporativa: 85%
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+              Meta corporativa: 85%
+            </span>
+            <OeeInteractiveValue
+              value="Detalhar"
+              suffix=""
+              context={{ lineCode: 'L1', period: 'DAY' }}
+              iconType="chevron"
+              className="text-[10px] text-sky-600 font-normal hover:underline"
+            />
           </CardContent>
         </Card>
 
@@ -430,11 +444,18 @@ export default function Index() {
                             </span>
                           </span>
                         </div>
-                        <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <div className="bg-slate-50 p-2 rounded border border-slate-200 hover:border-sky-300 transition-colors">
                           <span className="text-slate-500 block text-[10px]">Eficiência OEE</span>
-                          <span className="font-bold text-emerald-600 text-sm">
-                            {line.efficiency}%
-                          </span>
+                          <OeeInteractiveValue
+                            value={line.efficiency}
+                            context={{
+                              lineCode: line.code,
+                              lineName: line.name,
+                              productionOrder: line.active_order || undefined,
+                              period: 'SHIFT',
+                            }}
+                            className="text-emerald-600 hover:text-sky-600 text-sm font-bold"
+                          />
                         </div>
                       </div>
 

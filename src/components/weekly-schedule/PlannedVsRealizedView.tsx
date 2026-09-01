@@ -12,6 +12,7 @@ import {
   Info,
   Calendar,
 } from 'lucide-react'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 
 interface PlannedVsRealizedViewProps {
@@ -103,10 +104,10 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
           </div>
         </Card>
 
-        <Card className="p-3.5 bg-white border-slate-200 shadow-sm">
+        <Card className="p-3.5 bg-white border-slate-200 shadow-sm hover:border-sky-300 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Produtividade Média
+              Produtividade & OEE
             </span>
             <Gauge className="w-4 h-4 text-emerald-600" />
           </div>
@@ -120,8 +121,12 @@ export const PlannedVsRealizedView: React.FC<PlannedVsRealizedViewProps> = ({
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">Aderência Nominal:</span>
-            <span className="font-mono font-bold text-emerald-700">98.2%</span>
+            <span className="text-slate-500">OEE Linha:</span>
+            <OeeInteractiveValue
+              value={98.2}
+              context={{ lineCode, period: 'WEEK', periodLabel: periodDisplay }}
+              className="text-emerald-700 hover:text-sky-600 font-bold"
+            />
           </div>
         </Card>
 

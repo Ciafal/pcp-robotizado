@@ -13,6 +13,7 @@ import {
   AlertCircle,
   TrendingUp,
 } from 'lucide-react'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { MonthlyKpisData } from '@/types/monthly-schedule'
 
 interface MonthlyKpiStripProps {
@@ -56,10 +57,10 @@ export const MonthlyKpiStrip: React.FC<MonthlyKpiStripProps> = ({ kpis, lineCode
           </div>
         </div>
 
-        {/* 3. Ocupação 83,5% */}
-        <div className="flex-1 px-2.5 flex flex-col justify-center min-w-[115px]">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight truncate">
-            Ocupação
+        {/* 3. Ocupação 83,5% & OEE Mensal */}
+        <div className="flex-1 px-2.5 flex flex-col justify-center min-w-[115px] cursor-pointer hover:bg-slate-50 transition-colors">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight truncate flex items-center justify-between">
+            <span>Ocupação & OEE</span>
           </span>
           <div className="flex items-baseline gap-1 mt-0.5">
             <span className="text-sm font-black font-mono text-emerald-700">
@@ -69,9 +70,12 @@ export const MonthlyKpiStrip: React.FC<MonthlyKpiStripProps> = ({ kpis, lineCode
               })}
               %
             </span>
-            <span className="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-              Nominal
-            </span>
+            <OeeInteractiveValue
+              value={86.0}
+              context={{ lineCode, period: 'MONTH', periodLabel: 'Consolidado Mensal' }}
+              label="OEE:"
+              className="text-[10px] text-sky-700 hover:text-sky-900 ml-1"
+            />
           </div>
         </div>
 
