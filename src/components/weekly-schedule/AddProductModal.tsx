@@ -53,6 +53,7 @@ interface AddProductModalProps {
   lineCode: string
   lineOverview: LineOverviewData | null
   officialMaterials: OfficialMaterialOption[]
+  existingItems?: WeeklyScheduleItem[]
   targetDay?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
   targetShiftCode?: string
   targetShiftName?: string
@@ -66,6 +67,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   lineCode,
   lineOverview,
   officialMaterials,
+  existingItems = [],
   targetDay = 'SEG',
   targetShiftCode = 'T1_L1',
   targetShiftName = '1º Turno Matutino',
@@ -161,6 +163,25 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     })
   }, [selectedMaterial, materialCadence, programBy, quantityInput, startTimeInput, endTimeInput])
 
+  // 5. Validação de Conflito e Sobreposição de Horários
+  const overlapValidation = useMemo(() => {
+    if (!calculationResult || !calculationResult.isValid) return { hasConflict: false }
+
+    return WeeklyScheduleEngine.validateTimeOverlap({
+      items: existingItems,
+      dayOfWeek: selectedDay,
+      shiftCode: selectedShift,
+      startTime: calculationResult.startTime,
+      endTime: calculationResult.endTime,
+    })
+  }, [calculationResult, existingItems, selectedDay, selectedShift])
+
+  const handleApplyNextAvailableTime = () => {
+    if (overlapValidation.nextAvailableStartTime) {
+      setStartTimeInput(overlapValidation.nextAvailableStartTime)
+    }
+  }
+
   // Manipulador de Troca de Família
   const handleFamilyChange = (famCode: string) => {
     setSelectedFamilyCode(famCode)
@@ -180,6 +201,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const handleConfirm = () => {
     if (!selectedMaterial) return
     if (!calculationResult || !calculationResult.isValid) return
+    if (overlapValidation.hasConflict) return
 
     const shifts = lineOverview?.shifts || []
     const shiftObj = shifts.find((s) => s.code === selectedShift)
@@ -453,6 +475,37 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   </span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ALERTA DE CONFLITO DE HORÁRIO / SOBREPOSIÇÃO (BLOQUEANTE) */}
+          {overlapValidation.hasConflict && (
+            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-rose-800">Conflito de Horário Detectado</p>
+                  <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed font-mono font-bold">
+                    {overlapValidation.conflictMessage}
+                  </p>
+                  <p className="text-[10px] text-rose-600 mt-1">
+                    Não é permitido sobrepor itens no mesmo dia e turno. Ajuste o horário ou use a
+                    ação rápida abaixo.
+                  </p>
+                </div>
+              </div>
+
+              {overlapValidation.nextAvailableStartTime && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleApplyNextAvailableTime}
+                  className="shrink-0 bg-white hover:bg-rose-100 text-rose-900 border-rose-300 text-xs font-bold h-8"
+                >
+                  Usar próximo horário ({overlapValidation.nextAvailableStartTime})
+                </Button>
+              )}
             </div>
           )}
 
@@ -789,7 +842,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
           <Button
             onClick={handleConfirm}
-            disabled={!selectedMaterial || !calculationResult || !calculationResult.isValid}
+            disabled={
+              !selectedMaterial ||
+              !calculationResult ||
+              !calculationResult.isValid ||
+              overlapValidation.hasConflict
+            }
             className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold flex items-center gap-1.5 shadow"
           >
             <Plus className="w-4 h-4" />

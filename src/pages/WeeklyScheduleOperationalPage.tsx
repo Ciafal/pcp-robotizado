@@ -718,7 +718,36 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    // 2. Inclusão Válida com Cadência Oficial e Recálculo Temporal
+    // 2. Validação de Conflito de Horário
+    const startStr = newItemData.start_datetime
+      ? newItemData.start_datetime.split(' ')[1] || '06:00'
+      : '06:00'
+    const endStr = newItemData.end_datetime
+      ? newItemData.end_datetime.split(' ')[1] || '14:20'
+      : '14:20'
+    const day = newItemData.day_of_week || 'SEG'
+    const shift = newItemData.shift_code || 'T1_L1'
+
+    const conflictCheck = WeeklyScheduleEngine.validateTimeOverlap({
+      items,
+      dayOfWeek: day,
+      shiftCode: shift,
+      startTime: startStr,
+      endTime: endStr,
+    })
+
+    if (conflictCheck.hasConflict) {
+      toast({
+        title: 'Bloqueio de Conflito de Horário',
+        description:
+          conflictCheck.conflictMessage ||
+          'Existe sobreposição com outro item no mesmo dia e turno.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 3. Inclusão Válida com Cadência Oficial e Recálculo Temporal
     const lineObj = lines.find((l) => l.code === selectedLineCode)
     const nextSeq = items.length + 1
     const cadence =
@@ -734,7 +763,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     const prodHours = cadence > 0 ? Number((plannedQty / cadence).toFixed(2)) : 0
 
     const itemToAdd: WeeklyScheduleItem = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
       company_code: companyCode,
       plant_code: plantCode,
@@ -743,9 +772,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       year: selectedYear,
       week_number: selectedWeekNumber,
       period_display: weekRange.display,
-      day_of_week: newItemData.day_of_week || 'SEG',
+      day_of_week: day,
       date_str: '24/08',
-      shift_code: newItemData.shift_code || 'T1_L1',
+      shift_code: shift,
       shift_name: newItemData.shift_name || '1º Turno Matutino',
       crew_name: newItemData.crew_name || 'Turma A',
       sequence_order: nextSeq,
@@ -771,7 +800,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       raw_material_req_tons: 0,
     }
 
-    setItems((prev) => [...prev, itemToAdd])
+    const updatedList = [...items, itemToAdd]
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      updatedList,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    // Persiste imediatamente
+    weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
+      console.error('Erro ao persistir novo item:', err)
+    })
+
     toast({
       title: 'Produto Adicionado',
       description: `Material ${itemToAdd.material_code} (${itemToAdd.planned_quantity_tons} t) inserido na sequência. Grade recalculada.`,
@@ -784,6 +826,34 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleSaveEditedItem = async (updatedItem: WeeklyScheduleItem) => {
+    // Validação de Conflito de Horário
+    const startStr = updatedItem.start_datetime
+      ? updatedItem.start_datetime.split(' ')[1] || '06:00'
+      : '06:00'
+    const endStr = updatedItem.end_datetime
+      ? updatedItem.end_datetime.split(' ')[1] || '14:20'
+      : '14:20'
+
+    const conflictCheck = WeeklyScheduleEngine.validateTimeOverlap({
+      items,
+      dayOfWeek: updatedItem.day_of_week,
+      shiftCode: updatedItem.shift_code,
+      startTime: startStr,
+      endTime: endStr,
+      excludeItemId: updatedItem.id,
+    })
+
+    if (conflictCheck.hasConflict) {
+      toast({
+        title: 'Bloqueio de Conflito de Horário',
+        description:
+          conflictCheck.conflictMessage ||
+          'Existe sobreposição com outro item no mesmo dia e turno.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     const updatedList = items.map((it) => (it.id === updatedItem.id ? updatedItem : it))
     const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
       updatedList,
@@ -2159,6 +2229,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         lineCode={selectedLineCode}
         officialMaterials={officialMaterials}
         lineOverview={currentLineOverview}
+        existingItems={items}
         targetDay={targetDay}
         targetShiftCode={targetShiftCode}
         targetShiftName={targetShiftName}
@@ -2177,6 +2248,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         lineCode={selectedLineCode}
         officialMaterials={officialMaterials}
         lineOverview={currentLineOverview}
+        existingItems={items}
       />
       {/* 7. MODAL VERMELHO DE HARD BLOCK (MATERIAL BLOQUEADO) */}
       <BlockedProductModal

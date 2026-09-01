@@ -164,20 +164,6 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
     if (draggedIdx !== null && draggedIdx !== targetIndex && onMoveItem) {
-      const sourceItem = items[draggedIdx]
-      const targetItem = items[targetIndex]
-      const check = WeeklyScheduleEngine.validatePreDropFeasibility(
-        sourceItem,
-        targetItem,
-        lineOverview,
-      )
-      if (!check.allowed) {
-        alert(`Operação Bloqueada: ${check.reason}`)
-        setDraggedIdx(null)
-        setDragOverIdx(null)
-        setDragValidationMsg(null)
-        return
-      }
       onMoveItem(draggedIdx, targetIndex)
     }
     setDraggedIdx(null)
@@ -572,10 +558,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       isSelected,
                                     )} shadow-2xs hover:shadow-xs`}
                                   >
-                                    {/* Conteúdo Interno do Bloco com Anti-Truncamento */}
-                                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                    {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
+                                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
                                       {isCoolingViolated && (
-                                        <span className="text-[9px] text-rose-800 bg-rose-200 px-1.5 py-0.2 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs">
+                                        <span
+                                          className="text-[9px] text-rose-800 bg-rose-200 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
+                                          title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
+                                        >
                                           ⚠ NÃO ATENDIDO
                                         </span>
                                       )}
@@ -589,12 +578,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                         </span>
                                       )}
 
-                                      <span className="font-mono font-extrabold text-[11px] truncate text-slate-900 shrink-0">
+                                      <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
                                         {item.material_code}
                                       </span>
 
                                       {item.dimensions && (
-                                        <span className="text-[10px] text-slate-600 font-mono truncate hidden sm:inline">
+                                        <span className="text-[10px] text-slate-600 font-mono hidden md:inline shrink-0 whitespace-nowrap">
                                           {item.dimensions}
                                         </span>
                                       )}
@@ -602,11 +591,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       {!isStop && (
                                         <>
                                           <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="font-mono text-[11px] font-black text-slate-900 shrink-0">
+                                          <span className="font-mono text-[11px] font-black text-slate-900 shrink-0 whitespace-nowrap">
                                             {item.planned_quantity_tons} t
                                           </span>
                                           <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.2 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0">
+                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap">
                                             {isAwaiting
                                               ? 'AGUARDANDO OBS'
                                               : item.exception_approval_status ===
@@ -622,7 +611,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       {isStop && (
                                         <>
                                           <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="text-[10px] font-bold text-amber-900">
+                                          <span className="text-[10px] font-bold text-amber-900 shrink-0 whitespace-nowrap">
                                             Parada ({item.stop_duration_minutes || 60} min)
                                           </span>
                                         </>
@@ -630,8 +619,8 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                     </div>
 
                                     {/* Horário sempre legível e botão de edição */}
-                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/80 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs">
-                                      <span>
+                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/90 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
+                                      <span className="shrink-0">
                                         {startStr} &rarr; {endStr}
                                       </span>
                                       {onEditItem && (
@@ -642,7 +631,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                             e.stopPropagation()
                                             onEditItem(item)
                                           }}
-                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors"
+                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0"
                                         >
                                           ✏️
                                         </button>

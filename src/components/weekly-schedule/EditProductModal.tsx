@@ -41,6 +41,7 @@ interface EditProductModalProps {
   lineCode: string
   officialMaterials: OfficialMaterialOption[]
   lineOverview: LineOverviewData | null
+  existingItems?: WeeklyScheduleItem[]
 }
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
@@ -51,6 +52,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   lineCode,
   officialMaterials,
   lineOverview,
+  existingItems = [],
 }) => {
   // 1. Estado da Seleção em Cascata (Família -> Produto)
   const [selectedFamilyCode, setSelectedFamilyCode] = useState<string>('')
@@ -196,10 +198,31 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     }
   }, [selectedMaterial, materialCadence, programBy, quantityInput, startTimeInput, endTimeInput])
 
+  // Validação de Conflito e Sobreposição de Horários
+  const overlapValidation = useMemo(() => {
+    if (!item || !calculationResult || !calculationResult.isValid) return { hasConflict: false }
+
+    return WeeklyScheduleEngine.validateTimeOverlap({
+      items: existingItems,
+      dayOfWeek: selectedDay,
+      shiftCode: selectedShift,
+      startTime: calculationResult.startTime,
+      endTime: calculationResult.endTime,
+      excludeItemId: item.id,
+    })
+  }, [calculationResult, existingItems, selectedDay, selectedShift, item])
+
+  const handleApplyNextAvailableTime = () => {
+    if (overlapValidation.nextAvailableStartTime) {
+      setStartTimeInput(overlapValidation.nextAvailableStartTime)
+    }
+  }
+
   if (!item) return null
 
   const handleConfirmSave = () => {
     if (!selectedMaterial || !calculationResult || !calculationResult.isValid || !item) return
+    if (overlapValidation.hasConflict) return
 
     const shifts = lineOverview?.shifts || []
     const shift = shifts.find((s) => s.code === selectedShift)
@@ -378,6 +401,37 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* ALERTA DE CONFLITO DE HORÁRIO / SOBREPOSIÇÃO (BLOQUEANTE) */}
+          {overlapValidation.hasConflict && (
+            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-rose-800">Conflito de Horário Detectado</p>
+                  <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed font-mono font-bold">
+                    {overlapValidation.conflictMessage}
+                  </p>
+                  <p className="text-[10px] text-rose-600 mt-1">
+                    Não é permitido sobrepor itens no mesmo dia e turno. Ajuste o horário ou use a
+                    ação rápida abaixo.
+                  </p>
+                </div>
+              </div>
+
+              {overlapValidation.nextAvailableStartTime && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleApplyNextAvailableTime}
+                  className="shrink-0 bg-white hover:bg-rose-100 text-rose-900 border-rose-300 text-xs font-bold h-8"
+                >
+                  Usar próximo horário ({overlapValidation.nextAvailableStartTime})
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* ALERTA DE CADÊNCIA AUSENTE */}
           {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (
@@ -712,7 +766,12 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
 
           <Button
             onClick={handleConfirmSave}
-            disabled={!selectedMaterial || !calculationResult || !calculationResult.isValid}
+            disabled={
+              !selectedMaterial ||
+              !calculationResult ||
+              !calculationResult.isValid ||
+              overlapValidation.hasConflict
+            }
             className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold flex items-center gap-1.5 shadow"
           >
             <Save className="w-4 h-4" />

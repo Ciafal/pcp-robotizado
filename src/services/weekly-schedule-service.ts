@@ -486,11 +486,16 @@ export const weeklyScheduleService = {
     try {
       const records = await pb.collection('weekly_schedules').getFullList({
         filter: `line_code = '${filter.lineCode}' && year = ${filter.year} && week_number = ${filter.weekNumber}`,
-        sort: 'sequence_order',
+        sort: '+sequence_order,created',
       })
 
       if (records && records.length > 0) {
-        return records.map((r: any) => ({
+        // Ordena explicitamente por sequence_order crescente (1..N) para garantir integridade após F5
+        const sortedRecords = [...records].sort(
+          (a, b) => (Number(a.sequence_order) || 0) - (Number(b.sequence_order) || 0),
+        )
+
+        return sortedRecords.map((r: any, idx: number) => ({
           id: r.id,
           schedule_code: r.schedule_code,
           company_code: r.company_code,
@@ -505,7 +510,7 @@ export const weeklyScheduleService = {
           shift_code: r.shift_code,
           shift_name: r.shift_name,
           crew_name: r.crew_name,
-          sequence_order: r.sequence_order,
+          sequence_order: Number(r.sequence_order) || idx + 1,
           item_type: r.item_type || 'PRODUCTION',
           material_code: r.material_code,
           material_description: r.material_description,
