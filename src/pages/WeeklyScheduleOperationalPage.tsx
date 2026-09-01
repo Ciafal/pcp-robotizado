@@ -617,11 +617,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     // Sincronização automática em ciclo fechado com a Oficina de Cilindros (Requisitos 13, 14, 19, 21)
     rollShopSetupService.syncScheduleWithRollShop(result.items, headerFilter, currentLineOverview)
 
-    // Auto-persistência da sequência transacional no backend de rascunho
-    if (items.length > 0) {
-      weeklyScheduleService.saveWeeklyScheduleDraft(result.items, headerFilter).catch(() => {})
-    }
-
     return result
   }, [items, currentLineOverview, headerFilter, rawMaterialContext])
 
@@ -913,16 +908,18 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     // Backup para Rollback Transacional
     const backupItems = [...items]
 
-    // Aplica a reordenação contínua (1, 2, 3, 4...)
+    // Aplica a reordenação contínua (1, 2, 3, 4...) sem lacunas
     const reordered = [...items]
     const [moved] = reordered.splice(fromIndex, 1)
     reordered.splice(toIndex, 0, moved)
+    const targetDay = reordered[toIndex === 0 ? 0 : toIndex]?.day_of_week
+    const targetShift = reordered[toIndex === 0 ? 0 : toIndex]?.shift_code
     const reindexed = reordered.map((it, idx) => ({
       ...it,
       sequence_order: idx + 1,
     }))
 
-    // Recalcula horários e setups no motor
+    // Recalcula horários e setups no motor de forma determinística
     const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
       reindexed,
       currentLineOverview,
@@ -2105,6 +2102,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   setTargetShiftCode(s)
                   setIsAddModalOpen(true)
                 }}
+                onMoveItem={(from, to) => handleReorderItems(from, to)}
                 onTransferDayShift={handleTransferDayShift}
                 onAddStop={handleAddStop}
                 onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}

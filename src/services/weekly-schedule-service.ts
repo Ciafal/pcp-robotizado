@@ -605,7 +605,7 @@ export const weeklyScheduleService = {
           shift_code: item.shift_code,
           shift_name: item.shift_name,
           crew_name: item.crew_name,
-          sequence_order: i + 1,
+          sequence_order: item.sequence_order || i + 1,
           item_type: item.item_type,
           material_code: item.material_code,
           material_description: item.material_description,
@@ -646,7 +646,12 @@ export const weeklyScheduleService = {
           },
         }
 
-        if (item.id && !item.id.startsWith('temp-')) {
+        if (
+          item.id &&
+          !item.id.startsWith('temp-') &&
+          !item.id.startsWith('item-demo-') &&
+          !item.id.startsWith('item-')
+        ) {
           await pb.collection('weekly_schedules').update(item.id, payload)
         } else {
           const created = await pb.collection('weekly_schedules').create(payload)

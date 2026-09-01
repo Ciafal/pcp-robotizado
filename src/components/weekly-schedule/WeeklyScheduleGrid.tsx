@@ -54,11 +54,12 @@ interface WeeklyScheduleGridProps {
     day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
     shiftCode: string,
   ) => void
-  onTransferDayShift: (
+  onTransferDayShift?: (
     index: number,
     newDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
     newShiftCode: string,
   ) => void
+  onMoveItem?: (fromIndex: number, toIndex: number) => void
   onAddStop: (day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM', shiftCode: string) => void
   onOpenAwaitingObservationsModal?: (item: WeeklyScheduleItem) => void
   filterOption?: ScheduleGridFilter
@@ -77,6 +78,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   onRemove,
   onOpenAddModal,
   onTransferDayShift,
+  onMoveItem,
   onAddStop,
   onOpenAwaitingObservationsModal,
   filterOption = 'ALL',
@@ -104,10 +106,10 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
     }
   }
 
-  // Manipuladores de Drag and Drop
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
-    e.dataTransfer.setData('text/plain', String(index))
+  // Manipuladores de Drag and Drop com fluxo unificado de reordenação absoluta
+  const handleDragStart = (e: React.DragEvent, originalIndex: number) => {
+    setDraggedIndex(originalIndex)
+    e.dataTransfer.setData('text/plain', String(originalIndex))
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -118,25 +120,36 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
-    if (draggedIndex === null || draggedIndex === targetIndex) return
-
-    const sourceItem = items[draggedIndex]
-    const targetItem = items[targetIndex]
-    const check = WeeklyScheduleEngine.validatePreDropFeasibility(
-      sourceItem,
-      targetItem,
-      lineOverview,
-    )
-    if (!check.allowed) {
-      alert(`Operação Bloqueada: ${check.reason}`)
+    const fromIndex =
+      draggedIndex !== null ? draggedIndex : Number(e.dataTransfer.getData('text/plain'))
+    if (isNaN(fromIndex) || fromIndex === targetIndex) {
       setDraggedIndex(null)
       return
     }
 
-    // Move o item de draggedIndex para targetIndex
-    const currentDay = items[targetIndex].day_of_week
-    const currentShift = items[targetIndex].shift_code
-    onTransferDayShift(draggedIndex, currentDay, currentShift)
+    const sourceItem = items[fromIndex]
+    const targetItem = items[targetIndex]
+    if (sourceItem && targetItem) {
+      const check = WeeklyScheduleEngine.validatePreDropFeasibility(
+        sourceItem,
+        targetItem,
+        lineOverview,
+      )
+      if (!check.allowed) {
+        alert(`Operação Bloqueada: ${check.reason}`)
+        setDraggedIndex(null)
+        return
+      }
+    }
+
+    // Se houver onMoveItem (fluxo unificado com recalculo e persistencia), chama ele
+    if (onMoveItem) {
+      onMoveItem(fromIndex, targetIndex)
+    } else if (onTransferDayShift && items[targetIndex]) {
+      const currentDay = items[targetIndex].day_of_week
+      const currentShift = items[targetIndex].shift_code
+      onTransferDayShift(fromIndex, currentDay, currentShift)
+    }
     setDraggedIndex(null)
   }
 

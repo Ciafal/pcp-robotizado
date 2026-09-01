@@ -128,25 +128,25 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     return map
   }, [items])
 
-  // Drag & drop simples
+  // Drag & drop com índices globais absolutos
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [dragValidationMsg, setDragValidationMsg] = useState<string | null>(null)
 
-  const handleDragStart = (e: React.DragEvent, originalIndex: number) => {
-    setDraggedIdx(originalIndex)
-    e.dataTransfer.setData('text/plain', String(originalIndex))
+  const handleDragStart = (e: React.DragEvent, globalIndex: number) => {
+    setDraggedIdx(globalIndex)
+    e.dataTransfer.setData('text/plain', String(globalIndex))
     e.dataTransfer.effectAllowed = 'move'
   }
 
-  const handleDragOver = (e: React.DragEvent, originalIndex: number) => {
+  const handleDragOver = (e: React.DragEvent, globalIndex: number) => {
     e.preventDefault()
-    setDragOverIdx(originalIndex)
-    if (draggedIdx !== null && draggedIdx !== originalIndex) {
+    setDragOverIdx(globalIndex)
+    if (draggedIdx !== null && draggedIdx !== globalIndex) {
       const sourceItem = items[draggedIdx]
-      const targetItem = items[originalIndex]
+      const targetItem = items[globalIndex]
       if (sourceItem && targetItem) {
-        // Validação prévia
+        // Validação prévia de viabilidade
         const check = WeeklyScheduleEngine.validatePreDropFeasibility(
           sourceItem,
           targetItem,
@@ -161,10 +161,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     }
   }
 
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+  const handleDrop = (e: React.DragEvent, targetGlobalIndex: number) => {
     e.preventDefault()
-    if (draggedIdx !== null && draggedIdx !== targetIndex && onMoveItem) {
-      onMoveItem(draggedIdx, targetIndex)
+    const fromIndex =
+      draggedIdx !== null ? draggedIdx : Number(e.dataTransfer.getData('text/plain'))
+    if (!isNaN(fromIndex) && fromIndex !== targetGlobalIndex && onMoveItem) {
+      onMoveItem(fromIndex, targetGlobalIndex)
     }
     setDraggedIdx(null)
     setDragOverIdx(null)

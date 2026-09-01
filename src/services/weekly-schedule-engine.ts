@@ -274,14 +274,8 @@ export const WeeklyScheduleEngine = {
       }
     }
 
-    // 2. Parada programada imutável
-    if (targetItem.item_type === 'SCHEDULED_STOP') {
-      return {
-        allowed: false,
-        reason: 'Não é permitido sobrepor uma Parada Programada ou Manutenção Preventiva.',
-      }
-    }
-
+    // A reordenação de itens na sequência (mesmo com paradas programadas na lista) é livre
+    // O motor recalcula os horários e setups de forma determinística
     return { allowed: true }
   },
 
@@ -302,7 +296,7 @@ export const WeeklyScheduleEngine = {
     if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
       return {
         allowed: false,
-        blockingReason: 'Posição de sequência inválida.',
+        blockingReason: `Posição de sequência inválida (origem: ${fromIndex + 1}, destino: ${toIndex + 1}).`,
         warnings: [],
         infoMessages: [],
       }
@@ -312,7 +306,7 @@ export const WeeklyScheduleEngine = {
     if (!itemToMove) {
       return {
         allowed: false,
-        blockingReason: 'Item de origem não encontrado.',
+        blockingReason: `Item de origem na posição ${fromIndex + 1} não encontrado.`,
         warnings: [],
         infoMessages: [],
       }
@@ -321,7 +315,7 @@ export const WeeklyScheduleEngine = {
     const warnings: string[] = []
     const infoMessages: string[] = []
 
-    // 1. Verifica se o produto tem bloqueio na linha (VAL-02 Hard Block)
+    // 1. Verifica se o produto tem bloqueio formal na linha (VAL-02 Hard Block)
     if (itemToMove.item_type === 'PRODUCTION') {
       const block = this.checkHardBlock(itemToMove.material_code, lineOverview)
       if (block) {
