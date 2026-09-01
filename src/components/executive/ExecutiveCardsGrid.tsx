@@ -1,6 +1,7 @@
 import React from 'react'
 import { ExecutiveCardKPI, TrafficLightStatus } from '@/types/executive-cockpit'
 import { formatCiafalNumber, formatWithUnit } from '@/services/deterministic-executive-engine'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -84,10 +85,25 @@ export const ExecutiveCardsGrid: React.FC<ExecutiveCardsGridProps> = ({ cards, o
               {/* Valor Principal Realizado vs Meta */}
               <div className="pt-1 flex items-baseline justify-between">
                 <div>
-                  <span className="text-2xl font-black text-slate-900 tracking-tight">
-                    {formatCiafalNumber(card.realized, card.unit === '%' ? 0 : 1)}
-                  </span>
-                  <span className="text-xs font-bold text-[#004C97] ml-1">{card.unit}</span>
+                  {card.id === 'kpi_oee' ? (
+                    <OeeInteractiveValue
+                      value={card.realized}
+                      target={card.target}
+                      unit={card.unit}
+                      className="text-2xl font-black text-slate-900 tracking-tight"
+                      drilldownContext={{
+                        lineCode: 'L1',
+                        period: 'semanal',
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <span className="text-2xl font-black text-slate-900 tracking-tight">
+                        {formatCiafalNumber(card.realized, card.unit === '%' ? 0 : 1)}
+                      </span>
+                      <span className="text-xs font-bold text-[#004C97] ml-1">{card.unit}</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="text-right text-[11px] text-slate-500">

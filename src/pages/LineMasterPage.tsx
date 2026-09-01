@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { sapIntegrationService } from '@/services/sap-integration'
 import { authService } from '@/services/pcp-auth'
 import {
@@ -326,9 +327,19 @@ export default function LineMasterPage() {
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[9px] uppercase font-bold">
-                            Eficiência
+                            Eficiência OEE
                           </span>
-                          <span className="text-emerald-600 font-bold">{l.efficiency || 90}%</span>
+                          <span className="text-emerald-600 font-bold">
+                            <OeeInteractiveValue
+                              value={l.efficiency || 90}
+                              target={85}
+                              unit="%"
+                              drilldownContext={{
+                                lineCode: l.code || `L${l.id}`,
+                                equipmentCode: `${l.code || `L${l.id}`}_LAM`,
+                              }}
+                            />
+                          </span>
                         </div>
                       </div>
 

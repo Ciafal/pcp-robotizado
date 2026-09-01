@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { ExecutiveBriefingRecord, BriefingCadence } from '@/types/executive-cockpit'
 import { formatCiafalNumber, formatWithUnit } from '@/services/deterministic-executive-engine'
 import { useToast } from '@/hooks/use-toast'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 
 interface ExecutiveBriefingSectionProps {
   briefings: ExecutiveBriefingRecord[]
@@ -172,7 +173,18 @@ export const ExecutiveBriefingSection: React.FC<ExecutiveBriefingSectionProps> =
               <span className="text-[9px] uppercase font-bold text-slate-400 block">
                 OEE Agregado
               </span>
-              <span className="text-base font-black text-slate-900">83,5%</span>
+              <div className="text-base font-black text-slate-900">
+                <OeeInteractiveValue
+                  value={83.5}
+                  target={85.0}
+                  unit="%"
+                  className="text-base font-black text-slate-900"
+                  drilldownContext={{
+                    lineCode: 'L1',
+                    period: 'semanal',
+                  }}
+                />
+              </div>
               <span className="block text-[9px] text-amber-600 font-bold">Meta: 85,0%</span>
             </div>
             <div className="bg-white p-2.5 rounded-lg border border-slate-200">

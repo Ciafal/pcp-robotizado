@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { lineMasterService } from '@/services/line-master'
 import { ProductionLine } from '@/types/line-master'
+import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 
 export const LineCapacitiesSubpage: React.FC = () => {
   const [lines, setLines] = useState<ProductionLine[]>([])
@@ -105,7 +106,17 @@ export const LineCapacitiesSubpage: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">Eficiência (OEE)</span>
-                <span className="font-bold text-cyan-300 text-sm">96.8%</span>
+                <div className="font-bold text-cyan-300 text-sm">
+                  <OeeInteractiveValue
+                    value={line.efficiency || 96.8}
+                    target={85.0}
+                    unit="%"
+                    drilldownContext={{
+                      lineCode: line.code || `L${line.id}`,
+                      equipmentCode: `${line.code || `L${line.id}`}_LAM`,
+                    }}
+                  />
+                </div>
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">Turnos Ativos</span>
