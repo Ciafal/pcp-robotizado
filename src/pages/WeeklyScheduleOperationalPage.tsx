@@ -2159,7 +2159,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 selectedItemId={selectedScheduleItem?.id}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
                 onEditItem={handleOpenEditItem}
-                onMoveItem={(from, to) => handleReorderItems(from, to)}
+                onMoveItem={(from, to, targetOverrides) =>
+                  handleReorderItems(from, to, targetOverrides)
+                }
                 onDuplicateItem={handleDuplicate}
                 onRemoveItem={handleRemove}
                 onAddItem={(day, shift) => {

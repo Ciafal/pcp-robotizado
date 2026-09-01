@@ -27,7 +27,17 @@ interface OperationalTimelineGridProps {
   lineOverview: LineOverviewData | null
   selectedItemId?: string | null
   onSelectItem?: (item: WeeklyScheduleItem) => void
-  onMoveItem?: (fromIndex: number, toIndex: number) => void
+  onMoveItem?: (
+    fromIndex: number,
+    toIndex: number,
+    targetOverrides?: {
+      day_of_week?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+      date_str?: string
+      shift_code?: string
+      shift_name?: string
+      crew_name?: string
+    },
+  ) => void
   onDuplicateItem?: (index: number) => void
   onRemoveItem?: (index: number) => void
   onAddItem?: (
@@ -247,11 +257,71 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     // O item ocupará a largura proporcional real baseada na duração em horas (preserva proporcionalidade exata)
     const widthPct = ((clampedEnd - clampedStart) / totalTimelineHours) * 100
 
+    // Largura mínima confortável proporcional para permitir exibição clara das informações sem truncamento
+    const minWidthPct = 14
     return {
-      leftPct: Math.max(0, leftPct),
-      widthPct: Math.min(100 - leftPct, Math.max(8, widthPct)),
+      leftPct: Math.max(0, Math.min(100 - minWidthPct, leftPct)),
+      widthPct: Math.min(100 - leftPct, Math.max(minWidthPct, widthPct)),
       durationHours: Number((clampedEnd - clampedStart).toFixed(2)),
     }
+  }
+
+  // Helper para soltar item em dia/turno específico (incluindo dias vazios)
+  const handleDropOnDayOrShift = (
+    e: React.DragEvent,
+    targetDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
+    targetDateStr: string,
+    targetShiftCode?: string,
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const fromIndex =
+      draggedIdx !== null ? draggedIdx : Number(e.dataTransfer.getData('text/plain'))
+    if (isNaN(fromIndex) || fromIndex < 0 || fromIndex >= items.length || !onMoveItem) {
+      setDraggedIdx(null)
+      setDragOverIdx(null)
+      setDragValidationMsg(null)
+      return
+    }
+
+    const dayItems = itemsByDay[targetDay] || []
+    let toIndex = items.length - 1
+
+    if (dayItems.length > 0) {
+      toIndex = dayItems[dayItems.length - 1].originalIndex
+    } else {
+      // Dia vazio: encontra o índice onde este dia deve se posicionar cronologicamente
+      const dayOrder = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
+      const targetDayPos = dayOrder.indexOf(targetDay)
+      let foundIndex = -1
+
+      for (let i = 0; i < items.length; i++) {
+        const itemDay = items[i].day_of_week || 'SEG'
+        const itemDayPos = dayOrder.indexOf(itemDay)
+        if (itemDayPos > targetDayPos) {
+          foundIndex = i
+          break
+        }
+      }
+
+      toIndex = foundIndex !== -1 ? foundIndex : items.length - 1
+    }
+
+    const shifts = lineOverview?.shifts || []
+    const chosenShiftCode = targetShiftCode || shifts[0]?.code || 'T1_L1'
+    const matchedShift = shifts.find((s) => s.code === chosenShiftCode)
+
+    onMoveItem(fromIndex, toIndex, {
+      day_of_week: targetDay,
+      date_str: targetDateStr,
+      shift_code: chosenShiftCode,
+      shift_name: matchedShift?.name || '1º Turno',
+      crew_name: (matchedShift as any)?.crew_name || 'Turma A',
+    })
+
+    setDraggedIdx(null)
+    setDragOverIdx(null)
+    setDragValidationMsg(null)
   }
 
   return (
@@ -311,9 +381,14 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
 
             return (
               <div key={dayObj.key} className="flex flex-col bg-white">
-                {/* BARRA DO DIA (RECOLHÍVEL) */}
+                {/* BARRA DO DIA (RECOLHÍVEL E ÁREA DE DROP DE DIA) */}
                 <div
                   onClick={() => toggleDay(dayObj.key)}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(e) => handleDropOnDayOrShift(e, dayObj.key, dayObj.date)}
                   className={`flex items-center justify-between px-3 py-1.5 cursor-pointer transition-colors select-none ${
                     isExpanded
                       ? 'bg-slate-50 font-bold border-b border-slate-200'
@@ -359,12 +434,26 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                 {isExpanded && (
                   <div className="divide-y divide-slate-100">
                     {dayItems.length === 0 ? (
-                      <div className="flex py-3 px-4 text-xs text-slate-400 items-center justify-between bg-slate-50/30">
-                        <span>Nenhum produto programado para este dia.</span>
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                        }}
+                        onDrop={(e) => handleDropOnDayOrShift(e, dayObj.key, dayObj.date)}
+                        className="flex py-4 px-4 text-xs text-slate-500 items-center justify-between bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-md m-1.5 hover:bg-blue-50/40 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            Nenhum produto programado para este dia.
+                          </span>
+                          <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">
+                            Solte um item aqui para transferir para {dayObj.label} ({dayObj.date})
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => onAddItem && onAddItem(dayObj.key, 'T1_L1')}
-                          className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1"
+                          className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200"
                         >
                           <Plus className="w-3 h-3" /> Inserir Atividade
                         </button>
@@ -393,7 +482,25 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                             draggable
                             onDragStart={(e) => handleDragStart(e, originalIndex)}
                             onDragOver={(e) => handleDragOver(e, originalIndex)}
-                            onDrop={(e) => handleDrop(e, originalIndex)}
+                            onDrop={(e) => {
+                              e.preventDefault()
+                              const fromIndex =
+                                draggedIdx !== null
+                                  ? draggedIdx
+                                  : Number(e.dataTransfer.getData('text/plain'))
+                              if (!isNaN(fromIndex) && onMoveItem) {
+                                onMoveItem(fromIndex, originalIndex, {
+                                  day_of_week: item.day_of_week || dayObj.key,
+                                  date_str: item.date_str || dayObj.date,
+                                  shift_code: item.shift_code,
+                                  shift_name: item.shift_name,
+                                  crew_name: item.crew_name,
+                                })
+                              }
+                              setDraggedIdx(null)
+                              setDragOverIdx(null)
+                              setDragValidationMsg(null)
+                            }}
                             onClick={() => onSelectItem && onSelectItem(item)}
                             className={`flex min-h-[44px] transition-colors cursor-pointer group ${
                               dragOverIdx === originalIndex
@@ -587,7 +694,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
                                       {isCoolingViolated && (
                                         <span
-                                          className="text-[9px] text-rose-800 bg-rose-200 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
+                                          className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
                                           title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
                                         >
                                           ⚠ NÃO ATENDIDO
@@ -608,7 +715,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       </span>
 
                                       {item.dimensions && (
-                                        <span className="text-[10px] text-slate-600 font-mono hidden md:inline shrink-0 whitespace-nowrap">
+                                        <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
                                           {item.dimensions}
                                         </span>
                                       )}
@@ -620,7 +727,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                             {item.planned_quantity_tons} t
                                           </span>
                                           <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap">
+                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap hidden sm:inline-block">
                                             {isAwaiting
                                               ? 'AGUARDANDO OBS'
                                               : item.exception_approval_status ===
@@ -644,7 +751,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                     </div>
 
                                     {/* Horário sempre legível e botão de edição */}
-                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/90 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
+                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
                                       <span className="shrink-0">
                                         {startStr} &rarr; {endStr}
                                       </span>
