@@ -40,7 +40,7 @@ interface OperationalTimelineGridProps {
 }
 
 // Horários para a régua da linha do tempo: 06:00 até 22:00 (17 colunas de 1h)
-const TIMELINE_HOURS = [
+export const TIMELINE_HOURS = [
   '06:00',
   '07:00',
   '08:00',
@@ -59,6 +59,9 @@ const TIMELINE_HOURS = [
   '21:00',
   '22:00',
 ]
+
+// Marcos compactos para o cabeçalho horizontal (Defeito 2: 06:00 / 10:00 / 14:00 / 18:00 / 22:00)
+export const COMPACT_TIMELINE_HOURS = ['06:00', '10:00', '14:00', '18:00', '22:00']
 
 const DAYS_LIST: Array<{
   key: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
@@ -241,12 +244,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     const clampedStart = Math.max(6, Math.min(22, startH))
     const clampedEnd = Math.max(clampedStart + 0.25, Math.min(22, endH))
     const leftPct = ((clampedStart - 6) / totalTimelineHours) * 100
-    // O item ocupará a largura proporcional real baseada na duração em horas
+    // O item ocupará a largura proporcional real baseada na duração em horas (preserva proporcionalidade exata)
     const widthPct = ((clampedEnd - clampedStart) / totalTimelineHours) * 100
 
     return {
       leftPct: Math.max(0, leftPct),
-      widthPct: Math.min(100 - leftPct, Math.max(3, widthPct)),
+      widthPct: Math.min(100 - leftPct, Math.max(8, widthPct)),
       durationHours: Number((clampedEnd - clampedStart).toFixed(2)),
     }
   }
@@ -267,14 +270,34 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
             SEQ.
           </div>
 
-          {/* Área Rolável da Linha do Tempo */}
+          {/* Área Rolável da Linha do Tempo: Cabeçalho com 5 Marcos Espaçados (06:00 / 10:00 / 14:00 / 18:00 / 22:00) */}
           <div className="flex-1 overflow-x-auto no-scrollbar flex min-w-[760px]">
-            <div className="w-full grid grid-cols-16 divide-x divide-slate-200 text-center font-mono text-[10px] text-slate-600">
-              {TIMELINE_HOURS.slice(0, 16).map((hr, idx) => (
-                <div key={idx} className="py-2 px-1 truncate bg-slate-100">
-                  {hr}
-                </div>
-              ))}
+            <div className="w-full relative h-8 bg-slate-100 border-b border-slate-200 font-mono text-[10px] text-slate-600">
+              {COMPACT_TIMELINE_HOURS.map((hr, idx) => {
+                // Posições percentuais na escala de 06:00 a 22:00 (16h total):
+                // 06:00 -> 0%, 10:00 -> 25%, 14:00 -> 50%, 18:00 -> 75%, 22:00 -> 100%
+                const pct = idx * 25
+                const isFirst = idx === 0
+                const isLast = idx === COMPACT_TIMELINE_HOURS.length - 1
+                return (
+                  <div
+                    key={hr}
+                    style={{
+                      left: `${pct}%`,
+                      transform: isFirst
+                        ? 'none'
+                        : isLast
+                          ? 'translateX(-100%)'
+                          : 'translateX(-50%)',
+                    }}
+                    className="absolute top-0 bottom-0 flex items-center px-2 py-1.5 font-bold select-none"
+                  >
+                    <span className="bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60">
+                      {hr}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

@@ -872,20 +872,34 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }
 
-  // Manipulação de Posição na Sequência com Validação Pré-Drop, Rollback e Versionamento Transacional
-  const handleReorderItems = async (fromIndex: number, toIndex: number) => {
-    if (
-      fromIndex === toIndex ||
-      fromIndex < 0 ||
-      toIndex < 0 ||
-      fromIndex >= items.length ||
-      toIndex >= items.length
-    ) {
+  // Manipulação de Posição na Sequência e Transferência entre Dias/Turnos com Herança de Metadados, Validação, Rollback e Persistência
+  const handleReorderItems = async (
+    fromIndex: number,
+    toIndex: number,
+    targetOverrides?: {
+      day_of_week?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+      date_str?: string
+      shift_code?: string
+      shift_name?: string
+      crew_name?: string
+    },
+  ) => {
+    if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
       return
     }
 
     const itemToMove = items[fromIndex]
     if (!itemToMove) return
+
+    // Se a posição for a mesma e não houver alteração de dia/turno, não faz nada
+    if (
+      fromIndex === toIndex &&
+      (!targetOverrides ||
+        (targetOverrides.day_of_week === itemToMove.day_of_week &&
+          (!targetOverrides.shift_code || targetOverrides.shift_code === itemToMove.shift_code)))
+    ) {
+      return
+    }
 
     // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo)
     const validation = WeeklyScheduleEngine.validateSequenceDrop({
@@ -908,12 +922,64 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     // Backup para Rollback Transacional
     const backupItems = [...items]
 
-    // Aplica a reordenação contínua (1, 2, 3, 4...) sem lacunas
+    // Determina o item ou metadados de destino
+    const targetItem = items[toIndex]
+    const destDay =
+      targetOverrides?.day_of_week || targetItem?.day_of_week || itemToMove.day_of_week
+    const destShiftCode =
+      targetOverrides?.shift_code || targetItem?.shift_code || itemToMove.shift_code
+
+    // Calcula date_str do dia de destino baseado na data de início da semana
+    let destDateStr = targetOverrides?.date_str || targetItem?.date_str
+    if (!destDateStr && destDay) {
+      const dayOffsetMap: Record<string, number> = {
+        SEG: 0,
+        TER: 1,
+        QUA: 2,
+        QUI: 3,
+        SEX: 4,
+        SAB: 5,
+        DOM: 6,
+      }
+      const offset = dayOffsetMap[destDay] ?? 0
+      const d = new Date(weekRange.startDate)
+      d.setDate(weekRange.startDate.getDate() + offset)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      destDateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
+    }
+
+    // Extrai turno e turma de destino
+    const shifts = currentLineOverview?.shifts || []
+    const matchedShift = shifts.find((s) => s.code === destShiftCode)
+    const destShiftName =
+      targetOverrides?.shift_name ||
+      targetItem?.shift_name ||
+      matchedShift?.name ||
+      itemToMove.shift_name ||
+      '1º Turno'
+    const destCrewName =
+      targetOverrides?.crew_name ||
+      targetItem?.crew_name ||
+      (matchedShift as any)?.crew_name ||
+      itemToMove.crew_name ||
+      'Turma A'
+
+    // Aplica a reordenação contínua (1, 2, 3, 4...) sem lacunas com herança de metadados
     const reordered = [...items]
     const [moved] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, moved)
-    const targetDay = reordered[toIndex === 0 ? 0 : toIndex]?.day_of_week
-    const targetShift = reordered[toIndex === 0 ? 0 : toIndex]?.shift_code
+
+    const updatedMovedItem: WeeklyScheduleItem = {
+      ...moved,
+      day_of_week: destDay,
+      date_str: destDateStr || moved.date_str || '24/08',
+      shift_code: destShiftCode,
+      shift_name: destShiftName,
+      crew_name: destCrewName,
+    }
+
+    reordered.splice(toIndex, 0, updatedMovedItem)
+
+    // Renumera sequence_order de 1..N sem lacunas
     const reindexed = reordered.map((it, idx) => ({
       ...it,
       sequence_order: idx + 1,
@@ -941,10 +1007,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         currentLineOverview,
       )
 
-      const seqDiffDesc = `${itemToMove.material_code} (Seq. ${fromIndex + 1} → Seq. ${toIndex + 1})`
+      const seqDiffDesc = `${itemToMove.material_code} (${itemToMove.day_of_week} #${fromIndex + 1} → ${destDay} #${toIndex + 1})`
       toast({
         title: 'Sequência Reordenada e Persistida',
-        description: `Reordenação aplicada: ${seqDiffDesc}. Horários e setups recalculados e salvos com sucesso.`,
+        description: `Reordenação aplicada: ${seqDiffDesc}. Horários, setups e metadados recalculados e salvos com sucesso.`,
       })
     } catch (saveError) {
       console.error('Falha ao persistir reordenação de sequência:', saveError)
@@ -957,6 +1023,42 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           'A gravação falhou no servidor. A sequência foi restaurada à última posição válida.',
       })
     }
+  }
+
+  // Transferência direta de dia/turno para um item específico
+  const handleTransferDayShift = async (
+    index: number,
+    newDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
+    newShiftCode: string,
+  ) => {
+    const item = items[index]
+    if (!item) return
+
+    const dayOffsetMap: Record<string, number> = {
+      SEG: 0,
+      TER: 1,
+      QUA: 2,
+      QUI: 3,
+      SEX: 4,
+      SAB: 5,
+      DOM: 6,
+    }
+    const offset = dayOffsetMap[newDay] ?? 0
+    const d = new Date(weekRange.startDate)
+    d.setDate(weekRange.startDate.getDate() + offset)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const newDateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
+
+    const shifts = currentLineOverview?.shifts || []
+    const matchedShift = shifts.find((s) => s.code === newShiftCode)
+
+    await handleReorderItems(index, index, {
+      day_of_week: newDay,
+      date_str: newDateStr,
+      shift_code: newShiftCode,
+      shift_name: matchedShift?.name || '1º Turno',
+      crew_name: (matchedShift as any)?.crew_name || 'Turma A',
+    })
   }
 
   const handleMoveUp = (index: number) => {
@@ -1055,21 +1157,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     toast({
       title: 'Pendência Liberada',
       description: `Observação do item ${item.material_code} concluída e removida.`,
-    })
-  }
-
-  const handleTransferDayShift = (
-    index: number,
-    newDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
-    newShiftCode: string,
-  ) => {
-    setItems((prev) => {
-      const copy = [...prev]
-      if (copy[index]) {
-        copy[index].day_of_week = newDay
-        copy[index].shift_code = newShiftCode
-      }
-      return copy
     })
   }
 
