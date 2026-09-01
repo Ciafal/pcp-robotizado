@@ -54,8 +54,11 @@ export default function LineMasterPage() {
   const [selectedLineOverview, setSelectedLineOverview] = useState<LineOverviewData | null>(null)
   const [loadingOverview, setLoadingOverview] = useState<boolean>(false)
 
-  // Filtros de Linhas
+  // Filtros de Linhas (Ativas / Inativas / Todas)
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [activeCadastralFilter, setActiveCadastralFilter] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>(
+    'ACTIVE',
+  )
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [plantFilter, setPlantFilter] = useState<string>('ALL')
 
@@ -121,7 +124,13 @@ export default function LineMasterPage() {
       (line.process && line.process.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'ALL' || line.status === statusFilter
     const matchesPlant = plantFilter === 'ALL' || line.plant === plantFilter
-    return matchesSearch && matchesStatus && matchesPlant
+    const isLineActive = line.is_active !== false // default true
+    const matchesCadastral =
+      activeCadastralFilter === 'ALL' ||
+      (activeCadastralFilter === 'ACTIVE' && isLineActive) ||
+      (activeCadastralFilter === 'INACTIVE' && !isLineActive)
+
+    return matchesSearch && matchesStatus && matchesPlant && matchesCadastral
   })
 
   return (
@@ -205,7 +214,7 @@ export default function LineMasterPage() {
       ) : (
         <div className="space-y-5">
           {/* Barra de Filtros & Métricas Rápidas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm items-center">
             <div className="relative md:col-span-2">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <Input
@@ -216,19 +225,57 @@ export default function LineMasterPage() {
               />
             </div>
 
+            {/* Filtro Cadastral: Ativas / Inativas / Todas (Padrão: Ativas) */}
+            <div className="flex rounded-md border border-slate-300 p-0.5 bg-slate-50 text-[11px] font-semibold">
+              <button
+                type="button"
+                onClick={() => setActiveCadastralFilter('ACTIVE')}
+                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
+                  activeCadastralFilter === 'ACTIVE'
+                    ? 'bg-[#004C97] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ● Ativas
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCadastralFilter('INACTIVE')}
+                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
+                  activeCadastralFilter === 'INACTIVE'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ○ Inativas
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCadastralFilter('ALL')}
+                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
+                  activeCadastralFilter === 'ALL'
+                    ? 'bg-slate-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Todas
+              </button>
+            </div>
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 px-2 h-8 font-medium focus:outline-none focus:ring-1 focus:ring-[#004C97]"
             >
-              <option value="ALL">Todos os Status</option>
-              <option value="ACTIVE">ACTIVE (Ativas)</option>
+              <option value="ALL">Status Operacional: Todos</option>
+              <option value="ACTIVE">ACTIVE (Em Produção)</option>
               <option value="CONFIGURING">CONFIGURING (Em Implantação)</option>
               <option value="MAINTENANCE">MAINTENANCE (Manutenção)</option>
             </select>
 
             <div className="flex items-center justify-end text-xs text-slate-500 font-mono">
-              Total: <strong className="text-[#004C97] ml-1">{filteredLines.length} Linhas</strong>
+              Exibindo:{' '}
+              <strong className="text-[#004C97] ml-1">{filteredLines.length} Linhas</strong>
             </div>
           </div>
 
@@ -275,9 +322,26 @@ export default function LineMasterPage() {
                     <CardHeader className="p-4 pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <span className="font-mono font-black text-xl text-slate-900 group-hover:text-[#004C97] transition-colors">
-                            {l.code}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-xl text-slate-900 group-hover:text-[#004C97] transition-colors">
+                              {l.code}
+                            </span>
+                            {l.is_active === false ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] bg-slate-100 text-slate-600 border-slate-300 font-bold"
+                              >
+                                ○ Inativa
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-300 font-bold"
+                              >
+                                ● Ativa
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-xs text-slate-500 block line-clamp-1">
                             {l.name}
                           </span>

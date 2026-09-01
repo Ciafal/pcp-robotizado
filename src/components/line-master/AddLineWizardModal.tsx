@@ -137,53 +137,189 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   }
 
   const handleSave = async () => {
+    if (!code.trim() || !name.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Campos Obrigatórios',
+        description: 'Código e Nome da Linha são obrigatórios para gravação.',
+      })
+      setCurrentStep(1)
+      return
+    }
+
     setSaving(true)
     try {
-      // 1. Criar a Linha Produtiva
+      // 1. Criar a Linha Produtiva no Banco
       const createdLine = await lineMasterService.createLine({
         code: code.trim().toUpperCase(),
         name: name.trim(),
         description: description.trim(),
         plant: plant,
-        process: processStep,
-        status: status as any,
-        current_rate: nominalHourlyCapacity,
-        target_rate: nominalHourlyCapacity,
-        efficiency: plannedEfficiencyPct,
-        sap_plant_code: sapPlantCode,
+        process: processStep || 'Conformação',
+        status: (status as any) || 'ACTIVE',
+        is_active: true,
+        current_rate: Number(nominalHourlyCapacity) || 12,
+        target_rate: Number(nominalHourlyCapacity) || 12,
+        efficiency: Number(plannedEfficiencyPct) || 90,
+        sap_plant_code: sapPlantCode || '1000',
         sap_work_center: sapWorkCenter.trim() || undefined,
         sap_equipment_id: sapEquipmentId.trim() || undefined,
         mes_identifier: mesIdentifier.trim() || undefined,
-        notes: notes.trim(),
+        notes: notes.trim() || undefined,
       })
 
-      // 2. Criar a Ficha Mestre Versão 1 Inicial
+      if (!createdLine || !createdLine.id) {
+        throw new Error('Falha ao obter confirmação de criação da Linha no backend.')
+      }
+
+      // 2. Criar a Ficha Mestre Versão 1 Inicial no Banco
+      const validResourceType = [
+        'PRODUCTION_LINE',
+        'FURNACE',
+        'FINISHING',
+        'STRAIGHTENER',
+        'REWORK',
+        'AUXILIARY_PROCESS',
+        'STORAGE',
+        'OTHER',
+      ].includes(resourceType)
+        ? resourceType
+        : 'PRODUCTION_LINE'
+
+      const validCapacityUnit = ['t/h', 't', 'kg', 'peça', 'm', 'mm', 'h', 'min'].includes(
+        capacityUnit,
+      )
+        ? capacityUnit
+        : 't/h'
+
       const createdMaster = await lineMasterService.saveLineMaster({
         line_id: createdLine.id,
         version: 1,
+        code: createdLine.code,
+        name: createdLine.name,
+        description: createdLine.description || `Ficha Mestre Inicial Linha ${createdLine.code}`,
         status: 'ACTIVE',
-        resource_type: resourceType as any,
-        unit: capacityUnit === 't/h' ? 't' : capacityUnit === 'peça/h' ? 'peça' : 'm',
-        sap_plant_code: sapPlantCode,
-        sector: sector,
-        process_step: processStep,
-        nominal_hourly_capacity: Number(nominalHourlyCapacity),
-        nominal_shift_capacity: Number(nominalHourlyCapacity) * Number(shiftHours),
-        nominal_daily_capacity: Number(nominalHourlyCapacity) * Number(shiftHours) * 3,
-        nominal_monthly_capacity: Number(nominalHourlyCapacity) * Number(shiftHours) * 3 * 22,
-        capacity_unit: capacityUnit,
-        min_batch_size: Number(minBatchSize),
-        max_batch_size: Number(maxBatchSize),
-        planned_efficiency_pct: Number(plannedEfficiencyPct),
+        resource_type: validResourceType as any,
+        unit: validCapacityUnit === 't/h' ? 't' : validCapacityUnit === 'peça' ? 'peça' : 'm',
+        sap_plant_code: sapPlantCode || '1000',
+        sector: sector || 'Laminação',
+        process_step: processStep || 'Conformação',
+        nominal_hourly_capacity: Number(nominalHourlyCapacity) || 12,
+        nominal_shift_capacity: (Number(nominalHourlyCapacity) || 12) * (Number(shiftHours) || 8),
+        nominal_daily_capacity:
+          (Number(nominalHourlyCapacity) || 12) * (Number(shiftHours) || 8) * 3,
+        nominal_monthly_capacity:
+          (Number(nominalHourlyCapacity) || 12) * (Number(shiftHours) || 8) * 3 * 22,
+        capacity_unit: validCapacityUnit as any,
+        min_batch_size: Number(minBatchSize) || 10,
+        max_batch_size: Number(maxBatchSize) || 500,
+        planned_efficiency_pct: Number(plannedEfficiencyPct) || 90,
         max_recommended_utilization_pct: 85,
         ready_for_scheduling: Boolean(primaryManagerId),
         completeness_score: 75,
         change_reason: 'Cadastro Inicial da Linha via Wizard Estruturado',
       })
 
-      // Atualizar ponteiro de master ativo na linha
-      await lineMasterService.updateLine(createdLine.id, {
-        active_master_id: createdMaster.id,
+      // 3. Criar Turnos Iniciais Padrão para a Linha recém-criada
+      const shift1 = await lineMasterService.saveShift({
+        line_id: createdLine.id,
+        line_master_id: createdMaster.id,
+        code: `T1_${createdLine.code}`,
+        name: '1º Turno Matutino',
+        description: 'Turno Regular Manhã',
+        sequence_order: 1,
+        start_time: '06:00',
+        end_time: '14:20',
+        duration_hours: 8.33,
+        break_minutes: 40,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'],
+        crosses_midnight: false,
+        active: true,
+      })
+
+      const shift2 = await lineMasterService.saveShift({
+        line_id: createdLine.id,
+        line_master_id: createdMaster.id,
+        code: `T2_${createdLine.code}`,
+        name: '2º Turno Vespertino',
+        description: 'Turno Regular Tarde',
+        sequence_order: 2,
+        start_time: '14:20',
+        end_time: '22:40',
+        duration_hours: 8.33,
+        break_minutes: 40,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'],
+        crosses_midnight: false,
+        active: true,
+      })
+
+      const shift3 = await lineMasterService.saveShift({
+        line_id: createdLine.id,
+        line_master_id: createdMaster.id,
+        code: `T3_${createdLine.code}`,
+        name: '3º Turno Noturno',
+        description: 'Turno Regular Noite',
+        sequence_order: 3,
+        start_time: '22:40',
+        end_time: '06:00',
+        duration_hours: 7.33,
+        break_minutes: 40,
+        applicable_days: ['SEG', 'TER', 'QUA', 'QUI', 'SEX'],
+        crosses_midnight: true,
+        active: true,
+      })
+
+      // 4. Criar Turmas Padrão (A, B, C, D) e Associação Turno × Turma
+      const crewA = await lineMasterService.saveCrew({
+        line_id: createdLine.id,
+        code: 'TURMA_A',
+        name: 'Turma A',
+        description: 'Turma Operacional Alfa',
+        active: true,
+      })
+      const crewB = await lineMasterService.saveCrew({
+        line_id: createdLine.id,
+        code: 'TURMA_B',
+        name: 'Turma B',
+        description: 'Turma Operacional Bravo',
+        active: true,
+      })
+      const crewC = await lineMasterService.saveCrew({
+        line_id: createdLine.id,
+        code: 'TURMA_C',
+        name: 'Turma C',
+        description: 'Turma Operacional Charlie',
+        active: true,
+      })
+      const crewD = await lineMasterService.saveCrew({
+        line_id: createdLine.id,
+        code: 'TURMA_D',
+        name: 'Turma D',
+        description: 'Turma Operacional Delta',
+        active: true,
+      })
+
+      // Associações Turno x Turma
+      await lineMasterService.saveShiftCrew({
+        line_id: createdLine.id,
+        shift_id: shift1.id,
+        crew_id: crewA.id,
+        day_of_week: 'ALL',
+        active: true,
+      })
+      await lineMasterService.saveShiftCrew({
+        line_id: createdLine.id,
+        shift_id: shift2.id,
+        crew_id: crewB.id,
+        day_of_week: 'ALL',
+        active: true,
+      })
+      await lineMasterService.saveShiftCrew({
+        line_id: createdLine.id,
+        shift_id: shift3.id,
+        crew_id: crewC.id,
+        day_of_week: 'ALL',
+        active: true,
       })
 
       // 3. Criar Hierarquia Organizacional
@@ -447,11 +583,16 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     onChange={(e) => setResourceType(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-md text-xs text-white p-2"
                   >
-                    <option value="LINE">LINE (Linha de Produção Contínua)</option>
-                    <option value="CELL">CELL (Célula de Trabalho)</option>
-                    <option value="MACHINE">MACHINE (Máquina / Posto)</option>
+                    <option value="PRODUCTION_LINE">
+                      PRODUCTION_LINE (Linha de Produção Contínua)
+                    </option>
                     <option value="FURNACE">FURNACE (Forno / Tratamento)</option>
-                    <option value="WORKCENTER">WORKCENTER (Centro de Trabalho)</option>
+                    <option value="FINISHING">FINISHING (Acabamento)</option>
+                    <option value="STRAIGHTENER">STRAIGHTENER (Endireitadeira)</option>
+                    <option value="REWORK">REWORK (Retrabalho)</option>
+                    <option value="AUXILIARY_PROCESS">AUXILIARY_PROCESS (Processo Auxiliar)</option>
+                    <option value="STORAGE">STORAGE (Armazenamento)</option>
+                    <option value="OTHER">OTHER (Outro)</option>
                   </select>
                 </div>
 

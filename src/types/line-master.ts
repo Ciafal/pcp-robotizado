@@ -15,6 +15,7 @@ export interface ProductionLine {
   plant: string
   process: string
   status: 'ACTIVE' | 'MAINTENANCE' | 'INACTIVE' | 'CONFIGURING'
+  is_active?: boolean
   nominal_speed?: number
   nominal_speed_unit?: string
   current_rate?: number
@@ -322,6 +323,8 @@ export interface ProductionShift {
   line_master_id?: string
   code: string
   name: string
+  description?: string
+  sequence_order?: number
   start_time: string
   end_time: string
   duration_hours: number
@@ -333,6 +336,46 @@ export interface ProductionShift {
   valid_from?: string
   valid_until?: string
   created?: string
+  updated?: string
+  expand?: {
+    line_id?: ProductionLine
+  }
+}
+
+// 12.1. Turmas Operacionais por Linha (production_crews)
+export interface ProductionCrew {
+  id: string
+  line_id: string
+  code: string
+  name: string
+  description?: string
+  active: boolean
+  valid_from?: string
+  valid_until?: string
+  notes?: string
+  created?: string
+  updated?: string
+  expand?: {
+    line_id?: ProductionLine
+  }
+}
+
+// 12.2. Associação Turno × Turma por Linha (production_shift_crews)
+export interface ProductionShiftCrew {
+  id: string
+  line_id: string
+  shift_id: string
+  crew_id: string
+  day_of_week?: string
+  active: boolean
+  notes?: string
+  created?: string
+  updated?: string
+  expand?: {
+    line_id?: ProductionLine
+    shift_id?: ProductionShift
+    crew_id?: ProductionCrew
+  }
 }
 
 export interface ProductionCalendar {
@@ -466,6 +509,8 @@ export interface LineOverviewData {
   approvers: LineApproverMatrix[]
   sequencing: LineSequencingDependency[]
   shifts: ProductionShift[]
+  crews?: ProductionCrew[]
+  shiftCrews?: ProductionShiftCrew[]
   calendar?: ProductionCalendar | null
   capabilities: LineCapability[]
   productivity: LineProductivityRate[]

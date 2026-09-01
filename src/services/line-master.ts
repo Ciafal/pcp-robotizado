@@ -27,15 +27,45 @@ export const lineMasterService = {
   // ==========================================
   // 1. LINHAS PRODUTIVAS (production_lines)
   // ==========================================
-  async listLines(): Promise<ProductionLine[]> {
+  async listLines(filterOptions?: {
+    activeOnly?: boolean
+    includeInactive?: boolean
+  }): Promise<ProductionLine[]> {
     try {
+      let filterStr = ''
+      if (filterOptions?.activeOnly) {
+        filterStr = 'is_active = true || is_active = null'
+      } else if (filterOptions?.includeInactive === false) {
+        filterStr = 'is_active = true || is_active = null'
+      }
+
       const records = await pb.collection('production_lines').getFullList<ProductionLine>({
         sort: 'code',
+        filter: filterStr || undefined,
       })
       return records
     } catch (err) {
       console.error('Erro ao listar linhas:', err)
       return []
+    }
+  },
+
+  async toggleLineActive(lineId: string, isActive: boolean): Promise<ProductionLine> {
+    const updated = await pb.collection('production_lines').update<ProductionLine>(lineId, {
+      is_active: isActive,
+    })
+    return updated
+  },
+
+  async checkFutureSchedulesCount(lineCode: string): Promise<number> {
+    try {
+      // Verifica programações futuras na tabela weekly_schedules
+      const records = await pb.collection('weekly_schedules').getFullList({
+        filter: `line_code = '${lineCode}' && status != 'REALIZADO' && status != 'ANALISADO'`,
+      })
+      return records.length
+    } catch {
+      return 0
     }
   },
 
@@ -65,6 +95,8 @@ export const lineMasterService = {
       approvers,
       sequencing,
       shifts,
+      crews,
+      shiftCrews,
       calendars,
       capabilities,
       productivity,
@@ -119,8 +151,22 @@ export const lineMasterService = {
       pb
         .collection('production_shifts')
         .getFullList<ProductionShift>({
-          filter: `line_id = '${lineId}' && active = true`,
-          sort: 'start_time',
+          filter: `line_id = '${lineId}'`,
+          sort: 'sequence_order,start_time',
+        })
+        .catch(() => []),
+      pb
+        .collection('production_crews')
+        .getFullList<ProductionCrew>({
+          filter: `line_id = '${lineId}'`,
+          sort: 'code',
+        })
+        .catch(() => []),
+      pb
+        .collection('production_shift_crews')
+        .getFullList<ProductionShiftCrew>({
+          filter: `line_id = '${lineId}'`,
+          expand: 'shift_id,crew_id',
         })
         .catch(() => []),
       pb
@@ -322,6 +368,8 @@ export const lineMasterService = {
       approvers,
       sequencing,
       shifts,
+      crews,
+      shiftCrews,
       calendar: calendars.length > 0 ? calendars[0] : null,
       capabilities,
       productivity,
@@ -516,6 +564,17 @@ export const lineMasterService = {
   // ==========================================
   // 13. TURNOS & JORNADA
   // ==========================================
+  async listShiftsByLine(lineId: string): Promise<ProductionShift[]> {
+    try {
+      return await pb.collection('production_shifts').getFullList<ProductionShift>({
+        filter: `line_id = '${lineId}'`,
+        sort: 'sequence_order,start_time',
+      })
+    } catch {
+      return []
+    }
+  },
+
   async saveShift(data: Partial<ProductionShift>): Promise<ProductionShift> {
     if (data.id) {
       return await pb.collection('production_shifts').update<ProductionShift>(data.id, data)
@@ -525,6 +584,58 @@ export const lineMasterService = {
 
   async deleteShift(id: string): Promise<boolean> {
     return await pb.collection('production_shifts').delete(id)
+  },
+
+  // ==========================================
+  // 13.1. TURMAS POR LINHA (CRUD)
+  // ==========================================
+  async listCrewsByLine(lineId: string): Promise<ProductionCrew[]> {
+    try {
+      return await pb.collection('production_crews').getFullList<ProductionCrew>({
+        filter: `line_id = '${lineId}'`,
+        sort: 'code',
+      })
+    } catch {
+      return []
+    }
+  },
+
+  async saveCrew(data: Partial<ProductionCrew>): Promise<ProductionCrew> {
+    if (data.id) {
+      return await pb.collection('production_crews').update<ProductionCrew>(data.id, data)
+    }
+    return await pb.collection('production_crews').create<ProductionCrew>(data)
+  },
+
+  async deleteCrew(id: string): Promise<boolean> {
+    return await pb.collection('production_crews').delete(id)
+  },
+
+  // ==========================================
+  // 13.2. ASSOCIAÇÃO TURNO × TURMA POR LINHA (CRUD)
+  // ==========================================
+  async listShiftCrewsByLine(lineId: string): Promise<ProductionShiftCrew[]> {
+    try {
+      return await pb.collection('production_shift_crews').getFullList<ProductionShiftCrew>({
+        filter: `line_id = '${lineId}'`,
+        expand: 'shift_id,crew_id',
+      })
+    } catch {
+      return []
+    }
+  },
+
+  async saveShiftCrew(data: Partial<ProductionShiftCrew>): Promise<ProductionShiftCrew> {
+    if (data.id) {
+      return await pb
+        .collection('production_shift_crews')
+        .update<ProductionShiftCrew>(data.id, data)
+    }
+    return await pb.collection('production_shift_crews').create<ProductionShiftCrew>(data)
+  },
+
+  async deleteShiftCrew(id: string): Promise<boolean> {
+    return await pb.collection('production_shift_crews').delete(id)
   },
 
   // ==========================================
