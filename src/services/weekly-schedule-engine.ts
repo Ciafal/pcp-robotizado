@@ -215,16 +215,236 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
-   * Obtém produtividade oficial da Ficha Mestre da Linha para um material
+   * Formata duração em minutos para formato amigável industrial pt-BR (ex: "8 h 20 min", "45 min", "2 h")
    */
-  getProductivityForMaterial(
+  formatDurationMinutes(minutes: number): string {
+    const totalMinutes = Math.round(minutes)
+    if (totalMinutes <= 0) return '0 min'
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    if (h === 0) return `${m} min`
+    if (m === 0) return `${h} h`
+    return `${h} h ${m} min`
+  },
+
+  /**
+   * Formata duração em horas decimais para formato amigável industrial pt-BR (ex: 8.333 -> "8 h 20 min")
+   */
+  formatDurationHours(hours: number): string {
+    const totalMinutes = Math.round((hours || 0) * 60)
+    return this.formatDurationMinutes(totalMinutes)
+  },
+
+  /**
+   * Formata nome do Turno de forma limpa e padronizada (Requisito 2):
+   * "1º Turno / Turma C" -> "T1 · Turma C"
+   * "2º Turno / Turma B" -> "T2 · Turma B"
+   * "3º Turno / Turma A" -> "T3 · Turma A"
+   * Se não tiver número explícito ou vier código T1_L1 / Turma C -> "T1 · Turma C"
+   * Não repete a turma abaixo. Preserva a configuração da Ficha Mestre da respectiva linha.
+   */
+  /**
+   * Valida a movimentação ou reordenação pré-drop na sequência (Requisitos 5, 6, 20, 21, 38)
+   * Verifica Ficha Mestre, Matriz Gargalo, Capacidades, Bloqueios, Mudança de Bitola/Família e MP
+   */
+  validateSequenceDrop(params: {
+    items: WeeklyScheduleItem[]
+    fromIndex: number
+    toIndex: number
+    lineOverview: LineOverviewData | null
+    lineCode?: string
+  }): {
+    allowed: boolean
+    blockingReason?: string
+    warnings: string[]
+    infoMessages: string[]
+    setupEstimatedMinutes?: number
+  } {
+    const { items, fromIndex, toIndex, lineOverview, lineCode } = params
+    if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
+      return {
+        allowed: false,
+        blockingReason: 'Posição de sequência inválida.',
+        warnings: [],
+        infoMessages: [],
+      }
+    }
+
+    const itemToMove = items[fromIndex]
+    if (!itemToMove) {
+      return {
+        allowed: false,
+        blockingReason: 'Item de origem não encontrado.',
+        warnings: [],
+        infoMessages: [],
+      }
+    }
+
+    const warnings: string[] = []
+    const infoMessages: string[] = []
+
+    // 1. Verifica se o produto tem bloqueio na linha (VAL-02 Hard Block)
+    if (itemToMove.item_type === 'PRODUCTION') {
+      const block = this.checkHardBlock(itemToMove.material_code, lineOverview)
+      if (block) {
+        return {
+          allowed: false,
+          blockingReason: `Produto [${itemToMove.material_code}] está BLOQUEADO na Linha ${lineCode || 'L1'}: ${block.block_reason}.`,
+          warnings: [],
+          infoMessages: [],
+        }
+      }
+    }
+
+    // 2. Simula nova sequência em memória
+    const simulated = [...items]
+    const [moved] = simulated.splice(fromIndex, 1)
+    simulated.splice(toIndex, 0, moved)
+
+    // 3. Analisa vizinhança na nova posição (item anterior e posterior)
+    const prevItem = toIndex > 0 ? simulated[toIndex - 1] : null
+    const nextItem = toIndex < simulated.length - 1 ? simulated[toIndex + 1] : null
+
+    // 4. Verifica impacto de Setup
+    let estSetupMin = 0
+    if (moved.item_type === 'PRODUCTION') {
+      const setupPrev = this.calculateSetup(
+        prevItem,
+        moved.material_code,
+        moved.family_code,
+        lineOverview,
+        lineCode || 'L1',
+      )
+      estSetupMin += setupPrev.setupDurationMinutes
+      if (setupPrev.setupDurationMinutes > 0) {
+        infoMessages.push(
+          `Setup previsto na nova posição: +${setupPrev.setupDurationMinutes} min (${setupPrev.setupReason})`,
+        )
+      }
+
+      if (nextItem && nextItem.item_type === 'PRODUCTION') {
+        const setupNext = this.calculateSetup(
+          moved,
+          nextItem.material_code,
+          nextItem.family_code,
+          lineOverview,
+          lineCode || 'L1',
+        )
+        if (setupNext.setupDurationMinutes > 0) {
+          infoMessages.push(
+            `Setup subsequente para ${nextItem.material_code}: +${setupNext.setupDurationMinutes} min (${setupNext.setupReason})`,
+          )
+        }
+      }
+
+      // 5. Validação de Família / Linha Homologada
+      if (lineOverview?.capabilities && lineOverview.capabilities.length > 0) {
+        const capability = lineOverview.capabilities.find(
+          (c: any) =>
+            c.expand?.product_family_id?.code === moved.family_code ||
+            c.product_family_id === moved.family_code,
+        )
+        if (
+          capability &&
+          (capability.status === 'BLOCKED' || (capability as any).status === 'PROHIBITED')
+        ) {
+          return {
+            allowed: false,
+            blockingReason: `Família [${moved.family_code || 'Geral'}] está bloqueada para esta linha conforme Ficha Mestra.`,
+            warnings,
+            infoMessages,
+          }
+        }
+      }
+    }
+
+    return {
+      allowed: true,
+      warnings,
+      infoMessages,
+      setupEstimatedMinutes: estSetupMin,
+    }
+  },
+
+  formatShiftDisplay(shiftName?: string, shiftCode?: string, crewName?: string): string {
+    const rawName = (shiftName || '').trim()
+    const rawCode = (shiftCode || '').trim().toUpperCase()
+    const rawCrew = (crewName || '').trim()
+
+    // 1. Detecta prefixo do turno (T1, T2, T3, T4, T5...)
+    let tPrefix = ''
+    if (
+      rawName.match(/1[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T1') ||
+      rawCode.includes('TURNO_1') ||
+      rawCode.includes('T1_')
+    ) {
+      tPrefix = 'T1'
+    } else if (
+      rawName.match(/2[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T2') ||
+      rawCode.includes('TURNO_2') ||
+      rawCode.includes('T2_')
+    ) {
+      tPrefix = 'T2'
+    } else if (
+      rawName.match(/3[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T3') ||
+      rawCode.includes('TURNO_3') ||
+      rawCode.includes('T3_')
+    ) {
+      tPrefix = 'T3'
+    } else if (
+      rawName.match(/4[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T4') ||
+      rawCode.includes('TURNO_4') ||
+      rawCode.includes('T4_')
+    ) {
+      tPrefix = 'T4'
+    } else if (
+      rawName.match(/5[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T5') ||
+      rawCode.includes('TURNO_5') ||
+      rawCode.includes('T5_')
+    ) {
+      tPrefix = 'T5'
+    } else if (rawCode.match(/^T\d+/i)) {
+      const match = rawCode.match(/^T\d+/i)
+      tPrefix = match ? match[0].toUpperCase() : 'T1'
+    } else if (rawName.match(/T\d+/i)) {
+      const match = rawName.match(/T\d+/i)
+      tPrefix = match ? match[0].toUpperCase() : 'T1'
+    } else {
+      tPrefix = 'T1'
+    }
+
+    // 2. Extrai turma se já estiver no nome ou no crewName
+    let crew = rawCrew
+    if (!crew || crew === 'Turma') {
+      const crewMatch = rawName.match(/Turma\s+([A-Z0-9]+)/i)
+      if (crewMatch) {
+        crew = `Turma ${crewMatch[1].toUpperCase()}`
+      } else {
+        crew = 'Turma A'
+      }
+    } else if (!crew.toLowerCase().startsWith('turma')) {
+      crew = `Turma ${crew}`
+    }
+
+    return `${tPrefix} · ${crew}`
+  },
+
+  /**
+   * Obtém produtividade oficial da Ficha Mestre da Linha para um material
+   * Retorna null se não houver cadência cadastrada (sem inventar defaults)
+   */
+  getProductivityForMaterialStrict(
     materialCode: string,
     lineOverview: LineOverviewData | null,
-    defaultLineNominalTh: number = 12.0,
-  ): number {
-    if (!lineOverview) return defaultLineNominalTh
+  ): number | null {
+    if (!lineOverview || !materialCode) return null
 
-    const found = lineOverview.productivity.find(
+    const found = lineOverview.productivity?.find(
       (p) => p.material_product_code.toUpperCase() === materialCode.toUpperCase() && p.active,
     )
     if (found && found.planned_productivity > 0) {
@@ -236,7 +456,147 @@ export const WeeklyScheduleEngine = {
     if (lineOverview.master && lineOverview.master.nominal_hourly_capacity > 0) {
       return Number(lineOverview.master.nominal_hourly_capacity)
     }
+    return null
+  },
+
+  /**
+   * Obtém produtividade oficial da Ficha Mestre da Linha para um material (com fallback legado seguro se necessário)
+   */
+  getProductivityForMaterial(
+    materialCode: string,
+    lineOverview: LineOverviewData | null,
+    defaultLineNominalTh: number = 12.0,
+  ): number {
+    const strict = this.getProductivityForMaterialStrict(materialCode, lineOverview)
+    if (strict !== null && strict > 0) return strict
     return defaultLineNominalTh
+  },
+
+  /**
+   * MOTOR TEMPORAL BIDIRECIONAL INDUSTRIAL CIAFAL (Requisitos 11 a 15)
+   *
+   * Modalidade QUANTIDADE:
+   *   Entrada: quantidadeTons, cadenciaTh, horaInicio (HH:mm)
+   *   Saída: duracaoHoras, duracaoMinutos, duracaoFormatada, horaFim (HH:mm), valido
+   *
+   * Modalidade HORÁRIO:
+   *   Entrada: horaInicio (HH:mm), horaFim (HH:mm), cadenciaTh
+   *   Saída: duracaoHoras, duracaoMinutos, duracaoFormatada, quantidadePrevistaTons, valido
+   */
+  calculateBidirectionalSchedule(params: {
+    mode: 'QUANTITY' | 'TIME'
+    cadenceTh: number
+    quantityTons?: number
+    startTime: string // "HH:mm" ou "YYYY-MM-DD HH:mm"
+    endTime?: string // "HH:mm" ou "YYYY-MM-DD HH:mm"
+  }): {
+    mode: 'QUANTITY' | 'TIME'
+    cadenceTh: number
+    quantityTons: number
+    startTime: string // "HH:mm"
+    endTime: string // "HH:mm"
+    durationHours: number
+    durationMinutes: number
+    durationFormatted: string
+    isValid: boolean
+    errorMessage?: string
+  } {
+    const cadence = Number(params.cadenceTh) || 0
+    if (cadence <= 0) {
+      return {
+        mode: params.mode,
+        cadenceTh: 0,
+        quantityTons: params.quantityTons || 0,
+        startTime: params.startTime || '06:00',
+        endTime: params.endTime || '08:00',
+        durationHours: 0,
+        durationMinutes: 0,
+        durationFormatted: '0 min',
+        isValid: false,
+        errorMessage:
+          'Cadência não cadastrada para este material nesta linha. Atualize a Ficha Mestre antes de concluir a programação.',
+      }
+    }
+
+    const parseMinutes = (tStr: string): number => {
+      if (!tStr) return 0
+      const clean = tStr.includes(' ') ? tStr.split(' ')[1] : tStr
+      const [h, m] = clean.split(':').map(Number)
+      return (h || 0) * 60 + (m || 0)
+    }
+
+    const formatMinutesToHHMM = (totalMin: number): string => {
+      const normalized = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60)
+      const h = Math.floor(normalized / 60)
+      const m = Math.floor(normalized % 60)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${pad(h)}:${pad(m)}`
+    }
+
+    const startMin = parseMinutes(params.startTime || '06:00')
+    const startHHMM = formatMinutesToHHMM(startMin)
+
+    if (params.mode === 'QUANTITY') {
+      const qty = Number(params.quantityTons) || 0
+      if (qty <= 0) {
+        return {
+          mode: 'QUANTITY',
+          cadenceTh: cadence,
+          quantityTons: 0,
+          startTime: startHHMM,
+          endTime: startHHMM,
+          durationHours: 0,
+          durationMinutes: 0,
+          durationFormatted: '0 min',
+          isValid: false,
+          errorMessage: 'Quantidade deve ser superior a zero.',
+        }
+      }
+
+      // Duração = Quantidade / Cadência
+      const durationHours = qty / cadence
+      const durationMinutes = Math.round(durationHours * 60)
+      const endMin = startMin + durationMinutes
+      const endHHMM = formatMinutesToHHMM(endMin)
+
+      return {
+        mode: 'QUANTITY',
+        cadenceTh: cadence,
+        quantityTons: Number(qty.toFixed(2)),
+        startTime: startHHMM,
+        endTime: endHHMM,
+        durationHours: Number(durationHours.toFixed(2)),
+        durationMinutes,
+        durationFormatted: this.formatDurationMinutes(durationMinutes),
+        isValid: true,
+      }
+    } else {
+      // Modalidade HORÁRIO (Tempo -> Quantidade)
+      let endMin = parseMinutes(params.endTime || '14:00')
+      let diffMin = endMin - startMin
+      if (diffMin <= 0) {
+        // Atravessou a meia-noite
+        diffMin += 24 * 60
+      }
+
+      const durationHours = diffMin / 60
+      const durationMinutes = diffMin
+      // Quantidade = Duração * Cadência
+      const calculatedQty = Number((durationHours * cadence).toFixed(2))
+      const endHHMM = formatMinutesToHHMM(endMin)
+
+      return {
+        mode: 'TIME',
+        cadenceTh: cadence,
+        quantityTons: calculatedQty,
+        startTime: startHHMM,
+        endTime: endHHMM,
+        durationHours: Number(durationHours.toFixed(2)),
+        durationMinutes,
+        durationFormatted: this.formatDurationMinutes(durationMinutes),
+        isValid: calculatedQty > 0,
+      }
+    }
   },
 
   /**

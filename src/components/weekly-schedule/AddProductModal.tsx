@@ -1,16 +1,15 @@
-import React, { useState, useMemo } from 'react'
-import {
-  Search,
-  Plus,
-  Package,
-  Layers,
-  Sparkles,
-  Info,
-  CheckCircle2,
-  AlertTriangle,
-  ChevronRight,
-  Calculator,
-} from 'lucide-react'
+/**
+ * Modal de Inclusão e Edição de Produtos na Programação Semanal
+ * Conformidade com os Requisitos 8 a 16 e 29:
+ * 1. Seleção em cascata obrigatória: Linha -> Família -> Produto (produto bloqueado até escolher família)
+ * 2. Somente famílias e materiais homologados na Ficha Mestre / SAP
+ * 3. Campo "Programar por": [Quantidade] ou [Horário]
+ * 4. Cálculo bidirecional integrado com WeeklyScheduleEngine.calculateBidirectionalSchedule
+ * 5. Bloqueio claro se não houver cadência na Ficha Mestre (sem valores fictícios)
+ * 6. Distinção clara entre campos informados vs calculados (com ícone de calculadora)
+ */
+
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -29,71 +28,147 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { OfficialMaterialOption, WeeklyScheduleItem } from '@/types/weekly-schedule'
+import {
+  Package,
+  Plus,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Calculator,
+  Search,
+  Layers,
+  Sparkles,
+  Info,
+  ChevronRight,
+  AlertCircle,
+} from 'lucide-react'
+import { DAYS_OF_WEEK, WeeklyScheduleItem, OfficialMaterialOption } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
-import { WeeklyScheduleEngine, DAYS_OF_WEEK } from '@/services/weekly-schedule-engine'
+import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 
 interface AddProductModalProps {
   isOpen: boolean
   onClose: () => void
   onAdd: (item: Partial<WeeklyScheduleItem>) => void
-  officialMaterials: OfficialMaterialOption[]
+  lineCode: string
   lineOverview: LineOverviewData | null
-  targetDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
-  targetShiftCode: string
-  targetShiftName: string
-  targetCrewName: string
+  officialMaterials: OfficialMaterialOption[]
+  targetDay?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+  targetShiftCode?: string
+  targetShiftName?: string
+  targetCrewName?: string
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({
   isOpen,
   onClose,
   onAdd,
-  officialMaterials,
+  lineCode,
   lineOverview,
-  targetDay,
-  targetShiftCode,
-  targetShiftName,
-  targetCrewName,
+  officialMaterials,
+  targetDay = 'SEG',
+  targetShiftCode = 'T1_L1',
+  targetShiftName = '1º Turno Matutino',
+  targetCrewName = 'Turma A',
 }) => {
-  const [searchTerm, setSearchTerm] = useState('')
+  // Cascata: 1. Família -> 2. Produto
+  const [selectedFamilyCode, setSelectedFamilyCode] = useState<string>('')
   const [selectedMaterial, setSelectedMaterial] = useState<OfficialMaterialOption | null>(null)
-  const [quantityTons, setQuantityTons] = useState<string>('100')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // 3. Programar Por: Quantidade vs Horário
+  const [programBy, setProgramBy] = useState<'QUANTITY' | 'TIME'>('QUANTITY')
+
+  // Entradas de Programação
+  const [quantityInput, setQuantityInput] = useState<string>('100')
+  const [startTimeInput, setStartTimeInput] = useState<string>('06:00')
+  const [endTimeInput, setEndTimeInput] = useState<string>('14:20')
+
+  // Dia, Turno e Metadados
   const [selectedDay, setSelectedDay] = useState<
     'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
-  >(targetDay || 'SEG')
-  const [selectedShift, setSelectedShift] = useState<string>(targetShiftCode || 'T1_L1')
+  >(targetDay)
+  const [selectedShift, setSelectedShift] = useState<string>(targetShiftCode)
   const [productionOrder, setProductionOrder] = useState('')
   const [salesOrderMto, setSalesOrderMto] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [orderType, setOrderType] = useState<'MTS' | 'MTO' | 'INDUSTRIALIZACAO'>('MTS')
   const [pcpNotes, setPcpNotes] = useState('')
 
-  // Filtragem rápida de materiais oficiais
+  // Sincroniza dias/turnos quando props mudarem
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedDay(targetDay)
+      setSelectedShift(targetShiftCode)
+    }
+  }, [isOpen, targetDay, targetShiftCode])
+
+  // 1. Extração de Famílias Únicas Homologadas para esta linha
+  const homologatedFamilies = useMemo(() => {
+    const map = new Map<string, { code: string; name: string; count: number }>()
+    officialMaterials.forEach((m) => {
+      const code = m.family_code || 'GERAL'
+      const name = m.family_name || 'Geral'
+      const existing = map.get(code)
+      if (existing) {
+        existing.count += 1
+      } else {
+        map.set(code, { code, name, count: 1 })
+      }
+    })
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [officialMaterials])
+
+  // 2. Produtos filtrados estritamente pela família selecionada
+  const materialsInSelectedFamily = useMemo(() => {
+    if (!selectedFamilyCode) return []
+    return officialMaterials.filter((m) => m.family_code === selectedFamilyCode)
+  }, [officialMaterials, selectedFamilyCode])
+
   const filteredMaterials = useMemo(() => {
     const s = searchTerm.toLowerCase().trim()
-    if (!s) return officialMaterials
-    return officialMaterials.filter(
+    if (!s) return materialsInSelectedFamily
+    return materialsInSelectedFamily.filter(
       (m) =>
         m.material_code.toLowerCase().includes(s) ||
         m.material_name.toLowerCase().includes(s) ||
         (m.dimension_spec && m.dimension_spec.toLowerCase().includes(s)) ||
-        (m.steel_grade && m.steel_grade.toLowerCase().includes(s)) ||
-        (m.family_name && m.family_name.toLowerCase().includes(s)),
+        (m.steel_grade && m.steel_grade.toLowerCase().includes(s)),
     )
-  }, [officialMaterials, searchTerm])
+  }, [materialsInSelectedFamily, searchTerm])
 
-  // Cálculo automático prévio de horas
-  const qtyNum = Number(quantityTons) || 0
-  const productivity = selectedMaterial
-    ? WeeklyScheduleEngine.getProductivityForMaterial(
-        selectedMaterial.material_code,
-        lineOverview,
-        12.0,
-      )
-    : 12.0
-  const calculatedHours = productivity > 0 ? (qtyNum / productivity).toFixed(2) : '0.00'
+  // 3. Cadência Oficial Ficha Mestra
+  const materialCadence = useMemo(() => {
+    if (!selectedMaterial) return null
+    return WeeklyScheduleEngine.getProductivityForMaterialStrict(
+      selectedMaterial.material_code,
+      lineOverview,
+    )
+  }, [selectedMaterial, lineOverview])
 
+  // 4. Executa cálculo temporal bidirecional através do motor central
+  const calculationResult = useMemo(() => {
+    if (!selectedMaterial || materialCadence === null || materialCadence <= 0) {
+      return null
+    }
+
+    return WeeklyScheduleEngine.calculateBidirectionalSchedule({
+      mode: programBy,
+      cadenceTh: materialCadence,
+      quantityTons: Number(quantityInput) || 0,
+      startTime: startTimeInput,
+      endTime: endTimeInput,
+    })
+  }, [selectedMaterial, materialCadence, programBy, quantityInput, startTimeInput, endTimeInput])
+
+  // Manipulador de Troca de Família
+  const handleFamilyChange = (famCode: string) => {
+    setSelectedFamilyCode(famCode)
+    setSelectedMaterial(null)
+    setSearchTerm('')
+  }
+
+  // Manipulador de Troca de Material
   const handleSelectMaterial = (mat: OfficialMaterialOption) => {
     setSelectedMaterial(mat)
     if (mat.default_order_type) {
@@ -101,12 +176,20 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
   }
 
+  // Confirmação com Validação
   const handleConfirm = () => {
     if (!selectedMaterial) return
-    if (qtyNum <= 0) return
+    if (!calculationResult || !calculationResult.isValid) return
 
     const shifts = lineOverview?.shifts || []
     const shiftObj = shifts.find((s) => s.code === selectedShift)
+
+    // Formata o turno no padrão institucional CIAFAL T1 · Turma X
+    const formattedShiftName = WeeklyScheduleEngine.formatShiftDisplay(
+      shiftObj?.name || targetShiftName,
+      selectedShift,
+      targetCrewName,
+    )
 
     onAdd({
       material_code: selectedMaterial.material_code,
@@ -116,21 +199,30 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       dimensions: selectedMaterial.dimension_spec || '50x50 mm #2.00',
       day_of_week: selectedDay,
       shift_code: selectedShift,
-      shift_name: shiftObj?.name || targetShiftName || '1º Turno Matutino',
+      shift_name: formattedShiftName,
       crew_name: targetCrewName || 'Turma A',
-      planned_quantity_tons: qtyNum,
+      planned_quantity_tons: calculationResult.quantityTons,
+      productivity_rate_th: calculationResult.cadenceTh,
+      production_hours: calculationResult.durationHours,
+      start_datetime: `${selectedDay} ${calculationResult.startTime}`,
+      end_datetime: `${selectedDay} ${calculationResult.endTime}`,
       order_type: orderType,
       production_order: productionOrder.trim() || undefined,
       sales_order_mto: salesOrderMto.trim() || undefined,
       customer_name:
-        customerName.trim() || (orderType === 'MTO' ? 'Cliente Específico MTO' : 'Mercado Geral'),
+        customerName.trim() ||
+        (orderType === 'MTO' ? 'Cliente Específico MTO' : 'Mercado Geral (MTS)'),
       pcp_notes: pcpNotes.trim() || undefined,
       item_type: 'PRODUCTION',
+      status: 'DRAFT',
     })
 
-    // Reset
+    // Reset de estado
+    setSelectedFamilyCode('')
     setSelectedMaterial(null)
-    setQuantityTons('100')
+    setQuantityInput('100')
+    setStartTimeInput('06:00')
+    setEndTimeInput('14:20')
     setProductionOrder('')
     setSalesOrderMto('')
     setCustomerName('')
@@ -140,156 +232,364 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-white text-slate-900 border-slate-300 shadow-2xl p-0 overflow-hidden">
+      <DialogContent className="max-w-3xl bg-white text-slate-900 border-slate-300 shadow-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Cabeçalho CIAFAL Pantone 2945 */}
-        <div className="bg-[#004C97] px-6 py-4 text-white flex items-center justify-between">
+        <div className="bg-[#004C97] px-6 py-4 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg text-white">
               <Plus className="w-5 h-5" />
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-                Adicionar Produto à Programação Semanal
+                Programar Produção — Linha {lineCode}
               </DialogTitle>
               <p className="text-xs text-blue-100">
-                Seleção exclusiva de materiais cadastrados oficialmente no SAP / Ficha Mestre
+                Motor Temporal Bidirecional (Quantidade ↔ Tempo) com Ficha Mestre Oficial
               </p>
             </div>
           </div>
+          <Badge className="bg-white/20 text-white border-white/30 text-xs font-mono">
+            CIAFAL PCP
+          </Badge>
         </div>
 
-        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* 1. Seleção de Material Oficial com Busca */}
-          <div className="space-y-2">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+          {/* ETAPA 1: SELEÇÃO EM CASCATA: FAMÍLIA -> PRODUTO */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5 text-[#004C97]" />
-                1. Selecione o Material / Produto (Cadastro Oficial SAP)*
+              <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
+                <Layers className="w-4 h-4 text-[#004C97]" />
+                1. Família de Produto * (Ficha Mestre Linha {lineCode})
               </label>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {filteredMaterials.length} itens homologados na linha
+              <span className="text-[11px] text-slate-500 font-mono">
+                {homologatedFamilies.length} família(s) homologada(s)
               </span>
             </div>
 
-            {/* Input de Busca */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <Input
-                placeholder="Buscar por código SAP, descrição, bitola, aço ou família..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 text-xs bg-slate-50 border-slate-300 h-9"
-              />
-            </div>
+            <Select value={selectedFamilyCode} onValueChange={handleFamilyChange}>
+              <SelectTrigger className="text-xs bg-white border-slate-300 h-10 font-medium text-slate-900">
+                <SelectValue placeholder="Selecione primeiro a Família de Produto..." />
+              </SelectTrigger>
+              <SelectContent>
+                {homologatedFamilies.map((fam) => (
+                  <SelectItem key={fam.code} value={fam.code} className="text-xs">
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <span className="font-bold text-slate-900">{fam.name}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        ({fam.code} • {fam.count} produto(s) homologado(s))
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {/* Grade de Materiais Oficiais */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-1.5 bg-slate-50/50">
-              {filteredMaterials.map((mat) => {
-                const isSelected = selectedMaterial?.material_code === mat.material_code
-                return (
+            {/* SELEÇÃO DO PRODUTO (LIBERADO APENAS APÓS FAMÍLIA) */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Package className="w-4 h-4 text-[#004C97]" />
+                  2. Produto / Material Oficial SAP *
+                </label>
+                {selectedFamilyCode ? (
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {filteredMaterials.length} produtos disponíveis
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-600 font-bold flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Selecione uma família acima
+                  </span>
+                )}
+              </div>
+
+              {!selectedFamilyCode ? (
+                <div className="border border-dashed border-slate-300 rounded-lg p-4 text-center bg-white text-slate-400 text-xs">
+                  A lista de produtos fica liberada imediatamente após selecionar a Família de
+                  Produto homologada.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <Input
+                      placeholder="Filtrar por código SAP, bitola, aço ou descrição..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9 text-xs bg-white border-slate-300 h-9"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-44 overflow-y-auto border border-slate-200 rounded-lg p-1.5 bg-white">
+                    {filteredMaterials.map((mat) => {
+                      const isSelected = selectedMaterial?.material_code === mat.material_code
+                      return (
+                        <button
+                          key={mat.material_code}
+                          type="button"
+                          onClick={() => handleSelectMaterial(mat)}
+                          className={`text-left p-2.5 rounded-md border text-xs transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-[#004C97] bg-blue-50 ring-2 ring-blue-500/20 shadow-xs'
+                              : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/80'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <div>
+                              <span className="font-mono font-bold text-slate-900 block text-xs">
+                                {mat.material_code}
+                              </span>
+                              <span className="text-[11px] text-slate-600 line-clamp-1 mt-0.5 font-medium">
+                                {mat.material_name}
+                              </span>
+                            </div>
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-[#004C97] shrink-0" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2 pt-1 border-t border-slate-200 text-[10px] text-slate-600">
+                            <span className="font-mono font-bold text-slate-800">
+                              {mat.dimension_spec || '--'}
+                            </span>
+                            <span>•</span>
+                            <span className="font-mono font-bold text-[#004C97]">
+                              {mat.productivity_th > 0
+                                ? `${mat.productivity_th} t/h`
+                                : 'Sem cadência'}
+                            </span>
+                            {mat.steel_grade && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-slate-200 px-1 rounded text-slate-800 font-mono">
+                                  {mat.steel_grade}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ALERTA DE CADÊNCIA AUSENTE (REQUISITO 29) */}
+          {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (
+            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-2.5 shadow-xs">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-800">Cadência não cadastrada na Ficha Mestre</p>
+                <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                  Cadência não cadastrada para este material nesta linha. Atualize a Ficha Mestre
+                  antes de concluir a programação.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA 2: MOTOR TEMPORAL BIDIRECIONAL (QUANTIDADE VS HORÁRIO) */}
+          {selectedMaterial && materialCadence !== null && materialCadence > 0 && (
+            <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Calculator className="w-4 h-4 text-[#004C97]" />
+                  3. Programar por *
+                </label>
+                <div className="inline-flex rounded-lg border border-blue-300 bg-white p-0.5 shadow-xs">
                   <button
-                    key={mat.material_code}
                     type="button"
-                    onClick={() => handleSelectMaterial(mat)}
-                    className={`text-left p-2.5 rounded-md border text-xs transition-all flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-[#004C97] bg-blue-50/80 ring-2 ring-blue-500/20 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    onClick={() => setProgramBy('QUANTITY')}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                      programBy === 'QUANTITY'
+                        ? 'bg-[#004C97] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-1">
-                      <div>
-                        <span className="font-mono font-bold text-slate-900 block text-xs">
-                          {mat.material_code}
-                        </span>
-                        <span className="text-[11px] text-slate-600 line-clamp-1 mt-0.5">
-                          {mat.material_name}
+                    Quantidade (t &rarr; Tempo)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProgramBy('TIME')}
+                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                      programBy === 'TIME'
+                        ? 'bg-[#004C97] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Horário (Tempo &rarr; t)
+                  </button>
+                </div>
+              </div>
+
+              {/* OPÇÃO A: PROGRAMAR POR QUANTIDADE */}
+              {programBy === 'QUANTITY' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  <div className="space-y-3 bg-white p-3.5 rounded-lg border border-blue-200">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                      Informado pelo PCP:
+                    </span>
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 block mb-1">
+                        Quantidade Programada (t) *
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0.5"
+                          step="0.5"
+                          value={quantityInput}
+                          onChange={(e) => setQuantityInput(e.target.value)}
+                          className="font-mono text-sm font-bold bg-slate-50 border-blue-300 h-9 pr-10 text-slate-900"
+                        />
+                        <span className="absolute right-3 top-2 font-bold text-xs text-[#004C97]">
+                          t
                         </span>
                       </div>
-                      {isSelected ? (
-                        <CheckCircle2 className="w-4 h-4 text-[#004C97] shrink-0" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5" />
-                      )}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-slate-100 text-[10px] text-slate-500">
-                      <span className="font-mono font-medium text-slate-700">
-                        {mat.dimension_spec}
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 block mb-1">
+                        Hora Inicial (HH:mm) *
+                      </label>
+                      <Input
+                        type="time"
+                        value={startTimeInput}
+                        onChange={(e) => setStartTimeInput(e.target.value)}
+                        className="font-mono text-sm bg-slate-50 border-blue-300 h-9 text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* RESULTADOS CALCULADOS */}
+                  <div className="bg-white p-3.5 rounded-lg border border-blue-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 pb-1.5">
+                      <span className="flex items-center gap-1 font-bold text-[#004C97]">
+                        <Calculator className="w-3.5 h-3.5" />
+                        Calculado Automaticamente
                       </span>
-                      <span>&bull;</span>
-                      <span className="font-bold text-[#004C97]">{mat.productivity_th} t/h</span>
-                      {mat.steel_grade && (
-                        <>
-                          <span>&bull;</span>
-                          <span className="bg-slate-100 px-1 rounded">{mat.steel_grade}</span>
-                        </>
-                      )}
+                      <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-mono">
+                        Ficha Mestre: {materialCadence} t/h
+                      </Badge>
                     </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
-          {/* 2. Quantidade Prevista & Cálculo Automático de Horas */}
-          <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-200/80 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-900 block mb-1">
-                  2. Quantidade Programada (t — Toneladas) *
-                </label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    min="1"
-                    step="0.5"
-                    value={quantityTons}
-                    onChange={(e) => setQuantityTons(e.target.value)}
-                    className="font-mono text-sm font-bold bg-white border-blue-300 h-10 pr-12 text-slate-900"
-                  />
-                  <span className="absolute right-3 top-2.5 font-bold text-xs text-[#004C97]">
-                    t
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Unidade de massa rigorosamente em toneladas (t).
-                </p>
-              </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block font-sans">Duração:</span>
+                        <span className="font-bold text-slate-900 text-sm">
+                          {calculationResult?.durationFormatted || '0 min'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-sans">
+                          ({calculationResult?.durationHours.toFixed(2)} h)
+                        </span>
+                      </div>
 
-              {/* Box de Cálculo Automático Determinístico */}
-              <div className="bg-white p-3 rounded-lg border border-blue-200 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span className="flex items-center gap-1 font-medium">
-                    <Calculator className="w-3.5 h-3.5 text-[#004C97]" />
-                    Cálculo Automático de Produção
-                  </span>
-                  <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-mono">
-                    Ficha Mestre
-                  </Badge>
-                </div>
-                <div className="flex items-baseline justify-between mt-1">
-                  <div>
-                    <span className="text-xs text-slate-600 block">Horas Produtivas:</span>
-                    <span className="text-lg font-black font-mono text-slate-900">
-                      {calculatedHours} <span className="text-xs font-bold text-slate-500">h</span>
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-500 block">Cadência Ficha Mestre:</span>
-                    <span className="font-mono font-bold text-xs text-blue-800">
-                      {productivity} t/h
-                    </span>
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block font-sans">
+                          Fim Previsto:
+                        </span>
+                        <span className="font-bold text-[#004C97] text-sm">
+                          {calculationResult?.endTime || '--:--'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-sans">
+                          Início: {calculationResult?.startTime || '--:--'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 mt-1 italic leading-tight">
+                      Fórmula: Duração = {quantityInput} t ÷ {materialCadence} t/h ={' '}
+                      {calculationResult?.durationFormatted}
+                    </p>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1 italic">
-                  Horas = {qtyNum} t ÷ {productivity} t/h
-                </p>
-              </div>
-            </div>
-          </div>
+              )}
 
-          {/* 3. Posicionamento de Dia e Turno */}
+              {/* OPÇÃO B: PROGRAMAR POR HORÁRIO */}
+              {programBy === 'TIME' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  <div className="space-y-3 bg-white p-3.5 rounded-lg border border-blue-200">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                      Informado pelo PCP:
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs font-bold text-slate-800 block mb-1">
+                          Hora Inicial *
+                        </label>
+                        <Input
+                          type="time"
+                          value={startTimeInput}
+                          onChange={(e) => setStartTimeInput(e.target.value)}
+                          className="font-mono text-xs bg-slate-50 border-blue-300 h-9 text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-800 block mb-1">
+                          Hora Final *
+                        </label>
+                        <Input
+                          type="time"
+                          value={endTimeInput}
+                          onChange={(e) => setEndTimeInput(e.target.value)}
+                          className="font-mono text-xs bg-slate-50 border-blue-300 h-9 text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RESULTADOS CALCULADOS */}
+                  <div className="bg-white p-3.5 rounded-lg border border-blue-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 pb-1.5">
+                      <span className="flex items-center gap-1 font-bold text-[#004C97]">
+                        <Calculator className="w-3.5 h-3.5" />
+                        Calculado Automaticamente
+                      </span>
+                      <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-mono">
+                        Ficha Mestre: {materialCadence} t/h
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-xs">
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block font-sans">
+                          Tempo Produtivo:
+                        </span>
+                        <span className="font-bold text-slate-900 text-sm">
+                          {calculationResult?.durationFormatted || '0 min'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-sans">
+                          ({calculationResult?.durationHours.toFixed(2)} h)
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="text-[10px] text-slate-500 block font-sans">
+                          Quantidade Prevista:
+                        </span>
+                        <span className="font-bold text-emerald-800 text-sm">
+                          {calculationResult?.quantityTons.toLocaleString('pt-BR')} t
+                        </span>
+                        <span className="text-[10px] text-slate-400 block font-sans">
+                          Cadência: {materialCadence} t/h
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 mt-1 italic leading-tight">
+                      Fórmula: Quantidade = {calculationResult?.durationHours.toFixed(2)} h ×{' '}
+                      {materialCadence} t/h = {calculationResult?.quantityTons} t
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ETAPA 3: DIA, TURNO E METADADOS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">Dia da Semana</label>
@@ -318,7 +618,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 <SelectContent>
                   {(lineOverview?.shifts || []).map((s) => (
                     <SelectItem key={s.code} value={s.code} className="text-xs">
-                      {s.name} ({s.start_time} - {s.end_time})
+                      {WeeklyScheduleEngine.formatShiftDisplay(s.name, s.code, targetCrewName)} (
+                      {s.start_time} - {s.end_time})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -326,11 +627,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Metadados Opcionais (Ordem SAP, MTO, Observações) */}
+          {/* CLASSIFICAÇÃO MTS / MTO & CAMPOS COMPLEMENTARES */}
           <div className="border-t border-slate-200 pt-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">
-                Campos Complementares (Quando aplicável)
+                5. Classificação da Demanda *
               </span>
               <div className="flex items-center gap-1.5">
                 {(['MTS', 'MTO', 'INDUSTRIALIZACAO'] as const).map((type) => (
@@ -338,9 +639,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                     key={type}
                     type="button"
                     onClick={() => setOrderType(type)}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded border transition-colors ${
                       orderType === type
-                        ? 'bg-[#004C97] text-white border-blue-600'
+                        ? 'bg-[#004C97] text-white border-blue-600 shadow-xs'
                         : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
                     }`}
                   >
@@ -386,7 +687,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <div>
               <label className="text-[11px] text-slate-600 block mb-0.5">
-                Observação do PCP / Instrução Operacional
+                6. Observações do PCP / Instrução Operacional
               </label>
               <Textarea
                 placeholder="Ex: Respeitar resfriamento prévio de tarugo; prioridade comercial contratual..."
@@ -398,7 +699,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
+        <DialogFooter className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between shrink-0">
           <Button
             variant="outline"
             onClick={onClose}
@@ -409,7 +710,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
           <Button
             onClick={handleConfirm}
-            disabled={!selectedMaterial || qtyNum <= 0}
+            disabled={!selectedMaterial || !calculationResult || !calculationResult.isValid}
             className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold flex items-center gap-1.5 shadow"
           >
             <Plus className="w-4 h-4" />

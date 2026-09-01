@@ -750,27 +750,65 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
-  // Manipulação de Posição na Sequência (Recalcular em tempo real)
-  const handleMoveUp = (index: number) => {
-    if (index <= 0) return
+  // Manipulação de Posição na Sequência com Validação Pré-Drop (Requisitos 4, 5, 6, 20, 21, 36, 38)
+  const handleReorderItems = (fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= items.length ||
+      toIndex >= items.length
+    ) {
+      return
+    }
+
+    const itemToMove = items[fromIndex]
+    if (!itemToMove) return
+
+    // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo)
+    const validation = WeeklyScheduleEngine.validateSequenceDrop({
+      items,
+      fromIndex,
+      toIndex,
+      lineOverview: currentLineOverview,
+      lineCode: selectedLineCode,
+    })
+
+    if (!validation.allowed) {
+      toast({
+        variant: 'destructive',
+        title: 'Movimentação Bloqueada',
+        description: `Não é possível alterar para esta posição porque: ${validation.blockingReason}`,
+      })
+      return
+    }
+
+    // Aplica a reordenação transacional contínua (1, 2, 3, 4...)
     setItems((prev) => {
       const copy = [...prev]
-      const temp = copy[index - 1]
-      copy[index - 1] = copy[index]
-      copy[index] = temp
-      return copy
+      const [moved] = copy.splice(fromIndex, 1)
+      copy.splice(toIndex, 0, moved)
+      return copy.map((it, idx) => ({
+        ...it,
+        sequence_order: idx + 1,
+      }))
     })
+
+    const seqDiffDesc = `${itemToMove.material_code} · Seq. ${fromIndex + 1} &rarr; Seq. ${toIndex + 1}`
+    toast({
+      title: 'Sequência Reorganizada e Recalculada',
+      description: `Reordenação aplicada: ${seqDiffDesc}. Horários, setups e consumos de MP atualizados automaticamente.`,
+    })
+  }
+
+  const handleMoveUp = (index: number) => {
+    if (index <= 0) return
+    handleReorderItems(index, index - 1)
   }
 
   const handleMoveDown = (index: number) => {
     if (index >= items.length - 1) return
-    setItems((prev) => {
-      const copy = [...prev]
-      const temp = copy[index + 1]
-      copy[index + 1] = copy[index]
-      copy[index] = temp
-      return copy
-    })
+    handleReorderItems(index, index + 1)
   }
 
   const handleDuplicate = (index: number) => {
@@ -1812,10 +1850,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
-                onMoveItem={(from, to) => {
-                  if (from < to) handleMoveDown(from)
-                  else handleMoveUp(from)
-                }}
+                onMoveItem={(from, to) => handleReorderItems(from, to)}
                 onDuplicateItem={handleDuplicate}
                 onRemoveItem={handleRemove}
                 onAddItem={(day, shift) => {

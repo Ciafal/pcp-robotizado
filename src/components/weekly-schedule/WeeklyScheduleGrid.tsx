@@ -29,6 +29,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
+import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 
 export type ScheduleGridFilter =
   | 'ALL'
@@ -276,10 +277,10 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <thead className="bg-[#004C97] text-white text-[11px] uppercase tracking-wider sticky top-0 z-20 shadow-sm font-bold">
               <tr>
                 <th className="py-2.5 px-3 w-12 text-center sticky left-0 z-30 bg-[#004C97] border-r border-blue-600/40">
-                  Seq
+                  SEQ.
                 </th>
-                <th className="py-2.5 px-3 w-28">Dia / Data</th>
-                <th className="py-2.5 px-3 w-36">Turno / Turma</th>
+                <th className="py-2.5 px-3 w-24 text-center">DIA</th>
+                <th className="py-2.5 px-3 w-32 text-center">TURNO</th>
                 <th className="py-2.5 px-3 w-36">Horário Previsto</th>
                 <th className="py-2.5 px-3 w-28">Tipo</th>
                 <th className="py-2.5 px-3 min-w-[180px]">Material / Produto SAP</th>
@@ -360,16 +361,16 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       className={getItemRowClasses(item, isSelected)}
                     >
                       {/* Coluna 1 Fixa: Sequência */}
-                      <td className="py-2 px-2.5 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
-                        <div className="flex items-center justify-center gap-1">
-                          <GripVertical className="w-3 h-3 text-slate-300 group-hover:text-slate-500 cursor-grab" />
+                      <td className="py-2 px-2 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
                           <span>{originalIndex + 1}</span>
                         </div>
                       </td>
 
                       {/* Dia */}
-                      <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                        <div className="flex flex-col">
+                      <td className="py-2 px-2 font-semibold text-slate-900 whitespace-nowrap text-center">
+                        <div className="flex flex-col items-center">
                           <span className="font-bold">{item.day_of_week}</span>
                           <span className="text-[10px] text-slate-400 font-mono">
                             {item.date_str || '24/08'}
@@ -377,16 +378,15 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         </div>
                       </td>
 
-                      {/* Turno / Turma */}
-                      <td className="py-2 px-3 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-slate-800 truncate max-w-[130px]">
-                            {item.shift_name}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {item.crew_name || 'Turma A'}
-                          </span>
-                        </div>
+                      {/* Turno sem duplicidade: T1 · Turma C (Requisito 2) */}
+                      <td className="py-2 px-2 whitespace-nowrap text-center">
+                        <span className="font-bold text-slate-800 text-xs">
+                          {WeeklyScheduleEngine.formatShiftDisplay(
+                            item.shift_name,
+                            item.shift_code,
+                            item.crew_name,
+                          )}
+                        </span>
                       </td>
 
                       {/* Linha do Tempo: Início -> Fim */}

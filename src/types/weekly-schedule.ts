@@ -460,3 +460,16 @@ export interface OfficialMaterialOption {
   default_yield_pct?: number
   default_order_type?: 'MTS' | 'MTO' | 'INDUSTRIALIZACAO'
 }
+
+export const DAYS_OF_WEEK: {
+  code: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+  label: string
+}[] = [
+  { code: 'SEG', label: 'Segunda-feira' },
+  { code: 'TER', label: 'Terça-feira' },
+  { code: 'QUA', label: 'Quarta-feira' },
+  { code: 'QUI', label: 'Quinta-feira' },
+  { code: 'SEX', label: 'Sexta-feira' },
+  { code: 'SAB', label: 'Sábado' },
+  { code: 'DOM', label: 'Domingo' },
+]
