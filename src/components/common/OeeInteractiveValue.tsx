@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils'
 
 export interface OeeInteractiveValueProps {
   value: number | string
+  target?: number
+  unit?: string
+  drilldownContext?: any
   context?: Partial<OeeContext>
   showIcon?: boolean
   iconType?: 'info' | 'chevron' | 'gauge'

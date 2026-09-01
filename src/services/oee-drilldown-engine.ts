@@ -781,7 +781,7 @@ export class OeeDrilldownEngine {
         },
         {
           id: 'FIND-03',
-          type: 'HIPÓTESE',
+          type: 'HYPOTHESIS',
           title: 'Correlação Térmica com Microparadas no Trem Intermediário',
           component: 'PERFORMANCE',
           impactText: 'Impacto estimado em ~15 min de oscilação',

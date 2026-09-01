@@ -72,6 +72,7 @@ import {
 import { LineOverviewData, ProductionLine } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
+import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
 import { SelectedItemDetailPanel } from '@/components/weekly-schedule/SelectedItemDetailPanel'
@@ -192,6 +193,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Modais Operacionais Rodada 3
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<WeeklyScheduleItem | null>(null)
   const [targetDay, setTargetDay] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
   )
@@ -760,6 +763,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     toast({
       title: 'Produto Adicionado',
       description: `Material ${itemToAdd.material_code} (${itemToAdd.planned_quantity_tons} t) inserido na sequência. Grade recalculada.`,
+    })
+  }
+
+  const handleOpenEditItem = (item: WeeklyScheduleItem) => {
+    setEditingItem(item)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveEditedItem = (updatedItem: WeeklyScheduleItem) => {
+    setItems((prev) => prev.map((it) => (it.id === updatedItem.id ? updatedItem : it)))
+    toast({
+      title: 'Programação Atualizada',
+      description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado com recálculo temporal e de matéria-prima.`,
     })
   }
 
@@ -1926,6 +1942,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
+                onEditItem={handleOpenEditItem}
                 onMoveItem={(from, to) => handleReorderItems(from, to)}
                 onDuplicateItem={handleDuplicate}
                 onRemoveItem={handleRemove}
@@ -1946,6 +1963,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
+                onEditItem={handleOpenEditItem}
                 onMoveUp={handleMoveUp}
                 onMoveDown={handleMoveDown}
                 onDuplicate={handleDuplicate}
@@ -2083,6 +2101,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         targetShiftCode={targetShiftCode}
         targetShiftName={targetShiftName}
         targetCrewName={targetCrewName}
+      />
+
+      {/* 6.1 MODAL DE EDIÇÃO DE PRODUTO */}
+      <EditProductModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingItem(null)
+        }}
+        onSave={handleSaveEditedItem}
+        item={editingItem}
+        lineCode={selectedLineCode}
+        officialMaterials={officialMaterials}
+        lineOverview={currentLineOverview}
       />
       {/* 7. MODAL VERMELHO DE HARD BLOCK (MATERIAL BLOQUEADO) */}
       <BlockedProductModal

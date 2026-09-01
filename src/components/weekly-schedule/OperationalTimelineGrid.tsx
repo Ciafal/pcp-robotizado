@@ -34,6 +34,7 @@ interface OperationalTimelineGridProps {
     day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
     shiftCode: string,
   ) => void
+  onEditItem?: (item: WeeklyScheduleItem) => void
   onOpenAwaitingModal?: (item: WeeklyScheduleItem) => void
   onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
 }
@@ -82,6 +83,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   onDuplicateItem,
   onRemoveItem,
   onAddItem,
+  onEditItem,
   onOpenAwaitingModal,
   onOpenSetupDetail,
 }) => {
@@ -129,6 +131,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   // Drag & drop simples
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [dragValidationMsg, setDragValidationMsg] = useState<string | null>(null)
 
   const handleDragStart = (e: React.DragEvent, originalIndex: number) => {
     setDraggedIdx(originalIndex)
@@ -139,15 +142,47 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   const handleDragOver = (e: React.DragEvent, originalIndex: number) => {
     e.preventDefault()
     setDragOverIdx(originalIndex)
+    if (draggedIdx !== null && draggedIdx !== originalIndex) {
+      const sourceItem = items[draggedIdx]
+      const targetItem = items[originalIndex]
+      if (sourceItem && targetItem) {
+        // Validação prévia
+        const check = WeeklyScheduleEngine.validatePreDropFeasibility(
+          sourceItem,
+          targetItem,
+          lineOverview,
+        )
+        if (!check.allowed) {
+          setDragValidationMsg(check.reason || 'Impedimento técnico para drop')
+        } else {
+          setDragValidationMsg(null)
+        }
+      }
+    }
   }
 
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
     if (draggedIdx !== null && draggedIdx !== targetIndex && onMoveItem) {
+      const sourceItem = items[draggedIdx]
+      const targetItem = items[targetIndex]
+      const check = WeeklyScheduleEngine.validatePreDropFeasibility(
+        sourceItem,
+        targetItem,
+        lineOverview,
+      )
+      if (!check.allowed) {
+        alert(`Operação Bloqueada: ${check.reason}`)
+        setDraggedIdx(null)
+        setDragOverIdx(null)
+        setDragValidationMsg(null)
+        return
+      }
       onMoveItem(draggedIdx, targetIndex)
     }
     setDraggedIdx(null)
     setDragOverIdx(null)
+    setDragValidationMsg(null)
   }
 
   /**
@@ -374,6 +409,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 <span className="font-bold text-slate-800">
                                   {item.sequence_order || originalIndex + 1}
                                 </span>
+                                {draggedIdx === originalIndex && dragOverIdx !== null && (
+                                  <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
+                                    {item.sequence_order} &rarr;{' '}
+                                    {items[dragOverIdx]?.sequence_order || dragOverIdx + 1}
+                                  </span>
+                                )}
                                 {item.exception_approval_status === 'PENDING_SUPERVISOR' && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -546,6 +587,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                   <span className="font-mono font-bold text-[11px] truncate">
                                     {item.material_code}
                                   </span>
+                                  {item.dimensions && (
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                      ({item.dimensions})
+                                    </span>
+                                  )}
 
                                   {!isStop && (
                                     <>
@@ -576,8 +622,23 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                   )}
                                 </div>
 
-                                <div className="font-mono text-[10px] text-slate-700 font-bold pl-1.5 shrink-0 bg-white/60 px-1.5 py-0.5 rounded border border-slate-200">
-                                  {startStr} &rarr; {endStr}
+                                <div className="font-mono text-[10px] text-slate-700 font-bold pl-1.5 shrink-0 bg-white/60 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                                  <span>
+                                    {startStr} &rarr; {endStr}
+                                  </span>
+                                  {onEditItem && (
+                                    <button
+                                      type="button"
+                                      title="Editar item da programação"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        onEditItem(item)
+                                      }}
+                                      className="p-0.5 text-slate-400 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors"
+                                    >
+                                      ✏️
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

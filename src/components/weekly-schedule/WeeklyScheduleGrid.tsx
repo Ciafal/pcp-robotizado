@@ -16,6 +16,7 @@ import {
   FileText,
   Filter,
   CheckCircle2,
+  Edit3,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,7 @@ interface WeeklyScheduleGridProps {
   lineOverview: LineOverviewData | null
   selectedItemId?: string | null
   onSelectItem?: (item: WeeklyScheduleItem) => void
+  onEditItem?: (item: WeeklyScheduleItem) => void
   onMoveUp: (index: number) => void
   onMoveDown: (index: number) => void
   onDuplicate: (index: number) => void
@@ -68,6 +70,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   lineOverview,
   selectedItemId,
   onSelectItem,
+  onEditItem,
   onMoveUp,
   onMoveDown,
   onDuplicate,
@@ -116,6 +119,19 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
     if (draggedIndex === null || draggedIndex === targetIndex) return
+
+    const sourceItem = items[draggedIndex]
+    const targetItem = items[targetIndex]
+    const check = WeeklyScheduleEngine.validatePreDropFeasibility(
+      sourceItem,
+      targetItem,
+      lineOverview,
+    )
+    if (!check.allowed) {
+      alert(`Operação Bloqueada: ${check.reason}`)
+      setDraggedIndex(null)
+      return
+    }
 
     // Move o item de draggedIndex para targetIndex
     const currentDay = items[targetIndex].day_of_week
@@ -784,6 +800,15 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                   {isAwaiting
                                     ? 'Editar Aguardando Observações'
                                     : 'Aguardando Observações...'}
+                                </DropdownMenuItem>
+                              )}
+                              {onEditItem && (
+                                <DropdownMenuItem
+                                  onClick={() => onEditItem(item)}
+                                  className="text-[#004C97] font-semibold"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 mr-2" />
+                                  Editar Parâmetros / Horários
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>

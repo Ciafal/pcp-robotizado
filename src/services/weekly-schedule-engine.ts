@@ -248,6 +248,43 @@ export const WeeklyScheduleEngine = {
    * Valida a movimentação ou reordenação pré-drop na sequência (Requisitos 5, 6, 20, 21, 38)
    * Verifica Ficha Mestre, Matriz Gargalo, Capacidades, Bloqueios, Mudança de Bitola/Família e MP
    */
+  /**
+   * Validação pontual de viabilidade pré-drop (para preview e drop direto)
+   */
+  validatePreDropFeasibility(
+    sourceItem: WeeklyScheduleItem,
+    targetItem: WeeklyScheduleItem,
+    lineOverview: LineOverviewData | null,
+  ): { allowed: boolean; reason?: string } {
+    if (!sourceItem || !targetItem) return { allowed: true }
+
+    // 1. Produto bloqueado
+    if (lineOverview?.blockedProducts) {
+      const isBlocked = lineOverview.blockedProducts.some(
+        (b) =>
+          b.active &&
+          (b.product_code.trim().toUpperCase() === sourceItem.material_code.trim().toUpperCase() ||
+            b.product_code.trim().toUpperCase() === targetItem.material_code.trim().toUpperCase()),
+      )
+      if (isBlocked) {
+        return {
+          allowed: false,
+          reason: `Produto bloqueado formalmente na Ficha Mestra da Linha (${sourceItem.material_code}).`,
+        }
+      }
+    }
+
+    // 2. Parada programada imutável
+    if (targetItem.item_type === 'SCHEDULED_STOP') {
+      return {
+        allowed: false,
+        reason: 'Não é permitido sobrepor uma Parada Programada ou Manutenção Preventiva.',
+      }
+    }
+
+    return { allowed: true }
+  },
+
   validateSequenceDrop(params: {
     items: WeeklyScheduleItem[]
     fromIndex: number
@@ -442,35 +479,54 @@ export const WeeklyScheduleEngine = {
   getProductivityForMaterialStrict(
     materialCode: string,
     lineOverview: LineOverviewData | null,
+    officialMaterials?: OfficialMaterialOption[],
   ): number | null {
-    if (!lineOverview || !materialCode) return null
+    if (!materialCode) return null
 
-    const found = lineOverview.productivity?.find(
-      (p) => p.material_product_code.toUpperCase() === materialCode.toUpperCase() && p.active,
-    )
-    if (found && found.planned_productivity > 0) {
-      return Number(found.planned_productivity)
+    // 1. Busca na Ficha Mestra da linha ativa
+    if (lineOverview?.productivity && lineOverview.productivity.length > 0) {
+      const found = lineOverview.productivity.find(
+        (p) => p.material_product_code.toUpperCase() === materialCode.toUpperCase() && p.active,
+      )
+      if (found && found.planned_productivity > 0) {
+        return Number(found.planned_productivity)
+      }
+      if (found && found.nominal_productivity > 0) {
+        return Number(found.nominal_productivity)
+      }
     }
-    if (found && found.nominal_productivity > 0) {
-      return Number(found.nominal_productivity)
+
+    // 2. Busca no catálogo oficial de materiais integrados SAP / Ficha Mestra
+    if (officialMaterials && officialMaterials.length > 0) {
+      const offMatch = officialMaterials.find(
+        (m) => m.material_code.toUpperCase() === materialCode.toUpperCase(),
+      )
+      if (offMatch && offMatch.productivity_th > 0) {
+        return Number(offMatch.productivity_th)
+      }
     }
-    if (lineOverview.master && lineOverview.master.nominal_hourly_capacity > 0) {
+
+    // 3. Capacidade nominal horária cadastrada na Ficha Mestra da Linha (se houver)
+    if (lineOverview?.master && lineOverview.master.nominal_hourly_capacity > 0) {
       return Number(lineOverview.master.nominal_hourly_capacity)
     }
+
+    // Sem cadência cadastrada -> retorna null (NÃO inventar default artificial)
     return null
   },
 
   /**
-   * Obtém produtividade oficial da Ficha Mestre da Linha para um material (com fallback legado seguro se necessário)
+   * Obtém produtividade oficial da Ficha Mestre da Linha para um material
    */
   getProductivityForMaterial(
     materialCode: string,
     lineOverview: LineOverviewData | null,
-    defaultLineNominalTh: number = 12.0,
+    defaultLineNominalTh?: number,
   ): number {
     const strict = this.getProductivityForMaterialStrict(materialCode, lineOverview)
     if (strict !== null && strict > 0) return strict
-    return defaultLineNominalTh
+    if (defaultLineNominalTh && defaultLineNominalTh > 0) return defaultLineNominalTh
+    return 0
   },
 
   /**
@@ -1505,8 +1561,23 @@ export const WeeklyScheduleEngine = {
 
       // ITEM DE PRODUÇÃO
       // 1. Produtividade da Ficha Mestre
-      const productivity = this.getProductivityForMaterial(item.material_code, lineOverview, 12.0)
+      const productivity =
+        this.getProductivityForMaterialStrict(item.material_code, lineOverview) ||
+        item.productivity_rate_th ||
+        (lineOverview?.master?.nominal_hourly_capacity
+          ? Number(lineOverview.master.nominal_hourly_capacity)
+          : 0)
       item.productivity_rate_th = productivity
+
+      if (productivity <= 0) {
+        validations.push({
+          code: 'VAL-CAD-01',
+          level: 'BLOCKED',
+          title: `Cadência Ausente: ${item.material_code}`,
+          message: `Cadência não cadastrada para este material nesta linha. Atualize a Ficha Mestra antes de concluir a programação.`,
+          itemId: item.id,
+        })
+      }
 
       // 2. Horas produtivas = Quantidade / Produtividade
       const qtyTons = Number(item.planned_quantity_tons) || 0
