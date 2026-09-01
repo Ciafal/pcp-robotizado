@@ -720,6 +720,97 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
+   * Validação de Conflito e Sobreposição de Horários
+   * Garante que não haja sobreposição de horários entre itens no mesmo dia e turno
+   */
+  validateTimeOverlap(params: {
+    items: WeeklyScheduleItem[]
+    dayOfWeek: string
+    shiftCode?: string
+    startTime: string
+    endTime: string
+    excludeItemId?: string
+  }): {
+    hasConflict: boolean
+    conflictingItem?: WeeklyScheduleItem
+    conflictMessage?: string
+    nextAvailableStartTime?: string
+  } {
+    const { items, dayOfWeek, shiftCode, startTime, endTime, excludeItemId } = params
+
+    const parseMinutes = (tStr: string): number => {
+      if (!tStr) return 0
+      const clean = tStr.includes(' ') ? tStr.split(' ')[1] : tStr
+      const [h, m] = clean.split(':').map(Number)
+      return (h || 0) * 60 + (m || 0)
+    }
+
+    const formatMinutesToHHMM = (totalMin: number): string => {
+      const normalized = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60)
+      const h = Math.floor(normalized / 60)
+      const m = Math.floor(normalized % 60)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${pad(h)}:${pad(m)}`
+    }
+
+    const newStart = parseMinutes(startTime)
+    let newEnd = parseMinutes(endTime)
+    if (newEnd <= newStart) {
+      newEnd += 24 * 60
+    }
+
+    // Filtra itens do mesmo dia e turno (se informado), excluindo o próprio item se edição
+    const dayItems = (items || []).filter((it) => {
+      if (excludeItemId && it.id === excludeItemId) return false
+      if (it.day_of_week !== dayOfWeek) return false
+      if (shiftCode && it.shift_code && it.shift_code !== shiftCode) return false
+      return true
+    })
+
+    let maxEndMin = 0
+    let conflictingItem: WeeklyScheduleItem | undefined
+
+    for (const it of dayItems) {
+      const itStartStr = it.start_datetime ? it.start_datetime.split(' ')[1] || '06:00' : '06:00'
+      const itEndStr = it.end_datetime ? it.end_datetime.split(' ')[1] || '14:20' : '14:20'
+
+      const itStart = parseMinutes(itStartStr)
+      let itEnd = parseMinutes(itEndStr)
+      if (itEnd <= itStart) {
+        itEnd += 24 * 60
+      }
+
+      if (itEnd > maxEndMin) {
+        maxEndMin = itEnd
+      }
+
+      // Verifica colisão de intervalos [newStart, newEnd) com [itStart, itEnd)
+      const overlaps = Math.max(newStart, itStart) < Math.min(newEnd, itEnd)
+      if (overlaps) {
+        conflictingItem = it
+        break
+      }
+    }
+
+    if (conflictingItem) {
+      const conflictStart = conflictingItem.start_datetime?.split(' ')[1] || '06:00'
+      const conflictEnd = conflictingItem.end_datetime?.split(' ')[1] || '14:20'
+      const nextAvailable = formatMinutesToHHMM(maxEndMin)
+
+      return {
+        hasConflict: true,
+        conflictingItem,
+        conflictMessage: `Sobreposição com item #${conflictingItem.sequence_order} (${conflictingItem.material_code}) programado das ${conflictStart} às ${conflictEnd}.`,
+        nextAvailableStartTime: nextAvailable,
+      }
+    }
+
+    return {
+      hasConflict: false,
+    }
+  },
+
+  /**
    * Obtém especificação técnica de matéria-prima (Ficha Mestre e rendimento)
    */
   getRawMaterialSpecification(
