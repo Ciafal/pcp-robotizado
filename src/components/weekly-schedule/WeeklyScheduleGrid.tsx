@@ -467,6 +467,28 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                             <span className="font-mono font-bold text-slate-900 text-xs">
                               {item.material_code}
                             </span>
+                            {item.cooling_validation?.hasViolation && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />⚠ NÃO
+                                    ATENDIDO
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
+                                >
+                                  <p className="font-bold text-rose-300">
+                                    Tempo de Resfriamento Não Atendido:
+                                  </p>
+                                  <p className="text-[11px] text-slate-200 mt-0.5">
+                                    {item.cooling_validation.message ||
+                                      'O tempo mínimo de resfriamento entre etapas não foi atendido.'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             {item.deviation_analysis?.hasDeviation && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
