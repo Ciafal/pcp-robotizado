@@ -250,30 +250,37 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     const endH = Math.max(startH + 0.5, Math.min(22, parseHour(endStr || '08:00')))
 
     const totalTimelineHours = 16
-    const leftPct = ((startH - 6) / totalTimelineHours) * 100
-    const widthPct = Math.max(5, ((endH - startH) / totalTimelineHours) * 100)
+    const clampedStart = Math.max(6, Math.min(22, startH))
+    const clampedEnd = Math.max(clampedStart + 0.25, Math.min(22, endH))
+    const leftPct = ((clampedStart - 6) / totalTimelineHours) * 100
+    // O item ocupará a largura proporcional real baseada na duração em horas
+    const widthPct = ((clampedEnd - clampedStart) / totalTimelineHours) * 100
 
-    return { leftPct: Math.max(0, leftPct), widthPct: Math.min(100 - leftPct, widthPct) }
+    return {
+      leftPct: Math.max(0, leftPct),
+      widthPct: Math.min(100 - leftPct, Math.max(3, widthPct)),
+      durationHours: Number((clampedEnd - clampedStart).toFixed(2)),
+    }
   }
 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="w-full bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden flex flex-col">
         {/* CABEÇALHO HORIZONTAL DA GRADE (COLUNAS COMPACTAS STICKY: DIA | TURNO | SEQ. | TIMELINE) */}
-        <div className="flex border-b border-slate-200 bg-slate-100 sticky top-0 z-20 text-[11px] font-bold text-slate-700">
+        <div className="flex border-b border-slate-200 bg-slate-100 sticky top-0 z-30 text-[11px] font-bold text-slate-700">
           {/* Colunas Fixas Compactas Congeladas à Esquerda */}
-          <div className="w-[85px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold">
+          <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-0 z-30 shadow-xs">
             DIA
           </div>
-          <div className="w-[110px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold">
+          <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[80px] z-30 shadow-xs">
             TURNO
           </div>
-          <div className="w-[65px] shrink-0 px-1.5 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold">
+          <div className="w-[60px] shrink-0 px-1.5 py-2 border-r border-slate-200 bg-slate-100 flex items-center justify-center text-center font-bold sticky left-[150px] z-30 shadow-xs">
             SEQ.
           </div>
 
           {/* Área Rolável da Linha do Tempo */}
-          <div className="flex-1 overflow-x-auto no-scrollbar flex min-w-[720px]">
+          <div className="flex-1 overflow-x-auto no-scrollbar flex min-w-[760px]">
             <div className="w-full grid grid-cols-16 divide-x divide-slate-200 text-center font-mono text-[10px] text-slate-600">
               {TIMELINE_HOURS.slice(0, 16).map((hr, idx) => (
                 <div key={idx} className="py-2 px-1 truncate bg-slate-100">
@@ -383,35 +390,60 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 : ''
                             } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
                           >
-                            {/* Coluna Fixa 1: DIA/DATA COMPACTA */}
-                            <div className="w-[85px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center">
-                              <span className="font-bold text-slate-900">{dayObj.label}</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
+                            {/* Coluna Fixa 1: DIA/DATA COMPACTA (Sticky) */}
+                            <div className="w-[80px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center sticky left-0 z-20 bg-white group-hover:bg-slate-50">
+                              <span className="font-black text-slate-900 text-[11px]">
+                                {dayObj.label}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">
                                 {dayObj.date}
                               </span>
                             </div>
 
-                            {/* Coluna Fixa 2: TURNO COMPACTO SEM DUPLICIDADE (Requisito 2: T1 · Turma C) */}
-                            <div className="w-[110px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs flex items-center justify-center text-center">
-                              <span className="font-bold text-slate-800 truncate text-[11px]">
-                                {WeeklyScheduleEngine.formatShiftDisplay(
-                                  item.shift_name,
-                                  item.shift_code,
-                                  item.crew_name,
-                                )}
-                              </span>
-                            </div>
+                            {/* Coluna Fixa 2: TURNO COMPACTO (T1, T2...) COM TOOLTIP DA TURMA COMPLETA (Sticky) */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-[70px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white group-hover:bg-slate-50 cursor-help">
+                                  <span className="font-black text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[11px]">
+                                    {WeeklyScheduleEngine.formatShiftCodeOnly(
+                                      item.shift_name,
+                                      item.shift_code,
+                                    )}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="bg-slate-900 text-white text-xs p-2"
+                              >
+                                <p className="font-bold text-amber-300">
+                                  {WeeklyScheduleEngine.getShiftTooltipDetails(
+                                    item.shift_name,
+                                    item.shift_code,
+                                    item.crew_name,
+                                  )}
+                                </p>
+                                <p className="text-[10px] text-slate-300 mt-0.5">
+                                  Horário de trabalho e escala vinculados à Ficha Mestra
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
 
-                            {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR */}
-                            <div className="w-[65px] shrink-0 px-1.5 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs">
+                            {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky) */}
+                            <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
                               <div className="flex items-center gap-0.5">
-                                <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 cursor-grab shrink-0" />
-                                <span className="font-bold text-slate-800">
+                                <div
+                                  className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
+                                  title="Clique e arraste para alterar a sequência"
+                                >
+                                  <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+                                </div>
+                                <span className="font-black text-slate-900 text-[11px]">
                                   {item.sequence_order || originalIndex + 1}
                                 </span>
                                 {draggedIdx === originalIndex && dragOverIdx !== null && (
                                   <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
-                                    {item.sequence_order} &rarr;{' '}
+                                    {item.sequence_order} →{' '}
                                     {items[dragOverIdx]?.sequence_order || dragOverIdx + 1}
                                   </span>
                                 )}
@@ -527,120 +559,175 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 </Tooltip>
                               )}
 
-                              {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE */}
-                              <div
-                                style={{
-                                  left: `${timelinePos.leftPct}%`,
-                                  width: `${Math.max(18, timelinePos.widthPct)}%`,
-                                }}
-                                className={`absolute h-7 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
-                                  item,
-                                  isSelected,
-                                )}`}
-                              >
-                                {/* Conteúdo Interno do Bloco Conforme Especificação */}
-                                <div className="flex items-center gap-1.5 truncate">
-                                  {isCoolingViolated && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-[10px] text-rose-700 bg-rose-200 px-1 rounded font-black flex items-center gap-0.5 cursor-help shrink-0">
-                                          ❄ NÃO ATENDIDO
+                              {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    style={{
+                                      left: `${timelinePos.leftPct}%`,
+                                      width: `${timelinePos.widthPct}%`,
+                                    }}
+                                    className={`absolute h-8 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
+                                      item,
+                                      isSelected,
+                                    )} shadow-2xs hover:shadow-xs`}
+                                  >
+                                    {/* Conteúdo Interno do Bloco com Anti-Truncamento */}
+                                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                      {isCoolingViolated && (
+                                        <span className="text-[9px] text-rose-800 bg-rose-200 px-1.5 py-0.2 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs">
+                                          ⚠ NÃO ATENDIDO
                                         </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="bg-slate-900 text-white text-xs max-w-xs p-2.5"
-                                      >
-                                        <p className="font-bold text-rose-400">
-                                          🔴 TEMPO DE RESFRIAMENTO NÃO ATENDIDO
-                                        </p>
-                                        <p className="text-[11px] text-slate-200 mt-1">
-                                          Resfriamento obrigatório: 24 h / Disponível a partir de:
-                                          26/08 14:30
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
+                                      )}
 
-                                  {!isCoolingViolated && !isStop && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="text-[9px] text-sky-700 cursor-help shrink-0">
+                                      {!isCoolingViolated && !isStop && (
+                                        <span
+                                          className="text-[9px] text-sky-700 shrink-0 font-bold"
+                                          title="Resfriamento atendido"
+                                        >
                                           ❄
                                         </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="bg-slate-900 text-white text-xs p-2"
-                                      >
-                                        <p className="font-bold text-sky-300">
-                                          Resfriamento Atendido
-                                        </p>
-                                        <p className="text-[11px] text-slate-200">
-                                          Resfriamento obrigatório: 24 h / Disponível a partir de:
-                                          26/08 14:30
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
+                                      )}
 
-                                  <span className="font-mono font-bold text-[11px] truncate">
-                                    {item.material_code}
-                                  </span>
-                                  {item.dimensions && (
-                                    <span className="text-[10px] text-slate-500 font-mono">
-                                      ({item.dimensions})
+                                      <span className="font-mono font-extrabold text-[11px] truncate text-slate-900 shrink-0">
+                                        {item.material_code}
+                                      </span>
+
+                                      {item.dimensions && (
+                                        <span className="text-[10px] text-slate-600 font-mono truncate hidden sm:inline">
+                                          {item.dimensions}
+                                        </span>
+                                      )}
+
+                                      {!isStop && (
+                                        <>
+                                          <span className="text-slate-400 shrink-0">•</span>
+                                          <span className="font-mono text-[11px] font-black text-slate-900 shrink-0">
+                                            {item.planned_quantity_tons} t
+                                          </span>
+                                          <span className="text-slate-400 shrink-0">•</span>
+                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.2 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0">
+                                            {isAwaiting
+                                              ? 'AGUARDANDO OBS'
+                                              : item.exception_approval_status ===
+                                                  'PENDING_SUPERVISOR'
+                                                ? 'PENDENTE PCP'
+                                                : item.order_type === 'MTO'
+                                                  ? `MTO · ${item.sales_order_mto || 'Ped'}`
+                                                  : 'MTS'}
+                                          </span>
+                                        </>
+                                      )}
+
+                                      {isStop && (
+                                        <>
+                                          <span className="text-slate-400 shrink-0">•</span>
+                                          <span className="text-[10px] font-bold text-amber-900">
+                                            Parada ({item.stop_duration_minutes || 60} min)
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    {/* Horário sempre legível e botão de edição */}
+                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/80 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs">
+                                      <span>
+                                        {startStr} &rarr; {endStr}
+                                      </span>
+                                      {onEditItem && (
+                                        <button
+                                          type="button"
+                                          title="Editar item da programação"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onEditItem(item)
+                                          }}
+                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors"
+                                        >
+                                          ✏️
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
+                                >
+                                  <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
+                                    <span className="font-black text-amber-400 text-sm">
+                                      {item.material_code} —{' '}
+                                      {item.material_description || 'Produto Laminado'}
                                     </span>
-                                  )}
-
-                                  {!isStop && (
-                                    <>
-                                      <span className="text-slate-400">•</span>
-                                      <span className="font-mono text-[10px] font-bold">
+                                    <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                      Seq. #{item.sequence_order || originalIndex + 1}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                    <div>
+                                      <span className="text-slate-400">Família:</span>{' '}
+                                      <strong className="text-slate-200">
+                                        {item.family_code || 'Não informada'}
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Dimensões:</span>{' '}
+                                      <strong className="text-slate-200">
+                                        {item.dimensions || 'Padrão'}
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Quantidade:</span>{' '}
+                                      <strong className="text-emerald-400 font-mono">
                                         {item.planned_quantity_tons} t
-                                      </span>
-                                      <span className="text-slate-400">•</span>
-                                      <span className="text-[10px] uppercase font-bold">
-                                        {isAwaiting
-                                          ? 'AGUARDANDO OBSERVAÇÕES'
-                                          : item.exception_approval_status === 'PENDING_SUPERVISOR'
-                                            ? 'PENDENTE APROVAÇÃO PCP'
-                                            : item.order_type === 'MTO'
-                                              ? `MTO · ${item.sales_order_mto || 'Ped.'}`
-                                              : 'MTS'}
-                                      </span>
-                                    </>
-                                  )}
-
-                                  {isStop && (
-                                    <>
-                                      <span className="text-slate-400">•</span>
-                                      <span className="text-[10px] font-bold">
-                                        Parada ({item.stop_duration_minutes || 60} min)
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-
-                                <div className="font-mono text-[10px] text-slate-700 font-bold pl-1.5 shrink-0 bg-white/60 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1">
-                                  <span>
-                                    {startStr} &rarr; {endStr}
-                                  </span>
-                                  {onEditItem && (
-                                    <button
-                                      type="button"
-                                      title="Editar item da programação"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        onEditItem(item)
-                                      }}
-                                      className="p-0.5 text-slate-400 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors"
-                                    >
-                                      ✏️
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Cadência:</span>{' '}
+                                      <strong className="text-blue-300 font-mono">
+                                        {item.productivity_rate_th || 12} t/h
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Horário:</span>{' '}
+                                      <strong className="text-amber-300 font-mono">
+                                        {startStr} &rarr; {endStr}
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Duração:</span>{' '}
+                                      <strong className="text-slate-200">
+                                        {item.production_hours || 0} h
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Regime:</span>{' '}
+                                      <strong className="text-slate-200">
+                                        {item.order_type === 'MTO'
+                                          ? `MTO (${item.sales_order_mto || 'Ped'})`
+                                          : 'MTS (Estoque)'}
+                                      </strong>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Status:</span>{' '}
+                                      <strong className="text-slate-200">{item.status}</strong>
+                                    </div>
+                                    {item.setup_duration_minutes > 0 && (
+                                      <div className="col-span-2 text-slate-300 border-t border-slate-800 pt-1 mt-1">
+                                        🔧 <span className="text-slate-400">Setup Prévio:</span>{' '}
+                                        <strong>{item.setup_duration_minutes} min</strong> (
+                                        {item.setup_breakdown?.responsible_area || 'Produção'})
+                                      </div>
+                                    )}
+                                    {item.pcp_notes && (
+                                      <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
+                                        📝 <span className="text-slate-400">Obs:</span>{' '}
+                                        {item.pcp_notes}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
                         )

@@ -394,15 +394,30 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         </div>
                       </td>
 
-                      {/* Turno sem duplicidade: T1 · Turma C (Requisito 2) */}
+                      {/* Turno Compacto: T1 com tooltip da Turma */}
                       <td className="py-2 px-2 whitespace-nowrap text-center">
-                        <span className="font-bold text-slate-800 text-xs">
-                          {WeeklyScheduleEngine.formatShiftDisplay(
-                            item.shift_name,
-                            item.shift_code,
-                            item.crew_name,
-                          )}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs cursor-help">
+                              {WeeklyScheduleEngine.formatShiftCodeOnly(
+                                item.shift_name,
+                                item.shift_code,
+                              )}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="bg-slate-900 text-white text-xs p-2"
+                          >
+                            <p className="font-bold text-amber-300">
+                              {WeeklyScheduleEngine.getShiftTooltipDetails(
+                                item.shift_name,
+                                item.shift_code,
+                                item.crew_name,
+                              )}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </td>
 
                       {/* Linha do Tempo: Início -> Fim */}

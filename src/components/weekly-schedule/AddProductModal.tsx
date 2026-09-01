@@ -194,7 +194,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     onAdd({
       material_code: selectedMaterial.material_code,
       material_description: selectedMaterial.material_name,
-      family_code: selectedMaterial.family_code,
+      family_code: selectedFamilyCode || selectedMaterial.family_code,
       steel_grade: selectedMaterial.steel_grade || 'SAE 1020',
       dimensions: selectedMaterial.dimension_spec || '50x50 mm #2.00',
       day_of_week: selectedDay,

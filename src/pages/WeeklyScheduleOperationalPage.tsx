@@ -718,9 +718,21 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    // 2. Inclusão Válida
+    // 2. Inclusão Válida com Cadência Oficial e Recálculo Temporal
     const lineObj = lines.find((l) => l.code === selectedLineCode)
     const nextSeq = items.length + 1
+    const cadence =
+      WeeklyScheduleEngine.getProductivityForMaterialStrict(
+        newItemData.material_code,
+        currentLineOverview,
+        officialMaterials,
+      ) ||
+      newItemData.productivity_rate_th ||
+      12.0
+
+    const plannedQty = Number(newItemData.planned_quantity_tons) || 100
+    const prodHours = cadence > 0 ? Number((plannedQty / cadence).toFixed(2)) : 0
+
     const itemToAdd: WeeklyScheduleItem = {
       id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
@@ -747,12 +759,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       sales_order_mto: newItemData.sales_order_mto,
       customer_name: newItemData.customer_name,
       order_type: newItemData.order_type || 'MTS',
-      planned_quantity_tons: Number(newItemData.planned_quantity_tons) || 100,
-      productivity_rate_th: 12.0,
-      production_hours: 0,
+      planned_quantity_tons: plannedQty,
+      productivity_rate_th: cadence,
+      production_hours: prodHours,
       setup_duration_minutes: 0,
-      start_datetime: '',
-      end_datetime: '',
+      start_datetime: newItemData.start_datetime || '',
+      end_datetime: newItemData.end_datetime || '',
       status: 'DRAFT',
       version: 1,
       pcp_notes: newItemData.pcp_notes,
@@ -771,16 +783,32 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     setIsEditModalOpen(true)
   }
 
-  const handleSaveEditedItem = (updatedItem: WeeklyScheduleItem) => {
-    setItems((prev) => prev.map((it) => (it.id === updatedItem.id ? updatedItem : it)))
-    toast({
-      title: 'Programação Atualizada',
-      description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado com recálculo temporal e de matéria-prima.`,
-    })
+  const handleSaveEditedItem = async (updatedItem: WeeklyScheduleItem) => {
+    const updatedList = items.map((it) => (it.id === updatedItem.id ? updatedItem : it))
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      updatedList,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    try {
+      await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+      toast({
+        title: 'Programação Atualizada e Persistida',
+        description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado com recálculo temporal, setups e MP.`,
+      })
+    } catch {
+      toast({
+        title: 'Programação Atualizada Localmente',
+        description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado.`,
+      })
+    }
   }
 
-  // Manipulação de Posição na Sequência com Validação Pré-Drop (Requisitos 4, 5, 6, 20, 21, 36, 38)
-  const handleReorderItems = (fromIndex: number, toIndex: number) => {
+  // Manipulação de Posição na Sequência com Validação Pré-Drop, Rollback e Versionamento Transacional
+  const handleReorderItems = async (fromIndex: number, toIndex: number) => {
     if (
       fromIndex === toIndex ||
       fromIndex < 0 ||
@@ -807,27 +835,61 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       toast({
         variant: 'destructive',
         title: 'Movimentação Bloqueada',
-        description: `Não é possível alterar para esta posição porque: ${validation.blockingReason}`,
+        description: `Não é possível alterar para esta posição: ${validation.blockingReason}`,
       })
       return
     }
 
-    // Aplica a reordenação transacional contínua (1, 2, 3, 4...)
-    setItems((prev) => {
-      const copy = [...prev]
-      const [moved] = copy.splice(fromIndex, 1)
-      copy.splice(toIndex, 0, moved)
-      return copy.map((it, idx) => ({
-        ...it,
-        sequence_order: idx + 1,
-      }))
-    })
+    // Backup para Rollback Transacional
+    const backupItems = [...items]
 
-    const seqDiffDesc = `${itemToMove.material_code} · Seq. ${fromIndex + 1} &rarr; Seq. ${toIndex + 1}`
-    toast({
-      title: 'Sequência Reorganizada e Recalculada',
-      description: `Reordenação aplicada: ${seqDiffDesc}. Horários, setups e consumos de MP atualizados automaticamente.`,
-    })
+    // Aplica a reordenação contínua (1, 2, 3, 4...)
+    const reordered = [...items]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    const reindexed = reordered.map((it, idx) => ({
+      ...it,
+      sequence_order: idx + 1,
+    }))
+
+    // Recalcula horários e setups no motor
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      reindexed,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+
+    // Atualiza estado local imediatamente (otimista)
+    setItems(recalculated.items)
+
+    // Persistência imediata com Rollback seguro
+    try {
+      await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+
+      // Sincroniza com Oficina de Cilindros
+      rollShopSetupService.syncScheduleWithRollShop(
+        recalculated.items,
+        headerFilter,
+        currentLineOverview,
+      )
+
+      const seqDiffDesc = `${itemToMove.material_code} (Seq. ${fromIndex + 1} → Seq. ${toIndex + 1})`
+      toast({
+        title: 'Sequência Reordenada e Persistida',
+        description: `Reordenação aplicada: ${seqDiffDesc}. Horários e setups recalculados e salvos com sucesso.`,
+      })
+    } catch (saveError) {
+      console.error('Falha ao persistir reordenação de sequência:', saveError)
+      // Rollback para estado anterior
+      setItems(backupItems)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Salvar Reordenação',
+        description:
+          'A gravação falhou no servidor. A sequência foi restaurada à última posição válida.',
+      })
+    }
   }
 
   const handleMoveUp = (index: number) => {

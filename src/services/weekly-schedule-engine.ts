@@ -473,6 +473,69 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
+   * Retorna apenas o identificador compacto do turno (ex: "T1", "T2", "T3", "T4")
+   * Para exibição na grade horizontal sem poluição visual
+   */
+  formatShiftCodeOnly(shiftName?: string, shiftCode?: string): string {
+    const rawName = (shiftName || '').trim()
+    const rawCode = (shiftCode || '').trim().toUpperCase()
+
+    if (
+      rawName.match(/1[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T1') ||
+      rawCode.includes('TURNO_1') ||
+      rawCode.includes('T1_')
+    ) {
+      return 'T1'
+    } else if (
+      rawName.match(/2[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T2') ||
+      rawCode.includes('TURNO_2') ||
+      rawCode.includes('T2_')
+    ) {
+      return 'T2'
+    } else if (
+      rawName.match(/3[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T3') ||
+      rawCode.includes('TURNO_3') ||
+      rawCode.includes('T3_')
+    ) {
+      return 'T3'
+    } else if (
+      rawName.match(/4[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T4') ||
+      rawCode.includes('TURNO_4') ||
+      rawCode.includes('T4_')
+    ) {
+      return 'T4'
+    } else if (
+      rawName.match(/5[º°ª]\s*turno/i) ||
+      rawCode.startsWith('T5') ||
+      rawCode.includes('TURNO_5') ||
+      rawCode.includes('T5_')
+    ) {
+      return 'T5'
+    } else if (rawCode.match(/^T\d+/i)) {
+      const match = rawCode.match(/^T\d+/i)
+      return match ? match[0].toUpperCase() : 'T1'
+    } else if (rawName.match(/T\d+/i)) {
+      const match = rawName.match(/T\d+/i)
+      return match ? match[0].toUpperCase() : 'T1'
+    }
+    return 'T1'
+  },
+
+  /**
+   * Retorna a descrição completa da Turma/Turno para tooltip
+   */
+  getShiftTooltipDetails(shiftName?: string, shiftCode?: string, crewName?: string): string {
+    const compact = this.formatShiftCodeOnly(shiftName, shiftCode)
+    const formatted = this.formatShiftDisplay(shiftName, shiftCode, crewName)
+    const rawName = (shiftName || '').trim()
+    return `${compact}: ${rawName || formatted} (${crewName || 'Turma Cadastrada'})`
+  },
+
+  /**
    * Obtém produtividade oficial da Ficha Mestre da Linha para um material
    * Retorna null se não houver cadência cadastrada (sem inventar defaults)
    */
