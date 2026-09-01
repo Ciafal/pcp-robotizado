@@ -14,6 +14,7 @@ import {
   RawMaterialTrafficLight,
   WeeklySimulationReport,
   SimulationFeasibilityResult,
+  GaugeSequenceDeviationAnalysis,
 } from '@/types/weekly-schedule'
 import {
   LineOverviewData,
@@ -2080,6 +2081,120 @@ export const WeeklyScheduleEngine = {
       indicators,
       summary,
       validations,
+    }
+  },
+
+  /**
+   * Avalia a governança de exceções de um item na programação
+   * (Desvio de sequência ideal, desvio de ciclo padrão SAP, cobertura projetada de estoque)
+   */
+  analyzeItemGovernance(params: {
+    item: WeeklyScheduleItem
+    prevItem?: WeeklyScheduleItem | null
+    lineOverview?: LineOverviewData | null
+    lineCode?: string
+    currentStockTons?: number
+    backlogTons?: number
+  }): GaugeSequenceDeviationAnalysis {
+    const {
+      item,
+      prevItem,
+      lineOverview,
+      lineCode = 'L1',
+      currentStockTons = 0,
+      backlogTons = 0,
+    } = params
+
+    const itemGauge = item.dimensions || item.material_code
+    const prevGauge = prevItem ? prevItem.dimensions || prevItem.material_code : ''
+
+    const isDifferentFamily =
+      prevItem &&
+      prevItem.family_code &&
+      item.family_code &&
+      prevItem.family_code !== item.family_code
+    const isOutOfSequence = Boolean(prevItem && isDifferentFamily)
+
+    const cycleSapMin = item.productivity_rate_th
+      ? Math.round(60 / (item.productivity_rate_th / 10))
+      : 42
+    const cycleProgrammedMin =
+      item.production_hours && item.planned_quantity_tons
+        ? Math.round((item.production_hours * 60) / (item.planned_quantity_tons / 10 || 1))
+        : cycleSapMin
+
+    const cycleDeviationPct =
+      cycleSapMin > 0 ? Math.round(((cycleProgrammedMin - cycleSapMin) / cycleSapMin) * 100) : 0
+
+    const dailyDemand = backlogTons > 0 ? backlogTons / 10 : 8.5
+    const projectedStock = currentStockTons + (item.planned_quantity_tons || 0)
+    const stockCoverageDays = dailyDemand > 0 ? Math.round(projectedStock / dailyDemand) : 15
+    const maxCoverageDays = 30
+    const isCoverageOverLimit = stockCoverageDays > maxCoverageDays
+
+    const hasDeviation = isOutOfSequence || Math.abs(cycleDeviationPct) > 15 || isCoverageOverLimit
+
+    const hypotheses: string[] = []
+    const impacts: string[] = []
+
+    if (isOutOfSequence) {
+      hypotheses.push('Atendimento prioritário a pedido comercial com prazo exíguo.')
+      hypotheses.push('Aproveitamento de lote de matéria-prima remanescente.')
+      impacts.push('Aumento estimado de 25 a 40 minutos no tempo de setup/troca de rolos.')
+      impacts.push('Necessidade de inspeção dimensional adicional pelo inspetor de qualidade.')
+    }
+
+    if (Math.abs(cycleDeviationPct) > 15) {
+      hypotheses.push(
+        `Cadência programada difere em ${cycleDeviationPct}% do tempo médio de ciclo da Ficha Mestre / SAP.`,
+      )
+      impacts.push('Risco de oscilação na taxa de ocupação nominal e no custo padrão.')
+    }
+
+    if (isCoverageOverLimit) {
+      hypotheses.push(
+        `Volume planejado eleva a cobertura para ${stockCoverageDays} dias (acima do limite de ${maxCoverageDays} dias).`,
+      )
+      impacts.push('Aumento do capital de giro empatado em estoque de produtos acabados.')
+    }
+
+    if (hypotheses.length === 0) {
+      hypotheses.push('Programação em conformidade com as regras operacionais da linha.')
+    }
+    if (impacts.length === 0) {
+      impacts.push('Impacto dentro dos limites normais de operação.')
+    }
+
+    return {
+      hasDeviation,
+      deviationType: !hasDeviation
+        ? 'NONE'
+        : isOutOfSequence
+          ? 'GAUGE_SEQUENCE'
+          : Math.abs(cycleDeviationPct) > 15
+            ? 'CYCLE_TIME'
+            : 'STOCK_OVERCOVERAGE',
+      expectedRuleDescription: isOutOfSequence
+        ? `Sequência ideal de bitolas para a linha ${lineCode}: manter a mesma família tecnológica ou seguir curva ascendente/descendente contínua.`
+        : 'Operação alinhada aos parâmetros nominais da Ficha Mestre.',
+      proposedProgramDescription: `Item ${item.material_code} (${item.planned_quantity_tons} t) posicionado na sequência #${item.sequence_order}.`,
+      deviationDetails: hasDeviation
+        ? `Desvio detectado: ${isOutOfSequence ? 'Quebra de sequência ideal entre ' + (prevGauge || 'item anterior') + ' e ' + itemGauge + '.' : ''} ${isCoverageOverLimit ? 'Cobertura projetada (' + stockCoverageDays + ' dias) excede o teto.' : ''}`
+        : 'Sem desvios relevantes.',
+      currentGauge: itemGauge,
+      idealPreviousGauge: prevGauge || undefined,
+      idealNextGauge: undefined,
+      cycleTimeSapMin: cycleSapMin,
+      cycleTimeProgrammedMin: cycleProgrammedMin,
+      cycleTimeDeviationPct: cycleDeviationPct,
+      stockCoverageProjectedDays: stockCoverageDays,
+      stockCoverageMaxDays: maxCoverageDays,
+      hypotheses,
+      impacts,
+      aiRecommendation: hasDeviation
+        ? 'Recomenda-se reagrupamento por família tecnológica ou submissão formal de justificativa para análise e deliberação do Supervisor PCP.'
+        : 'Item em conformidade com o sequenciamento padrão.',
+      requiresSupervisorApproval: hasDeviation,
     }
   },
 }

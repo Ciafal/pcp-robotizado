@@ -143,7 +143,12 @@ export interface WeeklyScheduleItem {
   cycle_time_deviation_pct?: number
   deviation_analysis?: GaugeSequenceDeviationAnalysis
   exception_justification?: ExceptionJustificationData
-  exception_approval_status?: 'NONE' | 'PENDING_SUPERVISOR' | 'APPROVED' | 'REJECTED' | 'RETURNED_FOR_ADJUSTMENT'
+  exception_approval_status?:
+    | 'NONE'
+    | 'PENDING_SUPERVISOR'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'RETURNED_FOR_ADJUSTMENT'
   // Status Aguardando Observações
   awaiting_observations?: {
     is_awaiting: boolean

@@ -31,7 +31,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         nominal_productivity: 12.0,
         planned_productivity: 12.0,
         expected_efficiency_pct: 90,
-        source_mode: 'DIRECT_INPUT',
+        source_mode: 'MANUAL',
         active: true,
         created: '',
         updated: '',
@@ -46,7 +46,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         nominal_productivity: 15.0,
         planned_productivity: 15.0,
         expected_efficiency_pct: 90,
-        source_mode: 'DIRECT_INPUT',
+        source_mode: 'MANUAL',
         active: true,
         created: '',
         updated: '',
@@ -77,7 +77,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         id: 's1',
         line_id: 'l1',
         setup_code: 'SET-01',
-        source_mode: 'DIRECT_INPUT',
+        source_mode: 'MANUAL',
         setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'TQ-50x50x2.0',
         to_product_code: 'TR-100x50x3.0',
@@ -88,7 +88,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         updated: '',
       },
     ],
-    processConstraints: [],
+    constraints: [],
     shifts: [
       {
         id: 'sh1',
@@ -122,16 +122,15 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         line_id: 'l1',
         product_code: 'BLOQ-999',
         product_description: 'Produto Bloqueado Teste',
-        block_type: 'TOTAL_BLOCK',
-        source_mode: 'DIRECT_INPUT',
+        block_type: 'TOTAL',
+        source_mode: 'MANUAL',
         block_reason: 'Rolo de conformação em manutenção corretiva.',
         active: true,
         created: '',
         updated: '',
       },
     ],
-    responsibleUser: null,
-  }
+  } as unknown as LineOverviewData
 
   // TESTE 01: Turno sem duplicidade
   it('TESTE 01: Formata turno como "T1 · Turma C" sem duplicar turma e preserva configuração da linha', () => {

@@ -103,6 +103,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     }))
   }
 
+  // Garante sincronia estrutural para QA versão 0.0.62
   // Agrupa itens por Dia da Semana
   const itemsByDay = useMemo(() => {
     const map: Record<string, { item: WeeklyScheduleItem; originalIndex: number }[]> = {

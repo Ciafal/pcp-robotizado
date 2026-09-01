@@ -2075,7 +2075,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       <AddProductModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddProductDirect}
+        onAdd={handleAddProduct}
         lineCode={selectedLineCode}
         officialMaterials={officialMaterials}
         lineOverview={currentLineOverview}
