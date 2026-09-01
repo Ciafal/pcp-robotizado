@@ -219,6 +219,28 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                 <span className="font-mono font-bold text-amber-800">10 min</span>
               </div>
 
+              {/* SEQUÊNCIA IDEAL DE BITOLAS (Requisito 8) */}
+              <div className="mt-1 pt-1 border-t border-slate-200 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-slate-500">Sequência Ideal:</span>
+                  <span className="text-blue-700 font-bold">
+                    {item.deviation_analysis?.idealPreviousGauge
+                      ? `${item.deviation_analysis.idealPreviousGauge} ↓ `
+                      : ''}
+                    <strong>{item.dimensions || item.material_code}</strong>
+                    {item.deviation_analysis?.idealNextGauge
+                      ? ` ↓ ${item.deviation_analysis.idealNextGauge}`
+                      : ''}
+                  </span>
+                </div>
+                {item.deviation_analysis?.hasDeviation && (
+                  <div className="p-1.5 bg-rose-50 border border-rose-200 rounded text-[9px] text-rose-900 leading-tight">
+                    <span className="font-bold block">Desvio Operacional Detectado:</span>
+                    {item.deviation_analysis.deviationDetails}
+                  </div>
+                )}
+              </div>
+
               <Button
                 size="sm"
                 variant="outline"
@@ -226,7 +248,7 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                 className="w-full mt-1.5 h-6 text-[10px] font-bold text-indigo-700 bg-indigo-50/70 border-indigo-200 hover:bg-indigo-100 flex items-center justify-center gap-1"
               >
                 <Sparkles className="w-3 h-3 text-indigo-600" />
-                Ver análise da IA
+                Ver Análise IA & Governança PCP
               </Button>
             </div>
           </div>

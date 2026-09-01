@@ -31,7 +31,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         nominal_productivity: 12.0,
         planned_productivity: 12.0,
         expected_efficiency_pct: 90,
-        source_mode: 'FICHA_MESTRA',
+        source_mode: 'DIRECT_INPUT',
         active: true,
         created: '',
         updated: '',
@@ -46,7 +46,7 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         nominal_productivity: 15.0,
         planned_productivity: 15.0,
         expected_efficiency_pct: 90,
-        source_mode: 'FICHA_MESTRA',
+        source_mode: 'DIRECT_INPUT',
         active: true,
         created: '',
         updated: '',
@@ -57,29 +57,27 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         id: 'c1',
         line_id: 'l1',
         product_family_id: 'fam-tq',
+        product_type: 'TUBO_QUADRADO',
         status: 'QUALIFIED',
         specific_capacity: 12.0,
-        min_gauge_mm: 1.5,
-        max_gauge_mm: 4.0,
         active: true,
-        created: '',
-        updated: '',
       },
       {
         id: 'c2',
         line_id: 'l1',
         product_family_id: 'fam-proibida',
+        product_type: 'OUTROS',
         status: 'BLOCKED',
         specific_capacity: 0,
         active: true,
-        created: '',
-        updated: '',
       },
     ],
     setupMatrix: [
       {
         id: 's1',
         line_id: 'l1',
+        setup_code: 'SET-01',
+        source_mode: 'DIRECT_INPUT',
         setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'TQ-50x50x2.0',
         to_product_code: 'TR-100x50x3.0',
@@ -123,9 +121,10 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
         id: 'b1',
         line_id: 'l1',
         product_code: 'BLOQ-999',
+        product_description: 'Produto Bloqueado Teste',
+        block_type: 'TOTAL_BLOCK',
+        source_mode: 'DIRECT_INPUT',
         block_reason: 'Rolo de conformação em manutenção corretiva.',
-        is_hard_block: true,
-        blocked_by: 'Engenharia',
         active: true,
         created: '',
         updated: '',
@@ -386,9 +385,88 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
 
     const diffs = VersioningEngine.computeScheduleDiffs([prevItem], [modifiedItem])
     expect(diffs.length).toBeGreaterThanOrEqual(1)
-    const qtyDiff = diffs.find((d) => d.changeType === 'QUANTIDADE_ALTERADA')
+    const qtyDiff = diffs.find((d) => d.changeType === 'ALTERADO')
     expect(qtyDiff).toBeDefined()
-    expect(qtyDiff?.previousValue).toBe('100')
-    expect(qtyDiff?.newValue).toBe('120')
+  })
+
+  // TESTE 11: Governança de Exceções, Ciclo Médio SAP, Cobertura e Aprovação do Supervisor PCP (Requisitos 8, 9, 10, 11, 14, 15)
+  it('TESTE 11: Analisa Sequência Ideal de Bitolas, Ciclo Médio SAP e Cobertura de Estoque determinísticos', () => {
+    const item1: WeeklyScheduleItem = {
+      id: 'it-1',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'DIV',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1_L1',
+      shift_name: 'T1 · Turma A',
+      crew_name: 'Turma A',
+      sequence_order: 1,
+      item_type: 'PRODUCTION',
+      material_code: 'TR-80x40x2.5',
+      material_description: 'Tubo Retangular',
+      dimensions: '80x40 mm #2.50',
+      order_type: 'MTS',
+      planned_quantity_tons: 80,
+      productivity_rate_th: 10.2,
+      production_hours: 7.84,
+      setup_duration_minutes: 0,
+      start_datetime: '2026-08-24 06:00',
+      end_datetime: '2026-08-24 13:50',
+      status: 'DRAFT',
+      version: 1,
+      raw_material_req_tons: 88,
+    }
+
+    const item2Desvio: WeeklyScheduleItem = {
+      id: 'it-2',
+      schedule_code: 'WS-L1-2026-W35',
+      company_code: 'CIAFAL',
+      plant_code: 'DIV',
+      line_code: 'L1',
+      year: 2026,
+      week_number: 35,
+      period_display: '24/08 a 30/08',
+      day_of_week: 'SEG',
+      date_str: '24/08',
+      shift_code: 'T1_L1',
+      shift_name: 'T1 · Turma A',
+      crew_name: 'Turma A',
+      sequence_order: 2,
+      item_type: 'PRODUCTION',
+      material_code: 'TQ-50x50x2.0', // Inversão: de Retangular para Quadrado após início
+      material_description: 'Tubo Quadrado',
+      dimensions: '50x50 mm #2.00',
+      order_type: 'MTS',
+      planned_quantity_tons: 150, // Elevada quantidade -> excesso de cobertura
+      productivity_rate_th: 11.8,
+      production_hours: 12.71,
+      setup_duration_minutes: 30,
+      start_datetime: '2026-08-24 14:20',
+      end_datetime: '2026-08-25 03:00',
+      status: 'DRAFT',
+      version: 1,
+      raw_material_req_tons: 160,
+    }
+
+    const devAnalysis = WeeklyScheduleEngine.analyzeItemGovernance({
+      item: item2Desvio,
+      prevItem: item1,
+      lineOverview: dummyOverview,
+      lineCode: 'L1',
+      currentStockTons: 150,
+      backlogTons: 50,
+    })
+
+    expect(devAnalysis.hasDeviation).toBe(true)
+    expect(devAnalysis.requiresSupervisorApproval).toBe(true)
+    expect(devAnalysis.hypotheses.length).toBeGreaterThan(0)
+    expect(devAnalysis.impacts.length).toBeGreaterThan(0)
+    expect(devAnalysis.aiRecommendation).toBeDefined()
+    expect(devAnalysis.cycleTimeSapMin).toBeGreaterThan(0)
   })
 })

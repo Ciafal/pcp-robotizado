@@ -364,7 +364,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       <td className="py-2 px-2 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
                         <div className="flex items-center justify-center gap-0.5">
                           <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
-                          <span>{originalIndex + 1}</span>
+                          <span>{item.sequence_order || originalIndex + 1}</span>
                         </div>
                       </td>
 
@@ -423,6 +423,31 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                             <span className="font-mono font-bold text-slate-900 text-xs">
                               {item.material_code}
                             </span>
+                            {item.deviation_analysis?.hasDeviation && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                                    DESVIO REGRA
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
+                                >
+                                  <p className="font-bold text-rose-300">Desvio Detectado:</p>
+                                  <p className="text-[11px] text-slate-200 mt-0.5">
+                                    {item.deviation_analysis.deviationDetails}
+                                  </p>
+                                  <p className="text-[10px] text-amber-300 mt-1 font-mono">
+                                    Status:{' '}
+                                    {item.exception_approval_status === 'APPROVED'
+                                      ? 'Aprovado pelo Supervisor'
+                                      : 'Pendente de Aprovação PCP'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             {isAwaiting && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -699,6 +724,14 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         {isAwaiting ? (
                           <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black">
                             Aguard. Obs.
+                          </Badge>
+                        ) : item.exception_approval_status === 'PENDING_SUPERVISOR' ? (
+                          <Badge className="bg-amber-100 text-amber-900 border-amber-400 text-[9px] font-bold">
+                            Pend. PCP
+                          </Badge>
+                        ) : item.exception_approval_status === 'APPROVED' ? (
+                          <Badge className="bg-emerald-100 text-emerald-900 border-emerald-400 text-[9px] font-bold">
+                            Aprovado PCP
                           </Badge>
                         ) : (
                           <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">

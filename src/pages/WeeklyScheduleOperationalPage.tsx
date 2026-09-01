@@ -112,6 +112,8 @@ import { SetupCapacityDrilldownModal } from '@/components/weekly-schedule/SetupC
 import { RollShopDemandsView } from '@/components/weekly-schedule/RollShopDemandsView'
 import { rollShopSetupService } from '@/services/roll-shop-service'
 import { AISetupRecommendation, RollShopDemand } from '@/types/roll-shop'
+import { PCPExceptionGovernanceModal } from '@/components/weekly-schedule/PCPExceptionGovernanceModal'
+import { ExceptionJustificationData } from '@/types/weekly-schedule'
 import {
   ChevronLeft,
   ChevronRight,
@@ -196,6 +198,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [targetShiftCode, setTargetShiftCode] = useState('T1_L1')
   const [targetShiftName, setTargetShiftName] = useState('1º Turno Matutino')
   const [targetCrewName, setTargetCrewName] = useState('Turma A')
+
+  // Modal de Governança de Exceções PCP (Requisitos 8, 9, 10, 11, 12, 13, 14, 15)
+  const [isPcpExceptionModalOpen, setIsPcpExceptionModalOpen] = useState(false)
+  const [selectedExceptionItem, setSelectedExceptionItem] = useState<WeeklyScheduleItem | null>(
+    null,
+  )
 
   // Modal de Simulação Abrangente
   const [isSimulationModalOpen, setIsSimulationModalOpen] = useState(false)
@@ -606,6 +614,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     // Sincronização automática em ciclo fechado com a Oficina de Cilindros (Requisitos 13, 14, 19, 21)
     rollShopSetupService.syncScheduleWithRollShop(result.items, headerFilter, currentLineOverview)
 
+    // Auto-persistência da sequência transacional no backend de rascunho
+    if (items.length > 0) {
+      weeklyScheduleService.saveWeeklyScheduleDraft(result.items, headerFilter).catch(() => {})
+    }
+
     return result
   }, [items, currentLineOverview, headerFilter, rawMaterialContext])
 
@@ -1003,14 +1016,77 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
-  // Análise com IA CIAFAL e Agente de IA de Setup (Requisitos 23, 24, 25, 30)
+  // Análise com IA CIAFAL e Governança de Exceções PCP (Requisitos 8, 9, 10, 11, 12, 13, 14, 15)
   const handleAiAnalysis = async () => {
+    if (selectedScheduleItem) {
+      setSelectedExceptionItem(selectedScheduleItem)
+      setIsPcpExceptionModalOpen(true)
+      return
+    }
+
     const recs = rollShopSetupService.generateAISetupRecommendations(
       calculatedItems,
       selectedLineCode,
     )
     setAiSetupRecommendations(recs)
     setIsAiSetupModalOpen(true)
+  }
+
+  // Submissão de Justificativa de Exceção pelo Programador (Requisito 12)
+  const handleSubmitExceptionJustification = (
+    itemId: string,
+    justification: ExceptionJustificationData,
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === itemId) {
+          return {
+            ...it,
+            exception_justification: justification,
+            exception_approval_status: 'PENDING_SUPERVISOR',
+          }
+        }
+        return it
+      }),
+    )
+
+    toast({
+      title: 'Justificativa Submetida com Sucesso',
+      description: 'Programação mantida como exceção e encaminhada à fila do Supervisor PCP.',
+    })
+  }
+
+  // Decisão do Supervisor PCP (Aprovar / Rejeitar / Devolver) (Requisito 14)
+  const handleSupervisorExceptionAction = (
+    itemId: string,
+    action: 'APPROVED' | 'REJECTED' | 'RETURNED_FOR_ADJUSTMENT',
+    notes: string,
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id === itemId) {
+          return {
+            ...it,
+            exception_approval_status: action,
+            pcp_notes: notes ? `[SUPERVISOR PCP ${action}]: ${notes}` : it.pcp_notes,
+          }
+        }
+        return it
+      }),
+    )
+
+    toast({
+      title:
+        action === 'APPROVED'
+          ? 'Exceção Aprovada pelo Supervisor'
+          : action === 'REJECTED'
+            ? 'Exceção Rejeitada'
+            : 'Devolvido para Ajuste',
+      description:
+        action === 'APPROVED'
+          ? 'Item liberado para geração de OP e MES após publicação.'
+          : 'Item retido no planejamento para correções.',
+    })
   }
 
   const handleApplyAiRecommendation = (rec: AISetupRecommendation) => {
@@ -1999,7 +2075,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       <AddProductModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddProduct}
+        onAdd={handleAddProductDirect}
+        lineCode={selectedLineCode}
         officialMaterials={officialMaterials}
         lineOverview={currentLineOverview}
         targetDay={targetDay}
@@ -2007,7 +2084,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         targetShiftName={targetShiftName}
         targetCrewName={targetCrewName}
       />
-
       {/* 7. MODAL VERMELHO DE HARD BLOCK (MATERIAL BLOQUEADO) */}
       <BlockedProductModal
         data={hardBlockData}
@@ -2134,6 +2210,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         onClose={() => setIsAiSetupModalOpen(false)}
         recommendations={aiSetupRecommendations}
         onApplyRecommendation={handleApplyAiRecommendation}
+      />
+
+      {/* 16. MODAL DE GOVERNANÇA DE EXCEÇÕES PCP E ANÁLISE IA (Requisitos 8, 9, 10, 11, 12, 13, 14, 15) */}
+      <PCPExceptionGovernanceModal
+        isOpen={isPcpExceptionModalOpen}
+        onClose={() => setIsPcpExceptionModalOpen(false)}
+        item={selectedExceptionItem}
+        userRole={auth?.user?.role || 'SUPERVISOR_PCP'}
+        userName={auth?.user?.name || 'Supervisor PCP'}
+        onSubmitJustification={handleSubmitExceptionJustification}
+        onSupervisorAction={handleSupervisorExceptionAction}
       />
     </div>
   )

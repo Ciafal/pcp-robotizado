@@ -215,6 +215,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       pcp_notes: pcpNotes.trim() || undefined,
       item_type: 'PRODUCTION',
       status: 'DRAFT',
+      sap_cycle_time_avg_min: selectedMaterial.sap_cycle_time_avg_min ?? null,
+      exception_approval_status: 'NONE',
     })
 
     // Reset de estado
@@ -368,6 +370,27 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                               </>
                             )}
                           </div>
+
+                          {/* DADOS AUTOMÁTICOS SAP/MRP */}
+                          <div className="mt-1.5 pt-1 border-t border-dashed border-slate-200 text-[9px] text-slate-500 flex items-center justify-between">
+                            {mat.sap_material_code ? (
+                              <span>
+                                Família:{' '}
+                                <strong className="text-slate-700">
+                                  {mat.sap_family_code || mat.family_code}
+                                </strong>{' '}
+                                | Ciclo:{' '}
+                                <strong className="text-slate-700">
+                                  {mat.sap_cycle_time_avg_min ?? '--'} min
+                                </strong>{' '}
+                                | <span className="text-blue-700 font-medium">SAP/MRP</span>
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 italic">
+                                Dado SAP/MRP não disponível
+                              </span>
+                            )}
+                          </div>
                         </button>
                       )
                     })}
@@ -376,6 +399,62 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* DETALHE DOS DADOS AUTOMÁTICOS SAP/MRP QUANDO SELECIONADO (REQUISITO 3) */}
+          {selectedMaterial && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5 text-[#004C97]" />
+                  Parâmetros de Integração SAP/MRP
+                </span>
+                <Badge
+                  className={
+                    selectedMaterial.is_sap_integrated
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]'
+                      : 'bg-amber-100 text-amber-800 border-amber-300 text-[10px]'
+                  }
+                >
+                  {selectedMaterial.is_sap_integrated
+                    ? 'Sincronizado SAP PP-PI'
+                    : 'Dado SAP/MRP não disponível'}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px] text-slate-700">
+                <div>
+                  <span className="text-slate-400 block text-[9px] font-sans">Código SAP:</span>
+                  <strong>
+                    {selectedMaterial.sap_material_code || 'Dado SAP/MRP não disponível'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[9px] font-sans">Família SAP:</span>
+                  <strong>
+                    {selectedMaterial.sap_family_code || selectedMaterial.family_code}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[9px] font-sans">
+                    Tempo Médio Ciclo:
+                  </span>
+                  <strong>
+                    {selectedMaterial.sap_cycle_time_avg_min
+                      ? `${selectedMaterial.sap_cycle_time_avg_min} min`
+                      : 'Dado SAP/MRP não disponível'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[9px] font-sans">Origem:</span>
+                  <span className="text-[#004C97] font-semibold">
+                    {selectedMaterial.sap_origin ||
+                      (selectedMaterial.is_sap_integrated
+                        ? 'SAP/MRP'
+                        : 'Dado SAP/MRP não disponível')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ALERTA DE CADÊNCIA AUSENTE (REQUISITO 29) */}
           {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (

@@ -119,6 +119,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'RAW_MATERIALS'
     | 'BLOCKED'
     | 'SETUP_MATRIX'
+    | 'IDEAL_GAUGE_SEQUENCE'
     | 'CAPABILITIES'
     | 'SHIFTS'
     | 'CONSTRAINTS'
@@ -1027,6 +1028,19 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             >
               <Wrench className="w-3.5 h-3.5" /> Matriz de Setup De&rarr;Para ({setupMatrix.length})
             </Button>
+
+            <Button
+              size="sm"
+              variant={masterSubTab === 'IDEAL_GAUGE_SEQUENCE' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('IDEAL_GAUGE_SEQUENCE')}
+              className={`text-xs h-7 gap-1 font-bold ${
+                masterSubTab === 'IDEAL_GAUGE_SEQUENCE'
+                  ? 'bg-amber-600 text-white'
+                  : 'text-amber-400'
+              }`}
+            >
+              <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal de Bitolas & Tolerâncias
+            </Button>
           </div>
 
           {/* SUB-ABA MATRIZ DE GARGALOS */}
@@ -1301,6 +1315,145 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                           <td className="p-2.5">
                             <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">
                               Ativo
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* SUB-ABA 5: SEQUÊNCIA IDEAL DE BITOLAS & TOLERÂNCIAS (Requisitos 8, 9, 11) */}
+          {masterSubTab === 'IDEAL_GAUGE_SEQUENCE' && (
+            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                    <ArrowDownUp className="w-4 h-4 text-amber-400" />
+                    Sequência Ideal de Bitolas, Tempo de Ciclo SAP & Cobertura Máxima (Requisito 8 e
+                    9)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-400">
+                    Encadeamento metalúrgico ótimo por família/subsequência, ciclo de máquina
+                    oficial SAP/MRP e tolerância parametrizada.
+                  </CardDescription>
+                </div>
+                <Badge className="bg-amber-950 text-amber-300 border-amber-600 text-xs font-mono">
+                  Matriz Metalúrgica CIAFAL
+                </Badge>
+              </CardHeader>
+
+              <CardContent className="p-4 pt-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th className="p-2.5">Ordem Família</th>
+                        <th className="p-2.5">Família</th>
+                        <th className="p-2.5">Subsequência</th>
+                        <th className="p-2.5">Bitola / Dimensão</th>
+                        <th className="p-2.5">Material SAP</th>
+                        <th className="p-2.5">Ciclo Médio SAP</th>
+                        <th className="p-2.5">Tolerância Ciclo</th>
+                        <th className="p-2.5">Cobertura Máx.</th>
+                        <th className="p-2.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {[
+                        {
+                          famOrder: 1,
+                          famName: 'Tubo Quadrado',
+                          subSeq: 1,
+                          gauge: '40x40 mm #1.50',
+                          matCode: 'TQ-GALV-40x40',
+                          matDesc: 'TUBO PRE-GALV Z275 40X40X1,50MM',
+                          cycleMin: 36,
+                          tolPct: 10,
+                          maxCovDays: 30,
+                        },
+                        {
+                          famOrder: 1,
+                          famName: 'Tubo Quadrado',
+                          subSeq: 2,
+                          gauge: '50x50 mm #2.00',
+                          matCode: 'TQ-50x50x2.0',
+                          matDesc: 'TUBO QUADRADO ASTM A500 50X50X2,00MM',
+                          cycleMin: 42,
+                          tolPct: 10,
+                          maxCovDays: 30,
+                        },
+                        {
+                          famOrder: 1,
+                          famName: 'Tubo Quadrado',
+                          subSeq: 3,
+                          gauge: '100x100 mm #8.00',
+                          matCode: 'TQ-100x100x8.0',
+                          matDesc: 'TUBO QUADRADO ASTM A36 100X100X8,00MM',
+                          cycleMin: 68,
+                          tolPct: 12,
+                          maxCovDays: 20,
+                        },
+                        {
+                          famOrder: 2,
+                          famName: 'Tubo Retangular',
+                          subSeq: 1,
+                          gauge: '80x40 mm #2.50',
+                          matCode: 'TR-80x40x2.5',
+                          matDesc: 'TUBO RETANGULAR ASTM A500 80X40X2,50MM',
+                          cycleMin: 55,
+                          tolPct: 10,
+                          maxCovDays: 30,
+                        },
+                        {
+                          famOrder: 3,
+                          famName: 'Perfil U',
+                          subSeq: 1,
+                          gauge: '100x40 mm #1.20',
+                          matCode: 'PU-FINO-1.20',
+                          matDesc: 'PERFIL U SIMPLES NBR 6355 100X40X1,20MM',
+                          cycleMin: 50,
+                          tolPct: 10,
+                          maxCovDays: 25,
+                        },
+                        {
+                          famOrder: 3,
+                          famName: 'Perfil U',
+                          subSeq: 2,
+                          gauge: '150x50 mm #4.75',
+                          matCode: 'PU-150x50x4.75',
+                          matDesc: 'PERFIL U ENRIJECIDO NBR 6355 150X50X4,75MM',
+                          cycleMin: 48,
+                          tolPct: 10,
+                          maxCovDays: 35,
+                        },
+                      ].map((seq, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/60">
+                          <td className="p-2.5 font-mono font-bold text-amber-300">
+                            #{seq.famOrder}
+                          </td>
+                          <td className="p-2.5 font-bold text-white">{seq.famName}</td>
+                          <td className="p-2.5 font-mono text-cyan-300">Sub. {seq.subSeq}</td>
+                          <td className="p-2.5 font-mono text-slate-200">{seq.gauge}</td>
+                          <td className="p-2.5 font-mono text-white">
+                            <span className="block font-bold">{seq.matCode}</span>
+                            <span className="text-[10px] text-slate-400 font-sans">
+                              {seq.matDesc}
+                            </span>
+                          </td>
+                          <td className="p-2.5 font-mono font-bold text-emerald-400">
+                            {seq.cycleMin} min
+                          </td>
+                          <td className="p-2.5 font-mono text-slate-300">±{seq.tolPct}%</td>
+                          <td className="p-2.5 font-mono font-bold text-blue-300">
+                            {seq.maxCovDays} dias
+                          </td>
+                          <td className="p-2.5">
+                            <Badge className="bg-emerald-950 text-emerald-300 border-emerald-600 text-[10px]">
+                              HOMOLOGADA
                             </Badge>
                           </td>
                         </tr>

@@ -371,8 +371,21 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                               <div className="flex items-center gap-0.5">
                                 <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 cursor-grab shrink-0" />
                                 <span className="font-bold text-slate-800">
-                                  {originalIndex + 1}
+                                  {item.sequence_order || originalIndex + 1}
                                 </span>
+                                {item.exception_approval_status === 'PENDING_SUPERVISOR' && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="text-xs bg-slate-900 text-amber-200"
+                                    >
+                                      Exceção pendente de aprovação do Supervisor PCP
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
                             </div>
 
@@ -543,9 +556,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       <span className="text-[10px] uppercase font-bold">
                                         {isAwaiting
                                           ? 'AGUARDANDO OBSERVAÇÕES'
-                                          : item.order_type === 'MTO'
-                                            ? `MTO · ${item.sales_order_mto || 'Ped.'}`
-                                            : 'MTS'}
+                                          : item.exception_approval_status === 'PENDING_SUPERVISOR'
+                                            ? 'PENDENTE APROVAÇÃO PCP'
+                                            : item.order_type === 'MTO'
+                                              ? `MTO · ${item.sales_order_mto || 'Ped.'}`
+                                              : 'MTS'}
                                       </span>
                                     </>
                                   )}

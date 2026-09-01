@@ -138,6 +138,12 @@ export interface WeeklyScheduleItem {
   raw_material_req_tons: number
   raw_material_type?: string
   raw_material_calc?: RawMaterialItemCalculation
+  // Dados de Ciclo Médio SAP, Sequência Ideal e Governança de Exceções PCP
+  sap_cycle_time_avg_min?: number | null
+  cycle_time_deviation_pct?: number
+  deviation_analysis?: GaugeSequenceDeviationAnalysis
+  exception_justification?: ExceptionJustificationData
+  exception_approval_status?: 'NONE' | 'PENDING_SUPERVISOR' | 'APPROVED' | 'REJECTED' | 'RETURNED_FOR_ADJUSTMENT'
   // Status Aguardando Observações
   awaiting_observations?: {
     is_awaiting: boolean
@@ -449,6 +455,89 @@ export interface HardBlockModalData {
   responsibleName?: string
 }
 
+export interface IdealGaugeSequenceItem {
+  id: string
+  line_code: string
+  family_order: number
+  family_code: string
+  family_name: string
+  subsequence_order: number
+  gauge_dimension: string
+  material_code: string
+  material_description: string
+  cycle_time_avg_min: number // Tempo médio de ciclo SAP/MRP (minutos)
+  cycle_time_tolerance_pct: number // Tolerância configurável (%) ex: 10%
+  stock_coverage_max_days: number // Cobertura máxima parametrizada em dias (ex: 30 dias)
+  is_active: boolean
+}
+
+export interface GaugeSequenceDeviationAnalysis {
+  hasDeviation: boolean
+  deviationType?: 'GAUGE_SEQUENCE' | 'CYCLE_TIME' | 'STOCK_OVERCOVERAGE' | 'NONE'
+  expectedRuleDescription: string
+  proposedProgramDescription: string
+  deviationDetails: string
+  idealPreviousGauge?: string
+  currentGauge: string
+  idealNextGauge?: string
+  cycleTimeSapMin?: number
+  cycleTimeProgrammedMin?: number
+  cycleTimeDeviationPct?: number
+  stockCoverageCurrentDays?: number
+  stockCoverageProjectedDays?: number
+  stockCoverageMaxDays?: number
+  stockExcessTons?: number
+  currentStockTons?: number
+  backlogTons?: number
+  proposedProductionTons?: number
+  hypotheses: string[]
+  impacts: string[]
+  aiRecommendation: string
+  requiresSupervisorApproval: boolean
+}
+
+export interface ExceptionJustificationData {
+  reason: string
+  detailedJustification: string
+  whyBypassRule: string
+  needServed: string
+  consequenceIfNotDone: string
+  expectedImpact: string
+  submittedBy: string
+  submittedAt: string
+  aiEvaluation?: {
+    coherence: 'ALTA' | 'MEDIA' | 'BAIXA'
+    evidenceAssessment: string
+    risks: string[]
+    benefits: string[]
+    alternatives: string[]
+    recommendation: string
+  }
+}
+
+export interface PCPExceptionApprovalItem {
+  id: string
+  schedule_code: string
+  line_code: string
+  year: number
+  week_number: number
+  item_id: string
+  material_code: string
+  material_description: string
+  sequence_order: number
+  deviation_type: 'GAUGE_SEQUENCE' | 'CYCLE_TIME' | 'STOCK_OVERCOVERAGE'
+  deviation_summary: string
+  justification_data: ExceptionJustificationData
+  status: 'PENDING_SUPERVISOR' | 'APPROVED' | 'REJECTED' | 'RETURNED_FOR_ADJUSTMENT'
+  supervisor_decision?: {
+    decidedBy: string
+    decidedAt: string
+    decisionNotes?: string
+    status: 'APPROVED' | 'REJECTED' | 'RETURNED_FOR_ADJUSTMENT'
+  }
+  created: string
+}
+
 export interface OfficialMaterialOption {
   material_code: string
   material_name: string
@@ -459,6 +548,16 @@ export interface OfficialMaterialOption {
   productivity_th: number
   default_yield_pct?: number
   default_order_type?: 'MTS' | 'MTO' | 'INDUSTRIALIZACAO'
+  // Dados de Integração SAP/MRP
+  sap_material_code?: string
+  sap_material_description?: string
+  sap_family_code?: string
+  sap_unit?: string
+  sap_cycle_time_avg_min?: number | null // Tempo Médio de Ciclo Oficial SAP/MRP
+  sap_origin?: string
+  sap_stock_coverage_max_days?: number
+  sap_cycle_time_tolerance_pct?: number
+  is_sap_integrated?: boolean
 }
 
 export const DAYS_OF_WEEK: {
