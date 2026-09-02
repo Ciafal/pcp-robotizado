@@ -60,6 +60,8 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   const [name, setName] = useState<string>('')
   const [description, setDescription] = useState<string>('')
   const [resourceType, setResourceType] = useState<string>('LINE')
+  const [programmingType, setProgrammingType] = useState<string>('Laminação')
+  const [programmingStages, setProgrammingStages] = useState<string[]>([])
   const [plant, setPlant] = useState<string>('Planta Principal - CIAFAL 01')
   const [sapPlantCode, setSapPlantCode] = useState<string>('1000')
   const [sector, setSector] = useState<string>('Laminação & Conformação Estrutural')
@@ -158,6 +160,8 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         process: processStep || 'Conformação',
         status: (status as any) || 'ACTIVE',
         is_active: true,
+        programming_type: programmingType || 'Laminação',
+        programming_stages: programmingType === 'Múltiplo' ? programmingStages : [],
         current_rate: Number(nominalHourlyCapacity) || 12,
         target_rate: Number(nominalHourlyCapacity) || 12,
         efficiency: Number(plannedEfficiencyPct) || 90,
@@ -201,6 +205,8 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         sap_plant_code: sapPlantCode || '1000',
         sector: sector || 'Laminação',
         process_step: processStep || 'Conformação',
+        programming_type: programmingType || 'Laminação',
+        programming_stages: programmingType === 'Múltiplo' ? programmingStages : [],
         nominal_hourly_capacity: Number(nominalHourlyCapacity) || 12,
         nominal_shift_capacity: (Number(nominalHourlyCapacity) || 12) * (Number(shiftHours) || 8),
         nominal_daily_capacity:
@@ -594,6 +600,34 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
+                    Tipo de Programação <span className="text-rose-400">*</span>
+                  </Label>
+                  <select
+                    value={programmingType}
+                    onChange={(e) => {
+                      setProgrammingType(e.target.value)
+                      if (e.target.value !== 'Múltiplo') {
+                        setProgrammingStages([])
+                      }
+                    }}
+                    className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-cyan-300 font-bold p-2"
+                  >
+                    <option value="Enfornamento">Enfornamento</option>
+                    <option value="Laminação">Laminação</option>
+                    <option value="Envio">Envio</option>
+                    <option value="Preparação">Preparação</option>
+                    <option value="Acabamento">Acabamento</option>
+                    <option value="Endireitadeira">Endireitadeira</option>
+                    <option value="Inspeção">Inspeção</option>
+                    <option value="Múltiplo">Múltiplo</option>
+                    <option value="Argola">Argola</option>
+                    <option value="Alto-Forno">Alto-Forno</option>
+                    <option value="Aciaria">Aciaria</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label className="text-xs text-slate-300">Planta / Unidade</Label>
                   <Input
                     value={plant}
@@ -610,20 +644,56 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     className="bg-slate-900 border-slate-700 text-white font-mono text-xs"
                   />
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Status Operacional</Label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-md text-xs text-white p-2"
-                  >
-                    <option value="ACTIVE">ACTIVE (Ativa para Produção)</option>
-                    <option value="CONFIGURING">CONFIGURING (Em Implantação)</option>
-                    <option value="MAINTENANCE">MAINTENANCE (Parada em Manutenção)</option>
-                  </select>
-                </div>
               </div>
+
+              {/* Bloco de Seleção de Etapas para Tipo Múltiplo */}
+              {programmingType === 'Múltiplo' && (
+                <div className="p-3 bg-blue-950/40 rounded-lg border border-cyan-800 space-y-2">
+                  <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider block">
+                    Etapas de Programação Habilitadas (Selecione 2 ou mais)
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {[
+                      'Enfornamento',
+                      'Laminação',
+                      'Envio',
+                      'Preparação',
+                      'Acabamento',
+                      'Endireitadeira',
+                      'Inspeção',
+                      'Argola',
+                      'Alto-Forno',
+                      'Aciaria',
+                    ].map((stage) => {
+                      const isChecked = programmingStages.includes(stage)
+                      return (
+                        <label
+                          key={stage}
+                          className={`flex items-center gap-2 p-2 rounded border text-xs cursor-pointer transition-colors ${
+                            isChecked
+                              ? 'bg-[#004C97]/60 border-cyan-500 text-white font-bold'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setProgrammingStages((prev) => [...prev, stage])
+                              } else {
+                                setProgrammingStages((prev) => prev.filter((s) => s !== stage))
+                              }
+                            }}
+                            className="rounded border-slate-700 text-[#004C97] focus:ring-[#004C97]"
+                          />
+                          <span>{stage}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Campos SAP / MES Futuros (Regra 5) */}
               <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-3">

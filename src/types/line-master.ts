@@ -6,6 +6,46 @@ export type MasterDataStatus = 'ACTIVE' | 'DRAFT' | 'HISTORIC' | 'OBSOLETE'
 export type SourceMode = 'MANUAL' | 'SAP'
 export type SapStatus = 'CONECTADO' | 'ERRO' | 'NAO_TESTADO' | 'INDISPONIVEL'
 
+export type ProgrammingType =
+  | 'Enfornamento'
+  | 'Laminação'
+  | 'Envio'
+  | 'Preparação'
+  | 'Acabamento'
+  | 'Endireitadeira'
+  | 'Inspeção'
+  | 'Múltiplo'
+  | 'Argola'
+  | 'Alto-Forno'
+  | 'Aciaria'
+
+export const PROGRAMMING_TYPES_CATALOG: ProgrammingType[] = [
+  'Enfornamento',
+  'Laminação',
+  'Envio',
+  'Preparação',
+  'Acabamento',
+  'Endireitadeira',
+  'Inspeção',
+  'Múltiplo',
+  'Argola',
+  'Alto-Forno',
+  'Aciaria',
+]
+
+export const MULTIPLE_PROGRAMMING_STAGES_CATALOG: ProgrammingType[] = [
+  'Enfornamento',
+  'Laminação',
+  'Envio',
+  'Preparação',
+  'Acabamento',
+  'Endireitadeira',
+  'Inspeção',
+  'Argola',
+  'Alto-Forno',
+  'Aciaria',
+]
+
 // 1. Linha Produtiva (production_lines)
 export interface ProductionLine {
   id: string
@@ -16,6 +56,8 @@ export interface ProductionLine {
   process: string
   status: 'ACTIVE' | 'MAINTENANCE' | 'INACTIVE' | 'CONFIGURING'
   is_active?: boolean
+  programming_type?: ProgrammingType | string
+  programming_stages?: (ProgrammingType | string)[]
   nominal_speed?: number
   nominal_speed_unit?: string
   current_rate?: number
@@ -54,6 +96,8 @@ export interface LineMaster {
   max_batch_size: number
   planned_efficiency_pct: number
   max_recommended_utilization_pct: number
+  programming_type?: ProgrammingType | string
+  programming_stages?: (ProgrammingType | string)[]
   // Pulmões
   input_buffer_type?: string
   input_buffer_capacity?: number
