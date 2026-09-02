@@ -47,6 +47,8 @@ export const SdcSimulationModal: React.FC<SdcSimulationModalProps> = ({
 
   const currentRow = steelRows.find((r) => r.steel_grade === steel) || steelRows[0]
 
+  if (!currentRow) return null
+
   // Cenário Atual
   const baseStock = currentRow.total_stock_tons
   const baseL2 = currentRow.projected_l2_useful_tons

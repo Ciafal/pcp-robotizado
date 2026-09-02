@@ -348,22 +348,22 @@ export default function LineMasterPage() {
                         </div>
                         <Badge
                           className={`text-[10px] font-bold ${
-                            l.status === 'running' || l.status === 'ACTIVE'
+                            (l.status as string) === 'running' || l.status === 'ACTIVE'
                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : l.status === 'maintenance'
+                              : (l.status as string) === 'maintenance' || l.status === 'MAINTENANCE'
                                 ? 'bg-rose-100 text-rose-800 border-rose-300'
-                                : l.status === 'idle'
+                                : (l.status as string) === 'idle' || l.status === 'CONFIGURING'
                                   ? 'bg-blue-100 text-blue-800 border-blue-300'
                                   : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}
                         >
-                          {l.status === 'running' || l.status === 'ACTIVE'
+                          {(l.status as string) === 'running' || l.status === 'ACTIVE'
                             ? 'Em produção'
-                            : l.status === 'maintenance'
+                            : (l.status as string) === 'maintenance' || l.status === 'MAINTENANCE'
                               ? 'Manutenção'
-                              : l.status === 'idle'
+                              : (l.status as string) === 'idle' || l.status === 'CONFIGURING'
                                 ? 'Disponível'
-                                : l.status === 'stopped'
+                                : (l.status as string) === 'stopped' || l.status === 'INACTIVE'
                                   ? 'Parada'
                                   : l.status || 'Disponível'}
                         </Badge>

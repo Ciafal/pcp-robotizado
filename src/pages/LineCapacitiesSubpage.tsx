@@ -128,22 +128,22 @@ export const LineCapacitiesSubpage: React.FC = () => {
               <span>Status Operacional:</span>
               <Badge
                 className={`text-[9px] ${
-                  line.status === 'running' || line.status === 'ACTIVE'
+                  (line.status as string) === 'running' || line.status === 'ACTIVE'
                     ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
-                    : line.status === 'maintenance'
+                    : (line.status as string) === 'maintenance' || line.status === 'MAINTENANCE'
                       ? 'bg-rose-950 text-rose-300 border-rose-700'
-                      : line.status === 'idle'
+                      : (line.status as string) === 'idle' || line.status === 'CONFIGURING'
                         ? 'bg-blue-950 text-blue-300 border-blue-700'
                         : 'bg-amber-950 text-amber-300 border-amber-700'
                 }`}
               >
-                {line.status === 'running' || line.status === 'ACTIVE'
+                {(line.status as string) === 'running' || line.status === 'ACTIVE'
                   ? 'Em produção'
-                  : line.status === 'maintenance'
+                  : (line.status as string) === 'maintenance' || line.status === 'MAINTENANCE'
                     ? 'Manutenção'
-                    : line.status === 'idle'
+                    : (line.status as string) === 'idle' || line.status === 'CONFIGURING'
                       ? 'Disponível'
-                      : line.status === 'stopped'
+                      : (line.status as string) === 'stopped' || line.status === 'INACTIVE'
                         ? 'Parada'
                         : line.status || 'Disponível'}
               </Badge>

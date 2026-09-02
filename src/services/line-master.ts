@@ -17,8 +17,10 @@ import {
   LineSetupMatrix,
   LineStructuralConstraint,
   ProductionCalendar,
+  ProductionCrew,
   ProductionLine,
   ProductionShift,
+  ProductionShiftCrew,
   ProductFamily,
   StandardScheduledStop,
 } from '@/types/line-master'

@@ -195,9 +195,6 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       const createdMaster = await lineMasterService.saveLineMaster({
         line_id: createdLine.id,
         version: 1,
-        code: createdLine.code,
-        name: createdLine.name,
-        description: createdLine.description || `Ficha Mestre Inicial Linha ${createdLine.code}`,
         status: 'ACTIVE',
         resource_type: validResourceType as any,
         unit: validCapacityUnit === 't/h' ? 't' : validCapacityUnit === 'peça' ? 'peça' : 'm',
