@@ -55,9 +55,15 @@ import {
   StandardScheduledStop,
 } from '@/types/line-master'
 import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
+import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
 import { UserProfile } from '@/types/pcp-auth'
 import { lineMasterService } from '@/services/line-master'
 import { Can } from '@/components/auth/Can'
+import {
+  PROGRAMMING_TYPES_CATALOG,
+  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
+  ProgrammingType,
+} from '@/types/line-master'
 import {
   Dialog,
   DialogContent,
@@ -115,6 +121,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   >('OVERVIEW')
   const [masterSubTab, setMasterSubTab] = useState<
     | 'CAPACITY'
+    | 'SHIFTS_CREWS'
     | 'MATRIZ_GARGALOS'
     | 'PRODUCTIVITY'
     | 'RAW_MATERIALS'
@@ -122,9 +129,71 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'SETUP_MATRIX'
     | 'IDEAL_GAUGE_SEQUENCE'
     | 'CAPABILITIES'
-    | 'SHIFTS'
     | 'CONSTRAINTS'
   >('CAPACITY')
+
+  // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
+  const [selectedProgType, setSelectedProgType] = useState<string>(
+    (line.programming_type as string) || (master?.programming_type as string) || 'Laminação',
+  )
+  const [selectedProgStages, setSelectedProgStages] = useState<string[]>(
+    Array.isArray(line.programming_stages)
+      ? (line.programming_stages as string[])
+      : Array.isArray(master?.programming_stages)
+        ? (master.programming_stages as string[])
+        : ['Enfornamento', 'Laminação'],
+  )
+  const [isSavingProgType, setIsSavingProgType] = useState(false)
+
+  const handleSaveProgrammingType = async () => {
+    if (selectedProgType === 'Múltiplo' && selectedProgStages.length < 2) {
+      toast({
+        variant: 'destructive',
+        title: 'Etapas de Programação',
+        description: 'Selecione pelo menos duas etapas para o tipo de programação "Múltiplo".',
+      })
+      return
+    }
+
+    setIsSavingProgType(true)
+    try {
+      // Persiste tanto no cadastro da Linha quanto na Ficha Mestre ativa
+      await lineMasterService.updateLine(line.id, {
+        programming_type: selectedProgType as ProgrammingType,
+        programming_stages: selectedProgType === 'Múltiplo' ? selectedProgStages : undefined,
+      })
+
+      if (master?.id) {
+        await lineMasterService.saveLineMaster({
+          id: master.id,
+          programming_type: selectedProgType as ProgrammingType,
+          programming_stages: selectedProgType === 'Múltiplo' ? selectedProgStages : undefined,
+        })
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
 
   // Modais de Criação Rápida
   const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false)
@@ -506,6 +575,104 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 3. CONTEÚDO: GRUPO 1 - VISÃO GERAL */}
       {mainGroup === 'OVERVIEW' && (
         <div className="space-y-5">
+          {/* Configuração de Tipo de Programação (Item 2 da Tarefa) */}
+          <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+            <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#004C97]" />
+                  Tipo de Programação & Etapas da Linha
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Define a modalidade de sequenciamento e roteamento operacional para a linha{' '}
+                  {line.code}.
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleSaveProgrammingType}
+                disabled={isSavingProgType}
+                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold h-7 gap-1 shadow-xs"
+              >
+                {isSavingProgType ? 'Salvando...' : 'Salvar Tipo de Programação'}
+              </Button>
+            </CardHeader>
+
+            <CardContent className="p-4 pt-3 space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700">
+                    Tipo de Programação Principal
+                  </Label>
+                  <select
+                    value={selectedProgType}
+                    onChange={(e) => setSelectedProgType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-medium text-slate-900 focus:ring-1 focus:ring-[#004C97]"
+                  >
+                    {PROGRAMMING_TYPES_CATALOG.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    Modalidade operacional persistida no cadastro da linha e na ficha mestre.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex flex-col justify-center">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">
+                    Status do Cadastro
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-mono font-bold text-[#004C97]">{line.code}</span>
+                    <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-bold">
+                      {selectedProgType}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quando Múltiplo, exibe checkboxes de etapas */}
+              {selectedProgType === 'Múltiplo' && (
+                <div className="p-3.5 bg-blue-50/50 rounded-lg border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-[#004C97] flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />
+                      Etapas de Programação Habilitadas (selecione 2 ou mais) *
+                    </Label>
+                    <span className="text-[11px] font-bold text-slate-600">
+                      {selectedProgStages.length} selecionada(s)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
+                    {MULTIPLE_PROGRAMMING_STAGES_CATALOG.map((stage) => {
+                      const isChecked = selectedProgStages.includes(stage)
+                      return (
+                        <label
+                          key={stage}
+                          className={`flex items-center gap-2 p-2 rounded border text-xs cursor-pointer transition-colors ${
+                            isChecked
+                              ? 'bg-blue-100/70 border-[#004C97] text-[#004C97] font-semibold'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleProgStage(stage)}
+                            className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97]"
+                          />
+                          <span>{stage}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Alertas de Configuração (Regra 41) */}
           {alerts.length > 0 && (
             <div className="space-y-2">
@@ -976,6 +1143,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <Button
               size="sm"
+              variant={masterSubTab === 'SHIFTS_CREWS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('SHIFTS_CREWS')}
+              className={`text-xs h-7 gap-1 font-bold ${
+                masterSubTab === 'SHIFTS_CREWS' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" /> Turnos & Turmas ({shifts.length}T /{' '}
+              {overview.crews?.length || 0}E)
+            </Button>
+
+            <Button
+              size="sm"
               variant={masterSubTab === 'MATRIZ_GARGALOS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('MATRIZ_GARGALOS')}
               className={`text-xs h-7 gap-1 font-bold ${
@@ -1043,6 +1222,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal de Bitolas & Tolerâncias
             </Button>
           </div>
+
+          {/* SUB-ABA: TURNOS & TURMAS DA LINHA ATUAL */}
+          {masterSubTab === 'SHIFTS_CREWS' && (
+            <LineShiftsAndCrewsPanel
+              line={line}
+              shifts={shifts}
+              crews={overview.crews || []}
+              shiftCrews={overview.shiftCrews || []}
+              onRefresh={onRefresh}
+            />
+          )}
 
           {/* SUB-ABA MATRIZ DE GARGALOS */}
           {masterSubTab === 'MATRIZ_GARGALOS' && (

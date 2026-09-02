@@ -32,7 +32,7 @@ export const lineMasterService = {
   async listLines(filterOptions?: {
     activeOnly?: boolean
     includeInactive?: boolean
-  }): Promise<ProductionLine[]> {
+  }): Promise<(ProductionLine & { shifts_summary?: string[]; crews_summary?: string[] })[]> {
     try {
       let filterStr = ''
       if (filterOptions?.activeOnly) {
@@ -41,11 +41,36 @@ export const lineMasterService = {
         filterStr = 'is_active = true || is_active = null'
       }
 
-      const records = await pb.collection('production_lines').getFullList<ProductionLine>({
-        sort: 'code',
-        filter: filterStr || undefined,
+      const [lines, allShifts, allCrews] = await Promise.all([
+        pb.collection('production_lines').getFullList<ProductionLine>({
+          sort: 'code',
+          filter: filterStr || undefined,
+        }),
+        pb
+          .collection('production_shifts')
+          .getFullList<ProductionShift>({
+            filter: 'active = true || active = null',
+            sort: 'sequence_order,code',
+          })
+          .catch(() => []),
+        pb
+          .collection('production_crews')
+          .getFullList<ProductionCrew>({
+            filter: 'active = true || active = null',
+            sort: 'code',
+          })
+          .catch(() => []),
+      ])
+
+      return lines.map((l) => {
+        const lineShifts = allShifts.filter((s) => s.line_id === l.id).map((s) => s.code)
+        const lineCrews = allCrews.filter((c) => c.line_id === l.id).map((c) => c.code)
+        return {
+          ...l,
+          shifts_summary: lineShifts,
+          crews_summary: lineCrews,
+        }
       })
-      return records
     } catch (err) {
       console.error('Erro ao listar linhas:', err)
       return []
@@ -610,6 +635,10 @@ export const lineMasterService = {
     return await pb.collection('production_shifts').create<ProductionShift>(data)
   },
 
+  async toggleShiftStatus(shiftId: string, active: boolean): Promise<ProductionShift> {
+    return await pb.collection('production_shifts').update<ProductionShift>(shiftId, { active })
+  },
+
   async deleteShift(id: string): Promise<boolean> {
     return await pb.collection('production_shifts').delete(id)
   },
@@ -633,6 +662,10 @@ export const lineMasterService = {
       return await pb.collection('production_crews').update<ProductionCrew>(data.id, data)
     }
     return await pb.collection('production_crews').create<ProductionCrew>(data)
+  },
+
+  async toggleCrewStatus(crewId: string, active: boolean): Promise<ProductionCrew> {
+    return await pb.collection('production_crews').update<ProductionCrew>(crewId, { active })
   },
 
   async deleteCrew(id: string): Promise<boolean> {
