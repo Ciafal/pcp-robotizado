@@ -107,7 +107,7 @@ export const lineMasterService = {
       scheduledStops,
       constraints,
       rulePacks,
-      history,
+      auditLogs,
     ] = await Promise.all([
       pb
         .collection('line_masters')
@@ -241,14 +241,37 @@ export const lineMasterService = {
         })
         .catch(() => []),
       pb
-        .collection('line_audit_versions')
-        .getFullList<LineAuditVersion>({
-          filter: `line_id = '${lineId}'`,
+        .collection('pcp_audit_logs')
+        .getFullList({
+          filter: `resource = 'production_lines' && resource_id = '${lineId}'`,
           sort: '-created',
-          expand: 'changed_by',
+          expand: 'user_id',
         })
         .catch(() => []),
     ])
+
+    // Adaptar os logs de pcp_audit_logs para a interface LineAuditVersion mantendo retrocompatibilidade visual
+    const history: LineAuditVersion[] = (auditLogs as any[]).map((log) => ({
+      id: log.id,
+      line_id: log.resource_id || lineId,
+      line_master_id: log.details?.line_master_id || '',
+      version: log.details?.version || 1,
+      action: (log.details?.action || 'UPDATE') as any,
+      changed_fields: log.details?.changed_fields || [],
+      changed_by: log.user_id || '',
+      change_reason: log.details?.change_reason || log.action || 'Atualização cadastral da linha',
+      snapshot_data: log.details?.snapshot_data || log.details || {},
+      created: log.created,
+      expand: {
+        changed_by: log.expand?.user_id
+          ? {
+              id: log.expand.user_id.id,
+              name: log.expand.user_id.name || log.user_name,
+              email: log.expand.user_id.email || log.user_email || '',
+            }
+          : undefined,
+      },
+    }))
 
     const activeMaster = masters.length > 0 ? masters[0] : null
 
@@ -340,8 +363,11 @@ export const lineMasterService = {
     }
 
     // Cálculo dinâmico de completude e ready_for_scheduling revisado (Regra 42 e 43)
+    // Prontidão cadastral validada pelo campo booleano `is_active` da linha
+    const isLineActive = line.is_active !== false
+
     let score = 0
-    if (line.status === 'ACTIVE') score += 15
+    if (isLineActive) score += 15
     if (managers.length > 0) score += 15
     if (activeMaster && activeMaster.nominal_hourly_capacity > 0) score += 15
     if (shifts.length > 0) score += 15
@@ -350,10 +376,10 @@ export const lineMasterService = {
     if (productivity.length > 0) score += 10
     if (sequencing.length > 0) score += 10
 
-    // Ready for scheduling: requer linha ativa, gestor, capacidade, turnos e ao menos capacidades/produtividade
+    // Ready for scheduling: requer linha ativa (is_active), gestor, capacidade, turnos e ao menos capacidades/produtividade
     // NOTA (Regra 43): Aprovador NÃO bloqueia se a aprovação for opcional/não aplicável
     const readyForScheduling =
-      line.status === 'ACTIVE' &&
+      isLineActive &&
       managers.length > 0 &&
       shifts.length > 0 &&
       (activeMaster ? activeMaster.nominal_hourly_capacity > 0 : true) &&
@@ -661,15 +687,33 @@ export const lineMasterService = {
     snapshot_data: Record<string, unknown>
   }): Promise<void> {
     const user = pb.authStore.record
-    await pb.collection('line_audit_versions').create({
-      line_id: data.line_id,
-      line_master_id: data.line_master_id || '',
-      version: data.version,
-      action: data.action,
-      changed_fields: data.changed_fields,
-      change_reason: data.change_reason || 'Alteração técnica homologada',
-      changed_by: user ? user.id : '',
-      snapshot_data: data.snapshot_data,
-    })
+    try {
+      // Gravação na coleção oficial de auditoria pcp_audit_logs (best-effort)
+      await pb.collection('pcp_audit_logs').create({
+        user_id: user?.id || null,
+        user_email: user?.email || '',
+        user_name: user?.name || user?.email || 'Usuário PCP',
+        user_role: (user as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: `LINE_${data.action}`,
+        resource: 'production_lines',
+        resource_id: data.line_id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: data.line_id,
+          line_master_id: data.line_master_id || '',
+          version: data.version,
+          action: data.action,
+          changed_fields: data.changed_fields,
+          change_reason: data.change_reason || 'Alteração técnica homologada',
+          snapshot_data: data.snapshot_data,
+        },
+      })
+    } catch (auditErr) {
+      // Auditoria é best-effort para não bloquear a persistência cadastral da linha
+      console.warn('Falha na gravação de auditoria da linha (pcp_audit_logs):', auditErr)
+    }
   },
 }
