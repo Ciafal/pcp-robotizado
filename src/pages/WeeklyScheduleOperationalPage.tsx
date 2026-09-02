@@ -202,6 +202,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [targetShiftName, setTargetShiftName] = useState('1º Turno Matutino')
   const [targetCrewName, setTargetCrewName] = useState('Turma A')
 
+  // Sincronizar Turno/Turma padrão com base na Ficha Mestra
+  useEffect(() => {
+    if (currentLineOverview) {
+      const activeShifts = (currentLineOverview.shifts || []).filter((s) => s.active !== false)
+      if (activeShifts.length > 0) {
+        const firstShift = activeShifts[0]
+        setTargetShiftCode(firstShift.code)
+        setTargetShiftName(firstShift.name)
+
+        const matchedRel = (currentLineOverview.shiftCrews || []).find(
+          (sc) =>
+            (sc.shift_id === firstShift.code || sc.expand?.shift_id?.code === firstShift.code) &&
+            sc.active !== false,
+        )
+        const crewName =
+          matchedRel?.expand?.crew_id?.name ||
+          matchedRel?.expand?.crew_id?.code ||
+          (currentLineOverview.crews && currentLineOverview.crews.length > 0
+            ? currentLineOverview.crews[0].name
+            : 'Turma A')
+        setTargetCrewName(crewName)
+      }
+    }
+  }, [currentLineOverview])
+
   // Modal de Governança de Exceções PCP (Requisitos 8, 9, 10, 11, 12, 13, 14, 15)
   const [isPcpExceptionModalOpen, setIsPcpExceptionModalOpen] = useState(false)
   const [selectedExceptionItem, setSelectedExceptionItem] = useState<WeeklyScheduleItem | null>(
@@ -605,6 +630,41 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     setSelectedScheduleItem(initial[1])
   }
 
+  // Validações de Linha Inativa e Configuração Completa da Ficha Mestra
+  const isLineActive = currentLineOverview ? currentLineOverview.line.is_active !== false : true
+
+  const lineConfigurationDeficits = useMemo(() => {
+    if (!currentLineOverview) return []
+    const deficits: string[] = []
+    const line = currentLineOverview.line
+    const master = currentLineOverview.master
+    const shifts = currentLineOverview.shifts || []
+    const crews = currentLineOverview.crews || []
+    const shiftCrews = currentLineOverview.shiftCrews || []
+
+    if (line.is_active === false) {
+      deficits.push('Linha marcada como Inativa')
+    }
+    if (shifts.length === 0) {
+      deficits.push('Nenhum Turno cadastrado ou ativo')
+    }
+    if (crews.length === 0) {
+      deficits.push('Nenhuma Turma cadastrada ou ativa')
+    }
+    if (shiftCrews.length === 0 && shifts.length > 0 && crews.length > 0) {
+      deficits.push('Vínculo Turno × Turma não configurado')
+    }
+    if (!line.programming_type && !master?.programming_type) {
+      deficits.push('Tipo de Programação não definido')
+    }
+    const cap = master?.nominal_hourly_capacity || line.current_rate || 0
+    if (cap <= 0) {
+      deficits.push('Capacidade nominal horária não definida')
+    }
+
+    return deficits
+  }, [currentLineOverview])
+
   // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
   const calculationResult = useMemo(() => {
     const result = WeeklyScheduleEngine.recalculateWeeklyTimeline(
@@ -677,9 +737,18 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return monthlyWeeksGrid[0]?.days[0] || null
   }, [monthlyWeeksGrid, selectedMonthDateIso])
 
-  // Adiciona Produto com Verificação de HARD BLOCK
+  // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
   const handleAddProduct = (newItemData: Partial<WeeklyScheduleItem>) => {
     if (!newItemData.material_code) return
+
+    if (!isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Operação Não Permitida',
+        description: 'Esta linha está inativa para novas programações.',
+      })
+      return
+    }
 
     // 1. HARD BLOCK CHECK (VAL-02)
     const block = WeeklyScheduleEngine.checkHardBlock(
@@ -884,6 +953,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       crew_name?: string
     },
   ) => {
+    if (!isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Sequenciamento Bloqueado',
+        description: 'Esta linha está inativa para novas programações.',
+      })
+      return
+    }
+
     if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
       return
     }
@@ -968,13 +1046,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     const reordered = [...items]
     const [moved] = reordered.splice(fromIndex, 1)
 
+    // Localizar turma configurada na relação Turno×Turma da Ficha Mestra
+    const matchedShiftCrew = (currentLineOverview?.shiftCrews || []).find(
+      (sc) =>
+        (sc.shift_id === destShiftCode || sc.expand?.shift_id?.code === destShiftCode) &&
+        sc.active !== false,
+    )
+    const realCrewName =
+      destCrewName ||
+      matchedShiftCrew?.expand?.crew_id?.name ||
+      matchedShiftCrew?.expand?.crew_id?.code ||
+      'Turma A'
+
     const updatedMovedItem: WeeklyScheduleItem = {
       ...moved,
       day_of_week: destDay,
       date_str: destDateStr || moved.date_str || '24/08',
       shift_code: destShiftCode,
       shift_name: destShiftName,
-      crew_name: destCrewName,
+      crew_name: realCrewName,
     }
 
     reordered.splice(toIndex, 0, updatedMovedItem)
@@ -1072,6 +1162,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleDuplicate = (index: number) => {
+    if (!isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Operação Não Permitida',
+        description: 'Esta linha está inativa para novas programações.',
+      })
+      return
+    }
     const target = items[index]
     if (!target) return
     const duplicated: WeeklyScheduleItem = {
@@ -1788,6 +1886,65 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         onViewDetails={() => (window.location.href = '/pcp/alteracoes')}
       />
 
+      {/* 1.1 AVISOS DE LINHA INATIVA OU CONFIGURAÇÃO INCOMPLETA DA FICHA MESTRA */}
+      {!isLineActive && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-lg p-3 text-rose-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <div>
+              <p className="font-bold text-sm text-rose-900">
+                Esta linha está inativa para novas programações.
+              </p>
+              <p className="text-xs text-rose-700">
+                O sequenciamento e a adição de novos lotes estão bloqueados. As programações e o
+                histórico anteriores continuam disponíveis para consulta.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              (window.location.href = `/pcp/linhas?line=${selectedLineCode}&tab=shifts`)
+            }
+            className="border-rose-300 text-rose-800 hover:bg-rose-100 font-bold text-xs h-8"
+          >
+            Abrir Ficha Mestra
+          </Button>
+        </div>
+      )}
+
+      {isLineActive && lineConfigurationDeficits.length > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-amber-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-xs text-amber-900 uppercase tracking-wide">
+                Configuração incompleta
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Para garantir o sequenciamento otimizado, complete os seguintes cadastros na Ficha
+                Mestra:
+              </p>
+              <ul className="text-[11px] list-disc list-inside text-amber-900 font-medium mt-1 space-y-0.5">
+                {lineConfigurationDeficits.map((def, idx) => (
+                  <li key={idx}>{def}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() =>
+              (window.location.href = `/pcp/linhas?line=${selectedLineCode}&tab=shifts`)
+            }
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8"
+          >
+            Abrir Ficha Mestra
+          </Button>
+        </div>
+      )}
+
       {/* 2. LINHA DE KPIs (SEMANAL OU MENSAL) */}
       {scheduleViewType === 'MES' ? (
         /* KPIs MENSAIS em UMA ÚNICA faixa horizontal compacta (REQUISITO 3) */
@@ -1916,12 +2073,26 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
+              disabled={!isLineActive}
               onClick={() => {
+                if (!isLineActive) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Linha Inativa',
+                    description: 'Esta linha está inativa para novas programações.',
+                  })
+                  return
+                }
+                const firstShift = (currentLineOverview?.shifts || [])[0]
                 setTargetDay('SEG')
-                setTargetShiftCode('T1_L1')
+                setTargetShiftCode(firstShift?.code || 'T1_L1')
                 setIsAddModalOpen(true)
               }}
-              className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white flex items-center gap-1 shadow-2xs"
+              className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
+                !isLineActive
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                  : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
+              }`}
             >
               <Plus className="w-3.5 h-3.5" /> Adicionar Produto
             </Button>

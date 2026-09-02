@@ -58,6 +58,8 @@ export interface ProductionLine {
   is_active?: boolean
   programming_type?: ProgrammingType | string
   programming_stages?: (ProgrammingType | string)[]
+  shifts_summary?: string[]
+  crews_summary?: string[]
   nominal_speed?: number
   nominal_speed_unit?: string
   current_rate?: number

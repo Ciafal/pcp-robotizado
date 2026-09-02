@@ -189,12 +189,12 @@ export const MPSidercentroSubpage: React.FC = () => {
     <MPModuleLayout
       activeTopic="materia-prima-sidercentro"
       headerActions={
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsLegacyModalOpen(true)}
-            className="h-8 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-[#004C97]" /> Comparar c/ Legado
           </Button>
@@ -202,7 +202,7 @@ export const MPSidercentroSubpage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsSourcesModalOpen(true)}
-            className="h-8 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
           >
             <Database className="w-3.5 h-3.5 mr-1 text-slate-600" /> Fontes & Depósitos
           </Button>
@@ -210,7 +210,7 @@ export const MPSidercentroSubpage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsPoolsModalOpen(true)}
-            className="h-8 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
           >
             <Layers className="w-3.5 h-3.5 mr-1 text-slate-600" /> Pools de MP
           </Button>
@@ -218,55 +218,53 @@ export const MPSidercentroSubpage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsParamsModalOpen(true)}
-            className="h-8 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            className="h-7 px-2.5 text-xs font-semibold bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
           >
             <Settings className="w-3.5 h-3.5 mr-1 text-slate-600" /> Estoque Mínimo
           </Button>
           <Button
             size="sm"
             onClick={() => setIsSimModalOpen(true)}
-            className="h-8 text-xs font-semibold bg-[#004C97] hover:bg-[#003870] text-white shadow-xs"
+            className="h-7 px-2.5 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white shadow-2xs"
           >
-            <Sliders className="w-3.5 h-3.5 mr-1" /> Simular Cenários SDC
+            <Sliders className="w-3.5 h-3.5 mr-1" /> Simular Cenário
           </Button>
         </div>
       }
     >
-      <div className="space-y-4">
-        {/* Banner de Posicionamento Oficial da Sidercentro */}
-        <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
+      <div className="space-y-3">
+        {/* Banner de Posicionamento Compacto da Sidercentro */}
+        <div className="bg-white border border-blue-200 rounded-lg p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                OPERAÇÃO SIDERCENTRO (SDC) &bull; CONTROLE INTEGRADO
+              <span className="text-[9px] font-black uppercase tracking-wider text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                SDC &bull; CONTROLE INTEGRADO
               </span>
-              <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                Motor Único Central CIAFAL
+              <Badge className="bg-emerald-100 text-emerald-800 text-[9px] font-bold py-0 h-4">
+                Motor Único Central
               </Badge>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                Disponibilidade & Projeção — Sidercentro
+              </h2>
             </div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">
-              Disponibilidade & Projeção de Matéria-Prima — Sidercentro
-            </h2>
-            <p className="text-xs text-slate-600 max-w-4xl leading-relaxed">
-              Segregação transparente entre <strong>MP CIAFAL</strong> (própria),{' '}
-              <strong>MP Sidercentro</strong> (DS03) e <strong>MP Compartilhável/Elegível</strong>{' '}
-              (DP04, KS, Sucata). Projeção diária/semanal/mensal acoplada à Produção L2 e ordens do
-              PCP.
+            <p className="text-[11px] text-slate-600 line-clamp-1">
+              Segregação transparente entre MP CIAFAL, MP Sidercentro (DS03) e Elegíveis (DP04, KS,
+              Sucata) integrada à Produção L2.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+          <div className="flex items-center gap-3 shrink-0 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 text-xs">
             <div className="text-right">
-              <span className="text-[10px] text-slate-500 font-bold uppercase block">
-                Aderência da Produção L2
+              <span className="text-[9px] text-slate-500 font-bold uppercase block">
+                Aderência L2
               </span>
-              <span className="font-mono font-extrabold text-[#004C97] text-sm">
+              <span className="font-mono font-extrabold text-[#004C97] text-xs">
                 {cockpitKpis.l2_adherence_pct}%
               </span>
             </div>
-            <div className="h-7 w-[1px] bg-slate-300" />
+            <div className="h-5 w-[1px] bg-slate-300" />
             <div>
-              <span className="text-[10px] text-slate-500 font-bold uppercase block">
+              <span className="text-[9px] text-slate-500 font-bold uppercase block">
                 Primeira Ruptura
               </span>
               <span className="font-mono font-bold text-amber-700 text-xs">

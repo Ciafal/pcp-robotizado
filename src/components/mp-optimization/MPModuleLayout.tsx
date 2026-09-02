@@ -133,35 +133,60 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
 
   return (
     <div className="space-y-4 bg-slate-50 min-h-[calc(100vh-6rem)]">
-      {/* Header Geral do Submódulo CIAFAL */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              PCP ROBOTIZADO &bull; GESTÃO INTEGRADA
+      {/* Header Compacto da Gestão de MP (Linha 1: Título + Descrição Curta + Ações / Linha 2: Fluxo Horizontal / Linha 3: Cards) */}
+      <div className="bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+        {/* Linha 1: Título em linha única + tags + Ações alinhadas */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
+            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight whitespace-nowrap">
+              GESTÃO DE MATÉRIA-PRIMA
+            </h1>
+            <span className="text-[9px] font-black uppercase tracking-wider text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 whitespace-nowrap">
+              PCP ROBOTIZADO &bull; SAP ECC (ZPP86/ZPPMP)
             </span>
-            <span className="text-xs text-slate-500 font-mono">
-              SAP ECC (ME23N / ZPP86 / ZPPMP / ZPP88 / ZPPT058)
-            </span>
-            <Badge
-              variant="outline"
-              className="bg-blue-50 text-[#004C97] border-blue-300 text-[10px] font-bold"
-            >
-              Pantone 2945 (#004C97)
-            </Badge>
+            <p className="text-[11px] text-slate-500 hidden xl:inline line-clamp-1">
+              Otimização do ciclo completo de suprimento e corte integrado à programação.
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            GESTÃO DE MATÉRIA-PRIMA
-          </h1>
-          <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
-            Otimização do <strong>ciclo completo da MP</strong>: Necessidade &rarr; Pedido de Compra
-            &rarr; Previsão de Recebimento &rarr; Recebimento Real (Dimensão Real) &rarr; Estoque
-            Dimensional &rarr; Plano de Corte &rarr; Aplicação &rarr; Reaplicação &rarr; Reserva
-            para Produção &rarr; Consumo &rarr; Plano x Real.
-          </p>
+
+          {headerActions && (
+            <div className="flex items-center gap-1.5 flex-wrap shrink-0">{headerActions}</div>
+          )}
         </div>
 
-        {headerActions && <div className="flex items-center gap-2 shrink-0">{headerActions}</div>}
+        {/* Linha 2: Fluxo horizontal compacto do ciclo de MP */}
+        <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[10px] text-slate-600 font-semibold">
+          <span className="text-slate-400 uppercase text-[9px] font-bold shrink-0">
+            Ciclo Operacional:
+          </span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+            1. Necessidade
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+            2. Compra (ME23N)
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+            3. Recebimento
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+            4. Estoque Dimensional
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-blue-50 text-[#004C97] border border-blue-200 px-2 py-0.5 rounded font-bold whitespace-nowrap">
+            5. Plano de Corte
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 whitespace-nowrap">
+            6. Aplicação (ZPP86)
+          </span>
+          <span className="text-slate-400">&rarr;</span>
+          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold whitespace-nowrap">
+            7. Reaplicação
+          </span>
+        </div>
       </div>
 
       {/* Régua dos 3 Subtópicos Oficiais Obrigatórios + Visão Geral */}

@@ -279,7 +279,7 @@ export default function LineMasterPage() {
             </div>
           </div>
 
-          {/* Cards das Linhas Cadastradas (Regra 3) */}
+          {/* Cards das Linhas Cadastradas (Regra 3 & Exibição Compacta de Status, Tipo de Programação, Turnos e Turmas) */}
           {loading ? (
             <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-2 bg-white rounded-xl border border-slate-200">
               <RefreshCw className="w-6 h-6 animate-spin text-[#004C97]" />
@@ -370,11 +370,38 @@ export default function LineMasterPage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="p-4 pt-1 space-y-3 text-xs">
-                      <p className="text-slate-600 text-[11px] line-clamp-2 min-h-[32px]">
-                        {l.description ||
-                          'Recurso industrial dedicado para conformação e laminação.'}
-                      </p>
+                    <CardContent className="p-4 pt-1 space-y-2.5 text-xs">
+                      {/* Resumo Operacional Compacto: Tipo de Programação, Turnos & Turmas */}
+                      <div className="bg-blue-50/60 border border-blue-100 rounded-md p-2 space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 font-semibold flex items-center gap-1">
+                            <Sliders className="w-3 h-3 text-[#004C97]" /> Tipo:
+                          </span>
+                          <span className="font-bold text-[#004C97] bg-white px-1.5 py-0.5 rounded border border-blue-200">
+                            {l.programming_type || 'Laminação'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-0.5 border-t border-blue-100/60">
+                          <span className="text-slate-500 font-semibold flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-500" /> Turnos:
+                          </span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {l.shifts_summary && l.shifts_summary.length > 0
+                              ? l.shifts_summary.join(' • ')
+                              : 'T1 • T2 • T3'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-0.5 border-t border-blue-100/60">
+                          <span className="text-slate-500 font-semibold flex items-center gap-1">
+                            <Users className="w-3 h-3 text-slate-500" /> Turmas:
+                          </span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {l.crews_summary && l.crews_summary.length > 0
+                              ? l.crews_summary.join(' • ')
+                              : 'A • B • C'}
+                          </span>
+                        </div>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border border-slate-200 font-mono text-[11px]">
                         <div>
