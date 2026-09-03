@@ -1396,7 +1396,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       toast({
         variant: 'destructive',
         title: 'Linha Inativa',
-        description: 'Esta linha está inativa. O assistente de IA não gera recomendações para linhas inativas.',
+        description:
+          'Esta linha está inativa. O assistente de IA não gera recomendações para linhas inativas.',
       })
       return
     }
@@ -1754,7 +1755,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             {/* Linha 2 Compacta na mesma linguagem da semanal */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - {currentLineOverview?.line.name || 'Linha Operacional'}
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
+                {currentLineOverview?.line.name || 'Linha Operacional'}
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -1847,7 +1849,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 25 e 26) */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - {currentLineOverview?.line.name || 'Linha Operacional'}
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
+                {currentLineOverview?.line.name || 'Linha Operacional'}
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -1858,7 +1861,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} ({targetCrewName})
+                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} (
+                {targetCrewName})
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -2224,7 +2228,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   onChange={(e) => {
                     const shCode = e.target.value
                     setTargetShiftCode(shCode)
-                    const foundShift = (currentLineOverview?.shifts || []).find((s) => s.code === shCode)
+                    const foundShift = (currentLineOverview?.shifts || []).find(
+                      (s) => s.code === shCode,
+                    )
                     if (foundShift) {
                       setTargetShiftName(foundShift.name)
                       const matchedRel = (currentLineOverview?.shiftCrews || []).find(
@@ -2272,7 +2278,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               {/* Período */}
               <div className="flex items-center gap-1">
                 <span className="text-[11px] font-bold text-slate-600">Período:</span>
-                <Badge variant="outline" className="text-[10.5px] font-mono font-bold bg-white text-slate-700 py-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-[10.5px] font-mono font-bold bg-white text-slate-700 py-0.5"
+                >
                   S{selectedWeekNumber} ({weekRange.display})
                 </Badge>
               </div>
@@ -2306,55 +2315,56 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <Plus className="w-3.5 h-3.5" /> Adicionar Produto
               </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedScheduleItem}
-              onClick={() => {
-                if (selectedScheduleItem) {
-                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                  if (idx !== -1) handleRemove(idx)
-                }
-              }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
-              Remover
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!selectedScheduleItem}
+                onClick={() => {
+                  if (selectedScheduleItem) {
+                    const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                    if (idx !== -1) handleRemove(idx)
+                  }
+                }}
+                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                <Trash2 className="w-3 h-3 mr-1 text-slate-500" />
+                Remover
+              </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedScheduleItem}
-              onClick={() => {
-                if (selectedScheduleItem) {
-                  const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
-                  if (idx !== -1) handleDuplicate(idx)
-                }
-              }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Copy className="w-3 h-3 mr-1 text-slate-500" />
-              Duplicar
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!selectedScheduleItem}
+                onClick={() => {
+                  if (selectedScheduleItem) {
+                    const idx = calculatedItems.findIndex((it) => it.id === selectedScheduleItem.id)
+                    if (idx !== -1) handleDuplicate(idx)
+                  }
+                }}
+                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                <Copy className="w-3 h-3 mr-1 text-slate-500" />
+                Duplicar
+              </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedScheduleItem}
-              onClick={() => {
-                if (selectedScheduleItem) {
-                  toast({
-                    title: 'Dividir Quantidade',
-                    description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
-                  })
-                }
-              }}
-              className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <Scissors className="w-3 h-3 mr-1 text-slate-500" />
-              Dividir Qtd.
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!selectedScheduleItem}
+                onClick={() => {
+                  if (selectedScheduleItem) {
+                    toast({
+                      title: 'Dividir Quantidade',
+                      description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
+                    })
+                  }
+                }}
+                className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                <Scissors className="w-3 h-3 mr-1 text-slate-500" />
+                Dividir Qtd.
+              </Button>
+            </div>
           </div>
         )}
 

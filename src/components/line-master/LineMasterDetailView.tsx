@@ -110,6 +110,496 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     capabilities,
     constraints,
     history,
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['programming_type', 'programming_stages'],
+          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
+          snapshot_data: {
+            programming_type: selectedProgType,
+            programming_stages: finalStages,
+            previous_programming_type: previousType,
+            previous_programming_stages: previousStages,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false) = overview
+=======
     alerts,
     completeness,
     readyForScheduling,
@@ -219,9 +709,1404 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             previous_programming_stages: previousStages,
           },
         })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
 
   const toggleProgStage = (stage: string) => {
     if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['programming_type', 'programming_stages'],
+          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
+          snapshot_data: {
+            programming_type: selectedProgType,
+            programming_stages: finalStages,
+            previous_programming_type: previousType,
+            previous_programming_stages: previousStages,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false) = overview
+
+  // Sub-aba ativa no agrupamento de Governança/Processo/Ficha Mestre
+  const [mainGroup, setMainGroup] = useState<
+    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
+  >('OVERVIEW')
+  const [masterSubTab, setMasterSubTab] = useState<
+    | 'CAPACITY'
+    | 'SHIFTS_CREWS'
+    | 'MATRIZ_GARGALOS'
+    | 'PRODUCTIVITY'
+    | 'RAW_MATERIALS'
+    | 'BLOCKED'
+    | 'SETUP_MATRIX'
+    | 'IDEAL_GAUGE_SEQUENCE'
+    | 'CAPABILITIES'
+    | 'CONSTRAINTS'
+  >('CAPACITY')
+
+  // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
+  const [selectedProgType, setSelectedProgType] = useState<string>(
+    (line.programming_type as string) || (master?.programming_type as string) || 'Laminação',
+  )
+  const [selectedProgStages, setSelectedProgStages] = useState<string[]>(
+    Array.isArray(line.programming_stages)
+      ? (line.programming_stages as string[])
+      : Array.isArray(master?.programming_stages)
+        ? (master.programming_stages as string[])
+        : ['Enfornamento', 'Laminação'],
+  )
+  const [isSavingProgType, setIsSavingProgType] = useState(false)
+  // Guarda o novo tipo escolhido enquanto o usuário confirma a remoção das etapas (troca saindo de "Múltiplo")
+  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null)
+
+  const applyProgTypeChange = (newType: string) => {
+    setSelectedProgType(newType)
+    // Ao sair de "Múltiplo", as etapas adicionais deixam de valer no formulário
+    if (newType !== 'Múltiplo') setSelectedProgStages([])
+  }
+
+  const handleProgTypeChange = (newType: string) => {
+    if (newType === selectedProgType) return
+    if (
+      selectedProgType === 'Múltiplo' &&
+      selectedProgStages.length > 0 &&
+      newType !== 'Múltiplo'
+    ) {
+      setPendingTypeChange(newType)
+      return
+    }
+    applyProgTypeChange(newType)
+  }
+
+  const handleSaveProgrammingType = async () => {
+    if (selectedProgType === 'Múltiplo' && selectedProgStages.length < 2) {
+      toast({
+        variant: 'destructive',
+        title: 'Etapas de Programação',
+        description: 'Tipo de Programação Múltiplo exige pelo menos duas etapas.',
+      })
+      return
+    }
+
+    // Valores anteriores (para o registro de auditoria da Ficha Mestre)
+    const previousType =
+      (line.programming_type as string) || (master?.programming_type as string) || ''
+    const previousStages = Array.isArray(line.programming_stages)
+      ? (line.programming_stages as string[])
+      : Array.isArray(master?.programming_stages)
+        ? (master.programming_stages as string[])
+        : []
+    // Ao sair de "Múltiplo", envia [] explicitamente para limpar o dado antigo no banco
+    const finalStages = selectedProgType === 'Múltiplo' ? selectedProgStages : []
+
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['programming_type', 'programming_stages'],
+          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
+          snapshot_data: {
+            programming_type: selectedProgType,
+            programming_stages: finalStages,
+            previous_programming_type: previousType,
+            previous_programming_stages: previousStages,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['programming_type', 'programming_stages'],
+          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
+          snapshot_data: {
+            programming_type: selectedProgType,
+            programming_stages: finalStages,
+            previous_programming_type: previousType,
+            previous_programming_stages: previousStages,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false)
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+=======
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
+=======
+      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['programming_type', 'programming_stages'],
+          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
+          snapshot_data: {
+            programming_type: selectedProgType,
+            programming_stages: finalStages,
+            previous_programming_type: previousType,
+            previous_programming_stages: previousStages,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
+      }
+
+      toast({
+        title: 'Tipo de Programação Atualizado',
+        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar tipo de programação',
+        description: err.message,
+      })
+    } finally {
+      setIsSavingProgType(false)
+    }
+  }
+
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
+  // Modais de Criação Rápida
 =======
     } finally {
       setIsSavingProgType(false)
