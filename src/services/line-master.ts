@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import {
+  LineAdjustmentTimeRule,
   LineApproverMatrix,
   LineAuditVersion,
   LineBlockedProduct,
@@ -131,6 +132,7 @@ export const lineMasterService = {
       blockedProducts,
       setups,
       setupMatrix,
+      adjustmentRules,
       scheduledStops,
       constraints,
       rulePacks,
@@ -243,9 +245,16 @@ export const lineMasterService = {
       pb
         .collection('line_setup_matrix')
         .getFullList<LineSetupMatrix>({
-          filter: `line_id = '${lineId}' && active = true`,
+          filter: `line_id = '${lineId}' && (active = true || active = null)`,
           sort: 'setup_code',
           expand: 'from_family_id,to_family_id,sap_integration_id',
+        })
+        .catch(() => []),
+      pb
+        .collection('adjustment_time_rules')
+        .getFullList<LineAdjustmentTimeRule>({
+          filter: `line_id = '${lineId}' && (active = true || active = null)`,
+          sort: 'material_code,sample_type',
         })
         .catch(() => []),
       pb
@@ -430,6 +439,7 @@ export const lineMasterService = {
       blockedProducts,
       setups,
       setupMatrix,
+      adjustmentRules,
       scheduledStops,
       constraints,
       rulePacks,
@@ -553,15 +563,185 @@ export const lineMasterService = {
   // ==========================================
   // 9. MATRIZ DE SETUP (CRUD)
   // ==========================================
+  async listSetupMatrix(lineId: string): Promise<LineSetupMatrix[]> {
+    try {
+      return await pb.collection('line_setup_matrix').getFullList<LineSetupMatrix>({
+        filter: `line_id = '${lineId}'`,
+        sort: '-valid_from,-created',
+        expand: 'from_family_id,to_family_id,sap_integration_id',
+      })
+    } catch (err) {
+      console.error('Erro ao listar matriz de setup:', err)
+      return []
+    }
+  },
+
   async saveSetupMatrix(data: Partial<LineSetupMatrix>): Promise<LineSetupMatrix> {
+    // 1. Validação de obrigatoriedade e duração
+    if (data.from_product_code && data.to_product_code) {
+      if (
+        data.from_product_code.trim().toUpperCase() === data.to_product_code.trim().toUpperCase()
+      ) {
+        throw new Error('Material de origem e material de destino devem ser diferentes.')
+      }
+    }
+
+    if (
+      data.setup_duration_minutes === undefined ||
+      data.setup_duration_minutes === null ||
+      data.setup_duration_minutes <= 0
+    ) {
+      throw new Error('A duração padrão deve ser maior que 0 minutos.')
+    }
+
+    // 2. Validação de sobreposição de vigência para o mesmo par DE -> PARA
+    if (data.line_id && data.from_product_code && data.to_product_code) {
+      const fromCode = data.from_product_code.trim().toUpperCase()
+      const toCode = data.to_product_code.trim().toUpperCase()
+      const validFromStr = data.valid_from
+        ? new Date(data.valid_from).toISOString().slice(0, 10)
+        : ''
+      const validUntilStr = data.valid_until
+        ? new Date(data.valid_until).toISOString().slice(0, 10)
+        : ''
+
+      try {
+        const existing = await pb.collection('line_setup_matrix').getFullList<LineSetupMatrix>({
+          filter: `line_id = '${data.line_id}' && active = true && from_product_code = '${fromCode}' && to_product_code = '${toCode}'`,
+        })
+
+        const hasOverlap = existing.some((item) => {
+          if (data.id && item.id === data.id) return false
+
+          const itemFrom = item.valid_from ? item.valid_from.slice(0, 10) : '1970-01-01'
+          const itemUntil = item.valid_until ? item.valid_until.slice(0, 10) : '9999-12-31'
+          const newFrom = validFromStr || '1970-01-01'
+          const newUntil = validUntilStr || '9999-12-31'
+
+          // Verifica se dois intervalos se sobrepõem: startA <= endB && endA >= startB
+          return newFrom <= itemUntil && newUntil >= itemFrom
+        })
+
+        if (hasOverlap) {
+          throw new Error(
+            'Já existe uma regra de setup vigente para esta combinação no período informado.',
+          )
+        }
+      } catch (checkErr: any) {
+        if (checkErr.message?.includes('Já existe uma regra de setup vigente')) {
+          throw checkErr
+        }
+        console.warn('Não foi possível verificar duplicidade de setup:', checkErr)
+      }
+    }
+
     if (data.id) {
       return await pb.collection('line_setup_matrix').update<LineSetupMatrix>(data.id, data)
     }
     return await pb.collection('line_setup_matrix').create<LineSetupMatrix>(data)
   },
 
+  async setSetupMatrixActive(
+    id: string,
+    active: boolean,
+    validUntil?: string,
+  ): Promise<LineSetupMatrix> {
+    const payload: Partial<LineSetupMatrix> = { active }
+    if (validUntil !== undefined) {
+      payload.valid_until = validUntil
+    }
+    return await pb.collection('line_setup_matrix').update<LineSetupMatrix>(id, payload)
+  },
+
   async deleteSetupMatrix(id: string): Promise<boolean> {
     return await pb.collection('line_setup_matrix').delete(id)
+  },
+
+  // ==========================================
+  // 9.1. MATRIZ DE ACERTO (adjustment_time_rules) (CRUD)
+  // ==========================================
+  async listAdjustmentRules(lineId: string): Promise<LineAdjustmentTimeRule[]> {
+    try {
+      return await pb.collection('adjustment_time_rules').getFullList<LineAdjustmentTimeRule>({
+        filter: `line_id = '${lineId}'`,
+        sort: '-valid_from,-created',
+        expand: 'line_id',
+      })
+    } catch (err) {
+      console.error('Erro ao listar regras de tempo de acerto:', err)
+      return []
+    }
+  },
+
+  async saveAdjustmentRule(data: Partial<LineAdjustmentTimeRule>): Promise<LineAdjustmentTimeRule> {
+    // 1. Validação de duração
+    if (
+      data.duration_minutes === undefined ||
+      data.duration_minutes === null ||
+      data.duration_minutes <= 0
+    ) {
+      throw new Error('O tempo de acerto deve ser maior que 0 minutos.')
+    }
+
+    if (!data.material_code || !data.material_code.trim()) {
+      throw new Error('O código do material SAP é obrigatório.')
+    }
+
+    if (!data.sample_type) {
+      throw new Error('O tipo de amostra é obrigatório.')
+    }
+
+    // 2. Validação de duplicidade ativa: (Linha + Material + Tipo de Amostra)
+    const lineId = data.line_id
+    const matCode = data.material_code.trim().toUpperCase()
+    const sampleType = data.sample_type
+    const isActive = data.active !== false
+
+    if (lineId && isActive) {
+      try {
+        const existing = await pb
+          .collection('adjustment_time_rules')
+          .getFullList<LineAdjustmentTimeRule>({
+            filter: `line_id = '${lineId}' && active = true && material_code = '${matCode}' && sample_type = '${sampleType}'`,
+          })
+
+        const duplicate = existing.find((item) => !data.id || item.id !== data.id)
+        if (duplicate) {
+          throw new Error('Já existe um tempo de acerto vigente para esta combinação.')
+        }
+      } catch (checkErr: any) {
+        if (checkErr.message?.includes('Já existe um tempo de acerto')) {
+          throw checkErr
+        }
+        console.warn('Erro ao verificar duplicidade de acerto:', checkErr)
+      }
+    }
+
+    const payload: Partial<LineAdjustmentTimeRule> = {
+      ...data,
+      material_code: matCode,
+      active: data.active !== undefined ? data.active : true,
+      valid_from: data.valid_from || new Date().toISOString().slice(0, 10),
+    }
+
+    if (data.id) {
+      return await pb
+        .collection('adjustment_time_rules')
+        .update<LineAdjustmentTimeRule>(data.id, payload)
+    }
+    return await pb.collection('adjustment_time_rules').create<LineAdjustmentTimeRule>(payload)
+  },
+
+  async setAdjustmentRuleActive(
+    id: string,
+    active: boolean,
+    validUntil?: string,
+  ): Promise<LineAdjustmentTimeRule> {
+    const payload: Partial<LineAdjustmentTimeRule> = { active }
+    if (validUntil !== undefined) {
+      payload.valid_until = validUntil
+    }
+    return await pb.collection('adjustment_time_rules').update<LineAdjustmentTimeRule>(id, payload)
   },
 
   // ==========================================

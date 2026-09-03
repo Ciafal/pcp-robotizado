@@ -6,6 +6,16 @@ export type MasterDataStatus = 'ACTIVE' | 'DRAFT' | 'HISTORIC' | 'OBSOLETE'
 export type SourceMode = 'MANUAL' | 'SAP'
 export type SapStatus = 'CONECTADO' | 'ERRO' | 'NAO_TESTADO' | 'INDISPONIVEL'
 
+// Tipos de Amostra para Matriz de Acerto
+export type SampleType = 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'TARUGO'
+
+export const SAMPLE_TYPE_LABELS: Record<SampleType, string> = {
+  PEQUENA: 'Pequena',
+  MEDIA: 'Média',
+  GRANDE: 'Grande',
+  TARUGO: 'Tarugo',
+}
+
 export type ProgrammingType =
   | 'Enfornamento'
   | 'Laminação'
@@ -362,6 +372,25 @@ export interface LineSetupMatrix {
   }
 }
 
+// 11.1. Matriz de Tempo de Acerto (adjustment_time_rules)
+export interface LineAdjustmentTimeRule {
+  id: string
+  line_id: string
+  material_code: string
+  material_description?: string
+  sample_type: SampleType
+  duration_minutes: number
+  valid_from: string
+  valid_until?: string
+  active: boolean
+  metadata?: Record<string, unknown>
+  created?: string
+  updated?: string
+  expand?: {
+    line_id?: ProductionLine
+  }
+}
+
 // 12. Demais entidades existentes preservadas
 export interface ProductionShift {
   id: string
@@ -564,6 +593,7 @@ export interface LineOverviewData {
   blockedProducts: LineBlockedProduct[]
   setups: LineSetup[]
   setupMatrix: LineSetupMatrix[]
+  adjustmentRules?: LineAdjustmentTimeRule[]
   scheduledStops: StandardScheduledStop[]
   constraints: LineStructuralConstraint[]
   rulePacks: LineRulePackRef[]
