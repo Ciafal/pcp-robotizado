@@ -69,7 +69,12 @@ import {
   WeeklyScheduleVersionRecord,
   WeeklyViewMode,
 } from '@/types/weekly-schedule'
-import { LineOverviewData, ProductionLine } from '@/types/line-master'
+import {
+  LineOverviewData,
+  ProductionLine,
+  ProgrammingType,
+  PROGRAMMING_TYPES_CATALOG,
+} from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
@@ -135,6 +140,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   // Estados de Filtro de Cabeçalho (Empresa, Centro, Linha, Ano, Semana)
   const [companyCode, setCompanyCode] = useState<string>('CIAFAL')
   const [plantCode, setPlantCode] = useState<string>('PLANTA_1')
+  const [selectedProgrammingType, setSelectedProgrammingType] = useState<string>('ALL')
   const [selectedLineCode, setSelectedLineCode] = useState<string>('L1')
   const [selectedYear, setSelectedYear] = useState<number>(2026)
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(35)
@@ -664,6 +670,37 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
     return deficits
   }, [currentLineOverview])
+
+  // Linhas Elegíveis filtradas por Tipo de Programação e Linha Ativa (ITEM 1 e ITEM 2)
+  const eligibleLines = useMemo(() => {
+    return lines.filter((line) => {
+      // Linha ativa
+      const active = line.is_active !== false && line.status !== 'INACTIVE'
+      if (!active) return false
+
+      // Se filtro for "ALL" / Todos
+      if (selectedProgrammingType === 'ALL') return true
+
+      const pType = line.programming_type || 'Laminação'
+      const pStages = Array.isArray(line.programming_stages) ? line.programming_stages : []
+
+      if (pType === selectedProgrammingType) return true
+      if (pType === 'Múltiplo' && pStages.includes(selectedProgrammingType as ProgrammingType)) {
+        return true
+      }
+      return false
+    })
+  }, [lines, selectedProgrammingType])
+
+  // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, atualiza para a primeira elegível
+  useEffect(() => {
+    if (eligibleLines.length > 0) {
+      const isCurrentEligible = eligibleLines.some((l) => l.code === selectedLineCode)
+      if (!isCurrentEligible) {
+        setSelectedLineCode(eligibleLines[0].code)
+      }
+    }
+  }, [eligibleLines, selectedLineCode])
 
   // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
   const calculationResult = useMemo(() => {
@@ -1354,9 +1391,29 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
+    // Pipeline de validação real da IA antes de sugerir otimizações
+    if (!isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Linha Inativa',
+        description: 'Esta linha está inativa. O assistente de IA não gera recomendações para linhas inativas.',
+      })
+      return
+    }
+
+    if (lineConfigurationDeficits.length > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível gerar uma recomendação confiável',
+        description: `Existem pendências cadastrais na Ficha Mestra: ${lineConfigurationDeficits[0]}.`,
+      })
+      return
+    }
+
     const recs = rollShopSetupService.generateAISetupRecommendations(
       calculatedItems,
       selectedLineCode,
+      currentLineOverview,
     )
     setAiSetupRecommendations(recs)
     setIsAiSetupModalOpen(true)
@@ -1697,7 +1754,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             {/* Linha 2 Compacta na mesma linguagem da semanal */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> L1 - Laminação de Perfis Leves
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - {currentLineOverview?.line.name || 'Linha Operacional'}
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Tipo:</strong>{' '}
+                <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[10px] font-semibold py-0">
+                  {selectedProgrammingType === 'ALL' ? 'Todos' : selectedProgrammingType}
+                </Badge>
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -1783,8 +1847,18 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 25 e 26) */}
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - Laminação de
-                Perfis Leves
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} - {currentLineOverview?.line.name || 'Linha Operacional'}
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Tipo:</strong>{' '}
+                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-semibold py-0">
+                  {selectedProgrammingType === 'ALL' ? 'Todos' : selectedProgrammingType}
+                </Badge>
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} ({targetCrewName})
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -1977,7 +2051,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Filtro Linha Produtiva */}
+            {/* Filtro Tipo de Programação (ITEM 2 - Cumulativo & Múltiplo) */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-bold text-slate-600">Tipo de Programação:</span>
+              <select
+                value={selectedProgrammingType}
+                onChange={(e) => setSelectedProgrammingType(e.target.value)}
+                aria-label="Tipo de Programação"
+                className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="ALL">Todos</option>
+                {PROGRAMMING_TYPES_CATALOG.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Linha Produtiva (linhas elegíveis ativas) */}
             <div className="flex items-center gap-1">
               <span className="text-[11px] font-bold text-slate-600">Linha:</span>
               <select
@@ -1986,7 +2078,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 aria-label="Linha Produtiva"
                 className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
               >
-                {lines.map((l) => (
+                {eligibleLines.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.code} - {l.name}
                   </option>
@@ -2051,13 +2143,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </div>
 
             {/* Botão Limpar Filtros */}
-            {(monthlyFilterShift !== 'ALL' ||
+            {(selectedProgrammingType !== 'ALL' ||
+              monthlyFilterShift !== 'ALL' ||
               monthlyFilterProduct !== 'ALL' ||
               monthlyFilterCustomer !== 'ALL') && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
+                  setSelectedProgrammingType('ALL')
                   setMonthlyFilterShift('ALL')
                   setMonthlyFilterProduct('ALL')
                   setMonthlyFilterCustomer('ALL')
@@ -2069,33 +2163,148 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             )}
           </div>
         ) : (
-          /* Lado Esquerdo Semanal: + Adicionar Produto, Remover, Duplicar, Dividir Qtd. */
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              disabled={!isLineActive}
-              onClick={() => {
-                if (!isLineActive) {
-                  toast({
-                    variant: 'destructive',
-                    title: 'Linha Inativa',
-                    description: 'Esta linha está inativa para novas programações.',
-                  })
-                  return
-                }
-                const firstShift = (currentLineOverview?.shifts || [])[0]
-                setTargetDay('SEG')
-                setTargetShiftCode(firstShift?.code || 'T1_L1')
-                setIsAddModalOpen(true)
-              }}
-              className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
-                !isLineActive
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" /> Adicionar Produto
-            </Button>
+          /* Lado Esquerdo Semanal: Filtros Operacionais Compactos (Empresa | Tipo de Programação | Linha | Turno | Turma | Período) + Ações */
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filtros em linha horizontal compacta com wrap responsivo sem scroll */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-md p-1">
+              {/* Empresa */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Empresa:</span>
+                <select
+                  value={companyCode}
+                  onChange={(e) => setCompanyCode(e.target.value)}
+                  aria-label="Empresa"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="CIAFAL">CIAFAL Matriz</option>
+                  <option value="CIAFAL_SUL">CIAFAL Sul</option>
+                </select>
+              </div>
+
+              {/* Tipo de Programação [ Todos ▼ ] - ITEM 1 */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Tipo de Programação:</span>
+                <select
+                  value={selectedProgrammingType}
+                  onChange={(e) => setSelectedProgrammingType(e.target.value)}
+                  aria-label="Tipo de Programação"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todos</option>
+                  {PROGRAMMING_TYPES_CATALOG.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Linha Produtiva (linhas elegíveis ativas) */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Linha:</span>
+                <select
+                  value={selectedLineCode}
+                  onChange={(e) => setSelectedLineCode(e.target.value)}
+                  aria-label="Linha Produtiva"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  {eligibleLines.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.code} - {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Turno da Ficha Mestra */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Turno:</span>
+                <select
+                  value={targetShiftCode}
+                  onChange={(e) => {
+                    const shCode = e.target.value
+                    setTargetShiftCode(shCode)
+                    const foundShift = (currentLineOverview?.shifts || []).find((s) => s.code === shCode)
+                    if (foundShift) {
+                      setTargetShiftName(foundShift.name)
+                      const matchedRel = (currentLineOverview?.shiftCrews || []).find(
+                        (sc) =>
+                          (sc.shift_id === shCode || sc.expand?.shift_id?.code === shCode) &&
+                          sc.active !== false,
+                      )
+                      const crewName =
+                        matchedRel?.expand?.crew_id?.name ||
+                        matchedRel?.expand?.crew_id?.code ||
+                        (currentLineOverview?.crews && currentLineOverview.crews.length > 0
+                          ? currentLineOverview.crews[0].name
+                          : 'Turma A')
+                      setTargetCrewName(crewName)
+                    }
+                  }}
+                  aria-label="Turno da Ficha Mestra"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  {(currentLineOverview?.shifts || []).map((sh) => (
+                    <option key={sh.code} value={sh.code}>
+                      {sh.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Turma da Ficha Mestra */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Turma:</span>
+                <select
+                  value={targetCrewName}
+                  onChange={(e) => setTargetCrewName(e.target.value)}
+                  aria-label="Turma da Ficha Mestra"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  {(currentLineOverview?.crews || []).map((cr) => (
+                    <option key={cr.code || cr.id} value={cr.name}>
+                      {cr.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Período */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Período:</span>
+                <Badge variant="outline" className="text-[10.5px] font-mono font-bold bg-white text-slate-700 py-0.5">
+                  S{selectedWeekNumber} ({weekRange.display})
+                </Badge>
+              </div>
+            </div>
+
+            {/* Ações da Grade Operacional */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                disabled={!isLineActive}
+                onClick={() => {
+                  if (!isLineActive) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'Linha Inativa',
+                      description: 'Esta linha está inativa para novas programações.',
+                    })
+                    return
+                  }
+                  const firstShift = (currentLineOverview?.shifts || [])[0]
+                  setTargetDay('SEG')
+                  setTargetShiftCode(firstShift?.code || 'T1_L1')
+                  setIsAddModalOpen(true)
+                }}
+                className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
+                  !isLineActive
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    : 'bg-[#004C97] hover:bg-[#003d7a] text-white'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" /> Adicionar Produto
+              </Button>
 
             <Button
               variant="outline"

@@ -22,6 +22,29 @@ import { StockBalanceEngine, StockBalanceItemResult } from './stock-balance-engi
 import { ResaleImportEngine, ResaleImportCalculationResult } from './resale-import-engine'
 import { DesbasteL1Engine, DesbasteRecommendation } from './desbaste-l1-engine'
 import { EnfornamentoEngine, EnfornamentoValidationResult } from './enfornamento-engine'
+import { LineOverviewData, ProductionLine } from '@/types/line-master'
+
+export interface OperationalProgrammingContext {
+  lineId: string
+  lineCode: string
+  company: string
+  plant: string
+  active: boolean
+  programmingType: string
+  programmingStages: string[]
+  shifts: any[]
+  crews: any[]
+  shiftCrewRelations: any[]
+  capacity: number
+  productivity: number
+  stops: any[]
+  rawMaterialRules: any[]
+  blockedProducts: string[]
+  bottlenecks: any[]
+  setups: any[]
+  idealSequence: any[]
+  currentSchedule: any[]
+}
 
 export interface ProgrammingCandidateItem {
   id: string
@@ -101,7 +124,29 @@ export class AIProgrammerDeterministicEngine {
     targetWeek: string,
     candidates: ProgrammingCandidateItem[],
     currentDesbasteAccumulatedTons: number = 6500,
+    lineOverview?: LineOverviewData | null,
   ): AISchedulerResult {
+    // 1. Linha inativa: IA NÃO considera para nova programação
+    const isLineActive = lineOverview?.line ? lineOverview.line.is_active !== false : true
+    if (!isLineActive) {
+      return {
+        line,
+        targetWeek,
+        totalPlannedTons: 0,
+        totalPlannedHours: 0,
+        totalSetupsMinutes: 0,
+        candidatesEvaluatedCount: 0,
+        scheduledItemsCount: 0,
+        blockedItemsCount: candidates.length,
+        sequence: [],
+        blockedCandidates: candidates.map((c) => ({
+          candidate: c,
+          blockingReasons: ['Linha marcada como Inativa para novas programações.'],
+        })),
+        overallAIReport: `Linha ${line} está inativa. O assistente de IA recusa geração automática para linhas inativas.`,
+      }
+    }
+
     const lineCandidates = candidates.filter((c) => c.line === line)
 
     // 1. Avalia Desbaste L1
