@@ -762,11 +762,16 @@ export const lineMasterService = {
       throw new Error('O tipo de amostra é obrigatório.')
     }
 
-    // 2. Validação de duplicidade ativa: (Linha + Material + Tipo de Amostra)
+    // 2. Validação de duplicidade ativa e sobreposição de vigência: (Linha + Material + Tipo de Amostra + período sobreposto)
     const lineId = data.line_id
     const matCode = data.material_code.trim().toUpperCase()
     const sampleType = data.sample_type
     const isActive = data.active !== false
+
+    const validFromStr = data.valid_from
+      ? String(data.valid_from).slice(0, 10)
+      : new Date().toISOString().slice(0, 10)
+    const validUntilStr = data.valid_until ? String(data.valid_until).slice(0, 10) : ''
 
     if (lineId && isActive) {
       try {
@@ -776,12 +781,24 @@ export const lineMasterService = {
             filter: `line_id = '${lineId}' && active = true && material_code = '${matCode}' && sample_type = '${sampleType}'`,
           })
 
-        const duplicate = existing.find((item) => !data.id || item.id !== data.id)
-        if (duplicate) {
-          throw new Error('Já existe um tempo de acerto vigente para esta combinação.')
+        const hasOverlap = existing.some((item) => {
+          if (data.id && item.id === data.id) return false
+          const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
+          const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
+          const newFrom = validFromStr || '1970-01-01'
+          const newUntil = validUntilStr || '9999-12-31'
+
+          // Sobreposição: startA <= endB && endA >= startB
+          return newFrom <= itemUntil && newUntil >= itemFrom
+        })
+
+        if (hasOverlap) {
+          throw new Error(
+            'Já existe uma regra de Acerto ativa para esta bitola e tipo de amostra no período informado.',
+          )
         }
       } catch (checkErr: any) {
-        if (checkErr.message?.includes('Já existe um tempo de acerto')) {
+        if (checkErr.message?.includes('Já existe uma regra de Acerto ativa')) {
           throw checkErr
         }
         console.warn('Erro ao verificar duplicidade de acerto:', checkErr)
@@ -792,15 +809,80 @@ export const lineMasterService = {
       ...data,
       material_code: matCode,
       active: data.active !== undefined ? data.active : true,
-      valid_from: data.valid_from || new Date().toISOString().slice(0, 10),
+      valid_from: validFromStr,
+      valid_until: validUntilStr || undefined,
     }
 
+    let previousRecord: LineAdjustmentTimeRule | null = null
     if (data.id) {
-      return await pb
+      try {
+        previousRecord = await pb
+          .collection('adjustment_time_rules')
+          .getOne<LineAdjustmentTimeRule>(data.id)
+      } catch {
+        previousRecord = null
+      }
+    }
+
+    let savedRecord: LineAdjustmentTimeRule
+    if (data.id) {
+      savedRecord = await pb
         .collection('adjustment_time_rules')
         .update<LineAdjustmentTimeRule>(data.id, payload)
+    } else {
+      savedRecord = await pb
+        .collection('adjustment_time_rules')
+        .create<LineAdjustmentTimeRule>(payload)
     }
-    return await pb.collection('adjustment_time_rules').create<LineAdjustmentTimeRule>(payload)
+
+    // Auditoria oficial em pcp_audit_logs
+    const currentUser = pb.authStore.record
+    const auditAction = data.id ? 'UPDATE_ADJUSTMENT_RULE' : 'CREATE_ADJUSTMENT_RULE'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'adjustment_time_rules',
+        resource_id: savedRecord.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: lineId || savedRecord.line_id,
+          material_code: savedRecord.material_code,
+          material_description: savedRecord.material_description || '',
+          sample_type: savedRecord.sample_type,
+          duration_minutes: savedRecord.duration_minutes,
+          valid_from: savedRecord.valid_from,
+          valid_until: savedRecord.valid_until || null,
+          active: savedRecord.active,
+          previous_value: previousRecord
+            ? {
+                duration_minutes: previousRecord.duration_minutes,
+                valid_from: previousRecord.valid_from,
+                valid_until: previousRecord.valid_until,
+                active: previousRecord.active,
+              }
+            : null,
+          new_value: {
+            duration_minutes: savedRecord.duration_minutes,
+            valid_from: savedRecord.valid_from,
+            valid_until: savedRecord.valid_until,
+            active: savedRecord.active,
+          },
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria em pcp_audit_logs:', auditErr)
+    }
+
+    return savedRecord
   },
 
   async setAdjustmentRuleActive(
@@ -808,11 +890,103 @@ export const lineMasterService = {
     active: boolean,
     validUntil?: string,
   ): Promise<LineAdjustmentTimeRule> {
+    let previousRecord: LineAdjustmentTimeRule | null = null
+    try {
+      previousRecord = await pb
+        .collection('adjustment_time_rules')
+        .getOne<LineAdjustmentTimeRule>(id)
+      if (previousRecord?.line_id) {
+        invalidateCompletenessCache(previousRecord.line_id)
+      }
+    } catch {
+      previousRecord = null
+    }
+
+    // Se estiver reativando, verificar se não gerará conflito de período sobreposto com outra regra ativa
+    if (active && previousRecord) {
+      const lineId = previousRecord.line_id
+      const matCode = previousRecord.material_code
+      const sampleType = previousRecord.sample_type
+      const validFromStr = previousRecord.valid_from
+        ? String(previousRecord.valid_from).slice(0, 10)
+        : '1970-01-01'
+      const validUntilStr =
+        validUntil !== undefined
+          ? validUntil
+            ? String(validUntil).slice(0, 10)
+            : ''
+          : previousRecord.valid_until
+            ? String(previousRecord.valid_until).slice(0, 10)
+            : ''
+
+      const existing = await pb
+        .collection('adjustment_time_rules')
+        .getFullList<LineAdjustmentTimeRule>({
+          filter: `line_id = '${lineId}' && active = true && material_code = '${matCode}' && sample_type = '${sampleType}'`,
+        })
+
+      const hasOverlap = existing.some((item) => {
+        if (item.id === id) return false
+        const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
+        const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
+        const newFrom = validFromStr || '1970-01-01'
+        const newUntil = validUntilStr || '9999-12-31'
+        return newFrom <= itemUntil && newUntil >= itemFrom
+      })
+
+      if (hasOverlap) {
+        throw new Error(
+          'Já existe uma regra de Acerto ativa para esta bitola e tipo de amostra no período informado.',
+        )
+      }
+    }
+
     const payload: Partial<LineAdjustmentTimeRule> = { active }
     if (validUntil !== undefined) {
-      payload.valid_until = validUntil
+      payload.valid_until = validUntil || null
     }
-    return await pb.collection('adjustment_time_rules').update<LineAdjustmentTimeRule>(id, payload)
+    const updated = await pb
+      .collection('adjustment_time_rules')
+      .update<LineAdjustmentTimeRule>(id, payload)
+
+    // Auditoria oficial em pcp_audit_logs
+    const currentUser = pb.authStore.record
+    const auditAction = active ? 'ACTIVATE_ADJUSTMENT_RULE' : 'DEACTIVATE_ADJUSTMENT_RULE'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'adjustment_time_rules',
+        resource_id: updated.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: updated.line_id,
+          material_code: updated.material_code,
+          material_description: updated.material_description || '',
+          sample_type: updated.sample_type,
+          duration_minutes: updated.duration_minutes,
+          valid_from: updated.valid_from,
+          valid_until: updated.valid_until || null,
+          active: updated.active,
+          previous_value: previousRecord
+            ? { active: previousRecord.active, valid_until: previousRecord.valid_until }
+            : null,
+          new_value: { active: updated.active, valid_until: updated.valid_until },
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria em pcp_audit_logs:', auditErr)
+    }
+
+    return updated
   },
 
   // ==========================================

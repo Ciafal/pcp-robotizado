@@ -170,6 +170,8 @@ export interface WeeklyScheduleItem {
   raw_material_planned_tons?: number
   raw_material_available_tons?: number | null
   enfornamento_type?: 'FRIO' | 'QUENTE' | 'INTERCALADO' | 'TAPETE' | 'NORMAL'
+  sample_type?: 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'TARUGO' | string
+  tuning_unparametrized?: boolean
   productivity_applied_source?: string
   query_timestamp?: string
   // Validação de Resfriamento
