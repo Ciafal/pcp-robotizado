@@ -1941,7 +1941,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
             >
               <Send className="w-3 h-3 mr-1" />
-              Enviar p/ Revisão
+              Enviar para Aprovação
             </Button>
           </div>
         </div>
@@ -2699,7 +2699,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
           >
             <Send className="w-3.5 h-3.5 mr-1" />
-            Enviar para Revisão
+            Enviar para Aprovação
           </Button>
         </div>
       </div>

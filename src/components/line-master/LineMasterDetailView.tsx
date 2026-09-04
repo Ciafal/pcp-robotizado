@@ -2657,53 +2657,43 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: Cadastrar Parada Programada (Capacidade) */}
+      {/* MODAL: Cadastrar/Editar Parada Programada (Capacidade) */}
       <Dialog open={isScheduledStopModalOpen} onOpenChange={setIsScheduledStopModalOpen}>
         <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white text-base flex items-center gap-2">
               <PauseCircle className="w-4 h-4 text-amber-400" />
-              Adicionar Parada Programada à Capacidade
+              {schId ? 'Editar Parada Programada' : 'Adicionar Parada Programada à Capacidade'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Código da Parada</Label>
-                <Input
-                  placeholder="Ex: STOP_PREV_L1"
-                  value={schCode}
-                  onChange={(e) => setSchCode(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white font-mono uppercase font-bold"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Categoria</Label>
-                <select
-                  value={schCat}
-                  onChange={(e) => setSchCat(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
-                >
-                  <option value="PREVENTIVE">PREVENTIVE (Manutenção Preventiva)</option>
-                  <option value="CLEANING">CLEANING (Limpeza e 5S)</option>
-                  <option value="MEETING">MEETING (DDS / Reunião de Turno)</option>
-                  <option value="TOOLING_CHANGE">TOOLING_CHANGE (Ajuste Periódico)</option>
-                </select>
-              </div>
-            </div>
-
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Descrição da Atividade</Label>
+              <Label className="text-xs text-slate-300">Motivo da Parada *</Label>
               <Input
-                placeholder="Ex: Lubrificação diária e inspeção de cabeçotes"
-                value={schDesc}
-                onChange={(e) => setSchDesc(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
+                placeholder="Ex: Manutenção Preventiva Semanal"
+                value={schReason}
+                onChange={(e) => setSchReason(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white font-bold"
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Relação *</Label>
+                <select
+                  value={schRelationType}
+                  onChange={(e) => setSchRelationType(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="PROGRAMADA_MANUTENCAO">Manutenção Programada</option>
+                  <option value="TROCA_CAMPANHA">Troca de Campanha</option>
+                  <option value="LIMPEZA_5S">Limpeza & 5S</option>
+                  <option value="SETUP_BITOLA">Setup de Bitola</option>
+                  <option value="REFEICAO_DDS">Refeição / DDS</option>
+                  <option value="OUTROS">Outros</option>
+                </select>
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs text-slate-300">Recorrência</Label>
                 <select
@@ -2717,8 +2707,42 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="MONTHLY">MONTHLY (Mensal)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Duração (min)</Label>
+                <Label className="text-xs text-slate-300">Código Bitola (Opcional)</Label>
+                <Input
+                  placeholder="Ex: BITOLA_01"
+                  value={schGaugeCode}
+                  onChange={(e) => setSchGaugeCode(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Dimensão (Opcional)</Label>
+                <Input
+                  placeholder="Ex: 50x50mm"
+                  value={schGaugeDim}
+                  onChange={(e) => setSchGaugeDim(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-300">Descrição Detalhada</Label>
+              <Input
+                placeholder="Ex: Lubrificação diária e inspeção de cabeçotes"
+                value={schDesc}
+                onChange={(e) => setSchDesc(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Duração (min) *</Label>
                 <Input
                   type="number"
                   value={schDur}
@@ -2727,15 +2751,53 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Horário Programado</Label>
+                <Label className="text-xs text-slate-300">Hora Início</Label>
                 <Input
                   type="time"
-                  value={schTime}
-                  onChange={(e) => setSchTime(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white"
+                  disabled={!schTimeApplicable}
+                  value={schStartTime}
+                  onChange={(e) => setSchStartTime(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white disabled:opacity-50"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Hora Fim</Label>
+                <Input
+                  type="time"
+                  disabled={!schTimeApplicable}
+                  value={schEndTime}
+                  onChange={(e) => setSchEndTime(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white disabled:opacity-50"
                 />
               </div>
             </div>
+
+            <div className="flex items-center gap-4 pt-1">
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={schTimeApplicable}
+                  onChange={(e) => setSchTimeApplicable(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-[#004C97]"
+                />
+                <span>Horário aplicável</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={schActive}
+                  onChange={(e) => setSchActive(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-[#004C97]"
+                />
+                <span>Ativo (impacta capacidade)</span>
+              </label>
+            </div>
+
+            {timeMismatchAlert && (
+              <p className="text-[11px] text-amber-400 bg-amber-950/40 p-2 rounded border border-amber-800">
+                {timeMismatchAlert}
+              </p>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
