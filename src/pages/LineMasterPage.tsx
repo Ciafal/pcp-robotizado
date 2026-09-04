@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -42,6 +43,7 @@ import { LineMasterDetailView } from '@/components/line-master/LineMasterDetailV
 
 export default function LineMasterPage() {
   const { toast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [loading, setLoading] = useState<boolean>(true)
   const [lines, setLines] = useState<ProductionLine[]>([])
@@ -50,7 +52,8 @@ export default function LineMasterPage() {
   const [sapCatalog, setSapCatalog] = useState<SapIntegrationDefinition[]>([])
 
   // Linha Selecionada para Visão 360 Detalhada
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null)
+  const urlLineId = searchParams.get('lineId') || searchParams.get('id')
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(urlLineId)
   const [selectedLineOverview, setSelectedLineOverview] = useState<LineOverviewData | null>(null)
   const [loadingOverview, setLoadingOverview] = useState<boolean>(false)
 
@@ -96,26 +99,62 @@ export default function LineMasterPage() {
     }
   }
 
-  const loadLineOverview = async (lineId: string) => {
-    setLoadingOverview(true)
-    try {
-      const data = await lineMasterService.getLineOverview(lineId)
-      setSelectedLineOverview(data)
-      setSelectedLineId(lineId)
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao carregar detalhes da linha',
-        description: err.message,
-      })
-    } finally {
-      setLoadingOverview(false)
-    }
-  }
+  const loadLineOverview = useCallback(
+    async (lineId: string) => {
+      setLoadingOverview(true)
+      try {
+        const data = await lineMasterService.getLineOverview(lineId)
+        setSelectedLineOverview(data)
+        setSelectedLineId(lineId)
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.set('lineId', lineId)
+            return next
+          },
+          { replace: true },
+        )
+      } catch (err: any) {
+        const status = err?.status || err?.response?.status
+        const msg = err?.data?.message || err?.message || ''
+        let userFriendlyMsg = 'Não foi possível carregar os dados neste momento.'
+        if (
+          status === 404 ||
+          msg.toLowerCase().includes('not found') ||
+          msg.toLowerCase().includes('não encontrad')
+        ) {
+          userFriendlyMsg = 'Linha não encontrada.'
+        } else if (
+          status === 403 ||
+          msg.toLowerCase().includes('forbidden') ||
+          msg.toLowerCase().includes('permissão')
+        ) {
+          userFriendlyMsg = 'Você não possui permissão para editar esta Ficha Mestre.'
+        }
+
+        toast({
+          variant: 'destructive',
+          title: 'Ficha Mestre',
+          description: userFriendlyMsg,
+        })
+      } finally {
+        setLoadingOverview(false)
+      }
+    },
+    [setSearchParams, toast],
+  )
 
   useEffect(() => {
     loadData()
   }, [])
+
+  // Se houver lineId na URL ao montar ou alterar, carregar o overview correspondente
+  useEffect(() => {
+    const qLineId = searchParams.get('lineId') || searchParams.get('id')
+    if (qLineId && qLineId !== selectedLineOverview?.line?.id) {
+      loadLineOverview(qLineId)
+    }
+  }, [searchParams, loadLineOverview, selectedLineOverview])
 
   const filteredLines = lines.filter((line) => {
     const matchesSearch =
@@ -190,6 +229,15 @@ export default function LineMasterPage() {
               onClick={() => {
                 setSelectedLineId(null)
                 setSelectedLineOverview(null)
+                setSearchParams(
+                  (prev) => {
+                    const next = new URLSearchParams(prev)
+                    next.delete('lineId')
+                    next.delete('id')
+                    return next
+                  },
+                  { replace: true },
+                )
               }}
               className="text-[#004C97] hover:bg-blue-50 text-xs font-semibold h-7"
             >

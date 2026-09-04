@@ -49,10 +49,6 @@ export default function Index() {
   const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL')
 
   // Modal para simulação de edição rápida de linha (Object-Level Authorization Test)
-  const [editingLine, setEditingLine] = useState<ProductionLine | null>(null)
-  const [editRate, setEditRate] = useState<number>(0)
-  const [editActiveOrder, setEditActiveOrder] = useState<string>('')
-  const [savingEdit, setSavingEdit] = useState<boolean>(false)
 
   const loadData = async () => {
     setLoading(true)
@@ -120,40 +116,7 @@ export default function Index() {
   }, [scopedLines])
 
   const handleOpenEdit = (line: ProductionLine) => {
-    setEditingLine(line)
-    setEditRate(line.target_rate)
-    setEditActiveOrder(line.active_order)
-  }
-
-  const handleSaveLine = async () => {
-    if (!editingLine) return
-    setSavingEdit(true)
-    try {
-      await authService.updateProductionLine(editingLine.id, {
-        target_rate: Number(editRate),
-        active_order: editActiveOrder,
-      })
-
-      toast({
-        title: 'Parâmetros atualizados',
-        description: `Linha ${editingLine.code} atualizada com sucesso no backend.`,
-      })
-
-      setEditingLine(null)
-      await loadData()
-    } catch (err: any) {
-      // Interceptado pelo Hook de segurança (403 Object-Level Scope Violation)
-      toast({
-        variant: 'destructive',
-        title: 'Bloqueio de Segurança (403)',
-        description:
-          err?.data?.message ||
-          err?.message ||
-          'Tentativa de alteração fora do escopo ou sem autorização.',
-      })
-    } finally {
-      setSavingEdit(false)
-    }
+    navigate(`/pcp/ficha-mestre?lineId=${line.id}`)
   }
 
   const handleAcknowledgeAlert = async (alertId: string) => {
@@ -586,64 +549,6 @@ export default function Index() {
           </div>
         </div>
       </div>
-
-      {/* Modal para Ajuste com Teste de Object-Level Authorization */}
-      <Dialog open={!!editingLine} onOpenChange={(open) => !open && setEditingLine(null)}>
-        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900 flex items-center gap-2 text-base font-bold">
-              <Settings className="w-4 h-4 text-[#004C97]" />
-              Ajustar Parâmetros Industriais ({editingLine?.code})
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Operação protegida por Object-Level Authorization no backend. O sistema validará se
-              seu perfil e escopo permitem a gravação.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2 text-xs">
-            <div className="space-y-1.5">
-              <Label className="text-slate-700 text-xs font-semibold">Meta de Produção (t/h)</Label>
-              <Input
-                type="number"
-                value={editRate}
-                onChange={(e) => setEditRate(Number(e.target.value))}
-                className="bg-white border-slate-300 text-slate-900"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-slate-700 text-xs font-semibold">
-                Ordem de Produção Ativa
-              </Label>
-              <Input
-                value={editActiveOrder}
-                onChange={(e) => setEditActiveOrder(e.target.value)}
-                className="bg-white border-slate-300 text-slate-900"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditingLine(null)}
-              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-            >
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveLine}
-              disabled={savingEdit}
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold"
-            >
-              {savingEdit ? 'Validando no Backend...' : 'Salvar Alterações'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

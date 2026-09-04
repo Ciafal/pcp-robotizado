@@ -109,6 +109,10 @@ export const lineMasterService = {
     return await pb.collection('production_lines').update<ProductionLine>(lineId, data)
   },
 
+  async deleteLine(lineId: string): Promise<boolean> {
+    return await pb.collection('production_lines').delete(lineId)
+  },
+
   // ==========================================
   // 2. CONTEXTO COMPLETO DA LINHA (Visão 360)
   // ==========================================
