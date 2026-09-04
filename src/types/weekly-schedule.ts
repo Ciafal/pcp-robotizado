@@ -159,6 +159,19 @@ export interface WeeklyScheduleItem {
     date_time: string
     deadline?: string
   }
+  // Campos de Estoque, Carteira, Matéria-Prima e Enfornamento
+  estoque_referencia_consultado?: number | null
+  carteira_referencia?: number | null
+  cobertura_antes_dias?: number | null
+  cobertura_depois_dias?: number | null
+  situacao_cobertura?: string
+  raw_material_material_code?: string
+  raw_material_yield_pct?: number
+  raw_material_planned_tons?: number
+  raw_material_available_tons?: number | null
+  enfornamento_type?: 'FRIO' | 'QUENTE' | 'INTERCALADO' | 'TAPETE' | 'NORMAL'
+  productivity_applied_source?: string
+  query_timestamp?: string
   // Validação de Resfriamento
   cooling_validation?: {
     hasViolation: boolean

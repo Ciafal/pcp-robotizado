@@ -1,22 +1,27 @@
 /**
- * Modal de Inclusão e Edição de Produtos na Programação Semanal
- * Conformidade com os Requisitos 8 a 16 e 29:
- * 1. Seleção em cascata obrigatória: Linha -> Família -> Produto (produto bloqueado até escolher família)
- * 2. Somente famílias e materiais homologados na Ficha Mestre / SAP
- * 3. Campo "Programar por": [Quantidade] ou [Horário]
- * 4. Cálculo bidirecional integrado com WeeklyScheduleEngine.calculateBidirectionalSchedule
- * 5. Bloqueio claro se não houver cadência na Ficha Mestre (sem valores fictícios)
- * 6. Distinção clara entre campos informados vs calculados (com ícone de calculadora)
+ * MODAL DE INCLUSÃO DE PRODUTO NA PROGRAMAÇÃO SEMANAL (PCP ROBOTIZADO)
+ * Atende integralmente às Partes 0, 2, 3, 4 e 5:
+ * - Parte 0: Preservação de todos os comportamentos existentes (cálculo temporal, cadência estrita da Ficha Mestre)
+ * - Parte 2: Bloco "Estoque & Carteira" imediato após seleção do produto SAP
+ *   * Origem SAP / Integração existente (somente leitura)
+ *   * Saldo Carteira = Carteira - Estoque ACAB + Estoque SEMI
+ *   * Cobertura atual e Cobertura pós-programação
+ *   * Situação da cobertura com TEXTO + Status ("Dentro da tolerância", etc.)
+ *   * Tratamento de indisponibilidade com as 3 mensagens obrigatórias
+ *   * Diferenciação visual entre digitado, SAP e calculado
+ * - Parte 3: Seção "Matéria-Prima Programada"
+ *   * Tipo de MP, Material MP, Quantidade MP, Rendimento Metálico Previsto (%)
+ *   * Cálculo direto: Qtd MP = Prod Boa / Rendimento
+ *   * Cálculo inverso: Prod Boa = Qtd MP * Rendimento
+ *   * Saldo MP pós-programação = MP disponível - MP necessária com alerta claro de déficit
+ * - Parte 4: Tipo de Enfornamento (Somente Laminação: L1 / L2 / LAMINAÇÃO)
+ *   * Opções: Frio, Quente, Intercalado, Tapete, Normal
+ *   * Busca produtividade ativa por linha + bitola + enfornamento + vigência
+ * - Parte 5: Resumo de Impacto antes de salvar e persistência completa
  */
 
-import React, { useState, useMemo, useEffect } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -37,14 +42,35 @@ import {
   Calculator,
   Search,
   Layers,
-  Sparkles,
-  Info,
-  ChevronRight,
+  Flame,
+  Boxes,
+  Database,
+  ArrowRight,
+  TrendingUp,
   AlertCircle,
+  FileCheck,
+  ShieldCheck,
+  ChevronRight,
 } from 'lucide-react'
 import { DAYS_OF_WEEK, WeeklyScheduleItem, OfficialMaterialOption } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import {
+  StockCarteiraEngine,
+  MaterialStockAndCarteiraData,
+  ValueWithAvailability,
+} from '@/services/stock-carteira-engine'
+import {
+  MpProgrammingEngine,
+  OfficialMpOption,
+  OFFICIAL_MP_TYPES,
+} from '@/services/mp-programming-engine'
+import {
+  EnfornamentoLaminacaoEngine,
+  EnfornamentoType,
+  ENFORNAMENTO_OPTIONS,
+  EnfornamentoProductivityMatch,
+} from '@/services/enfornamento-laminacao-engine'
 
 interface AddProductModalProps {
   isOpen: boolean
@@ -97,6 +123,32 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [orderType, setOrderType] = useState<'MTS' | 'MTO' | 'INDUSTRIALIZACAO'>('MTS')
   const [pcpNotes, setPcpNotes] = useState('')
 
+  // PARTE 2: ESTOQUE & CARTEIRA
+  const [stockCarteiraData, setStockCarteiraData] = useState<MaterialStockAndCarteiraData | null>(
+    null,
+  )
+  const [loadingStockCarteira, setLoadingStockCarteira] = useState<boolean>(false)
+
+  // PARTE 4: ENFORNAMENTO (SOMENTE LAMINAÇÃO)
+  const isLaminacao = useMemo(() => {
+    const code = (lineCode || '').trim().toUpperCase()
+    const desc = (lineOverview?.master?.description || '').toUpperCase()
+    return code === 'L1' || code === 'L2' || code.includes('LAM') || desc.includes('LAMINA')
+  }, [lineCode, lineOverview])
+
+  const [enfornamentoType, setEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
+  const [productivityMatch, setProductivityMatch] = useState<EnfornamentoProductivityMatch | null>(
+    null,
+  )
+
+  // PARTE 3: MATÉRIA-PRIMA PROGRAMADA
+  const [mpOptions, setMpOptions] = useState<OfficialMpOption[]>([])
+  const [selectedMpType, setSelectedMpType] = useState<string>('TARUGO 130x130')
+  const [selectedMpMaterialCode, setSelectedMpMaterialCode] = useState<string>('')
+  const [yieldPctInput, setYieldPctInput] = useState<string>('97.5')
+  const [mpQuantityInput, setMpQuantityInput] = useState<string>('102.56')
+  const [mpDirectionLock, setMpDirectionLock] = useState<'PROD_TO_MP' | 'MP_TO_PROD'>('PROD_TO_MP')
+
   // Sincroniza dias/turnos quando props mudarem
   useEffect(() => {
     if (isOpen) {
@@ -104,6 +156,20 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       setSelectedShift(targetShiftCode)
     }
   }, [isOpen, targetDay, targetShiftCode])
+
+  // Carrega opções de MP quando a linha mudar ou modal abrir
+  useEffect(() => {
+    if (isOpen) {
+      MpProgrammingEngine.fetchOfficialMpOptions(lineCode, lineOverview).then((opts) => {
+        setMpOptions(opts)
+        if (opts.length > 0 && !selectedMpMaterialCode) {
+          setSelectedMpMaterialCode(opts[0].code)
+          setSelectedMpType(opts[0].mpType)
+          setYieldPctInput(opts[0].defaultYieldPct.toString())
+        }
+      })
+    }
+  }, [isOpen, lineCode, lineOverview])
 
   // 1. Extração de Famílias Únicas Homologadas para esta linha
   const homologatedFamilies = useMemo(() => {
@@ -139,14 +205,34 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     )
   }, [materialsInSelectedFamily, searchTerm])
 
-  // 3. Cadência Oficial Ficha Mestra
+  // PARTE 4: Busca de produtividade ativa com base no enfornamento
+  useEffect(() => {
+    if (isLaminacao && selectedMaterial) {
+      EnfornamentoLaminacaoEngine.resolveActiveProductivity({
+        lineCode,
+        lineOverview,
+        materialCode: selectedMaterial.material_code,
+        gaugeDimension: selectedMaterial.dimension_spec,
+        enfornamentoType,
+      }).then((match) => {
+        setProductivityMatch(match)
+      })
+    } else {
+      setProductivityMatch(null)
+    }
+  }, [isLaminacao, selectedMaterial, enfornamentoType, lineCode, lineOverview])
+
+  // 3. Cadência Oficial Ficha Mestra (com ajuste de enfornamento quando aplicável)
   const materialCadence = useMemo(() => {
     if (!selectedMaterial) return null
+    if (isLaminacao && productivityMatch && productivityMatch.productivityTh > 0) {
+      return productivityMatch.productivityTh
+    }
     return WeeklyScheduleEngine.getProductivityForMaterialStrict(
       selectedMaterial.material_code,
       lineOverview,
     )
-  }, [selectedMaterial, lineOverview])
+  }, [selectedMaterial, isLaminacao, productivityMatch, lineOverview])
 
   // 4. Executa cálculo temporal bidirecional através do motor central
   const calculationResult = useMemo(() => {
@@ -162,6 +248,64 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       endTime: endTimeInput,
     })
   }, [selectedMaterial, materialCadence, programBy, quantityInput, startTimeInput, endTimeInput])
+
+  // Consulta de Estoque e Carteira ao selecionar material ou alterar quantidade
+  const plannedTonsNum = calculationResult?.quantityTons ?? (Number(quantityInput) || 0)
+
+  useEffect(() => {
+    if (selectedMaterial) {
+      setLoadingStockCarteira(true)
+      StockCarteiraEngine.fetchMaterialStockAndCarteira({
+        materialCode: selectedMaterial.material_code,
+        plannedTons: plannedTonsNum,
+      })
+        .then((data) => {
+          setStockCarteiraData(data)
+        })
+        .finally(() => {
+          setLoadingStockCarteira(false)
+        })
+    } else {
+      setStockCarteiraData(null)
+    }
+  }, [selectedMaterial?.material_code, plannedTonsNum])
+
+  // PARTE 3: Motor Bidirecional de Matéria-Prima
+  const currentYield = Number(yieldPctInput) || 97.5
+
+  // Sincroniza Quantidade de MP a partir da Produção Boa (Cálculo Direto)
+  useEffect(() => {
+    if (mpDirectionLock === 'PROD_TO_MP') {
+      const goodProd = calculationResult?.quantityTons ?? (Number(quantityInput) || 0)
+      if (goodProd > 0) {
+        const calculatedMp = MpProgrammingEngine.calculateMpFromProduction(goodProd, currentYield)
+        setMpQuantityInput(calculatedMp.toFixed(2))
+      }
+    }
+  }, [calculationResult?.quantityTons, quantityInput, currentYield, mpDirectionLock])
+
+  // Manipulador de alteração direta da Quantidade de MP (Cálculo Inverso)
+  const handleMpQuantityChange = (valStr: string) => {
+    setMpDirectionLock('MP_TO_PROD')
+    setMpQuantityInput(valStr)
+    const valNum = Number(valStr) || 0
+    if (valNum > 0 && currentYield > 0) {
+      const inverseGoodProd = MpProgrammingEngine.calculateProductionFromMp(valNum, currentYield)
+      setQuantityInput(inverseGoodProd.toFixed(2))
+    }
+  }
+
+  // Material de MP atualmente selecionado
+  const currentMpRecord = useMemo(() => {
+    return mpOptions.find((o) => o.code === selectedMpMaterialCode) || mpOptions[0] || null
+  }, [mpOptions, selectedMpMaterialCode])
+
+  // Saldo de MP pós-programação
+  const mpPostBalanceResult = useMemo(() => {
+    const needed = Number(mpQuantityInput) || 0
+    const available = currentMpRecord?.stockAvailableTons ?? null
+    return MpProgrammingEngine.calculateMpPostBalance(available, needed)
+  }, [currentMpRecord, mpQuantityInput])
 
   // 5. Validação de Conflito e Sobreposição de Horários
   const overlapValidation = useMemo(() => {
@@ -192,12 +336,65 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   // Manipulador de Troca de Material
   const handleSelectMaterial = (mat: OfficialMaterialOption) => {
     setSelectedMaterial(mat)
+    setMpDirectionLock('PROD_TO_MP')
     if (mat.default_order_type) {
       setOrderType(mat.default_order_type)
     }
   }
 
-  // Confirmação com Validação
+  // Helper visual para exibir campos de disponibilidade
+  const renderFieldWithAvailability = (
+    label: string,
+    field: ValueWithAvailability<number> | undefined,
+    unit: string,
+    isCalculated = false,
+  ) => {
+    if (!field || field.status !== 'AVAILABLE') {
+      const msg = field?.statusMessage || 'Dado indisponível — aguardando integração SAP.'
+      return (
+        <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium">
+              Origem SAP
+            </span>
+          </div>
+          <p className="text-[11px] text-amber-700 italic mt-1 leading-snug">{msg}</p>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        className={`rounded p-2.5 border flex flex-col justify-between ${
+          isCalculated
+            ? 'bg-blue-50/60 border-blue-200 ring-1 ring-blue-300/30'
+            : 'bg-white border-slate-200'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
+          <span
+            className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+              isCalculated
+                ? 'bg-blue-100 text-[#004C97] font-semibold'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}
+          >
+            {isCalculated ? 'Calculado' : 'SAP Oficial'}
+          </span>
+        </div>
+        <div className="mt-1 flex items-baseline gap-1">
+          <span className="font-mono text-base font-bold text-slate-900">
+            {field.value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] text-slate-500 font-bold">{unit}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Confirmação com Validação e Persistência Completa (Parte 5)
   const handleConfirm = () => {
     if (!selectedMaterial) return
     if (!calculationResult || !calculationResult.isValid) return
@@ -237,8 +434,29 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       pcp_notes: pcpNotes.trim() || undefined,
       item_type: 'PRODUCTION',
       status: 'DRAFT',
-      sap_cycle_time_avg_min: selectedMaterial.sap_cycle_time_avg_min ?? null,
+      sap_cycle_time_avg_min:
+        stockCarteiraData?.tempoMedioCicloMin?.value ??
+        selectedMaterial.sap_cycle_time_avg_min ??
+        null,
       exception_approval_status: 'NONE',
+
+      // PARTE 5: Persistência junto ao item programado
+      estoque_referencia_consultado: stockCarteiraData?.estoqueAcab?.value ?? null,
+      carteira_referencia: stockCarteiraData?.carteira?.value ?? null,
+      cobertura_antes_dias: stockCarteiraData?.coverage?.currentCoverageDays ?? null,
+      cobertura_depois_dias: stockCarteiraData?.coverage?.postCoverageDays ?? null,
+      situacao_cobertura: stockCarteiraData?.coverage?.situationText || 'Indisponível para cálculo',
+
+      raw_material_type: selectedMpType,
+      raw_material_material_code: selectedMpMaterialCode,
+      raw_material_planned_tons: Number(mpQuantityInput) || 0,
+      raw_material_yield_pct: currentYield,
+      raw_material_available_tons: currentMpRecord?.stockAvailableTons ?? null,
+
+      enfornamento_type: isLaminacao ? enfornamentoType : undefined,
+      productivity_applied_source:
+        isLaminacao && productivityMatch ? productivityMatch.notes : undefined,
+      query_timestamp: stockCarteiraData?.calculationTimestamp || new Date().toISOString(),
     })
 
     // Reset de estado
@@ -251,12 +469,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     setSalesOrderMto('')
     setCustomerName('')
     setPcpNotes('')
+    setStockCarteiraData(null)
     onClose()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl bg-white text-slate-900 border-slate-300 shadow-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      <DialogContent className="max-w-4xl bg-white text-slate-900 border-slate-300 shadow-2xl p-0 overflow-hidden max-h-[94vh] flex flex-col">
         {/* Cabeçalho CIAFAL Pantone 2945 */}
         <div className="bg-[#004C97] px-6 py-4 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -268,16 +487,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 Programar Produção — Linha {lineCode}
               </DialogTitle>
               <p className="text-xs text-blue-100">
-                Motor Temporal Bidirecional (Quantidade ↔ Tempo) com Ficha Mestre Oficial
+                Motor Temporal Bidirecional • Integração SAP Oficial • Validação MP & Enfornamento
               </p>
             </div>
           </div>
           <Badge className="bg-white/20 text-white border-white/30 text-xs font-mono">
-            CIAFAL PCP
+            CIAFAL PCP • PRD
           </Badge>
         </div>
 
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* ETAPA 1: SELEÇÃO EM CASCATA: FAMÍLIA -> PRODUTO */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -392,27 +611,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                               </>
                             )}
                           </div>
-
-                          {/* DADOS AUTOMÁTICOS SAP/MRP */}
-                          <div className="mt-1.5 pt-1 border-t border-dashed border-slate-200 text-[9px] text-slate-500 flex items-center justify-between">
-                            {mat.sap_material_code ? (
-                              <span>
-                                Família:{' '}
-                                <strong className="text-slate-700">
-                                  {mat.sap_family_code || mat.family_code}
-                                </strong>{' '}
-                                | Ciclo:{' '}
-                                <strong className="text-slate-700">
-                                  {mat.sap_cycle_time_avg_min ?? '--'} min
-                                </strong>{' '}
-                                | <span className="text-blue-700 font-medium">SAP/MRP</span>
-                              </span>
-                            ) : (
-                              <span className="text-amber-700 italic">
-                                Dado SAP/MRP não disponível
-                              </span>
-                            )}
-                          </div>
                         </button>
                       )
                     })}
@@ -422,58 +620,378 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* DETALHE DOS DADOS AUTOMÁTICOS SAP/MRP QUANDO SELECIONADO (REQUISITO 3) */}
+          {/* PARTE 2: BLOCO ESTOQUE & CARTEIRA (EXIBIDO IMEDIATAMENTE APÓS SELECIONAR PRODUTO) */}
           {selectedMaterial && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 flex items-center gap-1">
-                  <Package className="w-3.5 h-3.5 text-[#004C97]" />
-                  Parâmetros de Integração SAP/MRP
-                </span>
-                <Badge
-                  className={
-                    selectedMaterial.is_sap_integrated
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]'
-                      : 'bg-amber-100 text-amber-800 border-amber-300 text-[10px]'
-                  }
-                >
-                  {selectedMaterial.is_sap_integrated
-                    ? 'Sincronizado SAP PP-PI'
-                    : 'Dado SAP/MRP não disponível'}
-                </Badge>
+            <div className="bg-white border-2 border-[#004C97]/30 rounded-xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[#004C97]" />
+                  <span className="font-bold text-xs uppercase tracking-wide text-slate-900">
+                    Estoque & Carteira — Material {selectedMaterial.material_code}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono">
+                    Fonte Oficial SAP ZSD28C
+                  </Badge>
+                  {loadingStockCarteira && (
+                    <span className="text-[10px] text-slate-500 animate-pulse">
+                      Sincronizando...
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px] text-slate-700">
-                <div>
-                  <span className="text-slate-400 block text-[9px] font-sans">Código SAP:</span>
-                  <strong>
-                    {selectedMaterial.sap_material_code || 'Dado SAP/MRP não disponível'}
-                  </strong>
+
+              {/* Guia de Legenda Visual (Diferenciação Visual Obrigatória) */}
+              <div className="flex items-center gap-4 text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                <span className="font-bold text-slate-700">Legenda de Origem:</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-white border border-slate-300" />
+                  Origem SAP Oficial (Somente Leitura)
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-blue-100 border border-blue-300" />
+                  Calculado Automaticamente
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-slate-200 border border-slate-400" />
+                  Indisponível / Aguardando SAP
+                </span>
+              </div>
+
+              {/* Grid com os 9 Campos Obrigatórios */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {/* 1. Estoque ACAB */}
+                {renderFieldWithAvailability(
+                  '1. Estoque ACAB',
+                  stockCarteiraData?.estoqueAcab,
+                  't',
+                  false,
+                )}
+
+                {/* 2. Estoque SEMI */}
+                {renderFieldWithAvailability(
+                  '2. Estoque SEMI',
+                  stockCarteiraData?.estoqueSemi,
+                  't',
+                  false,
+                )}
+
+                {/* 3. Carteira */}
+                {renderFieldWithAvailability(
+                  '3. Carteira Total',
+                  stockCarteiraData?.carteira,
+                  't',
+                  false,
+                )}
+
+                {/* 4. Saldo Carteira (Carteira − Estoque ACAB + Estoque SEMI) */}
+                {renderFieldWithAvailability(
+                  '4. Saldo Carteira',
+                  stockCarteiraData?.saldoCarteira,
+                  't',
+                  true,
+                )}
+
+                {/* 5. Média diária de faturamento */}
+                {renderFieldWithAvailability(
+                  '5. Média Diária Fat.',
+                  stockCarteiraData?.mediaDiariaFaturamentoTDia,
+                  't/dia',
+                  false,
+                )}
+
+                {/* 6. Tempo médio de ciclo */}
+                {renderFieldWithAvailability(
+                  '6. Tempo Médio Ciclo',
+                  stockCarteiraData?.tempoMedioCicloMin,
+                  'min',
+                  false,
+                )}
+
+                {/* 7. Cobertura atual */}
+                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">
+                      7. Cobertura Atual
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold">
+                      Calculado
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="font-mono text-base font-bold text-slate-900">
+                      {stockCarteiraData?.coverage?.currentCoverageDays !== null &&
+                      stockCarteiraData?.coverage?.currentCoverageDays !== undefined
+                        ? stockCarteiraData.coverage.currentCoverageDays.toFixed(1)
+                        : '--'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">dias</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[9px] font-sans">Família SAP:</span>
-                  <strong>
-                    {selectedMaterial.sap_family_code || selectedMaterial.family_code}
-                  </strong>
+
+                {/* 8. Cobertura pós-programação */}
+                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">
+                      8. Cobertura Pós-Prog.
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold">
+                      Calculado
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="font-mono text-base font-bold text-[#004C97]">
+                      {stockCarteiraData?.coverage?.postCoverageDays !== null &&
+                      stockCarteiraData?.coverage?.postCoverageDays !== undefined
+                        ? stockCarteiraData.coverage.postCoverageDays.toFixed(1)
+                        : '--'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">dias</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[9px] font-sans">
-                    Tempo Médio Ciclo:
+
+                {/* 9. Situação da cobertura (TEXTO + STATUS EXPLÍCITO) */}
+                <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">
+                      9. Situação Cobertura
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-medium">
+                      Faixa: 5-8 dias
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <Badge
+                      className={`text-[10px] font-bold px-2 py-0.5 ${
+                        stockCarteiraData?.coverage?.situationStatus === 'WITHIN_TOLERANCE'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : stockCarteiraData?.coverage?.situationStatus === 'BELOW_MIN'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : stockCarteiraData?.coverage?.situationStatus === 'ABOVE_MAX'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-slate-200 text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      {stockCarteiraData?.coverage?.situationText || 'Indisponível para cálculo'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* PARTE 4: TIPO DE ENFORNAMENTO (SOMENTE PARA LAMINAÇÃO L1 / L2) */}
+          {isLaminacao && selectedMaterial && (
+            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Flame className="w-4 h-4 text-amber-700" />
+                  Tipo de Enfornamento (Exclusivo Laminação {lineCode}) *
+                </label>
+                <span className="text-[10px] font-mono text-amber-800">
+                  Regime Térmico Forno de Reaquecimento
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {ENFORNAMENTO_OPTIONS.map((opt) => {
+                  const isChosen = enfornamentoType === opt.code
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setEnfornamentoType(opt.code)}
+                      className={`p-2 rounded-lg border text-left transition-all ${
+                        isChosen
+                          ? 'bg-amber-100 border-amber-600 ring-2 ring-amber-500/20 font-bold text-amber-950 shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-amber-50/50'
+                      }`}
+                    >
+                      <div className="text-xs flex items-center justify-between">
+                        <span>{opt.label}</span>
+                        {isChosen && <CheckCircle2 className="w-3.5 h-3.5 text-amber-700" />}
+                      </div>
+                      <p className="text-[9px] text-slate-500 mt-1 line-clamp-1">
+                        {opt.description}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {productivityMatch && (
+                <div className="text-[11px] text-amber-900 bg-white/80 p-2 rounded border border-amber-200 flex items-center justify-between">
+                  <span>
+                    Produtividade ativa aplicada:{' '}
+                    <strong className="font-mono">{productivityMatch.productivityTh} t/h</strong> (
+                    {productivityMatch.notes})
                   </span>
-                  <strong>
-                    {selectedMaterial.sap_cycle_time_avg_min
-                      ? `${selectedMaterial.sap_cycle_time_avg_min} min`
-                      : 'Dado SAP/MRP não disponível'}
-                  </strong>
+                  <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-800">
+                    Fonte: {productivityMatch.source}
+                  </Badge>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* PARTE 3: SEÇÃO MATÉRIA-PRIMA PROGRAMADA */}
+          {selectedMaterial && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Boxes className="w-4 h-4 text-[#004C97]" />
+                  Matéria-Prima Programada
+                </label>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono">
+                    Cálculo Direto / Inverso
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                {/* 1. Tipo de MP */}
                 <div>
-                  <span className="text-slate-400 block text-[9px] font-sans">Origem:</span>
-                  <span className="text-[#004C97] font-semibold">
-                    {selectedMaterial.sap_origin ||
-                      (selectedMaterial.is_sap_integrated
-                        ? 'SAP/MRP'
-                        : 'Dado SAP/MRP não disponível')}
-                  </span>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Tipo de MP *
+                  </label>
+                  <Select value={selectedMpType} onValueChange={setSelectedMpType}>
+                    <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OFFICIAL_MP_TYPES.map((t) => (
+                        <SelectItem key={t} value={t} className="text-xs">
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {/* 2. Material MP */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Material MP (SAP/Ficha Mestre) *
+                  </label>
+                  <Select
+                    value={selectedMpMaterialCode}
+                    onValueChange={(code) => {
+                      setSelectedMpMaterialCode(code)
+                      const found = mpOptions.find((o) => o.code === code)
+                      if (found) {
+                        setSelectedMpType(found.mpType)
+                        setYieldPctInput(found.defaultYieldPct.toString())
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mpOptions.map((o) => (
+                        <SelectItem key={o.code} value={o.code} className="text-xs">
+                          <div className="flex flex-col">
+                            <span className="font-bold">{o.code}</span>
+                            <span className="text-[10px] text-slate-500">
+                              {o.description} ({o.supplierName || 'Padrão'})
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 3. Rendimento Metálico Previsto (%) */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Rendimento Previsto (%) *
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="50"
+                      max="100"
+                      value={yieldPctInput}
+                      onChange={(e) => {
+                        setYieldPctInput(e.target.value)
+                        setMpDirectionLock('PROD_TO_MP')
+                      }}
+                      className="font-mono text-xs bg-white border-slate-300 h-9 pr-8"
+                    />
+                    <span className="absolute right-2.5 top-2 font-bold text-xs text-slate-500">
+                      %
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. Quantidade MP */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Quantidade MP Necessária (t) *
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={mpQuantityInput}
+                      onChange={(e) => handleMpQuantityChange(e.target.value)}
+                      className="font-mono text-xs font-bold text-[#004C97] bg-white border-blue-300 h-9 pr-8"
+                    />
+                    <span className="absolute right-2.5 top-2 font-bold text-xs text-[#004C97]">
+                      t
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Saldo de MP pós-programação e Alerta de Déficit */}
+              <div className="pt-2 border-t border-slate-200">
+                {mpPostBalanceResult.hasDeficit ? (
+                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg flex items-start gap-2.5 text-xs text-rose-900">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">{mpPostBalanceResult.warningMessage}</span>
+                      <p className="text-[10px] text-rose-700 mt-0.5">
+                        O PCP pode prosseguir com a programação caso haja recebimento de MP previsto
+                        ou autorização de liderança.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-600 flex items-center justify-between bg-white p-2.5 rounded border border-slate-200">
+                    <span>
+                      Saldo MP pós-programação:{' '}
+                      <strong className="text-slate-900 font-mono">
+                        {mpPostBalanceResult.balanceTons !== null
+                          ? `${mpPostBalanceResult.balanceTons.toFixed(2)} t`
+                          : 'Dado de saldo MP aguardando integração SAP/WMS'}
+                      </strong>
+                    </span>
+                    <span className="text-[10px] text-slate-500 italic">
+                      Fórmula: MP Necessária = Produção Boa (
+                      {calculationResult?.quantityTons || quantityInput} t) ÷ {currentYield}% ={' '}
+                      {mpQuantityInput} t
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ALERTA DE CADÊNCIA AUSENTE (REQUISITO 29) */}
+          {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (
+            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-2.5 shadow-xs">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-800">Cadência não cadastrada na Ficha Mestre</p>
+                <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                  Cadência não cadastrada para este material nesta linha. Atualize a Ficha Mestre
+                  antes de concluir a programação.
+                </p>
               </div>
             </div>
           )}
@@ -506,20 +1024,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   Usar próximo horário ({overlapValidation.nextAvailableStartTime})
                 </Button>
               )}
-            </div>
-          )}
-
-          {/* ALERTA DE CADÊNCIA AUSENTE (REQUISITO 29) */}
-          {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (
-            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-2.5 shadow-xs">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-rose-800">Cadência não cadastrada na Ficha Mestre</p>
-                <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
-                  Cadência não cadastrada para este material nesta linha. Atualize a Ficha Mestre
-                  antes de concluir a programação.
-                </p>
-              </div>
             </div>
           )}
 
@@ -829,6 +1333,96 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               />
             </div>
           </div>
+
+          {/* PARTE 5: RESUMO DE IMPACTO ANTES DE SALVAR (OBRIGATÓRIO) */}
+          {selectedMaterial && calculationResult && calculationResult.isValid && (
+            <div className="bg-slate-900 text-white rounded-xl p-4 shadow-lg space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="font-bold text-xs uppercase tracking-wider text-slate-100">
+                    Resumo de Impacto da Programação
+                  </span>
+                </div>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]">
+                  Auditoria Automática Pré-Gravação
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Produto / Quantidade:</span>
+                  <span className="font-bold text-white">
+                    {selectedMaterial.material_code} ({calculationResult.quantityTons} t)
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Tempo Previsto:</span>
+                  <span className="font-bold text-white">
+                    {calculationResult.durationFormatted} ({calculationResult.startTime} -{' '}
+                    {calculationResult.endTime})
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Linha / Data / Turno:</span>
+                  <span className="font-bold text-white">
+                    Linha {lineCode} • {selectedDay} • {selectedShift}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Turma Operacional:</span>
+                  <span className="font-bold text-white">{targetCrewName || 'Turma A'}</span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">
+                    Carteira / Estoque Atual:
+                  </span>
+                  <span className="font-bold text-white">
+                    {stockCarteiraData?.carteira?.value !== null &&
+                    stockCarteiraData?.carteira?.value !== undefined
+                      ? `${stockCarteiraData.carteira.value} t`
+                      : 'N/D'}{' '}
+                    /{' '}
+                    {stockCarteiraData?.estoqueAcab?.value !== null &&
+                    stockCarteiraData?.estoqueAcab?.value !== undefined
+                      ? `${stockCarteiraData.estoqueAcab.value} t`
+                      : 'N/D'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">MP Necessária / Disp.:</span>
+                  <span className="font-bold text-white">
+                    {mpQuantityInput} t /{' '}
+                    {currentMpRecord?.stockAvailableTons !== null &&
+                    currentMpRecord?.stockAvailableTons !== undefined
+                      ? `${currentMpRecord.stockAvailableTons} t`
+                      : 'N/D'}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Rendimento Metálico:</span>
+                  <span className="font-bold text-white">{currentYield}%</span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block text-[10px]">
+                    Cobertura Antes &rarr; Depois:
+                  </span>
+                  <span className="font-bold text-blue-300">
+                    {stockCarteiraData?.coverage?.currentCoverageDays ?? '--'}d &rarr;{' '}
+                    {stockCarteiraData?.coverage?.postCoverageDays ?? '--'}d (
+                    {stockCarteiraData?.coverage?.situationText || 'N/D'})
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between shrink-0">

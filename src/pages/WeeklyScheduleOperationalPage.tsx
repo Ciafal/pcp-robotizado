@@ -1161,7 +1161,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleOpenEditItem = (item: WeeklyScheduleItem) => {
-    if (scheduleViewType === 'DIA' && isItemInPast(item)) {
+    if (isItemInPast(item)) {
       toast({
         title: 'Edição Bloqueada',
         description: 'Não é permitido editar programação com data/hora do passado.',
@@ -1174,7 +1174,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleSaveEditedItem = async (updatedItem: WeeklyScheduleItem) => {
-    if (scheduleViewType === 'DIA' && isItemInPast(updatedItem)) {
+    if (isItemInPast(updatedItem)) {
       toast({
         title: 'Edição Bloqueada',
         description: 'Não é permitido editar programação com data/hora do passado.',
@@ -1260,6 +1260,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
     const itemToMove = items[fromIndex]
     if (!itemToMove) return
+
+    if (isItemInPast(itemToMove)) {
+      toast({
+        variant: 'destructive',
+        title: 'Reordenação Bloqueada',
+        description: 'Não é permitido editar programação com data/hora do passado.',
+      })
+      return
+    }
 
     // Se a posição for a mesma e não houver alteração de dia/turno, não faz nada
     if (
@@ -1415,6 +1424,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   ) => {
     const item = items[index]
     if (!item) return
+
+    if (isItemInPast(item)) {
+      toast({
+        variant: 'destructive',
+        title: 'Alteração Bloqueada',
+        description: 'Não é permitido editar programação com data/hora do passado.',
+      })
+      return
+    }
 
     const dayOffsetMap: Record<string, number> = {
       SEG: 0,

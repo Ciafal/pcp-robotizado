@@ -379,6 +379,16 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     ? item.end_datetime.split(' ')[1] || item.end_datetime
                     : '--:--'
 
+                  const isPast = (() => {
+                    if (!item.start_datetime && !item.end_datetime) return false
+                    const now = new Date()
+                    const checkDate = item.end_datetime || item.start_datetime
+                    if (!checkDate) return false
+                    const parsed = new Date(checkDate.replace(' ', 'T'))
+                    if (isNaN(parsed.getTime())) return false
+                    return parsed.getTime() < now.getTime()
+                  })()
+
                   return (
                     <tr
                       key={item.id || originalIndex}
