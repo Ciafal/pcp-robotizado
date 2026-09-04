@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowDownUp,
   Building2,
-  Calendar,
   CheckCircle2,
   Clock,
   Database,
@@ -13,1917 +12,21 @@ import {
   Layers,
   Lock,
   PauseCircle,
-  Play,
   Plus,
   RefreshCw,
-  Save,
   Server,
   ShieldAlert,
   ShieldCheck,
   Sliders,
-  Sparkles,
-  Tag,
-  Trash2,
   TrendingUp,
-  Unlock,
-  UserCheck,
   Users,
   Wrench,
-  XCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useToast } from '@/hooks/use-toast'
-import {
-  LineBlockedProduct,
-  LineManagerAssignment,
-  LineMaster,
-  LineOrgHierarchy,
-  LineOverviewData,
-  LineProductivityRate,
-  LineRawMaterialPriority,
-  LineSequencingDependency,
-  LineSetupMatrix,
-  ProductionLine,
-  ProductionShift,
-  ProductFamily,
-  SapIntegrationDefinition,
-  StandardScheduledStop,
-} from '@/types/line-master'
-import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
-import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
-import { UserProfile } from '@/types/pcp-auth'
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-=======
-import { lineMasterService } from '@/services/line-master'
-import { Can } from '@/components/auth/Can'
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-import {
-  PROGRAMMING_TYPES_CATALOG,
-  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
-  ProgrammingType,
-} from '@/types/line-master'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
 import {
   Dialog,
   DialogContent,
@@ -1932,6 +35,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
+import { Can } from '@/components/auth/Can'
+import { lineMasterService } from '@/services/line-master'
+import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
+import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
+import {
+  MULTIPLE_PROGRAMMING_STAGES_CATALOG,
+  PROGRAMMING_TYPES_CATALOG,
+  ProgrammingType,
+  LineOverviewData,
+  ProductionLine,
+  ProductFamily,
+  SapIntegrationDefinition,
+} from '@/types/line-master'
+import { UserProfile } from '@/types/pcp-auth'
 
 interface LineMasterDetailViewProps {
   overview: LineOverviewData
@@ -1947,503 +65,37 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   overview,
   users,
   productFamilies,
-  allLines,
+  allLines: _allLines,
   sapCatalog,
   onRefresh,
   onOpenSapCatalog,
 }) => {
   const { toast } = useToast()
-  const {
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
 
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-interface LineMasterDetailViewProps {
-  overview: LineOverviewData
-  users: UserProfile[]
-  productFamilies: ProductFamily[]
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-  const {
-=======
-  allLines: ProductionLine[]
-  sapCatalog: SapIntegrationDefinition[]
-  onRefresh: () => void
-  onOpenSapCatalog: () => void
-}
-
-export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
-  overview,
-  users,
-  productFamilies,
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-  const {
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
-=======
-  allLines,
-  sapCatalog,
-  onRefresh,
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-=======
-  const { toast } = useToast()
-=======
-  onOpenSapCatalog,
-}) => {
-  const { toast } = useToast()
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-=======
-  const { toast } = useToast()
   const {
     line,
     master,
-    hierarchy,
-    managers,
-    approvers,
-    sequencing,
-    productivity,
-    rawMaterials,
-    blockedProducts,
-    setupMatrix,
-    adjustmentRules = [],
-    scheduledStops,
-    shifts,
-    calendar,
-    capabilities,
-    constraints,
-    history,
-    alerts,
-    completeness,
-    readyForScheduling,
+    hierarchy = [],
+    managers = [],
+    approvers = [],
+    sequencing = [],
+    shifts = [],
+    productivity = [],
+    rawMaterials = [],
+    blockedProducts = [],
+    setupMatrix = [],
+    scheduledStops = [],
+    history = [],
+    alerts = [],
+    completeness = 0,
+    readyForScheduling = false,
   } = overview
 
-  // Sub-aba ativa no agrupamento de Governança/Processo/Ficha Mestre
+  // Sub-aba ativa no agrupamento de Governança / Processo / Ficha Mestre
   const [mainGroup, setMainGroup] = useState<
     'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
   >('OVERVIEW')
+
   const [masterSubTab, setMasterSubTab] = useState<
     | 'CAPACITY'
     | 'SHIFTS_CREWS'
@@ -2453,8 +105,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'BLOCKED'
     | 'SETUP_MATRIX'
     | 'IDEAL_GAUGE_SEQUENCE'
-    | 'CAPABILITIES'
-    | 'CONSTRAINTS'
   >('CAPACITY')
 
   // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
@@ -2469,12 +119,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         : ['Enfornamento', 'Laminação'],
   )
   const [isSavingProgType, setIsSavingProgType] = useState(false)
-  // Guarda o novo tipo escolhido enquanto o usuário confirma a remoção das etapas (troca saindo de "Múltiplo")
   const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null)
 
   const applyProgTypeChange = (newType: string) => {
     setSelectedProgType(newType)
-    // Ao sair de "Múltiplo", as etapas adicionais deixam de valer no formulário
     if (newType !== 'Múltiplo') setSelectedProgStages([])
   }
 
@@ -2491,6 +139,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     applyProgTypeChange(newType)
   }
 
+  const toggleProgStage = (stage: string) => {
+    if (selectedProgStages.includes(stage)) {
+      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
+    } else {
+      setSelectedProgStages([...selectedProgStages, stage])
+    }
+  }
+
   const handleSaveProgrammingType = async () => {
     if (selectedProgType === 'Múltiplo' && selectedProgStages.length < 2) {
       toast({
@@ -2501,7 +157,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       return
     }
 
-    // Valores anteriores (para o registro de auditoria da Ficha Mestre)
     const previousType =
       (line.programming_type as string) || (master?.programming_type as string) || ''
     const previousStages = Array.isArray(line.programming_stages)
@@ -2509,12 +164,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       : Array.isArray(master?.programming_stages)
         ? (master.programming_stages as string[])
         : []
-    // Ao sair de "Múltiplo", envia [] explicitamente para limpar o dado antigo no banco
     const finalStages = selectedProgType === 'Múltiplo' ? selectedProgStages : []
 
     setIsSavingProgType(true)
     try {
-      // Persiste tanto no cadastro da Linha quanto na Ficha Mestre ativa
       await lineMasterService.updateLine(line.id, {
         programming_type: selectedProgType as ProgrammingType,
         programming_stages: finalStages,
@@ -2528,7 +181,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         })
       }
 
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
@@ -2564,2645 +216,57 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     }
   }
 
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
   // Modais de Criação Rápida
-=======
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false) = overview
-=======
-    alerts,
-    completeness,
-    readyForScheduling,
-  } = overview
-
-  // Sub-aba ativa no agrupamento de Governança/Processo/Ficha Mestre
-  const [mainGroup, setMainGroup] = useState<
-    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
-  >('OVERVIEW')
-  const [masterSubTab, setMasterSubTab] = useState<
-    | 'CAPACITY'
-    | 'SHIFTS_CREWS'
-    | 'MATRIZ_GARGALOS'
-    | 'PRODUCTIVITY'
-    | 'RAW_MATERIALS'
-    | 'BLOCKED'
-    | 'SETUP_MATRIX'
-    | 'IDEAL_GAUGE_SEQUENCE'
-    | 'CAPABILITIES'
-    | 'CONSTRAINTS'
-  >('CAPACITY')
-
-  // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
-  const [selectedProgType, setSelectedProgType] = useState<string>(
-    (line.programming_type as string) || (master?.programming_type as string) || 'Laminação',
-  )
-  const [selectedProgStages, setSelectedProgStages] = useState<string[]>(
-    Array.isArray(line.programming_stages)
-      ? (line.programming_stages as string[])
-      : Array.isArray(master?.programming_stages)
-        ? (master.programming_stages as string[])
-        : ['Enfornamento', 'Laminação'],
-  )
-  const [isSavingProgType, setIsSavingProgType] = useState(false)
-  // Guarda o novo tipo escolhido enquanto o usuário confirma a remoção das etapas (troca saindo de "Múltiplo")
-  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null)
-
-  const applyProgTypeChange = (newType: string) => {
-    setSelectedProgType(newType)
-    // Ao sair de "Múltiplo", as etapas adicionais deixam de valer no formulário
-    if (newType !== 'Múltiplo') setSelectedProgStages([])
-  }
-
-  const handleProgTypeChange = (newType: string) => {
-    if (newType === selectedProgType) return
-    if (
-      selectedProgType === 'Múltiplo' &&
-      selectedProgStages.length > 0 &&
-      newType !== 'Múltiplo'
-    ) {
-      setPendingTypeChange(newType)
-      return
-    }
-    applyProgTypeChange(newType)
-  }
-
-  const handleSaveProgrammingType = async () => {
-    if (selectedProgType === 'Múltiplo' && selectedProgStages.length < 2) {
-      toast({
-        variant: 'destructive',
-        title: 'Etapas de Programação',
-        description: 'Tipo de Programação Múltiplo exige pelo menos duas etapas.',
-      })
-      return
-    }
-
-    // Valores anteriores (para o registro de auditoria da Ficha Mestre)
-    const previousType =
-      (line.programming_type as string) || (master?.programming_type as string) || ''
-    const previousStages = Array.isArray(line.programming_stages)
-      ? (line.programming_stages as string[])
-      : Array.isArray(master?.programming_stages)
-        ? (master.programming_stages as string[])
-        : []
-    // Ao sair de "Múltiplo", envia [] explicitamente para limpar o dado antigo no banco
-    const finalStages = selectedProgType === 'Múltiplo' ? selectedProgStages : []
-
-    setIsSavingProgType(true)
-    try {
-      // Persiste tanto no cadastro da Linha quanto na Ficha Mestre ativa
-      await lineMasterService.updateLine(line.id, {
-        programming_type: selectedProgType as ProgrammingType,
-        programming_stages: finalStages,
-      })
-
-      if (master?.id) {
-        await lineMasterService.saveLineMaster({
-          id: master.id,
-          programming_type: selectedProgType as ProgrammingType,
-          programming_stages: finalStages,
-        })
-      }
-
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false) = overview
-
-  // Sub-aba ativa no agrupamento de Governança/Processo/Ficha Mestre
-  const [mainGroup, setMainGroup] = useState<
-    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
-  >('OVERVIEW')
-  const [masterSubTab, setMasterSubTab] = useState<
-    | 'CAPACITY'
-    | 'SHIFTS_CREWS'
-    | 'MATRIZ_GARGALOS'
-    | 'PRODUCTIVITY'
-    | 'RAW_MATERIALS'
-    | 'BLOCKED'
-    | 'SETUP_MATRIX'
-    | 'IDEAL_GAUGE_SEQUENCE'
-    | 'CAPABILITIES'
-    | 'CONSTRAINTS'
-  >('CAPACITY')
-
-  // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
-  const [selectedProgType, setSelectedProgType] = useState<string>(
-    (line.programming_type as string) || (master?.programming_type as string) || 'Laminação',
-  )
-  const [selectedProgStages, setSelectedProgStages] = useState<string[]>(
-    Array.isArray(line.programming_stages)
-      ? (line.programming_stages as string[])
-      : Array.isArray(master?.programming_stages)
-        ? (master.programming_stages as string[])
-        : ['Enfornamento', 'Laminação'],
-  )
-  const [isSavingProgType, setIsSavingProgType] = useState(false)
-  // Guarda o novo tipo escolhido enquanto o usuário confirma a remoção das etapas (troca saindo de "Múltiplo")
-  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null)
-
-  const applyProgTypeChange = (newType: string) => {
-    setSelectedProgType(newType)
-    // Ao sair de "Múltiplo", as etapas adicionais deixam de valer no formulário
-    if (newType !== 'Múltiplo') setSelectedProgStages([])
-  }
-
-  const handleProgTypeChange = (newType: string) => {
-    if (newType === selectedProgType) return
-    if (
-      selectedProgType === 'Múltiplo' &&
-      selectedProgStages.length > 0 &&
-      newType !== 'Múltiplo'
-    ) {
-      setPendingTypeChange(newType)
-      return
-    }
-    applyProgTypeChange(newType)
-  }
-
-  const handleSaveProgrammingType = async () => {
-    if (selectedProgType === 'Múltiplo' && selectedProgStages.length < 2) {
-      toast({
-        variant: 'destructive',
-        title: 'Etapas de Programação',
-        description: 'Tipo de Programação Múltiplo exige pelo menos duas etapas.',
-      })
-      return
-    }
-
-    // Valores anteriores (para o registro de auditoria da Ficha Mestre)
-    const previousType =
-      (line.programming_type as string) || (master?.programming_type as string) || ''
-    const previousStages = Array.isArray(line.programming_stages)
-      ? (line.programming_stages as string[])
-      : Array.isArray(master?.programming_stages)
-        ? (master.programming_stages as string[])
-        : []
-    // Ao sair de "Múltiplo", envia [] explicitamente para limpar o dado antigo no banco
-    const finalStages = selectedProgType === 'Múltiplo' ? selectedProgStages : []
-
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false)
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-      // Registra no histórico da Ficha Mestra (best-effort: falha não bloqueia o salvamento)
-      try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['programming_type', 'programming_stages'],
-          change_reason: `Tipo de Programação: "${previousType || selectedProgType}" → "${selectedProgType}"; Etapas: [${previousStages.join(', ')}] → [${finalStages.join(', ')}]`,
-          snapshot_data: {
-            programming_type: selectedProgType,
-            programming_stages: finalStages,
-            previous_programming_type: previousType,
-            previous_programming_stages: previousStages,
-          },
-        })
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-      } catch (auditErr) {
-        console.warn('Falha ao registrar auditoria do Tipo de Programação:', auditErr)
-      }
-
-      toast({
-        title: 'Tipo de Programação Atualizado',
-        description: `Tipo "${selectedProgType}" e etapas salvos com sucesso na Ficha Mestre da linha ${line.code}.`,
-      })
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-      onRefresh()
-    } catch (err: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar tipo de programação',
-        description: err.message,
-      })
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-    } finally {
-      setIsSavingProgType(false)
-    }
-  }
-
-  const toggleProgStage = (stage: string) => {
-=======
-
-  const toggleProgStage = (stage: string) => {
-    if (selectedProgStages.includes(stage)) {
-      setSelectedProgStages(selectedProgStages.filter((s) => s !== stage))
-    } else {
-      setSelectedProgStages([...selectedProgStages, stage])
-    }
-  }
-
-  // Modais de Criação Rápida
-  const [isProdModalOpen, setIsProdModalOpen] = useState<boolean>(false)
-  const [isRawModalOpen, setIsRawModalOpen] = useState<boolean>(false)
-  const [isBlockModalOpen, setIsBlockModalOpen] = useState<boolean>(false)
-  const [isSetupMatrixModalOpen, setIsSetupMatrixModalOpen] = useState<boolean>(false)
-  const [isScheduledStopModalOpen, setIsScheduledStopModalOpen] = useState<boolean>(false)
-  const [isManagerModalOpen, setIsManagerModalOpen] = useState<boolean>(false)
-  const [isApproverModalOpen, setIsApproverModalOpen] = useState<boolean>(false)
-  const [isSeqModalOpen, setIsSeqModalOpen] = useState<boolean>(false)
+  const [isProdModalOpen, setIsProdModalOpen] = useState(false)
+  const [isRawModalOpen, setIsRawModalOpen] = useState(false)
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false)
+  const [isSetupMatrixModalOpen, setIsSetupMatrixModalOpen] = useState(false)
+  const [isScheduledStopModalOpen, setIsScheduledStopModalOpen] = useState(false)
 
   // Estados dos formulários de modais
-  // Produtividade
-  const [prodMaterialCode, setProdMaterialCode] = useState<string>('')
-  const [prodMaterialName, setProdMaterialName] = useState<string>('')
-  const [prodDim, setProdDim] = useState<string>('')
+  const [prodMaterialCode, setProdMaterialCode] = useState('')
+  const [prodMaterialName, setProdMaterialName] = useState('')
+  const [prodDim, setProdDim] = useState('')
   const [prodUnit, setProdUnit] = useState<'t/h' | 'peça/h' | 'm/h'>('t/h')
   const [prodNominal, setProdNominal] = useState<number>(12.0)
   const [prodPlanned, setProdPlanned] = useState<number>(11.5)
   const [prodSource, setProdSource] = useState<'MANUAL' | 'SAP'>('MANUAL')
-  const [prodSapId, setProdSapId] = useState<string>('')
-  const [prodFamilyId, setProdFamilyId] = useState<string>('')
+  const [prodSapId, setProdSapId] = useState('')
+  const [prodFamilyId, setProdFamilyId] = useState('')
 
-  // Matéria-Prima
-  const [rawCode, setRawCode] = useState<string>('')
-  const [rawDesc, setRawDesc] = useState<string>('')
-  const [rawGroup, setRawGroup] = useState<string>('Bobinas BQ')
-  const [rawOrigin, setRawOrigin] = useState<string>('CSN')
+  const [rawCode, setRawCode] = useState('')
+  const [rawDesc, setRawDesc] = useState('')
+  const [rawGroup, setRawGroup] = useState('Bobinas BQ')
+  const [rawOrigin, setRawOrigin] = useState('CSN')
   const [rawPriority, setRawPriority] = useState<number>(1)
-  const [rawCond, setRawCond] = useState<string>('')
+  const [rawCond, setRawCond] = useState('')
   const [rawSource, setRawSource] = useState<'MANUAL' | 'SAP'>('MANUAL')
-  const [rawSapId, setRawSapId] = useState<string>('')
+  const [rawSapId, setRawSapId] = useState('')
 
-  // Produto Bloqueado
-  const [blkCode, setBlkCode] = useState<string>('')
-  const [blkDesc, setBlkDesc] = useState<string>('')
-  const [blkReason, setBlkReason] = useState<string>('')
+  const [blkCode, setBlkCode] = useState('')
+  const [blkDesc, setBlkDesc] = useState('')
+  const [blkReason, setBlkReason] = useState('')
   const [blkType, setBlkType] = useState<any>('TECHNICAL')
-  const [blkUser, setBlkUser] = useState<string>('')
+  const [blkUser, setBlkUser] = useState('')
 
-  // Parada de Setup Matriz
-  const [stpCode, setStpCode] = useState<string>('')
-  const [stpDesc, setStpDesc] = useState<string>('')
+  const [stpCode, setStpCode] = useState('')
+  const [stpDesc, setStpDesc] = useState('')
   const [stpCat, setStpCat] = useState<any>('TOOL_CHANGE')
-  const [stpFromFam, setStpFromFam] = useState<string>('')
-  const [stpToFam, setStpToFam] = useState<string>('')
+  const [stpFromFam, setStpFromFam] = useState('')
+  const [stpToFam, setStpToFam] = useState('')
   const [stpDuration, setStpDuration] = useState<number>(60)
-  const [stpImpact, setStpImpact] = useState<string>('')
+  const [stpImpact, setStpImpact] = useState('')
 
-  // Parada Programada (Dentro de Capacidade)
-  const [schCode, setSchCode] = useState<string>('')
-  const [schDesc, setSchDesc] = useState<string>('')
+  const [schCode, setSchCode] = useState('')
+  const [schDesc, setSchDesc] = useState('')
   const [schCat, setSchCat] = useState<any>('PREVENTIVE')
   const [schRec, setSchRec] = useState<any>('DAILY')
   const [schDur, setSchDur] = useState<number>(30)
-  const [schTime, setSchTime] = useState<string>('12:00')
-  const [schImpact, setSchImpact] = useState<string>(
+  const [schTime, setSchTime] = useState('12:00')
+  const [schImpact, setSchImpact] = useState(
     'Redução direta da capacidade útil disponível no turno.',
   )
 
-  // Handlers de Gravação
   const handleSaveProductivity = async () => {
     if (!prodMaterialCode || !prodMaterialName) {
       toast({
@@ -5399,14 +463,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header da Linha em Pantone 2945 (#004C97) */}
+      {/* 1. Header da Linha */}
       <div className="p-5 bg-gradient-to-r from-[#004C97] via-[#003870] to-slate-950 rounded-xl border border-blue-900/80 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono font-black text-2xl tracking-tight text-white">
               {line.code}
             </span>
-            <span className="text-sm font-semibold text-blue-200">&bull; {line.name}</span>
+            <span className="text-sm font-semibold text-blue-200">• {line.name}</span>
             <Badge className="bg-emerald-950 text-emerald-300 border-emerald-500 font-bold text-xs">
               {line.status}
             </Badge>
@@ -5450,7 +514,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Menu Interno de Navegação por Grupos (Regra 46 - Evitar excesso de tabs horizontais) */}
+      {/* 2. Menu Interno de Navegação por Grupos */}
       <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
         <button
           onClick={() => setMainGroup('OVERVIEW')}
@@ -5523,7 +587,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 3. CONTEÚDO: GRUPO 1 - VISÃO GERAL */}
       {mainGroup === 'OVERVIEW' && (
         <div className="space-y-5">
-          {/* Configuração de Tipo de Programação (Item 2 da Tarefa) */}
+          {/* Configuração de Tipo de Programação */}
           <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
             <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
               <div>
@@ -5552,9 +616,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <Label className="text-xs font-bold text-slate-700">
                     Tipo de Programação Principal
                   </Label>
-                 <select
-                   value={selectedProgType}
-                   onChange={(e) => handleProgTypeChange(e.target.value)}                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-medium text-slate-900 focus:ring-1 focus:ring-[#004C97]"
+                  <select
+                    value={selectedProgType}
+                    onChange={(e) => handleProgTypeChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-medium text-slate-900 focus:ring-1 focus:ring-[#004C97]"
                   >
                     {PROGRAMMING_TYPES_CATALOG.map((t) => (
                       <option key={t} value={t}>
@@ -5580,7 +645,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* Quando Múltiplo, exibe checkboxes de etapas */}
               {selectedProgType === 'Múltiplo' && (
                 <div className="p-3.5 bg-blue-50/50 rounded-lg border border-blue-200 space-y-2">
                   <div className="flex items-center justify-between">
@@ -5618,43 +682,44 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </div>
               )}
             </CardContent>
-         </Card>
+          </Card>
 
-         {/* Confirmação ao trocar de "Múltiplo" para outro tipo com etapas já associadas */}
-         <Dialog
-           open={pendingTypeChange !== null}
-           onOpenChange={(open) => {
-             if (!open) setPendingTypeChange(null)
-           }}
-         >
-           <DialogContent className="max-w-md">
-             <DialogHeader>
-               <DialogTitle>Confirmar troca de Tipo de Programação</DialogTitle>
-               <DialogDescription>
-                 {pendingTypeChange
-                   ? `Mudar de Múltiplo para ${pendingTypeChange} removerá as etapas adicionais associadas. Deseja continuar?`
-                   : ''}
-               </DialogDescription>
-             </DialogHeader>
-             <DialogFooter className="gap-2">
-               <Button variant="outline" onClick={() => setPendingTypeChange(null)}>
-                 Cancelar
-               </Button>
-               <Button
-                 onClick={() => {
-                   const newType = pendingTypeChange
-                   setPendingTypeChange(null)
-                   if (newType) applyProgTypeChange(newType)
-                 }}
-                 className="bg-[#004C97] hover:bg-[#003870] text-white"
-               >
-                 Confirmar alteração
-               </Button>
-             </DialogFooter>
-           </DialogContent>
-         </Dialog>
+          {/* Confirmação de troca saindo de Múltiplo */}
+          <Dialog
+            open={pendingTypeChange !== null}
+            onOpenChange={(open) => {
+              if (!open) setPendingTypeChange(null)
+            }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Confirmar troca de Tipo de Programação</DialogTitle>
+                <DialogDescription>
+                  {pendingTypeChange
+                    ? `Mudar de Múltiplo para ${pendingTypeChange} removerá as etapas adicionais associadas. Deseja continuar?`
+                    : ''}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setPendingTypeChange(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => {
+                    const newType = pendingTypeChange
+                    setPendingTypeChange(null)
+                    if (newType) applyProgTypeChange(newType)
+                  }}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white"
+                >
+                  Confirmar alteração
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-         {/* Alertas de Configuração (Regra 41) */}          {alerts.length > 0 && (
+          {/* Alertas de Configuração */}
+          {alerts.length > 0 && (
             <div className="space-y-2">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                 Diagnóstico & Alertas de Configuração ({alerts.length})
@@ -5683,7 +748,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       <p className="text-[11px] opacity-90">{alt.description}</p>
                       {alt.resolutionAction && (
                         <span className="text-[10px] uppercase font-mono font-bold text-cyan-300 block pt-0.5">
-                          &rarr; {alt.resolutionAction}
+                          → {alt.resolutionAction}
                         </span>
                       )}
                     </div>
@@ -5693,7 +758,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
           )}
 
-          {/* Cards Principais 360 (Regra 40) */}
+          {/* Cards Principais 360 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-slate-950 border-slate-800 text-slate-100">
               <CardHeader className="p-4 pb-2">
@@ -5836,7 +901,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 4. CONTEÚDO: GRUPO 2 - ORGANIZAÇÃO & APROVADORES */}
       {mainGroup === 'ORGANIZATION' && (
         <div className="space-y-6">
-          {/* Hierarquia Organizacional (Regras 6 e 7) */}
+          {/* Hierarquia Organizacional */}
           <Card className="bg-slate-950 border-slate-800 text-slate-100">
             <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
               <div>
@@ -5845,8 +910,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   Hierarquia Organizacional Associada à Linha
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-400">
-                  Estrutura corporativa do HUB CIAFAL (Diretoria &rarr; Gerência &rarr; Supervisão
-                  &rarr; Gestor &rarr; Operação).
+                  Estrutura corporativa do HUB CIAFAL (Diretoria → Gerência → Supervisão → Gestor →
+                  Operação).
                 </CardDescription>
               </div>
               <Badge className="bg-emerald-950 text-emerald-300 border-emerald-700 text-[10px]">
@@ -5868,7 +933,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       <div>
                         <span className="font-bold text-white block">{h.org_level_name}</span>
                         <span className="text-[11px] text-slate-400">
-                          {h.area_name} &bull; Cargo:{' '}
+                          {h.area_name} • Cargo:{' '}
                           <strong className="text-slate-300">{h.job_title}</strong>
                         </span>
                       </div>
@@ -5888,7 +953,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </CardContent>
           </Card>
 
-          {/* Gestores da Linha (Regra 8) */}
+          {/* Gestores da Linha */}
           <Card className="bg-slate-950 border-slate-800 text-slate-100">
             <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
               <div>
@@ -5900,15 +965,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   Gestor Titular, Substituto e Adicionais vinculados aos usuários do HUB.
                 </CardDescription>
               </div>
-              <Can permission="pcp.admin.access">
-                <Button
-                  size="sm"
-                  onClick={() => setIsManagerModalOpen(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Gestor
-                </Button>
-              </Can>
             </CardHeader>
 
             <CardContent className="p-4 pt-2">
@@ -5942,7 +998,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </CardContent>
           </Card>
 
-          {/* Matriz de Aprovadores (Regras 9 e 10) */}
+          {/* Matriz de Aprovadores */}
           <Card className="bg-slate-950 border-slate-800 text-slate-100">
             <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
               <div>
@@ -5951,8 +1007,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   Matriz de Aprovadores da Linha (Workflow de Aprovação)
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-400">
-                  Definição de alçadas: Estágio 1 (PCP) &rarr; Estágio 2 (Gestor de Linha) &rarr;
-                  Qualidade / Diretor.
+                  Definição de alçadas: Estágio 1 (PCP) → Estágio 2 (Gestor de Linha) → Qualidade /
+                  Diretor.
                 </CardDescription>
               </div>
             </CardHeader>
@@ -6017,11 +1073,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                 <GitCommit className="w-4 h-4 text-cyan-400" />
-                Sequenciamento Estrutural no Fluxo Produtivo (Regras 11 e 12)
+                Sequenciamento Estrutural no Fluxo Produtivo
               </CardTitle>
               <CardDescription className="text-xs text-slate-400">
-                Dependências físicas e fluxos entre linhas (Predecessores &rarr; Esta Linha &rarr;
-                Sucessores & Pulmões).
+                Dependências físicas e fluxos entre linhas (Predecessores → Esta Linha → Sucessores
+                & Pulmões).
               </CardDescription>
             </CardHeader>
 
@@ -6054,10 +1110,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                      {/* Predecessor */}
                       <div className="p-3 bg-slate-950 rounded border border-slate-800 space-y-1">
                         <span className="text-slate-400 block uppercase text-[10px] font-bold text-amber-400">
-                          &larr; Origem / Predecessor
+                          ← Origem / Predecessor
                         </span>
                         <span className="font-bold text-white block">
                           {s.previous_process_name || 'Processo Externo / Matéria-Prima'}
@@ -6070,10 +1125,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         )}
                       </div>
 
-                      {/* Sucessor */}
                       <div className="p-3 bg-slate-950 rounded border border-slate-800 space-y-1">
                         <span className="text-slate-400 block uppercase text-[10px] font-bold text-emerald-400">
-                          &rarr; Destino / Sucessor
+                          → Destino / Sucessor
                         </span>
                         <span className="font-bold text-white block">
                           {s.next_process_name || 'Expedição / Estoque Intermediário'}
@@ -6086,7 +1140,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Pulmão Intermediário */}
                     {s.intermediate_buffer_type && (
                       <div className="p-2.5 bg-blue-950/30 rounded border border-blue-900/60 text-xs flex items-center justify-between">
                         <span className="text-blue-200">
@@ -6108,7 +1161,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 6. CONTEÚDO: GRUPO 4 - FICHA MESTRE EXPANDIDA */}
       {mainGroup === 'MASTERDATA' && (
         <div className="space-y-4">
-          {/* Sub-Tabs da Ficha Mestre Expandida */}
           <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
             <Button
               size="sm"
@@ -6186,7 +1238,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 masterSubTab === 'SETUP_MATRIX' ? 'bg-[#004C97] text-white' : 'text-slate-400'
               }`}
             >
-              <Wrench className="w-3.5 h-3.5" /> Matriz de Setup De&rarr;Para ({setupMatrix.length})
+              <Wrench className="w-3.5 h-3.5" /> Matriz de Setup De→Para ({setupMatrix.length})
             </Button>
 
             <Button
@@ -6203,7 +1255,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Button>
           </div>
 
-          {/* SUB-ABA: TURNOS & TURMAS DA LINHA ATUAL */}
+          {/* Sub-aba: Turnos & Turmas */}
           {masterSubTab === 'SHIFTS_CREWS' && (
             <LineShiftsAndCrewsPanel
               line={line}
@@ -6214,12 +1266,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             />
           )}
 
-          {/* SUB-ABA MATRIZ DE GARGALOS */}
+          {/* Sub-aba: Matriz de Gargalos */}
           {masterSubTab === 'MATRIZ_GARGALOS' && (
             <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
           )}
 
-          {/* SUB-ABA 1: CAPACIDADE & PARADAS PROGRAMADAS (Regra 15) */}
+          {/* Sub-aba: Capacidade & Paradas */}
           {masterSubTab === 'CAPACITY' && (
             <div className="space-y-4">
               <Card className="bg-slate-950 border-slate-800 text-slate-100">
@@ -6259,20 +1311,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </CardContent>
               </Card>
 
-              {/* Bloco: Paradas Programadas que Reduzem Capacidade (Regra 15 e 16) */}
               <Card className="bg-slate-950 border-slate-800 text-slate-100">
                 <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                       <PauseCircle className="w-4 h-4 text-amber-400" />
-                      Paradas Programadas que Reduzem Capacidade (Regra 15)
+                      Paradas Programadas que Reduzem Capacidade
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-400">
                       Paradas padrão de rotina que abatem capacidade líquida (Manutenção preventiva,
                       limpeza, reuniões).
                       <strong className="text-amber-300 block pt-0.5">
-                        * Nota de Governança (Regra 16): Paradas extraordinárias NÃO possuem
-                        cadastro manual — alimentadas via SAP ZPP003.
+                        * Paradas extraordinárias são alimentadas via integração SAP ZPP003.
                       </strong>
                     </CardDescription>
                   </div>
@@ -6325,14 +1375,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
           )}
 
-          {/* SUB-ABA 2: PRODUTIVIDADE (Regras 23, 24, 25) */}
+          {/* Sub-aba: Produtividade */}
           {masterSubTab === 'PRODUCTIVITY' && (
             <Card className="bg-slate-950 border-slate-800 text-slate-100">
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                    Tabela de Produtividade & Cadência de Materiais (Regra 23 e 24)
+                    Tabela de Produtividade & Cadência de Materiais
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-400">
                     Cadência nominal e planejada por produto, família e dimensão (Unidades: t/h,
@@ -6421,14 +1471,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
 
-          {/* SUB-ABA 3: PRIORIDADES DE MATÉRIA-PRIMA (Regras 17 e 18) */}
+          {/* Sub-aba: Prioridades de MP */}
           {masterSubTab === 'RAW_MATERIALS' && (
             <Card className="bg-slate-950 border-slate-800 text-slate-100">
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <Layers className="w-4 h-4 text-cyan-400" />
-                    Prioridades de Matéria-Prima & Bobinas (Regra 17 e 18)
+                    Prioridades de Matéria-Prima & Bobinas
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-400">
                     Materiais preferenciais para a programação (1 = Prioridade Máxima).
@@ -6497,15 +1547,152 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
 
-          {/* SUB-ABA 5: SEQUÊNCIA IDEAL DE BITOLAS & TOLERÂNCIAS (Requisitos 8, 9, 11) */}
+          {/* Sub-aba: Produtos Bloqueados */}
+          {masterSubTab === 'BLOCKED' && (
+            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-rose-400" />
+                    Produtos Bloqueados na Linha (Restrição Forte de Programação)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-400">
+                    Materiais que NÃO podem ser alocados nesta linha sob nenhuma circunstância.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setIsBlockModalOpen(true)}
+                  className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7 gap-1 font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar Bloqueio
+                </Button>
+              </CardHeader>
+
+              <CardContent className="p-4 pt-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th className="p-2.5">Produto</th>
+                        <th className="p-2.5">Tipo do Bloqueio</th>
+                        <th className="p-2.5">Motivo Técnico do Bloqueio</th>
+                        <th className="p-2.5">Responsável</th>
+                        <th className="p-2.5">Fonte</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {blockedProducts.map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-900/60">
+                          <td className="p-2.5">
+                            <span className="font-mono font-bold text-rose-400 block">
+                              {b.product_code}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {b.product_description}
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            <Badge className="bg-rose-950 text-rose-300 border-rose-800 text-[10px]">
+                              {b.block_type}
+                            </Badge>
+                          </td>
+                          <td className="p-2.5 text-xs text-slate-300 max-w-md">
+                            {b.block_reason}
+                          </td>
+                          <td className="p-2.5 text-slate-400">
+                            {b.expand?.responsible_user_id?.name || 'Sistema'}
+                          </td>
+                          <td className="p-2.5">
+                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                              {b.source_mode}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Sub-aba: Matriz de Setup */}
+          {masterSubTab === 'SETUP_MATRIX' && (
+            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-cyan-400" />
+                    Matriz De → Para de Trocas de Setup
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-400">
+                    Tempos de transição entre famílias, produtos e ferramentas de conformação.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setIsSetupMatrixModalOpen(true)}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar Transição de Setup
+                </Button>
+              </CardHeader>
+
+              <CardContent className="p-4 pt-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th className="p-2.5">Código Setup</th>
+                        <th className="p-2.5">Descrição</th>
+                        <th className="p-2.5">Categoria</th>
+                        <th className="p-2.5">Transição (De → Para)</th>
+                        <th className="p-2.5">Duração Padrão</th>
+                        <th className="p-2.5">Fonte</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {setupMatrix.map((sm) => (
+                        <tr key={sm.id} className="hover:bg-slate-900/60">
+                          <td className="p-2.5 font-mono font-bold text-cyan-300">
+                            {sm.setup_code}
+                          </td>
+                          <td className="p-2.5 text-slate-200">{sm.setup_description}</td>
+                          <td className="p-2.5">
+                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                              {sm.setup_category}
+                            </Badge>
+                          </td>
+                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                            {sm.expand?.from_family_id?.name || 'Qualquer'} →{' '}
+                            {sm.expand?.to_family_id?.name || 'Qualquer'}
+                          </td>
+                          <td className="p-2.5 font-mono font-bold text-amber-300">
+                            {sm.setup_duration_minutes} min
+                          </td>
+                          <td className="p-2.5">
+                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                              {sm.source_mode}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Sub-aba: Sequência Ideal de Bitolas */}
           {masterSubTab === 'IDEAL_GAUGE_SEQUENCE' && (
             <Card className="bg-slate-950 border-slate-800 text-slate-100">
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <ArrowDownUp className="w-4 h-4 text-amber-400" />
-                    Sequência Ideal de Bitolas, Tempo de Ciclo SAP & Cobertura Máxima (Requisito 8 e
-                    9)
+                    Sequência Ideal de Bitolas, Tempo de Ciclo SAP & Cobertura Máxima
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-400">
                     Encadeamento metalúrgico ótimo por família/subsequência, ciclo de máquina
@@ -6635,144 +1822,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </CardContent>
             </Card>
           )}
-
-          {/* SUB-ABA 4: PRODUTOS BLOQUEADOS (Regras 19 e 20) */}
-          {masterSubTab === 'BLOCKED' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-rose-400" />
-                    Produtos Bloqueados na Linha (Restrição Forte de Programação)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
-                    Materiais que NÃO podem ser alocados nesta linha sob nenhuma circunstância.
-                  </CardDescription>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setIsBlockModalOpen(true)}
-                  className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7 gap-1 font-bold"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Bloqueio
-                </Button>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-2">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                      <tr>
-                        <th className="p-2.5">Produto</th>
-                        <th className="p-2.5">Tipo do Bloqueio</th>
-                        <th className="p-2.5">Motivo Técnico do Bloqueio</th>
-                        <th className="p-2.5">Responsável</th>
-                        <th className="p-2.5">Fonte</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60">
-                      {blockedProducts.map((b) => (
-                        <tr key={b.id} className="hover:bg-slate-900/60">
-                          <td className="p-2.5">
-                            <span className="font-mono font-bold text-rose-400 block">
-                              {b.product_code}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {b.product_description}
-                            </span>
-                          </td>
-                          <td className="p-2.5">
-                            <Badge className="bg-rose-950 text-rose-300 border-rose-800 text-[10px]">
-                              {b.block_type}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 text-xs text-slate-300 max-w-md">
-                            {b.block_reason}
-                          </td>
-                          <td className="p-2.5 text-slate-400">
-                            {b.expand?.responsible_user_id?.name || 'Sistema'}
-                          </td>
-                          <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
-                              {b.source_mode}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* SUB-ABA 5: MATRIZ DE SETUP (Regras 21 e 22) */}
-          {masterSubTab === 'SETUP_MATRIX' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <Wrench className="w-4 h-4 text-cyan-400" />
-                    Matriz De &rarr; Para de Trocas de Setup (Regra 21 e 22)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
-                    Tempos de transição entre famílias, produtos e cassetes de conformação.
-                  </CardDescription>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setIsSetupMatrixModalOpen(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Transição de Setup
-                </Button>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-2">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                      <tr>
-                        <th className="p-2.5">Código Setup</th>
-                        <th className="p-2.5">Descrição</th>
-                        <th className="p-2.5">Categoria</th>
-                        <th className="p-2.5">Transição (De &rarr; Para)</th>
-                        <th className="p-2.5">Duração Padrão</th>
-                        <th className="p-2.5">Fonte</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60">
-                      {setupMatrix.map((sm) => (
-                        <tr key={sm.id} className="hover:bg-slate-900/60">
-                          <td className="p-2.5 font-mono font-bold text-cyan-300">
-                            {sm.setup_code}
-                          </td>
-                          <td className="p-2.5 text-slate-200">{sm.setup_description}</td>
-                          <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
-                              {sm.setup_category}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
-                            {sm.expand?.from_family_id?.name || 'Qualquer'} &rarr;{' '}
-                            {sm.expand?.to_family_id?.name || 'Qualquer'}
-                          </td>
-                          <td className="p-2.5 font-mono font-bold text-amber-300">
-                            {sm.setup_duration_minutes} min
-                          </td>
-                          <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
-                              {sm.source_mode}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 
@@ -6858,7 +1907,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </CardContent>
           </Card>
 
-          {/* Histórico & Trilha de Versões (Regra 44 e 45) */}
+          {/* Histórico & Trilha de Versões */}
           <Card className="bg-slate-950 border-slate-800 text-slate-100">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
@@ -6983,12 +2032,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
             </div>
 
-            {/* Origem: SAP vs MANUAL (Regras 25, 26, 27) */}
             <div className="p-3 bg-slate-900/80 rounded border border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-cyan-400">
-                  Origem do Cadastro (Regra 25)
-                </Label>
+                <Label className="text-xs font-bold text-cyan-400">Origem do Cadastro</Label>
                 <select
                   value={prodSource}
                   onChange={(e) => setProdSource(e.target.value as any)}
@@ -7238,6 +2284,129 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
             >
               Confirmar Bloqueio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: Cadastrar Matriz de Setup */}
+      <Dialog open={isSetupMatrixModalOpen} onOpenChange={setIsSetupMatrixModalOpen}>
+        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white text-base flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-cyan-400" />
+              Adicionar Transição na Matriz de Setup
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Código do Setup</Label>
+                <Input
+                  placeholder="Ex: STP_TQ40_TO_TQ50"
+                  value={stpCode}
+                  onChange={(e) => setStpCode(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white font-mono uppercase font-bold"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Categoria do Setup</Label>
+                <select
+                  value={stpCat}
+                  onChange={(e) => setStpCat(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="TOOL_CHANGE">TOOL_CHANGE (Troca de Ferramental)</option>
+                  <option value="DIMENSION_CHANGE">DIMENSION_CHANGE (Mudança de Bitola)</option>
+                  <option value="MATERIAL_CHANGE">MATERIAL_CHANGE (Mudança de Aço)</option>
+                  <option value="CLEANING_SETUP">CLEANING_SETUP (Limpeza)</option>
+                  <option value="OTHER">OTHER (Outros)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-300">Descrição do Setup</Label>
+              <Input
+                placeholder="Ex: Troca de cassetes de conformação de 40mm para 50mm"
+                value={stpDesc}
+                onChange={(e) => setStpDesc(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Família Origem (De)</Label>
+                <select
+                  value={stpFromFam}
+                  onChange={(e) => setStpFromFam(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="">Qualquer Família</option>
+                  {productFamilies.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Família Destino (Para)</Label>
+                <select
+                  value={stpToFam}
+                  onChange={(e) => setStpToFam(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="">Qualquer Família</option>
+                  {productFamilies.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Duração Padrão (minutos)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={stpDuration}
+                  onChange={(e) => setStpDuration(Number(e.target.value))}
+                  className="bg-slate-900 border-slate-700 text-amber-300 font-mono font-bold"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Impacto na Capacidade</Label>
+                <Input
+                  placeholder="Ex: Perda estimada de 60min"
+                  value={stpImpact}
+                  onChange={(e) => setStpImpact(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSetupMatrixModalOpen(false)}
+              className="border-slate-700 bg-slate-900 text-slate-300"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveSetupMatrix}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+            >
+              Homologar Transição
             </Button>
           </DialogFooter>
         </DialogContent>

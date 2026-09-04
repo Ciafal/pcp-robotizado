@@ -2066,8 +2066,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               >
                 <option value="ALL">Todos</option>
                 {PROGRAMMING_TYPES_CATALOG.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
+                  <option
+                    key={typeof cat === 'string' ? cat : (cat as any).value}
+                    value={typeof cat === 'string' ? cat : (cat as any).value}
+                  >
+                    {typeof cat === 'string' ? cat : (cat as any).label}
                   </option>
                 ))}
               </select>
@@ -2196,8 +2199,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 >
                   <option value="ALL">Todos</option>
                   {PROGRAMMING_TYPES_CATALOG.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
+                    <option
+                      key={typeof cat === 'string' ? cat : (cat as any).value}
+                      value={typeof cat === 'string' ? cat : (cat as any).value}
+                    >
+                      {typeof cat === 'string' ? cat : (cat as any).label}
                     </option>
                   ))}
                 </select>
