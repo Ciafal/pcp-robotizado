@@ -49,7 +49,7 @@ interface WeeklyScheduleGridProps {
   onMoveUp: (index: number) => void
   onMoveDown: (index: number) => void
   onDuplicate: (index: number) => void
-  onRemove: (index: number) => void
+  onRemove: (itemOrIndex: WeeklyScheduleItem | number) => void
   onOpenAddModal: (
     day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
     shiftCode: string,
@@ -830,6 +830,28 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
+
+                          {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
+                          {onEditItem && (
+                            <button
+                              type="button"
+                              onClick={() => onEditItem(item)}
+                              title="Editar Parâmetros / Horários"
+                              className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {!isPast && (
+                            <button
+                              type="button"
+                              onClick={() => onRemove(item)}
+                              title="Eliminar"
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

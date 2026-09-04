@@ -54,6 +54,7 @@ export type WeeklyScheduleWorkflowState =
   | 'REALIZADO'
   | 'ANALISADO'
   | 'AGUARDANDO_OBSERVACOES'
+  | 'CANCELLED'
   | 'EM_ANALISE' // legado
   | 'APROVADO' // legado
 

@@ -1659,7 +1659,9 @@ export const WeeklyScheduleEngine = {
       SAB: 5,
       DOM: 6,
     }
-    const sorted = [...items].sort((a, b) => {
+    const activeItems = items.filter((it) => it.status !== 'CANCELLED')
+
+    const sorted = [...activeItems].sort((a, b) => {
       const dayDiff = (dayOrderMap[a.day_of_week] ?? 0) - (dayOrderMap[b.day_of_week] ?? 0)
       if (dayDiff !== 0) return dayDiff
       const shiftDiff = a.shift_code.localeCompare(b.shift_code)

@@ -96,6 +96,14 @@ import { PrePublishImpactModal } from '@/components/weekly-schedule/PrePublishIm
 import { MesAlertBanner } from '@/components/weekly-schedule/MesAlertBanner'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
 import { DraftsConsultationModal } from '@/components/weekly-schedule/DraftsConsultationModal'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { scheduleVersioningService } from '@/services/schedule-versioning-service'
 import { VersioningEngine } from '@/services/versioning-engine'
 import {
@@ -830,26 +838,114 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return `DIA — ${dayLabelMap[selectedDayOfWeek]}, ${activeDayDateStr}`
   }, [dayLabelMap, selectedDayOfWeek, activeDayDateStr])
 
-  // Grade do modo DIA = calculatedItems filtrado por item.day_of_week === selectedDayOfWeek
+  // Grade do modo DIA = calculatedItems filtrado pelo dia focalizado + filtros ativos + status ativo (excluindo CANCELLED)
   const dailyCalculatedItems = useMemo(() => {
-    return calculatedItems.filter((it) => it.day_of_week === selectedDayOfWeek)
-  }, [calculatedItems, selectedDayOfWeek])
+    return calculatedItems.filter((it) => {
+      if (it.status === 'CANCELLED') return false
+      if (it.day_of_week !== selectedDayOfWeek) return false
+      if (
+        headerFilter.companyCode &&
+        it.company_code &&
+        it.company_code !== headerFilter.companyCode
+      ) {
+        return false
+      }
+      if (headerFilter.lineCode && it.line_code && it.line_code !== headerFilter.lineCode) {
+        return false
+      }
+      if (
+        targetShiftCode &&
+        targetShiftCode !== 'ALL' &&
+        it.shift_code &&
+        it.shift_code !== targetShiftCode
+      ) {
+        return false
+      }
+      if (
+        targetCrewName &&
+        targetCrewName !== 'ALL' &&
+        it.crew_name &&
+        it.crew_name !== targetCrewName
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [
+    calculatedItems,
+    selectedDayOfWeek,
+    headerFilter.companyCode,
+    headerFilter.lineCode,
+    targetShiftCode,
+    targetCrewName,
+  ])
 
-  // Resumo compacto do dia (usando indicadores existentes filtrados pelo dia)
+  // Resumo compacto do dia usando estritamente a mesma fonte única (dailyCalculatedItems)
   const dailySummary = useMemo(() => {
+    // Produtos programados: itens produtivos ativos do dia
     const prods = dailyCalculatedItems.filter((it) => it.item_type === 'PRODUCTION')
-    const stops = dailyCalculatedItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
+    // Atividades da programação: contagem total de blocos do dia (produção, setups/trocas, paradas)
+    const totalActivitiesCount = dailyCalculatedItems.length
+
+    // Qtd. Programada: Σ quantidade dos itens produtivos em toneladas
     const totalTons = prods.reduce((acc, it) => acc + (it.planned_quantity_tons || 0), 0)
+
+    // Horas Programadas: Σ duração das atividades produtivas do dia
     const totalProdHours = prods.reduce((acc, it) => acc + (it.production_hours || 0), 0)
-    const totalSetupMinutes = prods.reduce((acc, it) => acc + (it.setup_duration_minutes || 0), 0)
-    const totalStopMinutes = stops.reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
+
+    // Setup / Troca: Σ duração dos registros classificados como setup/troca do dia
+    const totalSetupMinutes = dailyCalculatedItems.reduce((acc, it) => {
+      const explicitSetup = it.item_type === 'SETUP' ? (it.production_hours || 0) * 60 : 0
+      const embeddedSetup = it.setup_duration_minutes || 0
+      return acc + explicitSetup + embeddedSetup
+    }, 0)
     const setupHours = Number((totalSetupMinutes / 60).toFixed(2))
-    const stopHours = Number((totalStopMinutes / 60).toFixed(2))
-    const totalShiftCapacityHours = 24.0 // 3 turnos nominais
-    const freeHours = Math.max(
+
+    // Paradas Programadas: Σ das paradas programadas do dia (itens SCHEDULED_STOP ou Ficha Mestra da linha)
+    const dayStopsFromItems = dailyCalculatedItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
+    const itemStopsMinutes = dayStopsFromItems.reduce(
+      (acc, it) => acc + (it.stop_duration_minutes || 0),
       0,
-      Number((totalShiftCapacityHours - (totalProdHours + setupHours + stopHours)).toFixed(2)),
     )
+
+    // Paradas padrão da linha aplicáveis a este dia da semana (standard_scheduled_stops)
+    const masterStops = (currentLineOverview?.scheduledStops || []).filter((s) => {
+      if (!s.active) return false
+      if (s.applicable_days && s.applicable_days.length > 0) {
+        return s.applicable_days.includes(selectedDayOfWeek)
+      }
+      return true
+    })
+    const masterStopsMinutes = masterStops.reduce(
+      (acc, s) => acc + (s.expected_duration_minutes || 0),
+      0,
+    )
+    // Se o item já foi materializado na grade usa a soma dos itens, senão computa as da Ficha Mestra
+    const effectiveStopMinutes = itemStopsMinutes > 0 ? itemStopsMinutes : masterStopsMinutes
+    const stopHours = Number((effectiveStopMinutes / 60).toFixed(2))
+
+    // Capacidade disponível efetiva do dia (dos turnos reais da Ficha Mestre da linha)
+    const activeShifts = (currentLineOverview?.shifts || []).filter((s) => s.active !== false)
+    const hasConfiguredShifts = activeShifts.length > 0
+    const dayConfiguredCapacityHours = hasConfiguredShifts
+      ? activeShifts.reduce((acc, s) => {
+          if (s.applicable_days && s.applicable_days.length > 0) {
+            if (!s.applicable_days.includes(selectedDayOfWeek)) return acc
+          }
+          return acc + (s.duration_hours || 8)
+        }, 0)
+      : null
+
+    // Horas Livres: capacidade disponível efetiva do dia - Horas Programadas - Setup/Troca - Paradas Programadas
+    let freeHoursText: string
+    if (dayConfiguredCapacityHours === null || dayConfiguredCapacityHours <= 0) {
+      freeHoursText = 'Capacidade não configurada'
+    } else {
+      const free = Number(
+        (dayConfiguredCapacityHours - (totalProdHours + setupHours + stopHours)).toFixed(2),
+      )
+      freeHoursText = `${Math.max(0, free)}h`
+    }
 
     return {
       dateFormatted: activeDayDateStr,
@@ -859,12 +955,21 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       plannedHours: Number(totalProdHours.toFixed(2)),
       setupHours,
       stopHours,
-      freeHours,
+      freeHoursText,
       totalTons: Number(totalTons.toFixed(1)),
-      itemCount: prods.length,
-      stopCount: stops.length,
+      productsCount: prods.length,
+      activitiesCount: totalActivitiesCount,
     }
-  }, [dailyCalculatedItems, activeDayDateStr, selectedLineCode, targetShiftName, targetCrewName])
+  }, [
+    dailyCalculatedItems,
+    activeDayDateStr,
+    selectedLineCode,
+    targetShiftName,
+    targetCrewName,
+    selectedDayOfWeek,
+    currentLineOverview?.shifts,
+    currentLineOverview?.scheduledStops,
+  ])
 
   // Navegação de Dia Anterior / Dia Seguinte cruzando a semana
   const daySequence: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = useMemo(
@@ -1375,7 +1480,82 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
+  // Exclusão Lógica Auditada de Item da Programação
+  const [itemToDelete, setItemToDelete] = useState<WeeklyScheduleItem | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false)
+
+  const handleRequestDeleteItem = (item: WeeklyScheduleItem) => {
+    if (isItemInPast(item)) {
+      toast({
+        title: 'Operação Bloqueada',
+        description: 'Não é permitido editar programação com data/hora do passado.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setItemToDelete(item)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete) return
+    const target = itemToDelete
+    setIsDeleteDialogOpen(false)
+    setItemToDelete(null)
+
+    // 1. Exclusão LÓGICA: marca status='CANCELLED'
+    const updatedList = items.map((it) =>
+      it.id === target.id ? { ...it, status: 'CANCELLED' as WeeklyScheduleWorkflowState } : it,
+    )
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      updatedList,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    // Se o item deletado for o selecionado no painel lateral, desmarca
+    if (selectedScheduleItem?.id === target.id) {
+      setSelectedScheduleItem(null)
+    }
+
+    // 2. Gravação de Auditoria em pcp_audit_logs (SCHEDULE_ITEM_DELETE)
+    try {
+      await weeklyScheduleService.logScheduleItemDeletion({
+        item: target,
+        version: currentVersion,
+        context: {
+          companyCode: headerFilter.companyCode,
+          lineCode: headerFilter.lineCode,
+          year: headerFilter.year,
+          weekNumber: headerFilter.weekNumber,
+          dayOfWeek: target.day_of_week,
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao auditar SCHEDULE_ITEM_DELETE:', auditErr)
+    }
+
+    // 3. Persistência do rascunho com o item cancelado
+    try {
+      await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+    } catch (saveErr) {
+      console.warn('Falha ao persistir rascunho pós-exclusão:', saveErr)
+    }
+
+    toast({
+      title: 'Registro Eliminado',
+      description: `Item #${target.sequence_order} (${target.material_code}) cancelado logicamente e totais recalculados.`,
+    })
+  }
+
   const handleRemove = (index: number) => {
+    const target = items[index]
+    if (target) {
+      handleRequestDeleteItem(target)
+      return
+    }
     setItems((prev) => prev.filter((_, i) => i !== index))
     toast({
       title: 'Item Removido',
@@ -1922,12 +2102,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   return (
     <div className="space-y-2.5 pb-8 text-slate-900">
-      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL (SEMANAL OU MENSAL) */}
-      {scheduleViewType === 'MES' ? (
-        /* CABEÇALHO MENSAL (REQUISITO 2) */
-        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          <div>
-            {/* Linha 1: Título Oficial Mensal + Selo EM PROGRAMAÇÃO */}
+      {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL COM ESTEIRA DE AÇÕES UNIFICADA EM TODOS OS MODOS */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div>
+          {scheduleViewType === 'MES' ? (
+            /* Linha 1 Mês: Título Oficial Mensal + Selo EM PROGRAMAÇÃO */
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
                 PROGRAMAÇÃO MENSAL - AGOSTO/2026
@@ -1937,8 +2116,38 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </Badge>
               <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
             </div>
+          ) : scheduleViewType === 'DIA' ? (
+            /* Linha 1 Dia: Título Oficial do Modo Dia */
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+                {dailyHeaderTitle}
+              </h1>
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
+                RASCUNHO
+              </Badge>
+              <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-bold uppercase px-2 py-0.5">
+                VISÃO DIÁRIA
+              </Badge>
+            </div>
+          ) : (
+            /* Linha 1 Semanal/Timeline/Oficina: Título Oficial + Selo RASCUNHO */
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+                {scheduleViewType === 'OFICINA_CILINDROS'
+                  ? 'PROGRAMAÇÃO INTEGRADA — OFICINA DE CILINDROS'
+                  : scheduleViewType === 'TIMELINE'
+                    ? 'LINHA DO TEMPO OPERACIONAL'
+                    : 'PROGRAMAÇÃO SEMANAL - MONTAGEM'}
+              </h1>
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
+                RASCUNHO
+              </Badge>
+              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
+            </div>
+          )}
 
-            {/* Linha 2 Compacta na mesma linguagem da semanal */}
+          {/* Linha 2 Compacta Contextual */}
+          {scheduleViewType === 'MES' ? (
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
                 <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
@@ -1964,77 +2173,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <strong className="text-slate-800">Status:</strong> EM PROGRAMAÇÃO
               </span>
             </div>
-          </div>
-
-          {/* AÇÕES NA MESMA LINHA (REQUISITO 2): Mês Anterior, Mês Seguinte, Analisar com IA, Comparar Cenários */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                toast({
-                  title: 'Navegação Mensal',
-                  description: 'Exibindo programação do mês anterior (Julho/2026).',
-                })
-              }}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <ChevronLeft className="w-3 h-3 mr-0.5" /> Mês Anterior
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                toast({
-                  title: 'Navegação Mensal',
-                  description: 'Exibindo programação do mês seguinte (Setembro/2026).',
-                })
-              }}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              Mês Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsMonthlyAiModalOpen(true)}
-              className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-              Analisar com IA
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsComparisonModalOpen(true)}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
-            >
-              <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
-              Comparar Cenários
-            </Button>
-          </div>
-        </div>
-      ) : scheduleViewType === 'DIA' ? (
-        /* CABEÇALHO DO MODO DIA (ESPECIFICAÇÃO DIA) */
-        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          <div>
-            {/* Linha 1: Título Oficial do Modo Dia */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                {dailyHeaderTitle}
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
-                RASCUNHO
-              </Badge>
-              <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-bold uppercase px-2 py-0.5">
-                VISÃO DIÁRIA
-              </Badge>
-            </div>
-
-            {/* Linha 2 Compacta do Modo Dia */}
+          ) : scheduleViewType === 'DIA' ? (
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
                 <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
@@ -2060,78 +2199,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <strong className="text-slate-800">Semana Ref.:</strong> W{selectedWeekNumber}
               </span>
             </div>
-          </div>
-
-          {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
-          <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRunSimulation}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-            >
-              <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
-              <span>Simular</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAiAnalysis}
-              className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
-              <span>Analisar com IA</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveDraft}
-              disabled={isSaving}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-            >
-              <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
-              <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDraftsModalOpen(true)}
-              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
-            >
-              <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
-              <span>Consultar Rascunhos</span>
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={handleSendForApproval}
-              disabled={isSendingApproval}
-              className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
-            >
-              <Send className="w-3 h-3 mr-1 shrink-0" />
-              <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* CABEÇALHO SEMANAL (BASELINE INTACTO) */
-        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          <div>
-            {/* Linha 1: Título Oficial + Selo RASCUNHO */}
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                PROGRAMAÇÃO SEMANAL - MONTAGEM
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
-                RASCUNHO
-              </Badge>
-              <span className="text-[10px] font-mono text-slate-400">[DADOS DE DEMONSTRAÇÃO]</span>
-            </div>
-
-            {/* Linha 2 Compacta com Estabilidade e Versionamento CIAFAL (Requisitos 25 e 26) */}
+          ) : (
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
               <span className="flex items-center gap-1">
                 <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
@@ -2185,63 +2253,110 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 Central de Alterações &rarr;
               </button>
             </div>
-          </div>
-
-          {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
-          <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRunSimulation}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-            >
-              <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
-              <span>Simular</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAiAnalysis}
-              className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
-              <span>Analisar com IA</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSaveDraft}
-              disabled={isSaving}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-            >
-              <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
-              <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDraftsModalOpen(true)}
-              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
-            >
-              <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
-              <span>Consultar Rascunhos</span>
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={handleSendForApproval}
-              disabled={isSendingApproval}
-              className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
-            >
-              <Send className="w-3 h-3 mr-1 shrink-0" />
-              <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
-            </Button>
-          </div>
+          )}
         </div>
-      )}
+
+        {/* BARRA DE AÇÕES UNIFICADA EM TODOS OS MODOS COM ORDEM FIXA (1. Simular, 2. Analisar com IA, 3. Salvar Rascunho, 4. Consultar Rascunhos, 5. Enviar para Aprovação) */}
+        <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
+          {scheduleViewType === 'MES' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  toast({
+                    title: 'Navegação Mensal',
+                    description: 'Exibindo programação do mês anterior (Julho/2026).',
+                  })
+                }}
+                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+              >
+                <ChevronLeft className="w-3 h-3 mr-0.5" /> Mês Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  toast({
+                    title: 'Navegação Mensal',
+                    description: 'Exibindo programação do mês seguinte (Setembro/2026).',
+                  })
+                }}
+                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+              >
+                Mês Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsComparisonModalOpen(true)}
+                className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+              >
+                <GitCompare className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                Comparar Cenários
+              </Button>
+            </>
+          )}
+
+          {/* 1. Simular */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunSimulation}
+            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+          >
+            <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
+            <span>Simular</span>
+          </Button>
+
+          {/* 2. Analisar com IA */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={
+              scheduleViewType === 'MES' ? () => setIsMonthlyAiModalOpen(true) : handleAiAnalysis
+            }
+            className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
+            <span>Analisar com IA</span>
+          </Button>
+
+          {/* 3. Salvar Rascunho */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveDraft}
+            disabled={isSaving}
+            className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+          >
+            <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
+            <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
+          </Button>
+
+          {/* 4. Consultar Rascunhos */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsDraftsModalOpen(true)}
+            className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
+          >
+            <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
+            <span>Consultar Rascunhos</span>
+          </Button>
+
+          {/* 5. Enviar para Aprovação */}
+          <Button
+            size="sm"
+            onClick={handleSendForApproval}
+            disabled={isSendingApproval}
+            className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
+          >
+            <Send className="w-3 h-3 mr-1 shrink-0" />
+            <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
+          </Button>
+        </div>
+      </div>
 
       {/* Banner de Alerta MES em Chão de Fábrica (Requisito 14, 15) */}
       <MesAlertBanner
@@ -2910,8 +3025,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <div className="h-4 w-px bg-slate-200 hidden sm:block" />
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Horas Livres</span>
-                <span className="font-bold text-emerald-700 font-mono">
-                  {dailySummary.freeHours}h
+                <span
+                  className={`font-bold font-mono ${dailySummary.freeHoursText.includes('não configurada') ? 'text-amber-700 text-[11px]' : 'text-emerald-700'}`}
+                >
+                  {dailySummary.freeHoursText}
                 </span>
               </div>
               <div className="h-4 w-px bg-slate-200 hidden sm:block" />
@@ -2920,7 +3037,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   Qtd. Programada
                 </span>
                 <span className="font-bold text-slate-900 font-mono">
-                  {dailySummary.totalTons} t ({dailySummary.itemCount} itens)
+                  {dailySummary.totalTons} t
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Produtos programados
+                </span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {dailySummary.productsCount}
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Atividades da programação
+                </span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {dailySummary.activitiesCount}
                 </span>
               </div>
             </div>
@@ -2951,7 +3086,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                     handleReorderItems(from, to, targetOverrides)
                   }
                   onDuplicateItem={handleDuplicate}
-                  onRemoveItem={handleRemove}
+                  onRemoveItem={(indexOrItem) => {
+                    if (typeof indexOrItem === 'object' && indexOrItem !== null) {
+                      handleRequestDeleteItem(indexOrItem)
+                    } else if (typeof indexOrItem === 'number') {
+                      handleRemove(indexOrItem)
+                    }
+                  }}
                   onAddItem={(day, shift) => {
                     setTargetDay(day)
                     setTargetShiftCode(shift)
@@ -2973,7 +3114,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   onMoveUp={handleMoveUp}
                   onMoveDown={handleMoveDown}
                   onDuplicate={handleDuplicate}
-                  onRemove={handleRemove}
+                  onRemove={(itemOrIndex) => {
+                    if (typeof itemOrIndex === 'object' && itemOrIndex !== null) {
+                      handleRequestDeleteItem(itemOrIndex)
+                    } else if (typeof itemOrIndex === 'number') {
+                      handleRemove(itemOrIndex)
+                    }
+                  }}
                   onOpenAddModal={(d, s) => {
                     setTargetDay(d)
                     setTargetShiftCode(s)
@@ -3079,7 +3226,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   handleReorderItems(from, to, targetOverrides)
                 }
                 onDuplicateItem={handleDuplicate}
-                onRemoveItem={handleRemove}
+                onRemoveItem={(indexOrItem) => {
+                  if (typeof indexOrItem === 'object' && indexOrItem !== null) {
+                    handleRequestDeleteItem(indexOrItem)
+                  } else if (typeof indexOrItem === 'number') {
+                    handleRemove(indexOrItem)
+                  }
+                }}
                 onAddItem={(day, shift) => {
                   setTargetDay(day)
                   setTargetShiftCode(shift)
@@ -3101,7 +3254,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 onMoveUp={handleMoveUp}
                 onMoveDown={handleMoveDown}
                 onDuplicate={handleDuplicate}
-                onRemove={handleRemove}
+                onRemove={(itemOrIndex) => {
+                  if (typeof itemOrIndex === 'object' && itemOrIndex !== null) {
+                    handleRequestDeleteItem(itemOrIndex)
+                  } else if (typeof itemOrIndex === 'number') {
+                    handleRemove(itemOrIndex)
+                  }
+                }}
                 onOpenAddModal={(d, s) => {
                   setTargetDay(d)
                   setTargetShiftCode(s)
@@ -3430,6 +3589,62 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         onSubmitJustification={handleSubmitExceptionJustification}
         onSupervisorAction={handleSupervisorExceptionAction}
       />
+
+      {/* 17. MODAL DE CONFIRMAÇÃO DE EXCLUSÃO LÓGICA DE ITEM (ITEM 3) */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Confirmar Eliminação
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-600 pt-2 font-medium">
+              Deseja realmente eliminar este registro?
+            </DialogDescription>
+          </DialogHeader>
+          {itemToDelete && (
+            <div className="bg-slate-50 border border-slate-200 rounded-md p-2.5 text-xs text-slate-700 space-y-1">
+              <div>
+                <strong className="text-slate-900">Material:</strong> {itemToDelete.material_code} -{' '}
+                {itemToDelete.material_description}
+              </div>
+              <div className="flex gap-4">
+                <span>
+                  <strong>Ordem:</strong> #{itemToDelete.sequence_order}
+                </span>
+                <span>
+                  <strong>Qtd:</strong> {itemToDelete.planned_quantity_tons} t
+                </span>
+                <span>
+                  <strong>Dia/Turno:</strong> {itemToDelete.day_of_week} ({itemToDelete.shift_code})
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setItemToDelete(null)
+              }}
+              className="h-8 px-3 text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDeleteItem}
+              className="h-8 px-3 text-xs font-semibold bg-rose-600 hover:bg-rose-700"
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

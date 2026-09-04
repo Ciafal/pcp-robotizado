@@ -1266,4 +1266,58 @@ export const weeklyScheduleService = {
       console.error('Falha ao gravar auditoria de bloqueio:', err)
     }
   },
+
+  /**
+   * Registra no log de auditoria a exclusão lógica de item da programação semanal (SCHEDULE_ITEM_DELETE)
+   */
+  async logScheduleItemDeletion(params: {
+    item: WeeklyScheduleItem
+    version: number
+    context: {
+      companyCode: string
+      lineCode: string
+      year: number
+      weekNumber: number
+      dayOfWeek: string
+    }
+  }): Promise<void> {
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const userEmail = user?.email || ''
+    const userId = user?.id || null
+
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: userId,
+        user_email: userEmail,
+        user_name: userName,
+        user_role: (user as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'SCHEDULE_ITEM_DELETE',
+        resource: 'weekly_schedule_items',
+        resource_id: params.item.id,
+        permission_required: 'pcp.weekly_schedule.edit',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          itemId: params.item.id,
+          materialCode: params.item.material_code,
+          materialDescription: params.item.material_description,
+          sequenceOrder: params.item.sequence_order,
+          plannedQuantityTons: params.item.planned_quantity_tons,
+          version: params.version,
+          versionTag: `V${String(params.version).padStart(2, '0')}`,
+          companyCode: params.context.companyCode,
+          lineCode: params.context.lineCode,
+          year: params.context.year,
+          weekNumber: params.context.weekNumber,
+          dayOfWeek: params.context.dayOfWeek,
+          deletedAt: new Date().toISOString(),
+          deletedBy: userName,
+        },
+      })
+    } catch (err) {
+      console.warn('Falha na gravação de auditoria SCHEDULE_ITEM_DELETE em pcp_audit_logs:', err)
+    }
+  },
 }

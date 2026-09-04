@@ -39,7 +39,7 @@ interface OperationalTimelineGridProps {
     },
   ) => void
   onDuplicateItem?: (index: number) => void
-  onRemoveItem?: (index: number) => void
+  onRemoveItem?: (itemOrIndex: WeeklyScheduleItem | number) => void
   onAddItem?: (
     day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
     shiftCode: string,
@@ -92,15 +92,23 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   lineOverview,
   selectedItemId,
   onSelectItem,
+  onEditItem,
   onMoveItem,
   onDuplicateItem,
   onRemoveItem,
   onAddItem,
-  onEditItem,
   onOpenAwaitingModal,
   onOpenSetupDetail,
 }) => {
-  // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
+  const isItemInPast = (item: WeeklyScheduleItem): boolean => {
+    if (!item.start_datetime && !item.end_datetime) return false
+    const now = new Date()
+    const checkDate = item.end_datetime || item.start_datetime
+    if (!checkDate) return false
+    const parsed = new Date(checkDate.replace(' ', 'T'))
+    if (isNaN(parsed.getTime())) return false
+    return parsed.getTime() < now.getTime()
+  }  // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({
     SEG: true,
     TER: true,
@@ -750,7 +758,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       )}
                                     </div>
 
-                                    {/* Horário sempre legível e botão de edição */}
+                                    {/* Horário sempre legível e botões de edição e exclusão */}
                                     <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
                                       <span className="shrink-0">
                                         {startStr} &rarr; {endStr}
@@ -766,6 +774,19 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                           className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0"
                                         >
                                           ✏️
+                                        </button>
+                                      )}
+                                      {onRemoveItem && !isItemInPast(item) && (
+                                        <button
+                                          type="button"
+                                          title="Eliminar"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onRemoveItem(item)
+                                          }}
+                                          className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0"
+                                        >
+                                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                                         </button>
                                       )}
                                     </div>
