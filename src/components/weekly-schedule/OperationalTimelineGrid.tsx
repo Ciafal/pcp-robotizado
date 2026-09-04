@@ -108,7 +108,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     const parsed = new Date(checkDate.replace(' ', 'T'))
     if (isNaN(parsed.getTime())) return false
     return parsed.getTime() < now.getTime()
-  }  // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
+  } // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({
     SEG: true,
     TER: true,
