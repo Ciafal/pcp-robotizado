@@ -298,8 +298,12 @@ export const pcpRulesService = {
         else if (r.recurrence === 'BIWEEKLY') monthlyMultiplier = 2.16
         else if (r.recurrence === 'MONTHLY') monthlyMultiplier = 1.0
 
-        const lostHoursMonth = Math.round((durationMin / 60) * monthlyMultiplier * 10) / 10
-        const lostCapacityTons = Math.round(lostHoursMonth * nominalRate)
+        // Apenas paradas ativas reduzem a capacidade; inativas são mantidas no histórico sem afetar cálculo
+        const isStopActive = r.active !== false
+        const lostHoursMonth = isStopActive
+          ? Math.round((durationMin / 60) * monthlyMultiplier * 10) / 10
+          : 0
+        const lostCapacityTons = isStopActive ? Math.round(lostHoursMonth * nominalRate) : 0
 
         return {
           id: r.id,
