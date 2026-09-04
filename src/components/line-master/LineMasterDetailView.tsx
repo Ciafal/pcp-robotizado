@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sliders,
+  Sparkles,
   TrendingUp,
   Users,
   Wrench,
@@ -50,8 +51,10 @@ import {
   ProductFamily,
   StandardScheduledStop,
   SapIntegrationDefinition,
+  MasterSheetCompletenessResult,
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
+import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
 
 interface LineMasterDetailViewProps {
   overview: LineOverviewData
@@ -92,6 +95,27 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     completeness = 0,
     readyForScheduling = false,
   } = overview
+
+  // Estado da Completude detalhada e Modal
+  const [completenessResult, setCompletenessResult] =
+    useState<MasterSheetCompletenessResult | null>(null)
+  const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
+
+  // Carrega cálculo determinístico de completude para a linha
+  const loadCompleteness = React.useCallback(async () => {
+    try {
+      const res = await lineMasterService.getMasterSheetCompleteness(line.id, {
+        forceRefresh: true,
+      })
+      setCompletenessResult(res)
+    } catch (err) {
+      console.warn('Erro ao carregar completude da linha:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadCompleteness()
+  }, [loadCompleteness, overview])
 
   // Sub-aba ativa no agrupamento de Governança / Processo / Ficha Mestre
   const [mainGroup, setMainGroup] = useState<
@@ -621,6 +645,38 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 Ficha Mestre v{master.version}
               </Badge>
             )}
+
+            {/* Indicador no cabeçalho da Ficha Mestre com botão clicável para abrir o Painel de Completude */}
+            {(() => {
+              const currentScore = completenessResult ? completenessResult.percentage : completeness
+              const currentStatus = completenessResult
+                ? completenessResult.status
+                : completeness >= 80
+                  ? 'Quase completa'
+                  : 'Em preenchimento'
+              const badgeTheme =
+                currentScore >= 100
+                  ? 'bg-emerald-900 text-emerald-100 border-emerald-400'
+                  : currentScore >= 80
+                    ? 'bg-blue-900 text-cyan-200 border-cyan-400'
+                    : currentScore >= 50
+                      ? 'bg-amber-900 text-amber-100 border-amber-400'
+                      : 'bg-rose-900 text-rose-100 border-rose-400'
+
+              return (
+                <button
+                  type="button"
+                  onClick={() => setIsCompletenessModalOpen(true)}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-full border transition-all hover:scale-105 cursor-pointer flex items-center gap-1.5 shadow-xs ${badgeTheme}`}
+                  title="Clique para ver o Painel de Completude da Ficha Mestre e pendências"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Ficha Mestre — {currentScore}% preenchida</span>
+                  <span className="opacity-75 font-normal">({currentStatus})</span>
+                </button>
+              )
+            })()}
+
             <Badge
               className={`text-xs font-bold ${
                 readyForScheduling
@@ -969,33 +1025,59 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+            <Card
+              onClick={() => setIsCompletenessModalOpen(true)}
+              className="bg-slate-950 border-slate-800 hover:border-cyan-500 transition-all cursor-pointer text-slate-100 group"
+              title="Clique para abrir o Painel de Completude da Ficha Mestre"
+            >
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Completude da Linha
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    Completude da Ficha Mestre
+                  </CardTitle>
+                  <span className="text-[10px] text-cyan-400 font-semibold group-hover:underline">
+                    Ver Painel &rarr;
+                  </span>
+                </div>
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-lg font-black text-cyan-300 font-mono">
-                    {completeness}%
-                  </span>
-                  <Badge className="bg-slate-800 text-slate-300 text-[10px]">
-                    {completeness >= 80 ? 'Excelente' : 'Parcial'}
-                  </Badge>
-                </div>
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      completeness >= 80
-                        ? 'bg-emerald-500'
-                        : completeness >= 50
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
-                    }`}
-                    style={{ width: `${completeness}%` }}
-                  />
-                </div>
+                {(() => {
+                  const score = completenessResult ? completenessResult.percentage : completeness
+                  const status = completenessResult
+                    ? completenessResult.status
+                    : score >= 80
+                      ? 'Quase completa'
+                      : 'Em preenchimento'
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-lg font-black text-cyan-300 font-mono">{score}%</span>
+                        <Badge className="bg-slate-800 text-slate-200 text-[10px] font-semibold">
+                          {status}
+                        </Badge>
+                      </div>
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            score >= 100
+                              ? 'bg-emerald-500'
+                              : score >= 80
+                                ? 'bg-cyan-500'
+                                : score >= 50
+                                  ? 'bg-amber-500'
+                                  : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${score}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 block pt-1.5">
+                        {completenessResult
+                          ? `${completenessResult.totalFulfilled} de ${completenessResult.totalApplicable} parâmetros preenchidos`
+                          : 'Preenchimento: ' + score + '%'}
+                      </span>
+                    </>
+                  )
+                })()}
               </CardContent>
             </Card>
           </div>
@@ -2819,6 +2901,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE COMPLETUDE DA FICHA MESTRE */}
+      <MasterSheetCompletenessModal
+        open={isCompletenessModalOpen}
+        onClose={() => setIsCompletenessModalOpen(false)}
+        completeness={completenessResult}
+        onNavigateToBlock={(target) => {
+          if (target.mainGroup) {
+            setMainGroup(target.mainGroup)
+          }
+          if (target.masterSubTab) {
+            setMasterSubTab(target.masterSubTab)
+          }
+        }}
+      />
     </div>
   )
 }

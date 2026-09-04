@@ -662,3 +662,66 @@ export interface LineConfigurationAlert {
   description: string
   resolutionAction?: string
 }
+
+// 13. Índice de Preenchimento da Ficha Mestre (Completeness)
+export type MasterSheetStatus = 'Incompleta' | 'Em preenchimento' | 'Quase completa' | 'Completa'
+
+export type MasterSheetBlockKey =
+  | 'IDENTIFICATION_GOVERNANCE'
+  | 'CAPACITY_CALENDAR'
+  | 'PROCESS'
+  | 'MATERIALS'
+  | 'INTEGRATIONS'
+
+export interface CompletenessItem {
+  id: string
+  blockKey: MasterSheetBlockKey
+  label: string
+  fulfilled: boolean
+  applicable: boolean
+  valueDescription?: string
+  missingMessage?: string
+  navigationTarget?: {
+    mainGroup:
+      | 'OVERVIEW'
+      | 'ORGANIZATION'
+      | 'PROCESS'
+      | 'MASTERDATA'
+      | 'BOTTLENECK_MATRIX'
+      | 'GOVERNANCE'
+    masterSubTab?:
+      | 'CAPACITY'
+      | 'SHIFTS_CREWS'
+      | 'MATRIZ_GARGALOS'
+      | 'PRODUCTIVITY'
+      | 'RAW_MATERIALS'
+      | 'BLOCKED'
+      | 'SETUP_MATRIX'
+      | 'IDEAL_GAUGE_SEQUENCE'
+    anchorId?: string
+  }
+}
+
+export interface MasterSheetBlockCompleteness {
+  key: MasterSheetBlockKey
+  title: string
+  description: string
+  percentage: number
+  totalApplicable: number
+  totalFulfilled: number
+  items: CompletenessItem[]
+}
+
+export interface MasterSheetCompletenessResult {
+  lineId: string
+  lineCode: string
+  lineName: string
+  lineType: string
+  percentage: number
+  status: MasterSheetStatus
+  totalApplicable: number
+  totalFulfilled: number
+  blocks: Record<MasterSheetBlockKey, MasterSheetBlockCompleteness>
+  pendencies: CompletenessItem[]
+  calculatedAt: string
+}

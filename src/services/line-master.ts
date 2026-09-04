@@ -1,5 +1,10 @@
 import pb from '@/lib/pocketbase/client'
 import {
+  getMasterSheetCompleteness,
+  calculateCompletenessFromOverview,
+  invalidateCompletenessCache,
+} from '@/services/master-sheet-completeness'
+import {
   LineAdjustmentTimeRule,
   LineApproverMatrix,
   LineAuditVersion,
@@ -402,31 +407,8 @@ export const lineMasterService = {
       })
     }
 
-    // Cálculo dinâmico de completude e ready_for_scheduling revisado (Regra 42 e 43)
-    // Prontidão cadastral validada pelo campo booleano `is_active` da linha
-    const isLineActive = line.is_active !== false
-
-    let score = 0
-    if (isLineActive) score += 15
-    if (managers.length > 0) score += 15
-    if (activeMaster && activeMaster.nominal_hourly_capacity > 0) score += 15
-    if (shifts.length > 0) score += 15
-    if (calendars.length > 0) score += 10
-    if (capabilities.length > 0) score += 10
-    if (productivity.length > 0) score += 10
-    if (sequencing.length > 0) score += 10
-
-    // Ready for scheduling: requer linha ativa (is_active), gestor, capacidade, turnos e ao menos capacidades/produtividade
-    // NOTA (Regra 43): Aprovador NÃO bloqueia se a aprovação for opcional/não aplicável
-    const readyForScheduling =
-      isLineActive &&
-      managers.length > 0 &&
-      shifts.length > 0 &&
-      (activeMaster ? activeMaster.nominal_hourly_capacity > 0 : true) &&
-      capabilities.length > 0 &&
-      score >= 70
-
-    return {
+    // Cálculo dinâmico de completude via motor determinístico de Ficha Mestre
+    const partialOverview: LineOverviewData = {
       line,
       master: activeMaster,
       hierarchy,
@@ -449,7 +431,27 @@ export const lineMasterService = {
       rulePacks,
       history,
       alerts,
-      completeness: Math.min(100, score),
+      completeness: 0,
+      readyForScheduling: false,
+    }
+
+    const completenessRes = calculateCompletenessFromOverview(partialOverview)
+    const score = completenessRes.percentage
+
+    // Ready for scheduling: requer linha ativa (is_active), gestor, capacidade, turnos e ao menos capacidades/produtividade
+    // NOTA: Aprovador NÃO bloqueia se a aprovação for opcional/não aplicável; completude ≠ homologação
+    const isLineActive = line.is_active !== false
+    const readyForScheduling =
+      isLineActive &&
+      managers.length > 0 &&
+      shifts.length > 0 &&
+      (activeMaster ? activeMaster.nominal_hourly_capacity > 0 : true) &&
+      capabilities.length > 0 &&
+      score >= 70
+
+    return {
+      ...partialOverview,
+      completeness: score,
       readyForScheduling,
     }
   },
@@ -457,9 +459,13 @@ export const lineMasterService = {
   // ==========================================
   // 3. GESTORES DA LINHA (CRUD)
   // ==========================================
+  // Service exportado para acesso externo padronizado
+  getMasterSheetCompleteness,
+
   async saveManagerAssignment(
     data: Partial<LineManagerAssignment>,
   ): Promise<LineManagerAssignment> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb
         .collection('line_managers_assignment')
@@ -476,6 +482,7 @@ export const lineMasterService = {
   // 4. APROVADORES DA LINHA (CRUD)
   // ==========================================
   async saveApprover(data: Partial<LineApproverMatrix>): Promise<LineApproverMatrix> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb.collection('line_approvers_matrix').update<LineApproverMatrix>(data.id, data)
     }
@@ -490,6 +497,7 @@ export const lineMasterService = {
   // 5. SEQUENCIAMENTO & DEPENDÊNCIAS (CRUD sincronizado com Mapa de Integração)
   // ==========================================
   async saveSequencing(data: Partial<LineSequencingDependency>): Promise<LineSequencingDependency> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb
         .collection('line_sequencing_dependencies')
@@ -520,6 +528,7 @@ export const lineMasterService = {
   // 6. PRODUTIVIDADE (CRUD)
   // ==========================================
   async saveProductivity(data: Partial<LineProductivityRate>): Promise<LineProductivityRate> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb
         .collection('line_productivity_rates')
@@ -538,6 +547,7 @@ export const lineMasterService = {
   async saveRawMaterialPriority(
     data: Partial<LineRawMaterialPriority>,
   ): Promise<LineRawMaterialPriority> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb
         .collection('line_raw_material_priorities')
@@ -554,6 +564,7 @@ export const lineMasterService = {
   // 8. PRODUTOS BLOQUEADOS (CRUD)
   // ==========================================
   async saveBlockedProduct(data: Partial<LineBlockedProduct>): Promise<LineBlockedProduct> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb.collection('line_blocked_products').update<LineBlockedProduct>(data.id, data)
     }
@@ -581,6 +592,7 @@ export const lineMasterService = {
   },
 
   async saveSetupMatrix(data: Partial<LineSetupMatrix>): Promise<LineSetupMatrix> {
+    invalidateCompletenessCache(data.line_id)
     // 1. Validação de obrigatoriedade e duração
     if (data.from_product_code && data.to_product_code) {
       if (
@@ -678,6 +690,7 @@ export const lineMasterService = {
   },
 
   async saveAdjustmentRule(data: Partial<LineAdjustmentTimeRule>): Promise<LineAdjustmentTimeRule> {
+    invalidateCompletenessCache(data.line_id)
     // 1. Validação de duração
     if (
       data.duration_minutes === undefined ||
@@ -774,6 +787,7 @@ export const lineMasterService = {
   },
 
   async saveScheduledStop(data: Partial<StandardScheduledStop>): Promise<StandardScheduledStop> {
+    invalidateCompletenessCache(data.line_id)
     const payload: Record<string, any> = { ...data }
     if (payload.start_time === undefined) payload.start_time = null
     if (payload.end_time === undefined) payload.end_time = null
@@ -909,6 +923,7 @@ export const lineMasterService = {
   // 14. FICHA MESTRE (Criação de versão / Atualização)
   // ==========================================
   async saveLineMaster(data: Partial<LineMaster>): Promise<LineMaster> {
+    invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb.collection('line_masters').update<LineMaster>(data.id, data)
     }

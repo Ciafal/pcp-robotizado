@@ -29,11 +29,13 @@ import { lineMasterService } from '@/services/line-master'
 import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { sapIntegrationService } from '@/services/sap-integration'
 import { authService } from '@/services/pcp-auth'
+import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
 import {
   LineOverviewData,
   ProductFamily,
   ProductionLine,
   SapIntegrationDefinition,
+  MasterSheetCompletenessResult,
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
 import { Can } from '@/components/auth/Can'
@@ -69,6 +71,14 @@ export default function LineMasterPage() {
   const [isAddLineModalOpen, setIsAddLineModalOpen] = useState<boolean>(false)
   const [isSapCatalogModalOpen, setIsSapCatalogModalOpen] = useState<boolean>(false)
 
+  // Mapas e modal de completude da Ficha Mestre
+  const [completenessByLine, setCompletenessByLine] = useState<
+    Record<string, MasterSheetCompletenessResult>
+  >({})
+  const [activeCompletenessResult, setActiveCompletenessResult] =
+    useState<MasterSheetCompletenessResult | null>(null)
+  const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -83,6 +93,23 @@ export default function LineMasterPage() {
       setUsers(usersData)
       setProductFamilies(famsData)
       setSapCatalog(sapData)
+
+      // Carrega completude calculada de cada linha
+      const completenessEntries = await Promise.all(
+        linesData.map(async (l) => {
+          try {
+            const comp = await lineMasterService.getMasterSheetCompleteness(l.id)
+            return [l.id, comp] as const
+          } catch {
+            return null
+          }
+        }),
+      )
+      const map: Record<string, MasterSheetCompletenessResult> = {}
+      completenessEntries.forEach((entry) => {
+        if (entry) map[entry[0]] = entry[1]
+      })
+      setCompletenessByLine(map)
 
       // Se houver uma linha já selecionada, recarrega o overview dela
       if (selectedLineId) {
@@ -106,6 +133,12 @@ export default function LineMasterPage() {
         const data = await lineMasterService.getLineOverview(lineId)
         setSelectedLineOverview(data)
         setSelectedLineId(lineId)
+
+        // Atualiza completude detalhada da linha selecionada
+        const comp = await lineMasterService.getMasterSheetCompleteness(lineId, {
+          forceRefresh: true,
+        })
+        setCompletenessByLine((prev) => ({ ...prev, [lineId]: comp }))
         setSearchParams(
           (prev) => {
             const next = new URLSearchParams(prev)
@@ -494,6 +527,57 @@ export default function LineMasterPage() {
                         </div>
                       </div>
 
+                      {/* Indicador de Preenchimento da Ficha Mestre no Card da Linha */}
+                      {(() => {
+                        const comp = completenessByLine[l.id]
+                        const pct = comp ? comp.percentage : 0
+                        const statusLabel = comp ? comp.status : 'Calculando...'
+                        const badgeColor =
+                          pct >= 100
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : pct >= 80
+                              ? 'bg-blue-50 text-[#004C97] border-blue-300'
+                              : pct >= 50
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+
+                        return (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (comp) {
+                                setActiveCompletenessResult(comp)
+                                setIsCompletenessModalOpen(true)
+                              } else {
+                                loadLineOverview(l.id)
+                              }
+                            }}
+                            className="p-2 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-[#004C97]/50 rounded transition-all flex items-center justify-between gap-2"
+                            title="Clique para abrir o Painel de Completude da Ficha Mestre"
+                          >
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                                Preenchimento da Ficha Mestre
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-xs text-slate-900">
+                                  Preenchimento: {pct}%
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[9px] font-semibold ${badgeColor}`}
+                                >
+                                  {pct}% — {statusLabel}
+                                </Badge>
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-[#004C97] font-semibold underline flex items-center gap-0.5 shrink-0">
+                              Detalhes &rarr;
+                            </span>
+                          </div>
+                        )
+                      })()}
+
                       <div className="flex items-center justify-between pt-1 text-[11px]">
                         <span className="text-slate-500 flex items-center gap-1">
                           <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
@@ -531,6 +615,18 @@ export default function LineMasterPage() {
         onClose={() => setIsSapCatalogModalOpen(false)}
         catalog={sapCatalog}
         onRefresh={loadData}
+      />
+
+      {/* MODAL DE COMPLETUDE DA FICHA MESTRE */}
+      <MasterSheetCompletenessModal
+        open={isCompletenessModalOpen}
+        onClose={() => setIsCompletenessModalOpen(false)}
+        completeness={activeCompletenessResult}
+        onNavigateToBlock={(target) => {
+          if (activeCompletenessResult?.lineId) {
+            loadLineOverview(activeCompletenessResult.lineId)
+          }
+        }}
       />
     </div>
   )
