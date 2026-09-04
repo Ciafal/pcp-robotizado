@@ -280,6 +280,8 @@ export interface LineProductivityRate {
   material_product_code: string
   material_product_name: string
   dimension_spec?: string
+  raw_material_type?: string
+  enfornamento_type?: string
   productivity_unit: 't/h' | 'peça/h' | 'm/h'
   nominal_productivity: number
   planned_productivity: number
@@ -538,6 +540,17 @@ export type ScheduledStopRelationType =
   | 'REFEICAO_DDS'
   | 'OUTROS'
 
+export type ScheduledStopRecurrence =
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'BIWEEKLY'
+  | 'MONTHLY'
+  | 'PER_SHIFT'
+  | 'PER_BATCH'
+  | 'CUSTOM'
+  | 'WEEKEND'
+  | string
+
 export interface StandardScheduledStop {
   id: string
   line_id: string
@@ -556,15 +569,10 @@ export interface StandardScheduledStop {
     | 'OPERATIONAL_BREAK'
     | 'OTHER'
     | string
-  recurrence:
-    | 'DAILY'
-    | 'WEEKLY'
-    | 'BIWEEKLY'
-    | 'MONTHLY'
-    | 'PER_SHIFT'
-    | 'PER_BATCH'
-    | 'CUSTOM'
-    | string
+  recurrence: ScheduledStopRecurrence
+  recurrence_day_of_week?: string
+  raw_material_type?: string
+  enfornamento_type?: string
   expected_duration_minutes: number
   scheduled_time?: string
   applicable_shift?: string

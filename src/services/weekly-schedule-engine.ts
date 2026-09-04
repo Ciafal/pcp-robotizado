@@ -530,6 +530,144 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
+   * Hierarquia de busca de produtividade no cálculo Quantidade ↔ Tempo:
+   * P1 = Linha + Produto/Família + raw_material_type + enfornamento_type
+   * P2 = Linha + Produto/Família + raw_material_type
+   * P3 = Linha + Produto/Família
+   * Fallback = parâmetro padrão da linha somente se a regra já existir
+   * (nominal_hourly_capacity + multiplicadores térmicos do enfornamento).
+   * NÃO INVENTAR produtividade.
+   */
+  resolveActiveProductivity(params: {
+    materialCode: string
+    familyCode?: string
+    rawMaterialType?: string
+    enfornamentoType?: string
+    lineOverview: LineOverviewData | null
+    officialMaterials?: OfficialMaterialOption[]
+  }): {
+    rateTh: number
+    level: 'P1' | 'P2' | 'P3' | 'FALLBACK' | 'NONE'
+    ruleDescription: string
+  } {
+    const {
+      materialCode,
+      familyCode,
+      rawMaterialType,
+      enfornamentoType,
+      lineOverview,
+      officialMaterials,
+    } = params
+
+    if (!materialCode) {
+      return { rateTh: 0, level: 'NONE', ruleDescription: 'Código de material não informado.' }
+    }
+
+    const cleanMat = (materialCode || '').trim().toUpperCase()
+    const cleanFam = (familyCode || '').trim().toUpperCase()
+    const cleanMp = (rawMaterialType || '').trim().toUpperCase()
+    const cleanEnf = (enfornamentoType || '').trim().toUpperCase()
+
+    const list = (lineOverview?.productivity || []).filter((p) => p.active !== false)
+
+    const matchesProductOrFamily = (p: LineProductivityRate): boolean => {
+      const pMat = (p.material_product_code || '').trim().toUpperCase()
+      const pFam = (p.expand?.product_family_id?.code || p.product_family_id || '')
+        .trim()
+        .toUpperCase()
+      return pMat === cleanMat || (cleanFam !== '' && pFam === cleanFam)
+    }
+
+    const getRate = (p: LineProductivityRate): number => {
+      return Number(p.planned_productivity) > 0
+        ? Number(p.planned_productivity)
+        : Number(p.nominal_productivity) || 0
+    }
+
+    // P1 = Linha + Produto/Família + raw_material_type + enfornamento_type
+    if (cleanMp && cleanEnf) {
+      const p1 = list.find((p) => {
+        if (!matchesProductOrFamily(p)) return false
+        const pMp = (p.raw_material_type || '').trim().toUpperCase()
+        const pEnf = (p.enfornamento_type || '').trim().toUpperCase()
+        return pMp === cleanMp && pEnf === cleanEnf
+      })
+      if (p1 && getRate(p1) > 0) {
+        return {
+          rateTh: getRate(p1),
+          level: 'P1',
+          ruleDescription: `P1: Linha + Produto/Família + MP (${cleanMp}) + Enfornamento (${cleanEnf})`,
+        }
+      }
+    }
+
+    // P2 = Linha + Produto/Família + raw_material_type
+    if (cleanMp) {
+      const p2 = list.find((p) => {
+        if (!matchesProductOrFamily(p)) return false
+        const pMp = (p.raw_material_type || '').trim().toUpperCase()
+        return pMp === cleanMp
+      })
+      if (p2 && getRate(p2) > 0) {
+        return {
+          rateTh: getRate(p2),
+          level: 'P2',
+          ruleDescription: `P2: Linha + Produto/Família + MP (${cleanMp})`,
+        }
+      }
+    }
+
+    // P3 = Linha + Produto/Família
+    const p3 = list.find((p) => matchesProductOrFamily(p))
+    if (p3 && getRate(p3) > 0) {
+      return {
+        rateTh: getRate(p3),
+        level: 'P3',
+        ruleDescription: 'P3: Linha + Produto/Família',
+      }
+    }
+
+    // Catálogo oficial de materiais integrados SAP (se houver)
+    if (officialMaterials && officialMaterials.length > 0) {
+      const offMatch = officialMaterials.find((m) => m.material_code.toUpperCase() === cleanMat)
+      if (offMatch && offMatch.productivity_th > 0) {
+        return {
+          rateTh: Number(offMatch.productivity_th),
+          level: 'P3',
+          ruleDescription: 'P3: Catálogo oficial integrado SAP',
+        }
+      }
+    }
+
+    // Fallback = parâmetro padrão da linha somente se a regra já existir
+    // (nominal_hourly_capacity + multiplicadores térmicos do enfornamento)
+    if (lineOverview?.master && lineOverview.master.nominal_hourly_capacity > 0) {
+      const baseNominal = Number(lineOverview.master.nominal_hourly_capacity)
+      // Multiplicador térmico conforme enfornamento (FRIO 1.0, QUENTE 1.25, INTERCALADO 1.10, TAPETE 1.15, NORMAL 1.0)
+      const multiplierMap: Record<string, number> = {
+        QUENTE: 1.25,
+        INTERCALADO: 1.1,
+        TAPETE: 1.15,
+        NORMAL: 1.0,
+        FRIO: 1.0,
+      }
+      const mult = multiplierMap[cleanEnf] || 1.0
+      const finalRate = Math.round(baseNominal * mult * 10) / 10
+      return {
+        rateTh: finalRate,
+        level: 'FALLBACK',
+        ruleDescription: `Fallback: Capacidade Nominal da Linha (${baseNominal} t/h × fator térmico ${mult})`,
+      }
+    }
+
+    return {
+      rateTh: 0,
+      level: 'NONE',
+      ruleDescription: 'Nenhuma produtividade encontrada para o material.',
+    }
+  },
+
+  /**
    * Obtém produtividade oficial da Ficha Mestre da Linha para um material
    * Retorna null se não houver cadência cadastrada (sem inventar defaults)
    */
@@ -537,38 +675,23 @@ export const WeeklyScheduleEngine = {
     materialCode: string,
     lineOverview: LineOverviewData | null,
     officialMaterials?: OfficialMaterialOption[],
+    rawMaterialType?: string,
+    enfornamentoType?: string,
   ): number | null {
     if (!materialCode) return null
 
-    // 1. Busca na Ficha Mestra da linha ativa
-    if (lineOverview?.productivity && lineOverview.productivity.length > 0) {
-      const found = lineOverview.productivity.find(
-        (p) => p.material_product_code.toUpperCase() === materialCode.toUpperCase() && p.active,
-      )
-      if (found && found.planned_productivity > 0) {
-        return Number(found.planned_productivity)
-      }
-      if (found && found.nominal_productivity > 0) {
-        return Number(found.nominal_productivity)
-      }
+    const resolved = this.resolveActiveProductivity({
+      materialCode,
+      rawMaterialType,
+      enfornamentoType,
+      lineOverview,
+      officialMaterials,
+    })
+
+    if (resolved.rateTh > 0) {
+      return resolved.rateTh
     }
 
-    // 2. Busca no catálogo oficial de materiais integrados SAP / Ficha Mestra
-    if (officialMaterials && officialMaterials.length > 0) {
-      const offMatch = officialMaterials.find(
-        (m) => m.material_code.toUpperCase() === materialCode.toUpperCase(),
-      )
-      if (offMatch && offMatch.productivity_th > 0) {
-        return Number(offMatch.productivity_th)
-      }
-    }
-
-    // 3. Capacidade nominal horária cadastrada na Ficha Mestra da Linha (se houver)
-    if (lineOverview?.master && lineOverview.master.nominal_hourly_capacity > 0) {
-      return Number(lineOverview.master.nominal_hourly_capacity)
-    }
-
-    // Sem cadência cadastrada -> retorna null (NÃO inventar default artificial)
     return null
   },
 
@@ -579,11 +702,83 @@ export const WeeklyScheduleEngine = {
     materialCode: string,
     lineOverview: LineOverviewData | null,
     defaultLineNominalTh?: number,
+    rawMaterialType?: string,
+    enfornamentoType?: string,
   ): number {
-    const strict = this.getProductivityForMaterialStrict(materialCode, lineOverview)
+    const strict = this.getProductivityForMaterialStrict(
+      materialCode,
+      lineOverview,
+      undefined,
+      rawMaterialType,
+      enfornamentoType,
+    )
     if (strict !== null && strict > 0) return strict
     if (defaultLineNominalTh && defaultLineNominalTh > 0) return defaultLineNominalTh
     return 0
+  },
+
+  /**
+   * Determina a aplicabilidade de uma Parada Programada da Ficha Mestre
+   * considerando matéria-prima, tipo de enfornamento, recorrência (incluindo WEEKEND)
+   * e dia da semana.
+   */
+  isScheduledStopApplicable(
+    stop: StandardScheduledStop,
+    context: {
+      dayOfWeek?: string // 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'
+      rawMaterialType?: string
+      enfornamentoType?: string
+    },
+  ): boolean {
+    if (!stop.active) return false
+
+    // 1. Filtro por Matéria-Prima (se especificado na parada)
+    if (stop.raw_material_type) {
+      const stopMp = stop.raw_material_type.trim().toUpperCase()
+      if (context.rawMaterialType) {
+        const ctxMp = context.rawMaterialType.trim().toUpperCase()
+        if (stopMp !== ctxMp) return false
+      }
+    }
+
+    // 2. Filtro por Tipo de Enfornamento (se especificado na parada)
+    if (stop.enfornamento_type) {
+      const stopEnf = stop.enfornamento_type.trim().toUpperCase()
+      if (context.enfornamentoType) {
+        const ctxEnf = context.enfornamentoType.trim().toUpperCase()
+        if (stopEnf !== ctxEnf) return false
+      }
+    }
+
+    // 3. Filtro por Recorrência e Dia da Semana
+    if (context.dayOfWeek) {
+      const day = context.dayOfWeek.toUpperCase()
+      const isWeekendDay = day === 'SAB' || day === 'DOM'
+
+      if (stop.recurrence === 'WEEKEND') {
+        if (!isWeekendDay) return false
+      }
+
+      if (stop.recurrence_day_of_week) {
+        const rDay = stop.recurrence_day_of_week.toLowerCase()
+        if (rDay.includes('sábado e domingo') && !isWeekendDay) return false
+        if (rDay === 'segunda' && day !== 'SEG') return false
+        if (rDay === 'terça' && day !== 'TER') return false
+        if (rDay === 'quarta' && day !== 'QUA') return false
+        if (rDay === 'quinta' && day !== 'QUI') return false
+        if (rDay === 'sexta' && day !== 'SEX') return false
+        if (rDay === 'sábado' && day !== 'SAB') return false
+        if (rDay === 'domingo' && day !== 'DOM') return false
+      }
+
+      if (stop.applicable_days && stop.applicable_days.length > 0) {
+        if (!stop.applicable_days.includes(context.dayOfWeek)) {
+          return false
+        }
+      }
+    }
+
+    return true
   },
 
   /**
@@ -1710,13 +1905,21 @@ export const WeeklyScheduleEngine = {
       }
 
       // ITEM DE PRODUÇÃO
-      // 1. Produtividade da Ficha Mestre
+      // 1. Produtividade da Ficha Mestre com Hierarquia P1-P3 e Fallback
+      const resolvedProd = this.resolveActiveProductivity({
+        materialCode: item.material_code,
+        familyCode: item.family_code,
+        rawMaterialType: item.raw_material_type,
+        enfornamentoType: item.enfornamento_type,
+        lineOverview,
+      })
       const productivity =
-        this.getProductivityForMaterialStrict(item.material_code, lineOverview) ||
-        item.productivity_rate_th ||
-        (lineOverview?.master?.nominal_hourly_capacity
-          ? Number(lineOverview.master.nominal_hourly_capacity)
-          : 0)
+        resolvedProd.rateTh > 0
+          ? resolvedProd.rateTh
+          : item.productivity_rate_th ||
+            (lineOverview?.master?.nominal_hourly_capacity
+              ? Number(lineOverview.master.nominal_hourly_capacity)
+              : 0)
       item.productivity_rate_th = productivity
 
       if (productivity <= 0) {

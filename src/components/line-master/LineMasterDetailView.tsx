@@ -50,9 +50,12 @@ import {
   ProductionLine,
   ProductFamily,
   StandardScheduledStop,
+  ScheduledStopRecurrence,
   SapIntegrationDefinition,
   MasterSheetCompletenessResult,
 } from '@/types/line-master'
+import { OFFICIAL_MP_TYPES_CATALOG, OFFICIAL_MP_TYPES } from '@/services/mp-programming-engine'
+import { ENFORNAMENTO_OPTIONS, EnfornamentoType } from '@/services/enfornamento-laminacao-engine'
 import { UserProfile } from '@/types/pcp-auth'
 import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
 
@@ -253,11 +256,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [prodMaterialCode, setProdMaterialCode] = useState('')
   const [prodMaterialName, setProdMaterialName] = useState('')
   const [prodDim, setProdDim] = useState('')
+  const [prodRawMaterialType, setProdRawMaterialType] = useState<string>('TARUGO_130X130')
+  const [prodEnfornamentoType, setProdEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
   const [prodUnit, setProdUnit] = useState<'t/h' | 'peça/h' | 'm/h'>('t/h')
   const [prodNominal, setProdNominal] = useState<number>(12.0)
   const [prodPlanned, setProdPlanned] = useState<number>(11.5)
-  const [prodSource, setProdSource] = useState<'MANUAL' | 'SAP'>('MANUAL')
-  const [prodSapId, setProdSapId] = useState('')
   const [prodFamilyId, setProdFamilyId] = useState('')
 
   const [rawCode, setRawCode] = useState('')
@@ -287,14 +290,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [schReason, setSchReason] = useState('')
   const [schRelationType, setSchRelationType] = useState<string>('PROGRAMADA_MANUTENCAO')
   const [schGaugeCode, setSchGaugeCode] = useState('')
-  const [schGaugeDim, setSchGaugeDim] = useState('')
+  const [schRawMaterialType, setSchRawMaterialType] = useState<string>('')
+  const [schEnfornamentoType, setSchEnfornamentoType] = useState<string>('NORMAL')
+  const [schRecurrenceDayOfWeek, setSchRecurrenceDayOfWeek] = useState<string>('Todos os dias')
   const [schDesc, setSchDesc] = useState('')
   const [schDur, setSchDur] = useState<number>(30)
   const [schStartTime, setSchStartTime] = useState<string>('08:00')
   const [schEndTime, setSchEndTime] = useState<string>('08:30')
   const [schTimeApplicable, setSchTimeApplicable] = useState<boolean>(true)
   const [schActive, setSchActive] = useState<boolean>(true)
-  const [schRec, setSchRec] = useState<any>('DAILY')
+  const [schRec, setSchRec] = useState<ScheduledStopRecurrence>('DAILY')
   const [schImpact, setSchImpact] = useState(
     'Redução direta da capacidade útil disponível no turno.',
   )
@@ -309,11 +314,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       })
       return
     }
-    if (prodSource === 'SAP' && !prodSapId) {
+
+    // Bloqueio de duplicidade antes de salvar:
+    // mesma Linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento
+    const isDuplicate = await lineMasterService.checkProductivityDuplicate({
+      lineId: line.id,
+      materialProductCode: prodMaterialCode.trim().toUpperCase(),
+      productFamilyId: prodFamilyId || undefined,
+      rawMaterialType: prodRawMaterialType,
+      enfornamentoType: prodEnfornamentoType,
+    })
+
+    if (isDuplicate) {
       toast({
         variant: 'destructive',
-        title: 'Origem SAP exige configuração',
-        description: 'Vincule obrigatoriamente uma integração RFC/BAPI cadastrada no Catálogo SAP.',
+        title: 'Cadastro duplicado',
+        description:
+          'Já existe um cadastro de produtividade para esta combinação de linha, produto/família, matéria-prima e tipo de enfornamento.',
       })
       return
     }
@@ -326,14 +343,36 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         material_product_code: prodMaterialCode.trim().toUpperCase(),
         material_product_name: prodMaterialName.trim(),
         dimension_spec: prodDim.trim(),
+        raw_material_type: prodRawMaterialType,
+        enfornamento_type: prodEnfornamentoType,
         productivity_unit: prodUnit,
         nominal_productivity: Number(prodNominal),
         planned_productivity: Number(prodPlanned),
         expected_efficiency_pct: Math.round((Number(prodPlanned) / Number(prodNominal)) * 100),
-        source_mode: prodSource,
-        sap_integration_id: prodSource === 'SAP' ? prodSapId : undefined,
+        source_mode: 'MANUAL',
         active: true,
       })
+
+      // Auditoria na coleção pcp_audit_logs
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: 'UPDATE',
+          changed_fields: ['productivity', 'raw_material_type', 'enfornamento_type'],
+          change_reason: `Produtividade cadastrada: ${prodMaterialCode.trim().toUpperCase()} (${prodNominal} ${prodUnit}) MP: ${prodRawMaterialType} Enfornamento: ${prodEnfornamentoType}`,
+          snapshot_data: {
+            material_code: prodMaterialCode.trim().toUpperCase(),
+            raw_material_type: prodRawMaterialType,
+            enfornamento_type: prodEnfornamentoType,
+            nominal_productivity: Number(prodNominal),
+            planned_productivity: Number(prodPlanned),
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha na auditoria de produtividade:', auditErr)
+      }
 
       toast({
         title: 'Produtividade Cadastrada',
@@ -465,7 +504,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchReason('')
     setSchRelationType('PROGRAMADA_MANUTENCAO')
     setSchGaugeCode('')
-    setSchGaugeDim('')
+    setSchRawMaterialType(rawMaterials.length > 0 ? rawMaterials[0].material_code : '')
+    setSchEnfornamentoType('NORMAL')
+    setSchRecurrenceDayOfWeek('Todos os dias')
     setSchDesc('')
     setSchDur(30)
     setSchStartTime('08:00')
@@ -483,7 +524,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchReason(stop.reason || stop.code || '')
     setSchRelationType(stop.relation_type || 'PROGRAMADA_MANUTENCAO')
     setSchGaugeCode(stop.gauge_material_code || '')
-    setSchGaugeDim(stop.gauge_dimension || '')
+    setSchRawMaterialType(stop.raw_material_type || '')
+    setSchEnfornamentoType(stop.enfornamento_type || 'NORMAL')
+    setSchRecurrenceDayOfWeek(
+      stop.recurrence_day_of_week ||
+        (stop.recurrence === 'WEEKEND' ? 'Sábado e domingo' : 'Todos os dias'),
+    )
     setSchDesc(stop.description || '')
     setSchDur(stop.expected_duration_minutes || 0)
     const isApplicable = stop.time_applicable !== false && !!stop.start_time && !!stop.end_time
@@ -603,7 +649,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         reason: schReason.trim(),
         relation_type: schRelationType as any,
         gauge_material_code: schGaugeCode.trim() || undefined,
-        gauge_dimension: schGaugeDim.trim() || undefined,
+        raw_material_type: schRawMaterialType.trim() || undefined,
+        enfornamento_type: schEnfornamentoType || undefined,
+        recurrence_day_of_week: schRecurrenceDayOfWeek || undefined,
         description: schDesc.trim() || schReason.trim(),
         category: 'PREVENTIVE',
         recurrence: schRec,
@@ -615,6 +663,33 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         impact: schImpact,
         active: schActive,
       })
+
+      // Auditoria em pcp_audit_logs
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: schId ? 'UPDATE' : 'CREATE',
+          changed_fields: [
+            'scheduled_stops',
+            'raw_material_type',
+            'enfornamento_type',
+            'recurrence_day_of_week',
+          ],
+          change_reason: `Parada Programada: ${schReason.trim()} (${schDur} min) - Recorrência: ${schRec} / ${schRecurrenceDayOfWeek}`,
+          snapshot_data: {
+            reason: schReason.trim(),
+            raw_material_type: schRawMaterialType,
+            enfornamento_type: schEnfornamentoType,
+            recurrence: schRec,
+            recurrence_day_of_week: schRecurrenceDayOfWeek,
+            duration_minutes: Number(schDur),
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha na auditoria da parada programada:', auditErr)
+      }
 
       toast({
         title: schId ? 'Parada Programada Atualizada' : 'Parada Programada Criada',
@@ -1394,7 +1469,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 masterSubTab === 'CAPACITY' ? 'bg-[#004C97] text-white' : 'text-slate-400'
               }`}
             >
-              <TrendingUp className="w-3.5 h-3.5" /> Capacidade & Paradas Programadas
+              <TrendingUp className="w-3.5 h-3.5" /> Paradas Programadas
             </Button>
 
             <Button
@@ -1495,7 +1570,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
           )}
 
-          {/* Sub-aba: Capacidade & Paradas */}
+          {/* Sub-aba: Paradas Programadas */}
           {masterSubTab === 'CAPACITY' && (
             <div className="space-y-4">
               <Card className="bg-slate-950 border-slate-800 text-slate-100">
@@ -1540,7 +1615,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <div>
                     <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                       <PauseCircle className="w-4 h-4 text-amber-400" />
-                      Paradas Programadas que Reduzem Capacidade
+                      Paradas Programadas
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-400">
                       Paradas padrão de rotina que abatem capacidade líquida (Manutenção preventiva,
@@ -1566,11 +1641,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <tr>
                           <th className="p-2.5">Motivo</th>
                           <th className="p-2.5">Tipo Relação</th>
-                          <th className="p-2.5">Bitola</th>
-                          <th className="p-2.5">Descrição</th>
+                          <th className="p-2.5">Matéria-Prima</th>
+                          <th className="p-2.5">Enfornamento</th>
+                          <th className="p-2.5">Recorrência / Dia</th>
                           <th className="p-2.5">Tempo (min)</th>
-                          <th className="p-2.5">Início</th>
-                          <th className="p-2.5">Fim</th>
+                          <th className="p-2.5">Início / Fim</th>
                           <th className="p-2.5">Status</th>
                           <th className="p-2.5 text-right">Ações</th>
                         </tr>
@@ -1615,39 +1690,31 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   </Badge>
                                 </td>
                                 <td className="p-2.5 font-mono text-[11px] text-amber-200">
-                                  {ss.gauge_material_code ? (
-                                    <span>
-                                      {ss.gauge_material_code}
-                                      {ss.gauge_dimension ? ` (${ss.gauge_dimension})` : ''}
-                                    </span>
-                                  ) : (
+                                  {ss.raw_material_type || ss.gauge_material_code || (
                                     <span className="text-slate-500">Todas</span>
                                   )}
                                 </td>
-                                <td
-                                  className="p-2.5 text-slate-200 max-w-xs truncate"
-                                  title={ss.description}
-                                >
-                                  {ss.description}
+                                <td className="p-2.5 font-mono text-[11px] text-cyan-200">
+                                  {ss.enfornamento_type || (
+                                    <span className="text-slate-500">Todos</span>
+                                  )}
+                                </td>
+                                <td className="p-2.5 text-slate-200 text-xs">
+                                  <span className="font-semibold block">{ss.recurrence}</span>
+                                  {ss.recurrence_day_of_week && (
+                                    <span className="text-[10px] text-slate-400">
+                                      {ss.recurrence_day_of_week}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="p-2.5 font-mono font-bold text-amber-300">
                                   {ss.expected_duration_minutes} min
                                 </td>
                                 <td className="p-2.5 font-mono text-[11px]">
                                   {isTimeApplicable ? (
-                                    <span className="text-slate-200">{ss.start_time}</span>
-                                  ) : (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[10px] border-slate-700 text-slate-400"
-                                    >
-                                      N/A
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="p-2.5 font-mono text-[11px]">
-                                  {isTimeApplicable ? (
-                                    <span className="text-slate-200">{ss.end_time}</span>
+                                    <span className="text-slate-200">
+                                      {ss.start_time} - {ss.end_time}
+                                    </span>
                                   ) : (
                                     <Badge
                                       variant="outline"
@@ -1730,19 +1797,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
                       <tr>
-                        <th className="p-2.5">Produto / Material</th>
+                        <th className="p-2.5">Material</th>
+                        <th className="p-2.5">Matéria-Prima</th>
+                        <th className="p-2.5">Enfornamento</th>
                         <th className="p-2.5">Dimensão</th>
                         <th className="p-2.5">Unidade</th>
                         <th className="p-2.5">Prod. Nominal</th>
                         <th className="p-2.5">Prod. Planejada</th>
                         <th className="p-2.5">Eficiência</th>
-                        <th className="p-2.5">Fonte Oficial</th>
-                        <th className="p-2.5">Status Fonte</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {productivity.map((p) => {
-                        const isSap = p.source_mode === 'SAP'
                         return (
                           <tr key={p.id} className="hover:bg-slate-900/60">
                             <td className="p-2.5">
@@ -1752,6 +1818,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               <span className="text-[11px] text-slate-400">
                                 {p.material_product_name}
                               </span>
+                            </td>
+                            <td className="p-2.5 font-mono text-xs text-amber-300">
+                              {p.raw_material_type || '-'}
+                            </td>
+                            <td className="p-2.5 font-mono text-xs text-cyan-300">
+                              {p.enfornamento_type || '-'}
                             </td>
                             <td className="p-2.5 font-mono text-slate-300">
                               {p.dimension_spec || '-'}
@@ -1766,32 +1838,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             <td className="p-2.5 font-mono text-emerald-400 font-bold">
                               {p.expected_efficiency_pct}%
                             </td>
-                            <td className="p-2.5">
-                              <Badge
-                                className={`text-[10px] ${
-                                  isSap
-                                    ? 'bg-blue-950 text-cyan-300 border-blue-700'
-                                    : 'bg-slate-800 text-slate-300'
-                                }`}
-                              >
-                                {p.source_mode}
-                              </Badge>
-                            </td>
-                            <td className="p-2.5">
-                              {isSap ? (
-                                <Badge className="bg-emerald-950 text-emerald-300 border-emerald-600 text-[10px]">
-                                  {p.expand?.sap_integration_id?.last_status || 'CONECTADO'}
-                                </Badge>
-                              ) : (
-                                <span className="text-slate-500 font-mono text-[10px]">
-                                  Manual Homologado
-                                </span>
-                              )}
-                            </td>
                           </tr>
                         )
                       })}
-                    </tbody>
+                    </tbody>{' '}
                   </table>
                 </div>
               </CardContent>
@@ -2276,20 +2326,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </div>
       )}
 
-      {/* MODAL: Cadastrar Produtividade */}
+      {/* MODAL: Cadastrar / Editar Produtividade */}
       <Dialog open={isProdModalOpen} onOpenChange={setIsProdModalOpen}>
         <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white text-base flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-              Cadastrar Produtividade de Material
+              Cadastrar / Editar Produtividade
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Código do Produto / Material</Label>
+                <Label className="text-xs text-slate-300">Código do Produto / Material *</Label>
                 <Input
                   placeholder="Ex: TQ-50x50x2.0"
                   value={prodMaterialCode}
@@ -2315,13 +2365,46 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Descrição do Material</Label>
+              <Label className="text-xs text-slate-300">Descrição do Material *</Label>
               <Input
                 placeholder="Ex: Tubo Quadrado 50x50x2.00mm SAE 1012"
                 value={prodMaterialName}
                 onChange={(e) => setProdMaterialName(e.target.value)}
                 className="bg-slate-900 border-slate-700 text-white"
               />
+            </div>
+
+            {/* Campos novos: Tipo de Matéria-Prima & Tipo de Enfornamento */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Matéria-Prima</Label>
+                <select
+                  value={prodRawMaterialType}
+                  onChange={(e) => setProdRawMaterialType(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  {OFFICIAL_MP_TYPES_CATALOG.map((mp) => (
+                    <option key={mp.code} value={mp.code}>
+                      {mp.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Enfornamento</Label>
+                <select
+                  value={prodEnfornamentoType}
+                  onChange={(e) => setProdEnfornamentoType(e.target.value as EnfornamentoType)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  {ENFORNAMENTO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -2357,40 +2440,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   className="bg-slate-900 border-slate-700 text-white font-mono"
                 />
               </div>
-            </div>
-
-            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-cyan-400">Origem do Cadastro</Label>
-                <select
-                  value={prodSource}
-                  onChange={(e) => setProdSource(e.target.value as any)}
-                  className="bg-slate-950 border border-slate-700 rounded text-xs text-white p-1"
-                >
-                  <option value="MANUAL">MANUAL (Auditável)</option>
-                  <option value="SAP">SAP (RFC / BAPI)</option>
-                </select>
-              </div>
-
-              {prodSource === 'SAP' && (
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-slate-300">
-                    Integração do Catálogo SAP (Obrigatório)
-                  </Label>
-                  <select
-                    value={prodSapId}
-                    onChange={(e) => setProdSapId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-cyan-300 p-2"
-                  >
-                    <option value="">Selecione a BAPI / Integração homologada...</option>
-                    {sapCatalog.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.code} ({s.function_name} - {s.standard_or_z})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
           </div>
 
@@ -2741,28 +2790,32 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
       {/* MODAL: Cadastrar/Editar Parada Programada (Capacidade) */}
       <Dialog open={isScheduledStopModalOpen} onOpenChange={setIsScheduledStopModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
+        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white text-base flex items-center gap-2">
               <PauseCircle className="w-4 h-4 text-amber-400" />
-              {schId ? 'Editar Parada Programada' : 'Adicionar Parada Programada à Capacidade'}
+              {schId ? 'Editar Parada Programada' : 'Adicionar Parada Programada'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Motivo da Parada *</Label>
-              <Input
-                placeholder="Ex: Manutenção Preventiva Semanal"
-                value={schReason}
-                onChange={(e) => setSchReason(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white font-bold"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            {/* Linha 1: Descrição | Tipo de Parada */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Relação *</Label>
+                <Label className="text-xs text-slate-300">Descrição / Motivo da Parada *</Label>
+                <Input
+                  placeholder="Ex: Manutenção Preventiva Semanal"
+                  value={schReason}
+                  onChange={(e) => {
+                    setSchReason(e.target.value)
+                    if (!schDesc) setSchDesc(e.target.value)
+                  }}
+                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Parada (Relação) *</Label>
                 <select
                   value={schRelationType}
                   onChange={(e) => setSchRelationType(e.target.value)}
@@ -2776,53 +2829,104 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="OUTROS">Outros</option>
                 </select>
               </div>
+            </div>
+
+            {/* Linha 2: Matéria-prima | Tipo de Enfornamento */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Recorrência</Label>
+                <Label className="text-xs text-slate-300">Matéria-prima</Label>
                 <select
-                  value={schRec}
-                  onChange={(e) => setSchRec(e.target.value as any)}
+                  value={schRawMaterialType}
+                  onChange={(e) => setSchRawMaterialType(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2 font-mono"
+                >
+                  <option value="">Todas / Não restrita</option>
+                  {/* Catálogo mestre cadastrado na linha prioritariamente */}
+                  {rawMaterials.map((rm) => (
+                    <option key={rm.id} value={rm.material_code}>
+                      {rm.material_code} - {rm.material_name}
+                    </option>
+                  ))}
+                  {/* Itens oficiais do catálogo mestre de MP */}
+                  {OFFICIAL_MP_TYPES_CATALOG.map((mp) => (
+                    <option key={mp.code} value={mp.code}>
+                      {mp.label} ({mp.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Enfornamento</Label>
+                <select
+                  value={schEnfornamentoType}
+                  onChange={(e) => setSchEnfornamentoType(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
                 >
-                  <option value="DAILY">DAILY (Diária)</option>
-                  <option value="PER_SHIFT">PER_SHIFT (Por Turno)</option>
-                  <option value="WEEKLY">WEEKLY (Semanal)</option>
-                  <option value="MONTHLY">MONTHLY (Mensal)</option>
+                  <option value="">Todos / Não restrito</option>
+                  {ENFORNAMENTO_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Linha 3: Recorrência | Dia da Semana */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Código Bitola (Opcional)</Label>
-                <Input
-                  placeholder="Ex: BITOLA_01"
-                  value={schGaugeCode}
-                  onChange={(e) => setSchGaugeCode(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white font-mono"
-                />
+                <Label className="text-xs text-slate-300">Recorrência</Label>
+                <select
+                  value={schRec}
+                  onChange={(e) => {
+                    const newRec = e.target.value as ScheduledStopRecurrence
+                    setSchRec(newRec)
+                    if (newRec === 'WEEKEND') {
+                      setSchRecurrenceDayOfWeek('Sábado e domingo')
+                    }
+                  }}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="DAILY">Diária (DAILY)</option>
+                  <option value="PER_SHIFT">Por Turno (PER_SHIFT)</option>
+                  <option value="WEEKLY">Semanal (WEEKLY)</option>
+                  <option value="MONTHLY">Mensal (MONTHLY)</option>
+                  <option value="CUSTOM">Customizada (CUSTOM)</option>
+                  <option value="WEEKEND">Final de semana (sábado e domingo) (WEEKEND)</option>
+                </select>
               </div>
+
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Dimensão (Opcional)</Label>
-                <Input
-                  placeholder="Ex: 50x50mm"
-                  value={schGaugeDim}
-                  onChange={(e) => setSchGaugeDim(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white"
-                />
+                <Label className="text-xs text-slate-300">Dia da Semana</Label>
+                <select
+                  value={schRecurrenceDayOfWeek}
+                  onChange={(e) => setSchRecurrenceDayOfWeek(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="Todos os dias">Todos os dias</option>
+                  <option value="Segunda">Segunda</option>
+                  <option value="Terça">Terça</option>
+                  <option value="Quarta">Quarta</option>
+                  <option value="Quinta">Quinta</option>
+                  <option value="Sexta">Sexta</option>
+                  <option value="Sábado">Sábado</option>
+                  <option value="Domingo">Domingo</option>
+                  <option value="Dia sim dia não">Dia sim dia não</option>
+                  <option value="Sábado e domingo">Sábado e domingo</option>
+                </select>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Descrição Detalhada</Label>
-              <Input
-                placeholder="Ex: Lubrificação diária e inspeção de cabeçotes"
-                value={schDesc}
-                onChange={(e) => setSchDesc(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
-              />
-            </div>
+            {schRec === 'WEEKEND' && (
+              <p className="text-[11px] text-cyan-300 bg-cyan-950/40 p-2 rounded border border-cyan-800">
+                ℹ️ Recorrência ajustada para Final de Semana: aplicável automaticamente aos sábados
+                e domingos no cálculo de capacidade.
+              </p>
+            )}
 
-            <div className="grid grid-cols-3 gap-3">
+            {/* Linha 4: Duração e Horários */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-slate-300">Duração (min) *</Label>
                 <Input
@@ -2852,6 +2956,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   className="bg-slate-900 border-slate-700 text-white disabled:opacity-50"
                 />
               </div>
+            </div>
+
+            {/* Linha 5: Observações / Detalhes */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-300">Observações / Descrição Detalhada</Label>
+              <Input
+                placeholder="Ex: Lubrificação periódica, troca de cilindros ou parada operacional"
+                value={schDesc}
+                onChange={(e) => setSchDesc(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white"
+              />
             </div>
 
             <div className="flex items-center gap-4 pt-1">

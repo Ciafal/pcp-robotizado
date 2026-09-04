@@ -910,11 +910,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
     // Paradas padrão da linha aplicáveis a este dia da semana (standard_scheduled_stops)
     const masterStops = (currentLineOverview?.scheduledStops || []).filter((s) => {
-      if (!s.active) return false
-      if (s.applicable_days && s.applicable_days.length > 0) {
-        return s.applicable_days.includes(selectedDayOfWeek)
-      }
-      return true
+      return WeeklyScheduleEngine.isScheduledStopApplicable(s, {
+        dayOfWeek: selectedDayOfWeek,
+      })
     })
     const masterStopsMinutes = masterStops.reduce(
       (acc, s) => acc + (s.expected_duration_minutes || 0),
@@ -1083,6 +1081,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         newItemData.material_code,
         currentLineOverview,
         officialMaterials,
+        newItemData.raw_material_type,
+        newItemData.enfornamento_type,
       ) ||
       newItemData.productivity_rate_th ||
       12.0

@@ -17,6 +17,25 @@ export interface OfficialMpOption {
   defaultYieldPct: number // ex: 95.0%
 }
 
+export interface OfficialMpTypeItem {
+  code: string
+  label: string
+}
+
+export const OFFICIAL_MP_TYPES_CATALOG: OfficialMpTypeItem[] = [
+  { code: 'TARUGO_130X130', label: 'Tarugo 130 x 130 mm' },
+  { code: 'TARUGO_150X150', label: 'Tarugo 150 x 150 mm' },
+  { code: 'BLOCO', label: 'Bloco' },
+  { code: 'PLACA', label: 'Placa' },
+  { code: 'REDONDO', label: 'Redondo' },
+  { code: 'LINGOTE', label: 'Lingote' },
+  { code: 'TARUGO_105X105', label: 'Tarugo 105 x 105 mm' },
+  { code: 'TARUGO_115X105', label: 'Tarugo 115 x 105 mm' },
+  { code: 'TARUGO_155X155', label: 'Tarugo 155 x 155 mm' },
+  { code: 'MP_IRREGULAR', label: 'MP irregular' },
+  { code: 'ESBOCO', label: 'Esboço' },
+]
+
 export const OFFICIAL_MP_TYPES: string[] = [
   'TARUGO 130x130',
   'TARUGO 150x150',

@@ -527,14 +527,68 @@ export const lineMasterService = {
   // ==========================================
   // 6. PRODUTIVIDADE (CRUD)
   // ==========================================
+  async checkProductivityDuplicate(params: {
+    lineId: string
+    materialProductCode: string
+    productFamilyId?: string
+    rawMaterialType?: string
+    enfornamentoType?: string
+    excludeId?: string
+  }): Promise<boolean> {
+    const {
+      lineId,
+      materialProductCode,
+      productFamilyId,
+      rawMaterialType,
+      enfornamentoType,
+      excludeId,
+    } = params
+
+    try {
+      const records = await pb
+        .collection('line_productivity_rates')
+        .getFullList<LineProductivityRate>({
+          filter: `line_id = '${lineId}' && active = true`,
+        })
+
+      const cleanCode = (materialProductCode || '').trim().toUpperCase()
+      const cleanFam = (productFamilyId || '').trim()
+      const cleanMp = (rawMaterialType || '').trim().toUpperCase()
+      const cleanEnf = (enfornamentoType || '').trim().toUpperCase()
+
+      const isDup = records.some((r) => {
+        if (excludeId && r.id === excludeId) return false
+        const rCode = (r.material_product_code || '').trim().toUpperCase()
+        const rFam = (r.product_family_id || '').trim()
+        const rMp = (r.raw_material_type || '').trim().toUpperCase()
+        const rEnf = (r.enfornamento_type || '').trim().toUpperCase()
+
+        // Mesma linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento
+        const sameProduct = rCode === cleanCode || (cleanFam && rFam === cleanFam)
+        const sameMp = rMp === cleanMp
+        const sameEnf = rEnf === cleanEnf
+        return sameProduct && sameMp && sameEnf
+      })
+
+      return isDup
+    } catch (err) {
+      console.warn('Erro ao verificar duplicidade de produtividade:', err)
+      return false
+    }
+  },
+
   async saveProductivity(data: Partial<LineProductivityRate>): Promise<LineProductivityRate> {
     invalidateCompletenessCache(data.line_id)
+    const payload: Partial<LineProductivityRate> = {
+      ...data,
+      source_mode: 'MANUAL', // Gravado sempre como MANUAL transparentemente
+    }
     if (data.id) {
       return await pb
         .collection('line_productivity_rates')
-        .update<LineProductivityRate>(data.id, data)
+        .update<LineProductivityRate>(data.id, payload)
     }
-    return await pb.collection('line_productivity_rates').create<LineProductivityRate>(data)
+    return await pb.collection('line_productivity_rates').create<LineProductivityRate>(payload)
   },
 
   async deleteProductivity(id: string): Promise<boolean> {
