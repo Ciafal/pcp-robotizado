@@ -47,16 +47,17 @@ export const LineCapacitiesSubpage: React.FC = () => {
       <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mb-1">
-            <span>Gestão de Linhas</span>
+            <span>Hierarquia das Linhas</span>
             <span>&gt;</span>
             <span className="text-cyan-400 font-bold">Capacidades e Performance</span>
           </div>
           <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
             <Gauge className="w-5 h-5 text-[#004C97]" />
-            Capacidades Nominais, OEE & Performance por Linha
+            Hierarquia das Linhas & Capacidades Nominais
           </h1>
           <p className="text-xs text-slate-400">
-            Parâmetros nominais de engenharia, restrições dimensionais e curvas de produtividade.
+            Hierarquia, parâmetros nominais de engenharia, OEE e limites operacionais por linha
+            produtiva.
           </p>
         </div>
 

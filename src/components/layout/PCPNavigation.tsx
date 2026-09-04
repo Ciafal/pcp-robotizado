@@ -532,7 +532,7 @@ const navSections: NavSectionItem[] = [
     ],
   },
   {
-    title: 'Ficha Mestre',
+    title: 'Linhas e Ficha Mestre',
     href: '/pcp/ficha-mestre',
     icon: FileSpreadsheet,
     badge: 'SAP ECC',
@@ -826,7 +826,7 @@ const officialNavGroups: NavGroup[] = [
     groupTitle: 'CADASTROS',
     items: [
       {
-        title: 'Ficha Mestre de Linha',
+        title: 'Linhas e Ficha Mestre',
         href: '/pcp/ficha-mestre',
         icon: FileSpreadsheet,
         permission: 'pcp.masterdata.view',
@@ -838,7 +838,7 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.rules.view',
       },
       {
-        title: 'Tabelas de Tempo',
+        title: 'Hierarquia das Linhas',
         href: '/pcp/linhas/capacidades',
         icon: Clock,
         permission: 'pcp.masterdata.view',
@@ -848,12 +848,6 @@ const officialNavGroups: NavGroup[] = [
         href: '/pcp/estoques?tab=materia-prima',
         icon: Boxes,
         permission: 'pcp.inventory.raw_material',
-      },
-      {
-        title: 'Paradas Programadas',
-        href: '/pcp/linhas/dependencias',
-        icon: Calendar,
-        permission: 'pcp.masterdata.view',
       },
     ],
   },

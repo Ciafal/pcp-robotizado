@@ -260,8 +260,8 @@ export const lineMasterService = {
       pb
         .collection('standard_scheduled_stops')
         .getFullList<StandardScheduledStop>({
-          filter: `line_id = '${lineId}' && active = true`,
-          sort: 'scheduled_time',
+          filter: `line_id = '${lineId}'`,
+          sort: '-created',
         })
         .catch(() => []),
       pb
@@ -757,13 +757,35 @@ export const lineMasterService = {
   // ==========================================
   // 11. PARADAS PROGRAMADAS (Dentro de Capacidade)
   // ==========================================
+  async listScheduledStopsByLine(lineId: string): Promise<StandardScheduledStop[]> {
+    try {
+      return await pb.collection('standard_scheduled_stops').getFullList<StandardScheduledStop>({
+        filter: `line_id = '${lineId}'`,
+        sort: '-created',
+      })
+    } catch (err) {
+      console.error('Erro ao listar paradas programadas da linha:', err)
+      return []
+    }
+  },
+
   async saveScheduledStop(data: Partial<StandardScheduledStop>): Promise<StandardScheduledStop> {
+    const payload: Record<string, any> = { ...data }
+    if (payload.start_time === undefined) payload.start_time = null
+    if (payload.end_time === undefined) payload.end_time = null
+
     if (data.id) {
       return await pb
         .collection('standard_scheduled_stops')
-        .update<StandardScheduledStop>(data.id, data)
+        .update<StandardScheduledStop>(data.id, payload)
     }
-    return await pb.collection('standard_scheduled_stops').create<StandardScheduledStop>(data)
+    return await pb.collection('standard_scheduled_stops').create<StandardScheduledStop>(payload)
+  },
+
+  async toggleScheduledStopStatus(id: string, active: boolean): Promise<StandardScheduledStop> {
+    return await pb
+      .collection('standard_scheduled_stops')
+      .update<StandardScheduledStop>(id, { active })
   },
 
   async deleteScheduledStop(id: string): Promise<boolean> {

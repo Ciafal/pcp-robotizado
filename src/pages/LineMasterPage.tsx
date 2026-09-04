@@ -88,7 +88,7 @@ export default function LineMasterPage() {
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Erro ao carregar Gestão de Linhas',
+        title: 'Erro ao carregar Linhas e Ficha Mestre',
         description: err.message,
       })
     } finally {
@@ -143,7 +143,7 @@ export default function LineMasterPage() {
               <Building2 className="w-5 h-5" />
             </div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Gestão de Linhas & Fichas Mestre
+              Linhas e Ficha Mestre
             </h1>
             <Badge
               variant="outline"
@@ -153,8 +153,8 @@ export default function LineMasterPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Arquitetura central de recursos industriais, hierarquia organizacional, sequenciamento
-            de processo, matriz de aprovação e governança SAP.
+            Linhas produtivas e Ficha Mestre: arquitetura de recursos industriais, hierarquia
+            organizacional, capacidades e governança técnica.
           </p>
         </div>
 

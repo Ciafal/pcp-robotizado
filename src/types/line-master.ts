@@ -510,23 +510,54 @@ export interface LineSetup {
   active: boolean
 }
 
+export type ScheduledStopRelationType =
+  | 'PROGRAMADA_MANUTENCAO'
+  | 'TROCA_CAMPANHA'
+  | 'LIMPEZA_5S'
+  | 'SETUP_BITOLA'
+  | 'REFEICAO_DDS'
+  | 'OUTROS'
+
 export interface StandardScheduledStop {
   id: string
   line_id: string
+  line_master_id?: string
   code: string
   description: string
   category:
     | 'PREVENTIVE'
+    | 'PREVENTIVE_MAINTENANCE'
     | 'TOOLING_CHANGE'
+    | 'TOOL_CHANGE'
     | 'CLEANING'
     | 'MEETING'
-    | 'SHIFT_TRANSITION'
-    | 'LUBRICATION'
-  recurrence: 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'PER_SHIFT'
+    | 'CALIBRATION'
+    | 'INSPECTION'
+    | 'OPERATIONAL_BREAK'
+    | 'OTHER'
+    | string
+  recurrence:
+    | 'DAILY'
+    | 'WEEKLY'
+    | 'BIWEEKLY'
+    | 'MONTHLY'
+    | 'PER_SHIFT'
+    | 'PER_BATCH'
+    | 'CUSTOM'
+    | string
   expected_duration_minutes: number
-  scheduled_time: string
+  scheduled_time?: string
   applicable_shift?: string
-  impact: string
+  applicable_days?: string[]
+  expected_impact?: string
+  impact?: string
+  relation_type?: ScheduledStopRelationType
+  gauge_material_code?: string
+  gauge_dimension?: string
+  start_time?: string | null
+  end_time?: string | null
+  time_applicable?: boolean
+  reason?: string
   source_mode?: SourceMode
   sap_integration_id?: string
   valid_from?: string

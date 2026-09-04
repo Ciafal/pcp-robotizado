@@ -40,6 +40,7 @@ import { Can } from '@/components/auth/Can'
 import { lineMasterService } from '@/services/line-master'
 import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
 import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
+import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
   MULTIPLE_PROGRAMMING_STAGES_CATALOG,
   PROGRAMMING_TYPES_CATALOG,
@@ -47,6 +48,7 @@ import {
   LineOverviewData,
   ProductionLine,
   ProductFamily,
+  StandardScheduledStop,
   SapIntegrationDefinition,
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
@@ -257,15 +259,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [stpDuration, setStpDuration] = useState<number>(60)
   const [stpImpact, setStpImpact] = useState('')
 
-  const [schCode, setSchCode] = useState('')
+  const [schId, setSchId] = useState<string | null>(null)
+  const [schReason, setSchReason] = useState('')
+  const [schRelationType, setSchRelationType] = useState<string>('PROGRAMADA_MANUTENCAO')
+  const [schGaugeCode, setSchGaugeCode] = useState('')
+  const [schGaugeDim, setSchGaugeDim] = useState('')
   const [schDesc, setSchDesc] = useState('')
-  const [schCat, setSchCat] = useState<any>('PREVENTIVE')
-  const [schRec, setSchRec] = useState<any>('DAILY')
   const [schDur, setSchDur] = useState<number>(30)
-  const [schTime, setSchTime] = useState('12:00')
+  const [schStartTime, setSchStartTime] = useState<string>('08:00')
+  const [schEndTime, setSchEndTime] = useState<string>('08:30')
+  const [schTimeApplicable, setSchTimeApplicable] = useState<boolean>(true)
+  const [schActive, setSchActive] = useState<boolean>(true)
+  const [schRec, setSchRec] = useState<any>('DAILY')
   const [schImpact, setSchImpact] = useState(
     'Redução direta da capacidade útil disponível no turno.',
   )
+  const [timeMismatchAlert, setTimeMismatchAlert] = useState<string | null>(null)
 
   const handleSaveProductivity = async () => {
     if (!prodMaterialCode || !prodMaterialName) {
@@ -427,32 +436,165 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     }
   }
 
-  const handleSaveScheduledStop = async () => {
-    if (!schCode || !schDesc) {
+  const handleOpenAddScheduledStop = () => {
+    setSchId(null)
+    setSchReason('')
+    setSchRelationType('PROGRAMADA_MANUTENCAO')
+    setSchGaugeCode('')
+    setSchGaugeDim('')
+    setSchDesc('')
+    setSchDur(30)
+    setSchStartTime('08:00')
+    setSchEndTime('08:30')
+    setSchTimeApplicable(true)
+    setSchActive(true)
+    setSchRec('DAILY')
+    setSchImpact('Redução direta da capacidade útil disponível no turno.')
+    setTimeMismatchAlert(null)
+    setIsScheduledStopModalOpen(true)
+  }
+
+  const handleOpenEditScheduledStop = (stop: StandardScheduledStop) => {
+    setSchId(stop.id)
+    setSchReason(stop.reason || stop.code || '')
+    setSchRelationType(stop.relation_type || 'PROGRAMADA_MANUTENCAO')
+    setSchGaugeCode(stop.gauge_material_code || '')
+    setSchGaugeDim(stop.gauge_dimension || '')
+    setSchDesc(stop.description || '')
+    setSchDur(stop.expected_duration_minutes || 0)
+    const isApplicable = stop.time_applicable !== false && !!stop.start_time && !!stop.end_time
+    setSchTimeApplicable(isApplicable)
+    setSchStartTime(stop.start_time || '08:00')
+    setSchEndTime(stop.end_time || '08:30')
+    setSchActive(stop.active !== false)
+    setSchRec(stop.recurrence || 'DAILY')
+    setSchImpact(
+      stop.impact ||
+        stop.expected_impact ||
+        'Redução direta da capacidade útil disponível no turno.',
+    )
+    setTimeMismatchAlert(null)
+    setIsScheduledStopModalOpen(true)
+  }
+
+  const handleToggleScheduledStopStatus = async (stop: StandardScheduledStop) => {
+    const newStatus = !stop.active
+    try {
+      await lineMasterService.toggleScheduledStopStatus(stop.id, newStatus)
+      toast({
+        title: newStatus ? 'Parada Reativada' : 'Parada Inativada',
+        description: `A parada "${stop.reason || stop.code}" foi ${
+          newStatus
+            ? 'reativada (impacta capacidade)'
+            : 'inativada (histórico preservado, sem impacto em capacidade)'
+        }.`,
+      })
+      onRefresh()
+    } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Campos obrigatórios',
-        description: 'Informe código e descrição da parada programada.',
+        title: 'Erro ao alterar status',
+        description: err.message,
+      })
+    }
+  }
+
+  const calculateMinutesBetweenTimes = (start: string, end: string): number | null => {
+    if (!start || !end) return null
+    const [h1, m1] = start.split(':').map(Number)
+    const [h2, m2] = end.split(':').map(Number)
+    if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return null
+    let diff = h2 * 60 + m2 - (h1 * 60 + m1)
+    if (diff < 0) diff += 24 * 60 // Atravessou meia-noite
+    return diff
+  }
+
+  const handleSaveScheduledStop = async () => {
+    if (!schReason.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Motivo Obrigatório',
+        description: 'Informe o motivo da parada programada.',
       })
       return
     }
 
+    if (!schRelationType) {
+      toast({
+        variant: 'destructive',
+        title: 'Tipo de Relação Obrigatório',
+        description: 'Selecione o tipo de relação da parada.',
+      })
+      return
+    }
+
+    if (schDur === undefined || schDur === null || Number(schDur) < 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Tempo de Parada Inválido',
+        description: 'O tempo de parada em minutos deve ser numérico e maior ou igual a zero.',
+      })
+      return
+    }
+
+    // Regras de Horário: ou os dois preenchidos, ou ambos N/A (timeApplicable = false)
+    let finalStartTime: string | null = null
+    let finalEndTime: string | null = null
+
+    if (schTimeApplicable) {
+      if (!schStartTime || !schEndTime) {
+        toast({
+          variant: 'destructive',
+          title: 'Horários Incompletos',
+          description:
+            'Quando aplicável, tanto a Hora Início quanto a Hora Fim devem ser informadas (ou marque N/A).',
+        })
+        return
+      }
+      finalStartTime = schStartTime
+      finalEndTime = schEndTime
+
+      // Validação de divergência entre intervalo e tempo editado
+      const calculatedDuration = calculateMinutesBetweenTimes(schStartTime, schEndTime)
+      if (calculatedDuration !== null && calculatedDuration !== Number(schDur)) {
+        setTimeMismatchAlert(
+          `Atenção: O intervalo entre ${schStartTime} e ${schEndTime} é de ${calculatedDuration} min, divergente dos ${schDur} min informados.`,
+        )
+      } else {
+        setTimeMismatchAlert(null)
+      }
+    } else {
+      finalStartTime = null
+      finalEndTime = null
+      setTimeMismatchAlert(null)
+    }
+
     try {
+      const generatedCode = schReason.trim().slice(0, 20).toUpperCase().replace(/\s+/g, '_')
       await lineMasterService.saveScheduledStop({
+        id: schId || undefined,
         line_id: line.id,
-        code: schCode.trim().toUpperCase(),
-        description: schDesc.trim(),
-        category: schCat,
+        line_master_id: master?.id,
+        code: generatedCode || 'STOP_PROG',
+        reason: schReason.trim(),
+        relation_type: schRelationType as any,
+        gauge_material_code: schGaugeCode.trim() || undefined,
+        gauge_dimension: schGaugeDim.trim() || undefined,
+        description: schDesc.trim() || schReason.trim(),
+        category: 'PREVENTIVE',
         recurrence: schRec,
         expected_duration_minutes: Number(schDur),
-        scheduled_time: schTime,
+        start_time: finalStartTime,
+        end_time: finalEndTime,
+        time_applicable: schTimeApplicable,
+        scheduled_time: finalStartTime || 'N/A',
         impact: schImpact,
-        active: true,
+        active: schActive,
       })
 
       toast({
-        title: 'Parada Programada Adicionada à Capacidade',
-        description: `Parada ${schCode} cadastrada no cálculo de capacidade líquida.`,
+        title: schId ? 'Parada Programada Atualizada' : 'Parada Programada Criada',
+        description: `Parada "${schReason}" persistida com sucesso. Impacto em capacidade atualizado.`,
       })
       setIsScheduledStopModalOpen(false)
       onRefresh()
@@ -1328,10 +1470,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => setIsScheduledStopModalOpen(true)}
-                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1"
+                    onClick={handleOpenAddScheduledStop}
+                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Nova Parada
+                    <Plus className="w-3.5 h-3.5" /> + Adicionar Parada
                   </Button>
                 </CardHeader>
 
@@ -1340,33 +1482,136 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
                         <tr>
-                          <th className="p-2.5">Código</th>
+                          <th className="p-2.5">Motivo</th>
+                          <th className="p-2.5">Tipo Relação</th>
+                          <th className="p-2.5">Bitola</th>
                           <th className="p-2.5">Descrição</th>
-                          <th className="p-2.5">Categoria</th>
-                          <th className="p-2.5">Recorrência</th>
-                          <th className="p-2.5">Duração (min)</th>
-                          <th className="p-2.5">Impacto na Capacidade</th>
+                          <th className="p-2.5">Tempo (min)</th>
+                          <th className="p-2.5">Início</th>
+                          <th className="p-2.5">Fim</th>
+                          <th className="p-2.5">Status</th>
+                          <th className="p-2.5 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
-                        {scheduledStops.map((ss) => (
-                          <tr key={ss.id} className="hover:bg-slate-900/60">
-                            <td className="p-2.5 font-mono font-bold text-white">{ss.code}</td>
-                            <td className="p-2.5 text-slate-200">{ss.description}</td>
-                            <td className="p-2.5">
-                              <Badge variant="outline" className="text-[10px] border-slate-700">
-                                {ss.category}
-                              </Badge>
+                        {scheduledStops.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="p-4 text-center text-slate-400 italic">
+                              Nenhuma parada programada cadastrada para esta linha.
                             </td>
-                            <td className="p-2.5 font-mono text-[11px] text-cyan-300">
-                              {ss.recurrence}
-                            </td>
-                            <td className="p-2.5 font-mono font-bold text-amber-300">
-                              {ss.expected_duration_minutes} min
-                            </td>
-                            <td className="p-2.5 text-[11px] text-slate-400">{ss.impact}</td>
                           </tr>
-                        ))}
+                        ) : (
+                          scheduledStops.map((ss) => {
+                            const isTimeApplicable =
+                              ss.time_applicable !== false && !!ss.start_time && !!ss.end_time
+                            const relationLabels: Record<string, string> = {
+                              PROGRAMADA_MANUTENCAO: 'Manutenção Programada',
+                              TROCA_CAMPANHA: 'Troca de Campanha',
+                              LIMPEZA_5S: 'Limpeza & 5S',
+                              SETUP_BITOLA: 'Setup de Bitola',
+                              REFEICAO_DDS: 'Refeição / DDS',
+                              OUTROS: 'Outros',
+                            }
+                            return (
+                              <tr
+                                key={ss.id}
+                                className={`hover:bg-slate-900/60 transition-colors ${
+                                  !ss.active ? 'opacity-60 bg-slate-950/40' : ''
+                                }`}
+                              >
+                                <td className="p-2.5 font-bold text-white">
+                                  {ss.reason || ss.code}
+                                </td>
+                                <td className="p-2.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] border-cyan-800 text-cyan-300 bg-cyan-950/40"
+                                  >
+                                    {relationLabels[ss.relation_type || ''] ||
+                                      ss.relation_type ||
+                                      'PROGRAMADA_MANUTENCAO'}
+                                  </Badge>
+                                </td>
+                                <td className="p-2.5 font-mono text-[11px] text-amber-200">
+                                  {ss.gauge_material_code ? (
+                                    <span>
+                                      {ss.gauge_material_code}
+                                      {ss.gauge_dimension ? ` (${ss.gauge_dimension})` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-500">Todas</span>
+                                  )}
+                                </td>
+                                <td
+                                  className="p-2.5 text-slate-200 max-w-xs truncate"
+                                  title={ss.description}
+                                >
+                                  {ss.description}
+                                </td>
+                                <td className="p-2.5 font-mono font-bold text-amber-300">
+                                  {ss.expected_duration_minutes} min
+                                </td>
+                                <td className="p-2.5 font-mono text-[11px]">
+                                  {isTimeApplicable ? (
+                                    <span className="text-slate-200">{ss.start_time}</span>
+                                  ) : (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] border-slate-700 text-slate-400"
+                                    >
+                                      N/A
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-2.5 font-mono text-[11px]">
+                                  {isTimeApplicable ? (
+                                    <span className="text-slate-200">{ss.end_time}</span>
+                                  ) : (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] border-slate-700 text-slate-400"
+                                    >
+                                      N/A
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-2.5">
+                                  {ss.active ? (
+                                    <Badge className="bg-emerald-950 text-emerald-300 border-emerald-600 text-[10px]">
+                                      Ativa
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-slate-800 text-slate-400 border-slate-600 text-[10px]">
+                                      Inativa
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-2.5 text-right space-x-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleOpenEditScheduledStop(ss)}
+                                    className="h-6 px-2 text-[11px] text-cyan-300 hover:text-cyan-200 hover:bg-slate-800"
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleToggleScheduledStopStatus(ss)}
+                                    className={`h-6 px-2 text-[11px] ${
+                                      ss.active
+                                        ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/30'
+                                        : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                                    }`}
+                                  >
+                                    {ss.active ? 'Inativar' : 'Ativar'}
+                                  </Button>
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>

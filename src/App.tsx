@@ -558,8 +558,11 @@ export const App: React.FC = () => {
                         </PermissionGuard>
                       }
                     >
-                      <Route index element={<LineMasterPage />} />
-                      <Route path="cadastro" element={<LineMasterPage />} />
+                      <Route index element={<Navigate to="/pcp/linhas/capacidades" replace />} />
+                      <Route
+                        path="cadastro"
+                        element={<Navigate to="/pcp/ficha-mestre" replace />}
+                      />
                       <Route path="sequenciamento" element={<SequencingPage />} />
                       <Route path="mapa-integracao" element={<ProductionIntegrationMapPage />} />
                       <Route path="capacidades" element={<LineCapacitiesSubpage />} />
