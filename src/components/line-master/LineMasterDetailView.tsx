@@ -36,6 +36,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 import { Can } from '@/components/auth/Can'
 import { lineMasterService } from '@/services/line-master'
@@ -289,6 +299,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [schId, setSchId] = useState<string | null>(null)
   const [schReason, setSchReason] = useState('')
   const [schRelationType, setSchRelationType] = useState<string>('PROGRAMADA_MANUTENCAO')
+  const [schCategory, setSchCategory] = useState<string>('PREVENTIVE_MAINTENANCE')
   const [schGaugeCode, setSchGaugeCode] = useState('')
   const [schRawMaterialType, setSchRawMaterialType] = useState<string>('')
   const [schEnfornamentoType, setSchEnfornamentoType] = useState<string>('NORMAL')
@@ -304,6 +315,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     'Redução direta da capacidade útil disponível no turno.',
   )
   const [timeMismatchAlert, setTimeMismatchAlert] = useState<string | null>(null)
+  const [isSubmittingScheduledStop, setIsSubmittingScheduledStop] = useState(false)
+  const [stopToDeactivate, setStopToDeactivate] = useState<StandardScheduledStop | null>(null)
 
   const handleSaveProductivity = async () => {
     if (!prodMaterialCode || !prodMaterialName) {
@@ -503,6 +516,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchId(null)
     setSchReason('')
     setSchRelationType('PROGRAMADA_MANUTENCAO')
+    setSchCategory('PREVENTIVE_MAINTENANCE')
     setSchGaugeCode('')
     setSchRawMaterialType(rawMaterials.length > 0 ? rawMaterials[0].material_code : '')
     setSchEnfornamentoType('NORMAL')
@@ -523,21 +537,50 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchId(stop.id)
     setSchReason(stop.reason || stop.code || '')
     setSchRelationType(stop.relation_type || 'PROGRAMADA_MANUTENCAO')
+
+    // Normaliza categoria do stop conforme valores válidos da coleção PocketBase
+    const validCatList = [
+      'PREVENTIVE_MAINTENANCE',
+      'CLEANING',
+      'CALIBRATION',
+      'TOOL_CHANGE',
+      'INSPECTION',
+      'OPERATIONAL_BREAK',
+      'OTHER',
+    ]
+    let normalizedCategory = stop.category || 'PREVENTIVE_MAINTENANCE'
+    if (normalizedCategory === 'PREVENTIVE') normalizedCategory = 'PREVENTIVE_MAINTENANCE'
+    if (normalizedCategory === 'TOOLING_CHANGE') normalizedCategory = 'TOOL_CHANGE'
+    if (normalizedCategory === 'MEETING') normalizedCategory = 'OPERATIONAL_BREAK'
+    if (!validCatList.includes(normalizedCategory)) normalizedCategory = 'PREVENTIVE_MAINTENANCE'
+    setSchCategory(normalizedCategory)
+
     setSchGaugeCode(stop.gauge_material_code || '')
     setSchRawMaterialType(stop.raw_material_type || '')
     setSchEnfornamentoType(stop.enfornamento_type || 'NORMAL')
+
+    // Trata UI de WEEKEND
+    const isWeekend =
+      stop.recurrence === 'WEEKEND' ||
+      (stop.recurrence === 'WEEKLY' &&
+        (stop.recurrence_day_of_week || '').toLowerCase().includes('sábado e domingo'))
+
+    setSchRec(isWeekend ? 'WEEKEND' : (stop.recurrence as any) || 'DAILY')
     setSchRecurrenceDayOfWeek(
-      stop.recurrence_day_of_week ||
-        (stop.recurrence === 'WEEKEND' ? 'Sábado e domingo' : 'Todos os dias'),
+      stop.recurrence_day_of_week || (isWeekend ? 'Sábado e domingo' : 'Todos os dias'),
     )
     setSchDesc(stop.description || '')
     setSchDur(stop.expected_duration_minutes || 0)
-    const isApplicable = stop.time_applicable !== false && !!stop.start_time && !!stop.end_time
+    const isApplicable =
+      stop.time_applicable !== false &&
+      !!stop.start_time &&
+      !!stop.end_time &&
+      stop.start_time !== 'N/A' &&
+      stop.end_time !== 'N/A'
     setSchTimeApplicable(isApplicable)
     setSchStartTime(stop.start_time || '08:00')
     setSchEndTime(stop.end_time || '08:30')
     setSchActive(stop.active !== false)
-    setSchRec(stop.recurrence || 'DAILY')
     setSchImpact(
       stop.impact ||
         stop.expected_impact ||
@@ -547,24 +590,58 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setIsScheduledStopModalOpen(true)
   }
 
-  const handleToggleScheduledStopStatus = async (stop: StandardScheduledStop) => {
-    const newStatus = !stop.active
+  const handleToggleScheduledStopStatus = (stop: StandardScheduledStop) => {
+    if (stop.active) {
+      // Exigir confirmação via AlertDialog ao inativar
+      setStopToDeactivate(stop)
+    } else {
+      // Reativação direta
+      executeStatusChange(stop, true)
+    }
+  }
+
+  const executeStatusChange = async (stop: StandardScheduledStop, newActive: boolean) => {
     try {
-      await lineMasterService.toggleScheduledStopStatus(stop.id, newStatus)
+      const prevActive = stop.active
+      await lineMasterService.toggleScheduledStopStatus(stop.id, newActive)
+
+      // Registrar auditoria completa em pcp_audit_logs
+      try {
+        await lineMasterService.recordAuditVersion({
+          line_id: line.id,
+          line_master_id: master?.id,
+          version: master?.version ?? 1,
+          action: newActive ? 'ACTIVATE' : 'DEACTIVATE',
+          changed_fields: ['active', 'status'],
+          change_reason: `Parada Programada ${newActive ? 'reativada' : 'inativada'}: "${stop.reason || stop.code}"`,
+          snapshot_data: {
+            stop_id: stop.id,
+            code: stop.code,
+            reason: stop.reason || stop.code,
+            previous_value: { active: prevActive, status: prevActive ? 'Ativa' : 'Inativa' },
+            new_value: { active: newActive, status: newActive ? 'Ativa' : 'Inativa' },
+            timestamp: new Date().toISOString(),
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Falha na auditoria de alteração de status da parada:', auditErr)
+      }
+
       toast({
-        title: newStatus ? 'Parada Reativada' : 'Parada Inativada',
-        description: `A parada "${stop.reason || stop.code}" foi ${
-          newStatus
-            ? 'reativada (impacta capacidade)'
-            : 'inativada (histórico preservado, sem impacto em capacidade)'
-        }.`,
+        title: newActive ? 'Parada Programada Ativada' : 'Parada Programada Inativada',
+        description: `A parada "${stop.reason || stop.code}" agora está ${
+          newActive
+            ? 'ATIVA (impactando a capacidade).'
+            : 'INATIVA (sem impacto na capacidade, histórico preservado).'
+        }`,
       })
+      setStopToDeactivate(null)
       onRefresh()
     } catch (err: any) {
       toast({
         variant: 'destructive',
         title: 'Erro ao alterar status',
-        description: err.message,
+        description: err.message || 'Falha ao atualizar o status da parada programada.',
       })
     }
   }
@@ -575,7 +652,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     const [h2, m2] = end.split(':').map(Number)
     if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return null
     let diff = h2 * 60 + m2 - (h1 * 60 + m1)
-    if (diff < 0) diff += 24 * 60 // Atravessou meia-noite
+    if (diff <= 0) diff += 24 * 60 // Atravessou meia-noite
     return diff
   }
 
@@ -610,6 +687,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     // Regras de Horário: ou os dois preenchidos, ou ambos N/A (timeApplicable = false)
     let finalStartTime: string | null = null
     let finalEndTime: string | null = null
+    let effectiveDuration = Number(schDur)
 
     if (schTimeApplicable) {
       if (!schStartTime || !schEndTime) {
@@ -617,7 +695,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           variant: 'destructive',
           title: 'Horários Incompletos',
           description:
-            'Quando aplicável, tanto a Hora Início quanto a Hora Fim devem ser informadas (ou marque N/A).',
+            'Quando aplicável, tanto a Hora Início quanto a Hora Fim devem ser informadas (ou desmarque o horário).',
         })
         return
       }
@@ -626,12 +704,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
       // Validação de divergência entre intervalo e tempo editado
       const calculatedDuration = calculateMinutesBetweenTimes(schStartTime, schEndTime)
-      if (calculatedDuration !== null && calculatedDuration !== Number(schDur)) {
-        setTimeMismatchAlert(
-          `Atenção: O intervalo entre ${schStartTime} e ${schEndTime} é de ${calculatedDuration} min, divergente dos ${schDur} min informados.`,
-        )
-      } else {
-        setTimeMismatchAlert(null)
+      if (calculatedDuration !== null) {
+        if (calculatedDuration !== Number(schDur)) {
+          setTimeMismatchAlert(
+            `Atenção: O intervalo entre ${schStartTime} e ${schEndTime} é de ${calculatedDuration} min, divergente dos ${schDur} min informados. A duração calculada de ${calculatedDuration} min será priorizada.`,
+          )
+        } else {
+          setTimeMismatchAlert(null)
+        }
+        effectiveDuration = calculatedDuration
       }
     } else {
       finalStartTime = null
@@ -639,8 +720,35 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       setTimeMismatchAlert(null)
     }
 
+    // Mapeamento rigoroso de categoria para o enum do PocketBase
+    const VALID_CATEGORIES = [
+      'PREVENTIVE_MAINTENANCE',
+      'CLEANING',
+      'CALIBRATION',
+      'TOOL_CHANGE',
+      'INSPECTION',
+      'OPERATIONAL_BREAK',
+      'OTHER',
+    ]
+    let mappedCategory = schCategory || 'PREVENTIVE_MAINTENANCE'
+    if (mappedCategory === 'PREVENTIVE') mappedCategory = 'PREVENTIVE_MAINTENANCE'
+    if (!VALID_CATEGORIES.includes(mappedCategory)) mappedCategory = 'PREVENTIVE_MAINTENANCE'
+
+    // Mapeamento de recorrência: WEEKEND da UI vira WEEKLY + recurrence_day_of_week
+    let mappedRecurrence = schRec
+    let mappedRecurrenceDay = schRecurrenceDayOfWeek
+    if (schRec === 'WEEKEND') {
+      mappedRecurrence = 'WEEKLY' as any
+      mappedRecurrenceDay = 'Sábado e domingo'
+    }
+
+    setIsSubmittingScheduledStop(true)
     try {
       const generatedCode = schReason.trim().slice(0, 20).toUpperCase().replace(/\s+/g, '_')
+
+      // Busca registro anterior se for edição para montar payload de auditoria
+      const existingStop = schId ? scheduledStops.find((s) => s.id === schId) : null
+
       await lineMasterService.saveScheduledStop({
         id: schId || undefined,
         line_id: line.id,
@@ -651,11 +759,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         gauge_material_code: schGaugeCode.trim() || undefined,
         raw_material_type: schRawMaterialType.trim() || undefined,
         enfornamento_type: schEnfornamentoType || undefined,
-        recurrence_day_of_week: schRecurrenceDayOfWeek || undefined,
+        recurrence_day_of_week: mappedRecurrenceDay || undefined,
         description: schDesc.trim() || schReason.trim(),
-        category: 'PREVENTIVE',
-        recurrence: schRec,
-        expected_duration_minutes: Number(schDur),
+        category: mappedCategory as any,
+        recurrence: mappedRecurrence,
+        expected_duration_minutes: effectiveDuration,
         start_time: finalStartTime,
         end_time: finalEndTime,
         time_applicable: schTimeApplicable,
@@ -664,7 +772,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         active: schActive,
       })
 
-      // Auditoria em pcp_audit_logs
+      // Auditoria detalhada em pcp_audit_logs
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
@@ -673,18 +781,36 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           action: schId ? 'UPDATE' : 'CREATE',
           changed_fields: [
             'scheduled_stops',
-            'raw_material_type',
-            'enfornamento_type',
+            'category',
+            'recurrence',
+            'duration_minutes',
+            'time_applicable',
             'recurrence_day_of_week',
           ],
-          change_reason: `Parada Programada: ${schReason.trim()} (${schDur} min) - Recorrência: ${schRec} / ${schRecurrenceDayOfWeek}`,
+          change_reason: `Parada Programada: ${schReason.trim()} (${effectiveDuration} min) - Recorrência: ${mappedRecurrence} / ${mappedRecurrenceDay}`,
           snapshot_data: {
+            stop_id: schId || 'NEW',
             reason: schReason.trim(),
+            category: mappedCategory,
+            relation_type: schRelationType,
             raw_material_type: schRawMaterialType,
             enfornamento_type: schEnfornamentoType,
-            recurrence: schRec,
-            recurrence_day_of_week: schRecurrenceDayOfWeek,
-            duration_minutes: Number(schDur),
+            recurrence: mappedRecurrence,
+            recurrence_day_of_week: mappedRecurrenceDay,
+            duration_minutes: effectiveDuration,
+            start_time: finalStartTime,
+            end_time: finalEndTime,
+            time_applicable: schTimeApplicable,
+            active: schActive,
+            previous_values: existingStop
+              ? {
+                  reason: existingStop.reason,
+                  category: existingStop.category,
+                  recurrence: existingStop.recurrence,
+                  duration: existingStop.expected_duration_minutes,
+                  active: existingStop.active,
+                }
+              : null,
           },
         })
       } catch (auditErr) {
@@ -692,13 +818,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       }
 
       toast({
-        title: schId ? 'Parada Programada Atualizada' : 'Parada Programada Criada',
-        description: `Parada "${schReason}" persistida com sucesso. Impacto em capacidade atualizado.`,
+        title: 'Sucesso',
+        description: 'Parada programada gravada com sucesso.',
       })
       setIsScheduledStopModalOpen(false)
       onRefresh()
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message })
+      // Em erro: NÃO fechar modal, manter dados e exibir mensagem clara
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gravar parada programada',
+        description:
+          err.message || 'Falha na comunicação com o backend PocketBase. Verifique os dados.',
+      })
+    } finally {
+      setIsSubmittingScheduledStop(false)
     }
   }
 
@@ -1660,7 +1794,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         ) : (
                           scheduledStops.map((ss) => {
                             const isTimeApplicable =
-                              ss.time_applicable !== false && !!ss.start_time && !!ss.end_time
+                              ss.time_applicable !== false &&
+                              !!ss.start_time &&
+                              !!ss.end_time &&
+                              ss.start_time !== 'N/A' &&
+                              ss.end_time !== 'N/A'
                             const relationLabels: Record<string, string> = {
                               PROGRAMADA_MANUTENCAO: 'Manutenção Programada',
                               TROCA_CAMPANHA: 'Troca de Campanha',
@@ -1668,6 +1806,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               SETUP_BITOLA: 'Setup de Bitola',
                               REFEICAO_DDS: 'Refeição / DDS',
                               OUTROS: 'Outros',
+                            }
+                            const categoryLabels: Record<string, string> = {
+                              PREVENTIVE_MAINTENANCE: 'Manutenção Preventiva',
+                              PREVENTIVE: 'Manutenção Preventiva',
+                              CLEANING: 'Limpeza',
+                              CALIBRATION: 'Calibração',
+                              TOOL_CHANGE: 'Troca de Ferramental',
+                              TOOLING_CHANGE: 'Troca de Ferramental',
+                              INSPECTION: 'Inspeção',
+                              OPERATIONAL_BREAK: 'Pausa Operacional',
+                              MEETING: 'Reunião / DDS',
+                              OTHER: 'Outros',
                             }
                             return (
                               <tr
@@ -1678,6 +1828,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               >
                                 <td className="p-2.5 font-bold text-white">
                                   {ss.reason || ss.code}
+                                  {ss.category && (
+                                    <span className="text-[10px] text-slate-400 block font-normal">
+                                      {categoryLabels[ss.category] || ss.category}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="p-2.5">
                                   <Badge
@@ -1700,7 +1855,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   )}
                                 </td>
                                 <td className="p-2.5 text-slate-200 text-xs">
-                                  <span className="font-semibold block">{ss.recurrence}</span>
+                                  <span className="font-semibold block">
+                                    {ss.recurrence === 'WEEKLY' &&
+                                    (ss.recurrence_day_of_week || '')
+                                      .toLowerCase()
+                                      .includes('sábado e domingo')
+                                      ? 'WEEKEND'
+                                      : ss.recurrence}
+                                  </span>
                                   {ss.recurrence_day_of_week && (
                                     <span className="text-[10px] text-slate-400">
                                       {ss.recurrence_day_of_week}
@@ -1735,27 +1897,30 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                     </Badge>
                                   )}
                                 </td>
-                                <td className="p-2.5 text-right space-x-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleOpenEditScheduledStop(ss)}
-                                    className="h-6 px-2 text-[11px] text-cyan-300 hover:text-cyan-200 hover:bg-slate-800"
-                                  >
-                                    Editar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleToggleScheduledStopStatus(ss)}
-                                    className={`h-6 px-2 text-[11px] ${
-                                      ss.active
-                                        ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/30'
-                                        : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
-                                    }`}
-                                  >
-                                    {ss.active ? 'Inativar' : 'Ativar'}
-                                  </Button>
+                                <td className="p-2.5 text-right whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleOpenEditScheduledStop(ss)}
+                                      className="h-6 px-2 text-[11px] text-cyan-300 hover:text-cyan-200 hover:bg-slate-800 font-semibold"
+                                    >
+                                      Editar
+                                    </Button>
+                                    <span className="text-slate-600 text-xs">|</span>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleToggleScheduledStopStatus(ss)}
+                                      className={`h-6 px-2 text-[11px] font-semibold ${
+                                        ss.active
+                                          ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/30'
+                                          : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                                      }`}
+                                    >
+                                      {ss.active ? 'Inativar' : 'Ativar'}
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             )
@@ -2399,7 +2564,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
                 >
                   {ENFORNAMENTO_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
+                    <option key={opt.code} value={opt.code}>
                       {opt.label}
                     </option>
                   ))}
@@ -2799,10 +2964,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
-            {/* Linha 1: Descrição | Tipo de Parada */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Descrição / Motivo da Parada *</Label>
+            {/* Linha 1: Descrição | Categoria | Relação */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1 md:col-span-1">
+                <Label className="text-xs text-slate-300">Descrição / Motivo *</Label>
                 <Input
                   placeholder="Ex: Manutenção Preventiva Semanal"
                   value={schReason}
@@ -2815,7 +2980,24 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Parada (Relação) *</Label>
+                <Label className="text-xs text-slate-300">Tipo de Parada (Categoria) *</Label>
+                <select
+                  value={schCategory}
+                  onChange={(e) => setSchCategory(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="PREVENTIVE_MAINTENANCE">Manutenção Preventiva</option>
+                  <option value="CLEANING">Limpeza</option>
+                  <option value="CALIBRATION">Calibração</option>
+                  <option value="TOOL_CHANGE">Troca de Ferramental</option>
+                  <option value="INSPECTION">Inspeção</option>
+                  <option value="OPERATIONAL_BREAK">Pausa Operacional</option>
+                  <option value="OTHER">Outros</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Tipo de Relação *</Label>
                 <select
                   value={schRelationType}
                   onChange={(e) => setSchRelationType(e.target.value)}
@@ -2844,7 +3026,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   {/* Catálogo mestre cadastrado na linha prioritariamente */}
                   {rawMaterials.map((rm) => (
                     <option key={rm.id} value={rm.material_code}>
-                      {rm.material_code} - {rm.material_name}
+                      {rm.material_code} - {rm.material_description || rm.material_code}
                     </option>
                   ))}
                   {/* Itens oficiais do catálogo mestre de MP */}
@@ -2865,7 +3047,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 >
                   <option value="">Todos / Não restrito</option>
                   {ENFORNAMENTO_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
+                    <option key={opt.code} value={opt.code}>
                       {opt.label}
                     </option>
                   ))}
@@ -3001,6 +3183,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <Button
               variant="outline"
               size="sm"
+              disabled={isSubmittingScheduledStop}
               onClick={() => setIsScheduledStopModalOpen(false)}
               className="border-slate-700 bg-slate-900 text-slate-300"
             >
@@ -3008,14 +3191,59 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Button>
             <Button
               size="sm"
+              disabled={isSubmittingScheduledStop}
               onClick={handleSaveScheduledStop}
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs disabled:opacity-50"
             >
-              Gravar Parada Programada
+              {isSubmittingScheduledStop
+                ? schId
+                  ? 'Salvando Alterações...'
+                  : 'Gravando...'
+                : schId
+                  ? 'Salvar Alterações'
+                  : 'Gravar Parada Programada'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CONFIRMAÇÃO DE INATIVAÇÃO DE PARADA PROGRAMADA (AlertDialog) */}
+      <AlertDialog
+        open={stopToDeactivate !== null}
+        onOpenChange={(open) => {
+          if (!open) setStopToDeactivate(null)
+        }}
+      >
+        <AlertDialogContent className="bg-slate-950 border-slate-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white text-base">
+              Inativar parada programada?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400 text-xs">
+              Esta parada deixará de impactar a capacidade e o sequenciamento futuro. O histórico
+              será preservado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel
+              onClick={() => setStopToDeactivate(null)}
+              className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 text-xs"
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (stopToDeactivate) {
+                  executeStatusChange(stopToDeactivate, false)
+                }
+              }}
+              className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
+            >
+              Inativar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* MODAL DE COMPLETUDE DA FICHA MESTRE */}
       <MasterSheetCompletenessModal

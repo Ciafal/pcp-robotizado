@@ -842,9 +842,126 @@ export const lineMasterService = {
 
   async saveScheduledStop(data: Partial<StandardScheduledStop>): Promise<StandardScheduledStop> {
     invalidateCompletenessCache(data.line_id)
-    const payload: Record<string, any> = { ...data }
-    if (payload.start_time === undefined) payload.start_time = null
-    if (payload.end_time === undefined) payload.end_time = null
+
+    // Higienização e mapeamento rigoroso conforme schema PocketBase:
+    // valid categories: ['PREVENTIVE_MAINTENANCE', 'CLEANING', 'CALIBRATION', 'TOOL_CHANGE', 'INSPECTION', 'OPERATIONAL_BREAK', 'OTHER']
+    const VALID_CATEGORIES = [
+      'PREVENTIVE_MAINTENANCE',
+      'CLEANING',
+      'CALIBRATION',
+      'TOOL_CHANGE',
+      'INSPECTION',
+      'OPERATIONAL_BREAK',
+      'OTHER',
+    ] as const
+
+    const CATEGORY_MAP: Record<string, string> = {
+      PREVENTIVE: 'PREVENTIVE_MAINTENANCE',
+      TOOLING_CHANGE: 'TOOL_CHANGE',
+      MEETING: 'OPERATIONAL_BREAK',
+    }
+
+    let category = data.category || 'PREVENTIVE_MAINTENANCE'
+    if (CATEGORY_MAP[category]) {
+      category = CATEGORY_MAP[category]
+    }
+    if (!VALID_CATEGORIES.includes(category as any)) {
+      category = 'PREVENTIVE_MAINTENANCE'
+    }
+
+    // valid recurrences: ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'PER_SHIFT', 'PER_BATCH', 'CUSTOM']
+    let recurrence = data.recurrence || 'DAILY'
+    let recurrence_day_of_week = data.recurrence_day_of_week || ''
+
+    if (recurrence === 'WEEKEND') {
+      recurrence = 'WEEKLY'
+      if (!recurrence_day_of_week) {
+        recurrence_day_of_week = 'Sábado e domingo'
+      }
+    }
+
+    // Higienização de horários e cálculo de duração:
+    const isTimeApplicable = data.time_applicable === true
+    let startTime: string | null = null
+    let endTime: string | null = null
+    let durationMinutes = Number(data.expected_duration_minutes) || 0
+
+    if (
+      isTimeApplicable &&
+      data.start_time &&
+      data.end_time &&
+      data.start_time !== 'N/A' &&
+      data.end_time !== 'N/A'
+    ) {
+      startTime = data.start_time.trim()
+      endTime = data.end_time.trim()
+
+      const [h1, m1] = startTime.split(':').map(Number)
+      const [h2, m2] = endTime.split(':').map(Number)
+      if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+        let diff = h2 * 60 + m2 - (h1 * 60 + m1)
+        if (diff <= 0) diff += 24 * 60 // Atravessou meia-noite
+        // Se divergir ou se não houver duração informada, prefere a duração calculada
+        durationMinutes = diff
+      }
+    } else {
+      // Quando não aplicável: persistir start_time: null, end_time: null (nunca string vazia ou 'N/A')
+      startTime = null
+      endTime = null
+    }
+
+    // Permitir apenas campos que pertencem à coleção standard_scheduled_stops
+    const allowedFields = [
+      'line_id',
+      'line_master_id',
+      'code',
+      'description',
+      'category',
+      'recurrence',
+      'expected_duration_minutes',
+      'scheduled_time',
+      'applicable_shift',
+      'applicable_days',
+      'expected_impact',
+      'active',
+      'valid_from',
+      'valid_until',
+      'relation_type',
+      'gauge_material_code',
+      'gauge_dimension',
+      'start_time',
+      'end_time',
+      'time_applicable',
+      'reason',
+      'raw_material_type',
+      'enfornamento_type',
+      'recurrence_day_of_week',
+    ]
+
+    const rawPayload: Record<string, any> = {
+      ...data,
+      category,
+      recurrence,
+      recurrence_day_of_week: recurrence_day_of_week || null,
+      start_time: startTime,
+      end_time: endTime,
+      time_applicable: isTimeApplicable,
+      expected_duration_minutes: durationMinutes,
+      scheduled_time: startTime || 'N/A',
+      active: data.active !== false,
+    }
+
+    const payload: Record<string, any> = {}
+    for (const key of allowedFields) {
+      if (rawPayload[key] !== undefined) {
+        payload[key] = rawPayload[key]
+      }
+    }
+
+    // Limpeza de campos de relação caso vazios
+    if (!payload.line_master_id) {
+      delete payload.line_master_id
+    }
 
     if (data.id) {
       return await pb
