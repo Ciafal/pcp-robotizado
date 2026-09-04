@@ -37,9 +37,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Index() {
+  const navigate = useNavigate()
   const { user, isGlobal, scopes, hasLineScope, can } = useAuth()
   const { toast } = useToast()
 

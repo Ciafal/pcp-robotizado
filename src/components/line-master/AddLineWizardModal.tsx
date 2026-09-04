@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Layers,
   ChevronRight,
@@ -14,12 +15,22 @@ import {
   Sliders,
   Check,
   HelpCircle,
+  ExternalLink,
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
 import { UserProfile } from '@/types/pcp-auth'
@@ -52,21 +63,23 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   productFamilies,
 }) => {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [saving, setSaving] = useState<boolean>(false)
+  const [successDialogOpen, setSuccessDialogOpen] = useState<boolean>(false)
+  const [createdLineRecord, setCreatedLineRecord] = useState<ProductionLine | null>(null)
 
   // Etapa 1: Identificação
   const [code, setCode] = useState<string>('')
   const [name, setName] = useState<string>('')
   const [description, setDescription] = useState<string>('')
-  const [resourceType, setResourceType] = useState<string>('LINE')
+  const [resourceType, setResourceType] = useState<string>('PRODUCTION_LINE')
   const [programmingType, setProgrammingType] = useState<string>('Laminação')
-  const [programmingStages, setProgrammingStages] = useState<string[]>([])
   const [plant, setPlant] = useState<string>('Planta Principal - CIAFAL 01')
   const [sapPlantCode, setSapPlantCode] = useState<string>('1000')
   const [sector, setSector] = useState<string>('Laminação & Conformação Estrutural')
   const [processStep, setProcessStep] = useState<string>('Conformação Contínua & Solda HF')
-  const [status, setStatus] = useState<'ACTIVE' | 'CONFIGURING' | 'MAINTENANCE'>('ACTIVE')
+  const [status, setStatus] = useState<'running' | 'idle' | 'stopped' | 'maintenance'>('idle')
   const [sapWorkCenter, setSapWorkCenter] = useState<string>('')
   const [sapEquipmentId, setSapEquipmentId] = useState<string>('')
   const [mesIdentifier, setMesIdentifier] = useState<string>('')
@@ -105,27 +118,70 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
   if (!open) return null
 
-  const handleNext = () => {
-    if (currentStep === 1) {
-      if (!code.trim() || !name.trim()) {
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      if (!code.trim()) {
         toast({
           variant: 'destructive',
-          title: 'Campos Obrigatórios',
-          description: 'Código e Nome da Linha são obrigatórios.',
+          title: 'Campo Obrigatório',
+          description: 'O Código Interno da Linha é obrigatório.',
         })
-        return
+        return false
       }
-      // Verificar unicidade de código
+      if (!name.trim()) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'O Nome da Linha é obrigatório.',
+        })
+        return false
+      }
       const exists = existingLines.some((l) => l.code.toUpperCase() === code.trim().toUpperCase())
       if (exists) {
         toast({
           variant: 'destructive',
           title: 'Código já existente',
-          description: `Já existe uma linha cadastrada com o código ${code.toUpperCase()}.`,
+          description: `Já existe uma linha cadastrada com este código (${code.trim().toUpperCase()}).`,
         })
-        return
+        return false
       }
     }
+
+    if (step === 3) {
+      if (!primaryManagerId) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'O Gestor Titular da Linha é obrigatório antes de prosseguir.',
+        })
+        return false
+      }
+      if (!pcpApproverId) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'O Aprovador PCP é obrigatório antes de prosseguir.',
+        })
+        return false
+      }
+    }
+
+    if (step === 5) {
+      if (!nominalHourlyCapacity || Number(nominalHourlyCapacity) <= 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'A Capacidade Horária Nominal deve ser maior que zero.',
+        })
+        return false
+      }
+    }
+
+    return true
+  }
+
+  const handleNext = () => {
+    if (!validateStep(currentStep)) return
 
     if (currentStep < 6) {
       setCurrentStep((prev) => prev + 1)
@@ -139,42 +195,51 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   }
 
   const handleSave = async () => {
-    if (!code.trim() || !name.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Campos Obrigatórios',
-        description: 'Código e Nome da Linha são obrigatórios para gravação.',
-      })
+    // Validação preventiva antes de submeter
+    if (!validateStep(1)) {
       setCurrentStep(1)
+      return
+    }
+    if (!validateStep(3)) {
+      setCurrentStep(3)
+      return
+    }
+    if (!validateStep(5)) {
+      setCurrentStep(5)
       return
     }
 
     setSaving(true)
+    let createdLineId: string | null = null
+
     try {
+      // Mapear status para valor válido do enum em production_lines ('running' | 'idle' | 'stopped' | 'maintenance')
+      const validLineStatus: 'running' | 'idle' | 'stopped' | 'maintenance' =
+        status === 'running' || status === 'stopped' || status === 'maintenance' ? status : 'idle'
+
       // 1. Criar a Linha Produtiva no Banco
       const createdLine = await lineMasterService.createLine({
         code: code.trim().toUpperCase(),
         name: name.trim(),
-        description: description.trim(),
-        plant: plant,
-        process: processStep || 'Conformação',
-        status: (status as any) || 'ACTIVE',
+        status: validLineStatus,
         is_active: true,
-        programming_type: programmingType || 'Laminação',
-        programming_stages: programmingType === 'Múltiplo' ? programmingStages : [],
         current_rate: Number(nominalHourlyCapacity) || 12,
         target_rate: Number(nominalHourlyCapacity) || 12,
         efficiency: Number(plannedEfficiencyPct) || 90,
-        sap_plant_code: sapPlantCode || '1000',
         sap_work_center: sapWorkCenter.trim() || undefined,
-        sap_equipment_id: sapEquipmentId.trim() || undefined,
-        mes_identifier: mesIdentifier.trim() || undefined,
-        notes: notes.trim() || undefined,
+        nominal_capacity: Number(nominalHourlyCapacity) || 12,
+        capacity_unit: capacityUnit || 't/h',
+        shifts_count: 3,
+        manager_user_id: primaryManagerId || undefined,
+        pcp_programmer_user_id: pcpApproverId || undefined,
+        programming_type: programmingType as any,
       })
 
       if (!createdLine || !createdLine.id) {
         throw new Error('Falha ao obter confirmação de criação da Linha no backend.')
       }
+
+      createdLineId = createdLine.id
 
       // 2. Criar a Ficha Mestre Versão 1 Inicial no Banco
       const validResourceType = [
@@ -199,14 +264,18 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       const createdMaster = await lineMasterService.saveLineMaster({
         line_id: createdLine.id,
         version: 1,
-        status: 'ACTIVE',
+        code: createdLine.code,
+        name: createdLine.name,
+        description: description.trim() || undefined,
+        status: 'DRAFT',
         resource_type: validResourceType as any,
         unit: validCapacityUnit === 't/h' ? 't' : validCapacityUnit === 'peça' ? 'peça' : 'm',
         sap_plant_code: sapPlantCode || '1000',
         sector: sector || 'Laminação',
         process_step: processStep || 'Conformação',
-        programming_type: programmingType || 'Laminação',
-        programming_stages: programmingType === 'Múltiplo' ? programmingStages : [],
+        primary_responsible_id: primaryManagerId || undefined,
+        substitute_responsible_id: substituteManagerId || undefined,
+        programming_type: programmingType as any,
         nominal_hourly_capacity: Number(nominalHourlyCapacity) || 12,
         nominal_shift_capacity: (Number(nominalHourlyCapacity) || 12) * (Number(shiftHours) || 8),
         nominal_daily_capacity:
@@ -221,6 +290,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         ready_for_scheduling: Boolean(primaryManagerId),
         completeness_score: 75,
         change_reason: 'Cadastro Inicial da Linha via Wizard Estruturado',
+        technical_notes: notes.trim() || undefined,
       })
 
       // 3. Criar Turnos Iniciais Padrão para a Linha recém-criada
@@ -325,7 +395,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         active: true,
       })
 
-      // 3. Criar Hierarquia Organizacional
+      // 5. Criar Hierarquia Organizacional
       if (orgDirectorId) {
         await lineMasterService.saveOrgHierarchy({
           line_id: createdLine.id,
@@ -363,7 +433,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
       }
 
-      // 4. Criar Gestores da Linha
+      // 6. Criar Gestores da Linha
       if (primaryManagerId) {
         await lineMasterService.saveManagerAssignment({
           line_id: createdLine.id,
@@ -385,7 +455,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
       }
 
-      // 5. Criar Matriz de Aprovadores
+      // 7. Criar Matriz de Aprovadores
       if (pcpApproverId) {
         await lineMasterService.saveApprover({
           line_id: createdLine.id,
@@ -411,7 +481,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
       }
 
-      // 6. Criar Sequenciamento Inicial
+      // 8. Criar Sequenciamento Inicial
       if (prevProcess || nextProcess || prevLineId || nextLineId) {
         await lineMasterService.saveSequencing({
           line_id: createdLine.id,
@@ -430,7 +500,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
       }
 
-      // 7. Gravar Auditoria
+      // 9. Gravar Auditoria
       await lineMasterService.recordAuditVersion({
         line_id: createdLine.id,
         line_master_id: createdMaster.id,
@@ -454,18 +524,77 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         },
       })
 
+      // Toast de Sucesso conforme especificação
       toast({
-        title: 'Linha Cadastrada com Sucesso',
-        description: `Linha ${createdLine.code} e Ficha Mestre inicial criadas no padrão CIAFAL.`,
+        title: 'Sucesso',
+        description: 'Linha cadastrada com sucesso.',
       })
 
-      onSuccess(createdLine)
-      onClose()
+      setCreatedLineRecord(createdLine)
+      setSuccessDialogOpen(true)
     } catch (err: any) {
+      // Rollback compensatório se a linha foi criada mas as etapas seguintes falharam
+      if (createdLineId) {
+        try {
+          console.warn(
+            `[AddLineWizardModal] Executando rollback compensatório da linha ${createdLineId}`,
+          )
+          await lineMasterService.deleteLine(createdLineId)
+          console.info(
+            `[AddLineWizardModal] Rollback concluído com sucesso para a linha ${createdLineId}`,
+          )
+        } catch (rollbackErr) {
+          console.error(
+            '[AddLineWizardModal] Falha ao executar rollback compensatório:',
+            rollbackErr,
+          )
+        }
+      }
+
+      // Logar detalhe técnico detalhado no console — nunca mostrar cru ao usuário
+      console.error('[AddLineWizardModal] Erro ao cadastrar linha:', {
+        status: err?.status || err?.statusCode || err?.response?.status,
+        code: err?.code || err?.data?.code,
+        data: err?.data,
+        message: err?.message,
+        originalError: err,
+      })
+
+      const statusHttp = err?.status || err?.statusCode || err?.response?.status
+      const errCode = err?.code || err?.data?.code || ''
+      const errMessage = String(err?.message || '')
+      const dataStr = JSON.stringify(err?.data || '')
+
+      let userFriendlyMessage =
+        'Não foi possível concluir o cadastro. Nenhuma informação foi perdida.'
+
+      if (
+        statusHttp === 400 &&
+        (errCode === 'validation_failed' ||
+          dataStr.includes('unique') ||
+          dataStr.includes('code') ||
+          errMessage.includes('unique') ||
+          errMessage.includes('idx_lines_code'))
+      ) {
+        if (
+          dataStr.includes('code') ||
+          dataStr.includes('unique') ||
+          errMessage.includes('unique')
+        ) {
+          userFriendlyMessage = 'Já existe uma linha cadastrada com este código.'
+        } else {
+          userFriendlyMessage = 'Existem informações obrigatórias pendentes.'
+        }
+      } else if (statusHttp === 403) {
+        userFriendlyMessage = 'Seu perfil não possui permissão para cadastrar linhas produtivas.'
+      } else if (statusHttp === 400 && errCode === 'validation_failed') {
+        userFriendlyMessage = 'Existem informações obrigatórias pendentes.'
+      }
+
       toast({
         variant: 'destructive',
-        title: 'Erro ao cadastrar linha',
-        description: err?.message || 'Falha na gravação dos dados no backend.',
+        title: 'Atenção',
+        description: userFriendlyMessage,
       })
     } finally {
       setSaving(false)
@@ -605,12 +734,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </Label>
                   <select
                     value={programmingType}
-                    onChange={(e) => {
-                      setProgrammingType(e.target.value)
-                      if (e.target.value !== 'Múltiplo') {
-                        setProgrammingStages([])
-                      }
-                    }}
+                    onChange={(e) => setProgrammingType(e.target.value)}
                     className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-cyan-300 font-bold p-2"
                   >
                     <option value="Enfornamento">Enfornamento</option>
@@ -645,55 +769,6 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   />
                 </div>
               </div>
-
-              {/* Bloco de Seleção de Etapas para Tipo Múltiplo */}
-              {programmingType === 'Múltiplo' && (
-                <div className="p-3 bg-blue-950/40 rounded-lg border border-cyan-800 space-y-2">
-                  <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider block">
-                    Etapas de Programação Habilitadas (Selecione 2 ou mais)
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                    {[
-                      'Enfornamento',
-                      'Laminação',
-                      'Envio',
-                      'Preparação',
-                      'Acabamento',
-                      'Endireitadeira',
-                      'Inspeção',
-                      'Argola',
-                      'Alto-Forno',
-                      'Aciaria',
-                    ].map((stage) => {
-                      const isChecked = programmingStages.includes(stage)
-                      return (
-                        <label
-                          key={stage}
-                          className={`flex items-center gap-2 p-2 rounded border text-xs cursor-pointer transition-colors ${
-                            isChecked
-                              ? 'bg-[#004C97]/60 border-cyan-500 text-white font-bold'
-                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setProgrammingStages((prev) => [...prev, stage])
-                              } else {
-                                setProgrammingStages((prev) => prev.filter((s) => s !== stage))
-                              }
-                            }}
-                            className="rounded border-slate-700 text-[#004C97] focus:ring-[#004C97]"
-                          />
-                          <span>{stage}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Campos SAP / MES Futuros (Regra 5) */}
               <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-3">
@@ -1223,7 +1298,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 px-6 shadow-lg shadow-emerald-950"
               >
                 {saving ? (
-                  'Gravando no Backend...'
+                  'Cadastrando...'
                 ) : (
                   <>
                     <Save className="w-4 h-4" /> Concluir & Cadastrar Linha
@@ -1234,6 +1309,66 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Diálogo de Sucesso com Ações de Continuidade */}
+      <Dialog
+        open={successDialogOpen}
+        onOpenChange={(openState) => {
+          if (!openState && createdLineRecord) {
+            setSuccessDialogOpen(false)
+            onSuccess(createdLineRecord)
+            onClose()
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md bg-slate-950 border-slate-800 text-slate-100">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold text-white">
+              Linha Cadastrada com Sucesso!
+            </DialogTitle>
+            <DialogDescription className="text-center text-slate-400 text-xs mt-1">
+              A linha{' '}
+              <span className="text-cyan-400 font-mono font-bold">
+                {createdLineRecord?.code} - {createdLineRecord?.name}
+              </span>{' '}
+              foi persistida com sucesso e sua Ficha Mestre inicial (Versão 1 - Em preenchimento) já
+              está disponível.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const line = createdLineRecord
+                setSuccessDialogOpen(false)
+                if (line) onSuccess(line)
+                onClose()
+              }}
+              className="w-full sm:w-auto border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 text-xs gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" /> Voltar para Linhas
+            </Button>
+            <Button
+              onClick={() => {
+                const line = createdLineRecord
+                setSuccessDialogOpen(false)
+                if (line) onSuccess(line)
+                onClose()
+                if (line?.id) {
+                  navigate(`/pcp/ficha-mestre?lineId=${line.id}`)
+                }
+              }}
+              className="w-full sm:w-auto bg-[#004C97] hover:bg-[#003870] text-white text-xs gap-1.5 font-bold"
+            >
+              <ExternalLink className="w-4 h-4" /> Abrir Ficha Mestre
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

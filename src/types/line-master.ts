@@ -62,9 +62,18 @@ export interface ProductionLine {
   code: string
   name: string
   description?: string
-  plant: string
-  process: string
-  status: 'ACTIVE' | 'MAINTENANCE' | 'INACTIVE' | 'CONFIGURING'
+  plant?: string
+  plant_id?: string
+  process?: string
+  status:
+    | 'running'
+    | 'idle'
+    | 'stopped'
+    | 'maintenance'
+    | 'ACTIVE'
+    | 'MAINTENANCE'
+    | 'INACTIVE'
+    | 'CONFIGURING'
   is_active?: boolean
   programming_type?: ProgrammingType | string
   programming_stages?: (ProgrammingType | string)[]
@@ -72,6 +81,11 @@ export interface ProductionLine {
   crews_summary?: string[]
   nominal_speed?: number
   nominal_speed_unit?: string
+  nominal_capacity?: number
+  capacity_unit?: string
+  shifts_count?: number
+  manager_user_id?: string
+  pcp_programmer_user_id?: string
   current_rate?: number
   target_rate?: number
   efficiency?: number
@@ -92,12 +106,18 @@ export interface LineMaster {
   id: string
   line_id: string
   version: number
+  code?: string
+  name?: string
+  description?: string
   status: MasterDataStatus
   resource_type: ResourceType
   unit: string
   sap_plant_code: string
   sector: string
   process_step: string
+  primary_responsible_id?: string
+  substitute_responsible_id?: string
+  technical_notes?: string
   // Capacidade
   nominal_hourly_capacity: number
   nominal_shift_capacity: number
