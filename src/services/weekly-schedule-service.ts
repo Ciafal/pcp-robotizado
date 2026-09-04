@@ -695,11 +695,319 @@ export const weeklyScheduleService = {
   /**
    * Salva os itens da programação semanal (Rascunho)
    */
+  /**
+   * Salva os itens da programação semanal (Rascunho) com versionamento sequencial em weekly_schedule_versions
+   */
   async saveWeeklyScheduleDraft(
     items: WeeklyScheduleItem[],
     filter: WeeklyHeaderFilter,
+  ): Promise<{ success: boolean; versionNumber: number; versionTag: string }> {
+    const user = pb.authStore.record
+    const scheduleCode = `WS-${filter.lineCode}-${filter.year}-W${String(filter.weekNumber).padStart(2, '0')}`
+
+    // 1. Busca versões existentes para determinar numeração sequencial (V01, V02, V03...)
+    let currentVersions: WeeklyScheduleVersionRecord[] = []
+    try {
+      currentVersions = await this.getScheduleVersions(scheduleCode)
+    } catch {
+      currentVersions = []
+    }
+
+    let nextVersionNum = 1
+    let previousScheduleData: WeeklyScheduleItem[] = []
+
+    if (currentVersions.length > 0) {
+      const maxVer = Math.max(...currentVersions.map((v) => v.version_number || 1))
+      const latestVer =
+        currentVersions.find((v) => v.version_number === maxVer) || currentVersions[0]
+      previousScheduleData = latestVer.new_schedule_data || []
+
+      // Verifica se houve alteração relevante em relação à última versão gravada
+      const hasMeaningfulDiff =
+        previousScheduleData.length !== items.length ||
+        JSON.stringify(
+          previousScheduleData.map((it) => ({
+            code: it.material_code,
+            qty: it.planned_quantity_tons,
+            day: it.day_of_week,
+            shift: it.shift_code,
+            seq: it.sequence_order,
+          })),
+        ) !==
+          JSON.stringify(
+            items.map((it) => ({
+              code: it.material_code,
+              qty: it.planned_quantity_tons,
+              day: it.day_of_week,
+              shift: it.shift_code,
+              seq: it.sequence_order,
+            })),
+          )
+
+      nextVersionNum = hasMeaningfulDiff ? maxVer + 1 : maxVer
+    } else {
+      nextVersionNum = 1
+    }
+
+    const versionTag = `V${String(nextVersionNum).padStart(2, '0')}`
+
+    // 2. Persiste itens na coleção weekly_schedules com status DRAFT e número da versão
+    await this.saveWeeklyScheduleItems(items, filter, 'DRAFT', nextVersionNum)
+
+    // 3. Grava snapshot em weekly_schedule_versions
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const userEmail = user?.email || ''
+    const userId = user?.id || ''
+
+    const diffSummary = {
+      itemsAdded: Math.max(0, items.length - previousScheduleData.length),
+      itemsRemoved: Math.max(0, previousScheduleData.length - items.length),
+      itemsModified: items.length,
+      netTonsDiff:
+        items.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0) -
+        previousScheduleData.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0),
+    }
+
+    try {
+      await pb.collection('weekly_schedule_versions').create({
+        schedule_code: scheduleCode,
+        line_code: filter.lineCode,
+        year: filter.year,
+        week_number: filter.weekNumber,
+        version_number: nextVersionNum,
+        user_id: userId,
+        user_name: userName,
+        user_email: userEmail,
+        change_reason: `Rascunho de programação salvo na versão ${versionTag}.`,
+        impact_assessment: `Status DRAFT - ${items.length} itens sequenciados para a semana ${filter.weekNumber}.`,
+        previous_schedule_data: previousScheduleData,
+        new_schedule_data: items,
+        diff_summary: diffSummary,
+      })
+    } catch (err) {
+      console.warn('Erro ao gravar versão em weekly_schedule_versions:', err)
+    }
+
+    // 4. Grava auditoria WEEKLY_SCHEDULE_DRAFT em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: userId || null,
+        user_email: userEmail,
+        user_name: userName,
+        user_role: (user as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'WEEKLY_SCHEDULE_DRAFT',
+        resource: 'weekly_schedules',
+        resource_id: scheduleCode,
+        permission_required: 'pcp.weekly_schedule.edit',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          lineCode: filter.lineCode,
+          year: filter.year,
+          weekNumber: filter.weekNumber,
+          version: nextVersionNum,
+          versionTag,
+          savedBy: userName,
+          itemsCount: items.length,
+          totalTons: items.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0),
+          savedAt: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha na auditoria de rascunho em pcp_audit_logs:', auditErr)
+    }
+
+    return { success: true, versionNumber: nextVersionNum, versionTag }
+  },
+
+  /**
+   * Envia a programação semanal para Aprovação formal do PCP
+   */
+  async sendForApproval(
+    filter: WeeklyHeaderFilter,
+    items: WeeklyScheduleItem[],
+    currentVersionNumber?: number,
+  ): Promise<{ success: boolean; versionTag: string; approvalDateStr: string }> {
+    const user = pb.authStore.record
+    const scheduleCode = `WS-${filter.lineCode}-${filter.year}-W${String(filter.weekNumber).padStart(2, '0')}`
+
+    // (a) Identifica a versão vigente
+    let versions = await this.getScheduleVersions(scheduleCode)
+    let versionNum = currentVersionNumber ?? (items[0]?.version || 1)
+
+    if (versions.length > 0) {
+      const maxVer = Math.max(...versions.map((v) => v.version_number || 1))
+      versionNum = maxVer
+    }
+
+    const versionTag = `V${String(versionNum).padStart(2, '0')}`
+
+    // Guarda 1: Sem versão válida ou sem itens
+    if (!items || items.length === 0) {
+      throw new Error('Não há alterações pendentes ou versão válida para envio.')
+    }
+
+    // Guarda 2: Mesma versão já em aprovação
+    const isAlreadyInApproval = items.some(
+      (it) => it.status === 'AGUARDANDO_APROVACAO_PCP' || it.status === 'APROVADO_PCP',
+    )
+    if (isAlreadyInApproval) {
+      throw new Error(`A versão ${versionTag} já se encontra em aprovação.`)
+    }
+
+    // Guarda 3: Alteração após envio (se último snapshot em aprovação e itens alterados)
+    const latestVersionRecord = versions.find((v) => v.version_number === versionNum)
+    if (latestVersionRecord && latestVersionRecord.change_reason?.includes('EM_APROVACAO')) {
+      throw new Error(
+        `A versão ${versionTag} já foi submetida. Salve uma nova versão antes de submeter novamente.`,
+      )
+    }
+
+    // (b) Muda status para Em Aprovação (AGUARDANDO_APROVACAO_PCP)
+    const targetStatus: WeeklyScheduleWorkflowState = 'AGUARDANDO_APROVACAO_PCP'
+    await this.saveWeeklyScheduleItems(items, filter, targetStatus, versionNum)
+
+    const now = new Date()
+    const dd = String(now.getDate()).padStart(2, '0')
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    const approvalDateStr = `${dd}/${mm}/${yyyy}`
+
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const userEmail = user?.email || ''
+    const userId = user?.id || ''
+
+    // (c) Grava data/hora do envio e usuário responsável em weekly_schedule_versions
+    try {
+      await pb.collection('weekly_schedule_versions').create({
+        schedule_code: scheduleCode,
+        line_code: filter.lineCode,
+        year: filter.year,
+        week_number: filter.weekNumber,
+        version_number: versionNum,
+        user_id: userId,
+        user_name: userName,
+        user_email: userEmail,
+        change_reason: `EM_APROVACAO: Enviado para aprovação formal no dia ${approvalDateStr}.`,
+        impact_assessment: `Versão ${versionTag} encaminhada para aprovação do Supervisor PCP com ${items.length} itens.`,
+        previous_schedule_data: latestVersionRecord?.new_schedule_data || items,
+        new_schedule_data: items,
+        diff_summary: {
+          itemsAdded: 0,
+          itemsRemoved: 0,
+          itemsModified: items.length,
+          netTonsDiff: 0,
+        },
+      })
+    } catch (verErr) {
+      console.warn('Aviso ao registrar weekly_schedule_versions na aprovação:', verErr)
+    }
+
+    // (d) Auditoria WEEKLY_SCHEDULE_APPROVAL_REQUEST em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: userId || null,
+        user_email: userEmail,
+        user_name: userName,
+        user_role: (user as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'WEEKLY_SCHEDULE_APPROVAL_REQUEST',
+        resource: 'weekly_schedules',
+        resource_id: scheduleCode,
+        permission_required: 'pcp.weekly_schedule.approve',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          lineCode: filter.lineCode,
+          year: filter.year,
+          weekNumber: filter.weekNumber,
+          version: versionNum,
+          versionTag,
+          submittedBy: userName,
+          submittedAt: now.toISOString(),
+          submissionDateFormatted: approvalDateStr,
+          status: targetStatus,
+          totalTons: items.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha na auditoria de aprovação em pcp_audit_logs:', auditErr)
+    }
+
+    return { success: true, versionTag, approvalDateStr }
+  },
+
+  /**
+   * Exclui um rascunho de programação semanal (status DRAFT) com auditoria
+   */
+  /**
+   * Exclui um rascunho de programação semanal (status DRAFT) com auditoria
+   */
+  async deleteWeeklyScheduleDraft(
+    versionId: string,
+    scheduleCode: string,
+    lineCode: string,
+    year: number,
+    weekNumber: number,
+    versionNumber: number,
   ): Promise<boolean> {
-    return this.saveWeeklyScheduleItems(items, filter, 'DRAFT')
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const userEmail = user?.email || ''
+    const userId = user?.id || ''
+
+    // 1. Verifica se a versão existe e está em DRAFT
+    const versionRec = await pb.collection('weekly_schedule_versions').getOne(versionId)
+    if (!versionRec) {
+      throw new Error('Registro de versão não encontrado.')
+    }
+
+    // Se estiver em aprovação ou aprovada, bloqueia com mensagem adequada
+    const reason = (versionRec.change_reason || '').toUpperCase()
+    const impact = (versionRec.impact_assessment || '').toUpperCase()
+    if (
+      reason.includes('APROVACAO') ||
+      reason.includes('APROVADO') ||
+      impact.includes('APROVADO') ||
+      impact.includes('APROVACAO')
+    ) {
+      throw new Error('Não é permitido excluir uma versão em aprovação ou já aprovada.')
+    }
+
+    // 2. Remove da coleção weekly_schedule_versions
+    await pb.collection('weekly_schedule_versions').delete(versionId)
+
+    // 3. Registra auditoria da exclusão em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: userId || null,
+        user_email: userEmail,
+        user_name: userName,
+        user_role: (user as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'WEEKLY_SCHEDULE_DRAFT_DELETED',
+        resource: 'weekly_schedule_versions',
+        resource_id: versionId,
+        permission_required: 'pcp.weekly_schedule.edit',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          scheduleCode,
+          lineCode,
+          year,
+          weekNumber,
+          versionNumber,
+          versionTag: `V${String(versionNumber).padStart(2, '0')}`,
+          deletedBy: userName,
+          deletedAt: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha na auditoria de exclusão de rascunho:', auditErr)
+    }
+
+    return true
   },
 
   /**
@@ -794,11 +1102,12 @@ export const weeklyScheduleService = {
   /**
    * Busca histórico de versões de uma programação
    */
-  async getScheduleVersions(scheduleCode: string): Promise<WeeklyScheduleVersionRecord[]> {
+  async getScheduleVersions(scheduleCode?: string): Promise<WeeklyScheduleVersionRecord[]> {
     try {
+      const filter = scheduleCode ? `schedule_code = '${scheduleCode}'` : ''
       const records = await pb.collection('weekly_schedule_versions').getFullList({
-        filter: `schedule_code = '${scheduleCode}'`,
-        sort: '-version_number',
+        ...(filter ? { filter } : {}),
+        sort: '-version_number,-created',
       })
       return records.map((r: any) => ({
         id: r.id,

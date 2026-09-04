@@ -95,6 +95,7 @@ import { FullVersionHistoryModal } from '@/components/weekly-schedule/FullVersio
 import { PrePublishImpactModal } from '@/components/weekly-schedule/PrePublishImpactModal'
 import { MesAlertBanner } from '@/components/weekly-schedule/MesAlertBanner'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
+import { DraftsConsultationModal } from '@/components/weekly-schedule/DraftsConsultationModal'
 import { scheduleVersioningService } from '@/services/schedule-versioning-service'
 import { VersioningEngine } from '@/services/versioning-engine'
 import {
@@ -130,6 +131,7 @@ import {
   Scissors,
   Wrench,
   RotateCcw,
+  FileText,
 } from 'lucide-react'
 
 export const WeeklyScheduleOperationalPage: React.FC = () => {
@@ -160,6 +162,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [currentWorkflowState, setCurrentWorkflowState] =
     useState<WeeklyScheduleWorkflowState>('DRAFT')
   const [currentVersion, setCurrentVersion] = useState<number>(1)
+  const [selectedVersionFilter, setSelectedVersionFilter] = useState<number | 'LATEST'>('LATEST')
+  const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false)
+  const [draftToDelete, setDraftToDelete] = useState<WeeklyScheduleVersionRecord | null>(null)
 
   // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo | Oficina de Cilindros"
   const isInitialMonthly = location.pathname.includes('programacao-mensal')
@@ -1344,19 +1349,55 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const handleSaveDraft = async () => {
     setIsSaving(true)
     try {
-      await weeklyScheduleService.saveWeeklyScheduleDraft(calculatedItems, headerFilter)
+      const res = await weeklyScheduleService.saveWeeklyScheduleDraft(calculatedItems, headerFilter)
+      setCurrentVersion(res.versionNumber)
+      setSelectedVersionFilter(res.versionNumber)
+
+      // Atualiza lista de versões no modal e no filtro
+      const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+      const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+      setVersionHistoryList(vers)
+
       toast({
-        title: 'Rascunho Salvo com Sucesso',
-        description: `Programação da Linha ${selectedLineCode} (Semana ${selectedWeekNumber}) persistida com sucesso.`,
+        title: `Rascunho salvo na versão ${res.versionTag}.`,
       })
-    } catch (err) {
+    } catch (err: any) {
       toast({
         variant: 'destructive',
         title: 'Erro ao Salvar Rascunho',
-        description: 'Verifique a conexão ou permissões de usuário.',
+        description: err?.message || 'Verifique a conexão ou permissões de usuário.',
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Ação: Enviar para Aprovação formal do PCP
+  const [isSendingApproval, setIsSendingApproval] = useState<boolean>(false)
+  const handleSendForApproval = async () => {
+    setIsSendingApproval(true)
+    try {
+      const res = await weeklyScheduleService.sendForApproval(
+        headerFilter,
+        calculatedItems,
+        currentVersion,
+      )
+      setCurrentWorkflowState('AGUARDANDO_APROVACAO_PCP')
+      toast({
+        title: `Enviado para aprovação da versão ${res.versionTag} no dia ${res.approvalDateStr}.`,
+      })
+
+      const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+      const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+      setVersionHistoryList(vers)
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Envio para Aprovação Bloqueado',
+        description: err?.message || 'Falha ao submeter programação para aprovação.',
+      })
+    } finally {
+      setIsSendingApproval(false)
     }
   }
 
@@ -1936,12 +1977,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </Button>
 
             <Button
+              variant="outline"
               size="sm"
-              onClick={() => openTransitionModal('VALIDADO', 'Validado')}
+              onClick={() => setIsDraftsModalOpen(true)}
+              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs"
+            >
+              <FileText className="w-3 h-3 mr-1 text-amber-600" />
+              Consultar Rascunhos
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={handleSendForApproval}
+              disabled={isSendingApproval}
               className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
             >
               <Send className="w-3 h-3 mr-1" />
-              Enviar para Aprovação
+              {isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}
             </Button>
           </div>
         </div>
@@ -2290,6 +2342,57 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 >
                   S{selectedWeekNumber} ({weekRange.display})
                 </Badge>
+              </div>
+
+              {/* ITEM 3: Filtro Versão (V01, V02, ...) */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Versão:</span>
+                <select
+                  value={selectedVersionFilter}
+                  onChange={async (e) => {
+                    const val = e.target.value
+                    if (val === 'LATEST') {
+                      setSelectedVersionFilter('LATEST')
+                      loadLineData(selectedLineCode)
+                      return
+                    }
+                    const vNum = Number(val)
+                    setSelectedVersionFilter(vNum)
+                    setCurrentVersion(vNum)
+
+                    // Carrega snapshot correspondente em weekly_schedule_versions
+                    const targetRecord = versionHistoryList.find((v) => v.version_number === vNum)
+                    if (
+                      targetRecord &&
+                      targetRecord.new_schedule_data &&
+                      targetRecord.new_schedule_data.length > 0
+                    ) {
+                      setItems(targetRecord.new_schedule_data)
+                      setSavedBaselineItems(targetRecord.new_schedule_data)
+                      setCurrentWorkflowState(targetRecord.new_schedule_data[0]?.status || 'DRAFT')
+                      toast({
+                        title: `Versão V${String(vNum).padStart(2, '0')} Carregada`,
+                        description: `Criado em: ${targetRecord.created ? new Date(targetRecord.created).toLocaleString('pt-BR') : 'Hoje'} | Responsável: ${targetRecord.user_name}`,
+                      })
+                    }
+                  }}
+                  aria-label="Filtro Versão"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-mono font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="LATEST">Atual (V{String(currentVersion).padStart(2, '0')})</option>
+                  {Array.from(
+                    new Set([
+                      currentVersion,
+                      ...versionHistoryList.map((v) => v.version_number).filter(Boolean),
+                    ]),
+                  )
+                    .sort((a, b) => b - a)
+                    .map((vNum) => (
+                      <option key={vNum} value={vNum}>
+                        V{String(vNum).padStart(2, '0')}
+                      </option>
+                    ))}
+                </select>
               </div>
             </div>
 
@@ -2694,12 +2797,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </Button>
 
           <Button
+            variant="outline"
             size="sm"
-            onClick={() => openTransitionModal('VALIDADO', 'Validado')}
+            onClick={() => setIsDraftsModalOpen(true)}
+            className="h-7 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1 text-amber-600" />
+            Consultar Rascunhos
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleSendForApproval}
+            disabled={isSendingApproval}
             className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
           >
             <Send className="w-3.5 h-3.5 mr-1" />
-            Enviar para Aprovação
+            {isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}
           </Button>
         </div>
       </div>
@@ -2803,6 +2917,34 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         currentVersion={currentVersion}
         lineCode={selectedLineCode}
         onConfirm={handleConfirmWorkflowTransition}
+      />
+
+      {/* 12.1 MODAL DE CONSULTA DE RASCUNHOS (ITEM 4) */}
+      <DraftsConsultationModal
+        isOpen={isDraftsModalOpen}
+        onClose={() => setIsDraftsModalOpen(false)}
+        currentLineCode={selectedLineCode}
+        currentYear={selectedYear}
+        currentWeekNumber={selectedWeekNumber}
+        versions={versionHistoryList}
+        onOpenDraft={(verRec) => {
+          if (verRec.new_schedule_data && verRec.new_schedule_data.length > 0) {
+            setItems(verRec.new_schedule_data)
+            setSavedBaselineItems(verRec.new_schedule_data)
+            setCurrentVersion(verRec.version_number)
+            setSelectedVersionFilter(verRec.version_number)
+            setCurrentWorkflowState(verRec.new_schedule_data[0]?.status || 'DRAFT')
+            toast({
+              title: `Rascunho V${String(verRec.version_number).padStart(2, '0')} Carregado`,
+              description: `Programação aberta para edição (Semana ${verRec.week_number}/${verRec.year}).`,
+            })
+          }
+        }}
+        onDraftDeleted={async () => {
+          const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+          const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+          setVersionHistoryList(vers)
+        }}
       />
 
       {/* 13. MODAL DE AGUARDANDO OBSERVAÇÕES */}

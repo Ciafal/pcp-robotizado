@@ -108,49 +108,74 @@ export const scheduleVersioningService = {
     weekNumber: number,
   ): Promise<ScheduleVersionRecord[]> {
     try {
-      const records = await pb.collection('schedule_version_records').getFullList({
+      // Redirecionado para a coleção padrão weekly_schedule_versions
+      const records = await pb.collection('weekly_schedule_versions').getFullList({
         filter: `line_code = '${lineCode}' && year = ${year} && week_number = ${weekNumber}`,
         sort: '-version_number',
       })
       if (records && records.length > 0) {
         return records.map((r: any) => ({
           id: r.id,
-          version_code: r.version_code,
+          version_code: `VER-${r.line_code}-${r.year}-W${String(r.week_number).padStart(2, '0')}-V${String(r.version_number).padStart(2, '0')}`,
           schedule_code: r.schedule_code,
           line_code: r.line_code,
           year: r.year,
           week_number: r.week_number,
           version_number: r.version_number,
-          version_tag: r.version_tag || VersioningEngine.formatVersionTag(r.version_number),
-          previous_version_tag: r.previous_version_tag,
-          previous_version_code: r.previous_version_code,
-          status: r.status,
-          is_current_published: r.is_current_published || false,
-          relevance_level: r.relevance_level || 'BAIXA',
+          version_tag: VersioningEngine.formatVersionTag(r.version_number),
+          previous_version_tag:
+            r.version_number > 1
+              ? VersioningEngine.formatVersionTag(r.version_number - 1)
+              : undefined,
+          status: 'PUBLICADO',
+          is_current_published: true,
+          relevance_level: 'MEDIA',
           change_reason: r.change_reason,
-          change_notes: r.change_notes,
+          change_notes: r.impact_assessment,
           user_id: r.user_id,
           user_name: r.user_name,
           user_email: r.user_email,
-          snapshot_data: r.snapshot_data || [],
-          diff_payload: r.diff_payload || [],
-          impact_summary: r.impact_summary,
-          governing_parameters_snapshot: r.governing_parameters_snapshot,
-          ai_score: r.ai_score,
-          ai_explanation: r.ai_explanation,
-          mes_dispatched: r.mes_dispatched || false,
-          mes_dispatched_at: r.mes_dispatched_at,
-          mes_ack_status: r.mes_ack_status || 'NAO_LIDO',
-          crm_dispatched: r.crm_dispatched || false,
-          crm_dispatched_at: r.crm_dispatched_at,
-          tms_dispatched: r.tms_dispatched || false,
-          sap_dispatched: r.sap_dispatched || false,
+          snapshot_data: r.new_schedule_data || [],
+          diff_payload: r.diff_summary ? [r.diff_summary] : [],
+          impact_summary: {
+            production: {
+              itemsChangedCount: 0,
+              itemsAddedCount: 0,
+              itemsRemovedCount: 0,
+              netTonsDiff: 0,
+              setupDiffMinutes: 0,
+              summary: 'Versão importada de weekly_schedule_versions',
+            },
+            mes: { willNotify: false, lineCode: r.line_code, summary: 'OK' },
+            crm: {
+              affectedOrdersCount: 0,
+              affectedCustomersCount: 0,
+              customersList: [],
+              summary: 'OK',
+              willNotify: false,
+            },
+            tms: { affectedCount: 0, needsRecalculation: false, summary: 'OK' },
+            sap: {
+              existingOpAffectedCount: 0,
+              opNumbers: [],
+              summary: 'OK',
+              requiresHandling: false,
+            },
+            overallRelevance: 'MEDIA',
+            relevanceReasons: ['Carregado de histórico'],
+          },
+          ai_score: 90,
+          mes_dispatched: true,
+          mes_ack_status: 'NAO_LIDO',
+          crm_dispatched: false,
+          tms_dispatched: false,
+          sap_dispatched: false,
           created: r.created,
           updated: r.updated,
         }))
       }
     } catch (err) {
-      console.warn('Erro ao carregar histórico de versões de schedule_version_records:', err)
+      console.warn('Erro ao carregar histórico de versões de weekly_schedule_versions:', err)
     }
     return []
   },
@@ -160,36 +185,61 @@ export const scheduleVersioningService = {
    */
   async getAllVersions(): Promise<ScheduleVersionRecord[]> {
     try {
-      const records = await pb.collection('schedule_version_records').getFullList({
+      // Redirecionado para weekly_schedule_versions
+      const records = await pb.collection('weekly_schedule_versions').getFullList({
         sort: '-created',
       })
       return records.map((r: any) => ({
         id: r.id,
-        version_code: r.version_code,
+        version_code: `VER-${r.line_code}-${r.year}-W${String(r.week_number).padStart(2, '0')}-V${String(r.version_number).padStart(2, '0')}`,
         schedule_code: r.schedule_code,
         line_code: r.line_code,
         year: r.year,
         week_number: r.week_number,
         version_number: r.version_number,
-        version_tag: r.version_tag || VersioningEngine.formatVersionTag(r.version_number),
-        previous_version_tag: r.previous_version_tag,
-        previous_version_code: r.previous_version_code,
-        status: r.status,
-        is_current_published: r.is_current_published || false,
-        relevance_level: r.relevance_level || 'BAIXA',
+        version_tag: VersioningEngine.formatVersionTag(r.version_number),
+        status: 'PUBLICADO',
+        is_current_published: true,
+        relevance_level: 'MEDIA',
         change_reason: r.change_reason,
-        change_notes: r.change_notes,
+        change_notes: r.impact_assessment,
         user_name: r.user_name,
         user_email: r.user_email,
-        snapshot_data: r.snapshot_data || [],
-        diff_payload: r.diff_payload || [],
-        impact_summary: r.impact_summary,
-        ai_score: r.ai_score,
-        mes_dispatched: r.mes_dispatched || false,
-        mes_ack_status: r.mes_ack_status || 'NAO_LIDO',
-        crm_dispatched: r.crm_dispatched || false,
-        tms_dispatched: r.tms_dispatched || false,
-        sap_dispatched: r.sap_dispatched || false,
+        snapshot_data: r.new_schedule_data || [],
+        diff_payload: [],
+        impact_summary: {
+          production: {
+            itemsChangedCount: 0,
+            itemsAddedCount: 0,
+            itemsRemovedCount: 0,
+            netTonsDiff: 0,
+            setupDiffMinutes: 0,
+            summary: 'Histórico consolidado',
+          },
+          mes: { willNotify: false, lineCode: r.line_code, summary: 'OK' },
+          crm: {
+            affectedOrdersCount: 0,
+            affectedCustomersCount: 0,
+            customersList: [],
+            summary: 'OK',
+            willNotify: false,
+          },
+          tms: { affectedCount: 0, needsRecalculation: false, summary: 'OK' },
+          sap: {
+            existingOpAffectedCount: 0,
+            opNumbers: [],
+            summary: 'OK',
+            requiresHandling: false,
+          },
+          overallRelevance: 'MEDIA',
+          relevanceReasons: ['Histórico'],
+        },
+        ai_score: 90,
+        mes_dispatched: false,
+        mes_ack_status: 'NAO_LIDO',
+        crm_dispatched: false,
+        tms_dispatched: false,
+        sap_dispatched: false,
         created: r.created,
       }))
     } catch (err) {
@@ -271,21 +321,7 @@ export const scheduleVersioningService = {
       sequence_order: idx + 1,
     }))
 
-    // 2. Desmarcar is_current_published de versões antigas
-    try {
-      const activeOld = await pb.collection('schedule_version_records').getFullList({
-        filter: `line_code = '${params.filter.lineCode}' && year = ${params.filter.year} && week_number = ${params.filter.weekNumber} && is_current_published = true`,
-      })
-      for (const oldRec of activeOld) {
-        await pb
-          .collection('schedule_version_records')
-          .update(oldRec.id, { is_current_published: false })
-      }
-    } catch {
-      /* ignore */
-    }
-
-    // 3. Gravar Snapshot Completo na Coleção schedule_version_records
+    // 2 e 3. Gravar Snapshot Completo na Coleção weekly_schedule_versions (redirecionado de schedule_version_records)
     const nowIso = new Date().toISOString()
     const currentEnv = integrationEventService.getActiveEnvironment()
     const sharedEventId = integrationEventService.formatEventId(
@@ -297,46 +333,35 @@ export const scheduleVersioningService = {
     )
 
     const versionRecordPayload: any = {
-      event_id: sharedEventId,
-      version_code: newVersionCode,
       schedule_code: `WS-${params.filter.lineCode}-${params.filter.year}-W${String(params.filter.weekNumber).padStart(2, '0')}`,
       line_code: params.filter.lineCode,
       year: params.filter.year,
       week_number: params.filter.weekNumber,
       version_number: nextVersionNum,
-      version_tag: newVersionTag,
-      previous_version_tag: prevVersionTag || '',
-      previous_version_code: prevVersionCode || '',
-      status: 'PUBLICADO',
-      is_current_published: true,
-      relevance_level: impact.overallRelevance,
-      change_reason: params.changeReason,
-      change_notes: params.changeNotes || '',
       user_id: user?.id || '',
       user_name: user ? user.name || user.email : 'Programador PCP',
       user_email: user?.email || 'ciafal@ciafal.com.br',
-      snapshot_data: updatedItems,
-      diff_payload: diffs,
-      impact_summary: impact,
-      governing_parameters_snapshot: params.governingParameters || {},
-      ai_score: 94,
-      ai_explanation: `Versão ${newVersionTag} gerada com ${diffs.length} alterações classificadas como ${impact.overallRelevance} relevância.`,
-      mes_dispatched: true, // TODA alteração gera MES
-      mes_dispatched_at: nowIso,
-      mes_ack_status: 'NAO_LIDO',
-      crm_dispatched: impact.crm.willNotify,
-      crm_dispatched_at: impact.crm.willNotify ? nowIso : '',
-      tms_dispatched: impact.tms.needsRecalculation,
-      sap_dispatched: impact.sap.requiresHandling,
+      change_reason:
+        typeof params.changeReason === 'string'
+          ? params.changeReason
+          : (params.changeReason as any)?.title || 'Publicação de nova versão',
+      impact_assessment: `Versão ${newVersionTag} publicada com ${diffs.length} alterações (${impact.overallRelevance} relevância).`,
+      previous_schedule_data: params.previousItems,
+      new_schedule_data: updatedItems,
+      diff_summary: {
+        diffsCount: diffs.length,
+        overallRelevance: impact.overallRelevance,
+        diffDetails: diffs,
+      },
     }
 
     let createdVersionRec: any
     try {
       createdVersionRec = await pb
-        .collection('schedule_version_records')
+        .collection('weekly_schedule_versions')
         .create(versionRecordPayload)
     } catch (err) {
-      console.error('Erro ao gravar schedule_version_records:', err)
+      console.error('Erro ao gravar weekly_schedule_versions:', err)
       throw err
     }
 
