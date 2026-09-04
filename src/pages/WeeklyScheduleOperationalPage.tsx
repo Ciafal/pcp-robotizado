@@ -166,11 +166,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false)
   const [draftToDelete, setDraftToDelete] = useState<WeeklyScheduleVersionRecord | null>(null)
 
-  // Modo de visualização da grade operacional: "Semana | Mês | Linha do Tempo | Oficina de Cilindros"
+  // Modo de visualização da grade operacional: "Dia | Semana | Mês | Linha do Tempo | Oficina de Cilindros"
   const isInitialMonthly = location.pathname.includes('programacao-mensal')
   const isInitialRollShop = location.pathname.includes('oficina-cilindros')
   const [scheduleViewType, setScheduleViewType] = useState<
-    'SEMANA' | 'MES' | 'TIMELINE' | 'OFICINA_CILINDROS'
+    'DIA' | 'SEMANA' | 'MES' | 'TIMELINE' | 'OFICINA_CILINDROS'
   >(isInitialRollShop ? 'OFICINA_CILINDROS' : isInitialMonthly ? 'MES' : 'SEMANA')
 
   // Sincroniza se a rota mudar dinamicamente
@@ -181,6 +181,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       setScheduleViewType('MES')
     }
   }, [location.pathname])
+
+  // Estado do Dia Focalizado na visão DIA ('SEG'..'DOM')
+  const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<
+    'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+  >('SEG')
   const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
   const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
   const [monthlyFilterShift, setMonthlyFilterShift] = useState<string>('ALL')
@@ -779,6 +784,118 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return monthlyWeeksGrid[0]?.days[0] || null
   }, [monthlyWeeksGrid, selectedMonthDateIso])
 
+  // -------------------------------------------------------------
+  // VISÃO DIA — Mesma Coleção/Base, Filtrada por Dia Focalizado
+  // -------------------------------------------------------------
+  const dayOffsetMap: Record<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM', number> =
+    useMemo(
+      () => ({
+        SEG: 0,
+        TER: 1,
+        QUA: 2,
+        QUI: 3,
+        SEX: 4,
+        SAB: 5,
+        DOM: 6,
+      }),
+      [],
+    )
+
+  const dayLabelMap: Record<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM', string> =
+    useMemo(
+      () => ({
+        SEG: 'Segunda-feira',
+        TER: 'Terça-feira',
+        QUA: 'Quarta-feira',
+        QUI: 'Quinta-feira',
+        SEX: 'Sexta-feira',
+        SAB: 'Sábado',
+        DOM: 'Domingo',
+      }),
+      [],
+    )
+
+  const activeDayDate = useMemo(() => {
+    const d = new Date(weekRange.startDate)
+    d.setDate(weekRange.startDate.getDate() + (dayOffsetMap[selectedDayOfWeek] ?? 0))
+    return d
+  }, [weekRange.startDate, selectedDayOfWeek, dayOffsetMap])
+
+  const activeDayDateStr = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${pad(activeDayDate.getDate())}/${pad(activeDayDate.getMonth() + 1)}/${activeDayDate.getFullYear()}`
+  }, [activeDayDate])
+
+  const dailyHeaderTitle = useMemo(() => {
+    return `DIA — ${dayLabelMap[selectedDayOfWeek]}, ${activeDayDateStr}`
+  }, [dayLabelMap, selectedDayOfWeek, activeDayDateStr])
+
+  // Grade do modo DIA = calculatedItems filtrado por item.day_of_week === selectedDayOfWeek
+  const dailyCalculatedItems = useMemo(() => {
+    return calculatedItems.filter((it) => it.day_of_week === selectedDayOfWeek)
+  }, [calculatedItems, selectedDayOfWeek])
+
+  // Resumo compacto do dia (usando indicadores existentes filtrados pelo dia)
+  const dailySummary = useMemo(() => {
+    const prods = dailyCalculatedItems.filter((it) => it.item_type === 'PRODUCTION')
+    const stops = dailyCalculatedItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
+    const totalTons = prods.reduce((acc, it) => acc + (it.planned_quantity_tons || 0), 0)
+    const totalProdHours = prods.reduce((acc, it) => acc + (it.production_hours || 0), 0)
+    const totalSetupMinutes = prods.reduce((acc, it) => acc + (it.setup_duration_minutes || 0), 0)
+    const totalStopMinutes = stops.reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
+    const setupHours = Number((totalSetupMinutes / 60).toFixed(2))
+    const stopHours = Number((totalStopMinutes / 60).toFixed(2))
+    const totalShiftCapacityHours = 24.0 // 3 turnos nominais
+    const freeHours = Math.max(
+      0,
+      Number((totalShiftCapacityHours - (totalProdHours + setupHours + stopHours)).toFixed(2)),
+    )
+
+    return {
+      dateFormatted: activeDayDateStr,
+      lineCode: selectedLineCode,
+      shiftName: targetShiftName,
+      crewName: targetCrewName,
+      plannedHours: Number(totalProdHours.toFixed(2)),
+      setupHours,
+      stopHours,
+      freeHours,
+      totalTons: Number(totalTons.toFixed(1)),
+      itemCount: prods.length,
+      stopCount: stops.length,
+    }
+  }, [dailyCalculatedItems, activeDayDateStr, selectedLineCode, targetShiftName, targetCrewName])
+
+  // Navegação de Dia Anterior / Dia Seguinte cruzando a semana
+  const daySequence: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = useMemo(
+    () => ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'],
+    [],
+  )
+
+  const handlePrevDay = () => {
+    const currIdx = daySequence.indexOf(selectedDayOfWeek)
+    if (currIdx > 0) {
+      setSelectedDayOfWeek(daySequence[currIdx - 1])
+    } else {
+      // Vira para a semana anterior no Domingo
+      const prevWeek = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
+      setSelectedWeekNumber(prevWeek)
+      setSelectedDayOfWeek('DOM')
+    }
+  }
+
+  const handleNextDay = () => {
+    const currIdx = daySequence.indexOf(selectedDayOfWeek)
+    if (currIdx < daySequence.length - 1) {
+      setSelectedDayOfWeek(daySequence[currIdx + 1])
+    } else {
+      // Vira para a semana seguinte na Segunda
+      const nextWeek = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
+      setSelectedWeekNumber(nextWeek)
+      setSelectedDayOfWeek('SEG')
+    }
+  }
+
   // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
   const handleAddProduct = (newItemData: Partial<WeeklyScheduleItem>) => {
     if (!newItemData.material_code) return
@@ -926,12 +1043,40 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
+  // Regra de bloqueio temporal no passado para visão DIA
+  const isItemInPast = (item: WeeklyScheduleItem): boolean => {
+    if (!item.start_datetime && !item.end_datetime) return false
+    const now = new Date()
+    const checkDate = item.end_datetime || item.start_datetime
+    if (!checkDate) return false
+    // Formato padrão "YYYY-MM-DD HH:mm" ou ISO
+    const parsed = new Date(checkDate.replace(' ', 'T'))
+    if (isNaN(parsed.getTime())) return false
+    return parsed.getTime() < now.getTime()
+  }
+
   const handleOpenEditItem = (item: WeeklyScheduleItem) => {
+    if (scheduleViewType === 'DIA' && isItemInPast(item)) {
+      toast({
+        title: 'Edição Bloqueada',
+        description: 'Não é permitido editar programação com data/hora do passado.',
+        variant: 'destructive',
+      })
+      return
+    }
     setEditingItem(item)
     setIsEditModalOpen(true)
   }
 
   const handleSaveEditedItem = async (updatedItem: WeeklyScheduleItem) => {
+    if (scheduleViewType === 'DIA' && isItemInPast(updatedItem)) {
+      toast({
+        title: 'Edição Bloqueada',
+        description: 'Não é permitido editar programação com data/hora do passado.',
+        variant: 'destructive',
+      })
+      return
+    }
     // Validação de Conflito de Horário
     const startStr = updatedItem.start_datetime
       ? updatedItem.start_datetime.split(' ')[1] || '06:00'
@@ -1872,6 +2017,105 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </Button>
           </div>
         </div>
+      ) : scheduleViewType === 'DIA' ? (
+        /* CABEÇALHO DO MODO DIA (ESPECIFICAÇÃO DIA) */
+        <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div>
+            {/* Linha 1: Título Oficial do Modo Dia */}
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
+                {dailyHeaderTitle}
+              </h1>
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-black uppercase px-2 py-0.5">
+                RASCUNHO
+              </Badge>
+              <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] font-bold uppercase px-2 py-0.5">
+                VISÃO DIÁRIA
+              </Badge>
+            </div>
+
+            {/* Linha 2 Compacta do Modo Dia */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1 text-[11px] text-slate-600 font-medium">
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Linha:</strong> {selectedLineCode} -{' '}
+                {currentLineOverview?.line.name || 'Linha Operacional'}
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Dia:</strong> {selectedDayOfWeek} (
+                {dailySummary.dateFormatted})
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Turno Ativo:</strong> {targetShiftName} (
+                {targetCrewName})
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1 font-mono font-bold text-[#004C97]">
+                <strong className="text-slate-800">Versão:</strong> V
+                {String(currentVersion).padStart(2, '0')}
+              </span>
+              <span className="text-slate-300">•</span>
+              <span className="flex items-center gap-1">
+                <strong className="text-slate-800">Semana Ref.:</strong> W{selectedWeekNumber}
+              </span>
+            </div>
+          </div>
+
+          {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
+          <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunSimulation}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+            >
+              <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
+              <span>Simular</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAiAnalysis}
+              className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
+              <span>Analisar com IA</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+            >
+              <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
+              <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDraftsModalOpen(true)}
+              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
+            >
+              <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
+              <span>Consultar Rascunhos</span>
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={handleSendForApproval}
+              disabled={isSendingApproval}
+              className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
+            >
+              <Send className="w-3 h-3 mr-1 shrink-0" />
+              <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
+            </Button>
+          </div>
+        </div>
       ) : (
         /* CABEÇALHO SEMANAL (BASELINE INTACTO) */
         <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
@@ -1944,25 +2188,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </div>
 
           {/* BOTÕES SUPERIORES À DIREITA NA MESMA LINHA (REQUISITO 3) */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 justify-end w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRunSimulation}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
             >
-              <Play className="w-3 h-3 mr-1 text-slate-600" />
-              Simular
+              <Play className="w-3 h-3 mr-1 text-slate-600 shrink-0" />
+              <span>Simular</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
               onClick={handleAiAnalysis}
-              className="h-7 px-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs"
+              className="h-7 px-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-2xs inline-flex items-center justify-center"
             >
-              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-              Analisar com IA
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600 shrink-0" />
+              <span>Analisar com IA</span>
             </Button>
 
             <Button
@@ -1970,30 +2214,30 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               size="sm"
               onClick={handleSaveDraft}
               disabled={isSaving}
-              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
+              className="h-7 px-2.5 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
             >
-              <Save className="w-3 h-3 mr-1 text-slate-500" />
-              {isSaving ? 'Salvando...' : 'Salvar Rascunho'}
+              <Save className="w-3 h-3 mr-1 text-slate-500 shrink-0" />
+              <span>{isSaving ? 'Salvando...' : 'Salvar Rascunho'}</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsDraftsModalOpen(true)}
-              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs"
+              className="h-7 px-2.5 text-xs font-semibold border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs inline-flex items-center justify-center"
             >
-              <FileText className="w-3 h-3 mr-1 text-amber-600" />
-              Consultar Rascunhos
+              <FileText className="w-3 h-3 mr-1 text-amber-600 shrink-0" />
+              <span>Consultar Rascunhos</span>
             </Button>
 
             <Button
               size="sm"
               onClick={handleSendForApproval}
               disabled={isSendingApproval}
-              className="h-7 px-3 text-xs font-bold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs"
+              className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
             >
-              <Send className="w-3 h-3 mr-1" />
-              {isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}
+              <Send className="w-3 h-3 mr-1 shrink-0" />
+              <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
             </Button>
           </div>
         </div>
@@ -2333,6 +2577,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 </select>
               </div>
 
+              {/* Seletor do Dia Focalizado (quando em modo DIA) */}
+              {scheduleViewType === 'DIA' && (
+                <div className="flex items-center gap-1 bg-blue-50/70 border border-blue-200 px-1 py-0.5 rounded">
+                  <span className="text-[11px] font-bold text-[#004C97]">Dia Focalizado:</span>
+                  <select
+                    value={selectedDayOfWeek}
+                    onChange={(e) =>
+                      setSelectedDayOfWeek(
+                        e.target.value as 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
+                      )
+                    }
+                    aria-label="Dia Focalizado"
+                    className="text-xs bg-white border border-blue-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                  >
+                    <option value="SEG">Segunda (SEG)</option>
+                    <option value="TER">Terça (TER)</option>
+                    <option value="QUA">Quarta (QUA)</option>
+                    <option value="QUI">Quinta (QUI)</option>
+                    <option value="SEX">Sexta (SEX)</option>
+                    <option value="SAB">Sábado (SAB)</option>
+                    <option value="DOM">Domingo (DOM)</option>
+                  </select>
+                </div>
+              )}
+
               {/* Período */}
               <div className="flex items-center gap-1">
                 <span className="text-[11px] font-bold text-slate-600">Período:</span>
@@ -2477,17 +2746,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </div>
         )}
 
-        {/* Centro / Direita: Navegação e Seletor Permanente "Semana | Mês | Linha do Tempo" (REQUISITO 1) */}
+        {/* Centro / Direita: Navegação e Seletor Permanente "Dia | Semana | Mês | Linha do Tempo | Oficina de Cilindros" */}
         <div className="flex items-center gap-2">
           {scheduleViewType !== 'MES' && (
             <div className="flex items-center gap-1 border-r border-slate-200 pr-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const prev = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
-                  setSelectedWeekNumber(prev)
-                }}
+                onClick={handlePrevDay}
                 className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
               >
                 <ChevronLeft className="w-3 h-3 mr-0.5" /> Dia Anterior
@@ -2495,10 +2761,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const next = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
-                  setSelectedWeekNumber(next)
-                }}
+                onClick={handleNextDay}
                 className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"
               >
                 Dia Seguinte <ChevronRight className="w-3 h-3 ml-0.5" />
@@ -2506,8 +2769,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             </div>
           )}
 
-          {/* SELETOR DE VISÃO PERMANENTE: "Semana | Mês | Linha do Tempo" (REQUISITO 1) */}
+          {/* SELETOR DE VISÃO PERMANENTE: "Dia | Semana | Mês | Linha do Tempo | Oficina de Cilindros" */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setScheduleViewType('DIA')}
+              className={`px-2.5 py-1 rounded transition-all ${
+                scheduleViewType === 'DIA'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Dia
+            </button>
             <button
               type="button"
               onClick={() => setScheduleViewType('SEMANA')}
@@ -2586,8 +2860,151 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. ÁREA CENTRAL: OFICINA DE CILINDROS, MENSAL OU SEMANAL */}
-      {scheduleViewType === 'OFICINA_CILINDROS' ? (
+      {/* 4. ÁREA CENTRAL: DIA, OFICINA DE CILINDROS, MENSAL OU SEMANAL */}
+      {scheduleViewType === 'DIA' ? (
+        /* VISÃO DIA: RESUMO COMPACTO DO DIA + GRADE OPERACIONAL DO DIA FOCALIZADO + PAINEL DO ITEM */
+        <div className="space-y-2.5">
+          {/* Faixa de Resumo Compacto do Dia (ESPECIFICAÇÃO DIA: Indicadores do Dia) */}
+          <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 md:gap-5">
+              <div className="flex items-center gap-1.5">
+                <CalendarDays className="w-4 h-4 text-[#004C97]" />
+                <span className="font-bold text-slate-800 text-[13px]">
+                  {dailySummary.dateFormatted} ({selectedDayOfWeek})
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Linha / Turno / Turma
+                </span>
+                <span className="font-semibold text-slate-800">
+                  {dailySummary.lineCode} • {dailySummary.shiftName} ({dailySummary.crewName})
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Horas Programadas
+                </span>
+                <span className="font-bold text-[#004C97] font-mono">
+                  {dailySummary.plannedHours}h
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">Setup / Troca</span>
+                <span className="font-bold text-amber-700 font-mono">
+                  {dailySummary.setupHours}h
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Paradas Programadas
+                </span>
+                <span className="font-bold text-slate-700 font-mono">
+                  {dailySummary.stopHours}h
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">Horas Livres</span>
+                <span className="font-bold text-emerald-700 font-mono">
+                  {dailySummary.freeHours}h
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">
+                  Qtd. Programada
+                </span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {dailySummary.totalTons} t ({dailySummary.itemCount} itens)
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setScheduleViewType('SEMANA')}
+                className="h-7 px-2.5 text-xs font-semibold border-blue-300 text-[#004C97] bg-blue-50/50 hover:bg-blue-100"
+              >
+                Voltar para Semana
+              </Button>
+            </div>
+          </div>
+
+          {/* Grade Operacional do Dia e Painel de Detalhe */}
+          <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
+            <div className="flex-1 min-w-0 w-full space-y-2.5">
+              {gridFormat === 'OPERATIONAL_TIMELINE' ? (
+                <OperationalTimelineGrid
+                  items={dailyCalculatedItems}
+                  lineOverview={currentLineOverview}
+                  selectedItemId={selectedScheduleItem?.id}
+                  onSelectItem={(item) => setSelectedScheduleItem(item)}
+                  onEditItem={handleOpenEditItem}
+                  onMoveItem={(from, to, targetOverrides) =>
+                    handleReorderItems(from, to, targetOverrides)
+                  }
+                  onDuplicateItem={handleDuplicate}
+                  onRemoveItem={handleRemove}
+                  onAddItem={(day, shift) => {
+                    setTargetDay(day)
+                    setTargetShiftCode(shift)
+                    setIsAddModalOpen(true)
+                  }}
+                  onOpenAwaitingModal={handleOpenAwaitingObsModal}
+                  onOpenSetupDetail={(item) => {
+                    setSelectedSetupItem(item)
+                    setIsSetupDetailModalOpen(true)
+                  }}
+                />
+              ) : (
+                <WeeklyScheduleGrid
+                  items={dailyCalculatedItems}
+                  lineOverview={currentLineOverview}
+                  selectedItemId={selectedScheduleItem?.id}
+                  onSelectItem={(item) => setSelectedScheduleItem(item)}
+                  onEditItem={handleOpenEditItem}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
+                  onDuplicate={handleDuplicate}
+                  onRemove={handleRemove}
+                  onOpenAddModal={(d, s) => {
+                    setTargetDay(d)
+                    setTargetShiftCode(s)
+                    setIsAddModalOpen(true)
+                  }}
+                  onMoveItem={(from, to) => handleReorderItems(from, to)}
+                  onTransferDayShift={handleTransferDayShift}
+                  onAddStop={handleAddStop}
+                  onOpenAwaitingObservationsModal={handleOpenAwaitingObsModal}
+                  filterOption={gridFilter}
+                  onFilterChange={setGridFilter}
+                />
+              )}
+            </div>
+
+            {/* Painel do Item Selecionado */}
+            <SelectedItemDetailPanel
+              item={selectedScheduleItem}
+              sequenceIndex={selectedIndex !== -1 ? selectedIndex + 1 : 1}
+              previousItem={previousItem}
+              nextItem={nextItem}
+              sequenceScore={sequenceScore}
+              onAiAnalyze={handleAiAnalysis}
+              onOpenSetupDetail={(item) => {
+                setSelectedSetupItem(item)
+                setIsSetupDetailModalOpen(true)
+              }}
+            />
+          </div>
+        </div>
+      ) : scheduleViewType === 'OFICINA_CILINDROS' ? (
         /* VISÃO INTEGRADA DA OFICINA DE CILINDROS (Requisitos 13, 14, 15, 16, 17, 18, 21) */
         <RollShopDemandsView
           lineCode={selectedLineCode}
