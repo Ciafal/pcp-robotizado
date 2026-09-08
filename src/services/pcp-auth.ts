@@ -81,10 +81,17 @@ export const authService = {
     if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN') {
       return [
         'pcp.schedule.view',
+        'pcp.schedule.create',
         'pcp.schedule.edit',
         'pcp.schedule.approve',
         'pcp.schedule.publish',
         'pcp.schedule.delete',
+        'pcp.schedule.simulate',
+        'pcp.schedule.override',
+        'pcp.weekly_schedule.view',
+        'pcp.weekly_schedule.edit',
+        'pcp.weekly_schedule.approve',
+        'pcp.schedule_changes.view',
         'pcp.masterdata.view',
         'pcp.masterdata.edit',
         'pcp.integrations.view',
@@ -128,7 +135,12 @@ export const authService = {
     if (roleUpper === 'PCP_PROGRAMMER') {
       return [
         'pcp.schedule.view',
+        'pcp.schedule.create',
         'pcp.schedule.edit',
+        'pcp.weekly_schedule.view',
+        'pcp.weekly_schedule.edit',
+        'pcp.weekly_schedule.approve',
+        'pcp.schedule_changes.view',
         'pcp.approval.view',
         'pcp.masterplan.view',
         'pcp.inventory.view',
@@ -165,6 +177,9 @@ export const authService = {
     if (roleUpper === 'LINE_MANAGER') {
       return [
         'pcp.schedule.view',
+        'pcp.weekly_schedule.view',
+        'pcp.weekly_schedule.approve',
+        'pcp.schedule_changes.view',
         'pcp.approval.view',
         'pcp.schedule.approve',
         'pcp.masterdata.view',

@@ -45,9 +45,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Se isLoading mas temos usuário já em cache/sessão ou se estourou timeout de segurança,
-  // prossegue para checar RBAC em vez de prender indefinidamente na tela de validação.
-  const showSpinner = (isLoading || isRetrying) && !timedOut && !user
+  // Se timedOut estourou ou temos usuário já identificado ou authStore ativa, NÃO exibe spinner bloqueante
+  const isAuthPresent = !!user || (pb.authStore.isValid && !!pb.authStore.record)
+  const showSpinner = (isLoading || isRetrying) && !timedOut && !isAuthPresent
 
   if (showSpinner) {
     return (

@@ -314,7 +314,35 @@ onRecordUpdateRequest((e) => {
     })
   }
 
-  // Registrar auditoria para alteração bem-sucedida
+  // 3. Validação segura ao inativar linha: checar se possui programações futuras
+  const origRecord = e.record.originalCopy()
+  const isOldActive = origRecord ? origRecord.getBool('is_active') : true
+  const isNewActive = e.record.getBool('is_active')
+
+  if (isOldActive && !isNewActive) {
+    try {
+      const futureSchedules = $app.findRecordsByFilter(
+        'weekly_schedules',
+        `line_code = '${targetLineCode}' && status != 'REALIZADO' && status != 'ANALISADO'`,
+        '',
+        500,
+        0,
+      )
+      if (futureSchedules.length > 0) {
+        return e.json(400, {
+          code: 'FUTURE_SCHEDULES_EXIST',
+          message: `Esta linha possui ${futureSchedules.length} itens programados em datas futuras. Revise/cancele essas programações antes de inativar a linha.`,
+          count: futureSchedules.length,
+        })
+      }
+    } catch (checkErr) {
+      if (checkErr && checkErr.code === 'FUTURE_SCHEDULES_EXIST') {
+        return e.json(400, checkErr)
+      }
+    }
+  }
+
+  // Registrar auditoria para alteração bem-sucedida (inclusive mudança de status ativa/inativa)
   try {
     const auditCol = $app.findCollectionByNameOrId('pcp_audit_logs')
     const log = new Record(auditCol)
@@ -322,14 +350,27 @@ onRecordUpdateRequest((e) => {
     log.set('user_email', authRecord.getString('email'))
     log.set('user_name', authRecord.getString('name') || authRecord.getString('email'))
     log.set('user_role', userRole)
-    log.set('event_type', 'SCHEDULE_ACTION')
-    log.set('action', 'UPDATE_LINE_CONFIG')
+    log.set('event_type', isOldActive !== isNewActive ? 'PERMISSION_CHANGED' : 'SCHEDULE_ACTION')
+    log.set(
+      'action',
+      isOldActive !== isNewActive
+        ? isNewActive
+          ? 'ACTIVATE_LINE'
+          : 'DEACTIVATE_LINE'
+        : 'UPDATE_LINE_CONFIG',
+    )
     log.set('resource', 'production_lines')
     log.set('resource_id', targetLineId)
     log.set('permission_required', 'pcp.masterdata.edit')
     log.set('scope', targetLineCode)
     log.set('outcome', 'SUCCESS')
-    log.set('details', { line_code: targetLineCode })
+    log.set('details', {
+      line_code: targetLineCode,
+      line_name: e.record.getString('name'),
+      status_anterior: isOldActive ? 'Ativa' : 'Inativa',
+      status_novo: isNewActive ? 'Ativa' : 'Inativa',
+      data_hora: new Date().toISOString(),
+    })
     $app.save(log)
   } catch (_) {}
 

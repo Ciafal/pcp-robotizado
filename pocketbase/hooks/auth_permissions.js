@@ -210,18 +210,64 @@ routerAdd(
           source: 'ROLE_ADMIN',
         }
       }
-    } else if (roleDetails) {
-      // Consultar matriz de permissões resolvida em memória a partir do catálogo
-      const permIds = catalog.rolePermsByRoleId[roleDetails.id] || []
-      for (const pId of permIds) {
-        const perm = catalog.allPermsById[pId]
-        if (perm && perm.key) {
-          permissionsMap[perm.key] = {
-            key: perm.key,
-            name: perm.name,
-            category: perm.category,
-            is_critical: perm.is_critical,
-            source: 'ROLE',
+    } else {
+      if (roleDetails) {
+        // Consultar matriz de permissões resolvida em memória a partir do catálogo
+        const permIds = catalog.rolePermsByRoleId[roleDetails.id] || []
+        for (const pId of permIds) {
+          const perm = catalog.allPermsById[pId]
+          if (perm && perm.key) {
+            permissionsMap[perm.key] = {
+              key: perm.key,
+              name: perm.name,
+              category: perm.category,
+              is_critical: perm.is_critical,
+              source: 'ROLE',
+            }
+          }
+        }
+      }
+
+      // Garantir permissões de visualização operacional base por papel (fallback de segurança)
+      const defaultRolePerms = {
+        PCP_PROGRAMMER: [
+          'pcp.schedule.view',
+          'pcp.weekly_schedule.view',
+          'pcp.schedule.edit',
+          'pcp.weekly_schedule.edit',
+          'pcp.approval.view',
+          'pcp.carteira.view',
+        ],
+        LINE_MANAGER: [
+          'pcp.schedule.view',
+          'pcp.weekly_schedule.view',
+          'pcp.schedule.approve',
+          'pcp.masterdata.view',
+          'pcp.quality.view',
+          'pcp.carteira.view',
+        ],
+        PRODUCTION_VIEWER: [
+          'pcp.schedule.view',
+          'pcp.weekly_schedule.view',
+          'pcp.quality.view',
+          'pcp.carteira.view',
+        ],
+        OPERATOR: [
+          'pcp.schedule.view',
+          'pcp.weekly_schedule.view',
+          'pcp.quality.view',
+          'pcp.carteira.view',
+        ],
+      }
+      const defaults = defaultRolePerms[userRoleCode] || ['pcp.schedule.view']
+      for (const dKey of defaults) {
+        if (!permissionsMap[dKey]) {
+          permissionsMap[dKey] = {
+            key: dKey,
+            name: dKey,
+            category: 'FALLBACK',
+            is_critical: false,
+            source: 'ROLE_DEFAULT',
           }
         }
       }

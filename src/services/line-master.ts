@@ -84,9 +84,47 @@ export const lineMasterService = {
   },
 
   async toggleLineActive(lineId: string, isActive: boolean): Promise<ProductionLine> {
+    const line = await this.getLineById(lineId)
+    if (!isActive) {
+      const count = await this.checkFutureSchedulesCount(line.code)
+      if (count > 0) {
+        throw new Error(
+          `Esta linha possui ${count} itens programados em datas futuras. Revise/cancele essas programações antes de inativar a linha.`,
+        )
+      }
+    }
+
     const updated = await pb.collection('production_lines').update<ProductionLine>(lineId, {
       is_active: isActive,
     })
+
+    // Registrar auditoria expressa
+    const currentUser = pb.authStore.record
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_ADMIN',
+        event_type: 'PERMISSION_CHANGED',
+        action: isActive ? 'ACTIVATE_LINE' : 'DEACTIVATE_LINE',
+        resource: 'production_lines',
+        resource_id: lineId,
+        permission_required: 'pcp.masterdata.edit',
+        scope: line.code,
+        outcome: 'SUCCESS',
+        details: {
+          line_code: line.code,
+          line_name: line.name,
+          status_anterior: line.is_active !== false ? 'Ativa' : 'Inativa',
+          status_novo: isActive ? 'Ativa' : 'Inativa',
+          data_hora: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Erro ao gravar log de auditoria ao alternar status da linha:', auditErr)
+    }
+
     return updated
   },
 

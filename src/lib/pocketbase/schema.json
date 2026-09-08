@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T16:43:31.137Z",
+  "generatedAt": "2026-09-08T17:07:56.924Z",
   "collections": [
     {
       "name": "users",
@@ -2997,6 +2997,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority_reason",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
