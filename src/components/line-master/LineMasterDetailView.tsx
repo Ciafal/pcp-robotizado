@@ -1346,16 +1346,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <Card
               onClick={() => setIsCompletenessModalOpen(true)}
-              className="bg-slate-950 border-slate-800 hover:border-cyan-500 transition-all cursor-pointer text-slate-100 group"
+              className="bg-white border-slate-200 hover:border-[#004C97] transition-all cursor-pointer text-slate-900 shadow-sm group flex flex-col justify-between"
               title="Clique para abrir o Painel de Completude da Ficha Mestre"
             >
               <CardHeader className="p-4 pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Completude da Ficha Mestre
                   </CardTitle>
-                  <span className="text-[10px] text-cyan-400 font-semibold group-hover:underline">
-                    Ver Painel &rarr;
+                  <span className="text-[10px] text-[#004C97] font-semibold group-hover:underline">
+                    Ver Pendências &rarr;
                   </span>
                 </div>
               </CardHeader>
@@ -1370,18 +1370,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   return (
                     <>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-lg font-black text-cyan-300 font-mono">{score}%</span>
-                        <Badge className="bg-slate-800 text-slate-200 text-[10px] font-semibold">
+                        <span className="text-lg font-black text-[#004C97] font-mono">
+                          {score}%
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-semibold"
+                        >
                           {status}
                         </Badge>
                       </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
                         <div
                           className={`h-full transition-all duration-300 ${
                             score >= 100
                               ? 'bg-emerald-500'
                               : score >= 80
-                                ? 'bg-cyan-500'
+                                ? 'bg-[#004C97]'
                                 : score >= 50
                                   ? 'bg-amber-500'
                                   : 'bg-rose-500'
@@ -1389,7 +1394,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                           style={{ width: `${score}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 block pt-1.5">
+                      <span className="text-[10px] text-slate-600 block pt-1.5">
                         {completenessResult
                           ? `${completenessResult.totalFulfilled} de ${completenessResult.totalApplicable} parâmetros preenchidos`
                           : 'Preenchimento: ' + score + '%'}
