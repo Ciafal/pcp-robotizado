@@ -39,32 +39,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const cached = getCachedPermissions()
   const initialValid = pb.authStore.isValid && cached !== null
 
-  const [user, setUser] = useState<UserProfile | null>(initialValid && cached ? cached.user : null)
-  const [isGlobal, setIsGlobal] = useState<boolean>(
-    initialValid && cached ? cached.is_global || cached.user.role === 'PCP_ADMIN' : false,
-  )
-  const [scopes, setScopes] = useState<AccessScope[]>(
-    initialValid && cached ? cached.scopes || [] : [],
-  )
-  const [delegations, setDelegations] = useState<Delegation[]>(
-    initialValid && cached ? cached.delegations || [] : [],
-  )
-  const [permissions, setPermissions] = useState<Permission[]>(
-    initialValid && cached ? cached.permissions || [] : [],
-  )
-  const [permissionKeys, setPermissionKeys] = useState<Set<string>>(
-    initialValid && cached ? new Set(cached.permission_keys || []) : new Set(),
-  )
-  const [isLoading, setIsLoading] = useState<boolean>(!initialValid)
+  // Inicialização inteligente com fallback resiliente síncrono para o usuário autenticado na authStore
+  const authRecord =
+    pb.authStore.isValid && pb.authStore.record
+      ? (pb.authStore.record as unknown as {
+          id: string
+          email: string
+          name?: string
+          role?: PCPUserRole
+        })
+      : null
+
+  const defaultUser: UserProfile | null =
+    cached?.user ||
+    (authRecord
+      ? {
+          id: authRecord.id,
+          email: authRecord.email,
+          name: authRecord.name || authRecord.email,
+          role: authRecord.role || 'PCP_ADMIN',
+        }
+      : null)
+
+  const defaultRole = defaultUser?.role || 'PCP_ADMIN'
+  const defaultIsGlobal = cached
+    ? cached.is_global || cached.user.role === 'PCP_ADMIN'
+    : defaultRole === 'PCP_ADMIN'
+  const defaultPermissionKeys = cached
+    ? new Set(cached.permission_keys || [])
+    : authRecord
+      ? new Set(authService.getPermissionsForRole(defaultRole))
+      : new Set<string>()
+
+  const [user, setUser] = useState<UserProfile | null>(defaultUser)
+  const [isGlobal, setIsGlobal] = useState<boolean>(defaultIsGlobal)
+  const [scopes, setScopes] = useState<AccessScope[]>(cached?.scopes || [])
+  const [delegations, setDelegations] = useState<Delegation[]>(cached?.delegations || [])
+  const [permissions, setPermissions] = useState<Permission[]>(cached?.permissions || [])
+  const [permissionKeys, setPermissionKeys] = useState<Set<string>>(defaultPermissionKeys)
+  // Se temos dados iniciais (cache ou authStore válida), NÃO bloqueia com spinner
+  const [isLoading, setIsLoading] = useState<boolean>(!defaultUser && !initialValid)
   const [activeScopeFilter, setActiveScopeFilter] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // Ref para consultar o usuário atual sem criar dependência reativa cíclica
+  const userRef = React.useRef<UserProfile | null>(defaultUser)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   const loadPermissions = useCallback(
     async (options?: { force?: boolean }) => {
       const force = options?.force ?? false
-      // Se não for forçado e já temos permissões carregadas, não exibe tela de loading bloqueante
-      // mas ainda revalida em segundo plano
-      const hasInitialState = !force && (getCachedPermissions() !== null || user !== null)
+      // Se não for forçado e já temos dados (cache, userRef ou authStore), stale-while-revalidate:
+      // NÃO exibe tela de loading bloqueante, resolve em segundo plano
+      const hasInitialState =
+        !force &&
+        (getCachedPermissions() !== null ||
+          userRef.current !== null ||
+          (pb.authStore.isValid && pb.authStore.record !== null))
+
       if (!hasInitialState) {
         setIsLoading(true)
       }
@@ -115,12 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: fallbackRole,
           })
           setIsGlobal(fallbackRole === 'PCP_ADMIN')
+          setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
         }
       } finally {
         setIsLoading(false)
       }
     },
-    [user],
+    [], // Sem dependência de user: callback estável previne desmontagens e loops do useEffect
   )
 
   useEffect(() => {
