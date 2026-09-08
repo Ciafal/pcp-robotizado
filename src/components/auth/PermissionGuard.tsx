@@ -46,12 +46,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Verifica se temos usuário no contexto ou record na authStore do PocketBase
-  const isAuthPresent = Boolean(user || (pb?.authStore?.isValid && pb?.authStore?.record))
-
-  // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica no spinner
-  // Exibido se houver authError explícito ou se expirou o timeout sem nenhum usuário autenticado identificado
-  const hasAuthFailure = Boolean(authError || (timedOut && !isAuthPresent))
+  // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica preso no spinner.
+  // Quando timedOut for true, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
+  const hasAuthFailure = Boolean(authError || timedOut)
 
   if (hasAuthFailure) {
     return (
@@ -93,7 +90,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     )
   }
 
-  // Se timedOut estourou, NUNCA exibe spinner; se expirou timeout ou falhou e não há permissões prontas, exibe card de erro tratável
+  // Spinner somente enquanto isLoading ou isRetrying e NÃO timedOut
   const showSpinner = (isLoading || isRetrying) && !timedOut
 
   if (showSpinner) {
@@ -106,47 +103,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
         <p className="text-xs text-slate-500 font-mono">
           Sincronizando permissões do Active Directory / RBAC
         </p>
-      </div>
-    )
-  }
-
-  // Se timedOut ocorreu durante o carregamento/tentativa e ainda não temos dados consistentes, renderiza card de erro tratável
-  if (timedOut && (isLoading || isRetrying || authError)) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80">
-        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
-          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
-            <AlertTriangle className="w-7 h-7" />
-          </div>
-
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              Instabilidade na Validação de Acessos
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Não foi possível validar seus acessos. Tentar novamente.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2.5 justify-center pt-2">
-            <Button
-              variant="default"
-              onClick={handleRetry}
-              disabled={isRetrying}
-              className="gap-2 bg-[#004C97] hover:bg-[#003870] text-white shadow-sm font-semibold text-xs"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-              {isRetrying ? 'Tentando novamente...' : 'Tentar novamente'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/pcp/sequenciamento')}
-              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
-            </Button>
-          </div>
-        </div>
       </div>
     )
   }

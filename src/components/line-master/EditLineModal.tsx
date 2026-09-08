@@ -539,7 +539,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     onChange={(e) => setProgrammingType(e.target.value as ProgrammingType)}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
-                    {PROGRAMMING_TYPES.map((t) => (
+                    {PROGRAMMING_TYPES_CATALOG.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>
