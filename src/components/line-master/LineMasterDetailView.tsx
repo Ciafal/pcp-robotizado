@@ -15,6 +15,7 @@ import {
   Plus,
   RefreshCw,
   Server,
+  Settings2,
   ShieldAlert,
   ShieldCheck,
   Sliders,

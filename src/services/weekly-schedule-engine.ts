@@ -1243,7 +1243,8 @@ export const WeeklyScheduleEngine = {
     const sampleTypeToMatch = (options?.sampleType || '').trim().toUpperCase()
 
     // Regra aplicável: ativo !== false && bitola bate && (sampleType vazio ou bate) && vigência bate
-    const applicableAdjustmentRule = adjustmentRules.find((rule) => {
+    // Em caso de múltiplas regras que cobrem o período, priorizar a mais específica por valid_from mais recente (<= targetDateStr)
+    const matchingAdjustmentRules = adjustmentRules.filter((rule) => {
       if (rule.active === false) return false
       const bitolaMatches =
         (rule.material_code || '').trim().toUpperCase() === currentMaterialCode.trim().toUpperCase()
@@ -1259,6 +1260,15 @@ export const WeeklyScheduleEngine = {
       const untilOk = !rule.valid_until || rule.valid_until.slice(0, 10) >= targetDateStr
       return fromOk && untilOk
     })
+
+    const applicableAdjustmentRule =
+      matchingAdjustmentRules.length > 1
+        ? matchingAdjustmentRules.sort((a, b) => {
+            const fromA = a.valid_from ? a.valid_from.slice(0, 10) : '1970-01-01'
+            const fromB = b.valid_from ? b.valid_from.slice(0, 10) : '1970-01-01'
+            return fromB.localeCompare(fromA)
+          })[0]
+        : matchingAdjustmentRules[0]
 
     if (applicableAdjustmentRule) {
       tuningMin = Number(applicableAdjustmentRule.duration_minutes) || 0

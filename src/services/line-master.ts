@@ -743,8 +743,42 @@ export const lineMasterService = {
     }
   },
 
+  /**
+   * Validador puro em memória para bloqueio de sobreposição de vigência de Acertos.
+   * Utilizado internamente no saveAdjustmentRule/setAdjustmentRuleActive e exposto para testes unitários/QA.
+   */
+  checkAdjustmentRuleOverlap(
+    newRule: {
+      id?: string
+      valid_from?: string
+      valid_until?: string | null
+    },
+    existingRules: Array<{
+      id?: string
+      valid_from?: string
+      valid_until?: string | null
+      active?: boolean
+    }>,
+  ): boolean {
+    const newFrom = newRule.valid_from ? String(newRule.valid_from).slice(0, 10) : '1970-01-01'
+    const newUntil = newRule.valid_until ? String(newRule.valid_until).slice(0, 10) : '9999-12-31'
+
+    return existingRules.some((item) => {
+      if (item.active === false) return false
+      if (newRule.id && item.id === newRule.id) return false
+
+      const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
+      const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
+
+      // Sobreposição de intervalos fechados [start, end]: startA <= endB && endA >= startB
+      return newFrom <= itemUntil && newUntil >= itemFrom
+    })
+  },
+
   async saveAdjustmentRule(data: Partial<LineAdjustmentTimeRule>): Promise<LineAdjustmentTimeRule> {
-    invalidateCompletenessCache(data.line_id)
+    if (data.line_id) {
+      invalidateCompletenessCache(data.line_id)
+    }
     // 1. Validação de duração
     if (
       data.duration_minutes === undefined ||
@@ -781,16 +815,14 @@ export const lineMasterService = {
             filter: `line_id = '${lineId}' && active = true && material_code = '${matCode}' && sample_type = '${sampleType}'`,
           })
 
-        const hasOverlap = existing.some((item) => {
-          if (data.id && item.id === data.id) return false
-          const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
-          const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
-          const newFrom = validFromStr || '1970-01-01'
-          const newUntil = validUntilStr || '9999-12-31'
-
-          // Sobreposição: startA <= endB && endA >= startB
-          return newFrom <= itemUntil && newUntil >= itemFrom
-        })
+        const hasOverlap = this.checkAdjustmentRuleOverlap(
+          {
+            id: data.id,
+            valid_from: validFromStr,
+            valid_until: validUntilStr,
+          },
+          existing,
+        )
 
         if (hasOverlap) {
           throw new Error(
@@ -925,14 +957,14 @@ export const lineMasterService = {
           filter: `line_id = '${lineId}' && active = true && material_code = '${matCode}' && sample_type = '${sampleType}'`,
         })
 
-      const hasOverlap = existing.some((item) => {
-        if (item.id === id) return false
-        const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
-        const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
-        const newFrom = validFromStr || '1970-01-01'
-        const newUntil = validUntilStr || '9999-12-31'
-        return newFrom <= itemUntil && newUntil >= itemFrom
-      })
+      const hasOverlap = this.checkAdjustmentRuleOverlap(
+        {
+          id,
+          valid_from: validFromStr,
+          valid_until: validUntilStr,
+        },
+        existing,
+      )
 
       if (hasOverlap) {
         throw new Error(
@@ -948,6 +980,10 @@ export const lineMasterService = {
     const updated = await pb
       .collection('adjustment_time_rules')
       .update<LineAdjustmentTimeRule>(id, payload)
+
+    if (updated.line_id) {
+      invalidateCompletenessCache(updated.line_id)
+    }
 
     // Auditoria oficial em pcp_audit_logs
     const currentUser = pb.authStore.record

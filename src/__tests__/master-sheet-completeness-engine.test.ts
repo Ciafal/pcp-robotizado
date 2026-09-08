@@ -162,7 +162,7 @@ describe('Motor de Cálculo de Completude da Ficha Mestre (getMasterSheetComplet
     expect(pendency).toBeDefined()
     expect(pendency?.navigationTarget?.masterSubTab).toBe('ACERTOS')
     expect(pendency?.navigationTarget?.mainGroup).toBe('MASTERDATA')
-    expect(pendency?.missingMessage).toContain('Acertos não parametrizados')
+    expect(pendency?.missingMessage).toBe('Acertos não parametrizados.')
   })
 
   it('classifica status por faixa corretamente: Incompleta (0-49%), Em preenchimento (50-79%), Quase completa (80-99%)', () => {

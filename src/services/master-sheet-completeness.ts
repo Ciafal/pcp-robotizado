@@ -193,7 +193,7 @@ export function calculateCompletenessFromOverview(
       fulfilled: adjustmentRules.filter((r) => r.active !== false).length > 0,
       applicable: isLaminacao,
       valueDescription: `${adjustmentRules.filter((r) => r.active !== false).length} regra(s) de tempo de acerto ativa(s)`,
-      missingMessage: 'Acertos não parametrizados na Ficha Mestre',
+      missingMessage: 'Acertos não parametrizados.',
       navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'ACERTOS' },
     },
     {
