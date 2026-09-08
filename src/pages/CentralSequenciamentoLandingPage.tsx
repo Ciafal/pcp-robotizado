@@ -552,81 +552,119 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto text-slate-800">
-      {/* Header Principal da Central */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-4 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
+    <div className="space-y-6 max-w-[1600px] mx-auto text-slate-800 bg-slate-50 min-h-screen p-1 md:p-2">
+      {/* Header Principal da Central — Paleta CIAFAL Clara */}
+      <div className="bg-white border border-slate-200 p-4 md:p-5 rounded-xl shadow-sm space-y-3 text-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Badge className="bg-[#004C97] text-white border-blue-400/40 text-xs font-mono font-bold px-2.5 py-0.5">
+              <Badge className="bg-[#004C97] text-white border-blue-600/30 text-[11px] font-mono font-bold px-2 py-0.5">
                 HUB INDUSTRIAL CIAFAL
               </Badge>
               <Badge
                 variant="outline"
-                className="border-emerald-500/40 text-emerald-400 text-xs font-mono"
+                className="border-emerald-500/40 text-emerald-700 bg-emerald-50 text-[11px] font-mono"
               >
                 ● SAP ECC Online
               </Badge>
-              <Badge variant="outline" className="border-sky-500/40 text-sky-300 text-xs font-mono">
+              <Badge
+                variant="outline"
+                className="border-blue-200 text-[#004C97] bg-blue-50 text-[11px] font-mono"
+              >
                 {lines.length} Linhas Mapeadas
               </Badge>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
-              <Layers className="w-8 h-8 text-[#004C97]" />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-[#004C97]" />
               Central de Sequenciamento
             </h1>
-            <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
-              Ambiente unificado de governança, sequenciamento de ordens de produção, balanceamento
-              de capacidade, monitoramento em tempo real de gargalos e simulação com Inteligência
-              Artificial.
+            <p className="text-xs text-slate-600 truncate max-w-4xl">
+              Central de Sequenciamento — Gestão integrada de programação, capacidade, gargalos e
+              sequenciamento produtivo.
             </p>
           </div>
 
           {/* Atalho Rápido para Gantt */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center shrink-0">
             <Button
-              size="lg"
-              className="bg-[#004C97] hover:bg-[#003d7a] text-white font-bold gap-2 shadow-lg text-xs"
+              className="h-9 px-3 text-xs font-medium inline-flex items-center gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white rounded-md shadow-xs"
               asChild
             >
               <Link to="/pcp/sequenciamento/programacao">
-                <CalendarDays className="w-4 h-4" />
+                <CalendarDays className="w-3.5 h-3.5" />
                 Abrir Sequenciamento Fino (Gantt)
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </Button>
           </div>
         </div>
 
-        {/* KPIs Resumo */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-800/80 text-xs font-mono">
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Programado Total</span>
-            <span className="text-lg font-bold text-white">
-              {kpis.plannedTons.toLocaleString('pt-BR')} t
-            </span>
+        {/* Cards de KPIs (mesma altura min-h-[96px], grid responsivo, valor+unidade sem quebra) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 pt-3 border-t border-slate-100">
+          {/* 1. Programado Total */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Programado Total</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-slate-900">
+                {kpis.plannedTons.toLocaleString('pt-BR')}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">t</span>
+            </div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Realizado</span>
-            <span className="text-lg font-bold text-emerald-400">
-              {kpis.producedTons.toLocaleString('pt-BR')} t
-            </span>
+
+          {/* 2. Realizado */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Realizado</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-emerald-700">
+                {kpis.producedTons.toLocaleString('pt-BR')}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">t</span>
+            </div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Aderência Global</span>
-            <span className="text-lg font-bold text-[#3b82f6]">{kpis.adherencePct}%</span>
+
+          {/* 3. Aderência Global */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Aderência Global</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-[#004C97]">
+                {kpis.adherencePct}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">%</span>
+            </div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Ocupação Fabril</span>
-            <span className="text-lg font-bold text-indigo-400">{kpis.occupancyPct}%</span>
+
+          {/* 4. Ocupação Fabril */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Ocupação Fabril</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-indigo-700">
+                {kpis.occupancyPct}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">%</span>
+            </div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Vazão Total</span>
-            <span className="text-lg font-bold text-cyan-300">{kpis.totalRatePerHour} t/h</span>
+
+          {/* 5. Vazão Total */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Vazão Total</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-slate-900">
+                {kpis.totalRatePerHour}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">t/h</span>
+            </div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] block font-sans">Gargalos Ativos</span>
-            <span className="text-lg font-bold text-rose-400">{kpis.activeBottlenecks} pontos</span>
+
+          {/* 6. Gargalos Ativos */}
+          <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/80 h-full min-h-[96px] flex flex-col justify-between">
+            <span className="text-slate-500 text-[11px] font-medium block">Gargalos Ativos</span>
+            <div className="whitespace-nowrap inline-flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold font-mono text-rose-700">
+                {kpis.activeBottlenecks}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">pontos</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1048,36 +1086,34 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
             const IconComponent = area.icon
             return (
               <Link key={area.href} to={area.href} className="group block focus:outline-none">
-                <Card
-                  className={`h-full bg-gradient-to-br ${area.color} bg-slate-950/90 border transition-all duration-200 hover:scale-[1.01] hover:shadow-xl hover:border-[#004C97]/80 cursor-pointer flex flex-col justify-between`}
-                >
-                  <CardHeader className="p-5 pb-3">
+                <Card className="h-full bg-white border border-slate-200 transition-all duration-200 hover:border-[#004C97]/80 hover:shadow-md cursor-pointer flex flex-col justify-between">
+                  <CardHeader className="p-4 pb-2">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-center text-[#3b82f6] group-hover:bg-[#004C97] group-hover:text-white transition-colors shadow-inner">
-                        <IconComponent className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-[#004C97] group-hover:bg-[#004C97] group-hover:text-white transition-colors">
+                        <IconComponent className="w-4 h-4" />
                       </div>
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-mono bg-slate-900/80 border-slate-700 text-slate-300"
+                        className="text-[10px] font-mono bg-slate-50 border-slate-200 text-slate-600"
                       >
                         {area.badge}
                       </Badge>
                     </div>
 
-                    <CardTitle className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    <CardTitle className="text-sm font-bold text-slate-900 group-hover:text-[#004C97] transition-colors">
                       {area.title}
                     </CardTitle>
-                    <CardDescription className="text-xs text-slate-400 font-medium mt-0.5">
+                    <CardDescription className="text-xs text-slate-500 font-medium mt-0.5">
                       {area.subtitle}
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="p-5 pt-0 space-y-3">
-                    <p className="text-xs text-slate-300/90 leading-relaxed">{area.description}</p>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    <p className="text-xs text-slate-600 leading-relaxed">{area.description}</p>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-800/60 text-xs font-mono">
-                      <span className="text-emerald-400 font-semibold">{area.kpi}</span>
-                      <span className="text-cyan-400 flex items-center gap-1 font-sans font-semibold group-hover:translate-x-1 transition-transform text-[11px]">
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs font-mono">
+                      <span className="text-emerald-700 font-semibold text-[11px]">{area.kpi}</span>
+                      <span className="text-[#004C97] flex items-center gap-1 font-sans font-semibold group-hover:translate-x-0.5 transition-transform text-[11px]">
                         Acessar Área <ArrowRight className="w-3.5 h-3.5" />
                       </span>
                     </div>
