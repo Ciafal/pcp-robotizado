@@ -705,6 +705,7 @@ export interface CompletenessItem {
       | 'RAW_MATERIALS'
       | 'BLOCKED'
       | 'SETUP_MATRIX'
+      | 'ACERTOS'
       | 'IDEAL_GAUGE_SEQUENCE'
     anchorId?: string
   }

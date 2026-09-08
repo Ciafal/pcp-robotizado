@@ -133,19 +133,36 @@ describe('Motor de Cálculo de Completude da Ficha Mestre (getMasterSheetComplet
         ...baseOverview.master,
         programming_type: 'Padrão',
       } as any,
+      adjustmentRules: [], // Não usa Acertos
     }
 
-    // Mesmo com bottleneckMatrixCount = 0, para Tubos esse campo é N/A
+    // Mesmo com bottleneckMatrixCount = 0 e sem regras de acerto, para Tubos esses campos são N/A
     const result = calculateCompletenessFromOverview(tubosOverview, 0)
 
     expect(result.percentage).toBe(100)
     expect(result.status).toBe('Completa')
     expect(result.pendencies.length).toBe(0)
 
-    // O item de matriz de gargalo deve estar com applicable = false
+    // O item de matriz de gargalo e acertos devem estar com applicable = false
     const processItems = result.blocks.PROCESS.items
     const bottleneckItem = processItems.find((i) => i.id === 'proc_lamin_bottleneck_matrix')
     expect(bottleneckItem).toBeUndefined() // filtrado dos items aplicáveis
+    const adjustmentItem = processItems.find((i) => i.id === 'proc_adjustment')
+    expect(adjustmentItem).toBeUndefined() // filtrado dos items aplicáveis fora do denominador
+  })
+
+  it('valida requisito proc_adjustment para linhas de laminação com link para sub-aba ACERTOS', () => {
+    const laminacaoSemAcerto: LineOverviewData = {
+      ...baseOverview,
+      adjustmentRules: [], // Sem regras de acerto ativas
+    }
+
+    const result = calculateCompletenessFromOverview(laminacaoSemAcerto, 1)
+    const pendency = result.pendencies.find((p) => p.id === 'proc_adjustment')
+    expect(pendency).toBeDefined()
+    expect(pendency?.navigationTarget?.masterSubTab).toBe('ACERTOS')
+    expect(pendency?.navigationTarget?.mainGroup).toBe('MASTERDATA')
+    expect(pendency?.missingMessage).toContain('Acertos não parametrizados')
   })
 
   it('classifica status por faixa corretamente: Incompleta (0-49%), Em preenchimento (50-79%), Quase completa (80-99%)', () => {

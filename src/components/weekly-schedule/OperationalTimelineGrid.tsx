@@ -594,95 +594,128 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                               {/* Linhas verticais de fundo a cada hora */}
                               <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
 
-                              {/* BLOCO DE SETUP EXPLÍCITO (TROCA + ACERTO) (Requisitos 5, 6, 11, 12, 18, 28) */}
+                              {/* BLOCO DE SETUP EXPLÍCITO (TROCA E ACERTO SEPARADOS) */}
                               {hasSetupBefore && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      style={{
-                                        left: `${Math.max(0, timelinePos.leftPct - 7.5)}%`,
-                                        width: '7.2%',
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                      }}
-                                      className="absolute h-7 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-between px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors z-20 shadow-xs group/setup"
+                                <div
+                                  style={{
+                                    left: `${Math.max(0, timelinePos.leftPct - 9.0)}%`,
+                                    width: '8.8%',
+                                  }}
+                                  className="absolute h-7 flex items-center gap-1 z-20"
+                                >
+                                  {/* Bloco Troca (planned_change_minutes) */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                        }}
+                                        className="h-7 flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs"
+                                      >
+                                        <span className="truncate">
+                                          🔧 {item.setup_breakdown?.planned_change_minutes || 0}m
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs p-2.5 max-w-xs"
                                     >
-                                      <span className="flex items-center gap-0.5 text-[9px] text-slate-800 font-extrabold truncate">
-                                        🔧{' '}
-                                        {item.setup_breakdown?.planned_change_minutes ||
-                                          Math.round((item.setup_duration_minutes || 30) * 0.65)}
-                                        m
-                                      </span>
-                                      <span className="flex items-center gap-0.5 text-[9px] text-[#004C97] font-extrabold truncate">
-                                        ⚙{' '}
-                                        {item.setup_breakdown?.planned_tuning_minutes ||
-                                          Math.max(
-                                            5,
-                                            (item.setup_duration_minutes || 30) -
-                                              Math.round(
-                                                (item.setup_duration_minutes || 30) * 0.65,
-                                              ),
+                                      <div className="font-bold text-slate-100 flex items-center gap-1 mb-1">
+                                        🔧 Troca Mecânica / Setup DE→PARA
+                                      </div>
+                                      <p className="text-[11px] text-slate-300">
+                                        Tempo planejado:{' '}
+                                        <strong className="text-white">
+                                          {item.setup_breakdown?.planned_change_minutes || 0} min
+                                        </strong>
+                                      </p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">
+                                        Responsável:{' '}
+                                        {item.setup_breakdown?.responsible_area ===
+                                        'OFICINA_CILINDROS'
+                                          ? 'Oficina de Cilindros'
+                                          : 'Produção'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+
+                                  {/* Bloco Acerto (planned_tuning_minutes) */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                        }}
+                                        className={`h-7 flex-1 border rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs ${
+                                          item.tuning_unparametrized
+                                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
+                                            : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
+                                        }`}
+                                      >
+                                        <span className="truncate">
+                                          {item.tuning_unparametrized
+                                            ? '⚠️ N/P'
+                                            : `⚙ ${item.setup_breakdown?.planned_tuning_minutes || 0}m`}
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
+                                    >
+                                      <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1">
+                                        <span
+                                          className={`font-bold flex items-center gap-1 ${
+                                            item.tuning_unparametrized
+                                              ? 'text-amber-400'
+                                              : 'text-blue-300'
+                                          }`}
+                                        >
+                                          ⚙ ACERTO DE BITOLA
+                                        </span>
+                                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                                          {item.tuning_unparametrized
+                                            ? 'Alerta'
+                                            : `${item.setup_breakdown?.planned_tuning_minutes || 0} min`}
+                                        </span>
+                                      </div>
+                                      {item.tuning_unparametrized ? (
+                                        <div className="text-amber-300 text-[11px] space-y-1">
+                                          <p className="font-bold flex items-center gap-1">
+                                            ⚠️ Acerto não parametrizado
+                                          </p>
+                                          <p className="text-[10px] text-slate-300">
+                                            Não há regra de acerto vigente para a bitola{' '}
+                                            <strong>{item.material_code}</strong>
+                                            {item.sample_type ? ` (${item.sample_type})` : ''} na
+                                            Ficha Mestre Expandida.
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <div className="text-[11px] text-slate-300">
+                                          <p>
+                                            Tempo de Acerto:{' '}
+                                            <strong className="text-white">
+                                              {item.setup_breakdown?.planned_tuning_minutes || 0}{' '}
+                                              min
+                                            </strong>
+                                          </p>
+                                          {item.sample_type && (
+                                            <p className="text-[10px] text-slate-400 mt-0.5">
+                                              Tipo de Amostra:{' '}
+                                              <span className="text-slate-200">
+                                                {item.sample_type}
+                                              </span>
+                                            </p>
                                           )}
-                                        m
-                                      </span>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
-                                  >
-                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5">
-                                      <span className="font-bold text-amber-300 flex items-center gap-1">
-                                        🔧 SETUP EXPLÍCITO — LINHA {item.line_code}
-                                      </span>
-                                      <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
-                                        Total: {item.setup_duration_minutes} min
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-200">
-                                      De:{' '}
-                                      <strong className="text-slate-100">
-                                        {item.setup_breakdown?.from_material_code || 'Início'}
-                                      </strong>{' '}
-                                      &rarr; Para:{' '}
-                                      <strong className="text-blue-300">
-                                        {item.material_code}
-                                      </strong>
-                                    </p>
-                                    <p className="text-[11px] text-slate-300 mt-1">
-                                      • Troca Prevista:{' '}
-                                      <strong className="text-slate-100">
-                                        {item.setup_breakdown?.planned_change_minutes ||
-                                          Math.round(
-                                            (item.setup_duration_minutes || 30) * 0.65,
-                                          )}{' '}
-                                        min
-                                      </strong>{' '}
-                                      | Acerto Previsto:{' '}
-                                      <strong className="text-[#004C97]/40 text-blue-300">
-                                        {item.setup_breakdown?.planned_tuning_minutes ||
-                                          Math.max(
-                                            5,
-                                            (item.setup_duration_minutes || 30) -
-                                              Math.round(
-                                                (item.setup_duration_minutes || 30) * 0.65,
-                                              ),
-                                          )}{' '}
-                                        min
-                                      </strong>
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 mt-1">
-                                      Responsável:{' '}
-                                      {item.setup_breakdown?.responsible_area ===
-                                      'OFICINA_CILINDROS'
-                                        ? 'Oficina de Cilindros'
-                                        : 'Produção'}{' '}
-                                      • Clique para detalhamento SMED
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                        </div>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
                               )}
 
                               {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
@@ -721,6 +754,15 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
                                         {item.material_code}
                                       </span>
+
+                                      {item.tuning_unparametrized && (
+                                        <span
+                                          className="text-[9px] text-amber-900 bg-amber-200 border border-amber-300 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 whitespace-nowrap"
+                                          title="Acerto não parametrizado na Ficha Mestre"
+                                        >
+                                          ⚠ Acerto N/P
+                                        </span>
+                                      )}
 
                                       {item.dimensions && (
                                         <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
@@ -899,7 +941,15 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
             </div>
             <div className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-slate-200 border border-slate-400" />
-              <span>Setup/Troca (cinza)</span>
+              <span>Troca Setup (cinza)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300" />
+              <span>Acerto (azul)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded bg-amber-100 border border-amber-400" />
+              <span>Acerto N/P (amarelo)</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-orange-100 border border-orange-300" />

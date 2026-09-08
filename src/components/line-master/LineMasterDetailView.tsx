@@ -51,6 +51,7 @@ import { Can } from '@/components/auth/Can'
 import { lineMasterService } from '@/services/line-master'
 import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
 import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
+import { SetupAcertoMatrixPanel } from '@/components/line-master/SetupAcertoMatrixPanel'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
   MULTIPLE_PROGRAMMING_STAGES_CATALOG,
@@ -143,8 +144,26 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'RAW_MATERIALS'
     | 'BLOCKED'
     | 'SETUP_MATRIX'
+    | 'ACERTOS'
     | 'IDEAL_GAUGE_SEQUENCE'
   >('CAPACITY')
+
+  // Contagem de regras de acerto ativas
+  const [activeAdjustmentRulesCount, setActiveAdjustmentRulesCount] = useState<number>(0)
+
+  const loadAdjustmentRulesCount = React.useCallback(async () => {
+    try {
+      const rules = await lineMasterService.listAdjustmentRules(line.id)
+      const activeCount = rules.filter((r) => r.active !== false).length
+      setActiveAdjustmentRulesCount(activeCount)
+    } catch (err) {
+      console.warn('Erro ao carregar contagem de regras de acerto:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadAdjustmentRulesCount()
+  }, [loadAdjustmentRulesCount, overview])
 
   // Estado e persistência de Tipo de Programação da Linha / Ficha Mestre
   const [selectedProgType, setSelectedProgType] = useState<string>(
@@ -1663,16 +1682,29 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <Lock className="w-3.5 h-3.5" /> Produtos Bloqueados ({blockedProducts.length})
             </Button>
 
-            <Button
-              size="sm"
-              variant={masterSubTab === 'SETUP_MATRIX' ? 'default' : 'ghost'}
-              onClick={() => setMasterSubTab('SETUP_MATRIX')}
-              className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'SETUP_MATRIX' ? 'bg-[#004C97] text-white' : 'text-slate-400'
-              }`}
-            >
-              <Wrench className="w-3.5 h-3.5" /> Matriz de Setup De→Para ({setupMatrix.length})
-            </Button>
+            <div className="inline-flex items-center rounded-md p-0.5 bg-slate-900 border border-slate-800">
+              <Button
+                size="sm"
+                variant={masterSubTab === 'SETUP_MATRIX' ? 'default' : 'ghost'}
+                onClick={() => setMasterSubTab('SETUP_MATRIX')}
+                className={`text-xs h-7 gap-1 font-bold rounded-r-none ${
+                  masterSubTab === 'SETUP_MATRIX' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5" /> Matriz de Setup DE→PARA ({setupMatrix.length})
+              </Button>
+              <span className="text-slate-600 px-1 font-normal">|</span>
+              <Button
+                size="sm"
+                variant={masterSubTab === 'ACERTOS' ? 'default' : 'ghost'}
+                onClick={() => setMasterSubTab('ACERTOS')}
+                className={`text-xs h-7 gap-1 font-bold rounded-l-none ${
+                  masterSubTab === 'ACERTOS' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                }`}
+              >
+                <Settings2 className="w-3.5 h-3.5" /> Acertos ({activeAdjustmentRulesCount})
+              </Button>
+            </div>
 
             <Button
               size="sm"
@@ -2166,10 +2198,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <Wrench className="w-4 h-4 text-cyan-400" />
-                    Matriz De → Para de Trocas de Setup
+                    Matriz de Setup DE→PARA & Troca de Ferramental
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-400">
-                    Tempos de transição entre famílias, produtos e ferramentas de conformação.
+                    Tempos de transição padrão entre famílias de produtos e calibração de bitola.
                   </CardDescription>
                 </div>
                 <Button
@@ -2227,6 +2259,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
 
+          {/* Sub-aba: Acertos */}
+          {masterSubTab === 'ACERTOS' && (
+            <div className="rounded-lg bg-slate-950 border border-slate-800 p-3">
+              <SetupAcertoMatrixPanel
+                lineId={line.id}
+                lineCode={line.code}
+                lineName={line.name}
+                initialTab="ACERTO"
+                onRefresh={() => {
+                  loadAdjustmentRulesCount()
+                  onRefresh()
+                }}
+              />
+            </div>
+          )}
           {/* Sub-aba: Sequência Ideal de Bitolas */}
           {masterSubTab === 'IDEAL_GAUGE_SEQUENCE' && (
             <Card className="bg-slate-950 border-slate-800 text-slate-100">

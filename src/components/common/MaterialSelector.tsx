@@ -44,16 +44,23 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
   const [loading, setLoading] = useState(false)
   const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSapUnavailable, setIsSapUnavailable] = useState(false)
 
   useEffect(() => {
     let isMounted = true
     const loadMaterials = async () => {
       setLoading(true)
+      setIsSapUnavailable(false)
       try {
         const rawMaterials = await weeklyScheduleService.getOfficialMaterialsForLine(lineId || 'L1')
         if (!isMounted) return
 
-        const mapped: MaterialOption[] = rawMaterials.map((m: OfficialMaterialOption) => ({
+        if (!rawMaterials || rawMaterials.length === 0) {
+          // Sem materiais retornados
+          setIsSapUnavailable(false)
+        }
+
+        const mapped: MaterialOption[] = (rawMaterials || []).map((m: OfficialMaterialOption) => ({
           code: m.material_code,
           name: m.material_name || m.material_code,
           family: m.family_name || m.family_code || undefined,
@@ -63,7 +70,10 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
 
         setMaterials(mapped)
       } catch (err) {
-        console.error('Erro ao carregar catálogo de materiais para o seletor:', err)
+        console.warn('Erro ao carregar catálogo de materiais para o seletor:', err)
+        if (isMounted) {
+          setIsSapUnavailable(true)
+        }
       } finally {
         if (isMounted) setLoading(false)
       }
@@ -147,6 +157,10 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
               <div className="flex items-center justify-center p-6 text-xs text-slate-500 gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-[#004C97]" />
                 Carregando catálogo SAP...
+              </div>
+            ) : isSapUnavailable ? (
+              <div className="p-4 text-xs text-center text-amber-700 bg-amber-50">
+                SAP indisponível no momento.
               </div>
             ) : filteredMaterials.length === 0 ? (
               <CommandEmpty className="p-4 text-xs text-center text-slate-500">

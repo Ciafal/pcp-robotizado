@@ -57,6 +57,7 @@ export interface SetupAcertoMatrixPanelProps {
   lineId: string
   lineCode?: string
   lineName?: string
+  initialTab?: 'SETUP' | 'ACERTO'
   onRefresh?: () => void
   onOpenLineMaster?: () => void
 }
@@ -65,10 +66,11 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
   lineId,
   lineCode,
   lineName,
+  initialTab = 'ACERTO',
   onRefresh,
   onOpenLineMaster,
 }) => {
-  const [activeTab, setActiveTab] = useState<'SETUP' | 'ACERTO'>('SETUP')
+  const [activeTab, setActiveTab] = useState<'SETUP' | 'ACERTO'>(initialTab)
   const [loading, setLoading] = useState(false)
   const [setupList, setSetupList] = useState<LineSetupMatrix[]>([])
   const [acertoList, setAcertoList] = useState<LineAdjustmentTimeRule[]>([])
@@ -101,6 +103,10 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
   const [savingAcerto, setSavingAcerto] = useState(false)
   const [acertoModalError, setAcertoModalError] = useState<string | null>(null)
   const [editingAcertoId, setEditingAcertoId] = useState<string | null>(null)
+  const [acertoStatusConfirm, setAcertoStatusConfirm] = useState<{
+    item: LineAdjustmentTimeRule
+    action: 'INATIVAR' | 'ATIVAR'
+  } | null>(null)
   const [acertoForm, setAcertoForm] = useState({
     materialCode: '',
     materialDescription: '',
@@ -108,7 +114,15 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
     durationMinutes: '' as number | string,
     validFrom: new Date().toISOString().slice(0, 10),
     validUntil: '',
+    active: true,
   })
+
+  // Sincroniza initialTab se mudar externamente
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
 
   // Modal de Encerramento de Acerto
   const [closingAcertoItem, setClosingAcertoItem] = useState<LineAdjustmentTimeRule | null>(null)
@@ -307,6 +321,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
       durationMinutes: '',
       validFrom: new Date().toISOString().slice(0, 10),
       validUntil: '',
+      active: true,
     })
     setAcertoModalError(null)
     setIsAcertoModalOpen(true)
@@ -323,6 +338,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         ? item.valid_from.slice(0, 10)
         : new Date().toISOString().slice(0, 10),
       validUntil: item.valid_until ? item.valid_until.slice(0, 10) : '',
+      active: item.active !== false,
     })
     setAcertoModalError(null)
     setIsAcertoModalOpen(true)
@@ -364,13 +380,15 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         duration_minutes: durationNum,
         valid_from: acertoForm.validFrom,
         valid_until: acertoForm.validUntil || undefined,
-        active: true,
+        active: acertoForm.active,
       })
 
       setIsAcertoModalOpen(false)
       setFeedback({
         type: 'success',
-        message: 'Tempo de acerto cadastrado com sucesso.',
+        message: editingAcertoId
+          ? 'Tempo de acerto atualizado com sucesso.'
+          : 'Tempo de acerto cadastrado com sucesso.',
       })
       await loadData()
       if (onRefresh) onRefresh()
@@ -385,14 +403,25 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
     }
   }
 
-  const handleToggleAcertoActive = async (item: LineAdjustmentTimeRule) => {
+  const handleRequestToggleAcertoActive = (item: LineAdjustmentTimeRule) => {
+    const isActive = item.active !== false
+    setAcertoStatusConfirm({
+      item,
+      action: isActive ? 'INATIVAR' : 'ATIVAR',
+    })
+  }
+
+  const handleConfirmToggleAcertoStatus = async () => {
+    if (!acertoStatusConfirm) return
+    const { item, action } = acertoStatusConfirm
     try {
-      const newActive = !item.active
+      const newActive = action === 'ATIVAR'
       await lineMasterService.setAdjustmentRuleActive(item.id, newActive)
       setFeedback({
         type: 'success',
         message: `Tempo de acerto ${newActive ? 'reativado' : 'inativado'} com sucesso.`,
       })
+      setAcertoStatusConfirm(null)
       await loadData()
       if (onRefresh) onRefresh()
     } catch (err: any) {
@@ -400,6 +429,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         type: 'error',
         message: 'Falha ao alterar status do acerto: ' + err.message,
       })
+      setAcertoStatusConfirm(null)
     }
   }
 
@@ -578,8 +608,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                   onClick={handleOpenNewAcertoModal}
                   className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-medium shadow-sm"
                 >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Adicionar Acerto
+                  <Plus className="w-3.5 h-3.5 mr-1" />+ Cadastrar Acerto
                 </Button>
               )}
             </div>
@@ -865,62 +894,44 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                           <TableCell className="text-center py-2.5">
                             {isActive ? (
                               <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-normal text-[10px] py-0 px-2">
-                                Vigente
+                                Ativo
                               </Badge>
                             ) : (
                               <Badge
                                 variant="outline"
                                 className="bg-slate-100 text-slate-500 border-slate-300 font-normal text-[10px] py-0 px-2"
                               >
-                                Encerrado
+                                Inativo
                               </Badge>
                             )}
                           </TableCell>
                           <TableCell className="text-center py-2.5">
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="inline-flex items-center gap-1 font-semibold text-xs">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                title="Editar Acerto"
                                 onClick={() => handleOpenEditAcertoModal(item)}
-                                className="h-7 w-7 p-0 text-slate-600 hover:text-[#004C97] hover:bg-blue-50"
+                                className="h-7 px-2 text-xs text-[#004C97] hover:text-blue-800 hover:bg-blue-50 font-semibold"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                Editar
                               </Button>
-
-                              {isActive && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Encerrar Vigência"
-                                  onClick={() => {
-                                    setClosingAcertoItem(item)
-                                    setCloseAcertoDate(new Date().toISOString().slice(0, 10))
-                                  }}
-                                  className="h-7 px-2 text-[11px] text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-                                >
-                                  Encerrar
-                                </Button>
-                              )}
-
+                              <span className="text-slate-300">|</span>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                title={isActive ? 'Inativar acerto' : 'Reativar acerto'}
-                                onClick={() => handleToggleAcertoActive(item)}
-                                className={`h-7 w-7 p-0 ${
+                                onClick={() => handleRequestToggleAcertoActive(item)}
+                                className={`h-7 px-2 text-xs font-semibold ${
                                   isActive
-                                    ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                                    : 'text-emerald-600 hover:bg-emerald-50'
+                                    ? 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+                                    : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
                                 }`}
                               >
-                                <PowerOff className="w-3.5 h-3.5" />
+                                {isActive ? 'Inativar' : 'Ativar'}
                               </Button>
                             </div>
-                          </TableCell>
+                          </TableCell>{' '}
                         </TableRow>
                       )
                     })
@@ -1232,6 +1243,28 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                   </div>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <Label className="text-xs font-medium text-slate-700">
+                    Status <span className="text-rose-500">*</span>
+                  </Label>
+                  <Select
+                    value={acertoForm.active ? 'ACTIVE' : 'INACTIVE'}
+                    onValueChange={(val) =>
+                      setAcertoForm({ ...acertoForm, active: val === 'ACTIVE' })
+                    }
+                  >
+                    <SelectTrigger className="mt-1 h-9 text-xs bg-white border-slate-300">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white z-50">
+                      <SelectItem value="ACTIVE">Ativo</SelectItem>
+                      <SelectItem value="INACTIVE">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1256,8 +1289,10 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                     <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                     Salvando...
                   </>
+                ) : editingAcertoId ? (
+                  'Salvar Alterações'
                 ) : (
-                  'Salvar Tempo de Acerto'
+                  'Salvar Acerto'
                 )}
               </Button>
             </DialogFooter>
@@ -1312,38 +1347,32 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
       </Dialog>
 
       {/* ==================================================== */}
-      {/* MODAL 4: ENCERRAMENTO DE VIGÊNCIA DE ACERTO          */}
+      {/* MODAL 4: CONFIRMAÇÃO DE ATIVAR / INATIVAR ACERTO     */}
       {/* ==================================================== */}
       <Dialog
-        open={!!closingAcertoItem}
-        onOpenChange={(open) => !open && setClosingAcertoItem(null)}
+        open={!!acertoStatusConfirm}
+        onOpenChange={(open) => !open && setAcertoStatusConfirm(null)}
       >
         <DialogContent className="sm:max-w-md bg-white border-slate-200">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-slate-900">
-              Encerrar Vigência de Acerto
+              {acertoStatusConfirm?.action === 'INATIVAR'
+                ? 'Inativar Regra de Acerto'
+                : 'Reativar Regra de Acerto'}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Informe a data de término para o tempo de acerto de{' '}
-              <strong>{closingAcertoItem?.material_code}</strong> ({closingAcertoItem?.sample_type}
-              ).
+              Tem certeza que deseja {acertoStatusConfirm?.action.toLowerCase()} a regra de acerto
+              para o material <strong>{acertoStatusConfirm?.item.material_code}</strong> (
+              {acertoStatusConfirm?.item.sample_type}) com duração de{' '}
+              {acertoStatusConfirm?.item.duration_minutes} min?
             </DialogDescription>
           </DialogHeader>
-          <div className="py-3">
-            <Label className="text-xs font-medium text-slate-700">Data Fim de Vigência</Label>
-            <Input
-              type="date"
-              value={closeAcertoDate}
-              onChange={(e) => setCloseAcertoDate(e.target.value)}
-              className="mt-1 h-9 text-xs bg-white border-slate-300"
-            />
-          </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setClosingAcertoItem(null)}
+              onClick={() => setAcertoStatusConfirm(null)}
               className="h-8 text-xs"
             >
               Cancelar
@@ -1351,10 +1380,14 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
             <Button
               type="button"
               size="sm"
-              onClick={handleConfirmCloseAcertoVigency}
-              className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleConfirmToggleAcertoStatus}
+              className={`h-8 text-xs text-white ${
+                acertoStatusConfirm?.action === 'INATIVAR'
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
             >
-              Confirmar Encerramento
+              Confirmar {acertoStatusConfirm?.action === 'INATIVAR' ? 'Inativação' : 'Ativação'}
             </Button>
           </DialogFooter>
         </DialogContent>
