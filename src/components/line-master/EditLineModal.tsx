@@ -42,7 +42,7 @@ export interface EditLineModalProps {
   onSuccess: (updatedLine: ProductionLine) => void
 }
 
-const PROGRAMMING_TYPES: ProgrammingType[] = [
+const PROGRAMMING_TYPES: (ProgrammingType | string)[] = [
   'Laminação',
   'Corte Longitudinal',
   'Conformação',

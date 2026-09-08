@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   Database,
+  Edit3,
   Filter,
   Layers,
   Plus,

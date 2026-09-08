@@ -65,6 +65,7 @@ import {
   ScheduledStopRecurrence,
   SapIntegrationDefinition,
   MasterSheetCompletenessResult,
+  MasterSheetNavigationTarget,
 } from '@/types/line-master'
 import { OFFICIAL_MP_TYPES_CATALOG, OFFICIAL_MP_TYPES } from '@/services/mp-programming-engine'
 import { ENFORNAMENTO_OPTIONS, EnfornamentoType } from '@/services/enfornamento-laminacao-engine'
@@ -77,6 +78,9 @@ interface LineMasterDetailViewProps {
   productFamilies: ProductFamily[]
   allLines: ProductionLine[]
   sapCatalog: SapIntegrationDefinition[]
+  initialNavigationTarget?: MasterSheetNavigationTarget | null
+  onClearNavigationTarget?: () => void
+  onOpenEditLine?: (line: ProductionLine) => void
   onRefresh: () => void
   onOpenSapCatalog: () => void
 }
@@ -87,6 +91,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   productFamilies,
   allLines: _allLines,
   sapCatalog,
+  initialNavigationTarget,
+  onClearNavigationTarget,
+  onOpenEditLine,
   onRefresh,
   onOpenSapCatalog,
 }) => {
@@ -1278,10 +1285,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 {managers.length > 0 ? (
                   <div>
                     <span className="text-base font-bold text-white block">
-                      {managers[0].expand?.user_id?.name || 'Gestor Vinculado'}
+                      {managers[0]?.expand?.user_id?.name || 'Pendente de Atribuição'}
                     </span>
                     <span className="text-[11px] text-slate-400 font-mono">
-                      {managers[0].role_title}
+                      {managers[0]?.role_title || 'Não definido'}
                     </span>
                   </div>
                 ) : (
@@ -1300,10 +1307,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 {approvers.length > 0 ? (
                   <div>
                     <span className="text-base font-bold text-white block">
-                      {approvers[0].expand?.user_id?.name || 'Aprovador PCP'}
+                      {approvers[0]?.expand?.user_id?.name || 'Pendente de Atribuição'}
                     </span>
                     <span className="text-[11px] text-cyan-400 font-mono">
-                      {approvers[0].role_title} ({approvers[0].requirement_type})
+                      {approvers[0]?.role_title
+                        ? `${approvers[0].role_title} (${approvers[0]?.requirement_type || 'MANDATORY'})`
+                        : 'Aprovação Não Requerida / Opcional'}
                     </span>
                   </div>
                 ) : (
@@ -1653,8 +1662,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         </span>
                         {s.expand?.previous_line_id && (
                           <span className="text-cyan-400 font-mono text-[11px]">
-                            Linha: {s.expand.previous_line_id.code} (
-                            {s.expand.previous_line_id.name})
+                            Linha: {s.expand?.previous_line_id?.code || 'Não cadastrado'} (
+                            {s.expand?.previous_line_id?.name || 'Não cadastrado'})
                           </span>
                         )}
                       </div>
@@ -1668,7 +1677,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         </span>
                         {s.expand?.next_line_id && (
                           <span className="text-cyan-400 font-mono text-[11px]">
-                            Linha: {s.expand.next_line_id.code} ({s.expand.next_line_id.name})
+                            Linha: {s.expand?.next_line_id?.code || 'Não cadastrado'} (
+                            {s.expand?.next_line_id?.name || 'Não cadastrado'})
                           </span>
                         )}
                       </div>
