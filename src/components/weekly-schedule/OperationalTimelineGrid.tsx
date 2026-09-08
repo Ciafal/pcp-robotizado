@@ -26,6 +26,8 @@ interface OperationalTimelineGridProps {
   items: WeeklyScheduleItem[]
   lineOverview: LineOverviewData | null
   selectedItemId?: string | null
+  year?: number
+  weekNumber?: number
   onSelectItem?: (item: WeeklyScheduleItem) => void
   onMoveItem?: (
     fromIndex: number,
@@ -73,24 +75,52 @@ export const TIMELINE_HOURS = [
 // Marcos compactos para o cabeçalho horizontal (Defeito 2: 06:00 / 10:00 / 14:00 / 18:00 / 22:00)
 export const COMPACT_TIMELINE_HOURS = ['06:00', '10:00', '14:00', '18:00', '22:00']
 
-const DAYS_LIST: Array<{
+const getDaysListForWeek = (
+  year: number,
+  weekNumber: number,
+): Array<{
   key: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
   label: string
   date: string
-}> = [
-  { key: 'SEG', label: 'SEG', date: '24/08' },
-  { key: 'TER', label: 'TER', date: '25/08' },
-  { key: 'QUA', label: 'QUA', date: '26/08' },
-  { key: 'QUI', label: 'QUI', date: '27/08' },
-  { key: 'SEX', label: 'SEX', date: '28/08' },
-  { key: 'SAB', label: 'SÁB', date: '29/08' },
-  { key: 'DOM', label: 'DOM', date: '30/08' },
-]
+}> => {
+  const range = getWeekDateRange(year, weekNumber)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const keys: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = [
+    'SEG',
+    'TER',
+    'QUA',
+    'QUI',
+    'SEX',
+    'SAB',
+    'DOM',
+  ]
+  const labels = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
+
+  return keys.map((key, idx) => {
+    const d = new Date(range.startDate)
+    d.setDate(range.startDate.getDate() + idx)
+    return {
+      key,
+      label: labels[idx],
+      date: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`,
+    }
+  })
+}
+
+import {
+  isWeekInPast,
+  isDayInPast,
+  isScheduleItemInPast,
+  getWeekDateRange,
+  TEMPORAL_MESSAGES,
+} from '@/lib/temporal-utils'
 
 export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = ({
   items,
   lineOverview,
   selectedItemId,
+  year = 2026,
+  weekNumber = 35,
   onSelectItem,
   onEditItem,
   onMoveItem,
@@ -100,15 +130,10 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   onOpenAwaitingModal,
   onOpenSetupDetail,
 }) => {
+  const isWeekPast = isWeekInPast(year, weekNumber)
   const isItemInPast = (item: WeeklyScheduleItem): boolean => {
-    if (!item.start_datetime && !item.end_datetime) return false
-    const now = new Date()
-    const checkDate = item.end_datetime || item.start_datetime
-    if (!checkDate) return false
-    const parsed = new Date(checkDate.replace(' ', 'T'))
-    if (isNaN(parsed.getTime())) return false
-    return parsed.getTime() < now.getTime()
-  } // Estado dos dias recolhidos/expandidos (SEG e TER abertos por padrão na primeira dobra)
+    return isScheduleItemInPast(item, year, weekNumber)
+  }
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({
     SEG: true,
     TER: true,
@@ -155,6 +180,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   const [dragValidationMsg, setDragValidationMsg] = useState<string | null>(null)
 
   const handleDragStart = (e: React.DragEvent, globalIndex: number) => {
+    const item = items[globalIndex]
+    if (item && (isWeekPast || isItemInPast(item))) {
+      e.preventDefault()
+      return
+    }
     setDraggedIdx(globalIndex)
     e.dataTransfer.setData('text/plain', String(globalIndex))
     e.dataTransfer.effectAllowed = 'move'
@@ -167,6 +197,10 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       const sourceItem = items[draggedIdx]
       const targetItem = items[globalIndex]
       if (sourceItem && targetItem) {
+        if (isItemInPast(targetItem) || isWeekPast) {
+          setDragValidationMsg(TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED)
+          return
+        }
         // Validação prévia de viabilidade
         const check = WeeklyScheduleEngine.validatePreDropFeasibility(
           sourceItem,
@@ -186,6 +220,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     e.preventDefault()
     const fromIndex =
       draggedIdx !== null ? draggedIdx : Number(e.dataTransfer.getData('text/plain'))
+    const targetItem = items[targetGlobalIndex]
+    if (targetItem && (isWeekPast || isItemInPast(targetItem))) {
+      setDraggedIdx(null)
+      setDragOverIdx(null)
+      setDragValidationMsg(null)
+      return
+    }
     if (!isNaN(fromIndex) && fromIndex !== targetGlobalIndex && onMoveItem) {
       onMoveItem(fromIndex, targetGlobalIndex)
     }
@@ -319,6 +360,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     const chosenShiftCode = targetShiftCode || shifts[0]?.code || 'T1_L1'
     const matchedShift = shifts.find((s) => s.code === chosenShiftCode)
 
+    if (isWeekPast || isDayInPast(year, weekNumber, targetDay)) {
+      setDraggedIdx(null)
+      setDragOverIdx(null)
+      setDragValidationMsg(null)
+      return
+    }
+
     onMoveItem(fromIndex, toIndex, {
       day_of_week: targetDay,
       date_str: targetDateStr,
@@ -382,10 +430,10 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
 
         {/* CORPO DOS DIAS E SEQUÊNCIAS */}
         <div className="divide-y divide-slate-200 max-h-[560px] overflow-y-auto no-scrollbar">
-          {DAYS_LIST.map((dayObj) => {
+          {getDaysListForWeek(year, weekNumber).map((dayObj) => {
             const dayItems = itemsByDay[dayObj.key] || []
             const isExpanded = expandedDays[dayObj.key] ?? false
-            const hasItems = dayItems.length > 0
+            const isDayPast = isWeekPast || isDayInPast(year, weekNumber, dayObj.key)
 
             return (
               <div key={dayObj.key} className="flex flex-col bg-white">
@@ -393,10 +441,14 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                 <div
                   onClick={() => toggleDay(dayObj.key)}
                   onDragOver={(e) => {
+                    if (isDayPast) return
                     e.preventDefault()
                     e.dataTransfer.dropEffect = 'move'
                   }}
-                  onDrop={(e) => handleDropOnDayOrShift(e, dayObj.key, dayObj.date)}
+                  onDrop={(e) => {
+                    if (isDayPast) return
+                    handleDropOnDayOrShift(e, dayObj.key, dayObj.date)
+                  }}
                   className={`flex items-center justify-between px-3 py-1.5 cursor-pointer transition-colors select-none ${
                     isExpanded
                       ? 'bg-slate-50 font-bold border-b border-slate-200'
@@ -419,6 +471,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                     <span className="font-mono text-[10px] text-slate-500 font-normal">
                       {dayObj.date}
                     </span>
+                    {isDayPast && (
+                      <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 font-medium">
+                        Histórico / Bloqueado
+                      </span>
+                    )}
                     <span className="text-[10px] text-slate-400 font-mono">
                       • {dayItems.length} atividade(s)
                     </span>
@@ -427,11 +484,19 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      disabled={isDayPast}
+                      title={
+                        isDayPast ? TEMPORAL_MESSAGES.ADD_PAST_BLOCKED : 'Adicionar item ao dia'
+                      }
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (onAddItem) onAddItem(dayObj.key, 'T1_L1')
+                        if (!isDayPast && onAddItem) onAddItem(dayObj.key, 'T1_L1')
                       }}
-                      className="text-[10px] font-bold text-[#004C97] hover:underline flex items-center gap-1 bg-blue-50/60 px-2 py-0.5 rounded border border-blue-200"
+                      className={`text-[10px] font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${
+                        isDayPast
+                          ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                          : 'text-[#004C97] hover:underline bg-blue-50/60 border-blue-200'
+                      }`}
                     >
                       <Plus className="w-3 h-3" /> Adicionar item
                     </button>
@@ -805,7 +870,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       <span className="shrink-0">
                                         {startStr} &rarr; {endStr}
                                       </span>
-                                      {onEditItem && (
+                                      {onEditItem && !isItemInPast(item) && !isWeekPast && (
                                         <button
                                           type="button"
                                           title="Editar item da programação"
@@ -813,12 +878,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                             e.stopPropagation()
                                             onEditItem(item)
                                           }}
-                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0"
+                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
                                         >
                                           ✏️
                                         </button>
                                       )}
-                                      {onRemoveItem && !isItemInPast(item) && (
+                                      {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
                                         <button
                                           type="button"
                                           title="Eliminar"
@@ -826,10 +891,18 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                             e.stopPropagation()
                                             onRemoveItem(item)
                                           }}
-                                          className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0"
+                                          className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
                                         >
                                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                                         </button>
+                                      )}
+                                      {(isItemInPast(item) || isWeekPast) && (
+                                        <span
+                                          title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                          className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                                        >
+                                          🔒 Bloqueado
+                                        </span>
                                       )}
                                     </div>
                                   </div>

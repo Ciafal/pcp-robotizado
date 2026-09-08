@@ -44,6 +44,8 @@ interface WeeklyScheduleGridProps {
   items: WeeklyScheduleItem[]
   lineOverview: LineOverviewData | null
   selectedItemId?: string | null
+  year?: number
+  weekNumber?: number
   onSelectItem?: (item: WeeklyScheduleItem) => void
   onEditItem?: (item: WeeklyScheduleItem) => void
   onMoveUp: (index: number) => void
@@ -66,10 +68,14 @@ interface WeeklyScheduleGridProps {
   onFilterChange?: (filter: ScheduleGridFilter) => void
 }
 
+import { isWeekInPast, isScheduleItemInPast, TEMPORAL_MESSAGES } from '@/lib/temporal-utils'
+
 export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   items,
   lineOverview,
   selectedItemId,
+  year = 2026,
+  weekNumber = 35,
   onSelectItem,
   onEditItem,
   onMoveUp,
@@ -84,6 +90,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   filterOption = 'ALL',
   onFilterChange,
 }) => {
+  const isWeekPast = isWeekInPast(year, weekNumber)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
   const [internalFilter, setInternalFilter] = useState<ScheduleGridFilter>(filterOption)
@@ -108,6 +115,11 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   // Manipuladores de Drag and Drop com fluxo unificado de reordenação absoluta
   const handleDragStart = (e: React.DragEvent, originalIndex: number) => {
+    const item = items[originalIndex]
+    if (item && (isWeekPast || isScheduleItemInPast(item, year, weekNumber))) {
+      e.preventDefault()
+      return
+    }
     setDraggedIndex(originalIndex)
     e.dataTransfer.setData('text/plain', String(originalIndex))
     e.dataTransfer.effectAllowed = 'move'
@@ -129,6 +141,16 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
     const sourceItem = items[fromIndex]
     const targetItem = items[targetIndex]
+    if (sourceItem && (isWeekPast || isScheduleItemInPast(sourceItem, year, weekNumber))) {
+      alert(`Operação Bloqueada: ${TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}`)
+      setDraggedIndex(null)
+      return
+    }
+    if (targetItem && (isWeekPast || isScheduleItemInPast(targetItem, year, weekNumber))) {
+      alert(`Operação Bloqueada: ${TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}`)
+      setDraggedIndex(null)
+      return
+    }
     if (sourceItem && targetItem) {
       const check = WeeklyScheduleEngine.validatePreDropFeasibility(
         sourceItem,
@@ -379,15 +401,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                     ? item.end_datetime.split(' ')[1] || item.end_datetime
                     : '--:--'
 
-                  const isPast = (() => {
-                    if (!item.start_datetime && !item.end_datetime) return false
-                    const now = new Date()
-                    const checkDate = item.end_datetime || item.start_datetime
-                    if (!checkDate) return false
-                    const parsed = new Date(checkDate.replace(' ', 'T'))
-                    if (isNaN(parsed.getTime())) return false
-                    return parsed.getTime() < now.getTime()
-                  })()
+                  const isPast = isWeekPast || isScheduleItemInPast(item, year, weekNumber)
 
                   return (
                     <tr
@@ -842,17 +856,17 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                           </button>
 
                           {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
-                          {onEditItem && (
+                          {onEditItem && !isPast && (
                             <button
                               type="button"
                               onClick={() => onEditItem(item)}
-                              title="Editar Parâmetros / Horários"
+                              title="Editar"
                               className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {!isPast && (
+                          {!isPast ? (
                             <button
                               type="button"
                               onClick={() => onRemove(item)}
@@ -861,8 +875,14 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+                          ) : (
+                            <span
+                              title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                              className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                            >
+                              🔒 Bloqueado
+                            </span>
                           )}
-
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200">
@@ -884,7 +904,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                     : 'Aguardando Observações...'}
                                 </DropdownMenuItem>
                               )}
-                              {onEditItem && (
+                              {onEditItem && !isPast && (
                                 <DropdownMenuItem
                                   onClick={() => onEditItem(item)}
                                   className="text-[#004C97] font-semibold"
@@ -893,18 +913,27 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                   Editar Parâmetros / Horários
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
-                                <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                                Duplicar Atividade
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => onRemove(originalIndex)}
-                                className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                Remover da Programação
-                              </DropdownMenuItem>
+                              {!isPast && (
+                                <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
+                                  <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                                  Duplicar Atividade
+                                </DropdownMenuItem>
+                              )}
+                              {!isPast && <DropdownMenuSeparator />}
+                              {!isPast && (
+                                <DropdownMenuItem
+                                  onClick={() => onRemove(originalIndex)}
+                                  className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                  Remover da Programação
+                                </DropdownMenuItem>
+                              )}
+                              {isPast && (
+                                <div className="p-2 text-[10px] text-amber-700 italic">
+                                  {TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                </div>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

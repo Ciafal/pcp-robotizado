@@ -49,31 +49,16 @@ export function parseDateTime(str: string): Date {
   return d
 }
 
-export function getWeekDateRange(
-  year: number,
-  weekNumber: number,
-): { startDate: Date; endDate: Date; display: string } {
-  const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7)
-  const dayOfWeek = simple.getDay()
-  const ISOweekStart = new Date(simple)
-  if (dayOfWeek <= 4) {
-    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1)
-  } else {
-    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay())
-  }
-  const ISOweekEnd = new Date(ISOweekStart)
-  ISOweekEnd.setDate(ISOweekStart.getDate() + 6)
-
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const d1 = `${pad(ISOweekStart.getDate())}/${pad(ISOweekStart.getMonth() + 1)}`
-  const d2 = `${pad(ISOweekEnd.getDate())}/${pad(ISOweekEnd.getMonth() + 1)}`
-
-  return {
-    startDate: ISOweekStart,
-    endDate: ISOweekEnd,
-    display: `${d1} a ${d2}`,
-  }
-}
+export {
+  getWeekDateRange,
+  isWeekInPast,
+  isDayInPast,
+  isScheduleItemInPast,
+  getCurrentPlantIsoWeek,
+  getDateForDayOfWeek,
+  TEMPORAL_MESSAGES,
+  PLANT_TIMEZONE,
+} from '@/lib/temporal-utils'
 
 export const DAYS_OF_WEEK: Array<{
   code: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
@@ -783,16 +768,33 @@ export const WeeklyScheduleEngine = {
       if (stop.recurrence_day_of_week) {
         const rDay = stop.recurrence_day_of_week.toLowerCase()
         if (rDay.includes('sábado e domingo') && !isWeekendDay) return false
-        if ((rDay === 'monday_to_friday' || rDay.includes('segunda a sexta')) && isWeekendDay) {
+        if (
+          (rDay === 'monday_to_friday' ||
+            rDay.includes('segunda a sexta') ||
+            rDay === 'segunda_a_sexta') &&
+          isWeekendDay
+        ) {
           return false
         }
-        if (rDay === 'segunda' && day !== 'SEG') return false
-        if (rDay === 'terça' && day !== 'TER') return false
-        if (rDay === 'quarta' && day !== 'QUA') return false
-        if (rDay === 'quinta' && day !== 'QUI') return false
-        if (rDay === 'sexta' && day !== 'SEX') return false
-        if (rDay === 'sábado' && day !== 'SAB') return false
-        if (rDay === 'domingo' && day !== 'DOM') return false
+        if ((rDay === 'segunda' || rDay === 'monday' || rDay === 'seg') && day !== 'SEG')
+          return false
+        if (
+          (rDay === 'terça' || rDay === 'terca' || rDay === 'tuesday' || rDay === 'ter') &&
+          day !== 'TER'
+        )
+          return false
+        if ((rDay === 'quarta' || rDay === 'wednesday' || rDay === 'qua') && day !== 'QUA')
+          return false
+        if ((rDay === 'quinta' || rDay === 'thursday' || rDay === 'qui') && day !== 'QUI')
+          return false
+        if ((rDay === 'sexta' || rDay === 'friday' || rDay === 'sex') && day !== 'SEX') return false
+        if (
+          (rDay === 'sábado' || rDay === 'sabado' || rDay === 'saturday' || rDay === 'sab') &&
+          day !== 'SAB'
+        )
+          return false
+        if ((rDay === 'domingo' || rDay === 'sunday' || rDay === 'dom') && day !== 'DOM')
+          return false
       }
 
       if (stop.applicable_days && stop.applicable_days.length > 0) {
