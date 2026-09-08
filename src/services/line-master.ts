@@ -527,12 +527,46 @@ export const lineMasterService = {
   // ==========================================
   // 6. PRODUTIVIDADE (CRUD)
   // ==========================================
+  /**
+   * Validador puro em memória para bloqueio de sobreposição de vigência de Produtividade.
+   * Utiliza a mesma lógica de intervalos fechados de checkAdjustmentRuleOverlap.
+   */
+  checkProductivityOverlap(
+    newRule: {
+      id?: string
+      valid_from?: string
+      valid_until?: string | null
+    },
+    existingRules: Array<{
+      id?: string
+      valid_from?: string
+      valid_until?: string | null
+      active?: boolean
+    }>,
+  ): boolean {
+    const newFrom = newRule.valid_from ? String(newRule.valid_from).slice(0, 10) : '1970-01-01'
+    const newUntil = newRule.valid_until ? String(newRule.valid_until).slice(0, 10) : '9999-12-31'
+
+    return existingRules.some((item) => {
+      if (item.active === false) return false
+      if (newRule.id && item.id === newRule.id) return false
+
+      const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
+      const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
+
+      // Sobreposição de intervalos fechados [start, end]: startA <= endB && endA >= startB
+      return newFrom <= itemUntil && newUntil >= itemFrom
+    })
+  },
+
   async checkProductivityDuplicate(params: {
     lineId: string
     materialProductCode: string
     productFamilyId?: string
     rawMaterialType?: string
     enfornamentoType?: string
+    validFrom?: string
+    validUntil?: string | null
     excludeId?: string
   }): Promise<boolean> {
     const {
@@ -541,6 +575,8 @@ export const lineMasterService = {
       productFamilyId,
       rawMaterialType,
       enfornamentoType,
+      validFrom,
+      validUntil,
       excludeId,
     } = params
 
@@ -556,21 +592,33 @@ export const lineMasterService = {
       const cleanMp = (rawMaterialType || '').trim().toUpperCase()
       const cleanEnf = (enfornamentoType || '').trim().toUpperCase()
 
-      const isDup = records.some((r) => {
+      // Filtra registros com a mesma chave composta: production_line_id + material_id/code + raw_material_type + furnace_type
+      const matchingKeyRecords = records.filter((r) => {
         if (excludeId && r.id === excludeId) return false
         const rCode = (r.material_product_code || '').trim().toUpperCase()
         const rFam = (r.product_family_id || '').trim()
         const rMp = (r.raw_material_type || '').trim().toUpperCase()
         const rEnf = (r.enfornamento_type || '').trim().toUpperCase()
 
-        // Mesma linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento
         const sameProduct = rCode === cleanCode || (cleanFam && rFam === cleanFam)
         const sameMp = rMp === cleanMp
         const sameEnf = rEnf === cleanEnf
         return sameProduct && sameMp && sameEnf
       })
 
-      return isDup
+      if (matchingKeyRecords.length === 0) {
+        return false
+      }
+
+      // Aplica a validação de sobreposição de intervalos de vigência
+      return this.checkProductivityOverlap(
+        {
+          id: excludeId,
+          valid_from: validFrom,
+          valid_until: validUntil,
+        },
+        matchingKeyRecords,
+      )
     } catch (err) {
       console.warn('Erro ao verificar duplicidade de produtividade:', err)
       return false

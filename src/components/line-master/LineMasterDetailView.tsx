@@ -285,13 +285,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   // Estados dos formulários de modais
   const [prodMaterialCode, setProdMaterialCode] = useState('')
   const [prodMaterialName, setProdMaterialName] = useState('')
-  const [prodDim, setProdDim] = useState('')
   const [prodRawMaterialType, setProdRawMaterialType] = useState<string>('TARUGO_130X130')
   const [prodEnfornamentoType, setProdEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
   const [prodUnit, setProdUnit] = useState<'t/h' | 'peça/h' | 'm/h'>('t/h')
   const [prodNominal, setProdNominal] = useState<number>(12.0)
   const [prodPlanned, setProdPlanned] = useState<number>(11.5)
   const [prodFamilyId, setProdFamilyId] = useState('')
+  const [prodValidFrom, setProdValidFrom] = useState('')
+  const [prodValidUntil, setProdValidUntil] = useState('')
 
   const [rawCode, setRawCode] = useState('')
   const [rawDesc, setRawDesc] = useState('')
@@ -349,13 +350,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     }
 
     // Bloqueio de duplicidade antes de salvar:
-    // mesma Linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento
+    // mesma Linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento com sobreposição de vigência
     const isDuplicate = await lineMasterService.checkProductivityDuplicate({
       lineId: line.id,
       materialProductCode: prodMaterialCode.trim().toUpperCase(),
       productFamilyId: prodFamilyId || undefined,
       rawMaterialType: prodRawMaterialType,
       enfornamentoType: prodEnfornamentoType,
+      validFrom: prodValidFrom || undefined,
+      validUntil: prodValidUntil || undefined,
     })
 
     if (isDuplicate) {
@@ -363,7 +366,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         variant: 'destructive',
         title: 'Cadastro duplicado',
         description:
-          'Já existe um cadastro de produtividade para esta combinação de linha, produto/família, matéria-prima e tipo de enfornamento.',
+          'Já existe uma produtividade cadastrada para este Material, Tipo de Matéria-Prima e Tipo de Enfornamento no período informado.',
       })
       return
     }
@@ -375,13 +378,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         product_family_id: prodFamilyId || undefined,
         material_product_code: prodMaterialCode.trim().toUpperCase(),
         material_product_name: prodMaterialName.trim(),
-        dimension_spec: prodDim.trim(),
         raw_material_type: prodRawMaterialType,
         enfornamento_type: prodEnfornamentoType,
         productivity_unit: prodUnit,
         nominal_productivity: Number(prodNominal),
         planned_productivity: Number(prodPlanned),
         expected_efficiency_pct: Math.round((Number(prodPlanned) / Number(prodNominal)) * 100),
+        valid_from: prodValidFrom || undefined,
+        valid_until: prodValidUntil || undefined,
         source_mode: 'MANUAL',
         active: true,
       })
@@ -2013,15 +2017,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Material</th>
                         <th className="p-2.5">Matéria-Prima</th>
                         <th className="p-2.5">Enfornamento</th>
-                        <th className="p-2.5">Dimensão</th>
                         <th className="p-2.5">Unidade</th>
                         <th className="p-2.5">Prod. Nominal</th>
                         <th className="p-2.5">Prod. Planejada</th>
                         <th className="p-2.5">Eficiência</th>
+                        <th className="p-2.5">Vigência</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {productivity.map((p) => {
+                        const vigenciaLabel = p.valid_from
+                          ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
+                              p.valid_until
+                                ? `a ${new Date(p.valid_until).toLocaleDateString('pt-BR')}`
+                                : 'em diante'
+                            }`
+                          : 'Indeterminada'
                         return (
                           <tr key={p.id} className="hover:bg-slate-900/60">
                             <td className="p-2.5">
@@ -2038,9 +2049,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             <td className="p-2.5 font-mono text-xs text-cyan-300">
                               {p.enfornamento_type || '-'}
                             </td>
-                            <td className="p-2.5 font-mono text-slate-300">
-                              {p.dimension_spec || '-'}
-                            </td>
                             <td className="p-2.5 font-bold text-cyan-300">{p.productivity_unit}</td>
                             <td className="p-2.5 font-mono font-bold text-white">
                               {p.nominal_productivity}
@@ -2050,6 +2058,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             </td>
                             <td className="p-2.5 font-mono text-emerald-400 font-bold">
                               {p.expected_efficiency_pct}%
+                            </td>
+                            <td className="p-2.5 text-slate-300 font-mono text-[11px]">
+                              {vigenciaLabel}
                             </td>
                           </tr>
                         )
@@ -2666,6 +2677,29 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   value={prodPlanned}
                   onChange={(e) => setProdPlanned(Number(e.target.value))}
                   className="bg-slate-900 border-slate-700 text-white font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Vigência da Produtividade */}
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Vigência Inicial (De)</Label>
+                <Input
+                  type="date"
+                  value={prodValidFrom}
+                  onChange={(e) => setProdValidFrom(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white text-xs font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">Vigência Final (Até - Opcional)</Label>
+                <Input
+                  type="date"
+                  value={prodValidUntil}
+                  onChange={(e) => setProdValidUntil(e.target.value)}
+                  placeholder="Vigente sem término"
+                  className="bg-slate-900 border-slate-700 text-white text-xs font-mono"
                 />
               </div>
             </div>

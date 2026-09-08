@@ -543,6 +543,7 @@ export const WeeklyScheduleEngine = {
     familyCode?: string
     rawMaterialType?: string
     enfornamentoType?: string
+    targetDate?: Date | string
     lineOverview: LineOverviewData | null
     officialMaterials?: OfficialMaterialOption[]
   }): {
@@ -555,6 +556,7 @@ export const WeeklyScheduleEngine = {
       familyCode,
       rawMaterialType,
       enfornamentoType,
+      targetDate,
       lineOverview,
       officialMaterials,
     } = params
@@ -568,7 +570,21 @@ export const WeeklyScheduleEngine = {
     const cleanMp = (rawMaterialType || '').trim().toUpperCase()
     const cleanEnf = (enfornamentoType || '').trim().toUpperCase()
 
-    const list = (lineOverview?.productivity || []).filter((p) => p.active !== false)
+    const targetDateStr = targetDate
+      ? (targetDate instanceof Date ? targetDate.toISOString() : String(targetDate)).slice(0, 10)
+      : null
+
+    const list = (lineOverview?.productivity || []).filter((p) => {
+      if (p.active === false) return false
+      // Filtro de vigência por targetDate quando informado
+      if (targetDateStr) {
+        const fromStr = p.valid_from ? String(p.valid_from).slice(0, 10) : ''
+        const untilStr = p.valid_until ? String(p.valid_until).slice(0, 10) : ''
+        if (fromStr && fromStr > targetDateStr) return false
+        if (untilStr && untilStr < targetDateStr) return false
+      }
+      return true
+    })
 
     const matchesProductOrFamily = (p: LineProductivityRate): boolean => {
       const pMat = (p.material_product_code || '').trim().toUpperCase()
@@ -677,6 +693,7 @@ export const WeeklyScheduleEngine = {
     officialMaterials?: OfficialMaterialOption[],
     rawMaterialType?: string,
     enfornamentoType?: string,
+    targetDate?: Date | string,
   ): number | null {
     if (!materialCode) return null
 
@@ -684,6 +701,7 @@ export const WeeklyScheduleEngine = {
       materialCode,
       rawMaterialType,
       enfornamentoType,
+      targetDate,
       lineOverview,
       officialMaterials,
     })
@@ -704,6 +722,7 @@ export const WeeklyScheduleEngine = {
     defaultLineNominalTh?: number,
     rawMaterialType?: string,
     enfornamentoType?: string,
+    targetDate?: Date | string,
   ): number {
     const strict = this.getProductivityForMaterialStrict(
       materialCode,
@@ -711,6 +730,7 @@ export const WeeklyScheduleEngine = {
       undefined,
       rawMaterialType,
       enfornamentoType,
+      targetDate,
     )
     if (strict !== null && strict > 0) return strict
     if (defaultLineNominalTh && defaultLineNominalTh > 0) return defaultLineNominalTh
@@ -1989,6 +2009,7 @@ export const WeeklyScheduleEngine = {
         familyCode: item.family_code,
         rawMaterialType: item.raw_material_type,
         enfornamentoType: item.enfornamento_type,
+        targetDate: itemStart,
         lineOverview,
       })
       const productivity =
