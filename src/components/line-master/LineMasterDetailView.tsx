@@ -586,8 +586,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         (stop.recurrence_day_of_week || '').toLowerCase().includes('sábado e domingo'))
 
     setSchRec(isWeekend ? 'WEEKEND' : (stop.recurrence as any) || 'DAILY')
+    const rawRecDay = stop.recurrence_day_of_week || ''
+    const isMondayToFriday =
+      rawRecDay === 'MONDAY_TO_FRIDAY' ||
+      rawRecDay.toLowerCase() === 'monday_to_friday' ||
+      rawRecDay.toLowerCase().includes('segunda a sexta')
+
     setSchRecurrenceDayOfWeek(
-      stop.recurrence_day_of_week || (isWeekend ? 'Sábado e domingo' : 'Todos os dias'),
+      isMondayToFriday
+        ? 'Segunda a sexta'
+        : stop.recurrence_day_of_week || (isWeekend ? 'Sábado e domingo' : 'Todos os dias'),
     )
     setSchDesc(stop.description || '')
     setSchDur(stop.expected_duration_minutes || 0)
@@ -760,6 +768,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     if (schRec === 'WEEKEND') {
       mappedRecurrence = 'WEEKLY' as any
       mappedRecurrenceDay = 'Sábado e domingo'
+    } else if (
+      schRecurrenceDayOfWeek === 'Segunda a sexta' ||
+      schRecurrenceDayOfWeek === 'MONDAY_TO_FRIDAY'
+    ) {
+      mappedRecurrenceDay = 'MONDAY_TO_FRIDAY'
     }
 
     setIsSubmittingScheduledStop(true)
@@ -1898,7 +1911,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   </span>
                                   {ss.recurrence_day_of_week && (
                                     <span className="text-[10px] text-slate-400">
-                                      {ss.recurrence_day_of_week}
+                                      {ss.recurrence_day_of_week === 'MONDAY_TO_FRIDAY'
+                                        ? 'Segunda a sexta'
+                                        : ss.recurrence_day_of_week}
                                     </span>
                                   )}
                                 </td>
@@ -3144,6 +3159,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="Domingo">Domingo</option>
                   <option value="Dia sim dia não">Dia sim dia não</option>
                   <option value="Sábado e domingo">Sábado e domingo</option>
+                  <option value="Segunda a sexta">Segunda a sexta</option>
                 </select>
               </div>
             </div>

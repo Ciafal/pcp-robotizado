@@ -468,4 +468,62 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
     expect(devAnalysis.aiRecommendation).toBeDefined()
     expect(devAnalysis.cycleTimeSapMin).toBeGreaterThan(0)
   })
+
+  // TESTE 12: Parada Programada Segunda a Sexta (MONDAY_TO_FRIDAY)
+  it('TESTE 12: Parada programada com recorrência DAILY e recurrence_day_of_week MONDAY_TO_FRIDAY aplica em SEG-SEX e NÃO impacta SAB/DOM', () => {
+    const stopDailyMF: any = {
+      id: 'stop-mf-30',
+      code: 'LUBRIF_DIARIA',
+      reason: 'Lubrificação Periódica de Mancais',
+      active: true,
+      recurrence: 'DAILY',
+      recurrence_day_of_week: 'MONDAY_TO_FRIDAY',
+      expected_duration_minutes: 30,
+    }
+
+    // Dias úteis: SEG, TER, QUA, QUI, SEX -> aplicável (true)
+    const weekdays = ['SEG', 'TER', 'QUA', 'QUI', 'SEX']
+    for (const d of weekdays) {
+      const isApplicable = WeeklyScheduleEngine.isScheduledStopApplicable(stopDailyMF, {
+        dayOfWeek: d,
+      })
+      expect(isApplicable).toBe(true)
+    }
+
+    // Fim de semana: SAB, DOM -> NÃO aplicável (false)
+    const weekendDays = ['SAB', 'DOM']
+    for (const d of weekendDays) {
+      const isApplicable = WeeklyScheduleEngine.isScheduledStopApplicable(stopDailyMF, {
+        dayOfWeek: d,
+      })
+      expect(isApplicable).toBe(false)
+    }
+
+    // Retrocompatibilidade: string legível "Segunda a sexta"
+    const stopLegacyString: any = {
+      ...stopDailyMF,
+      recurrence_day_of_week: 'Segunda a sexta',
+    }
+    expect(
+      WeeklyScheduleEngine.isScheduledStopApplicable(stopLegacyString, { dayOfWeek: 'SEG' }),
+    ).toBe(true)
+    expect(
+      WeeklyScheduleEngine.isScheduledStopApplicable(stopLegacyString, { dayOfWeek: 'SEX' }),
+    ).toBe(true)
+    expect(
+      WeeklyScheduleEngine.isScheduledStopApplicable(stopLegacyString, { dayOfWeek: 'SAB' }),
+    ).toBe(false)
+    expect(
+      WeeklyScheduleEngine.isScheduledStopApplicable(stopLegacyString, { dayOfWeek: 'DOM' }),
+    ).toBe(false)
+
+    // Se a parada estiver inativa, nunca aplica
+    const stopInactive: any = {
+      ...stopDailyMF,
+      active: false,
+    }
+    expect(WeeklyScheduleEngine.isScheduledStopApplicable(stopInactive, { dayOfWeek: 'SEG' })).toBe(
+      false,
+    )
+  })
 })

@@ -762,6 +762,9 @@ export const WeeklyScheduleEngine = {
       if (stop.recurrence_day_of_week) {
         const rDay = stop.recurrence_day_of_week.toLowerCase()
         if (rDay.includes('sábado e domingo') && !isWeekendDay) return false
+        if ((rDay === 'monday_to_friday' || rDay.includes('segunda a sexta')) && isWeekendDay) {
+          return false
+        }
         if (rDay === 'segunda' && day !== 'SEG') return false
         if (rDay === 'terça' && day !== 'TER') return false
         if (rDay === 'quarta' && day !== 'QUA') return false
