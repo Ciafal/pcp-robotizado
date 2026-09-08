@@ -68,14 +68,19 @@ interface WeeklyScheduleGridProps {
   onFilterChange?: (filter: ScheduleGridFilter) => void
 }
 
-import { isWeekInPast, isScheduleItemInPast, TEMPORAL_MESSAGES } from '@/lib/temporal-utils'
+import {
+  isWeekInPast,
+  isScheduleItemInPast,
+  getCurrentPlantIsoWeek,
+  TEMPORAL_MESSAGES,
+} from '@/lib/temporal-utils'
 
 export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   items,
   lineOverview,
   selectedItemId,
-  year = 2026,
-  weekNumber = 35,
+  year = getCurrentPlantIsoWeek().year,
+  weekNumber = getCurrentPlantIsoWeek().week,
   onSelectItem,
   onEditItem,
   onMoveUp,
