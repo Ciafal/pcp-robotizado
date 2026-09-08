@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { ShieldAlert, ArrowLeft, RefreshCw, Lock } from 'lucide-react'
+import pb from '@/lib/pocketbase/client'
+import { ShieldAlert, ArrowLeft, RefreshCw, Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
 
@@ -15,7 +16,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   children,
   lineId,
 }) => {
-  const { can, hasLineScope, isLoading, user, refreshPermissions } = useAuth()
+  const { can, hasLineScope, isLoading, user, authError, refreshPermissions } = useAuth()
   const [isRetrying, setIsRetrying] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const navigate = useNavigate()
@@ -45,8 +46,54 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
+  // Verifica se temos usuário no contexto ou record na authStore do PocketBase
+  const isAuthPresent = Boolean(user || (pb?.authStore?.isValid && pb?.authStore?.record))
+
+  // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica no spinner
+  // Exibido se houver authError explícito ou se expirou o timeout sem nenhum usuário autenticado identificado
+  const hasAuthFailure = Boolean(authError || (timedOut && !isAuthPresent))
+
+  if (hasAuthFailure) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">
+              Instabilidade na Validação de Acessos
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Não foi possível validar seus acessos. Tentar novamente.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 justify-center pt-2">
+            <Button
+              variant="default"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+              {isRetrying ? 'Tentando novamente...' : 'Tentar novamente'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/pcp/sequenciamento')}
+              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Se timedOut estourou ou temos usuário já identificado ou authStore ativa, NÃO exibe spinner bloqueante
-  const isAuthPresent = !!user || (pb.authStore.isValid && !!pb.authStore.record)
   const showSpinner = (isLoading || isRetrying) && !timedOut && !isAuthPresent
 
   if (showSpinner) {

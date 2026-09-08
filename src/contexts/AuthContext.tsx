@@ -15,6 +15,7 @@ interface AuthContextType {
   user: UserProfile | null
   isAuthenticated: boolean
   isLoading: boolean
+  authError: string | null
   isGlobal: boolean
   scopes: AccessScope[]
   delegations: Delegation[]
@@ -79,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [permissionKeys, setPermissionKeys] = useState<Set<string>>(defaultPermissionKeys)
   // Se temos dados iniciais (cache ou authStore válida), NÃO bloqueia com spinner
   const [isLoading, setIsLoading] = useState<boolean>(!defaultUser && !initialValid)
+  const [authError, setAuthError] = useState<string | null>(null)
   const [activeScopeFilter, setActiveScopeFilter] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -103,37 +105,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(true)
       }
 
+      // Timeout defensivo de segurança no AuthContext para resolução de permissões (máximo 5s)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT_RESOLVING_PERMISSIONS')), 5000)
+      })
+
       try {
         if (!pb.authStore.isValid) {
           // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
           try {
-            await pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass')
-          } catch (_) {
-            // Sem credencial disponível, zera o contexto
-            clearPermissionsCache()
-            setUser(null)
-            setIsGlobal(false)
-            setScopes([])
-            setDelegations([])
-            setPermissions([])
-            setPermissionKeys(new Set())
-            setIsLoading(false)
-            return
+            await Promise.race([
+              pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
+              timeoutPromise,
+            ])
+          } catch (loginErr) {
+            console.warn('Falha no auto-login CIAFAL:', loginErr)
+            // Se falhou e não temos usuário autenticado nem cache, seta erro claro sem crashar
+            if (!userRef.current && (!pb.authStore.isValid || !pb.authStore.record)) {
+              clearPermissionsCache()
+              setUser(null)
+              setIsGlobal(false)
+              setScopes([])
+              setDelegations([])
+              setPermissions([])
+              setPermissionKeys(new Set())
+              setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+              setIsLoading(false)
+              return
+            }
           }
         }
 
-        const res: AuthPermissionsResponse = await authService.resolvePermissions({
+        const resolvePromise = authService.resolvePermissions({
           forceRefresh: force,
         })
+
+        const res: AuthPermissionsResponse = await Promise.race([resolvePromise, timeoutPromise])
+
         setUser(res.user)
         setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
         setScopes(res.scopes || [])
         setDelegations(res.delegations || [])
         setPermissions(res.permissions || [])
         setPermissionKeys(new Set(res.permission_keys || []))
+        setAuthError(null)
       } catch (err: unknown) {
         console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
-        // Em caso de falha de rede/backend temporária com sessão válida, usar fallback resiliente
+        // Em caso de falha de rede/backend temporária ou timeout com sessão válida, usar fallback resiliente
         if (pb.authStore.isValid && pb.authStore.record) {
           const u = pb.authStore.record as unknown as {
             id: string
@@ -150,6 +168,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
           setIsGlobal(fallbackRole === 'PCP_ADMIN')
           setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
+          setAuthError(null)
+        } else if (!userRef.current) {
+          setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
         }
       } finally {
         setIsLoading(false)
@@ -298,6 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDelegations([])
     setPermissions([])
     setPermissionKeys(new Set())
+    setAuthError(null)
     toast({
       title: 'Sessão encerrada',
       description: 'Você saiu da sessão corporativa do HUB CIAFAL.',
@@ -313,6 +335,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       isAuthenticated: !!user,
       isLoading,
+      authError,
       isGlobal,
       scopes,
       delegations,
@@ -332,6 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [
       user,
       isLoading,
+      authError,
       isGlobal,
       scopes,
       delegations,

@@ -40,4 +40,26 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     const linePerms = authService.getPermissionsForRole('LINE_MANAGER')
     expect(linePerms).toContain('pcp.carteira.view')
   })
+
+  it('should ensure authorized roles (PCP_ADMIN, PCP_PROGRAMMER, LINE_MANAGER) have pcp.schedule.view for WeeklyScheduleOperationalPage', () => {
+    const rolesWithViewAccess = ['PCP_ADMIN', 'PCP_PROGRAMMER', 'LINE_MANAGER']
+    for (const role of rolesWithViewAccess) {
+      const perms = authService.getPermissionsForRole(role)
+      expect(perms).toContain('pcp.schedule.view')
+    }
+  })
+
+  it('should verify AUDITOR role has view access to schedule or can view modules', () => {
+    // AUDITOR role gets view perms by default
+    const auditorPerms = authService.getPermissionsForRole('AUDITOR')
+    expect(auditorPerms).toContain('pcp.schedule.view')
+  })
+
+  it('should deny unauthorized write permissions by default for viewer roles', () => {
+    const viewerPerms = authService.getPermissionsForRole('PRODUCTION_VIEWER')
+    expect(viewerPerms).toContain('pcp.schedule.view')
+    expect(viewerPerms).not.toContain('pcp.schedule.edit')
+    expect(viewerPerms).not.toContain('pcp.schedule.approve')
+    expect(viewerPerms).not.toContain('pcp.schedule.publish')
+  })
 })
