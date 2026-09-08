@@ -49,7 +49,7 @@ export function parseDateTime(str: string): Date {
   return d
 }
 
-export {
+import {
   getWeekDateRange,
   isWeekInPast,
   isDayInPast,
@@ -59,6 +59,17 @@ export {
   TEMPORAL_MESSAGES,
   PLANT_TIMEZONE,
 } from '@/lib/temporal-utils'
+
+export {
+  getWeekDateRange,
+  isWeekInPast,
+  isDayInPast,
+  isScheduleItemInPast,
+  getCurrentPlantIsoWeek,
+  getDateForDayOfWeek,
+  TEMPORAL_MESSAGES,
+  PLANT_TIMEZONE,
+}
 
 export const DAYS_OF_WEEK: Array<{
   code: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'

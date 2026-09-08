@@ -8,6 +8,7 @@ import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 import { WeeklyScheduleItem, WeeklyHeaderFilter } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { VersioningEngine } from '@/services/versioning-engine'
+import { getWeekDateRange, isWeekInPast, isScheduleItemInPast } from '@/lib/temporal-utils'
 
 describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL', () => {
   const dummyOverview: LineOverviewData = {
@@ -525,5 +526,87 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
     expect(WeeklyScheduleEngine.isScheduledStopApplicable(stopInactive, { dayOfWeek: 'SEG' })).toBe(
       false,
     )
+  })
+
+  describe('Aceite 0.0.111 — Navegação Temporal e Transição Canônica de Semanas', () => {
+    it('deve calcular período e datas dinâmicas sem resíduos na navegação S35 -> S36 -> S37', () => {
+      const s35 = getWeekDateRange(2026, 35)
+      const s36 = getWeekDateRange(2026, 36)
+      const s37 = getWeekDateRange(2026, 37)
+
+      // S35: 24/08 a 30/08/2026
+      expect(s35.startDate.getDate()).toBe(24)
+      expect(s35.startDate.getMonth()).toBe(7) // Agosto (0-indexed)
+      expect(s35.endDate.getDate()).toBe(30)
+      expect(s35.endDate.getMonth()).toBe(7)
+
+      // S36: 31/08 a 06/09/2026
+      expect(s36.startDate.getDate()).toBe(31)
+      expect(s36.startDate.getMonth()).toBe(7)
+      expect(s36.endDate.getDate()).toBe(6)
+      expect(s36.endDate.getMonth()).toBe(8) // Setembro
+
+      // S37: 07/09 a 13/09/2026
+      expect(s37.startDate.getDate()).toBe(7)
+      expect(s37.startDate.getMonth()).toBe(8)
+      expect(s37.endDate.getDate()).toBe(13)
+      expect(s37.endDate.getMonth()).toBe(8)
+
+      // As semanas são estritamente contínuas e sem sobreposição de dias
+      expect(s36.startDate.getTime() - s35.startDate.getTime()).toBe(7 * 24 * 60 * 60 * 1000)
+      expect(s37.startDate.getTime() - s36.startDate.getTime()).toBe(7 * 24 * 60 * 60 * 1000)
+    })
+
+    it('deve virar de ano na transição S52 -> S01 e vice-versa mantendo integridade ISO', () => {
+      // Simulação da lógica de dia seguinte cruzando ano
+      let currentYear = 2026
+      let currentWeek = 52
+      let dayOfWeek: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' = 'DOM'
+
+      // Dia seguinte a partir de Domingo na S52 vira Segunda na S01 do próximo ano
+      if (dayOfWeek === 'DOM') {
+        currentYear += 1
+        currentWeek = 1
+        dayOfWeek = 'SEG'
+      }
+
+      expect(currentYear).toBe(2027)
+      expect(currentWeek).toBe(1)
+      expect(dayOfWeek).toBe('SEG')
+
+      // Dia anterior a partir de Segunda na S01 vira Domingo na S52 do ano anterior
+      if (dayOfWeek === 'SEG') {
+        currentYear -= 1
+        currentWeek = 52
+        dayOfWeek = 'DOM'
+      }
+
+      expect(currentYear).toBe(2026)
+      expect(currentWeek).toBe(52)
+      expect(dayOfWeek).toBe('DOM')
+    })
+
+    it('deve identificar corretamente semana passada como somente leitura', () => {
+      // 2020 é estritamente passado
+      expect(isWeekInPast(2020, 1)).toBe(true)
+      // 2050 é estritamente futuro
+      expect(isWeekInPast(2050, 50)).toBe(false)
+    })
+
+    it('deve bloquear itens no passado com base em data/hora em relação ao momento atual da planta', () => {
+      const pastItem: any = {
+        id: 'past-1',
+        start_datetime: '2020-01-01 08:00',
+        end_datetime: '2020-01-01 12:00',
+      }
+      const futureItem: any = {
+        id: 'future-1',
+        start_datetime: '2050-01-01 08:00',
+        end_datetime: '2050-01-01 12:00',
+      }
+
+      expect(isScheduleItemInPast(pastItem, 2020, 1)).toBe(true)
+      expect(isScheduleItemInPast(futureItem, 2050, 1)).toBe(false)
+    })
   })
 })

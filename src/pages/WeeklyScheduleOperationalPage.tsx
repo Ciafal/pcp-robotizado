@@ -50,11 +50,15 @@ import { useControlTower } from '@/contexts/ControlTowerContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { lineMasterService } from '@/services/line-master'
 import { weeklyScheduleService } from '@/services/weekly-schedule-service'
+import { WeeklyScheduleEngine, RawMaterialEngineContext } from '@/services/weekly-schedule-engine'
 import {
-  WeeklyScheduleEngine,
+  getCurrentPlantIsoWeek,
   getWeekDateRange,
-  RawMaterialEngineContext,
-} from '@/services/weekly-schedule-engine'
+  isWeekInPast,
+  isScheduleItemInPast,
+  TEMPORAL_MESSAGES,
+} from '@/lib/temporal-utils'
+import { WeekPeriodSelector } from '@/components/weekly-schedule/WeekPeriodSelector'
 import {
   WeeklyScheduleItem,
   WeeklyHeaderFilter,
@@ -147,13 +151,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const auth = useAuth()
   const location = useLocation()
 
-  // Estados de Filtro de Cabeçalho (Empresa, Centro, Linha, Ano, Semana)
+  // Estados de Filtro de Cabeçalho (Empresa, Centro, Linha, Ano, Semana) com Fuso Canônico da Planta
+  const initialPlantWeek = useMemo(() => getCurrentPlantIsoWeek(), [])
   const [companyCode, setCompanyCode] = useState<string>('CIAFAL')
   const [plantCode, setPlantCode] = useState<string>('PLANTA_1')
   const [selectedProgrammingType, setSelectedProgrammingType] = useState<string>('ALL')
   const [selectedLineCode, setSelectedLineCode] = useState<string>('L1')
-  const [selectedYear, setSelectedYear] = useState<number>(2026)
-  const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(35)
+  const [selectedYear, setSelectedYear] = useState<number>(initialPlantWeek.year)
+  const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(initialPlantWeek.week)
 
   // Dados Carregados da Ficha Mestre e Linhas Cadastradas
   const [lines, setLines] = useState<ProductionLine[]>([])
@@ -161,6 +166,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [officialMaterials, setOfficialMaterials] = useState<OfficialMaterialOption[]>([])
   const [rawMaterialContext, setRawMaterialContext] = useState<RawMaterialEngineContext>({})
   const [isLoadingLine, setIsLoadingLine] = useState<boolean>(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState<boolean>(false)
 
   // Itens da Programação Semanal
@@ -194,7 +200,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<
     'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
   >('SEG')
-  const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>('2026-08-24')
+  const [selectedMonthDateIso, setSelectedMonthDateIso] = useState<string>(() => {
+    const r = getWeekDateRange(initialPlantWeek.year, initialPlantWeek.week)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${r.startDate.getFullYear()}-${pad(r.startDate.getMonth() + 1)}-${pad(r.startDate.getDate())}`
+  })
   const [isMonthlyAiModalOpen, setIsMonthlyAiModalOpen] = useState(false)
   const [monthlyFilterShift, setMonthlyFilterShift] = useState<string>('ALL')
   const [monthlyFilterProduct, setMonthlyFilterProduct] = useState<string>('ALL')
@@ -344,100 +354,107 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const loadLineData = useCallback(
     async (lineCodeToLoad: string) => {
       setIsLoadingLine(true)
+      setLoadError(null)
+      // Limpa dados anteriores imediatamente para evitar exibição residual de outra semana/linha
+      setItems([])
+      setSavedBaselineItems([])
+      setSelectedScheduleItem(null)
+
       try {
         const lineList = lines.length > 0 ? lines : await lineMasterService.listLines()
         const lineObj = lineList.find((l) => l.code === lineCodeToLoad) || lineList[0]
 
-        if (lineObj) {
-          const overview = await lineMasterService.getLineOverview(lineObj.id)
-          setCurrentLineOverview(overview)
-
-          const mats = await weeklyScheduleService.getOfficialMaterialsForLine(lineObj.id, overview)
-          setOfficialMaterials(mats)
-
-          // Carrega contexto completo de MP (Estoque SAP/WMS, Pedidos de Compra SAP, Produção Upstream)
-          const currentFilter: WeeklyHeaderFilter = {
-            companyCode,
-            plantCode,
-            lineCode: lineCodeToLoad,
-            year: selectedYear,
-            weekNumber: selectedWeekNumber,
-            periodDisplay: weekRange.display,
-          }
-          const rmContext = await weeklyScheduleService.loadRawMaterialContext(currentFilter)
-          setRawMaterialContext(rmContext)
-
-          // Carrega programação salva existente para a semana
-          const savedItems = await weeklyScheduleService.loadWeeklySchedule(currentFilter)
-
-          if (savedItems.length > 0) {
-            setItems(savedItems)
-            setSavedBaselineItems(savedItems)
-            setCurrentWorkflowState(savedItems[0].status || 'DRAFT')
-            setCurrentVersion(savedItems[0].version || 1)
-          } else {
-            // Se não houver dados salvos, inicializa com atividades padrão realistas para demonstração imediata
-            initializeDefaultWeekSchedule(lineCodeToLoad, overview, mats)
-          }
-
-          // Carrega histórico de versões estruturado e alertas MES
-          const fullVers = await scheduleVersioningService.getVersionHistory(
-            lineCodeToLoad,
-            selectedYear,
-            selectedWeekNumber,
-          )
-          setFullVersionHistoryList(fullVers)
-
-          const mesList = await scheduleVersioningService.listMesAlerts(lineCodeToLoad)
-          setMesAlertsList(mesList)
-
-          const scheduleCode = `WS-${lineCodeToLoad}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
-          const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
-          setVersionHistoryList(vers)
-
-          const scens = await weeklyScheduleService.loadScenarios(scheduleCode)
-          if (scens.length > 0) {
-            setScenarios(scens)
-          } else {
-            // Inicializa Cenário A padrão
-            const initialScenarioA: WeeklyScheduleScenario = {
-              id: 'scen-a-default',
-              scenario_code: 'A',
-              scenario_name: 'Cenário Base (Oficial)',
-              description: 'Programação base inicial da semana.',
-              schedule_code: scheduleCode,
-              line_code: lineCodeToLoad,
-              year: selectedYear,
-              week_number: selectedWeekNumber,
-              is_active: true,
-              items_snapshot: savedItems,
-              metrics_snapshot: {
-                productionTons:
-                  savedItems.reduce((s, it) => s + (it.planned_quantity_tons || 0), 0) || 130,
-                utilizationPct: 88.5,
-                setupHours: 1.25,
-                switchesCount: 1,
-                rawMaterialRiskCount: 0,
-                ordersMetCount: 2,
-                ordersTotalCount: 2,
-                sequenceEfficiencyPct: 92,
-              },
-              ai_recommendation: {
-                isRecommended: true,
-                score: 92,
-                rationale: 'Cenário equilibrado com ocupação nominal de 88.5% e MP garantida.',
-              },
-            }
-            setScenarios([initialScenarioA])
-          }
+        if (!lineObj) {
+          throw new Error('Nenhuma linha de produção encontrada.')
         }
-      } catch (err) {
+
+        const overview = await lineMasterService.getLineOverview(lineObj.id)
+        setCurrentLineOverview(overview)
+
+        const mats = await weeklyScheduleService.getOfficialMaterialsForLine(lineObj.id, overview)
+        setOfficialMaterials(mats || [])
+
+        // Carrega contexto completo de MP (Estoque SAP/WMS, Pedidos de Compra SAP, Produção Upstream)
+        const currentFilter: WeeklyHeaderFilter = {
+          companyCode,
+          plantCode,
+          lineCode: lineCodeToLoad,
+          year: selectedYear,
+          weekNumber: selectedWeekNumber,
+          periodDisplay: weekRange.display,
+        }
+        const rmContext = await weeklyScheduleService.loadRawMaterialContext(currentFilter)
+        setRawMaterialContext(rmContext || {})
+
+        // Carrega programação salva existente para a semana
+        const savedItems = await weeklyScheduleService.loadWeeklySchedule(currentFilter)
+
+        if (savedItems && savedItems.length > 0) {
+          setItems(savedItems)
+          setSavedBaselineItems(savedItems)
+          setCurrentWorkflowState(savedItems[0]?.status || 'DRAFT')
+          setCurrentVersion(savedItems[0]?.version || 1)
+          setSelectedScheduleItem(savedItems[0])
+        } else {
+          // Se não houver dados salvos, inicializa com atividades padrão realistas derivadas dinamicamente
+          initializeDefaultWeekSchedule(lineCodeToLoad, overview, mats || [])
+        }
+
+        // Carrega histórico de versões estruturado e alertas MES
+        const fullVers = await scheduleVersioningService.getVersionHistory(
+          lineCodeToLoad,
+          selectedYear,
+          selectedWeekNumber,
+        )
+        setFullVersionHistoryList(fullVers || [])
+
+        const mesList = await scheduleVersioningService.listMesAlerts(lineCodeToLoad)
+        setMesAlertsList(mesList || [])
+
+        const scheduleCode = `WS-${lineCodeToLoad}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
+        const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
+        setVersionHistoryList(vers || [])
+
+        const scens = await weeklyScheduleService.loadScenarios(scheduleCode)
+        if (scens && scens.length > 0) {
+          setScenarios(scens)
+        } else {
+          // Inicializa Cenário A padrão
+          const initialScenarioA: WeeklyScheduleScenario = {
+            id: 'scen-a-default',
+            scenario_code: 'A',
+            scenario_name: 'Cenário Base (Oficial)',
+            description: 'Programação base inicial da semana.',
+            schedule_code: scheduleCode,
+            line_code: lineCodeToLoad,
+            year: selectedYear,
+            week_number: selectedWeekNumber,
+            is_active: true,
+            items_snapshot: savedItems || [],
+            metrics_snapshot: {
+              productionTons:
+                (savedItems || []).reduce((s, it) => s + (it.planned_quantity_tons || 0), 0) || 130,
+              utilizationPct: 88.5,
+              setupHours: 1.25,
+              switchesCount: 1,
+              rawMaterialRiskCount: 0,
+              ordersMetCount: 2,
+              ordersTotalCount: 2,
+              sequenceEfficiencyPct: 92,
+            },
+            ai_recommendation: {
+              isRecommended: true,
+              score: 92,
+              rationale: 'Cenário equilibrado com ocupação nominal de 88.5% e MP garantida.',
+            },
+          }
+          setScenarios([initialScenarioA])
+        }
+      } catch (err: any) {
         console.error('Erro ao carregar Ficha Mestre da linha:', err)
-        toast({
-          variant: 'destructive',
-          title: 'Erro na Ficha Mestre',
-          description: 'Não foi possível carregar os parâmetros completos da linha.',
-        })
+        setLoadError(
+          'Não foi possível carregar a programação da semana selecionada. Tentar novamente.',
+        )
       } finally {
         setIsLoadingLine(false)
       }
@@ -449,9 +466,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     if (selectedLineCode) {
       loadLineData(selectedLineCode)
     }
+    // Visão Dia: se o dia focalizado não for segunda-feira ao trocar de semana, resetar para 'SEG'
+    setSelectedDayOfWeek('SEG')
   }, [selectedLineCode, selectedYear, selectedWeekNumber])
 
-  // Inicializa uma programação inicial estruturada fiel aos requisitos visuais
+  // Inicializa uma programação inicial estruturada fiel aos requisitos visuais com datas dinâmicas da semana selecionada
   const initializeDefaultWeekSchedule = (
     lineCode: string,
     overview: LineOverviewData | null,
@@ -466,10 +485,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             { code: 'T3_L1', name: '3º Turno / Turma A', crew: 'Turma A' },
           ]
 
+    const pad = (n: number) => String(n).padStart(2, '0')
+
+    // Segunda-feira da semana selecionada
+    const monday = new Date(weekRange.startDate)
+    const mondayIso = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`
+    const mondayDateStr = `${pad(monday.getDate())}/${pad(monday.getMonth() + 1)}`
+
+    // Terça-feira da semana selecionada
+    const tuesday = new Date(weekRange.startDate)
+    tuesday.setDate(weekRange.startDate.getDate() + 1)
+    const tuesdayIso = `${tuesday.getFullYear()}-${pad(tuesday.getMonth() + 1)}-${pad(tuesday.getDate())}`
+    const tuesdayDateStr = `${pad(tuesday.getDate())}/${pad(tuesday.getMonth() + 1)}`
+
     const initial: WeeklyScheduleItem[] = [
       {
         id: 'item-demo-1',
-        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
         company_code: companyCode,
         plant_code: plantCode,
         line_code: lineCode,
@@ -477,7 +509,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         week_number: selectedWeekNumber,
         period_display: weekRange.display,
         day_of_week: 'SEG',
-        date_str: '24/08',
+        date_str: mondayDateStr,
         shift_code: defaultShifts[0]?.code || 'T1_L1',
         shift_name: '1º Turno / Turma C',
         crew_name: 'Turma C',
@@ -495,8 +527,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         production_hours: 4.25,
         setup_duration_minutes: 0,
         setup_reason: 'Início de campanha',
-        start_datetime: '2026-08-24 06:00',
-        end_datetime: '2026-08-24 10:15',
+        start_datetime: `${mondayIso} 06:00`,
+        end_datetime: `${mondayIso} 10:15`,
         status: 'DRAFT',
         version: 1,
         raw_material_req_tons: 126.0,
@@ -504,7 +536,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       },
       {
         id: 'item-demo-2',
-        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
         company_code: companyCode,
         plant_code: plantCode,
         line_code: lineCode,
@@ -512,7 +544,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         week_number: selectedWeekNumber,
         period_display: weekRange.display,
         day_of_week: 'SEG',
-        date_str: '24/08',
+        date_str: mondayDateStr,
         shift_code: defaultShifts[0]?.code || 'T1_L1',
         shift_name: '1º Turno / Turma C',
         crew_name: 'Turma C',
@@ -531,15 +563,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         production_hours: 3.25,
         setup_duration_minutes: 20,
         setup_reason: 'Setup: 180 min / Acerto: 20 min',
-        start_datetime: '2026-08-24 10:35',
-        end_datetime: '2026-08-24 14:00',
+        start_datetime: `${mondayIso} 10:35`,
+        end_datetime: `${mondayIso} 14:00`,
         status: 'AGUARDANDO_OBSERVACOES',
         awaiting_observations: {
           is_awaiting: true,
           reason: 'Validação de tolerância dimensional pelo cliente',
           observation: 'Pedido MTO retido aguardando aprovação da espessura.',
           responsible: 'Comercial / PCP',
-          date_time: '2026-08-24 08:30',
+          date_time: `${mondayIso} 08:30`,
         },
         version: 1,
         raw_material_req_tons: 73.5,
@@ -547,7 +579,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       },
       {
         id: 'item-demo-stop-1',
-        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
         company_code: companyCode,
         plant_code: plantCode,
         line_code: lineCode,
@@ -555,7 +587,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         week_number: selectedWeekNumber,
         period_display: weekRange.display,
         day_of_week: 'SEG',
-        date_str: '24/08',
+        date_str: mondayDateStr,
         shift_code: defaultShifts[0]?.code || 'T1_L1',
         shift_name: '1º Turno / Turma C',
         crew_name: 'Manutenção',
@@ -571,15 +603,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         stop_code: 'LIMPEZA_TROCA',
         stop_description: 'Limpeza de guias e troca de cilindros',
         stop_duration_minutes: 60,
-        start_datetime: '2026-08-24 14:05',
-        end_datetime: '2026-08-24 15:05',
+        start_datetime: `${mondayIso} 14:05`,
+        end_datetime: `${mondayIso} 15:05`,
         status: 'DRAFT',
         version: 1,
         raw_material_req_tons: 0,
       },
       {
         id: 'item-demo-3',
-        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
         company_code: companyCode,
         plant_code: plantCode,
         line_code: lineCode,
@@ -587,7 +619,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         week_number: selectedWeekNumber,
         period_display: weekRange.display,
         day_of_week: 'SEG',
-        date_str: '24/08',
+        date_str: mondayDateStr,
         shift_code: defaultShifts[0]?.code || 'T1_L1',
         shift_name: '1º Turno / Turma C',
         crew_name: 'Turma C',
@@ -605,8 +637,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         production_hours: 5.94,
         setup_duration_minutes: 15,
         setup_reason: 'Troca de matriz perfil U: 15 min',
-        start_datetime: '2026-08-24 15:20',
-        end_datetime: '2026-08-24 21:15',
+        start_datetime: `${mondayIso} 15:20`,
+        end_datetime: `${mondayIso} 21:15`,
         status: 'DRAFT',
         version: 1,
         raw_material_req_tons: 98.8,
@@ -614,7 +646,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       },
       {
         id: 'item-demo-ter-1',
-        schedule_code: `WS-${lineCode}-${selectedYear}-W${selectedWeekNumber}`,
+        schedule_code: `WS-${lineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
         company_code: companyCode,
         plant_code: plantCode,
         line_code: lineCode,
@@ -622,7 +654,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         week_number: selectedWeekNumber,
         period_display: weekRange.display,
         day_of_week: 'TER',
-        date_str: '25/08',
+        date_str: tuesdayDateStr,
         shift_code: defaultShifts[1]?.code || 'T2_L1',
         shift_name: '1º Turno / Turma A',
         crew_name: 'Turma A',
@@ -640,8 +672,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         production_hours: 7.57,
         setup_duration_minutes: 25,
         setup_reason: 'Troca de cilindros de laminação',
-        start_datetime: '2026-08-25 06:00',
-        end_datetime: '2026-08-25 13:35',
+        start_datetime: `${tuesdayIso} 06:00`,
+        end_datetime: `${tuesdayIso} 13:35`,
         status: 'DRAFT',
         version: 1,
         raw_material_req_tons: 145.6,
@@ -980,9 +1012,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     if (currIdx > 0) {
       setSelectedDayOfWeek(daySequence[currIdx - 1])
     } else {
-      // Vira para a semana anterior no Domingo
-      const prevWeek = selectedWeekNumber > 1 ? selectedWeekNumber - 1 : 52
-      setSelectedWeekNumber(prevWeek)
+      // Vira para a semana anterior no Domingo (cruzando ano se S01 -> S52)
+      if (selectedWeekNumber > 1) {
+        setSelectedWeekNumber(selectedWeekNumber - 1)
+      } else {
+        setSelectedYear((prev) => prev - 1)
+        setSelectedWeekNumber(52)
+      }
       setSelectedDayOfWeek('DOM')
     }
   }
@@ -992,9 +1028,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     if (currIdx < daySequence.length - 1) {
       setSelectedDayOfWeek(daySequence[currIdx + 1])
     } else {
-      // Vira para a semana seguinte na Segunda
-      const nextWeek = selectedWeekNumber < 52 ? selectedWeekNumber + 1 : 1
-      setSelectedWeekNumber(nextWeek)
+      // Vira para a semana seguinte na Segunda (cruzando ano se S52/S53 -> S01)
+      if (selectedWeekNumber < 52) {
+        setSelectedWeekNumber(selectedWeekNumber + 1)
+      } else {
+        setSelectedYear((prev) => prev + 1)
+        setSelectedWeekNumber(1)
+      }
       setSelectedDayOfWeek('SEG')
     }
   }
@@ -1090,6 +1130,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     const plannedQty = Number(newItemData.planned_quantity_tons) || 100
     const prodHours = cadence > 0 ? Number((plannedQty / cadence).toFixed(2)) : 0
 
+    // Calcula data date_str do dia selecionado
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const addOffset = dayOffsetMap[day] ?? 0
+    const addDate = new Date(weekRange.startDate)
+    addDate.setDate(weekRange.startDate.getDate() + addOffset)
+    const calculatedDateStr = `${pad(addDate.getDate())}/${pad(addDate.getMonth() + 1)}`
+
     const itemToAdd: WeeklyScheduleItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
@@ -1101,7 +1148,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       week_number: selectedWeekNumber,
       period_display: weekRange.display,
       day_of_week: day,
-      date_str: '24/08',
+      date_str: calculatedDateStr,
       shift_code: shift,
       shift_name: newItemData.shift_name || '1º Turno Matutino',
       crew_name: newItemData.crew_name || 'Turma A',
@@ -1148,23 +1195,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
-  // Regra de bloqueio temporal no passado para visão DIA
-  const isItemInPast = (item: WeeklyScheduleItem): boolean => {
-    if (!item.start_datetime && !item.end_datetime) return false
-    const now = new Date()
-    const checkDate = item.end_datetime || item.start_datetime
-    if (!checkDate) return false
-    // Formato padrão "YYYY-MM-DD HH:mm" ou ISO
-    const parsed = new Date(checkDate.replace(' ', 'T'))
-    if (isNaN(parsed.getTime())) return false
-    return parsed.getTime() < now.getTime()
-  }
+  // Regra de bloqueio temporal no passado respeitando timezone da planta e regras canônicas
+  const isItemInPast = useCallback(
+    (item: WeeklyScheduleItem): boolean => {
+      return isScheduleItemInPast(item, selectedYear, selectedWeekNumber)
+    },
+    [selectedYear, selectedWeekNumber],
+  )
+
+  const isCurrentWeekHistorical = useMemo(() => {
+    return isWeekInPast(selectedYear, selectedWeekNumber)
+  }, [selectedYear, selectedWeekNumber])
 
   const handleOpenEditItem = (item: WeeklyScheduleItem) => {
+    if (isCurrentWeekHistorical) {
+      toast({
+        title: 'Edição Bloqueada',
+        description: TEMPORAL_MESSAGES.WEEK_HISTORICAL_READONLY,
+        variant: 'destructive',
+      })
+      return
+    }
     if (isItemInPast(item)) {
       toast({
         title: 'Edição Bloqueada',
-        description: 'Não é permitido editar programação com data/hora do passado.',
+        description: TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED,
         variant: 'destructive',
       })
       return
@@ -1174,10 +1229,18 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   const handleSaveEditedItem = async (updatedItem: WeeklyScheduleItem) => {
+    if (isCurrentWeekHistorical) {
+      toast({
+        title: 'Edição Bloqueada',
+        description: TEMPORAL_MESSAGES.WEEK_HISTORICAL_READONLY,
+        variant: 'destructive',
+      })
+      return
+    }
     if (isItemInPast(updatedItem)) {
       toast({
         title: 'Edição Bloqueada',
-        description: 'Não é permitido editar programação com data/hora do passado.',
+        description: TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED,
         variant: 'destructive',
       })
       return
@@ -1649,9 +1712,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   ) => {
     const shifts = currentLineOverview?.shifts || []
     const shift = shifts.find((s) => s.code === shiftCode)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const stopOffset = dayOffsetMap[day] ?? 0
+    const stopDate = new Date(weekRange.startDate)
+    stopDate.setDate(weekRange.startDate.getDate() + stopOffset)
+    const stopDateStr = `${pad(stopDate.getDate())}/${pad(stopDate.getMonth() + 1)}`
+
     const newStop: WeeklyScheduleItem = {
       id: `stop-${Date.now()}`,
-      schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${selectedWeekNumber}`,
+      schedule_code: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
       company_code: companyCode,
       plant_code: plantCode,
       line_code: selectedLineCode,
@@ -1659,7 +1728,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       week_number: selectedWeekNumber,
       period_display: weekRange.display,
       day_of_week: day,
-      date_str: '24/08',
+      date_str: stopDateStr,
       shift_code: shiftCode,
       shift_name: shift?.name || '1º Turno',
       crew_name: 'Manutenção',
@@ -2120,6 +2189,59 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   return (
     <div className="space-y-2.5 pb-8 text-slate-900">
+      {/* Loading de transição de semana ou linha sem expor dados defasados */}
+      {isLoadingLine && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between text-blue-900 shadow-xs animate-pulse">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-[#004C97] animate-spin shrink-0" />
+            <span className="text-xs font-bold text-[#004C97]">
+              Carregando programação da S{selectedWeekNumber} ({weekRange.display})...
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500">Linha {selectedLineCode}</span>
+        </div>
+      )}
+
+      {/* Alerta de erro tratável na tela com botão de retry sem derrubar ErrorBoundary */}
+      {loadError && !isLoadingLine && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-lg p-3 text-rose-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <div>
+              <p className="font-bold text-xs text-rose-900 uppercase tracking-wide">
+                Falha ao Carregar Programação
+              </p>
+              <p className="text-xs text-rose-800 mt-0.5">
+                Não foi possível carregar a programação da semana selecionada. Tentar novamente.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => loadLineData(selectedLineCode)}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-8 flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {/* Banner de Semana Histórica - Somente Leitura */}
+      {isCurrentWeekHistorical && !isLoadingLine && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 text-amber-950 flex items-center justify-between text-xs shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="font-bold text-amber-900">
+              Período histórico — somente leitura (Semana S{selectedWeekNumber}/{selectedYear}).
+            </span>
+          </div>
+          <span className="text-[10.5px] font-medium text-amber-800">
+            Alterações de sequência e edição de lotes estão desabilitadas para semanas passadas.
+          </span>
+        </div>
+      )}
+
       {/* 1. CABEÇALHO COMPACTO DA ÁREA PRINCIPAL COM ESTEIRA DE AÇÕES UNIFICADA EM TODOS OS MODOS */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-xs p-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
         <div>
@@ -2127,7 +2249,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             /* Linha 1 Mês: Título Oficial Mensal + Selo EM PROGRAMAÇÃO */
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-black tracking-tight text-slate-950 uppercase">
-                PROGRAMAÇÃO MENSAL - AGOSTO/2026
+                PROGRAMAÇÃO MENSAL -{' '}
+                {weekRange.startDate
+                  .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+                  .toUpperCase()}
               </h1>
               <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-black uppercase px-2 py-0.5">
                 EM PROGRAMAÇÃO
@@ -2180,7 +2305,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
-                <strong className="text-slate-800">Mês:</strong> Agosto/2026 (S35 a S39)
+                <strong className="text-slate-800">Mês:</strong>{' '}
+                {weekRange.startDate.toLocaleDateString('pt-BR', {
+                  month: 'long',
+                  year: 'numeric',
+                })}{' '}
+                (S{selectedWeekNumber})
               </span>
               <span className="text-slate-300">•</span>
               <span className="flex items-center gap-1">
@@ -2735,15 +2865,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Período */}
+              {/* Seletor Canônico de Semana / Período */}
               <div className="flex items-center gap-1">
                 <span className="text-[11px] font-bold text-slate-600">Período:</span>
-                <Badge
-                  variant="outline"
-                  className="text-[10.5px] font-mono font-bold bg-white text-slate-700 py-0.5"
-                >
-                  S{selectedWeekNumber} ({weekRange.display})
-                </Badge>
+                <WeekPeriodSelector
+                  currentYear={selectedYear}
+                  currentWeekNumber={selectedWeekNumber}
+                  onSelectWeek={(y, w) => {
+                    setSelectedYear(y)
+                    setSelectedWeekNumber(w)
+                  }}
+                />
               </div>
 
               {/* ITEM 3: Filtro Versão (V01, V02, ...) */}
@@ -3098,6 +3230,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   items={dailyCalculatedItems}
                   lineOverview={currentLineOverview}
                   selectedItemId={selectedScheduleItem?.id}
+                  year={selectedYear}
+                  weekNumber={selectedWeekNumber}
                   onSelectItem={(item) => setSelectedScheduleItem(item)}
                   onEditItem={handleOpenEditItem}
                   onMoveItem={(from, to, targetOverrides) =>
@@ -3127,6 +3261,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   items={dailyCalculatedItems}
                   lineOverview={currentLineOverview}
                   selectedItemId={selectedScheduleItem?.id}
+                  year={selectedYear}
+                  weekNumber={selectedWeekNumber}
                   onSelectItem={(item) => setSelectedScheduleItem(item)}
                   onEditItem={handleOpenEditItem}
                   onMoveUp={handleMoveUp}
@@ -3231,13 +3367,39 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       ) : (
         /* VISÃO SEMANAL: GRADE OPERACIONAL + PAINEL DIREITO FIXO (BASELINE OFICIAL) */
         <div className="flex flex-col xl:flex-row gap-2.5 items-start w-full">
-          {/* Coluna Central Dominante: GRADE OPERACIONAL */}
+          {/* Coluna Central Dominante: GRADE OPERACIONAL COM NULL SAFETY E EMPTY STATE */}
           <div className="flex-1 min-w-0 w-full space-y-2.5">
-            {gridFormat === 'OPERATIONAL_TIMELINE' ? (
+            {!isLoadingLine && calculatedItems.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-lg p-8 text-center space-y-3 shadow-xs">
+                <CalendarDays className="w-10 h-10 text-slate-400 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-800">
+                  Nenhuma programação cadastrada para esta semana.
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  A semana S{selectedWeekNumber}/{selectedYear} ainda não possui itens programados
+                  na linha {selectedLineCode}. Comece adicionando o primeiro lote.
+                </p>
+                <Button
+                  size="sm"
+                  disabled={!isLineActive || isCurrentWeekHistorical}
+                  onClick={() => {
+                    const firstShift = (currentLineOverview?.shifts || [])[0]
+                    setTargetDay('SEG')
+                    setTargetShiftCode(firstShift?.code || 'T1_L1')
+                    setIsAddModalOpen(true)
+                  }}
+                  className="bg-[#004C97] hover:bg-[#003d7a] text-white font-bold text-xs h-8"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar Produto
+                </Button>
+              </div>
+            ) : gridFormat === 'OPERATIONAL_TIMELINE' ? (
               <OperationalTimelineGrid
-                items={calculatedItems}
+                items={calculatedItems || []}
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
+                year={selectedYear}
+                weekNumber={selectedWeekNumber}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
                 onEditItem={handleOpenEditItem}
                 onMoveItem={(from, to, targetOverrides) =>
@@ -3264,9 +3426,11 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               />
             ) : (
               <WeeklyScheduleGrid
-                items={calculatedItems}
+                items={calculatedItems || []}
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
+                year={selectedYear}
+                weekNumber={selectedWeekNumber}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
                 onEditItem={handleOpenEditItem}
                 onMoveUp={handleMoveUp}
