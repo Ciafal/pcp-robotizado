@@ -53,6 +53,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
   const [shiftEndTime, setShiftEndTime] = useState('14:00')
   const [shiftOrder, setShiftOrder] = useState<number>(1)
   const [shiftBreakMin, setShiftBreakMin] = useState<number>(40)
+  const [shiftScale, setShiftScale] = useState<'5X2' | '6X1' | '12X36' | '5X1'>('6X1')
   const [shiftValidFrom, setShiftValidFrom] = useState('')
   const [shiftValidUntil, setShiftValidUntil] = useState('')
   const [shiftActive, setShiftActive] = useState(true)
@@ -98,6 +99,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
     setShiftEndTime(nextSeq === 1 ? '14:00' : nextSeq === 2 ? '22:00' : '06:00')
     setShiftOrder(nextSeq)
     setShiftBreakMin(40)
+    setShiftScale('6X1')
     setShiftValidFrom('')
     setShiftValidUntil('')
     setShiftActive(true)
@@ -112,6 +114,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
     setShiftEndTime(shift.end_time)
     setShiftOrder(shift.sequence_order || 1)
     setShiftBreakMin(shift.break_minutes || 40)
+    setShiftScale(shift.scale || '6X1')
     setShiftValidFrom(shift.valid_from ? shift.valid_from.substring(0, 10) : '')
     setShiftValidUntil(shift.valid_until ? shift.valid_until.substring(0, 10) : '')
     setShiftActive(shift.active !== false)
@@ -119,11 +122,11 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
   }
 
   const handleSaveShift = async () => {
-    if (!shiftCode.trim() || !shiftStartTime || !shiftEndTime) {
+    if (!shiftCode.trim() || !shiftStartTime || !shiftEndTime || !shiftScale) {
       toast({
         variant: 'destructive',
         title: 'Dados obrigatórios',
-        description: 'Informe o código e os horários de início e término do turno.',
+        description: 'Informe o código, horários e escala operacional do turno.',
       })
       return
     }
@@ -155,6 +158,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
         end_time: shiftEndTime,
         duration_hours: hours,
         break_minutes: Number(shiftBreakMin) || 0,
+        scale: shiftScale,
         active: shiftActive,
         valid_from: shiftValidFrom || undefined,
         valid_until: shiftValidUntil || undefined,
@@ -436,6 +440,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
                   <tr>
                     <th className="p-2.5">Código</th>
                     <th className="p-2.5">Descrição</th>
+                    <th className="p-2.5">Escala</th>
                     <th className="p-2.5">Hora Inicial</th>
                     <th className="p-2.5">Hora Final</th>
                     <th className="p-2.5">Duração</th>
@@ -458,6 +463,26 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
                           </span>
                         </td>
                         <td className="p-2.5 font-sans font-medium text-slate-800">{s.name}</td>
+                        <td className="p-2.5 font-sans font-semibold text-slate-700">
+                          {s.scale ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-mono font-semibold bg-slate-50 text-slate-700 border-slate-300"
+                            >
+                              {s.scale === '5X2'
+                                ? '5x2'
+                                : s.scale === '6X1'
+                                  ? '6x1'
+                                  : s.scale === '12X36'
+                                    ? '12x36'
+                                    : s.scale === '5X1'
+                                      ? '5x1'
+                                      : s.scale}
+                            </Badge>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td className="p-2.5 text-slate-700">{s.start_time}</td>
                         <td className="p-2.5 text-slate-700">{s.end_time}</td>
                         <td className="p-2.5 font-bold text-slate-900">{dur.display}</td>
@@ -827,6 +852,20 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
                     {calculateDuration(shiftStartTime, shiftEndTime).display}
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-bold">Escala *</Label>
+                <select
+                  value={shiftScale}
+                  onChange={(e) => setShiftScale(e.target.value as '5X2' | '6X1' | '12X36' | '5X1')}
+                  className="w-full bg-slate-50 border border-slate-300 rounded text-xs p-2 font-medium"
+                >
+                  <option value="5X2">Escala 5x2</option>
+                  <option value="6X1">Escala 6x1</option>
+                  <option value="12X36">Escala 12x36</option>
+                  <option value="5X1">Escala 5x1</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

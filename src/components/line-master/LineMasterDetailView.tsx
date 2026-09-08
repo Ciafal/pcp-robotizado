@@ -303,11 +303,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [rawSource, setRawSource] = useState<'MANUAL' | 'SAP'>('MANUAL')
   const [rawSapId, setRawSapId] = useState('')
 
+  const [editingBlockedProduct, setEditingBlockedProduct] = useState<any | null>(null)
   const [blkCode, setBlkCode] = useState('')
   const [blkDesc, setBlkDesc] = useState('')
   const [blkReason, setBlkReason] = useState('')
   const [blkType, setBlkType] = useState<any>('TECHNICAL')
   const [blkUser, setBlkUser] = useState('')
+  const [blkValidFrom, setBlkValidFrom] = useState('')
+  const [blkValidUntil, setBlkValidUntil] = useState('')
+  const [blkActive, setBlkActive] = useState(true)
+  const [isSubmittingBlocked, setIsSubmittingBlocked] = useState(false)
 
   const [stpCode, setStpCode] = useState('')
   const [stpDesc, setStpDesc] = useState('')
@@ -466,37 +471,96 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     }
   }
 
+  const handleOpenAddBlockedProduct = () => {
+    setEditingBlockedProduct(null)
+    setBlkCode('')
+    setBlkDesc('')
+    setBlkReason('')
+    setBlkType('TECHNICAL')
+    setBlkUser(users[0]?.id || '')
+    setBlkValidFrom(new Date().toISOString().slice(0, 10))
+    setBlkValidUntil('')
+    setBlkActive(true)
+    setIsBlockModalOpen(true)
+  }
+
+  const handleOpenEditBlockedProduct = (item: any) => {
+    setEditingBlockedProduct(item)
+    setBlkCode(item.product_code)
+    setBlkDesc(item.product_description || item.product_code)
+    setBlkReason(item.block_reason || '')
+    setBlkType(item.block_type || 'TECHNICAL')
+    setBlkUser(item.responsible_user_id || '')
+    setBlkValidFrom(item.valid_from ? item.valid_from.substring(0, 10) : '')
+    setBlkValidUntil(item.valid_until ? item.valid_until.substring(0, 10) : '')
+    setBlkActive(item.active !== false)
+    setIsBlockModalOpen(true)
+  }
+
+  const handleToggleBlockedProductStatus = async (item: any) => {
+    const newActive = !item.active
+    const confirmMsg = newActive
+      ? `Deseja reativar o bloqueio do produto ${item.product_code}?`
+      : `Deseja inativar o bloqueio do produto ${item.product_code}? O histórico será preservado.`
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      await lineMasterService.setBlockedProductActive(item.id, newActive)
+      toast({
+        title: newActive ? 'Bloqueio Ativado' : 'Bloqueio Inativado',
+        description: `Bloqueio do produto ${item.product_code} ${newActive ? 'ativado' : 'inativado'} com sucesso.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao alterar status',
+        description: err.message || 'Falha ao atualizar o bloqueio.',
+      })
+    }
+  }
+
   const handleSaveBlockedProduct = async () => {
-    if (!blkCode || !blkReason) {
+    if (!blkCode.trim() || !blkReason.trim() || !blkType || !blkUser || !blkValidFrom) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Informe código do produto e motivo do bloqueio.',
+        description: 'Preencha Código, Descrição, Tipo, Motivo, Responsável e Data Início.',
       })
       return
     }
 
+    setIsSubmittingBlocked(true)
     try {
       await lineMasterService.saveBlockedProduct({
+        id: editingBlockedProduct?.id,
         line_id: line.id,
         line_master_id: master?.id,
         product_code: blkCode.trim().toUpperCase(),
-        product_description: blkDesc.trim() || blkCode,
+        product_description: blkDesc.trim() || blkCode.trim().toUpperCase(),
         block_reason: blkReason.trim(),
         block_type: blkType,
         responsible_user_id: blkUser || undefined,
+        valid_from: blkValidFrom,
+        valid_until: blkValidUntil || undefined,
         source_mode: 'MANUAL',
-        active: true,
+        active: blkActive,
       })
 
       toast({
-        title: 'Bloqueio de Produto Ativado',
-        description: `Produto ${blkCode} bloqueado na linha ${line.code}. Restrição forte de programação.`,
+        title: editingBlockedProduct ? 'Bloqueio Atualizado' : 'Bloqueio Homologado',
+        description: `Produto ${blkCode} salvo na linha ${line.code}.`,
       })
       setIsBlockModalOpen(false)
       onRefresh()
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message })
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar bloqueio',
+        description: err.message || 'Falha na persistência.',
+      })
+    } finally {
+      setIsSubmittingBlocked(false)
     }
   }
 
@@ -2163,7 +2227,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => setIsBlockModalOpen(true)}
+                  onClick={handleOpenAddBlockedProduct}
                   className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7 gap-1 font-bold"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar Bloqueio
@@ -2175,42 +2239,91 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
                       <tr>
-                        <th className="p-2.5">Produto</th>
-                        <th className="p-2.5">Tipo do Bloqueio</th>
-                        <th className="p-2.5">Motivo Técnico do Bloqueio</th>
+                        <th className="p-2.5">Código</th>
+                        <th className="p-2.5">Material</th>
+                        <th className="p-2.5">Tipo Bloqueio</th>
+                        <th className="p-2.5">Motivo</th>
                         <th className="p-2.5">Responsável</th>
-                        <th className="p-2.5">Fonte</th>
+                        <th className="p-2.5">Início</th>
+                        <th className="p-2.5">Fim</th>
+                        <th className="p-2.5 text-center">Status</th>
+                        <th className="p-2.5 text-right">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {blockedProducts.map((b) => (
-                        <tr key={b.id} className="hover:bg-slate-900/60">
-                          <td className="p-2.5">
-                            <span className="font-mono font-bold text-rose-400 block">
+                      {blockedProducts.map((b) => {
+                        const isItemActive = b.active !== false
+                        return (
+                          <tr key={b.id} className="hover:bg-slate-900/60 transition-colors">
+                            <td className="p-2.5 font-mono font-bold text-rose-400">
                               {b.product_code}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {b.product_description}
-                            </span>
-                          </td>
-                          <td className="p-2.5">
-                            <Badge className="bg-rose-950 text-rose-300 border-rose-800 text-[10px]">
-                              {b.block_type}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 text-xs text-slate-300 max-w-md">
-                            {b.block_reason}
-                          </td>
-                          <td className="p-2.5 text-slate-400">
-                            {b.expand?.responsible_user_id?.name || 'Sistema'}
-                          </td>
-                          <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
-                              {b.source_mode}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="p-2.5 text-slate-200">
+                              {b.product_description || b.product_code}
+                            </td>
+                            <td className="p-2.5">
+                              <Badge className="bg-rose-950 text-rose-300 border-rose-800 text-[10px]">
+                                {b.block_type}
+                              </Badge>
+                            </td>
+                            <td
+                              className="p-2.5 text-xs text-slate-300 max-w-xs truncate"
+                              title={b.block_reason}
+                            >
+                              {b.block_reason}
+                            </td>
+                            <td className="p-2.5 text-slate-400">
+                              {b.expand?.responsible_user_id?.name || 'Sistema'}
+                            </td>
+                            <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                              {b.valid_from ? b.valid_from.substring(0, 10) : '—'}
+                            </td>
+                            <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                              {b.valid_until ? b.valid_until.substring(0, 10) : '—'}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              {isItemActive ? (
+                                <Badge className="bg-emerald-950 text-emerald-400 border-emerald-800 text-[10px]">
+                                  ATIVO
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">
+                                  INATIVO
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleToggleBlockedProductStatus(b)}
+                                  className="h-6 px-1.5 text-[11px] text-slate-300 hover:text-white"
+                                  title={isItemActive ? 'Inativar bloqueio' : 'Ativar bloqueio'}
+                                >
+                                  {isItemActive ? (
+                                    <span className="text-amber-400 font-semibold text-[10px]">
+                                      Inativar
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-400 font-semibold text-[10px]">
+                                      Ativar
+                                    </span>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditBlockedProduct(b)}
+                                  className="h-6 px-2 text-[11px] font-semibold text-cyan-400 hover:bg-slate-800"
+                                >
+                                  Editar
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2841,46 +2954,78 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: Cadastrar Produto Bloqueado */}
+      {/* MODAL: Cadastrar / Editar Produto Bloqueado */}
       <Dialog open={isBlockModalOpen} onOpenChange={setIsBlockModalOpen}>
         <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-white text-base flex items-center gap-2">
               <Lock className="w-4 h-4 text-rose-400" />
-              Bloquear Produto na Linha (Restrição Forte)
+              {editingBlockedProduct
+                ? 'Editar Bloqueio de Produto'
+                : 'Bloquear Produto na Linha (Restrição Forte)'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Código do Produto a Bloquear</Label>
-              <Input
-                placeholder="Ex: TQ-100x100x8.0"
+              <Label className="text-xs text-slate-300 font-bold">
+                Material SAP (Código e Descrição) *
+              </Label>
+              <MaterialSelector
                 value={blkCode}
-                onChange={(e) => setBlkCode(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-rose-400 font-mono uppercase font-bold"
+                lineId={line.id}
+                onChange={(code, mat) => {
+                  setBlkCode(code)
+                  if (mat) {
+                    setBlkDesc(mat.name || code)
+                  }
+                }}
+                placeholder="Selecione o material no catálogo SAP..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300 font-bold">Código do Material *</Label>
+                <Input
+                  readOnly
+                  value={blkCode}
+                  placeholder="Preenchido via seletor SAP"
+                  className="bg-slate-900 border-slate-700 text-rose-400 font-mono uppercase font-bold"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300 font-bold">Tipo de Bloqueio *</Label>
+                <select
+                  value={blkType}
+                  onChange={(e) => setBlkType(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                >
+                  <option value="TECHNICAL">
+                    TECHNICAL (Restrição de Ferramental / Espessura)
+                  </option>
+                  <option value="CAPACITY">CAPACITY (Excesso de Carga / Força Mecânica)</option>
+                  <option value="QUALITY">QUALITY (Problema de Homologação / Solda)</option>
+                  <option value="PROCESS">PROCESS (Incompatibilidade com o Processo)</option>
+                  <option value="TEMPORARY">TEMPORARY (Bloqueio Temporário)</option>
+                  <option value="TOTAL">TOTAL (Bloqueio Permanente)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-300 font-bold">Descrição do Material *</Label>
+              <Input
+                value={blkDesc}
+                onChange={(e) => setBlkDesc(e.target.value)}
+                placeholder="Descrição técnica do material"
+                className="bg-slate-900 border-slate-700 text-white"
               />
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Tipo de Bloqueio</Label>
-              <select
-                value={blkType}
-                onChange={(e) => setBlkType(e.target.value as any)}
-                className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
-              >
-                <option value="TECHNICAL">TECHNICAL (Restrição de Ferramental / Espessura)</option>
-                <option value="CAPACITY">CAPACITY (Excesso de Carga / Força Mecânica)</option>
-                <option value="QUALITY">QUALITY (Problema de Homologação / Solda)</option>
-                <option value="PROCESS">PROCESS (Incompatibilidade com o Processo)</option>
-                <option value="TEMPORARY">TEMPORARY (Bloqueio Temporário)</option>
-                <option value="TOTAL">TOTAL (Bloqueio Permanente)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-300">
-                Motivo / Justificativa Técnica do Bloqueio
+              <Label className="text-xs text-slate-300 font-bold">
+                Motivo / Justificativa Técnica do Bloqueio *
               </Label>
               <Input
                 placeholder="Ex: Espessura 8.0mm excede tração máxima dos roletes conformadores."
@@ -2891,7 +3036,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Usuário Responsável pelo Bloqueio</Label>
+              <Label className="text-xs text-slate-300 font-bold">
+                Usuário Responsável pelo Bloqueio *
+              </Label>
               <select
                 value={blkUser}
                 onChange={(e) => setBlkUser(e.target.value)}
@@ -2905,12 +3052,52 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 ))}
               </select>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300 font-bold">Data Início (Vigência) *</Label>
+                <Input
+                  type="date"
+                  value={blkValidFrom}
+                  onChange={(e) => setBlkValidFrom(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-300">
+                  Data Fim (Opcional - em branco = sem término)
+                </Label>
+                <Input
+                  type="date"
+                  value={blkValidUntil}
+                  onChange={(e) => setBlkValidUntil(e.target.value)}
+                  className="bg-slate-900 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="blkActiveCheckbox"
+                checked={blkActive}
+                onChange={(e) => setBlkActive(e.target.checked)}
+                className="rounded border-slate-700 text-rose-600 focus:ring-rose-600"
+              />
+              <Label
+                htmlFor="blkActiveCheckbox"
+                className="text-xs text-slate-300 font-semibold cursor-pointer"
+              >
+                Bloqueio Ativo (impacta imediatamente no sequenciamento e motor)
+              </Label>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
               size="sm"
+              disabled={isSubmittingBlocked}
               onClick={() => setIsBlockModalOpen(false)}
               className="border-slate-700 bg-slate-900 text-slate-300"
             >
@@ -2918,10 +3105,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Button>
             <Button
               size="sm"
+              disabled={isSubmittingBlocked}
               onClick={handleSaveBlockedProduct}
               className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
             >
-              Confirmar Bloqueio
+              {isSubmittingBlocked
+                ? 'Salvando...'
+                : editingBlockedProduct
+                  ? 'Salvar Alterações'
+                  : 'Confirmar Bloqueio'}
             </Button>
           </DialogFooter>
         </DialogContent>

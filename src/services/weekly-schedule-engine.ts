@@ -317,7 +317,8 @@ export const WeeklyScheduleEngine = {
 
     // 1. Verifica se o produto tem bloqueio formal na linha (VAL-02 Hard Block)
     if (itemToMove.item_type === 'PRODUCTION') {
-      const block = this.checkHardBlock(itemToMove.material_code, lineOverview)
+      const moveDate = itemToMove.start_datetime || itemToMove.date_str || null
+      const block = this.checkHardBlock(itemToMove.material_code, lineOverview, moveDate)
       if (block) {
         return {
           allowed: false,
@@ -1110,11 +1111,32 @@ export const WeeklyScheduleEngine = {
   checkHardBlock(
     materialCode: string,
     lineOverview: LineOverviewData | null,
+    targetDate?: Date | string | null,
   ): LineBlockedProduct | null {
     if (!lineOverview || !lineOverview.blockedProducts) return null
-    const blocked = lineOverview.blockedProducts.find(
-      (b) => b.active && b.product_code.trim().toUpperCase() === materialCode.trim().toUpperCase(),
-    )
+
+    const targetDateStr = targetDate
+      ? (targetDate instanceof Date ? targetDate.toISOString() : String(targetDate)).slice(0, 10)
+      : null
+
+    const blocked = lineOverview.blockedProducts.find((b) => {
+      // Regra F: inativo nunca bloqueia
+      if (b.active === false) return false
+      // product_code igual
+      if (b.product_code.trim().toUpperCase() !== materialCode.trim().toUpperCase()) return false
+
+      // Se não há data para checar vigência, assume vigente se ativo
+      if (!targetDateStr) return true
+
+      // Checa vigência: targetDate >= valid_from && (valid_until null OU targetDate <= valid_until)
+      const validFromStr = b.valid_from ? String(b.valid_from).slice(0, 10) : ''
+      const validUntilStr = b.valid_until ? String(b.valid_until).slice(0, 10) : ''
+
+      if (validFromStr && targetDateStr < validFromStr) return false
+      if (validUntilStr && targetDateStr > validUntilStr) return false
+
+      return true
+    })
     return blocked || null
   },
 
@@ -2167,7 +2189,11 @@ export const WeeklyScheduleEngine = {
 
       // 7. VALIDAÇÕES E ALERTAS DE MP
       // VAL-02: Hard Block
-      const block = this.checkHardBlock(item.material_code, lineOverview)
+      const block = this.checkHardBlock(
+        item.material_code,
+        lineOverview,
+        itemStart || item.start_datetime || item.date_str,
+      )
       if (block) {
         validations.push({
           code: 'VAL-02',

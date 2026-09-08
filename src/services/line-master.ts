@@ -665,12 +665,254 @@ export const lineMasterService = {
   // ==========================================
   // 8. PRODUTOS BLOQUEADOS (CRUD)
   // ==========================================
+  /**
+   * Validador de sobreposição de vigência para bloqueio de produto.
+   * Regra C: bloquear criação/edição se existir bloqueio com mesma linha + product_code + block_type + ativo
+   * com intervalos sobrepostos (startA <= endB && endA >= startB; valid_until null = vigente sem término).
+   */
+  checkBlockedProductOverlap(
+    newRule: {
+      id?: string
+      valid_from?: string | null
+      valid_until?: string | null
+    },
+    existingRules: Array<{
+      id?: string
+      valid_from?: string | null
+      valid_until?: string | null
+      active?: boolean
+    }>,
+  ): boolean {
+    const newFrom = newRule.valid_from ? String(newRule.valid_from).slice(0, 10) : '1970-01-01'
+    const newUntil = newRule.valid_until ? String(newRule.valid_until).slice(0, 10) : '9999-12-31'
+
+    return existingRules.some((item) => {
+      if (item.active === false) return false
+      if (newRule.id && item.id === newRule.id) return false
+
+      const itemFrom = item.valid_from ? String(item.valid_from).slice(0, 10) : '1970-01-01'
+      const itemUntil = item.valid_until ? String(item.valid_until).slice(0, 10) : '9999-12-31'
+
+      // startA <= endB && endA >= startB
+      return newFrom <= itemUntil && newUntil >= itemFrom
+    })
+  },
+
   async saveBlockedProduct(data: Partial<LineBlockedProduct>): Promise<LineBlockedProduct> {
-    invalidateCompletenessCache(data.line_id)
-    if (data.id) {
-      return await pb.collection('line_blocked_products').update<LineBlockedProduct>(data.id, data)
+    if (data.line_id) {
+      invalidateCompletenessCache(data.line_id)
     }
-    return await pb.collection('line_blocked_products').create<LineBlockedProduct>(data)
+
+    const cleanCode = (data.product_code || '').trim().toUpperCase()
+    const blockType = data.block_type || 'MANUAL'
+    const isActive = data.active !== false
+
+    const validFromStr = data.valid_from
+      ? String(data.valid_from).slice(0, 10)
+      : new Date().toISOString().slice(0, 10)
+    const validUntilStr = data.valid_until ? String(data.valid_until).slice(0, 10) : ''
+
+    // Idempotência / checagem de sobreposição pré-create e pré-update quando ativo
+    if (data.line_id && cleanCode && isActive) {
+      try {
+        const existing = await pb
+          .collection('line_blocked_products')
+          .getFullList<LineBlockedProduct>({
+            filter: `line_id = '${data.line_id}' && active = true && product_code = '${cleanCode}' && block_type = '${blockType}'`,
+          })
+
+        const hasOverlap = this.checkBlockedProductOverlap(
+          {
+            id: data.id,
+            valid_from: validFromStr,
+            valid_until: validUntilStr,
+          },
+          existing,
+        )
+
+        if (hasOverlap) {
+          throw new Error('Já existe um bloqueio ativo para este material no período informado.')
+        }
+      } catch (checkErr: any) {
+        if (checkErr.message?.includes('Já existe um bloqueio ativo')) {
+          throw checkErr
+        }
+        console.warn('Erro ao verificar sobreposição de bloqueio:', checkErr)
+      }
+    }
+
+    const payload: Partial<LineBlockedProduct> = {
+      ...data,
+      product_code: cleanCode,
+      active: isActive,
+      valid_from: validFromStr,
+      valid_until: validUntilStr || undefined,
+    }
+
+    let previousRecord: LineBlockedProduct | null = null
+    if (data.id) {
+      try {
+        previousRecord = await pb
+          .collection('line_blocked_products')
+          .getOne<LineBlockedProduct>(data.id)
+      } catch {
+        previousRecord = null
+      }
+    }
+
+    let saved: LineBlockedProduct
+    if (data.id) {
+      saved = await pb
+        .collection('line_blocked_products')
+        .update<LineBlockedProduct>(data.id, payload)
+    } else {
+      saved = await pb.collection('line_blocked_products').create<LineBlockedProduct>(payload)
+    }
+
+    // Auditoria oficial
+    const currentUser = pb.authStore.record
+    const auditAction = data.id ? 'UPDATE_BLOCKED_PRODUCT' : 'CREATE_BLOCKED_PRODUCT'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_blocked_products',
+        resource_id: saved.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: saved.line_id,
+          product_code: saved.product_code,
+          product_description: saved.product_description,
+          block_type: saved.block_type,
+          block_reason: saved.block_reason,
+          valid_from: saved.valid_from,
+          valid_until: saved.valid_until || null,
+          active: saved.active,
+          previous_value: previousRecord
+            ? {
+                valid_from: previousRecord.valid_from,
+                valid_until: previousRecord.valid_until,
+                active: previousRecord.active,
+                block_reason: previousRecord.block_reason,
+              }
+            : null,
+          new_value: {
+            valid_from: saved.valid_from,
+            valid_until: saved.valid_until,
+            active: saved.active,
+            block_reason: saved.block_reason,
+          },
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria em pcp_audit_logs:', auditErr)
+    }
+
+    return saved
+  },
+
+  async setBlockedProductActive(
+    id: string,
+    active: boolean,
+    validUntil?: string,
+  ): Promise<LineBlockedProduct> {
+    let previousRecord: LineBlockedProduct | null = null
+    try {
+      previousRecord = await pb.collection('line_blocked_products').getOne<LineBlockedProduct>(id)
+      if (previousRecord?.line_id) {
+        invalidateCompletenessCache(previousRecord.line_id)
+      }
+    } catch {
+      previousRecord = null
+    }
+
+    if (active && previousRecord) {
+      const lineId = previousRecord.line_id
+      const prodCode = previousRecord.product_code
+      const blockType = previousRecord.block_type
+      const validFromStr = previousRecord.valid_from
+        ? String(previousRecord.valid_from).slice(0, 10)
+        : '1970-01-01'
+      const validUntilStr =
+        validUntil !== undefined
+          ? validUntil
+            ? String(validUntil).slice(0, 10)
+            : ''
+          : previousRecord.valid_until
+            ? String(previousRecord.valid_until).slice(0, 10)
+            : ''
+
+      const existing = await pb
+        .collection('line_blocked_products')
+        .getFullList<LineBlockedProduct>({
+          filter: `line_id = '${lineId}' && active = true && product_code = '${prodCode}' && block_type = '${blockType}'`,
+        })
+
+      const hasOverlap = this.checkBlockedProductOverlap(
+        {
+          id,
+          valid_from: validFromStr,
+          valid_until: validUntilStr,
+        },
+        existing,
+      )
+
+      if (hasOverlap) {
+        throw new Error('Já existe um bloqueio ativo para este material no período informado.')
+      }
+    }
+
+    const payload: Partial<LineBlockedProduct> = { active }
+    if (validUntil !== undefined) {
+      payload.valid_until = validUntil || null
+    }
+    const updated = await pb
+      .collection('line_blocked_products')
+      .update<LineBlockedProduct>(id, payload)
+
+    if (updated.line_id) {
+      invalidateCompletenessCache(updated.line_id)
+    }
+
+    const currentUser = pb.authStore.record
+    const auditAction = active ? 'ACTIVATE_BLOCKED_PRODUCT' : 'DEACTIVATE_BLOCKED_PRODUCT'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_blocked_products',
+        resource_id: updated.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: updated.line_id,
+          product_code: updated.product_code,
+          product_description: updated.product_description,
+          valid_from: updated.valid_from,
+          valid_until: updated.valid_until || null,
+          active: updated.active,
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria em pcp_audit_logs:', auditErr)
+    }
+
+    return updated
   },
 
   async deleteBlockedProduct(id: string): Promise<boolean> {

@@ -430,6 +430,7 @@ export interface ProductionShift {
   crosses_midnight?: boolean
   is_special_shift?: boolean
   active: boolean
+  scale?: '5X2' | '6X1' | '12X36' | '5X1'
   valid_from?: string
   valid_until?: string
   created?: string

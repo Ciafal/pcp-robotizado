@@ -17,10 +17,27 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 }) => {
   const { can, hasLineScope, isLoading, user, refreshPermissions } = useAuth()
   const [isRetrying, setIsRetrying] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const navigate = useNavigate()
+
+  // Timeout de segurança: nunca prender o guard em loading indefinidamente
+  // Caso o backend ou AD demorem mais de 4s, libera a checagem com os dados já disponíveis
+  React.useEffect(() => {
+    if (!isLoading && !isRetrying) {
+      setTimedOut(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setTimedOut(true)
+    }, 4000)
+
+    return () => window.clearTimeout(timer)
+  }, [isLoading, isRetrying])
 
   const handleRetry = async () => {
     setIsRetrying(true)
+    setTimedOut(false)
     try {
       await refreshPermissions()
     } finally {
@@ -28,7 +45,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  if (isLoading || isRetrying) {
+  // Se isLoading mas temos usuário já em cache/sessão ou se estourou timeout de segurança,
+  // prossegue para checar RBAC em vez de prender indefinidamente na tela de validação.
+  const showSpinner = (isLoading || isRetrying) && !timedOut && !user
+
+  if (showSpinner) {
     return (
       <div className="p-12 min-h-[50vh] flex flex-col items-center justify-center space-y-4 bg-slate-50/50">
         <div className="w-9 h-9 border-3 border-[#004C97] border-t-transparent rounded-full animate-spin"></div>
