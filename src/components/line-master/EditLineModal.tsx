@@ -29,6 +29,7 @@ import {
   ProgrammingType,
   LineManagerAssignment,
   LineApproverMatrix,
+  PROGRAMMING_TYPES_CATALOG,
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
 import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Sliders, Users } from 'lucide-react'
@@ -41,15 +42,6 @@ export interface EditLineModalProps {
   users: UserProfile[]
   onSuccess: (updatedLine: ProductionLine) => void
 }
-
-const PROGRAMMING_TYPES: (ProgrammingType | string)[] = [
-  'Laminação',
-  'Corte Longitudinal',
-  'Conformação',
-  'Tratamento Térmico',
-  'Múltiplo',
-  'Padrão',
-]
 
 export const EditLineModal: React.FC<EditLineModalProps> = ({
   open,
