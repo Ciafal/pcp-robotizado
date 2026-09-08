@@ -712,6 +712,8 @@ export interface CompletenessItem {
   }
 }
 
+export type MasterSheetNavigationTarget = NonNullable<CompletenessItem['navigationTarget']> | string
+
 export interface MasterSheetBlockCompleteness {
   key: MasterSheetBlockKey
   title: string
