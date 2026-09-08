@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock,
   Database,
+  Edit,
   FileSpreadsheet,
   GitCommit,
   Layers,
@@ -71,6 +72,33 @@ import { OFFICIAL_MP_TYPES_CATALOG, OFFICIAL_MP_TYPES } from '@/services/mp-prog
 import { ENFORNAMENTO_OPTIONS, EnfornamentoType } from '@/services/enfornamento-laminacao-engine'
 import { UserProfile } from '@/types/pcp-auth'
 import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
+
+// Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
+const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
+  PRIMARY_MANAGER: 'Gestor Titular',
+  SUBSTITUTE_MANAGER: 'Gestor Substituto',
+  ADDITIONAL_RESPONSIBLE: 'Responsável Adicional',
+}
+
+const APPROVAL_STAGE_LABELS: Record<string, string> = {
+  STAGE_1_PCP: 'Estágio 1 — PCP',
+  STAGE_2_LINE_MANAGER: 'Estágio 2 — Gestor de Linha',
+  STAGE_3_QUALITY: 'Estágio 3 — Qualidade',
+  STAGE_4_DIRECTOR: 'Estágio 4 — Diretoria',
+}
+
+const APPROVAL_TYPE_LABELS: Record<string, string> = {
+  PCP_APPROVAL: 'Aprovação PCP',
+  OPERATIONAL_APPROVAL: 'Aprovação Operacional',
+  QUALITY_APPROVAL: 'Aprovação da Qualidade',
+  MANAGEMENT_APPROVAL: 'Aprovação Gerencial',
+}
+
+const REQUIREMENT_TYPE_LABELS: Record<string, string> = {
+  MANDATORY: 'Obrigatório',
+  OPTIONAL: 'Opcional',
+  CONDITIONAL: 'Condicional',
+}
 
 interface LineMasterDetailViewProps {
   overview: LineOverviewData
@@ -1011,6 +1039,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenEditLine && (
+            <Button
+              size="sm"
+              onClick={() => onOpenEditLine(line)}
+              className="bg-white hover:bg-blue-50 text-[#004C97] border border-blue-200 text-xs font-bold h-8 gap-1.5 shadow-sm"
+            >
+              <Edit className="w-3.5 h-3.5" /> Editar Linha
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={onOpenSapCatalog}
@@ -1407,36 +1444,50 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </div>
 
           {/* Dados Técnicos e Mapeamento SAP / MES */}
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-cyan-400" />
+          <Card
+            id="section-sap-mapping"
+            data-target-id="sap-center"
+            className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
+          >
+            <CardHeader className="p-4 pb-2 border-b border-slate-100">
+              <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#004C97]" />
                 Mapeamento de Centros e Sistemas Corporativos
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-2">
+            <CardContent className="p-4 pt-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-1">
-                  <span className="text-slate-400 block">Centro SAP (Werk):</span>
-                  <span className="font-mono font-bold text-white text-sm">
+                <div
+                  id="target-sap-plant"
+                  className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1"
+                >
+                  <span className="text-slate-500 font-semibold block">Centro SAP (Werk):</span>
+                  <span className="font-mono font-bold text-[#004C97] text-sm">
                     {line.sap_plant_code || master?.sap_plant_code || '1000 (CIAFAL)'}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-1">
-                  <span className="text-slate-400 block">Centro de Trabalho SAP:</span>
-                  <span className="font-mono font-bold text-cyan-300 text-sm">
+                <div
+                  id="target-sap-work-center"
+                  className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1"
+                >
+                  <span className="text-slate-500 font-semibold block">
+                    Centro de Trabalho SAP:
+                  </span>
+                  <span className="font-mono font-bold text-slate-900 text-sm">
                     {line.sap_work_center || 'CRHD_LAM_L1'}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-1">
-                  <span className="text-slate-400 block">Equipamento SAP:</span>
-                  <span className="font-mono font-bold text-cyan-300 text-sm">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                  <span className="text-slate-500 font-semibold block">Equipamento SAP:</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm">
                     {line.sap_equipment_id || 'EQ-100293'}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-1">
-                  <span className="text-slate-400 block">Identificador Telemetria MES:</span>
-                  <span className="font-mono font-bold text-emerald-300 text-sm">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                  <span className="text-slate-500 font-semibold block">
+                    Identificador Telemetria MES:
+                  </span>
+                  <span className="font-mono font-bold text-emerald-700 text-sm">
                     {line.mes_identifier || 'MES_OPC_L1'}
                   </span>
                 </div>
@@ -1502,42 +1553,42 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </Card>
 
           {/* Gestores da Linha */}
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+          <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+            <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                  <Users className="w-4 h-4 text-cyan-400" />
+                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#004C97]" />
                   Gestores Operacionais da Linha
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
+                <CardDescription className="text-xs text-slate-500">
                   Gestor Titular, Substituto e Adicionais vinculados aos usuários do HUB.
                 </CardDescription>
               </div>
             </CardHeader>
 
-            <CardContent className="p-4 pt-2">
+            <CardContent className="p-4 pt-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {managers.map((m) => (
                   <div
                     key={m.id}
-                    className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs space-y-1.5"
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-white text-sm">
+                      <span className="font-bold text-slate-900 text-sm">
                         {m.expand?.user_id?.name || 'Gestor'}
                       </span>
                       <Badge
-                        className={`text-[10px] ${
+                        className={`text-[10px] font-semibold ${
                           m.responsibility_type === 'PRIMARY_MANAGER'
-                            ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
-                            : 'bg-amber-950 text-amber-300 border-amber-700'
+                            ? 'bg-blue-100 text-[#004C97] border-blue-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300'
                         }`}
                       >
-                        {m.responsibility_type}
+                        {RESPONSIBILITY_TYPE_LABELS[m.responsibility_type] || m.responsibility_type}
                       </Badge>
                     </div>
-                    <span className="text-[11px] text-slate-400 block">{m.role_title}</span>
-                    <p className="text-[11px] text-slate-300 bg-slate-950 p-2 rounded border border-slate-800">
+                    <span className="text-[11px] text-slate-600 block">{m.role_title}</span>
+                    <p className="text-[11px] text-slate-700 bg-white p-2 rounded border border-slate-200">
                       {m.scope_description || 'Responsável operacional pela linha.'}
                     </p>
                   </div>
@@ -1547,14 +1598,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           </Card>
 
           {/* Matriz de Aprovadores */}
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+          <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+            <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#004C97]" />
                   Matriz de Aprovadores da Linha (Workflow de Aprovação)
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
+                <CardDescription className="text-xs text-slate-500">
                   Definição de alçadas: Estágio 1 (PCP) → Estágio 2 (Gestor de Linha) → Qualidade /
                   Diretor.
                 </CardDescription>
@@ -1563,8 +1614,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <CardContent className="p-4 pt-2">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                     <tr>
                       <th className="p-2.5">Ordem</th>
                       <th className="p-2.5">Estágio / Tipo</th>
@@ -1574,33 +1625,37 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       <th className="p-2.5">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-100">
                     {approvers.map((a) => (
-                      <tr key={a.id} className="hover:bg-slate-900/60">
-                        <td className="p-2.5 font-bold text-cyan-300">#{a.sequence_order}</td>
+                      <tr key={a.id} className="hover:bg-slate-50">
+                        <td className="p-2.5 font-bold text-[#004C97]">#{a.sequence_order}</td>
                         <td className="p-2.5">
-                          <span className="font-semibold text-white block">{a.approval_stage}</span>
-                          <span className="text-[10px] text-slate-400">{a.approval_type}</span>
+                          <span className="font-semibold text-slate-900 block">
+                            {APPROVAL_STAGE_LABELS[a.approval_stage] || a.approval_stage}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {APPROVAL_TYPE_LABELS[a.approval_type] || a.approval_type}
+                          </span>
                         </td>
-                        <td className="p-2.5 font-medium text-white">
+                        <td className="p-2.5 font-medium text-slate-900">
                           {a.expand?.user_id?.name || 'Aprovador'}
                         </td>
-                        <td className="p-2.5 text-slate-400">
+                        <td className="p-2.5 text-slate-500">
                           {a.expand?.substitute_user_id?.name || 'Não cadastrado'}
                         </td>
                         <td className="p-2.5">
                           <Badge
                             className={`text-[10px] ${
                               a.requirement_type === 'MANDATORY'
-                                ? 'bg-rose-950 text-rose-300 border-rose-700 font-bold'
-                                : 'bg-slate-800 text-slate-300'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
                             }`}
                           >
-                            {a.requirement_type}
+                            {REQUIREMENT_TYPE_LABELS[a.requirement_type] || a.requirement_type}
                           </Badge>
                         </td>
                         <td className="p-2.5">
-                          <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
                             Ativo
                           </Badge>
                         </td>
@@ -1617,71 +1672,101 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 5. CONTEÚDO: GRUPO 3 - PROCESSO & SEQUENCIAMENTO */}
       {mainGroup === 'PROCESS' && (
         <div className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                <GitCommit className="w-4 h-4 text-cyan-400" />
-                Sequenciamento Estrutural no Fluxo Produtivo
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-400">
-                Dependências físicas e fluxos entre linhas (Predecessores → Esta Linha → Sucessores
-                & Pulmões).
-              </CardDescription>
+          <Card
+            id="section-sequencing-process"
+            data-target-id="sequencing-process"
+            className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
+          >
+            <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <GitCommit className="w-4 h-4 text-[#004C97]" />
+                  Sequenciamento Estrutural no Fluxo Produtivo
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Dependências físicas e fluxos entre linhas (Predecessores → Esta Linha →
+                  Sucessores & Pulmões).
+                </CardDescription>
+              </div>
             </CardHeader>
 
-            <CardContent className="p-4 pt-2 space-y-4">
+            <CardContent className="p-4 pt-3 space-y-4">
               {sequencing.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">
-                  Nenhum sequenciamento produtivo cadastrado para esta linha.
+                <div
+                  id="target-sequencing-empty-card"
+                  tabIndex={-1}
+                  className="p-6 text-center bg-blue-50/40 border-2 border-dashed border-blue-200 rounded-xl space-y-3"
+                >
+                  <div className="w-12 h-12 rounded-full bg-blue-100 text-[#004C97] flex items-center justify-center mx-auto shadow-xs">
+                    <GitCommit className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Sequenciamento produtivo não definido
+                    </h4>
+                    <p className="text-xs text-slate-600 max-w-md mx-auto">
+                      A linha ainda não possui predecessores ou sucessores configurados.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Button
+                      id="target-sequencing-btn"
+                      size="sm"
+                      onClick={() => (onOpenSapCatalog ? onOpenSapCatalog() : undefined)}
+                      className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
+                    >
+                      <GitCommit className="w-3.5 h-3.5" /> Configurar Sequenciamento
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 sequencing.map((s) => (
                   <div
                     key={s.id}
-                    className="p-4 bg-slate-900/80 border border-slate-800 rounded-lg space-y-3"
+                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-[#004C97] text-white font-mono text-xs">
                           Etapa #{s.sequence_order}
                         </Badge>
-                        <span className="text-xs font-bold text-white">
+                        <span className="text-xs font-bold text-slate-900">
                           Relação {s.relation_nature} ({s.dependency_type})
                         </span>
                       </div>
                       <Badge
                         variant="outline"
-                        className="text-[11px] border-cyan-800 text-cyan-300 font-mono"
+                        className="text-[11px] border-blue-300 text-[#004C97] bg-white font-mono"
                       >
                         Lead Time Padrão: {s.standard_lead_time_minutes || 0} min
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                      <div className="p-3 bg-slate-950 rounded border border-slate-800 space-y-1">
-                        <span className="text-slate-400 block uppercase text-[10px] font-bold text-amber-400">
+                      <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
+                        <span className="block uppercase text-[10px] font-bold text-amber-700">
                           ← Origem / Predecessor
                         </span>
-                        <span className="font-bold text-white block">
+                        <span className="font-bold text-slate-900 block">
                           {s.previous_process_name || 'Processo Externo / Matéria-Prima'}
                         </span>
                         {s.expand?.previous_line_id && (
-                          <span className="text-cyan-400 font-mono text-[11px]">
+                          <span className="text-[#004C97] font-mono text-[11px]">
                             Linha: {s.expand?.previous_line_id?.code || 'Não cadastrado'} (
                             {s.expand?.previous_line_id?.name || 'Não cadastrado'})
                           </span>
                         )}
                       </div>
 
-                      <div className="p-3 bg-slate-950 rounded border border-slate-800 space-y-1">
-                        <span className="text-slate-400 block uppercase text-[10px] font-bold text-emerald-400">
+                      <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
+                        <span className="block uppercase text-[10px] font-bold text-emerald-700">
                           → Destino / Sucessor
                         </span>
-                        <span className="font-bold text-white block">
+                        <span className="font-bold text-slate-900 block">
                           {s.next_process_name || 'Expedição / Estoque Intermediário'}
                         </span>
                         {s.expand?.next_line_id && (
-                          <span className="text-cyan-400 font-mono text-[11px]">
+                          <span className="text-[#004C97] font-mono text-[11px]">
                             Linha: {s.expand?.next_line_id?.code || 'Não cadastrado'} (
                             {s.expand?.next_line_id?.name || 'Não cadastrado'})
                           </span>
@@ -1690,11 +1775,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     </div>
 
                     {s.intermediate_buffer_type && (
-                      <div className="p-2.5 bg-blue-950/30 rounded border border-blue-900/60 text-xs flex items-center justify-between">
-                        <span className="text-blue-200">
+                      <div className="p-2.5 bg-blue-50/60 rounded border border-blue-200 text-xs flex items-center justify-between">
+                        <span className="text-slate-800">
                           Pulmão: <strong>{s.intermediate_buffer_type}</strong>
                         </span>
-                        <span className="font-mono font-bold text-cyan-300">
+                        <span className="font-mono font-bold text-[#004C97]">
                           Capacidade: {s.intermediate_buffer_capacity} {s.intermediate_buffer_unit}
                         </span>
                       </div>
@@ -1836,36 +1921,40 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           {/* Sub-aba: Paradas Programadas */}
           {masterSubTab === 'CAPACITY' && (
             <div className="space-y-4">
-              <Card className="bg-slate-950 border-slate-800 text-slate-100">
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-cyan-400" />
+              <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+                <CardHeader className="p-4 pb-2 border-b border-slate-100">
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-[#004C97]" />
                     Capacidades Nominais da Linha
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 pt-2">
+                <CardContent className="p-4 pt-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                    <div className="p-3 bg-slate-900 rounded border border-slate-800">
-                      <span className="text-slate-400 block">Capacidade Horária:</span>
-                      <span className="text-lg font-mono font-bold text-white">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
+                      <span className="text-slate-500 font-medium block">Capacidade Horária:</span>
+                      <span className="text-lg font-mono font-bold text-slate-900">
                         {master?.nominal_hourly_capacity || 0} {master?.capacity_unit || 't/h'}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-900 rounded border border-slate-800">
-                      <span className="text-slate-400 block">Capacidade por Turno:</span>
-                      <span className="text-lg font-mono font-bold text-white">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
+                      <span className="text-slate-500 font-medium block">
+                        Capacidade por Turno:
+                      </span>
+                      <span className="text-lg font-mono font-bold text-slate-900">
                         {master?.nominal_shift_capacity || 0} {master?.capacity_unit || 't'}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-900 rounded border border-slate-800">
-                      <span className="text-slate-400 block">Capacidade Diária (3T):</span>
-                      <span className="text-lg font-mono font-bold text-white">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
+                      <span className="text-slate-500 font-medium block">
+                        Capacidade Diária (3T):
+                      </span>
+                      <span className="text-lg font-mono font-bold text-slate-900">
                         {master?.nominal_daily_capacity || 0} {master?.capacity_unit || 't'}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-900 rounded border border-slate-800">
-                      <span className="text-slate-400 block">Capacidade Mensal:</span>
-                      <span className="text-lg font-mono font-bold text-cyan-300">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
+                      <span className="text-slate-500 font-medium block">Capacidade Mensal:</span>
+                      <span className="text-lg font-mono font-bold text-[#004C97]">
                         {master?.nominal_monthly_capacity || 0} {master?.capacity_unit || 't'}
                       </span>
                     </div>
@@ -1873,17 +1962,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-950 border-slate-800 text-slate-100">
-                <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+              <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+                <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                      <PauseCircle className="w-4 h-4 text-amber-400" />
+                    <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <PauseCircle className="w-4 h-4 text-amber-600" />
                       Paradas Programadas
                     </CardTitle>
-                    <CardDescription className="text-xs text-slate-400">
+                    <CardDescription className="text-xs text-slate-500">
                       Paradas padrão de rotina que abatem capacidade líquida (Manutenção preventiva,
                       limpeza, reuniões).
-                      <strong className="text-amber-300 block pt-0.5">
+                      <strong className="text-amber-700 block pt-0.5">
                         * Paradas extraordinárias são alimentadas via integração SAP ZPP003.
                       </strong>
                     </CardDescription>
@@ -1891,7 +1980,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <Button
                     size="sm"
                     onClick={handleOpenAddScheduledStop}
-                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold"
+                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" /> + Adicionar Parada
                   </Button>
@@ -1899,8 +1988,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
                 <CardContent className="p-4 pt-2">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-300">
-                      <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                    <table className="w-full text-left text-xs text-slate-700">
+                      <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                         <tr>
                           <th className="p-2.5">Motivo</th>
                           <th className="p-2.5">Tipo Relação</th>
@@ -1913,10 +2002,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                           <th className="p-2.5 text-right">Ações</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60">
+                      <tbody className="divide-y divide-slate-100">
                         {scheduledStops.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="p-4 text-center text-slate-400 italic">
+                            <td colSpan={9} className="p-4 text-center text-slate-500 italic">
                               Nenhuma parada programada cadastrada para esta linha.
                             </td>
                           </tr>
@@ -1951,14 +2040,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             return (
                               <tr
                                 key={ss.id}
-                                className={`hover:bg-slate-900/60 transition-colors ${
-                                  !ss.active ? 'opacity-60 bg-slate-950/40' : ''
+                                className={`hover:bg-slate-50 transition-colors ${
+                                  !ss.active ? 'opacity-60 bg-slate-50/50' : ''
                                 }`}
                               >
-                                <td className="p-2.5 font-bold text-white">
+                                <td className="p-2.5 font-bold text-slate-900">
                                   {ss.reason || ss.code}
                                   {ss.category && (
-                                    <span className="text-[10px] text-slate-400 block font-normal">
+                                    <span className="text-[10px] text-slate-500 block font-normal">
                                       {categoryLabels[ss.category] || ss.category}
                                     </span>
                                   )}
@@ -1966,24 +2055,24 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                 <td className="p-2.5">
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] border-cyan-800 text-cyan-300 bg-cyan-950/40"
+                                    className="text-[10px] border-blue-200 text-[#004C97] bg-blue-50/60 font-semibold"
                                   >
                                     {relationLabels[ss.relation_type || ''] ||
                                       ss.relation_type ||
                                       'PROGRAMADA_MANUTENCAO'}
                                   </Badge>
                                 </td>
-                                <td className="p-2.5 font-mono text-[11px] text-amber-200">
+                                <td className="p-2.5 font-mono text-[11px] text-amber-800">
                                   {ss.raw_material_type || ss.gauge_material_code || (
-                                    <span className="text-slate-500">Todas</span>
+                                    <span className="text-slate-400">Todas</span>
                                   )}
                                 </td>
-                                <td className="p-2.5 font-mono text-[11px] text-cyan-200">
+                                <td className="p-2.5 font-mono text-[11px] text-blue-800">
                                   {ss.enfornamento_type || (
-                                    <span className="text-slate-500">Todos</span>
+                                    <span className="text-slate-400">Todos</span>
                                   )}
                                 </td>
-                                <td className="p-2.5 text-slate-200 text-xs">
+                                <td className="p-2.5 text-slate-700 text-xs">
                                   <span className="font-semibold block">
                                     {ss.recurrence === 'WEEKLY' &&
                                     (ss.recurrence_day_of_week || '')
@@ -1993,25 +2082,25 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                       : ss.recurrence}
                                   </span>
                                   {ss.recurrence_day_of_week && (
-                                    <span className="text-[10px] text-slate-400">
+                                    <span className="text-[10px] text-slate-500">
                                       {ss.recurrence_day_of_week === 'MONDAY_TO_FRIDAY'
                                         ? 'Segunda a sexta'
                                         : ss.recurrence_day_of_week}
                                     </span>
                                   )}
                                 </td>
-                                <td className="p-2.5 font-mono font-bold text-amber-300">
+                                <td className="p-2.5 font-mono font-bold text-amber-700">
                                   {ss.expected_duration_minutes} min
                                 </td>
                                 <td className="p-2.5 font-mono text-[11px]">
                                   {isTimeApplicable ? (
-                                    <span className="text-slate-200">
+                                    <span className="text-slate-700">
                                       {ss.start_time} - {ss.end_time}
                                     </span>
                                   ) : (
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] border-slate-700 text-slate-400"
+                                      className="text-[10px] border-slate-300 text-slate-500 bg-slate-100"
                                     >
                                       N/A
                                     </Badge>
@@ -2019,11 +2108,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                 </td>
                                 <td className="p-2.5">
                                   {ss.active ? (
-                                    <Badge className="bg-emerald-950 text-emerald-300 border-emerald-600 text-[10px]">
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
                                       Ativa
                                     </Badge>
                                   ) : (
-                                    <Badge className="bg-slate-800 text-slate-400 border-slate-600 text-[10px]">
+                                    <Badge className="bg-slate-100 text-slate-600 border-slate-300 text-[10px]">
                                       Inativa
                                     </Badge>
                                   )}
@@ -2034,19 +2123,19 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => handleOpenEditScheduledStop(ss)}
-                                      className="h-6 px-2 text-[11px] text-cyan-300 hover:text-cyan-200 hover:bg-slate-800 font-semibold"
+                                      className="h-6 px-2 text-[11px] text-[#004C97] hover:text-[#003870] hover:bg-blue-50 font-semibold"
                                     >
                                       Editar
                                     </Button>
-                                    <span className="text-slate-600 text-xs">|</span>
+                                    <span className="text-slate-300 text-xs">|</span>
                                     <Button
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => handleToggleScheduledStopStatus(ss)}
                                       className={`h-6 px-2 text-[11px] font-semibold ${
                                         ss.active
-                                          ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/30'
-                                          : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                                          ? 'text-amber-700 hover:text-amber-800 hover:bg-amber-50'
+                                          : 'text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50'
                                       }`}
                                     >
                                       {ss.active ? 'Inativar' : 'Ativar'}
@@ -2153,7 +2242,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Prioridades de MP */}
           {masterSubTab === 'RAW_MATERIALS' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+            <Card
+              id="section-raw-materials"
+              data-target-id="raw-materials"
+              className="bg-slate-950 border-slate-800 text-slate-100 transition-all duration-500"
+            >
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
@@ -2165,6 +2258,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   </CardDescription>
                 </div>
                 <Button
+                  id="target-add-raw-material-btn"
                   size="sm"
                   onClick={() => setIsRawModalOpen(true)}
                   className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
@@ -2348,7 +2442,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Matriz de Setup */}
           {masterSubTab === 'SETUP_MATRIX' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
+            <Card
+              id="section-setup-matrix"
+              data-target-id="setup-matrix"
+              className="bg-slate-950 border-slate-800 text-slate-100 transition-all duration-500"
+            >
               <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
@@ -2360,6 +2458,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   </CardDescription>
                 </div>
                 <Button
+                  id="target-add-setup-transition-btn"
                   size="sm"
                   onClick={() => setIsSetupMatrixModalOpen(true)}
                   className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
