@@ -40,8 +40,10 @@ import {
 import { UserProfile } from '@/types/pcp-auth'
 import { Can } from '@/components/auth/Can'
 import { AddLineWizardModal } from '@/components/line-master/AddLineWizardModal'
+import { EditLineModal } from '@/components/line-master/EditLineModal'
 import { SapIntegrationCatalogModal } from '@/components/line-master/SapIntegrationCatalogModal'
 import { LineMasterDetailView } from '@/components/line-master/LineMasterDetailView'
+import { MasterSheetNavigationTarget } from '@/types/line-master'
 
 export default function LineMasterPage() {
   const { toast } = useToast()
@@ -69,6 +71,8 @@ export default function LineMasterPage() {
 
   // Modais
   const [isAddLineModalOpen, setIsAddLineModalOpen] = useState<boolean>(false)
+  const [isEditLineModalOpen, setIsEditLineModalOpen] = useState<boolean>(false)
+  const [lineEditTarget, setLineEditTarget] = useState<ProductionLine | null>(null)
   const [isSapCatalogModalOpen, setIsSapCatalogModalOpen] = useState<boolean>(false)
 
   // Mapas e modal de completude da Ficha Mestre
@@ -77,6 +81,8 @@ export default function LineMasterPage() {
   >({})
   const [activeCompletenessResult, setActiveCompletenessResult] =
     useState<MasterSheetCompletenessResult | null>(null)
+  const [pendingNavigationTarget, setPendingNavigationTarget] =
+    useState<MasterSheetNavigationTarget | null>(null)
   const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
 
   const loadData = async () => {
@@ -288,6 +294,12 @@ export default function LineMasterPage() {
             productFamilies={productFamilies}
             allLines={lines}
             sapCatalog={sapCatalog}
+            initialNavigationTarget={pendingNavigationTarget}
+            onClearNavigationTarget={() => setPendingNavigationTarget(null)}
+            onOpenEditLine={(targetLine) => {
+              setLineEditTarget(targetLine)
+              setIsEditLineModalOpen(true)
+            }}
             onRefresh={() => loadLineOverview(selectedLineId)}
             onOpenSapCatalog={() => setIsSapCatalogModalOpen(true)}
           />
@@ -578,11 +590,19 @@ export default function LineMasterPage() {
                         )
                       })()}
 
-                      <div className="flex items-center justify-between pt-1 text-[11px]">
-                        <span className="text-slate-500 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
-                          Ficha Mestre Ativa
-                        </span>
+                      <div className="flex items-center justify-between pt-1 text-[11px] border-t border-slate-100">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setLineEditTarget(l)
+                            setIsEditLineModalOpen(true)
+                          }}
+                          className="h-6 px-2 text-[11px] text-slate-700 hover:text-[#004C97] hover:bg-blue-50 font-semibold"
+                        >
+                          <Edit3 className="w-3 h-3 mr-1" /> Editar Linha
+                        </Button>
                         <span className="text-[#004C97] font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
                           Abrir Gestão <ChevronRight className="w-3.5 h-3.5" />
                         </span>
@@ -617,12 +637,32 @@ export default function LineMasterPage() {
         onRefresh={loadData}
       />
 
+      {/* MODAL EDITAR LINHA */}
+      <EditLineModal
+        open={isEditLineModalOpen}
+        onClose={() => {
+          setIsEditLineModalOpen(false)
+          setLineEditTarget(null)
+        }}
+        line={lineEditTarget}
+        existingLines={lines}
+        users={users}
+        onSuccess={async (updatedLine) => {
+          await loadData()
+          if (selectedLineId === updatedLine.id) {
+            await loadLineOverview(updatedLine.id)
+          }
+        }}
+      />
+
       {/* MODAL DE COMPLETUDE DA FICHA MESTRE */}
       <MasterSheetCompletenessModal
         open={isCompletenessModalOpen}
         onClose={() => setIsCompletenessModalOpen(false)}
         completeness={activeCompletenessResult}
         onNavigateToBlock={(target) => {
+          setIsCompletenessModalOpen(false)
+          setPendingNavigationTarget(target)
           if (activeCompletenessResult?.lineId) {
             loadLineOverview(activeCompletenessResult.lineId)
           }
