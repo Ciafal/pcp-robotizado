@@ -115,7 +115,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Se ainda estiver em loading/retrying mas temos sessão válida no authStore ou user no contexto,
   // consultamos authService.getPermissionsForRole(role) como fallback síncrono imediato para destravar a rota
   const authStoreRecord = pb.authStore.isValid && pb.authStore.record ? pb.authStore.record : null
-  const effectiveRole = user?.role || (authStoreRecord ? ((authStoreRecord as any).role || 'PCP_ADMIN') : null)
+  const effectiveRole =
+    user?.role || (authStoreRecord ? (authStoreRecord as any).role || 'PCP_ADMIN' : null)
 
   // Verifica permissão com can(), ou se role puder via getPermissionsForRole
   let hasPerm = can(permission)

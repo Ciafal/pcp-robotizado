@@ -37,7 +37,13 @@ import { useControlTower } from '@/contexts/ControlTowerContext'
 import pb from '@/lib/pocketbase/client'
 import { formatAbntNumber, formatAbntUnit } from '@/lib/ciafal-standards'
 import { OeeDrilldownEngine } from '@/services/oee-drilldown-engine'
-import { ProductionLine, LineMaster, SapIntegrationDefinition } from '@/types/line-master'
+import {
+  ProductionLine,
+  LineMaster,
+  SapIntegrationDefinition,
+  PROGRAMMING_TYPES_CATALOG,
+  ProgrammingType,
+} from '@/types/line-master'
 
 interface AreaCard {
   title: string
@@ -198,6 +204,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
   const [filterPlant, setFilterPlant] = useState<string>('TODAS')
   const [filterMonth, setFilterMonth] = useState<string>('ATUAL')
   const [filterLine, setFilterLine] = useState<string>('TODAS')
+  const [filterProgrammingType, setFilterProgrammingType] = useState<string>('TODOS')
   const [filterStatus, setFilterStatus] = useState<string>('TODOS')
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortBy, setSortBy] = useState<'CRITICIDADE' | 'OCUPACAO' | 'CODIGO' | 'STATUS'>(
@@ -292,6 +299,12 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
             m.line_id === line.id || (m.code && m.code.toUpperCase() === line.code.toUpperCase()),
         ) || null
       const activeVersion = master?.version || 1
+      // Fonte única de verdade: line_masters.programming_type com fallback para lines.programming_type
+      const resolvedProgrammingType =
+        master?.programming_type || line.programming_type || 'Laminação'
+      const resolvedStages = (master?.programming_stages ||
+        line.programming_stages ||
+        []) as string[]
 
       // 2. Capacidade Mensal Nominal
       const monthlyCapacityTons =
@@ -414,6 +427,8 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
         unplannedStopMinutes,
         correctiveStopStatusText,
         isMesActive,
+        programmingType: resolvedProgrammingType,
+        programmingStages: resolvedStages,
       }
     })
   }, [lines, masters, schedules, isMesActiveInCatalog])
@@ -436,6 +451,16 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
         // Filtro Linha
         if (filterLine !== 'TODAS' && line.code !== filterLine) {
           return false
+        }
+
+        // Filtro Tipo de Programação (unificado via line_masters / lines)
+        if (filterProgrammingType !== 'TODOS') {
+          const pType = item.programmingType
+          const pStages = item.programmingStages || []
+          const matchType =
+            pType === filterProgrammingType ||
+            (pType === 'Múltiplo' && pStages.includes(filterProgrammingType))
+          if (!matchType) return false
         }
 
         // Filtro Status Operacional
@@ -495,7 +520,15 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
         }
         return a.line.code.localeCompare(b.line.code)
       })
-  }, [lineIndicatorsList, searchTerm, filterLine, filterStatus, filterPlant, sortBy])
+  }, [
+    lineIndicatorsList,
+    searchTerm,
+    filterLine,
+    filterProgrammingType,
+    filterStatus,
+    filterPlant,
+    sortBy,
+  ])
 
   // Badge de status operacional padronizada CIAFAL
   const getStatusBadge = (status: string) => {
@@ -780,7 +813,26 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
             </select>
           </div>
 
-          {/* 5. Status Operacional */}
+          {/* 5. Tipo de Programação */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-slate-700 block">
+              Tipo de Programação:
+            </label>
+            <select
+              value={filterProgrammingType}
+              onChange={(e) => setFilterProgrammingType(e.target.value)}
+              className="w-full text-xs h-8 bg-white border border-slate-300 rounded-md px-2 font-medium text-slate-800 focus:outline-none focus:border-[#004C97]"
+            >
+              <option value="TODOS">Todos os Tipos</option>
+              {PROGRAMMING_TYPES_CATALOG.map((pType) => (
+                <option key={pType} value={pType}>
+                  {pType}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 6. Status Operacional */}
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-700 block">
               Status Operacional:
@@ -798,7 +850,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
             </select>
           </div>
 
-          {/* 6. Busca por Nome / Código e Ordenação */}
+          {/* 7. Busca por Nome / Código e Ordenação */}
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-slate-700 block">Ordenar por:</label>
             <select
@@ -832,6 +884,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
             </span>
             {(filterPlant !== 'TODAS' ||
               filterLine !== 'TODAS' ||
+              filterProgrammingType !== 'TODOS' ||
               filterStatus !== 'TODOS' ||
               searchTerm) && (
               <button
@@ -840,6 +893,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
                   setFilterCompany('TODAS')
                   setFilterPlant('TODAS')
                   setFilterLine('TODAS')
+                  setFilterProgrammingType('TODOS')
                   setFilterStatus('TODOS')
                   setSearchTerm('')
                 }}
@@ -890,6 +944,14 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
                               <span>•</span>
                               <span className="text-slate-600 font-sans">
                                 Versão <strong>V{String(activeVersion).padStart(2, '0')}</strong>
+                              </span>
+                            </>
+                          )}
+                          {item.programmingType && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[#004C97] font-sans font-medium">
+                                {item.programmingType}
                               </span>
                             </>
                           )}

@@ -422,7 +422,7 @@ export const SecurityTestSuiteModal: React.FC<{
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
-                  Suíte de Homologação & Integridade &bull; PROMPT 04
+                  Suíte de Homologação & Integridade &bull; Homologação & Auditoria
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-400">
                   Bateria dos 18 Testes Obrigatórios de Sequenciamento N:N, Aprovação Dupla e 4
@@ -491,7 +491,7 @@ export const SecurityTestSuiteModal: React.FC<{
                     Status Geral
                   </span>
                   <Badge className="bg-emerald-950 text-emerald-300 border-emerald-800 text-[10px] mt-1 font-mono">
-                    ✓ HOMOLOGADO PROMPT 04
+                    ✓ HOMOLOGADO & AUDITADO
                   </Badge>
                 </div>
               </div>
@@ -573,7 +573,7 @@ export const SecurityTestSuiteModal: React.FC<{
               <Shield className="w-10 h-10 mx-auto text-slate-600" />
               <p className="text-xs">
                 Nenhuma execução recente da Suíte de Homologação. Clique no botão acima para
-                disparar os 18 testes automatizados do Prompt 04.
+                disparar os 18 testes automatizados de Homologação & Auditoria.
               </p>
             </div>
           )}

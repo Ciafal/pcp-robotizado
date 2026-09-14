@@ -710,7 +710,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     if (shiftCrews.length === 0 && shifts.length > 0 && crews.length > 0) {
       deficits.push('Vínculo Turno × Turma não configurado')
     }
-    if (!line.programming_type && !master?.programming_type) {
+    const resolvedProgType = master?.programming_type || line.programming_type
+    if (!resolvedProgType) {
       deficits.push('Tipo de Programação não definido')
     }
     const cap = master?.nominal_hourly_capacity || line.current_rate || 0
@@ -731,11 +732,18 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       // Se filtro for "ALL" / Todos
       if (selectedProgrammingType === 'ALL') return true
 
-      const pType = line.programming_type || 'Laminação'
-      const pStages = Array.isArray(line.programming_stages) ? line.programming_stages : []
+      // Fonte única de verdade: line_masters.programming_type com fallback para lines.programming_type
+      const overviewForLine = line.id === currentLineOverview?.line.id ? currentLineOverview : null
+      const pType =
+        overviewForLine?.master?.programming_type || line.programming_type || 'Laminação'
+      const pStages = Array.isArray(
+        overviewForLine?.master?.programming_stages || line.programming_stages,
+      )
+        ? overviewForLine?.master?.programming_stages || line.programming_stages
+        : []
 
       if (pType === selectedProgrammingType) return true
-      if (pType === 'Múltiplo' && pStages.includes(selectedProgrammingType as ProgrammingType)) {
+      if (pType === 'Múltiplo' && (pStages as string[]).includes(selectedProgrammingType)) {
         return true
       }
       return false

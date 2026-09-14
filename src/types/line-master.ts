@@ -17,27 +17,37 @@ export const SAMPLE_TYPE_LABELS: Record<SampleType, string> = {
 }
 
 export type ProgrammingType =
-  | 'Enfornamento'
   | 'Laminação'
+  | 'Conformação'
+  | 'Corte e Solda'
+  | 'Trefilação'
+  | 'Pintura'
+  | 'Montagem'
+  | 'Múltiplo'
+  | 'Enfornamento'
   | 'Envio'
   | 'Preparação'
   | 'Acabamento'
   | 'Endireitadeira'
   | 'Inspeção'
-  | 'Múltiplo'
   | 'Argola'
   | 'Alto-Forno'
   | 'Aciaria'
 
 export const PROGRAMMING_TYPES_CATALOG: ProgrammingType[] = [
-  'Enfornamento',
   'Laminação',
+  'Conformação',
+  'Corte e Solda',
+  'Trefilação',
+  'Pintura',
+  'Montagem',
+  'Múltiplo',
+  'Enfornamento',
   'Envio',
   'Preparação',
   'Acabamento',
   'Endireitadeira',
   'Inspeção',
-  'Múltiplo',
   'Argola',
   'Alto-Forno',
   'Aciaria',

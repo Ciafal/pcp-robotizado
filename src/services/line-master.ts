@@ -47,7 +47,7 @@ export const lineMasterService = {
         filterStr = 'is_active = true || is_active = null'
       }
 
-      const [lines, allShifts, allCrews] = await Promise.all([
+      const [lines, allShifts, allCrews, allMasters] = await Promise.all([
         pb.collection('production_lines').getFullList<ProductionLine>({
           sort: 'code',
           filter: filterStr || undefined,
@@ -66,13 +66,24 @@ export const lineMasterService = {
             sort: 'code',
           })
           .catch(() => []),
+        pb
+          .collection('line_masters')
+          .getFullList<LineMaster>({
+            filter: "status = 'ACTIVE'",
+            sort: '-version',
+          })
+          .catch(() => []),
       ])
 
       return lines.map((l) => {
         const lineShifts = allShifts.filter((s) => s.line_id === l.id).map((s) => s.code)
         const lineCrews = allCrews.filter((c) => c.line_id === l.id).map((c) => c.code)
+        const activeMaster = allMasters.find((m) => m.line_id === l.id)
+        // Fonte única de verdade: line_masters.programming_type com fallback para lines.programming_type
+        const resolvedProgrammingType = activeMaster?.programming_type || l.programming_type
         return {
           ...l,
+          programming_type: resolvedProgrammingType,
           shifts_summary: lineShifts,
           crews_summary: lineCrews,
         }

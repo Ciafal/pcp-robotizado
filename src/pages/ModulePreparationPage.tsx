@@ -57,8 +57,8 @@ export const ModulePreparationPage: React.FC<PlaceholderProps> = ({
             Módulo Estruturado com Autorização Granular Ativa
           </CardTitle>
           <CardDescription className="text-xs text-slate-400">
-            A estrutura de segurança e governança de acessos (PROMPT 02) já está 100% pronta para
-            conectar a lógica de negócio deste módulo na próxima etapa.
+            A estrutura de segurança e Governança de Acessos já está 100% pronta para conectar a
+            lógica de negócio deste módulo na próxima etapa.
           </CardDescription>
         </CardHeader>
 
