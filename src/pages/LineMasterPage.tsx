@@ -101,11 +101,13 @@ export default function LineMasterPage() {
       setProductFamilies(famsData)
       setSapCatalog(sapData)
 
-      // Carrega completude calculada de cada linha
+      // Carrega completude calculada de cada linha (forceRefresh: true para evitar leitura de cache desatualizado)
       const completenessEntries = await Promise.all(
         linesData.map(async (l) => {
           try {
-            const comp = await lineMasterService.getMasterSheetCompleteness(l.id)
+            const comp = await lineMasterService.getMasterSheetCompleteness(l.id, {
+              forceRefresh: true,
+            })
             return [l.id, comp] as const
           } catch {
             return null
@@ -649,8 +651,12 @@ export default function LineMasterPage() {
         existingLines={lines}
         users={users}
         onSuccess={async (updatedLine) => {
+          // Refetch duplo: recarrega a listagem geral e a linha no detalhe se estiver aberta
           await loadData()
-          if (selectedLineId === updatedLine.id) {
+          if (
+            selectedLineId &&
+            (selectedLineId === updatedLine.id || selectedLineOverview?.line?.id === updatedLine.id)
+          ) {
             await loadLineOverview(updatedLine.id)
           }
         }}

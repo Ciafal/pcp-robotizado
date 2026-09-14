@@ -48,6 +48,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica preso no spinner.
   // Quando timedOut for true, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
+  // Se a permissão resolver depois do timeout, o re-render com !isLoading && !isRetrying remove timedOut via useEffect.
   const hasAuthFailure = Boolean(authError || timedOut)
 
   if (hasAuthFailure) {
@@ -90,7 +91,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     )
   }
 
-  // Spinner somente enquanto isLoading ou isRetrying e NÃO timedOut
+  // Spinner somente enquanto (isLoading || isRetrying) && !timedOut
   const showSpinner = (isLoading || isRetrying) && !timedOut
 
   if (showSpinner) {

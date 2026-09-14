@@ -98,6 +98,9 @@ export const lineMasterService = {
       is_active: isActive,
     })
 
+    // Invalida cache de completude da linha para recomposição imediata
+    invalidateCompletenessCache(lineId)
+
     // Registrar auditoria expressa
     const currentUser = pb.authStore.record
     try {
@@ -149,7 +152,10 @@ export const lineMasterService = {
   },
 
   async updateLine(lineId: string, data: Partial<ProductionLine>): Promise<ProductionLine> {
-    return await pb.collection('production_lines').update<ProductionLine>(lineId, data)
+    const updated = await pb.collection('production_lines').update<ProductionLine>(lineId, data)
+    // Invalida cache de completude da linha para recomposição imediata
+    invalidateCompletenessCache(lineId)
+    return updated
   },
 
   async deleteLine(lineId: string): Promise<boolean> {
