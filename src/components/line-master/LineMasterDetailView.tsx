@@ -151,6 +151,95 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     useState<MasterSheetCompletenessResult | null>(null)
   const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
 
+  // Tratamento do initialNavigationTarget vindo da página pai
+  React.useEffect(() => {
+    if (initialNavigationTarget) {
+      if (typeof initialNavigationTarget === 'string') {
+        const el = document.getElementById(initialNavigationTarget)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add(
+            'ring-4',
+            'ring-[#004C97]',
+            'ring-offset-2',
+            'ring-offset-white',
+            'transition-all',
+            'duration-1000',
+          )
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-[#004C97]', 'ring-offset-2', 'ring-offset-white')
+          }, 3000)
+        }
+      } else {
+        if (initialNavigationTarget.mainGroup) {
+          setMainGroup(initialNavigationTarget.mainGroup)
+        }
+        if (initialNavigationTarget.masterSubTab) {
+          setMasterSubTab(initialNavigationTarget.masterSubTab)
+        }
+        setTimeout(() => {
+          let element: HTMLElement | null = null
+          if (initialNavigationTarget.anchorId) {
+            element = document.getElementById(initialNavigationTarget.anchorId)
+          }
+          if (!element) {
+            if (initialNavigationTarget.masterSubTab === 'SETUP_MATRIX') {
+              element =
+                document.getElementById('section-setup-matrix') ||
+                document.getElementById('target-add-setup-transition-btn')
+            } else if (initialNavigationTarget.masterSubTab === 'RAW_MATERIALS') {
+              element =
+                document.getElementById('section-raw-materials') ||
+                document.getElementById('target-add-raw-material-btn')
+            } else if (initialNavigationTarget.mainGroup === 'PROCESS') {
+              element =
+                document.getElementById('section-sequencing-process') ||
+                document.getElementById('target-sequencing-btn') ||
+                document.getElementById('target-sequencing-empty-card')
+            } else if (
+              initialNavigationTarget.mainGroup === 'OVERVIEW' ||
+              initialNavigationTarget.anchorId === 'sap-center'
+            ) {
+              element =
+                document.getElementById('section-sap-mapping') ||
+                document.getElementById('target-sap-plant') ||
+                document.getElementById('target-sap-work-center')
+            }
+          }
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            element.classList.remove(
+              'ring-4',
+              'ring-[#004C97]',
+              'ring-offset-2',
+              'ring-offset-white',
+              'transition-all',
+              'duration-1000',
+            )
+            void element.offsetWidth
+            element.classList.add(
+              'ring-4',
+              'ring-[#004C97]',
+              'ring-offset-2',
+              'ring-offset-white',
+              'transition-all',
+              'duration-1000',
+            )
+            setTimeout(() => {
+              element?.classList.remove(
+                'ring-4',
+                'ring-[#004C97]',
+                'ring-offset-2',
+                'ring-offset-white',
+              )
+            }, 3000)
+          }
+        }, 200)
+      }
+      onClearNavigationTarget?.()
+    }
+  }, [initialNavigationTarget, onClearNavigationTarget])
+
   // Carrega cálculo determinístico de completude para a linha
   const loadCompleteness = React.useCallback(async () => {
     try {
@@ -1461,33 +1550,73 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   id="target-sap-plant"
                   className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1"
                 >
-                  <span className="text-slate-500 font-semibold block">Centro SAP (Werk):</span>
-                  <span className="font-mono font-bold text-[#004C97] text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium block">Centro SAP (Werk):</span>
+                    {!(line.sap_plant_code || master?.sap_plant_code) && (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
+                      >
+                        Pendente
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-[#004C97] text-sm block">
                     {line.sap_plant_code || master?.sap_plant_code || '1000 (CIAFAL)'}
                   </span>
                 </div>
                 <div
                   id="target-sap-work-center"
-                  className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1"
+                  className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs"
                 >
-                  <span className="text-slate-500 font-semibold block">
-                    Centro de Trabalho SAP:
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium block">
+                      Centro de Trabalho SAP:
+                    </span>
+                    {!line.sap_work_center && (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
+                      >
+                        Pendente
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-slate-900 text-sm block">
                     {line.sap_work_center || 'CRHD_LAM_L1'}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                  <span className="text-slate-500 font-semibold block">Equipamento SAP:</span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium block">Equipamento SAP:</span>
+                    {!line.sap_equipment_id && (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] bg-slate-50 text-slate-600 border-slate-200 font-semibold"
+                      >
+                        Padrão
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-slate-900 text-sm block">
                     {line.sap_equipment_id || 'EQ-100293'}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                  <span className="text-slate-500 font-semibold block">
-                    Identificador Telemetria MES:
-                  </span>
-                  <span className="font-mono font-bold text-emerald-700 text-sm">
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium block">
+                      Identificador Telemetria MES:
+                    </span>
+                    {!line.mes_identifier && (
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] bg-slate-50 text-slate-600 border-slate-200 font-semibold"
+                      >
+                        Padrão
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-[#004C97] text-sm block">
                     {line.mes_identifier || 'MES_OPC_L1'}
                   </span>
                 </div>
@@ -3661,6 +3790,61 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           if (target.masterSubTab) {
             setMasterSubTab(target.masterSubTab)
           }
+          // Rolar e destacar elemento alvo
+          setTimeout(() => {
+            const anchor = typeof target === 'string' ? target : target.anchorId
+            let element: HTMLElement | null = null
+            if (anchor) element = document.getElementById(anchor)
+            if (!element) {
+              if (target.masterSubTab === 'SETUP_MATRIX') {
+                element =
+                  document.getElementById('section-setup-matrix') ||
+                  document.getElementById('target-add-setup-transition-btn')
+              } else if (target.masterSubTab === 'RAW_MATERIALS') {
+                element =
+                  document.getElementById('section-raw-materials') ||
+                  document.getElementById('target-add-raw-material-btn')
+              } else if (target.mainGroup === 'PROCESS') {
+                element =
+                  document.getElementById('section-sequencing-process') ||
+                  document.getElementById('target-sequencing-btn') ||
+                  document.getElementById('target-sequencing-empty-card')
+              } else if (target.mainGroup === 'OVERVIEW' || anchor === 'sap-center') {
+                element =
+                  document.getElementById('section-sap-mapping') ||
+                  document.getElementById('target-sap-plant') ||
+                  document.getElementById('target-sap-work-center')
+              }
+            }
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              element.classList.remove(
+                'ring-4',
+                'ring-[#004C97]',
+                'ring-offset-2',
+                'ring-offset-white',
+                'transition-all',
+                'duration-1000',
+              )
+              void element.offsetWidth
+              element.classList.add(
+                'ring-4',
+                'ring-[#004C97]',
+                'ring-offset-2',
+                'ring-offset-white',
+                'transition-all',
+                'duration-1000',
+              )
+              setTimeout(() => {
+                element?.classList.remove(
+                  'ring-4',
+                  'ring-[#004C97]',
+                  'ring-offset-2',
+                  'ring-offset-white',
+                )
+              }, 3000)
+            }
+          }, 200)
         }}
       />
     </div>

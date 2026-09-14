@@ -388,7 +388,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       }
 
       toast({
-        title: 'Linha Atualizada com Sucesso',
+        title: 'Alterações salvas com sucesso.',
         description: `Os dados da linha ${code.trim().toUpperCase()} e status (${isActive ? 'Ativa' : 'Inativa'}) foram persistidos.`,
       })
 

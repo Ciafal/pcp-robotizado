@@ -214,6 +214,74 @@ export default function LineMasterPage() {
     return matchesSearch && matchesStatus && matchesPlant && matchesCadastral
   })
 
+  // Tratamento de rolagem suave e destaque visual quando navegar para seção
+  const scrollToAndHighlight = useCallback((target: MasterSheetNavigationTarget) => {
+    // Aguarda montagem da visualização de detalhe para rolar e destacar
+    setTimeout(() => {
+      const mainGrp = typeof target === 'string' ? undefined : target.mainGroup
+      const subTab = typeof target === 'string' ? undefined : target.masterSubTab
+      const anchor = typeof target === 'string' ? target : target.anchorId
+
+      let element: HTMLElement | null = null
+
+      if (anchor) {
+        element = document.getElementById(anchor)
+      }
+
+      if (!element) {
+        // Mapeamento semântico por sub-aba ou grupo principal
+        if (subTab === 'SETUP_MATRIX') {
+          element =
+            document.getElementById('section-setup-matrix') ||
+            document.getElementById('target-add-setup-transition-btn')
+        } else if (subTab === 'RAW_MATERIALS') {
+          element =
+            document.getElementById('section-raw-materials') ||
+            document.getElementById('target-add-raw-material-btn')
+        } else if (mainGrp === 'PROCESS') {
+          element =
+            document.getElementById('section-sequencing-process') ||
+            document.getElementById('target-sequencing-btn') ||
+            document.getElementById('target-sequencing-empty-card')
+        } else if (mainGrp === 'OVERVIEW' || anchor === 'sap-center') {
+          element =
+            document.getElementById('section-sap-mapping') ||
+            document.getElementById('target-sap-plant') ||
+            document.getElementById('target-sap-work-center')
+        }
+      }
+
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        element.classList.remove(
+          'ring-4',
+          'ring-[#004C97]',
+          'ring-offset-2',
+          'ring-offset-white',
+          'transition-all',
+          'duration-1000',
+        )
+        void element.offsetWidth // trigger reflow
+        element.classList.add(
+          'ring-4',
+          'ring-[#004C97]',
+          'ring-offset-2',
+          'ring-offset-white',
+          'transition-all',
+          'duration-1000',
+        )
+        setTimeout(() => {
+          element?.classList.remove(
+            'ring-4',
+            'ring-[#004C97]',
+            'ring-offset-2',
+            'ring-offset-white',
+          )
+        }, 3000)
+      }
+    }, 250)
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* 1. Header da Página em Fundo Claro Corporativo CIAFAL */}
@@ -671,7 +739,11 @@ export default function LineMasterPage() {
           setIsCompletenessModalOpen(false)
           setPendingNavigationTarget(target)
           if (activeCompletenessResult?.lineId) {
-            loadLineOverview(activeCompletenessResult.lineId)
+            loadLineOverview(activeCompletenessResult.lineId).then(() => {
+              scrollToAndHighlight(target)
+            })
+          } else {
+            scrollToAndHighlight(target)
           }
         }}
       />
