@@ -152,7 +152,36 @@ export const lineMasterService = {
   },
 
   async updateLine(lineId: string, data: Partial<ProductionLine>): Promise<ProductionLine> {
-    const updated = await pb.collection('production_lines').update<ProductionLine>(lineId, data)
+    // Sanitização rigorosa: enviar para a coleção production_lines apenas os campos válidos existentes na interface e schema
+    const allowedKeys: (keyof ProductionLine)[] = [
+      'name',
+      'code',
+      'status',
+      'target_rate',
+      'current_rate',
+      'efficiency',
+      'plant_id',
+      'sap_work_center',
+      'nominal_capacity',
+      'capacity_unit',
+      'shifts_count',
+      'manager_user_id',
+      'pcp_programmer_user_id',
+      'is_active',
+      'programming_type',
+      'programming_stages',
+    ]
+
+    const sanitizedPayload: Record<string, unknown> = {}
+    for (const key of allowedKeys) {
+      if (key in data && (data as Record<string, unknown>)[key] !== undefined) {
+        sanitizedPayload[key] = (data as Record<string, unknown>)[key]
+      }
+    }
+
+    const updated = await pb
+      .collection('production_lines')
+      .update<ProductionLine>(lineId, sanitizedPayload)
     // Invalida cache de completude da linha para recomposição imediata
     invalidateCompletenessCache(lineId)
     return updated

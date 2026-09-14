@@ -53,12 +53,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     setIsRetrying(true)
     setTimedOut(false)
     try {
+      // Se há token válido no pb.authStore, faz retry em memória sem deslogar/relogar
       if (pb.authStore.isValid && pb.authStore.record) {
-        // Sessão já existe: refaz apenas a resolução de permissões sem reautenticar com senha
         await authService.resolvePermissions({ forceRefresh: true })
       }
       // Garante sincronização completa com o estado do AuthContext
       await refreshPermissions()
+    } catch (err) {
+      console.warn('Retry de validação de permissões falhou em memória:', err)
     } finally {
       setIsRetrying(false)
     }

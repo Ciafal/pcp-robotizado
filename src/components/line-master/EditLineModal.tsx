@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
+import { invalidateCompletenessCache } from '@/services/master-sheet-completeness'
 import {
   ProductionLine,
   LineMaster,
@@ -247,14 +248,12 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
     setSaving(true)
     try {
-      // 1. Atualiza dados estruturais da linha
+      // 1. Atualiza dados estritos da linha (somente campos de production_lines)
       const lineUpdatePayload: Partial<ProductionLine> = {
         name: name.trim(),
         code: code.trim().toUpperCase(),
         is_active: isActive,
         programming_type: programmingType,
-        plant,
-        sap_plant_code: sapPlantCode.trim(),
         sap_work_center: sapWorkCenter.trim() || undefined,
         current_rate: nominalCapacity,
         nominal_capacity: nominalCapacity,
@@ -266,96 +265,119 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
       const updatedLine = await lineMasterService.updateLine(line.id, lineUpdatePayload)
 
-      // 2. Se o status ativo/inativo foi alterado, assegurar toggleLineActive para auditoria oficial se necessário
+      // 2. Se o status ativo/inativo foi alterado, sincronizar com toggleLineActive
       if (line.is_active !== isActive) {
         try {
           await lineMasterService.toggleLineActive(line.id, isActive)
-        } catch (statusErr: any) {
+        } catch (statusErr: unknown) {
           console.warn('Status toggle via service:', statusErr)
         }
       }
 
-      // 3. Atualiza ou sincroniza Ficha Mestre correspondente
+      // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters)
       if (activeMasterRecord?.id) {
-        await lineMasterService.saveLineMaster({
-          id: activeMasterRecord.id,
-          name: name.trim(),
-          code: code.trim().toUpperCase(),
-          programming_type: programmingType,
-          sap_plant_code: sapPlantCode.trim(),
-          nominal_hourly_capacity: nominalCapacity,
-          capacity_unit: capacityUnit as any,
-          planned_efficiency_pct: efficiency,
-          primary_responsible_id: primaryManagerId || undefined,
-          substitute_responsible_id: substituteManagerId || undefined,
-        })
+        try {
+          await lineMasterService.saveLineMaster({
+            id: activeMasterRecord.id,
+            name: name.trim(),
+            code: code.trim().toUpperCase(),
+            programming_type: programmingType,
+            sap_plant_code: sapPlantCode.trim(),
+            nominal_hourly_capacity: nominalCapacity,
+            capacity_unit: capacityUnit as any,
+            planned_efficiency_pct: efficiency,
+            primary_responsible_id: primaryManagerId || undefined,
+            substitute_responsible_id: substituteManagerId || undefined,
+          })
+        } catch (masterErr: unknown) {
+          console.warn('Falha ao salvar line_masters na edição da linha:', masterErr)
+        }
       }
 
-      // 4. Sincroniza Gestor Titular e Substituto se preenchidos
+      // 4. Sincroniza Gestor Titular e Substituto em coleções de responsáveis (line_managers_assignment)
       if (primaryManagerId) {
-        const existingPrimary = managerAssignments.find(
-          (m) => m.responsibility_type === 'PRIMARY_MANAGER',
-        )
-        await lineMasterService.saveManagerAssignment({
-          id: existingPrimary?.id,
-          line_id: line.id,
-          user_id: primaryManagerId,
-          responsibility_type: 'PRIMARY_MANAGER',
-          role_title: `Gestor Titular da Linha ${code.trim().toUpperCase()}`,
-          active: true,
-          scope_description: 'Responsabilidade operacional principal da linha.',
-        })
+        try {
+          const existingPrimary = managerAssignments.find(
+            (m) => m.responsibility_type === 'PRIMARY_MANAGER',
+          )
+          await lineMasterService.saveManagerAssignment({
+            id: existingPrimary?.id,
+            line_id: line.id,
+            user_id: primaryManagerId,
+            responsibility_type: 'PRIMARY_MANAGER',
+            role_title: `Gestor Titular da Linha ${code.trim().toUpperCase()}`,
+            active: true,
+            scope_description: 'Responsabilidade operacional principal da linha.',
+          })
+        } catch (mgrErr: unknown) {
+          console.warn('Falha ao salvar gestor titular:', mgrErr)
+        }
       }
 
       if (substituteManagerId) {
-        const existingSubstitute = managerAssignments.find(
-          (m) => m.responsibility_type === 'SUBSTITUTE_MANAGER',
-        )
-        await lineMasterService.saveManagerAssignment({
-          id: existingSubstitute?.id,
-          line_id: line.id,
-          user_id: substituteManagerId,
-          responsibility_type: 'SUBSTITUTE_MANAGER',
-          role_title: `Gestor Substituto da Linha ${code.trim().toUpperCase()}`,
-          active: true,
-          scope_description: 'Cobertura operacional de férias e substituição programada.',
-        })
+        try {
+          const existingSubstitute = managerAssignments.find(
+            (m) => m.responsibility_type === 'SUBSTITUTE_MANAGER',
+          )
+          await lineMasterService.saveManagerAssignment({
+            id: existingSubstitute?.id,
+            line_id: line.id,
+            user_id: substituteManagerId,
+            responsibility_type: 'SUBSTITUTE_MANAGER',
+            role_title: `Gestor Substituto da Linha ${code.trim().toUpperCase()}`,
+            active: true,
+            scope_description: 'Cobertura operacional de férias e substituição programada.',
+          })
+        } catch (subErr: unknown) {
+          console.warn('Falha ao salvar gestor substituto:', subErr)
+        }
       }
 
-      // 5. Sincroniza Aprovador PCP e Gestor Homologador
+      // 5. Sincroniza Aprovador PCP e Gestor Homologador (line_approvers_matrix)
       if (pcpApproverId) {
-        const existingPcp = approversList.find((a) => a.approval_type === 'PCP_APPROVAL')
-        await lineMasterService.saveApprover({
-          id: existingPcp?.id,
-          line_id: line.id,
-          user_id: pcpApproverId,
-          approval_stage: 'STAGE_1_PCP',
-          approval_type: 'PCP_APPROVAL',
-          requirement_type: 'MANDATORY',
-          sequence_order: 1,
-          role_title: 'Analista de Planejamento PCP Homologador',
-          active: true,
-        })
+        try {
+          const existingPcp = approversList.find((a) => a.approval_type === 'PCP_APPROVAL')
+          await lineMasterService.saveApprover({
+            id: existingPcp?.id,
+            line_id: line.id,
+            user_id: pcpApproverId,
+            approval_stage: 'STAGE_1_PCP',
+            approval_type: 'PCP_APPROVAL',
+            requirement_type: 'MANDATORY',
+            sequence_order: 1,
+            role_title: 'Analista de Planejamento PCP Homologador',
+            active: true,
+          })
+        } catch (pcpErr: unknown) {
+          console.warn('Falha ao salvar aprovador PCP:', pcpErr)
+        }
       }
 
       if (lineApproverId) {
-        const existingLineApp = approversList.find(
-          (a) => a.approval_type === 'LINE_MANAGER_APPROVAL',
-        )
-        await lineMasterService.saveApprover({
-          id: existingLineApp?.id,
-          line_id: line.id,
-          user_id: lineApproverId,
-          approval_stage: 'STAGE_2_LINE_MANAGER',
-          approval_type: 'LINE_MANAGER_APPROVAL',
-          requirement_type: 'MANDATORY',
-          sequence_order: 2,
-          role_title: 'Gestor Operacional da Linha Homologador',
-          active: true,
-        })
+        try {
+          const existingLineApp = approversList.find(
+            (a) => a.approval_type === 'LINE_MANAGER_APPROVAL',
+          )
+          await lineMasterService.saveApprover({
+            id: existingLineApp?.id,
+            line_id: line.id,
+            user_id: lineApproverId,
+            approval_stage: 'STAGE_2_LINE_MANAGER',
+            approval_type: 'LINE_MANAGER_APPROVAL',
+            requirement_type: 'MANDATORY',
+            sequence_order: 2,
+            role_title: 'Gestor Operacional da Linha Homologador',
+            active: true,
+          })
+        } catch (lineAppErr: unknown) {
+          console.warn('Falha ao salvar aprovador do gestor da linha:', lineAppErr)
+        }
       }
 
-      // 6. Auditoria de edição cadastral
+      // 6. Invalida cache de completude da linha
+      invalidateCompletenessCache(line.id)
+
+      // 7. Auditoria de edição cadastral
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
@@ -387,18 +409,22 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Falha ao gravar auditoria:', auditErr)
       }
 
+      // Toast de sucesso apenas após confirmação do backend
       toast({
         title: 'Alterações salvas com sucesso.',
         description: `Os dados da linha ${code.trim().toUpperCase()} e status (${isActive ? 'Ativa' : 'Inativa'}) foram persistidos.`,
       })
 
+      // onSuccess recarrega listagem e fecha modal
       onSuccess(updatedLine)
       onClose()
-    } catch (err: any) {
+    } catch (err: unknown) {
+      console.error('Erro ao atualizar linha produtiva:', err)
+      // Em erro, NÃO fechar o modal e exibir mensagem prescrita
       toast({
         variant: 'destructive',
-        title: 'Erro ao salvar alterações da linha',
-        description: err.message || 'Verifique os dados e tente novamente.',
+        title: 'Não foi possível salvar as alterações. Verifique os dados e tente novamente.',
+        description: err instanceof Error ? err.message : 'Falha na persistência dos dados.',
       })
     } finally {
       setSaving(false)

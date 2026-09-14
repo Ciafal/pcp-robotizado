@@ -470,21 +470,11 @@ export const App: React.FC = () => {
                     >
                       {/* Landing da Central */}
                       <Route index element={<CentralSequenciamentoLandingPage />} />
-                      <Route
-                        path="montagem-semanal"
-                        element={
-                          <PermissionGuard permission="pcp.schedule.view">
-                            <WeeklyScheduleOperationalPage />
-                          </PermissionGuard>
-                        }
-                      />
+                      {/* Rotas filhas protegidas pelo PermissionGuard de nível superior em /pcp/sequenciamento */}
+                      <Route path="montagem-semanal" element={<WeeklyScheduleOperationalPage />} />
                       <Route
                         path="programacao-mensal"
-                        element={
-                          <PermissionGuard permission="pcp.schedule.view">
-                            <WeeklyScheduleOperationalPage />
-                          </PermissionGuard>
-                        }
+                        element={<WeeklyScheduleOperationalPage />}
                       />
                       <Route path="torre-controle" element={<ControlTowerPage />} />
                       <Route path="operacional" element={<OperationalPage />} />
@@ -508,14 +498,7 @@ export const App: React.FC = () => {
                       />
 
                       {/* Análise de Carteira Integrada */}
-                      <Route
-                        path="analise-carteira"
-                        element={
-                          <PermissionGuard permission="pcp.schedule.view">
-                            <AnaliseCarteiraPage />
-                          </PermissionGuard>
-                        }
-                      />
+                      <Route path="analise-carteira" element={<AnaliseCarteiraPage />} />
                       {/* Carteira CRM / WMS */}
                       <Route path="carteira" element={<BacklogPage />} />
                       {/* Cenários & Simulações */}

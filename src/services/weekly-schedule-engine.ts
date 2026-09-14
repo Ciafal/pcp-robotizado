@@ -2102,10 +2102,14 @@ export const WeeklyScheduleEngine = {
         })
       }
 
-      // 4. Linha do Tempo
-      // Inserir na timeline Fim anterior + Setup + Acerto = Início da próxima produção
-      // setupDurationMinutes já contempla planned_change_minutes + planned_tuning_minutes
-      const totalMinutes = setupResult.setupDurationMinutes + prodHours * 60
+      // 4. Linha do Tempo Temporal Encadeada
+      // Setup como elemento próprio encadeado:
+      // Fim de A = Início do Setup, Fim do Setup = Início da Produção de B (itemStartProduction),
+      // Fim da Produção de B = Início da Produção + Horas Produtivas
+      // O item guarda o intervalo consolidado da atividade abrangendo o setup precedente encadeado
+      const setupMin = setupResult.setupDurationMinutes || 0
+      const prodMinutes = prodHours * 60
+      const totalMinutes = setupMin + prodMinutes
       const itemEnd = new Date(itemStart.getTime() + totalMinutes * 60 * 1000)
       item.start_datetime = formatIsoDateTime(itemStart)
       item.end_datetime = formatIsoDateTime(itemEnd)

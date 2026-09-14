@@ -152,10 +152,25 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     }))
   }
 
-  // Garante sincronia estrutural para QA versão 0.0.62
-  // Agrupa itens por Dia da Semana
+  // Estrutura de segmento visual por interseção de intervalos
+  // Permite que um único registro (item) que ultrapasse a virada de dia ou esteja associado
+  // seja segmentado visualmente por dia, mantendo a referência e originalIndex ao item pai
+  interface DaySegmentItem {
+    item: WeeklyScheduleItem
+    originalIndex: number
+    segmentDayKey: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+    segmentDateStr: string
+    segmentStartStr: string
+    segmentEndStr: string
+    isMultiDaySegment: boolean
+    segmentPartIndex: number
+    totalSegmentParts: number
+  }
+
+  // Agrupa itens por Dia da Semana com suporte a quebra visual por dia por interseção de intervalos (Requisito 3a)
   const itemsByDay = useMemo(() => {
-    const map: Record<string, { item: WeeklyScheduleItem; originalIndex: number }[]> = {
+    const daysList = getDaysListForWeek(year, weekNumber)
+    const map: Record<string, DaySegmentItem[]> = {
       SEG: [],
       TER: [],
       QUA: [],
@@ -164,16 +179,124 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       SAB: [],
       DOM: [],
     }
+
+    const dayKeys: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = [
+      'SEG',
+      'TER',
+      'QUA',
+      'QUI',
+      'SEX',
+      'SAB',
+      'DOM',
+    ]
+
     items.forEach((item, index) => {
-      const d = item.day_of_week || 'SEG'
-      if (map[d]) {
-        map[d].push({ item, originalIndex: index })
+      const primaryDay = (item.day_of_week || 'SEG') as
+        | 'SEG'
+        | 'TER'
+        | 'QUA'
+        | 'QUI'
+        | 'SEX'
+        | 'SAB'
+        | 'DOM'
+      const startIso = item.start_datetime // ex: "2026-08-24 14:20"
+      const endIso = item.end_datetime // ex: "2026-08-25 03:00"
+
+      if (!startIso || !endIso) {
+        const fallbackMeta = daysList.find((d) => d.key === primaryDay) || daysList[0]
+        const fallbackSeg: DaySegmentItem = {
+          item,
+          originalIndex: index,
+          segmentDayKey: primaryDay,
+          segmentDateStr: item.date_str || fallbackMeta.date,
+          segmentStartStr: '06:00',
+          segmentEndStr: '10:00',
+          isMultiDaySegment: false,
+          segmentPartIndex: 0,
+          totalSegmentParts: 1,
+        }
+        if (map[primaryDay]) map[primaryDay].push(fallbackSeg)
+        else map.SEG.push(fallbackSeg)
+        return
+      }
+
+      const startDate = new Date(startIso.replace(' ', 'T'))
+      const endDate = new Date(endIso.replace(' ', 'T'))
+
+      // Se a data for inválida ou o item termina no mesmo dia
+      const isCrossDay =
+        !isNaN(startDate.getTime()) &&
+        !isNaN(endDate.getTime()) &&
+        (startDate.getFullYear() !== endDate.getFullYear() ||
+          startDate.getMonth() !== endDate.getMonth() ||
+          startDate.getDate() !== endDate.getDate())
+
+      if (!isCrossDay) {
+        const dayMeta = daysList.find((d) => d.key === primaryDay) || daysList[0]
+        const sTime = startIso.includes(' ') ? startIso.split(' ')[1].slice(0, 5) : '06:00'
+        const eTime = endIso.includes(' ') ? endIso.split(' ')[1].slice(0, 5) : '10:00'
+
+        const singleSeg: DaySegmentItem = {
+          item,
+          originalIndex: index,
+          segmentDayKey: primaryDay,
+          segmentDateStr: item.date_str || dayMeta.date,
+          segmentStartStr: sTime,
+          segmentEndStr: eTime,
+          isMultiDaySegment: false,
+          segmentPartIndex: 0,
+          totalSegmentParts: 1,
+        }
+        if (map[primaryDay]) map[primaryDay].push(singleSeg)
+        else map.SEG.push(singleSeg)
       } else {
-        map.SEG.push({ item, originalIndex: index })
+        // Interseção temporal com N dias do calendário semanal
+        const primaryIdx = dayKeys.indexOf(primaryDay)
+        const nextDayKey =
+          primaryIdx !== -1 && primaryIdx < dayKeys.length - 1
+            ? dayKeys[primaryIdx + 1]
+            : primaryDay
+        const day1Meta = daysList.find((d) => d.key === primaryDay) || daysList[0]
+        const day2Meta = daysList.find((d) => d.key === nextDayKey) || daysList[1] || daysList[0]
+
+        const sTime1 = startIso.includes(' ') ? startIso.split(' ')[1].slice(0, 5) : '06:00'
+        const eTime2 = endIso.includes(' ') ? endIso.split(' ')[1].slice(0, 5) : '08:00'
+
+        // Segmento do Dia 1 (do início até 22:00)
+        const seg1: DaySegmentItem = {
+          item,
+          originalIndex: index,
+          segmentDayKey: primaryDay,
+          segmentDateStr: item.date_str || day1Meta.date,
+          segmentStartStr: sTime1,
+          segmentEndStr: '22:00',
+          isMultiDaySegment: true,
+          segmentPartIndex: 0,
+          totalSegmentParts: 2,
+        }
+        map[primaryDay].push(seg1)
+
+        // Segmento do Dia 2 (das 06:00 até o horário final)
+        const seg2: DaySegmentItem = {
+          item,
+          originalIndex: index,
+          segmentDayKey: nextDayKey,
+          segmentDateStr: day2Meta.date,
+          segmentStartStr: '06:00',
+          segmentEndStr: eTime2,
+          isMultiDaySegment: true,
+          segmentPartIndex: 1,
+          totalSegmentParts: 2,
+        }
+        if (map[nextDayKey]) {
+          map[nextDayKey].push(seg2)
+        } else {
+          map.DOM.push(seg2)
+        }
       }
     })
     return map
-  }, [items])
+  }, [items, year, weekNumber])
 
   // Drag & drop com índices globais absolutos
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
@@ -533,26 +656,35 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                         </button>
                       </div>
                     ) : (
-                      dayItems.map(({ item, originalIndex }, idx) => {
+                      dayItems.map((seg, idx) => {
+                        const {
+                          item,
+                          originalIndex,
+                          segmentStartStr,
+                          segmentEndStr,
+                          isMultiDaySegment,
+                          segmentPartIndex,
+                          totalSegmentParts,
+                        } = seg
                         const isSelected = selectedItemId === item.id
                         const isStop = item.item_type === 'SCHEDULED_STOP'
                         const isAwaiting =
                           item.status === 'AGUARDANDO_OBSERVACOES' ||
                           item.awaiting_observations?.is_awaiting
                         const isCoolingViolated = item.cooling_validation?.hasViolation
-                        const hasSetupBefore = !isStop && item.setup_duration_minutes > 0
+                        // O setup encadeado ocorre no primeiro segmento do item
+                        const hasSetupBefore =
+                          !isStop &&
+                          item.setup_duration_minutes > 0 &&
+                          (!isMultiDaySegment || segmentPartIndex === 0)
 
-                        const startStr = item.start_datetime
-                          ? item.start_datetime.split(' ')[1] || '06:00'
-                          : '06:00'
-                        const endStr = item.end_datetime
-                          ? item.end_datetime.split(' ')[1] || '10:15'
-                          : '10:15'
+                        const startStr = segmentStartStr
+                        const endStr = segmentEndStr
                         const timelinePos = calculateTimelinePosition(startStr, endStr)
 
                         return (
                           <div
-                            key={item.id || originalIndex}
+                            key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
                             draggable
                             onDragStart={(e) => handleDragStart(e, originalIndex)}
                             onDragOver={(e) => handleDragOver(e, originalIndex)}
@@ -584,8 +716,16 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                           >
                             {/* Coluna Fixa 1: DIA/DATA COMPACTA (Sticky) */}
                             <div className="w-[80px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center sticky left-0 z-20 bg-white group-hover:bg-slate-50">
-                              <span className="font-black text-slate-900 text-[11px]">
+                              <span className="font-black text-slate-900 text-[11px] flex items-center justify-center gap-1">
                                 {dayObj.label}
+                                {isMultiDaySegment && (
+                                  <span
+                                    title={`Item contínuo dividido entre dias (Parte ${segmentPartIndex + 1}/${totalSegmentParts})`}
+                                    className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded font-mono font-bold"
+                                  >
+                                    P{segmentPartIndex + 1}
+                                  </span>
+                                )}
                               </span>
                               <span className="text-[10px] text-slate-500 font-mono">
                                 {dayObj.date}
@@ -833,6 +973,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                       {item.dimensions && (
                                         <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
                                           {item.dimensions}
+                                        </span>
+                                      )}
+
+                                      {isMultiDaySegment && (
+                                        <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-mono font-bold shrink-0">
+                                          Parte {segmentPartIndex + 1}/{totalSegmentParts}
                                         </span>
                                       )}
 
