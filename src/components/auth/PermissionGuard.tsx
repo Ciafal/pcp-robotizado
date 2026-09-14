@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { authService } from '@/services/pcp-auth'
 import pb from '@/lib/pocketbase/client'
 import { ShieldAlert, ArrowLeft, RefreshCw, Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,25 +22,42 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const [timedOut, setTimedOut] = useState(false)
   const navigate = useNavigate()
 
+  // Janela de timeout ajustada para 12000ms (12s) para permitir cold start e carregamento inicial completo
+  const GUARD_TIMEOUT_MS = 12000
+
+  // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
+  // não há necessidade de armar o timer de timeout
+  const hasAvailableAuthContext = Boolean(user)
+
   // Timeout de segurança: nunca prender o guard em loading indefinidamente
-  // Caso o backend ou AD demorem mais de 4s, libera a checagem com os dados já disponíveis
+  // Apenas arma o timer se ainda estiver em loading e não tiver contexto de auth disponível
   React.useEffect(() => {
     if (!isLoading && !isRetrying) {
       setTimedOut(false)
       return
     }
 
+    if (hasAvailableAuthContext && !isRetrying) {
+      setTimedOut(false)
+      return
+    }
+
     const timer = window.setTimeout(() => {
       setTimedOut(true)
-    }, 4000)
+    }, GUARD_TIMEOUT_MS)
 
     return () => window.clearTimeout(timer)
-  }, [isLoading, isRetrying])
+  }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   const handleRetry = async () => {
     setIsRetrying(true)
     setTimedOut(false)
     try {
+      if (pb.authStore.isValid && pb.authStore.record) {
+        // Sessão já existe: refaz apenas a resolução de permissões sem reautenticar com senha
+        await authService.resolvePermissions({ forceRefresh: true })
+      }
+      // Garante sincronização completa com o estado do AuthContext
       await refreshPermissions()
     } finally {
       setIsRetrying(false)
