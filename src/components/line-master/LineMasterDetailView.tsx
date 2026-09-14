@@ -1362,39 +1362,87 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           {/* Alertas de Configuração */}
           {alerts.length > 0 && (
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                 Diagnóstico & Alertas de Configuração ({alerts.length})
               </span>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {alerts.map((alt) => (
-                  <div
-                    key={alt.id}
-                    className={`p-3 rounded-lg border text-xs flex items-start gap-3 ${
-                      alt.level === 'CRITICAL'
-                        ? 'bg-rose-950/40 border-rose-800 text-rose-200'
-                        : alt.level === 'WARNING'
-                          ? 'bg-amber-950/40 border-amber-800 text-amber-200'
-                          : 'bg-cyan-950/40 border-cyan-800 text-cyan-200'
-                    }`}
-                  >
-                    {alt.level === 'CRITICAL' ? (
-                      <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                    ) : alt.level === 'WARNING' ? (
-                      <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-                    )}
-                    <div className="space-y-1">
-                      <span className="font-bold block">{alt.title}</span>
-                      <p className="text-[11px] opacity-90">{alt.description}</p>
-                      {alt.resolutionAction && (
-                        <span className="text-[10px] uppercase font-mono font-bold text-cyan-300 block pt-0.5">
-                          → {alt.resolutionAction}
+                {alerts.map((alt) => {
+                  const isCritical = alt.level === 'CRITICAL'
+                  const isWarning = alt.level === 'WARNING'
+
+                  // Cores claras e alto contraste:
+                  // Erro crítico: fundo bg-red-50, borda border-red-300, ícone vermelho
+                  // Atenção: fundo bg-amber-50, borda border-amber-300, ícone âmbar
+                  // Informação: fundo bg-blue-50, borda border-blue-200, ícone azul
+                  const containerClass = isCritical
+                    ? 'bg-red-50 border-red-300 text-slate-900'
+                    : isWarning
+                      ? 'bg-amber-50 border-amber-300 text-slate-900'
+                      : 'bg-blue-50 border-blue-200 text-slate-900'
+
+                  const iconEl = isCritical ? (
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  ) : isWarning ? (
+                    <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-[#004C97] shrink-0 mt-0.5" />
+                  )
+
+                  // Ação rápida / navegação mantendo o handler existente
+                  const handleActionClick = () => {
+                    if (alt.id === 'alt_no_mgr') {
+                      setMainGroup('ORGANIZATION')
+                    } else if (alt.id === 'alt_no_app') {
+                      setMainGroup('ORGANIZATION')
+                    } else if (alt.id === 'alt_no_seq') {
+                      setMainGroup('PROCESS')
+                    } else if (alt.id === 'alt_blocked_prod') {
+                      setMainGroup('MASTERDATA')
+                      setMasterSubTab('BLOCKED')
+                    } else if (alt.id === 'alt_no_prod') {
+                      setMainGroup('MASTERDATA')
+                      setMasterSubTab('PRODUCTIVITY')
+                    } else if (alt.id === 'alt_sap_untested') {
+                      setMainGroup('GOVERNANCE')
+                    }
+                  }
+
+                  const getCtaLabel = () => {
+                    if (alt.id === 'alt_no_mgr') return 'Associar Gestor'
+                    if (alt.id === 'alt_no_app') return 'Configurar Matriz de Aprovadores'
+                    if (alt.id === 'alt_no_seq') return 'Configurar Sequenciamento →'
+                    if (alt.id === 'alt_blocked_prod') return 'Revisar Produtos Bloqueados'
+                    return alt.resolutionAction || 'Configurar'
+                  }
+
+                  return (
+                    <div
+                      key={alt.id}
+                      className={`p-3.5 rounded-lg border text-xs flex items-start gap-3 shadow-xs ${containerClass}`}
+                    >
+                      {iconEl}
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <span className="font-semibold text-slate-900 block text-xs">
+                          {alt.title}
                         </span>
-                      )}
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          {alt.description}
+                        </p>
+                        {(alt.resolutionAction || alt.id === 'alt_blocked_prod') && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={handleActionClick}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#004C97] hover:text-[#003870] hover:underline cursor-pointer transition-colors"
+                            >
+                              <span>{getCtaLabel()}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1548,18 +1596,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                 <div
                   id="target-sap-plant"
-                  className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1"
+                  className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <span className="text-slate-500 font-medium block">Centro SAP (Werk):</span>
-                    {!(line.sap_plant_code || master?.sap_plant_code) && (
+                    {!(line.sap_plant_code || master?.sap_plant_code) ? (
                       <Badge
                         variant="outline"
                         className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
                       >
                         Pendente
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <span className="font-mono font-bold text-[#004C97] text-sm block">
                     {line.sap_plant_code || master?.sap_plant_code || '1000 (CIAFAL)'}
@@ -1569,52 +1617,52 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   id="target-sap-work-center"
                   className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <span className="text-slate-500 font-medium block">
                       Centro de Trabalho SAP:
                     </span>
-                    {!line.sap_work_center && (
+                    {!line.sap_work_center ? (
                       <Badge
                         variant="outline"
                         className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
                       >
                         Pendente
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <span className="font-mono font-bold text-slate-900 text-sm block">
                     {line.sap_work_center || 'CRHD_LAM_L1'}
                   </span>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <span className="text-slate-500 font-medium block">Equipamento SAP:</span>
-                    {!line.sap_equipment_id && (
+                    {!line.sap_equipment_id ? (
                       <Badge
                         variant="outline"
-                        className="text-[9px] bg-slate-50 text-slate-600 border-slate-200 font-semibold"
+                        className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
                       >
-                        Padrão
+                        Pendente
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <span className="font-mono font-bold text-slate-900 text-sm block">
                     {line.sap_equipment_id || 'EQ-100293'}
                   </span>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 shadow-xs">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <span className="text-slate-500 font-medium block">
                       Identificador Telemetria MES:
                     </span>
-                    {!line.mes_identifier && (
+                    {!line.mes_identifier ? (
                       <Badge
                         variant="outline"
-                        className="text-[9px] bg-slate-50 text-slate-600 border-slate-200 font-semibold"
+                        className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 font-bold"
                       >
-                        Padrão
+                        Pendente
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <span className="font-mono font-bold text-[#004C97] text-sm block">
                     {line.mes_identifier || 'MES_OPC_L1'}
