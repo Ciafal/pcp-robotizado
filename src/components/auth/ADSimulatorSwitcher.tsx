@@ -108,7 +108,7 @@ export const ADSimulatorSwitcher: React.FC = () => {
           title="Executar a Suite de Integridade de Rotas do PCP (ROUTE INTEGRITY SUITE)"
         >
           <Compass className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden md:inline">Route Integrity Suite</span>
+          <span className="text-[11px] font-medium whitespace-nowrap">Route Suite</span>
         </Button>
 
         {/* Botão para abrir os 30 Casos de Teste de Conformidade e Segurança */}
@@ -120,7 +120,7 @@ export const ADSimulatorSwitcher: React.FC = () => {
           title="Executar os 30 Casos de Teste Automatizados (RBAC, Ficha Mestre e Central)"
         >
           <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden md:inline">30 Testes de Conformidade</span>
+          <span className="text-[11px] font-medium whitespace-nowrap">30 Testes</span>
         </Button>
         <div className="h-4 w-px bg-slate-700 hidden sm:block" />
 

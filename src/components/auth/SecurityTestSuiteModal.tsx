@@ -412,7 +412,7 @@ export const SecurityTestSuiteModal: React.FC<{
   const totalCount = results.length
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col bg-slate-950 border-slate-800 text-slate-100 p-0 overflow-hidden shadow-2xl">
         <DialogHeader className="p-5 pb-3 bg-slate-900 border-b border-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
