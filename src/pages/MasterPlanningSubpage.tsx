@@ -14,7 +14,7 @@ export const MasterPlanningSubpage: React.FC<MasterPlanningSubpageProps> = ({
   subtitle = 'Visão consolidada de capacidade estratégica, balanceamento de demanda comercial e planos de horizonte.',
 }) => {
   return (
-    <div className="space-y-4 p-4 max-w-[1600px] mx-auto text-slate-100">
+    <div className="space-y-4 p-2 md:p-4 max-w-[1600px] mx-auto text-slate-900">
       <ControlTowerHeader
         title={title}
         subtitle={subtitle}

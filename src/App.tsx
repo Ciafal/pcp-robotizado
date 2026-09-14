@@ -541,9 +541,15 @@ export const App: React.FC = () => {
                       }
                     >
                       <Route index element={<MasterPlanningPage />} />
-                      <Route path="anual" element={<MasterPlanningPage />} />
-                      <Route path="mensal" element={<MasterPlanningPage />} />
-                      <Route path="semanal" element={<MasterPlanningPage />} />
+                      <Route path="anual" element={<MasterPlanningPage initialHorizon="ANUAL" />} />
+                      <Route
+                        path="mensal"
+                        element={<MasterPlanningPage initialHorizon="MENSAL" />}
+                      />
+                      <Route
+                        path="semanal"
+                        element={<MasterPlanningPage initialHorizon="SEMANAL" />}
+                      />
                     </Route>
                     <Route
                       path="/planejamento-mestre"
