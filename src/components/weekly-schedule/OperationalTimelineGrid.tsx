@@ -553,7 +553,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
         </div>
 
         {/* CORPO DOS DIAS E SEQUÊNCIAS */}
-        <div className="divide-y divide-slate-200 max-h-[560px] overflow-y-auto no-scrollbar">
+        <div className="divide-y divide-slate-200">
           {getDaysListForWeek(year, weekNumber).map((dayObj) => {
             const dayItems = itemsByDay[dayObj.key] || []
             const isExpanded = expandedDays[dayObj.key] ?? false

@@ -132,7 +132,7 @@ export const MPModuleLayout: React.FC<MPModuleLayoutProps> = ({
   const location = useLocation()
 
   return (
-    <div className="space-y-4 bg-slate-50 min-h-[calc(100vh-6rem)]">
+    <div className="space-y-4 bg-slate-50">
       {/* Header Compacto da Gestão de MP (Linha 1: Título + Descrição Curta + Ações / Linha 2: Fluxo Horizontal / Linha 3: Cards) */}
       <div className="bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-2xs space-y-2.5">
         {/* Linha 1: Título em linha única + tags + Ações alinhadas */}

@@ -420,7 +420,7 @@ export const SequencingPage: React.FC = () => {
                 <CardTitle className="text-xs font-bold text-white uppercase font-mono flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Search className="w-3.5 h-3.5 text-sky-400" />
-                    Consulta de Elegibilidade de Rotas (Prompt 04 Requisito)
+                    Consulta de Elegibilidade de Rotas Produtivas
                   </span>
                   <Badge variant="outline" className="text-[9px] border-slate-700 text-slate-400">
                     Motor Determinístico

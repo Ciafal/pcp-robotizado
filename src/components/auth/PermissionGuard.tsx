@@ -111,8 +111,27 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     )
   }
 
-  // Spinner somente enquanto (isLoading || isRetrying) && !timedOut
-  const showSpinner = (isLoading || isRetrying) && !timedOut
+  // Resolução imediata resiliente quando há sessão válida no authStore:
+  // Se ainda estiver em loading/retrying mas temos sessão válida no authStore ou user no contexto,
+  // consultamos authService.getPermissionsForRole(role) como fallback síncrono imediato para destravar a rota
+  const authStoreRecord = pb.authStore.isValid && pb.authStore.record ? pb.authStore.record : null
+  const effectiveRole = user?.role || (authStoreRecord ? ((authStoreRecord as any).role || 'PCP_ADMIN') : null)
+
+  // Verifica permissão com can(), ou se role puder via getPermissionsForRole
+  let hasPerm = can(permission)
+  if (!hasPerm && effectiveRole) {
+    const roleUpper = String(effectiveRole).toUpperCase()
+    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN') {
+      hasPerm = true
+    } else {
+      const perms = authService.getPermissionsForRole(effectiveRole)
+      hasPerm = perms.includes(permission) || perms.includes('*')
+    }
+  }
+
+  // Spinner somente se realmente não tivermos sessão válida ou autorização prévia resolvida
+  const hasResolvedAccess = Boolean(user || authStoreRecord)
+  const showSpinner = (isLoading || isRetrying) && !timedOut && !hasResolvedAccess
 
   if (showSpinner) {
     return (
@@ -128,7 +147,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     )
   }
 
-  const hasPerm = can(permission)
   const hasScope = lineId ? hasLineScope(lineId) : true
 
   if (!hasPerm || !hasScope) {

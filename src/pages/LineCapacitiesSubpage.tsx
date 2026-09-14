@@ -43,19 +43,19 @@ export const LineCapacitiesSubpage: React.FC = () => {
   )
 
   return (
-    <div className="space-y-4 max-w-[1600px] mx-auto text-slate-100">
-      <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 max-w-[1600px] mx-auto text-slate-900">
+      <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mb-1">
             <span>Hierarquia das Linhas</span>
             <span>&gt;</span>
-            <span className="text-cyan-400 font-bold">Capacidades e Performance</span>
+            <span className="text-[#004C97] font-bold">Capacidades e Performance</span>
           </div>
-          <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Gauge className="w-5 h-5 text-[#004C97]" />
             Hierarquia das Linhas & Capacidades Nominais
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600">
             Hierarquia, parâmetros nominais de engenharia, OEE e limites operacionais por linha
             produtiva.
           </p>
@@ -66,7 +66,7 @@ export const LineCapacitiesSubpage: React.FC = () => {
           variant="outline"
           onClick={loadData}
           disabled={loading}
-          className="border-slate-800 bg-slate-900 text-slate-300 hover:text-white text-xs h-8 gap-1.5"
+          className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs h-8 gap-1.5"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Atualizar
@@ -78,36 +78,36 @@ export const LineCapacitiesSubpage: React.FC = () => {
         {filteredLines.map((line) => (
           <Card
             key={line.id}
-            className="bg-slate-950 border-slate-800 text-slate-100 p-4 space-y-3"
+            className="bg-white border-slate-200 text-slate-900 p-4 space-y-3 shadow-xs"
           >
             <div className="flex items-start justify-between">
               <div>
-                <span className="font-mono font-bold text-base text-white">{line.code}</span>
-                <span className="text-xs text-slate-400 block line-clamp-1">{line.name}</span>
+                <span className="font-mono font-bold text-base text-slate-900">{line.code}</span>
+                <span className="text-xs text-slate-600 block line-clamp-1">{line.name}</span>
               </div>
-              <Badge className="bg-blue-950 text-cyan-300 border-blue-800 font-mono text-[10px]">
+              <Badge className="bg-blue-50 text-[#004C97] border-blue-200 font-mono text-[10px]">
                 {line.sap_work_center || 'WC-DIV'}
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 text-xs font-mono">
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs font-mono">
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">
                   Capacidade Nominal
                 </span>
-                <span className="font-bold text-white text-sm">
+                <span className="font-bold text-slate-900 text-sm">
                   {line.target_rate || line.nominal_speed || 120} t/h
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">Cadência Real</span>
-                <span className="font-bold text-emerald-400 text-sm">
+                <span className="font-bold text-emerald-700 text-sm">
                   {line.current_rate || 118} t/h
                 </span>
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">Eficiência (OEE)</span>
-                <div className="font-bold text-cyan-300 text-sm">
+                <div className="font-bold text-[#004C97] text-sm">
                   <OeeInteractiveValue
                     value={line.efficiency || 96.8}
                     target={85.0}
@@ -121,21 +121,21 @@ export const LineCapacitiesSubpage: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block font-sans">Turnos Ativos</span>
-                <span className="text-white text-sm">3 Turnos</span>
+                <span className="text-slate-900 text-sm">3 Turnos</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-[11px] text-slate-500">
               <span>Status Operacional:</span>
               <Badge
                 className={`text-[9px] ${
                   (line.status as string) === 'running' || line.status === 'ACTIVE'
-                    ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                     : (line.status as string) === 'maintenance' || line.status === 'MAINTENANCE'
-                      ? 'bg-rose-950 text-rose-300 border-rose-700'
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
                       : (line.status as string) === 'idle' || line.status === 'CONFIGURING'
-                        ? 'bg-blue-950 text-blue-300 border-blue-700'
-                        : 'bg-amber-950 text-amber-300 border-amber-700'
+                        ? 'bg-blue-100 text-[#004C97] border-blue-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
                 }`}
               >
                 {(line.status as string) === 'running' || line.status === 'ACTIVE'

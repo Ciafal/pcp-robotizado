@@ -327,7 +327,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         </div>
 
         {/* Grade Principal com Cabeçalho Fixo e Primeira Coluna Fixa */}
-        <div className="overflow-x-auto max-h-[580px] overflow-y-auto no-scrollbar">
+        <div className="overflow-x-auto relative">
           <table className="w-full text-left border-collapse text-xs">
             {/* CABEÇALHO FIXO DA GRADE */}
             <thead className="bg-[#004C97] text-white text-[11px] uppercase tracking-wider sticky top-0 z-20 shadow-sm font-bold">

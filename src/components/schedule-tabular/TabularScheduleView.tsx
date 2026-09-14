@@ -825,7 +825,7 @@ export const TabularScheduleView: React.FC<TabularScheduleViewProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[650px] relative">
+          <div className="overflow-x-auto relative">
             <table className="w-full text-left text-xs border-collapse">
               {/* Header Fixo com Pantone 2945 */}
               <thead className="sticky top-0 bg-[#004C97] text-white font-bold text-[11px] shadow-sm z-10">
