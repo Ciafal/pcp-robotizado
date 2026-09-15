@@ -819,11 +819,27 @@ export const App: React.FC = () => {
                       }
                     />
                     <Route
+                      path="/pcp/linhas-ficha-mestre"
+                      element={
+                        <PermissionGuard permission="pcp.masterdata.view">
+                          <LineMasterPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
                       path="/centros-ficha-mestre"
                       element={<Navigate to="/pcp/ficha-mestre" replace />}
                     />
                     <Route
+                      path="/linhas-ficha-mestre"
+                      element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    />
+                    <Route
                       path="/pcp-robotizado/centros-ficha-mestre"
+                      element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    />
+                    <Route
+                      path="/pcp-robotizado/linhas-ficha-mestre"
                       element={<Navigate to="/pcp/ficha-mestre" replace />}
                     />
                     <Route

@@ -132,7 +132,7 @@ export default function LineMasterPage() {
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Erro ao carregar Linhas e Ficha Mestre',
+        title: 'Erro ao carregar Centros e Ficha Mestra',
         description: err.message,
       })
     } finally {
@@ -181,7 +181,7 @@ export default function LineMasterPage() {
 
         toast({
           variant: 'destructive',
-          title: 'Ficha Mestre',
+          title: 'Ficha Mestra',
           description: userFriendlyMsg,
         })
       } finally {
