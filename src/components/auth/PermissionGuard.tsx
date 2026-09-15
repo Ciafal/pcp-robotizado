@@ -144,13 +144,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Se o usuário está autenticado e o fallback para permissões de visualização/gerenciamento de linha mestre
+  // Se o usuário está autenticado e o fallback para permissões de visualização/gerenciamento de linha mestre ou programação
   if (!hasPerm && (user || hasValidAuthStore)) {
     // Para visualização cadastral de linhas e ficha mestre, concede acesso caso o perfil possua acesso básico
     if (
       permission === 'pcp.lines.manage' ||
       permission === 'pcp.masterdata.edit' ||
-      permission === 'pcp.lines.view'
+      permission === 'pcp.lines.view' ||
+      permission === 'pcp.schedule.view'
     ) {
       hasPerm = true
     }

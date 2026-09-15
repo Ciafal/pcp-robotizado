@@ -42,9 +42,9 @@ export const lineMasterService = {
     try {
       let filterStr = ''
       if (filterOptions?.activeOnly) {
-        filterStr = 'is_active = true || is_active = null'
+        filterStr = 'is_active = true'
       } else if (filterOptions?.includeInactive === false) {
-        filterStr = 'is_active = true || is_active = null'
+        filterStr = 'is_active = true'
       }
 
       const [lines, allShifts, allCrews, allMasters] = await Promise.all([
@@ -110,41 +110,57 @@ export const lineMasterService = {
       }
     }
 
-    const updated = await pb.collection('production_lines').update<ProductionLine>(lineId, {
-      is_active: isActive,
+    // 1. Atualizar is_active no PocketBase
+    await pb.collection('production_lines').update(lineId, {
+      is_active: Boolean(isActive),
     })
+
+    // 2. Leitura de confirmação imediata (getOne) para garantir persistência real antes de retornar
+    const confirmedRecord = await pb.collection('production_lines').getOne<ProductionLine>(lineId)
+    if (Boolean(confirmedRecord.is_active) !== Boolean(isActive)) {
+      throw new Error(
+        `Falha na confirmação de persistência: is_active esperado ${isActive}, retornado ${confirmedRecord.is_active}.`,
+      )
+    }
 
     // Invalida cache de completude da linha para recomposição imediata
     invalidateCompletenessCache(lineId)
 
-    // Registrar auditoria expressa
-    const currentUser = pb.authStore.record
-    try {
-      await pb.collection('pcp_audit_logs').create({
-        user_id: currentUser?.id || null,
-        user_email: currentUser?.email || '',
-        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
-        user_role: (currentUser as any)?.role || 'PCP_ADMIN',
-        event_type: 'PERMISSION_CHANGED',
-        action: isActive ? 'ACTIVATE_LINE' : 'DEACTIVATE_LINE',
-        resource: 'production_lines',
-        resource_id: lineId,
-        permission_required: 'pcp.masterdata.edit',
-        scope: line.code,
-        outcome: 'SUCCESS',
-        details: {
-          line_code: line.code,
-          line_name: line.name,
-          status_anterior: line.is_active !== false ? 'Ativa' : 'Inativa',
-          status_novo: isActive ? 'Ativa' : 'Inativa',
-          data_hora: new Date().toISOString(),
-        },
-      })
-    } catch (auditErr) {
-      console.warn('Erro ao gravar log de auditoria ao alternar status da linha:', auditErr)
+    // Registrar auditoria expressa de forma isolada em try/catch silencioso
+    const currentUser = pb.authStore.record || pb.authStore.model
+    const authId = currentUser?.id || null
+    if (authId) {
+      try {
+        await pb.collection('pcp_audit_logs').create({
+          user_id: authId,
+          user_email: (currentUser as any)?.email || '',
+          user_name: (currentUser as any)?.name || (currentUser as any)?.email || 'Usuário PCP',
+          user_role: (currentUser as any)?.role || 'PCP_ADMIN',
+          event_type: 'PERMISSION_CHANGED',
+          action: isActive ? 'ACTIVATE_LINE' : 'DEACTIVATE_LINE',
+          resource: 'production_lines',
+          resource_id: lineId,
+          permission_required: 'pcp.masterdata.edit',
+          scope: line.code,
+          outcome: 'SUCCESS',
+          details: {
+            line_code: line.code,
+            line_name: line.name,
+            status_anterior: line.is_active !== false ? 'Ativa' : 'Inativa',
+            status_novo: isActive ? 'Ativa' : 'Inativa',
+            data_hora: new Date().toISOString(),
+          },
+        })
+      } catch (auditErr) {
+        // Falha de log nunca interrompe nem falseia o salvamento
+        console.warn(
+          'Erro ao gravar log de auditoria ao alternar status da linha (ignorado):',
+          auditErr,
+        )
+      }
     }
 
-    return updated
+    return confirmedRecord
   },
 
   async checkFutureSchedulesCount(lineCode: string): Promise<number> {
@@ -168,7 +184,7 @@ export const lineMasterService = {
   },
 
   async updateLine(lineId: string, data: Partial<ProductionLine>): Promise<ProductionLine> {
-    // Sanitização rigorosa: enviar para a coleção production_lines apenas os campos válidos existentes na interface e schema
+    // Sanitização rigorosa: enviar para a coleção production_lines apenas os campos válidos existentes no schema
     const allowedKeys: (keyof ProductionLine)[] = [
       'name',
       'code',
@@ -186,21 +202,58 @@ export const lineMasterService = {
       'is_active',
       'programming_type',
       'programming_stages',
+      'process',
     ]
 
     const sanitizedPayload: Record<string, unknown> = {}
     for (const key of allowedKeys) {
       if (key in data && (data as Record<string, unknown>)[key] !== undefined) {
-        sanitizedPayload[key] = (data as Record<string, unknown>)[key]
+        let val = (data as Record<string, unknown>)[key]
+        if (key === 'is_active') {
+          val = Boolean(val)
+        } else if (
+          key === 'current_rate' ||
+          key === 'target_rate' ||
+          key === 'nominal_capacity' ||
+          key === 'efficiency' ||
+          key === 'shifts_count'
+        ) {
+          if (val !== null && val !== undefined && val !== '') {
+            val = Number(val)
+          }
+        } else if (
+          key === 'name' ||
+          key === 'code' ||
+          key === 'sap_work_center' ||
+          key === 'process'
+        ) {
+          if (typeof val === 'string') {
+            val = val.trim()
+          }
+        }
+        sanitizedPayload[key] = val
       }
     }
 
-    const updated = await pb
-      .collection('production_lines')
-      .update<ProductionLine>(lineId, sanitizedPayload)
+    // 1. Executar o update
+    await pb.collection('production_lines').update(lineId, sanitizedPayload)
+
+    // 2. Leitura de confirmação (getOne) antes de prosseguir
+    const confirmedRecord = await pb.collection('production_lines').getOne<ProductionLine>(lineId)
+
+    // Validar se is_active foi persistido corretamente quando fornecido
+    if (
+      'is_active' in sanitizedPayload &&
+      Boolean(confirmedRecord.is_active) !== Boolean(sanitizedPayload.is_active)
+    ) {
+      throw new Error(
+        `Falha na confirmação de persistência da linha: is_active esperado ${sanitizedPayload.is_active}, retornado ${confirmedRecord.is_active}.`,
+      )
+    }
+
     // Invalida cache de completude da linha para recomposição imediata
     invalidateCompletenessCache(lineId)
-    return updated
+    return confirmedRecord
   },
 
   async deleteLine(lineId: string): Promise<boolean> {
@@ -599,6 +652,90 @@ export const lineMasterService = {
 
   async deleteSequencing(id: string): Promise<boolean> {
     return await pb.collection('line_sequencing_dependencies').delete(id)
+  },
+
+  async getAllSequencingDependencies(): Promise<LineSequencingDependency[]> {
+    return pb.collection('line_sequencing_dependencies').getFullList<LineSequencingDependency>({
+      sort: 'sequence_order',
+      expand: 'line_id,previous_line_id,next_line_id',
+    })
+  },
+
+  async updateSequencingDependencyOrder(
+    dependencyId: string,
+    sequenceOrder: number,
+  ): Promise<void> {
+    await pb.collection('line_sequencing_dependencies').update(dependencyId, {
+      sequence_order: sequenceOrder,
+    })
+  },
+
+  async addCenterToLineSequence(params: {
+    lineId: string
+    centerId: string
+    sequenceOrder: number
+    notes?: string
+  }): Promise<LineSequencingDependency> {
+    const created = await pb
+      .collection('line_sequencing_dependencies')
+      .create<LineSequencingDependency>({
+        line_id: params.lineId,
+        next_line_id: params.centerId,
+        sequence_order: params.sequenceOrder,
+        dependency_type: 'TRANSFER_BATCH',
+        relation_nature: 'MANDATORY',
+        active: true,
+        notes: params.notes || 'Vínculo operacional de hierarquia e sequência industrial',
+      })
+
+    const currentUser = pb.authStore.record || pb.authStore.model
+    if (currentUser?.id) {
+      try {
+        await pb.collection('pcp_audit_logs').create({
+          user_id: currentUser.id,
+          user_email: (currentUser as any)?.email || '',
+          user_name: (currentUser as any)?.name || 'Usuário PCP',
+          user_role: (currentUser as any)?.role || 'PCP_ADMIN',
+          event_type: 'RULE_ACTION',
+          action: 'ADD_CENTER_TO_LINE_SEQUENCE',
+          resource: 'line_sequencing_dependencies',
+          resource_id: created.id,
+          permission_required: 'pcp.masterdata.edit',
+          scope: params.lineId,
+          outcome: 'SUCCESS',
+          details: params,
+        })
+      } catch (err) {
+        console.warn('Erro ao registrar auditoria de hierarquia (ignorado):', err)
+      }
+    }
+
+    return created
+  },
+
+  async removeCenterFromLineSequence(dependencyId: string): Promise<void> {
+    await pb.collection('line_sequencing_dependencies').delete(dependencyId)
+
+    const currentUser = pb.authStore.record || pb.authStore.model
+    if (currentUser?.id) {
+      try {
+        await pb.collection('pcp_audit_logs').create({
+          user_id: currentUser.id,
+          user_email: (currentUser as any)?.email || '',
+          user_name: (currentUser as any)?.name || 'Usuário PCP',
+          user_role: (currentUser as any)?.role || 'PCP_ADMIN',
+          event_type: 'RULE_ACTION',
+          action: 'REMOVE_CENTER_FROM_LINE_SEQUENCE',
+          resource: 'line_sequencing_dependencies',
+          resource_id: dependencyId,
+          permission_required: 'pcp.masterdata.edit',
+          scope: dependencyId,
+          outcome: 'SUCCESS',
+        })
+      } catch (err) {
+        console.warn('Erro ao registrar auditoria de remoção de vínculo (ignorado):', err)
+      }
+    }
   },
 
   async getNetworkRelationshipsForLine(lineCode: string) {

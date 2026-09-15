@@ -59,7 +59,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [code, setCode] = useState('')
   const [isActive, setIsActive] = useState<boolean>(true)
   const [programmingType, setProgrammingType] = useState<ProgrammingType>('Laminação')
-  const [plant, setPlant] = useState('Planta Principal - CIAFAL 01')
+  const [processName, setProcessName] = useState<string>('')
+  const [hierarchyDescription, setHierarchyDescription] = useState<string>(
+    'Não alocado em uma linha',
+  )
   const [sapPlantCode, setSapPlantCode] = useState('1000')
   const [sapWorkCenter, setSapWorkCenter] = useState('')
   const [nominalCapacity, setNominalCapacity] = useState<number>(12)
@@ -69,7 +72,6 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [substituteManagerId, setSubstituteManagerId] = useState<string>('')
   const [pcpApproverId, setPcpApproverId] = useState<string>('')
   const [lineApproverId, setLineApproverId] = useState<string>('')
-
   // Control states
   const [loadingContext, setLoadingContext] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,7 +95,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     setCode(line.code || '')
     setIsActive(line.is_active !== false)
     setProgrammingType((line.programming_type as ProgrammingType) || 'Laminação')
-    setPlant(line.plant || 'Planta Principal - CIAFAL 01')
+    setProcessName(line.process || '')
     setSapPlantCode(line.sap_plant_code || '1000')
     setSapWorkCenter(line.sap_work_center || '')
     setNominalCapacity(Number(line.nominal_capacity || line.current_rate || 12))
@@ -103,6 +105,13 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     setSubstituteManagerId('')
     setPcpApproverId(line.pcp_programmer_user_id || '')
     setLineApproverId('')
+
+    // Determina a Hierarquia da Linha a partir dos vínculos
+    let hierarchyText = 'Não alocado em uma linha'
+    if (line.plant) {
+      hierarchyText = line.plant
+    }
+    setHierarchyDescription(hierarchyText)
 
     setShowDeactivateConfirm(false)
     setFutureSchedulesCount(null)
@@ -122,6 +131,26 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           if (overview.master.capacity_unit) {
             setCapacityUnit(overview.master.capacity_unit)
           }
+        }
+        // Identificar vínculo hierárquico se houver predecessor/sequenciamento
+        if (overview.sequencing && overview.sequencing.length > 0) {
+          const firstSeq = overview.sequencing[0]
+          const prev = firstSeq.expand?.previous_line_id
+          const next = firstSeq.expand?.next_line_id
+          const orderStr = String(firstSeq.sequence_order).padStart(2, '0')
+          if (prev) {
+            setHierarchyDescription(`CIAFAL → ${prev.code} → posição ${orderStr}`)
+          } else if (next) {
+            setHierarchyDescription(`CIAFAL → ${next.code} → posição ${orderStr}`)
+          } else {
+            setHierarchyDescription(`CIAFAL → ${line.code} (posição ${orderStr})`)
+          }
+        } else if (line.code === 'ENF_L1') {
+          setHierarchyDescription('CIAFAL → L1 → posição 01')
+        } else if (line.code === 'L1') {
+          setHierarchyDescription('CIAFAL → L1 (Linha Principal)')
+        } else if (line.code === 'ACAB_L2' || line.code === 'L2' || line.code === 'ENDIR') {
+          setHierarchyDescription(`CIAFAL → L2 → ${line.code}`)
         }
         if (overview.managers && overview.managers.length > 0) {
           setManagerAssignments(overview.managers)
@@ -198,11 +227,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
     // Validações obrigatórias com exibição explícita junto aos campos
     if (!code.trim()) {
-      errors.code = 'Informe o código identificador da linha (ex.: L1, L2).'
+      errors.code = 'Informe o código identificador do centro (ex.: L1, L2, ENF_L1).'
     }
 
     if (!name.trim()) {
-      errors.name = 'Informe a descrição/nome da linha produtiva.'
+      errors.name = 'Informe o nome oficial do centro de produção.'
     }
 
     const numCapacity = Number(nominalCapacity)
@@ -262,12 +291,13 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     }, 20000)
 
     try {
-      // 1. Atualiza dados estritos da linha (somente campos de production_lines)
+      // 1. Atualiza dados estritos do centro de produção com getOne de confirmação
       const lineUpdatePayload: Partial<ProductionLine> = {
         name: name.trim(),
         code: code.trim().toUpperCase(),
         is_active: isActive,
         programming_type: programmingType,
+        process: processName.trim(),
         sap_work_center: sapWorkCenter.trim() || undefined,
         current_rate: Number(nominalCapacity) || 0.1,
         nominal_capacity: Number(nominalCapacity) || 0.1,
@@ -289,13 +319,14 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       }
 
       // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters via upsert)
-      const cleanReason = `Edição cadastral da linha ${code.trim().toUpperCase()}. Status: ${isActive ? 'Ativa' : 'Inativa'}`
+      const cleanReason = `Edição cadastral do centro ${code.trim().toUpperCase()}. Status: ${isActive ? 'Ativo' : 'Inativo'}`
       await lineMasterService.saveLineMaster({
         id: activeMasterRecord?.id,
         line_id: line.id,
         name: name.trim(),
         code: code.trim().toUpperCase(),
         programming_type: programmingType,
+        process_step: processName.trim() || 'Processo Industrial',
         sap_plant_code: sapPlantCode.trim(),
         nominal_hourly_capacity: Number(nominalCapacity) || 0.1,
         capacity_unit: capacityUnit as any,
@@ -400,6 +431,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             'code',
             'is_active',
             'programming_type',
+            'process',
             'sap_plant_code',
             'nominal_capacity',
           ],
@@ -409,6 +441,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             code,
             is_active: isActive,
             programming_type: programmingType,
+            process: processName,
             sap_plant_code: sapPlantCode,
             nominal_capacity: nominalCapacity,
             efficiency,
@@ -460,14 +493,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-blue-200" />
                     <DialogTitle className="text-lg font-black tracking-tight text-white">
-                      Editar Linha Produtiva
+                      Editar Centro
                     </DialogTitle>
                     <span className="font-mono text-cyan-300 font-bold text-xs bg-blue-950/80 px-2 py-0.5 rounded border border-blue-400/30">
                       {line.code}
                     </span>
                   </div>
                   <DialogDescription className="text-xs text-blue-100/80">
-                    Ajuste de status operacional, capacidade nominal e responsáveis corporativos.
+                    Ajuste de status operacional, capacidade nominal, processo e responsáveis
+                    corporativos.
                   </DialogDescription>
                 </div>
 
@@ -475,11 +509,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div>
                   {isActive ? (
                     <Badge className="bg-emerald-600 text-white font-bold text-xs">
-                      ● Linha Ativa
+                      ● Centro Ativo
                     </Badge>
                   ) : (
                     <Badge className="bg-amber-600 text-white font-bold text-xs">
-                      ○ Linha Inativa
+                      ○ Centro Inativo
                     </Badge>
                   )}
                 </div>
@@ -489,15 +523,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
           {/* Form Content */}
           <div className="p-6 space-y-5 bg-slate-50">
-            {/* Bloco 1: Status Operacional (Ativa / Inativa) */}
+            {/* Bloco 1: Status Operacional (Ativo / Inativo) */}
             <div className="p-4 bg-white rounded-lg border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                    Status Cadastral da Linha
+                    Status Cadastral do Centro
                   </Label>
                   <p className="text-[11px] text-slate-500">
-                    Linhas inativas deixam de receber novas programações, preservando todo o
+                    Centros inativos deixam de receber novas programações, preservando todo o
                     histórico.
                   </p>
                 </div>
@@ -512,7 +546,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    ● Ativa
+                    ● Ativo
                   </button>
                   <button
                     type="button"
@@ -524,7 +558,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    ○ Inativa
+                    ○ Inativo
                   </button>
                 </div>
               </div>
@@ -533,7 +567,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-800 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span>
-                    Esta linha possui <strong>{futureSchedulesCount}</strong> itens programados em
+                    Este centro possui <strong>{futureSchedulesCount}</strong> itens programados em
                     datas futuras. Resolva ou transfira os itens programados antes de concluir a
                     inativação.
                   </span>
@@ -551,7 +585,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">
-                    Código Interno da Linha *
+                    Código Interno do Centro *
                   </Label>
                   <Input
                     value={code}
@@ -564,7 +598,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     className={`h-8 text-xs font-mono font-bold bg-slate-50 uppercase ${
                       validationErrors.code ? 'border-rose-500 focus:ring-rose-500' : ''
                     }`}
-                    placeholder="Ex.: L1, L2, CORTE_01"
+                    placeholder="Ex.: L1, L2, ENF_L1"
                   />
                   {validationErrors.code && (
                     <p className="text-[11px] text-rose-600 font-medium">{validationErrors.code}</p>
@@ -573,7 +607,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">
-                    Nome Oficial da Linha *
+                    Nome Oficial do Centro *
                   </Label>
                   <Input
                     value={name}
@@ -586,11 +620,21 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     className={`h-8 text-xs bg-slate-50 ${
                       validationErrors.name ? 'border-rose-500 focus:ring-rose-500' : ''
                     }`}
-                    placeholder="Ex.: Laminação L1 - Barras e Perfis"
+                    placeholder="Ex.: Enfornamento L1 / Laminação L1"
                   />
                   {validationErrors.name && (
                     <p className="text-[11px] text-rose-600 font-medium">{validationErrors.name}</p>
                   )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-slate-700">Processo *</Label>
+                  <Input
+                    value={processName}
+                    onChange={(e) => setProcessName(e.target.value)}
+                    className="h-8 text-xs bg-slate-50"
+                    placeholder="Ex.: Conformação, Laminação, Aquecimento..."
+                  />
                 </div>
 
                 <div className="space-y-1">
@@ -609,12 +653,12 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-700">Planta Fabril</Label>
+                  <Label className="text-xs font-medium text-slate-700">Hierarquia da Linha</Label>
                   <Input
-                    value={plant}
-                    onChange={(e) => setPlant(e.target.value)}
-                    className="h-8 text-xs bg-slate-50"
-                    placeholder="Ex.: Planta Principal - CIAFAL 01"
+                    value={hierarchyDescription}
+                    readOnly
+                    className="h-8 text-xs bg-slate-100 text-slate-700 font-mono cursor-not-allowed"
+                    title="Vínculo organizacional e sequencial do centro na Linha Produtiva"
                   />
                 </div>
 
@@ -817,11 +861,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             <div className="flex items-center gap-2 text-amber-600">
               <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
               <AlertDialogTitle className="text-base font-bold text-slate-900">
-                Inativar linha produtiva?
+                Inativar centro de produção?
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
-              A linha deixará de estar disponível para novas programações. A Ficha Mestre,
+              O centro deixará de estar disponível para novas programações. A Ficha Mestre,
               histórico, programações realizadas e registros de auditoria serão preservados.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -836,7 +880,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
               onClick={handleConfirmDeactivation}
               className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs h-8"
             >
-              Inativar Linha
+              Inativar Centro
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

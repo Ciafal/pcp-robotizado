@@ -62,13 +62,17 @@ export default function LineMasterPage() {
   const [selectedLineOverview, setSelectedLineOverview] = useState<LineOverviewData | null>(null)
   const [loadingOverview, setLoadingOverview] = useState<boolean>(false)
 
-  // Filtros de Linhas (Ativas / Inativas / Todas)
+  // Filtros de Linhas/Centros (Ativos / Inativos / Todos)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [activeCadastralFilter, setActiveCadastralFilter] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>(
     'ACTIVE',
   )
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [plantFilter, setPlantFilter] = useState<string>('ALL')
+  const [companyFilter, setCompanyFilter] = useState<string>('ALL')
+  const [lineFilter, setLineFilter] = useState<string>('ALL')
+  const [processFilter, setProcessFilter] = useState<string>('ALL')
+  const [programmingTypeFilter, setProgrammingTypeFilter] = useState<string>('ALL')
 
   // Modais
   const [isAddLineModalOpen, setIsAddLineModalOpen] = useState<boolean>(false)
@@ -205,13 +209,52 @@ export default function LineMasterPage() {
       (line.process && line.process.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'ALL' || line.status === statusFilter
     const matchesPlant = plantFilter === 'ALL' || line.plant === plantFilter
-    const isLineActive = line.is_active !== false // default true
+    const isLineActive = line.is_active === true // estrito booleano
     const matchesCadastral =
       activeCadastralFilter === 'ALL' ||
       (activeCadastralFilter === 'ACTIVE' && isLineActive) ||
       (activeCadastralFilter === 'INACTIVE' && !isLineActive)
 
-    return matchesSearch && matchesStatus && matchesPlant && matchesCadastral
+    // Filtros granulares adicionais solicitados: Empresa, Linha, Processo, Tipo de Programação
+    const matchesCompany =
+      companyFilter === 'ALL' ||
+      (companyFilter === 'CIAFAL' &&
+        (!line.plant ||
+          line.plant.includes('CIAFAL') ||
+          line.code.includes('L1') ||
+          line.code.includes('L2'))) ||
+      (companyFilter === 'KS' && (line.code.includes('KS') || line.name.includes('KS')))
+
+    const matchesLine =
+      lineFilter === 'ALL' ||
+      (lineFilter === 'L1' &&
+        (line.code === 'L1' || line.code.startsWith('ENF_L1') || line.name.includes('L1'))) ||
+      (lineFilter === 'L2' &&
+        (line.code === 'L2' ||
+          line.code === 'ACAB_L2' ||
+          line.code === 'ENDIR' ||
+          line.name.includes('L2'))) ||
+      (lineFilter === 'KS' && (line.code.includes('KS') || line.name.includes('KS')))
+
+    const matchesProcess =
+      processFilter === 'ALL' ||
+      (line.process && line.process.toLowerCase().includes(processFilter.toLowerCase())) ||
+      (line.programming_type &&
+        line.programming_type.toLowerCase().includes(processFilter.toLowerCase()))
+
+    const matchesProgType =
+      programmingTypeFilter === 'ALL' || line.programming_type === programmingTypeFilter
+
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesPlant &&
+      matchesCadastral &&
+      matchesCompany &&
+      matchesLine &&
+      matchesProcess &&
+      matchesProgType
+    )
   })
 
   // Tratamento de rolagem suave e destaque visual quando navegar para seção
@@ -297,7 +340,7 @@ export default function LineMasterPage() {
               <Building2 className="w-5 h-5" />
             </div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Linhas e Ficha Mestre
+              Centros e Ficha Mestra
             </h1>
             <Badge
               variant="outline"
@@ -307,8 +350,8 @@ export default function LineMasterPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Linhas produtivas e Ficha Mestre: arquitetura de recursos industriais, hierarquia
-            organizacional, capacidades e governança técnica.
+            Centros de produção, parâmetros operacionais, capacidade, turnos, responsáveis e Ficha
+            Mestra industrial.
           </p>
         </div>
 
@@ -328,7 +371,7 @@ export default function LineMasterPage() {
               onClick={() => setIsAddLineModalOpen(true)}
               className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
             >
-              <Plus className="w-3.5 h-3.5" /> + Adicionar Linha
+              <Plus className="w-3.5 h-3.5" /> + Adicionar Centro
             </Button>
           </Can>
         </div>
@@ -387,47 +430,47 @@ export default function LineMasterPage() {
             <div className="relative md:col-span-2">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <Input
-                placeholder="Filtrar por código, nome da linha ou processo..."
+                placeholder="Filtrar por código, nome do centro ou processo"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 bg-slate-50 border-slate-300 text-xs text-slate-900 h-8 placeholder:text-slate-400"
               />
             </div>
 
-            {/* Filtro Cadastral: Ativas / Inativas / Todas (Padrão: Ativas) */}
+            {/* Filtro Cadastral: Ativos / Inativos / Todos (Padrão: Ativos) */}
             <div className="flex rounded-md border border-slate-300 p-0.5 bg-slate-50 text-[11px] font-semibold">
               <button
                 type="button"
                 onClick={() => setActiveCadastralFilter('ACTIVE')}
                 className={`flex-1 py-1 px-2 rounded text-center transition-all ${
                   activeCadastralFilter === 'ACTIVE'
-                    ? 'bg-[#004C97] text-white shadow-xs'
+                    ? 'bg-[#004C97] text-white shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                ● Ativas
+                ● Ativos
               </button>
               <button
                 type="button"
                 onClick={() => setActiveCadastralFilter('INACTIVE')}
                 className={`flex-1 py-1 px-2 rounded text-center transition-all ${
                   activeCadastralFilter === 'INACTIVE'
-                    ? 'bg-amber-600 text-white shadow-xs'
+                    ? 'bg-amber-600 text-white shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                ○ Inativas
+                ○ Inativos
               </button>
               <button
                 type="button"
                 onClick={() => setActiveCadastralFilter('ALL')}
                 className={`flex-1 py-1 px-2 rounded text-center transition-all ${
                   activeCadastralFilter === 'ALL'
-                    ? 'bg-slate-700 text-white shadow-xs'
+                    ? 'bg-slate-700 text-white shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Todas
+                Todos
               </button>
             </div>
 
@@ -437,14 +480,83 @@ export default function LineMasterPage() {
               className="bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 px-2 h-8 font-medium focus:outline-none focus:ring-1 focus:ring-[#004C97]"
             >
               <option value="ALL">Status Operacional: Todos</option>
-              <option value="ACTIVE">ACTIVE (Em Produção)</option>
-              <option value="CONFIGURING">CONFIGURING (Em Implantação)</option>
-              <option value="MAINTENANCE">MAINTENANCE (Manutenção)</option>
+              <option value="running">running (Em Produção)</option>
+              <option value="idle">idle (Disponível)</option>
+              <option value="stopped">stopped (Parada)</option>
+              <option value="maintenance">maintenance (Manutenção)</option>
+              <option value="ACTIVE">ACTIVE (Ativa)</option>
             </select>
 
             <div className="flex items-center justify-end text-xs text-slate-500 font-mono">
-              Exibindo:{' '}
-              <strong className="text-[#004C97] ml-1">{filteredLines.length} Linhas</strong>
+              <strong className="text-[#004C97]">Exibindo: {filteredLines.length} Centros</strong>
+            </div>
+          </div>
+
+          {/* Segunda linha de filtros: Empresa, Linha, Processo, Tipo de Programação */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-50/80 p-2.5 rounded-lg border border-slate-200 text-xs">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">Empresa</label>
+              <select
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
+              >
+                <option value="ALL">Todas as Empresas</option>
+                <option value="CIAFAL">CIAFAL Wilson Santos</option>
+                <option value="KS">KS - Ferradura / Ciafal</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">Linha</label>
+              <select
+                value={lineFilter}
+                onChange={(e) => setLineFilter(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
+              >
+                <option value="ALL">Todas as Linhas</option>
+                <option value="L1">Linha L1</option>
+                <option value="L2">Linha L2</option>
+                <option value="KS">Linhas KS</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">Processo</label>
+              <select
+                value={processFilter}
+                onChange={(e) => setProcessFilter(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
+              >
+                <option value="ALL">Todos os Processos</option>
+                <option value="Laminação">Laminação</option>
+                <option value="Enfornamento">Enfornamento</option>
+                <option value="Conformação">Conformação</option>
+                <option value="Acabamento">Acabamento</option>
+                <option value="Endireitadeira">Endireitadeira</option>
+                <option value="Preparação">Preparação</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase">
+                Tipo de Programação
+              </label>
+              <select
+                value={programmingTypeFilter}
+                onChange={(e) => setProgrammingTypeFilter(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
+              >
+                <option value="ALL">Todos os Tipos</option>
+                <option value="Laminação">Laminação</option>
+                <option value="Enfornamento">Enfornamento</option>
+                <option value="Acabamento">Acabamento</option>
+                <option value="Preparação">Preparação</option>
+                <option value="Múltiplo">Múltiplo</option>
+                <option value="Endireitadeira">Endireitadeira</option>
+                <option value="Envio">Envio</option>
+                <option value="Inspeção">Inspeção</option>
+              </select>
             </div>
           </div>
 
@@ -452,16 +564,16 @@ export default function LineMasterPage() {
           {loading ? (
             <div className="p-12 text-center text-slate-500 flex flex-col items-center gap-2 bg-white rounded-xl border border-slate-200">
               <RefreshCw className="w-6 h-6 animate-spin text-[#004C97]" />
-              <span>Carregando cadastro de linhas...</span>
+              <span>Carregando centros de produção...</span>
             </div>
           ) : filteredLines.length === 0 ? (
             <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2">
               <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               <p className="text-sm font-bold text-slate-800">
-                Nenhuma linha produtiva cadastrada.
+                Nenhum centro de produção cadastrado.
               </p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Clique no botão "+ Adicionar Linha" para iniciar o cadastro da primeira linha
+                Clique no botão "+ Adicionar Centro" para iniciar o cadastro do primeiro centro
                 industrial.
               </p>
               <div className="pt-2">
@@ -470,7 +582,7 @@ export default function LineMasterPage() {
                   onClick={() => setIsAddLineModalOpen(true)}
                   className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold"
                 >
-                  + Adicionar Linha
+                  + Adicionar Centro
                 </Button>
               </div>
             </div>
@@ -677,7 +789,7 @@ export default function LineMasterPage() {
                           }}
                           className="h-6 px-2 text-[11px] text-slate-700 hover:text-[#004C97] hover:bg-blue-50 font-semibold"
                         >
-                          <Edit3 className="w-3 h-3 mr-1" /> Editar Linha
+                          <Edit3 className="w-3 h-3 mr-1" /> Editar Centro
                         </Button>
                         <span className="text-[#004C97] font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
                           Abrir Gestão <ChevronRight className="w-3.5 h-3.5" />

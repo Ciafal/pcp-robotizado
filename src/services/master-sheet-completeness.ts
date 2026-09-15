@@ -177,6 +177,16 @@ export function calculateCompletenessFromOverview(
       navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'PRODUCTIVITY' },
     },
     {
+      id: 'proc_definition',
+      blockKey: 'PROCESS',
+      label: 'Processo Operacional Homologado',
+      fulfilled: Boolean(line.process && line.process.trim().length > 0),
+      applicable: true,
+      valueDescription: line.process || 'Não informado',
+      missingMessage: 'Processo operacional do centro não preenchido',
+      navigationTarget: { mainGroup: 'OVERVIEW' },
+    },
+    {
       id: 'proc_setup_matrix',
       blockKey: 'PROCESS',
       label: 'Matriz De -> Para de Setup',

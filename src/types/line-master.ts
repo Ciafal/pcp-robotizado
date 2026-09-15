@@ -123,6 +123,36 @@ export interface ProductionLine {
   updated?: string
 }
 
+// Hierarquia Empresa -> Linha Produtiva -> Centros de Produção
+export interface HierarchyLineNode {
+  id: string
+  code: string
+  name: string
+  company_id: string
+  company_name: string
+  company_code: string
+  status: 'running' | 'idle' | 'stopped' | 'maintenance' | 'ACTIVE'
+  description?: string
+  centers: HierarchyCenterNode[]
+}
+
+export interface HierarchyCenterNode {
+  id: string // id da dependência ou id único do nó
+  line_id: string
+  center_id: string
+  center_code: string
+  center_name: string
+  sequence_order: number
+  is_active: boolean
+  status: 'running' | 'idle' | 'stopped' | 'maintenance' | 'ACTIVE'
+  process: string
+  nominal_capacity: number
+  capacity_unit: string
+  efficiency: number
+  shifts_count: number
+  sap_work_center?: string
+}
+
 // 2. Ficha Mestre da Linha (line_masters)
 export interface LineMaster {
   id: string
