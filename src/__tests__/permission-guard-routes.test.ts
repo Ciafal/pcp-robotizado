@@ -49,6 +49,15 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     }
   })
 
+  it('should verify roles have permissions for /pcp/ficha-mestre and line master management', () => {
+    const adminPerms = authService.getPermissionsForRole('PCP_ADMIN')
+    expect(adminPerms).toContain('pcp.lines.manage')
+    expect(adminPerms).toContain('pcp.masterdata.edit')
+
+    const programmerPerms = authService.getPermissionsForRole('PCP_PROGRAMMER')
+    expect(programmerPerms).toContain('pcp.lines.manage')
+  })
+
   it('should verify AUDITOR role has view access to schedule or can view modules', () => {
     // AUDITOR role gets view perms by default
     const auditorPerms = authService.getPermissionsForRole('AUDITOR')

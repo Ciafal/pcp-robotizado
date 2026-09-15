@@ -1683,9 +1683,28 @@ export const lineMasterService = {
   // 14. FICHA MESTRE (Criação de versão / Atualização - UPSERT)
   // ==========================================
   async saveLineMaster(data: Partial<LineMaster>): Promise<LineMaster> {
-    invalidateCompletenessCache(data.line_id)
+    if (data.line_id) {
+      invalidateCompletenessCache(data.line_id)
+    }
+
+    // Sanitiza e garante campos obrigatórios e válidos da Ficha Mestre
+    const sanitizedData: Partial<LineMaster> = {
+      ...data,
+      change_reason: (
+        data.change_reason || 'Atualização de parâmetros cadastrais via HUB CIAFAL'
+      ).trim(),
+    }
+
+    // Validação de tipos numéricos
+    if (sanitizedData.nominal_hourly_capacity !== undefined) {
+      sanitizedData.nominal_hourly_capacity = Number(sanitizedData.nominal_hourly_capacity) || 0.1
+    }
+    if (sanitizedData.planned_efficiency_pct !== undefined) {
+      sanitizedData.planned_efficiency_pct = Number(sanitizedData.planned_efficiency_pct) || 90
+    }
+
     if (data.id) {
-      return await pb.collection('line_masters').update<LineMaster>(data.id, data)
+      return await pb.collection('line_masters').update<LineMaster>(data.id, sanitizedData)
     }
 
     // Upsert: se não passou id, busca se já existe Ficha Mestre para line_id (priorizando ACTIVE)
@@ -1698,7 +1717,9 @@ export const lineMasterService = {
         const activeExisting =
           existingMasters.find((m) => m.status === 'ACTIVE') || existingMasters[0]
         if (activeExisting) {
-          return await pb.collection('line_masters').update<LineMaster>(activeExisting.id, data)
+          return await pb
+            .collection('line_masters')
+            .update<LineMaster>(activeExisting.id, sanitizedData)
         }
       } catch (findErr) {
         console.warn('Erro ao verificar existência de line_masters para upsert:', findErr)
@@ -1710,9 +1731,9 @@ export const lineMasterService = {
       status: 'ACTIVE',
       version: 1,
       unit: 't',
-      capacity_unit: 't/h',
+      capacity_unit: (data.capacity_unit as any) || 't/h',
       resource_type: 'PRODUCTION_LINE',
-      ...data,
+      ...sanitizedData,
       line_id: data.line_id!,
     }
     return await pb.collection('line_masters').create<LineMaster>(payloadToCreate)

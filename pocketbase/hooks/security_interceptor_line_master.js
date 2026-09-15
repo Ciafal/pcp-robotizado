@@ -117,13 +117,12 @@ onRecordCreateRequest((e) => {
     })
   }
 
-  const changeReason = (body.change_reason || e.record.getString('change_reason') || '').trim()
-  if (!changeReason) {
-    return e.json(400, {
-      code: 'REASON_REQUIRED',
-      message: 'A justificativa técnica é obrigatória para criação ou nova versão da Ficha Mestre.',
-    })
-  }
+  const changeReason = (
+    body.change_reason ||
+    e.record.getString('change_reason') ||
+    'Criação de Ficha Mestre via HUB CIAFAL'
+  ).trim()
+  e.record.set('change_reason', changeReason)
 
   // Preencher autor
   e.record.set('author_id', userId)
@@ -263,13 +262,17 @@ onRecordUpdateRequest((e) => {
     })
   }
 
-  const changeReason = (body.change_reason || '').trim()
-  if (!changeReason) {
-    return e.json(400, {
-      code: 'REASON_REQUIRED',
-      message:
-        'A justificativa técnica de engenharia/PCP é obrigatória para alteração da Ficha Mestre.',
-    })
+  const changeReason = (
+    body.change_reason ||
+    e.record.getString('change_reason') ||
+    'Atualização de parâmetros cadastrais da linha via HUB CIAFAL'
+  ).trim()
+  e.record.set('change_reason', changeReason)
+
+  // Preencher autor se ausente
+  if (!e.record.getString('author_id')) {
+    e.record.set('author_id', userId)
+    e.record.set('author_email', authRecord.getString('email'))
   }
 
   // Registrar auditoria

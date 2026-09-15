@@ -76,6 +76,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [activeMasterRecord, setActiveMasterRecord] = useState<LineMaster | null>(null)
   const [managerAssignments, setManagerAssignments] = useState<LineManagerAssignment[]>([])
   const [approversList, setApproversList] = useState<LineApproverMatrix[]>([])
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   // Deactivation confirmation modal & blocker states
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false)
@@ -87,6 +88,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   useEffect(() => {
     if (!open || !line) return
 
+    setValidationErrors({})
     setName(line.name || '')
     setCode(line.code || '')
     setIsActive(line.is_active !== false)
@@ -192,61 +194,73 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const handleSave = async () => {
     if (!line) return
 
-    // 1. Validations
-    if (!name.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Campo obrigatório',
-        description: 'O nome da linha produtiva é obrigatório.',
-      })
-      return
-    }
+    const errors: Record<string, string> = {}
 
+    // Validações obrigatórias com exibição explícita junto aos campos
     if (!code.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Campo obrigatório',
-        description: 'O código interno da linha é obrigatório.',
-      })
-      return
+      errors.code = 'Informe o código identificador da linha (ex.: L1, L2).'
     }
 
-    // Check code uniqueness against other lines
-    const duplicateCode = existingLines.some(
-      (l) => l.id !== line.id && l.code.trim().toUpperCase() === code.trim().toUpperCase(),
+    if (!name.trim()) {
+      errors.name = 'Informe a descrição/nome da linha produtiva.'
+    }
+
+    const numCapacity = Number(nominalCapacity)
+    if (isNaN(numCapacity) || numCapacity <= 0) {
+      errors.nominalCapacity = 'A capacidade nominal horária deve ser maior que zero.'
+    }
+
+    const isCodeDuplicate = existingLines.some(
+      (l) => l.id !== line.id && l.code.toUpperCase() === code.trim().toUpperCase(),
     )
-    if (duplicateCode) {
+    if (isCodeDuplicate) {
+      errors.code = `Já existe outra linha cadastrada com o código ${code.trim().toUpperCase()}.`
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors)
       toast({
         variant: 'destructive',
-        title: 'Código duplicado',
-        description: `Já existe outra linha cadastrada com o código ${code.trim().toUpperCase()}.`,
+        title: 'Campos obrigatórios inválidos',
+        description: Object.values(errors)[0],
       })
       return
     }
 
-    if (nominalCapacity <= 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Capacidade inválida',
-        description: 'A capacidade nominal deve ser maior que zero.',
-      })
-      return
-    }
+    setValidationErrors({})
 
     // If changing to inactive, verify future schedules again as safety
     if (line.is_active !== false && !isActive) {
-      const count = await lineMasterService.checkFutureSchedulesCount(line.code)
-      if (count > 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Inativação Bloqueada',
-          description: `Esta linha possui ${count} itens programados em datas futuras. Resolva ou transfira os itens programados antes de concluir a inativação.`,
-        })
-        return
+      try {
+        const count = await lineMasterService.checkFutureSchedulesCount(line.code)
+        if (count > 0) {
+          toast({
+            variant: 'destructive',
+            title: 'Inativação Bloqueada',
+            description: `Esta linha possui ${count} itens programados em datas futuras. Resolva ou transfira os itens programados antes de concluir a inativação.`,
+          })
+          return
+        }
+      } catch (checkErr) {
+        console.warn('Erro ao verificar programações futuras:', checkErr)
       }
     }
 
     setSaving(true)
+
+    // Timeout de 20s para proteger a UI contra pendências indefinidas
+    let timeoutReached = false
+    const timeoutId = setTimeout(() => {
+      timeoutReached = true
+      setSaving(false)
+      toast({
+        variant: 'destructive',
+        title: 'Tempo de resposta excedido',
+        description:
+          'O salvamento demorou mais que o esperado. Nenhuma alteração foi descartada. Tente novamente.',
+      })
+    }, 20000)
+
     try {
       // 1. Atualiza dados estritos da linha (somente campos de production_lines)
       const lineUpdatePayload: Partial<ProductionLine> = {
@@ -255,10 +269,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         is_active: isActive,
         programming_type: programmingType,
         sap_work_center: sapWorkCenter.trim() || undefined,
-        current_rate: nominalCapacity,
-        nominal_capacity: nominalCapacity,
+        current_rate: Number(nominalCapacity) || 0.1,
+        nominal_capacity: Number(nominalCapacity) || 0.1,
         capacity_unit: capacityUnit,
-        efficiency,
+        efficiency: Number(efficiency) || 90,
         manager_user_id: primaryManagerId || undefined,
         pcp_programmer_user_id: pcpApproverId || undefined,
       }
@@ -275,6 +289,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       }
 
       // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters via upsert)
+      const cleanReason = `Edição cadastral da linha ${code.trim().toUpperCase()}. Status: ${isActive ? 'Ativa' : 'Inativa'}`
       await lineMasterService.saveLineMaster({
         id: activeMasterRecord?.id,
         line_id: line.id,
@@ -282,11 +297,12 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         code: code.trim().toUpperCase(),
         programming_type: programmingType,
         sap_plant_code: sapPlantCode.trim(),
-        nominal_hourly_capacity: nominalCapacity,
+        nominal_hourly_capacity: Number(nominalCapacity) || 0.1,
         capacity_unit: capacityUnit as any,
-        planned_efficiency_pct: efficiency,
+        planned_efficiency_pct: Number(efficiency) || 90,
         primary_responsible_id: primaryManagerId || undefined,
         substitute_responsible_id: substituteManagerId || undefined,
+        change_reason: cleanReason,
       })
 
       // 4. Sincroniza Gestor Titular e Substituto em coleções de responsáveis (line_managers_assignment)
@@ -372,7 +388,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       // 6. Invalida cache de completude da linha
       invalidateCompletenessCache(line.id)
 
-      // 7. Auditoria de edição cadastral
+      // 7. Auditoria de edição cadastral (best-effort)
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
@@ -387,7 +403,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             'sap_plant_code',
             'nominal_capacity',
           ],
-          change_reason: `Edição cadastral da linha ${code}. Status: ${isActive ? 'Ativa' : 'Inativa'}`,
+          change_reason: cleanReason,
           snapshot_data: {
             name,
             code,
@@ -404,6 +420,9 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Falha ao gravar auditoria:', auditErr)
       }
 
+      clearTimeout(timeoutId)
+      if (timeoutReached) return
+
       // Toast de sucesso apenas após confirmação do backend (texto exato)
       toast({
         title: 'Alterações salvas com sucesso.',
@@ -413,6 +432,9 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       onSuccess(updatedLine)
       onClose()
     } catch (err: unknown) {
+      clearTimeout(timeoutId)
+      if (timeoutReached) return
+
       console.error('Erro ao salvar alterações da linha:', err)
       // Em erro, NÃO fechar o modal, manter formulário intacto e exibir mensagem prescrita
       toast({
@@ -420,10 +442,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         title: 'Não foi possível salvar as alterações. Verifique os dados e tente novamente.',
       })
     } finally {
+      clearTimeout(timeoutId)
       setSaving(false)
     }
   }
-
   if (!line) return null
 
   return (
@@ -533,10 +555,20 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <Input
                     value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    className="h-8 text-xs font-mono font-bold bg-slate-50 uppercase"
+                    onChange={(e) => {
+                      setCode(e.target.value.toUpperCase())
+                      if (validationErrors.code) {
+                        setValidationErrors((prev) => ({ ...prev, code: '' }))
+                      }
+                    }}
+                    className={`h-8 text-xs font-mono font-bold bg-slate-50 uppercase ${
+                      validationErrors.code ? 'border-rose-500 focus:ring-rose-500' : ''
+                    }`}
                     placeholder="Ex.: L1, L2, CORTE_01"
                   />
+                  {validationErrors.code && (
+                    <p className="text-[11px] text-rose-600 font-medium">{validationErrors.code}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -545,10 +577,20 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <Input
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-8 text-xs bg-slate-50"
+                    onChange={(e) => {
+                      setName(e.target.value)
+                      if (validationErrors.name) {
+                        setValidationErrors((prev) => ({ ...prev, name: '' }))
+                      }
+                    }}
+                    className={`h-8 text-xs bg-slate-50 ${
+                      validationErrors.name ? 'border-rose-500 focus:ring-rose-500' : ''
+                    }`}
                     placeholder="Ex.: Laminação L1 - Barras e Perfis"
                   />
+                  {validationErrors.name && (
+                    <p className="text-[11px] text-rose-600 font-medium">{validationErrors.name}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -608,8 +650,17 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       step="0.1"
                       min="0.1"
                       value={nominalCapacity}
-                      onChange={(e) => setNominalCapacity(Number(e.target.value))}
-                      className="h-8 text-xs font-mono font-bold bg-slate-50 flex-1"
+                      onChange={(e) => {
+                        setNominalCapacity(Number(e.target.value))
+                        if (validationErrors.nominalCapacity) {
+                          setValidationErrors((prev) => ({ ...prev, nominalCapacity: '' }))
+                        }
+                      }}
+                      className={`h-8 text-xs font-mono font-bold bg-slate-50 flex-1 ${
+                        validationErrors.nominalCapacity
+                          ? 'border-rose-500 focus:ring-rose-500'
+                          : ''
+                      }`}
                     />
                     <select
                       value={capacityUnit}
@@ -621,6 +672,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       <option value="m/h">m/h</option>
                     </select>
                   </div>
+                  {validationErrors.nominalCapacity && (
+                    <p className="text-[11px] text-rose-600 font-medium">
+                      {validationErrors.nominalCapacity}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
