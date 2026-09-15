@@ -248,16 +248,16 @@ export const ProductionIntegrationMapPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 max-w-[1700px] mx-auto text-slate-100">
+    <div className="space-y-4 max-w-[1700px] mx-auto text-slate-900">
       {/* 1. Header & Breadcrumb (Regra 12) */}
-      <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mb-1">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mb-1">
             <span>PCP Robotizado</span>
             <span>&gt;</span>
             <span>Gestão de Linhas</span>
             <span>&gt;</span>
-            <span className="text-cyan-400 font-bold">Mapa de Integração Produtiva</span>
+            <span className="text-[#004C97] font-bold">Mapa de Integração Produtiva</span>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -265,10 +265,10 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               <Network className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">
                 # Mapa de Integração Produtiva
               </h1>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Visualização estrutural das relações, capacidades, rotas e dependências entre linhas
                 produtivas.
               </p>
@@ -283,7 +283,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
             variant="outline"
             onClick={loadNetworkData}
             disabled={loading}
-            className="border-slate-800 bg-slate-900 text-slate-300 hover:text-white text-xs h-8 gap-1.5"
+            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs h-8 gap-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -294,9 +294,9 @@ export const ProductionIntegrationMapPage: React.FC = () => {
             variant="outline"
             onClick={handleValidateMap}
             disabled={isValidating}
-            className="border-blue-900 bg-blue-950/40 text-cyan-300 hover:text-white hover:bg-blue-900 text-xs h-8 gap-1.5"
+            className="border-blue-200 bg-blue-50 text-[#004C97] hover:bg-blue-100 text-xs h-8 gap-1.5"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#004C97]" />
             Validar Mapa
           </Button>
 
@@ -304,9 +304,9 @@ export const ProductionIntegrationMapPage: React.FC = () => {
             size="sm"
             variant="outline"
             onClick={handleAnalyzeAI}
-            className="border-purple-900 bg-purple-950/40 text-purple-300 hover:text-white hover:bg-purple-900 text-xs h-8 gap-1.5"
+            className="border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs h-8 gap-1.5"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
             Analisar com IA
           </Button>
 
@@ -324,16 +324,18 @@ export const ProductionIntegrationMapPage: React.FC = () => {
       </div>
 
       {/* 2. Barra de Filtros Rápidos & Modos de Visualização (Regras 13 e 14) */}
-      <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-white border border-slate-200 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           {/* Seletor de Modo */}
-          <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
             <Button
               size="sm"
               variant={viewMode === 'MAP' ? 'default' : 'ghost'}
               onClick={() => setViewMode('MAP')}
               className={`h-7 px-2.5 text-xs font-semibold ${
-                viewMode === 'MAP' ? 'bg-[#004C97] text-white shadow-sm' : 'text-slate-400'
+                viewMode === 'MAP'
+                  ? 'bg-[#004C97] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Grid className="w-3.5 h-3.5 mr-1" />
@@ -344,7 +346,9 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               variant={viewMode === 'TABLE' ? 'default' : 'ghost'}
               onClick={() => setViewMode('TABLE')}
               className={`h-7 px-2.5 text-xs font-semibold ${
-                viewMode === 'TABLE' ? 'bg-[#004C97] text-white shadow-sm' : 'text-slate-400'
+                viewMode === 'TABLE'
+                  ? 'bg-[#004C97] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <TableIcon className="w-3.5 h-3.5 mr-1" />
@@ -355,7 +359,9 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               variant={viewMode === 'MATRIX' ? 'default' : 'ghost'}
               onClick={() => setViewMode('MATRIX')}
               className={`h-7 px-2.5 text-xs font-semibold ${
-                viewMode === 'MATRIX' ? 'bg-[#004C97] text-white shadow-sm' : 'text-slate-400'
+                viewMode === 'MATRIX'
+                  ? 'bg-[#004C97] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Share2 className="w-3.5 h-3.5 mr-1" />
@@ -367,7 +373,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
           <select
             value={selectedProductRoute}
             onChange={(e) => setSelectedProductRoute(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded text-xs text-white px-2.5 h-7"
+            className="bg-white border border-slate-300 rounded text-xs text-slate-900 px-2.5 h-7 focus:ring-1 focus:ring-[#004C97] outline-none"
           >
             <option value="ALL">Todas as Rotas de Produtos</option>
             <option value="TUB_QUAD">Rota: Tubos Quadrados (TUB_QUAD)</option>
@@ -381,7 +387,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded text-xs text-white px-2.5 h-7"
+            className="bg-white border border-slate-300 rounded text-xs text-slate-900 px-2.5 h-7 focus:ring-1 focus:ring-[#004C97] outline-none"
           >
             <option value="ALL">Todos os Tipos de Relação</option>
             <option value="Obrigatoria">Obrigatória</option>
@@ -392,12 +398,12 @@ export const ProductionIntegrationMapPage: React.FC = () => {
           </select>
 
           {/* Checkbox Homologadas / Não Homologadas */}
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer ml-1 select-none">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer ml-1 select-none font-medium">
             <input
               type="checkbox"
               checked={showDraftLines}
               onChange={(e) => setShowDraftLines(e.target.checked)}
-              className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0"
+              className="rounded bg-white border-slate-300 text-[#004C97] focus:ring-0"
             />
             <span>Exibir linhas não homologadas</span>
           </label>
@@ -413,7 +419,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
-              className="h-7 w-7 p-0 border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
+              className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </Button>
@@ -421,7 +427,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setZoomLevel((z) => Math.max(0.7, z - 0.1))}
-              className="h-7 w-7 p-0 border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
+              className="h-7 w-7 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </Button>
@@ -429,7 +435,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => setZoomLevel(1)}
-              className="h-7 text-[11px] text-slate-400 hover:text-white"
+              className="h-7 text-[11px] text-slate-500 hover:text-slate-900"
             >
               Reset
             </Button>
@@ -438,7 +444,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
       </div>
 
       {/* 3. Área Principal do Mapa ou Tabelas */}
-      <div className="relative bg-slate-950 border border-slate-800 rounded-xl min-h-[580px] p-6 shadow-inner overflow-auto">
+      <div className="relative bg-slate-50 border border-slate-200 rounded-xl min-h-[580px] p-6 shadow-inner overflow-auto">
         {loading ? (
           <div className="p-16 flex flex-col items-center justify-center space-y-3">
             <RefreshCw className="w-8 h-8 text-[#004C97] animate-spin" />
@@ -455,19 +461,19 @@ export const ProductionIntegrationMapPage: React.FC = () => {
             style={{ transform: `scale(${zoomLevel})` }}
           >
             {/* Legenda de Status e Cores */}
-            <div className="flex flex-wrap items-center gap-3 text-[11px] bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 max-w-fit">
-              <span className="font-semibold text-slate-200">Status do Nó:</span>
-              <span className="flex items-center gap-1 text-slate-300">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 max-w-fit shadow-xs">
+              <span className="font-semibold text-slate-700">Status do Nó:</span>
+              <span className="flex items-center gap-1 text-slate-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Normal / Ativa
               </span>
-              <span className="flex items-center gap-1 text-slate-300">
+              <span className="flex items-center gap-1 text-slate-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Atenção / Setup
               </span>
-              <span className="flex items-center gap-1 text-slate-300">
+              <span className="flex items-center gap-1 text-slate-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Manutenção / Gargalo
               </span>
-              <span className="flex items-center gap-1 text-slate-300">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Selecionada
+              <span className="flex items-center gap-1 text-slate-600">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#004C97]" /> Selecionada
               </span>
             </div>
 
@@ -488,30 +494,30 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                       setSelectedNodeCode(line.code)
                       setDrawerOpen(true)
                     }}
-                    className={`relative p-4 rounded-xl border transition-all cursor-pointer select-none group shadow-md ${
+                    className={`relative p-4 rounded-xl border transition-all cursor-pointer select-none group shadow-sm ${
                       isSelected
-                        ? 'bg-blue-950/40 border-cyan-400 shadow-cyan-950/50 ring-1 ring-cyan-400'
+                        ? 'bg-blue-50/60 border-[#004C97] shadow-md ring-1 ring-[#004C97]'
                         : isBottleneck
-                          ? 'bg-slate-900/90 border-amber-800/80 hover:border-amber-500'
-                          : 'bg-slate-900/90 border-slate-800 hover:border-[#004C97]'
+                          ? 'bg-white border-amber-300 hover:border-amber-500'
+                          : 'bg-white border-slate-200 hover:border-[#004C97]'
                     }`}
                   >
                     {/* Topo do Nó */}
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-base text-white group-hover:text-cyan-300 transition-colors">
+                          <span className="font-mono font-black text-base text-slate-900 group-hover:text-[#004C97] transition-colors">
                             {line.code}
                           </span>
                           <Badge
                             className={`text-[9px] px-1.5 py-0 ${
                               line.status === 'running' || line.status === 'ACTIVE'
-                                ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                 : line.status === 'maintenance'
-                                  ? 'bg-rose-950 text-rose-300 border-rose-700'
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300'
                                   : line.status === 'idle'
-                                    ? 'bg-blue-950 text-blue-300 border-blue-700'
-                                    : 'bg-amber-950 text-amber-300 border-amber-700'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                    : 'bg-amber-100 text-amber-800 border-amber-300'
                             }`}
                           >
                             {line.status === 'running' || line.status === 'ACTIVE'
@@ -525,21 +531,21 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                                     : line.status || 'Disponível'}
                           </Badge>
                         </div>
-                        <h3 className="font-bold text-xs text-slate-300 mt-0.5">{line.name}</h3>
+                        <h3 className="font-bold text-xs text-slate-700 mt-0.5">{line.name}</h3>
                       </div>
 
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                         {line.sap_work_center || 'WC-DIV'}
                       </span>
                     </div>
 
                     {/* Dados Compactos de Capacidade e Processo */}
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 text-xs mb-3 font-mono">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs mb-3 font-mono">
                       <div>
                         <span className="text-slate-500 text-[10px] block font-sans">
                           Capacidade Nominal
                         </span>
-                        <span className="font-bold text-white text-xs">
+                        <span className="font-bold text-slate-900 text-xs">
                           {line.nominal_capacity || line.target_rate || 120}{' '}
                           {line.capacity_unit || 't/h'}
                         </span>
@@ -548,24 +554,24 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                         <span className="text-slate-500 text-[10px] block font-sans">
                           Vazão Atual / OEE
                         </span>
-                        <span className="font-bold text-emerald-400 text-xs">
+                        <span className="font-bold text-emerald-700 text-xs">
                           {line.current_rate || 118} t/h ({line.efficiency || 98}%)
                         </span>
                       </div>
                     </div>
 
                     {/* Resumo de Conexões Upstream & Downstream (N:N) */}
-                    <div className="space-y-1.5 text-[11px] pt-2 border-t border-slate-800/80">
-                      <div className="flex items-center justify-between text-slate-400">
+                    <div className="space-y-1.5 text-[11px] pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-between text-slate-600">
                         <span>Abastecimento (Upstream):</span>
-                        <span className="font-mono font-bold text-cyan-300">
+                        <span className="font-mono font-bold text-[#004C97]">
                           {upRels.length > 0 ? `${upRels.length} relação(ões)` : 'Início de Linha'}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-slate-400">
+                      <div className="flex items-center justify-between text-slate-600">
                         <span>Destino (Downstream):</span>
-                        <span className="font-mono font-bold text-cyan-300">
+                        <span className="font-mono font-bold text-[#004C97]">
                           {downRels.length > 0 ? `${downRels.length} relação(ões)` : 'Fim de Linha'}
                         </span>
                       </div>
@@ -577,7 +583,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                             <Badge
                               key={r.id}
                               variant="outline"
-                              className="text-[9px] font-mono border-slate-700 bg-slate-950/60 text-slate-300"
+                              className="text-[9px] font-mono border-slate-200 bg-white text-slate-700"
                             >
                               &rarr; {r.target_line_code} ({r.relation_type})
                             </Badge>
@@ -610,16 +616,16 @@ export const ProductionIntegrationMapPage: React.FC = () => {
              MODO TABELA: Lista Estruturada de Relações N:N (Regra 33)
           ========================================================================= */
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+            <div className="flex items-center justify-between text-xs text-slate-500 font-mono">
               <span>
                 Total de Relações Produtivas Cadastradas:{' '}
-                <strong>{visibleRelationships.length}</strong>
+                <strong className="text-slate-900">{visibleRelationships.length}</strong>
               </span>
             </div>
 
-            <div className="overflow-x-auto border border-slate-800 rounded-lg">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-900/90 text-slate-400 font-mono text-[11px] border-b border-slate-800">
+            <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-xs">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 font-mono text-[11px] border-b border-slate-200 font-bold">
                   <tr>
                     <th className="p-3">Origem</th>
                     <th className="p-3">Destino</th>
@@ -632,24 +638,26 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                     <th className="p-3 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-slate-100">
                   {visibleRelationships.map((rel) => (
                     <tr
                       key={rel.id}
-                      className="hover:bg-slate-900/50 transition-colors cursor-pointer"
+                      className="hover:bg-slate-50 transition-colors cursor-pointer"
                       onClick={() => {
                         setSelectedNodeCode(rel.origin_line_code)
                         setDrawerOpen(true)
                       }}
                     >
-                      <td className="p-3 font-mono font-bold text-white">{rel.origin_line_code}</td>
-                      <td className="p-3 font-mono font-bold text-cyan-300">
+                      <td className="p-3 font-mono font-bold text-slate-900">
+                        {rel.origin_line_code}
+                      </td>
+                      <td className="p-3 font-mono font-bold text-[#004C97]">
                         {rel.target_line_code}
                       </td>
                       <td className="p-3">
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-mono border-blue-900 bg-blue-950/40 text-blue-300"
+                          className="text-[10px] font-mono border-blue-200 bg-blue-50 text-[#004C97]"
                         >
                           {rel.relation_type}
                         </Badge>
@@ -657,21 +665,21 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                       <td className="p-3 font-mono text-[11px]">
                         {rel.product_code || rel.family_code || 'Geral / Todas'}
                       </td>
-                      <td className="p-3 max-w-[280px] truncate text-[11px] text-slate-400">
+                      <td className="p-3 max-w-[280px] truncate text-[11px] text-slate-600">
                         P{rel.priority_order}: {rel.routing_condition || 'Fluxo direto'}
                       </td>
-                      <td className="p-3 font-mono text-[11px] text-slate-300">
+                      <td className="p-3 font-mono text-[11px] text-slate-700">
                         {rel.buffer_min_tons || 0} – {rel.buffer_max_tons || 100} t
                       </td>
-                      <td className="p-3 font-mono text-[11px] text-cyan-400">
+                      <td className="p-3 font-mono text-[11px] text-[#004C97]">
                         {rel.standard_lead_time_minutes || 30} min
                       </td>
                       <td className="p-3">
                         <Badge
                           className={`text-[9px] font-mono ${
                             rel.status === 'ATIVA'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
-                              : 'bg-amber-950 text-amber-300 border-amber-700'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}
                         >
                           {rel.status}
@@ -686,7 +694,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                             setSelectedNodeCode(rel.origin_line_code)
                             setDrawerOpen(true)
                           }}
-                          className="h-6 text-[10px] text-cyan-400 hover:text-white"
+                          className="h-6 text-[10px] text-[#004C97] hover:bg-blue-50"
                         >
                           Detalhes
                         </Button>
@@ -702,27 +710,27 @@ export const ProductionIntegrationMapPage: React.FC = () => {
              MODO MATRIZ: Linha x Linha (Regra 34)
           ========================================================================= */
           <div className="space-y-4">
-            <div className="text-xs text-slate-400 font-mono">
+            <div className="text-xs text-slate-500 font-mono">
               Matriz de Interdependência Produtiva (Origem &rarr; Linhas / Destino &darr; Colunas).
               Clique na célula para inspecionar a relação.
             </div>
 
-            <div className="overflow-x-auto border border-slate-800 rounded-lg">
-              <table className="w-full text-center text-xs text-slate-300">
-                <thead className="bg-slate-900 text-slate-400 font-mono text-[11px]">
+            <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white shadow-xs">
+              <table className="w-full text-center text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 font-mono text-[11px] border-b border-slate-200">
                   <tr>
-                    <th className="p-3 text-left bg-slate-950">Origem \ Destino</th>
+                    <th className="p-3 text-left bg-slate-100 font-bold">Origem \ Destino</th>
                     {lines.map((l) => (
-                      <th key={l.id} className="p-3 font-mono text-cyan-300">
+                      <th key={l.id} className="p-3 font-mono text-[#004C97] font-bold">
                         {l.code}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-slate-100">
                   {lines.map((origin) => (
-                    <tr key={origin.id} className="hover:bg-slate-900/30">
-                      <td className="p-3 text-left font-mono font-bold text-white bg-slate-950">
+                    <tr key={origin.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 text-left font-mono font-bold text-slate-900 bg-slate-50">
                         {origin.code}
                       </td>
                       {lines.map((dest) => {
@@ -735,7 +743,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
 
                         if (origin.code === dest.code) {
                           return (
-                            <td key={dest.id} className="p-3 bg-slate-950/60 text-slate-700">
+                            <td key={dest.id} className="p-3 bg-slate-100 text-slate-400">
                               —
                             </td>
                           )
@@ -749,7 +757,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                                 setSelectedNodeCode(origin.code)
                                 setDrawerOpen(true)
                               }}
-                              className="p-3 bg-blue-950/30 hover:bg-blue-900/50 cursor-pointer font-mono text-[11px] text-cyan-300 font-bold border border-blue-900/40"
+                              className="p-3 bg-blue-50 hover:bg-blue-100 cursor-pointer font-mono text-[11px] text-[#004C97] font-bold border border-blue-200"
                               title={`${rel.relation_type} (P${rel.priority_order}): ${rel.routing_condition}`}
                             >
                               {rel.relation_type[0]} (P{rel.priority_order})
@@ -758,7 +766,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                         }
 
                         return (
-                          <td key={dest.id} className="p-3 text-slate-700">
+                          <td key={dest.id} className="p-3 text-slate-400">
                             ·
                           </td>
                         )
@@ -776,21 +784,21 @@ export const ProductionIntegrationMapPage: React.FC = () => {
           4. DRAWER LATERAL: Detalhes 360° do Nó Selecionado (Regras 17 e 18)
       ========================================================================= */}
       {drawerOpen && selectedNode && (
-        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[540px] bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[540px] bg-white border-l border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 text-slate-900">
           {/* Header do Drawer */}
-          <div className="p-4 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-[#004C97] text-white rounded-md">
                 <Network className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <span>{selectedNode.code}</span>
-                  <Badge className="text-[9px] bg-slate-800 text-slate-200">
+                  <Badge className="text-[9px] bg-slate-200 text-slate-700">
                     {selectedNode.status}
                   </Badge>
                 </h3>
-                <span className="text-xs text-slate-400">{selectedNode.name}</span>
+                <span className="text-xs text-slate-500">{selectedNode.name}</span>
               </div>
             </div>
 
@@ -798,14 +806,14 @@ export const ProductionIntegrationMapPage: React.FC = () => {
               size="sm"
               variant="ghost"
               onClick={() => setDrawerOpen(false)}
-              className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+              className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
             >
               <X className="w-4 h-4" />
             </Button>
           </div>
 
           {/* Abas do Drawer (Regra 17) */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-2 bg-slate-900 border-b border-slate-800 text-xs">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-2 bg-slate-100 border-b border-slate-200 text-xs">
             {[
               { id: 'RESUMO', label: 'Resumo' },
               { id: 'HIERARQUIA', label: 'Hierarquia' },
@@ -824,7 +832,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold shrink-0 transition-colors ${
                   drawerTab === tab.id
                     ? 'bg-[#004C97] text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
                 {tab.label}
@@ -836,18 +844,18 @@ export const ProductionIntegrationMapPage: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
             {drawerTab === 'RESUMO' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-900/60 rounded-lg border border-slate-800 font-mono text-[11px]">
+                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono text-[11px]">
                   <div>
                     <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">
                       Linha / Código
                     </span>
-                    <span className="text-white font-bold">{selectedNode.code}</span>
+                    <span className="text-slate-900 font-bold">{selectedNode.code}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">
                       Centro SAP
                     </span>
-                    <span className="text-cyan-300">
+                    <span className="text-[#004C97] font-semibold">
                       {selectedNode.sap_work_center || 'WC-DIV'}
                     </span>
                   </div>
@@ -855,7 +863,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                     <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">
                       Capacidade Nominal
                     </span>
-                    <span className="text-white">
+                    <span className="text-slate-900 font-semibold">
                       {selectedNode.nominal_capacity || 120} {selectedNode.capacity_unit || 't/h'}
                     </span>
                   </div>
@@ -863,7 +871,7 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                     <span className="text-slate-500 block text-[9px] uppercase font-sans font-bold">
                       Turnos Cadastrados
                     </span>
-                    <span className="text-emerald-400">
+                    <span className="text-emerald-700 font-semibold">
                       {selectedNode.shifts_count || 3} Turnos
                     </span>
                   </div>
@@ -871,57 +879,57 @@ export const ProductionIntegrationMapPage: React.FC = () => {
 
                 {/* Predecessores & Sucessores N:N */}
                 <div className="space-y-2">
-                  <h4 className="font-bold text-white text-xs uppercase text-slate-300">
+                  <h4 className="font-bold text-slate-800 text-xs uppercase">
                     Predecessores (Alimentam {selectedNode.code})
                   </h4>
                   {nodeRelationships.upstream.length === 0 ? (
-                    <div className="p-3 bg-slate-900/30 rounded border border-slate-800 text-slate-500 text-[11px]">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 text-slate-500 text-[11px]">
                       Nenhuma linha montante associada. Esta linha atua como ponto inicial.
                     </div>
                   ) : (
                     nodeRelationships.upstream.map((rel) => (
                       <div
                         key={rel.id}
-                        className="p-2.5 bg-slate-900/70 rounded border border-slate-800 space-y-1"
+                        className="p-2.5 bg-slate-50 rounded border border-slate-200 space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-cyan-300">
+                          <span className="font-mono font-bold text-[#004C97]">
                             {rel.origin_line_code} &rarr; {selectedNode.code}
                           </span>
-                          <Badge className="text-[9px] bg-blue-950 text-blue-300 border-blue-800">
+                          <Badge className="text-[9px] bg-blue-100 text-blue-800 border-blue-200">
                             {rel.relation_type} (P{rel.priority_order})
                           </Badge>
                         </div>
-                        <p className="text-[11px] text-slate-400">{rel.routing_condition}</p>
+                        <p className="text-[11px] text-slate-600">{rel.routing_condition}</p>
                       </div>
                     ))
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-bold text-white text-xs uppercase text-slate-300">
+                  <h4 className="font-bold text-slate-800 text-xs uppercase">
                     Sucessores (Alimentados por {selectedNode.code})
                   </h4>
                   {nodeRelationships.downstream.length === 0 ? (
-                    <div className="p-3 bg-slate-900/30 rounded border border-slate-800 text-slate-500 text-[11px]">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 text-slate-500 text-[11px]">
                       Nenhuma linha jusante associada. Esta linha atua como entrega final.
                     </div>
                   ) : (
                     nodeRelationships.downstream.map((rel) => (
                       <div
                         key={rel.id}
-                        className="p-2.5 bg-slate-900/70 rounded border border-slate-800 space-y-1"
+                        className="p-2.5 bg-slate-50 rounded border border-slate-200 space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-cyan-300">
+                          <span className="font-mono font-bold text-[#004C97]">
                             {selectedNode.code} &rarr; {rel.target_line_code}
                           </span>
-                          <Badge className="text-[9px] bg-emerald-950 text-emerald-300 border-emerald-800">
+                          <Badge className="text-[9px] bg-emerald-100 text-emerald-800 border-emerald-300">
                             {rel.relation_type} (P{rel.priority_order})
                           </Badge>
                         </div>
-                        <p className="text-[11px] text-slate-400">{rel.routing_condition}</p>
-                        <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400 pt-1">
+                        <p className="text-[11px] text-slate-600">{rel.routing_condition}</p>
+                        <div className="flex items-center gap-3 text-[10px] font-mono text-slate-500 pt-1">
                           <span>
                             Buffer: {rel.buffer_min_tons}–{rel.buffer_max_tons} t
                           </span>
@@ -932,10 +940,10 @@ export const ProductionIntegrationMapPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                   <Button
                     size="sm"
-                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs w-full gap-1.5 font-bold"
+                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs w-full gap-1.5 font-bold shadow-xs"
                     asChild
                   >
                     <Link to="/pcp/ficha-mestre">

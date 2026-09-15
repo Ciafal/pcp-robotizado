@@ -83,7 +83,7 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: line.sap_plant_code || master?.sap_plant_code || line.plant,
       missingMessage: 'Centro SAP / Planta fabril não informada',
-      navigationTarget: { mainGroup: 'OVERVIEW' },
+      navigationTarget: { mainGroup: 'OVERVIEW', anchorId: 'sap-center' },
     },
     {
       id: 'ident_status',
@@ -184,7 +184,11 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: `${setupMatrix.length} regra(s) de transição de ferramentas`,
       missingMessage: 'Matriz de setup De -> Para não configurada',
-      navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'SETUP_MATRIX' },
+      navigationTarget: {
+        mainGroup: 'MASTERDATA',
+        masterSubTab: 'SETUP_MATRIX',
+        anchorId: 'setup-matrix',
+      },
     },
     {
       id: 'proc_adjustment',
@@ -204,7 +208,11 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: `${sequencing.length} dependência(s) de processo`,
       missingMessage: 'Sequenciamento produtivo (predecessor/sucessor) não declarado',
-      navigationTarget: { mainGroup: 'PROCESS' },
+      navigationTarget: {
+        mainGroup: 'MASTERDATA',
+        masterSubTab: 'IDEAL_GAUGE_SEQUENCE',
+        anchorId: 'sequencing-process',
+      },
     },
     // Itens específicos de Laminação (NÃO penalizam outros tipos)
     {
@@ -241,7 +249,11 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: `${rawMaterials.length} prioridade(s) de MP cadastrada(s)`,
       missingMessage: 'Prioridade de matéria-prima ausente ou não homologada',
-      navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'RAW_MATERIALS' },
+      navigationTarget: {
+        mainGroup: 'MASTERDATA',
+        masterSubTab: 'RAW_MATERIALS',
+        anchorId: 'raw-materials',
+      },
     },
     {
       id: 'mat_capabilities',

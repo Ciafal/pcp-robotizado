@@ -249,7 +249,7 @@ export const SequencingPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Corporativo CIAFAL */}
-      <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-md">
@@ -257,14 +257,14 @@ export const SequencingPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-white tracking-tight">
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">
                   Sequenciamento & Orquestração Fina de Rotas
                 </h1>
                 <Badge className="bg-[#004C97] text-white border-blue-400/40 text-[10px] font-mono">
                   Prompt 04 Homologado
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Hub Operacional: Rotas N:N, Predecessores/Sucessores, Buffers Físicos/Operacionais,
                 Dupla Aprovação e 4 Conceitos de Capacidade.
               </p>
@@ -277,7 +277,7 @@ export const SequencingPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={loadData}
-            className="border-slate-700 bg-slate-950 text-slate-300 hover:text-white text-xs font-mono"
+            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-mono"
           >
             <RefreshCw className="w-3.5 h-3.5 mr-1" />
             Atualizar
@@ -294,68 +294,72 @@ export const SequencingPage: React.FC = () => {
                   Nova Rota N:N
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+              <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md shadow-xl">
                 <DialogHeader>
-                  <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-                    <GitFork className="w-4 h-4 text-sky-400" />
+                  <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <GitFork className="w-4 h-4 text-[#004C97]" />
                     Cadastrar Nova Rota Produtiva N:N
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3 py-2 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-mono">Código da Rota *</label>
+                    <label className="block text-slate-700 mb-1 font-mono font-medium">
+                      Código da Rota *
+                    </label>
                     <Input
                       placeholder="Ex: ROUT_CANTON_STD_V1"
                       value={newRouteCode}
                       onChange={(e) => setNewRouteCode(e.target.value)}
-                      className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-xs"
+                      className="bg-white border-slate-300 text-slate-900 uppercase font-mono text-xs focus-visible:ring-[#004C97]"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-400 mb-1 font-mono">
+                    <label className="block text-slate-700 mb-1 font-mono font-medium">
                       Descrição Técnica *
                     </label>
                     <Input
                       placeholder="Ex: Rota contínua com tratamento térmico e calibração fina"
                       value={newRouteDesc}
                       onChange={(e) => setNewRouteDesc(e.target.value)}
-                      className="bg-slate-950 border-slate-700 text-white text-xs"
+                      className="bg-white border-slate-300 text-slate-900 text-xs focus-visible:ring-[#004C97]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-slate-400 mb-1 font-mono">
+                      <label className="block text-slate-700 mb-1 font-mono font-medium">
                         Produto Vinculado
                       </label>
                       <Input
                         placeholder="Ex: TUB_50X50"
                         value={newRouteProduct}
                         onChange={(e) => setNewRouteProduct(e.target.value)}
-                        className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-xs"
+                        className="bg-white border-slate-300 text-slate-900 uppercase font-mono text-xs focus-visible:ring-[#004C97]"
                       />
                     </div>
                     <div>
-                      <label className="block text-slate-400 mb-1 font-mono">Família</label>
+                      <label className="block text-slate-700 mb-1 font-mono font-medium">
+                        Família
+                      </label>
                       <Input
                         placeholder="Ex: TUB_QUAD"
                         value={newRouteFamily}
                         onChange={(e) => setNewRouteFamily(e.target.value)}
-                        className="bg-slate-950 border-slate-700 text-white uppercase font-mono text-xs"
+                        className="bg-white border-slate-300 text-slate-900 uppercase font-mono text-xs focus-visible:ring-[#004C97]"
                       />
                     </div>
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="border-t border-slate-200 pt-3">
                   <Button
                     variant="outline"
                     onClick={() => setIsCreateModalOpen(false)}
-                    className="border-slate-700 text-slate-300 text-xs"
+                    className="border-slate-300 text-slate-700 text-xs hover:bg-slate-50"
                   >
                     Cancelar
                   </Button>
                   <Button
                     onClick={handleCreateRoute}
-                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold"
+                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold shadow-xs"
                   >
                     Criar em DRAFT &rarr;
                   </Button>
@@ -367,7 +371,7 @@ export const SequencingPage: React.FC = () => {
       </div>
 
       {/* Subnavegação da Subárea Sequenciamento (6 Abas Homologadas) */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-2">
         {[
           { id: 'ROTAS', label: 'Rotas N:N', icon: GitFork, count: routes.length },
           {
@@ -389,8 +393,8 @@ export const SequencingPage: React.FC = () => {
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
                 isActive
-                  ? 'bg-[#004C97] text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  ? 'bg-[#004C97] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -398,7 +402,9 @@ export const SequencingPage: React.FC = () => {
               {tab.count !== undefined && (
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}
                 >
                   {tab.count}
@@ -415,14 +421,17 @@ export const SequencingPage: React.FC = () => {
           {/* Coluna 1 & 2: Lista de Rotas e Validador Determinístico */}
           <div className="lg:col-span-2 space-y-4">
             {/* Consulta: Para este produto/família, quais rotas são válidas? */}
-            <Card className="bg-slate-900 border-slate-800 shadow">
-              <CardHeader className="p-4 pb-2 border-b border-slate-800">
-                <CardTitle className="text-xs font-bold text-white uppercase font-mono flex items-center justify-between">
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100">
+                <CardTitle className="text-xs font-bold text-slate-900 uppercase font-mono flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Search className="w-3.5 h-3.5 text-sky-400" />
+                    <Search className="w-3.5 h-3.5 text-[#004C97]" />
                     Consulta de Elegibilidade de Rotas Produtivas
                   </span>
-                  <Badge variant="outline" className="text-[9px] border-slate-700 text-slate-400">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] border-slate-200 text-slate-500 bg-slate-50"
+                  >
                     Motor Determinístico
                   </Badge>
                 </CardTitle>
@@ -430,35 +439,37 @@ export const SequencingPage: React.FC = () => {
               <CardContent className="p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-mono text-slate-400">Código Produto:</label>
+                    <label className="text-[10px] font-mono text-slate-600 font-medium">
+                      Código Produto:
+                    </label>
                     <Input
                       value={searchProduct}
                       onChange={(e) => setSearchProduct(e.target.value)}
                       placeholder="Ex: TUB_50X50"
-                      className="bg-slate-950 border-slate-800 text-xs text-white font-mono h-8 mt-1"
+                      className="bg-white border-slate-300 text-xs text-slate-900 font-mono h-8 mt-1 focus-visible:ring-[#004C97]"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-slate-400">
+                    <label className="text-[10px] font-mono text-slate-600 font-medium">
                       Código Família (Opcional):
                     </label>
                     <Input
                       value={searchFamily}
                       onChange={(e) => setSearchFamily(e.target.value)}
                       placeholder="Ex: TUB_QUAD"
-                      className="bg-slate-950 border-slate-800 text-xs text-white font-mono h-8 mt-1"
+                      className="bg-white border-slate-300 text-xs text-slate-900 font-mono h-8 mt-1 focus-visible:ring-[#004C97]"
                     />
                   </div>
                 </div>
 
                 {queryResult && (
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">
+                      <span className="text-slate-600 font-medium">
                         Rotas Homologadas Elegíveis ({queryResult.validRoutes.length}):
                       </span>
                       {queryResult.preferredRoute && (
-                        <Badge className="bg-emerald-950 text-emerald-300 border-emerald-800 text-[10px] font-mono">
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-mono">
                           Preferencial: {queryResult.preferredRoute.code}
                         </Badge>
                       )}
@@ -470,23 +481,23 @@ export const SequencingPage: React.FC = () => {
                           <div
                             key={vr.id}
                             onClick={() => setSelectedRoute(vr)}
-                            className="p-2 bg-slate-900 border border-slate-800 hover:border-[#004C97] rounded flex items-center justify-between cursor-pointer"
+                            className="p-2 bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-xs rounded flex items-center justify-between cursor-pointer transition-all"
                           >
                             <div>
-                              <span className="font-mono font-bold text-white text-xs">
+                              <span className="font-mono font-bold text-slate-900 text-xs">
                                 {vr.code} (V{vr.version})
                               </span>
-                              <p className="text-[10px] text-slate-400">{vr.description}</p>
+                              <p className="text-[10px] text-slate-500">{vr.description}</p>
                             </div>
-                            <Badge className="bg-emerald-900 text-emerald-200 text-[9px]">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] font-semibold">
                               APPROVED
                             </Badge>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="p-2 bg-rose-950/20 border border-rose-900/40 rounded text-rose-300 text-[11px] flex items-center gap-2">
-                        <XCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <div className="p-2 bg-rose-50 border border-rose-200 rounded text-rose-700 text-[11px] flex items-center gap-2">
+                        <XCircle className="w-4 h-4 shrink-0 text-rose-600" />
                         <span>Nenhuma rota com status APPROVED disponível para este item.</span>
                       </div>
                     )}
@@ -496,7 +507,7 @@ export const SequencingPage: React.FC = () => {
                         {queryResult.warnings.map((w: string, idx: number) => (
                           <div
                             key={idx}
-                            className="text-[10px] text-amber-400 flex items-center gap-1.5"
+                            className="text-[10px] text-amber-700 flex items-center gap-1.5"
                           >
                             <AlertTriangle className="w-3 h-3 shrink-0" />
                             <span>{w}</span>
@@ -511,7 +522,7 @@ export const SequencingPage: React.FC = () => {
 
             {/* Listagem Geral de Rotas */}
             <div className="space-y-3">
-              <h3 className="text-xs font-mono font-bold text-slate-400 uppercase">
+              <h3 className="text-xs font-mono font-bold text-slate-600 uppercase">
                 Catálogo de Rotas Produtivas N:N ({routes.length})
               </h3>
               <div className="grid grid-cols-1 gap-3">
@@ -525,22 +536,24 @@ export const SequencingPage: React.FC = () => {
                       onClick={() => setSelectedRoute(r)}
                       className={`cursor-pointer transition-all border ${
                         isSelected
-                          ? 'border-[#004C97] bg-slate-900 shadow-md ring-1 ring-[#004C97]'
-                          : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                          ? 'border-[#004C97] bg-blue-50/40 shadow-sm ring-1 ring-[#004C97]'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
                       <CardContent className="p-4 space-y-2">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold font-mono text-white">{r.code}</span>
+                            <span className="text-sm font-bold font-mono text-slate-900">
+                              {r.code}
+                            </span>
                             <Badge
                               variant="outline"
-                              className="text-[10px] font-mono border-slate-700 text-slate-300"
+                              className="text-[10px] font-mono border-slate-200 text-slate-600 bg-slate-50"
                             >
                               V{r.version}
                             </Badge>
                             {r.preferred && (
-                              <Badge className="bg-sky-950 text-sky-300 border-sky-800 text-[9px]">
+                              <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-[9px] font-semibold">
                                 Rota Padrão
                               </Badge>
                             )}
@@ -549,34 +562,36 @@ export const SequencingPage: React.FC = () => {
                           <Badge
                             className={`text-[10px] font-mono ${
                               isApproved
-                                ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                 : r.status === 'PENDING_APPROVAL'
-                                  ? 'bg-amber-950 text-amber-300 border-amber-800'
-                                  : 'bg-slate-800 text-slate-300 border-slate-700'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
                             }`}
                           >
                             {r.status}
                           </Badge>
                         </div>
 
-                        <p className="text-xs text-slate-300">{r.description}</p>
+                        <p className="text-xs text-slate-600">{r.description}</p>
 
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-100">
                           <div>
                             Produto:{' '}
-                            <strong className="text-slate-200">{r.product_code || 'Geral'}</strong>
+                            <strong className="text-slate-800">{r.product_code || 'Geral'}</strong>
                           </div>
                           <div>
                             Família:{' '}
-                            <strong className="text-slate-200">{r.family_code || 'Todas'}</strong>
+                            <strong className="text-slate-800">{r.family_code || 'Todas'}</strong>
                           </div>
                           <div>
                             Nós:{' '}
-                            <strong className="text-sky-400">{r.nodes?.length || 0} Linhas</strong>
+                            <strong className="text-[#004C97]">
+                              {r.nodes?.length || 0} Linhas
+                            </strong>
                           </div>
                           <div>
                             Ligações:{' '}
-                            <strong className="text-sky-400">{r.edges?.length || 0} Ramos</strong>
+                            <strong className="text-[#004C97]">{r.edges?.length || 0} Ramos</strong>
                           </div>
                         </div>
                       </CardContent>
@@ -590,10 +605,10 @@ export const SequencingPage: React.FC = () => {
           {/* Coluna 3: Detalhes da Rota Selecionada e Validação de Conformidade */}
           <div className="space-y-4">
             {selectedRoute ? (
-              <Card className="bg-slate-900 border-slate-800 shadow">
-                <CardHeader className="p-4 pb-2 border-b border-slate-800">
+              <Card className="bg-white border-slate-200 shadow-sm">
+                <CardHeader className="p-4 pb-2 border-b border-slate-100">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-xs font-bold text-white uppercase font-mono">
+                    <CardTitle className="text-xs font-bold text-slate-900 uppercase font-mono">
                       Governança da Rota [{selectedRoute.code}]
                     </CardTitle>
                     <Badge className="text-[10px] font-mono bg-[#004C97] text-white">
@@ -603,18 +618,18 @@ export const SequencingPage: React.FC = () => {
                 </CardHeader>
                 <CardContent className="p-4 space-y-4 text-xs">
                   {/* Status do Motor */}
-                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                     <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold">
                       Validação para o Motor de Programação:
                     </span>
                     {routeValidation?.canBeUsedOfficially ? (
-                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div className="flex items-center gap-2 text-emerald-700 font-semibold text-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>Oficial e Homologada para Sequenciamento (APPROVED).</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
-                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                      <div className="flex items-center gap-2 text-amber-700 font-semibold text-xs">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                         <span>
                           BLOQUEADA: Apenas rotas APPROVED podem ser operadas oficialmente.
                         </span>
@@ -626,9 +641,9 @@ export const SequencingPage: React.FC = () => {
                         {routeValidation.errors.map((err, i) => (
                           <div
                             key={i}
-                            className="text-[11px] text-rose-400 flex items-start gap-1.5"
+                            className="text-[11px] text-rose-700 flex items-start gap-1.5"
                           >
-                            <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
                             <span>{err}</span>
                           </div>
                         ))}
@@ -642,7 +657,7 @@ export const SequencingPage: React.FC = () => {
                       <Button
                         size="sm"
                         onClick={handleSubmitForApproval}
-                        className="w-full bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold text-xs"
+                        className="w-full bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold text-xs shadow-xs"
                       >
                         Submeter para Dupla Aprovação &rarr;
                       </Button>
@@ -652,7 +667,7 @@ export const SequencingPage: React.FC = () => {
                       <Button
                         size="sm"
                         onClick={() => setActiveTab('APROVACOES')}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs"
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs"
                       >
                         Ver no Painel de Aprovações &rarr;
                       </Button>
@@ -660,16 +675,16 @@ export const SequencingPage: React.FC = () => {
                   </div>
 
                   {/* Ligações do Grafo (Resumo Rápido) */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 font-mono font-bold text-[11px]">
+                      <span className="text-slate-600 font-mono font-bold text-[11px]">
                         Ligações / Edges N:N:
                       </span>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setIsAddEdgeModalOpen(true)}
-                        className="h-6 text-[10px] border-slate-700 bg-slate-950 text-sky-400"
+                        className="h-6 text-[10px] border-slate-300 bg-white text-[#004C97] hover:bg-slate-50"
                       >
                         + Adicionar Ligação
                       </Button>
@@ -680,16 +695,16 @@ export const SequencingPage: React.FC = () => {
                         selectedRoute.edges.map((e, idx) => (
                           <div
                             key={idx}
-                            className="p-2 bg-slate-950 border border-slate-800 rounded font-mono text-[11px] flex items-center justify-between"
+                            className="p-2 bg-slate-50 border border-slate-200 rounded font-mono text-[11px] flex items-center justify-between"
                           >
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-white">{e.origin_line_code}</span>
-                              <ArrowRight className="w-3 h-3 text-sky-400" />
-                              <span className="font-bold text-white">{e.target_line_code}</span>
+                              <span className="font-bold text-slate-900">{e.origin_line_code}</span>
+                              <ArrowRight className="w-3 h-3 text-[#004C97]" />
+                              <span className="font-bold text-slate-900">{e.target_line_code}</span>
                             </div>
                             <Badge
                               variant="outline"
-                              className="text-[9px] border-slate-700 text-slate-300"
+                              className="text-[9px] border-slate-200 text-slate-600 bg-white"
                             >
                               {e.relation_type}
                             </Badge>
@@ -705,7 +720,7 @@ export const SequencingPage: React.FC = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="p-8 text-center text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
+              <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
                 Selecione uma rota para visualizar os parâmetros de governança.
               </div>
             )}
@@ -802,13 +817,13 @@ export const SequencingPage: React.FC = () => {
       {/* ABA 3: BUFFERS E PULMÕES PRODUTIVOS */}
       {activeTab === 'BUFFERS' && (
         <div className="space-y-4">
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader className="p-4 border-b border-slate-800">
-              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                <Box className="w-4 h-4 text-sky-400" />
+          <Card className="bg-white border-slate-200 shadow-sm">
+            <CardHeader className="p-4 border-b border-slate-100">
+              <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Box className="w-4 h-4 text-[#004C97]" />
                 Monitoramento Fino de Buffers Físicos, Operacionais e de Segurança
               </CardTitle>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Detecção determinística de risco de saturação upstream e esvaziamento downstream.
               </p>
             </CardHeader>
@@ -819,39 +834,39 @@ export const SequencingPage: React.FC = () => {
                     key={idx}
                     className={`p-3 rounded-xl border space-y-2 text-xs ${
                       b.severity === 'CRITICAL'
-                        ? 'bg-rose-950/20 border-rose-900/50'
+                        ? 'bg-rose-50 border-rose-200'
                         : b.severity === 'WARNING'
-                          ? 'bg-amber-950/20 border-amber-900/50'
-                          : 'bg-slate-950 border-slate-800'
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-slate-50 border-slate-200'
                     }`}
                   >
                     <div className="flex items-center justify-between font-mono">
-                      <span className="font-bold text-white">
+                      <span className="font-bold text-slate-900">
                         {b.origin_line_code} ➔ {b.target_line_code}
                       </span>
                       <Badge
                         className={`text-[9px] font-mono ${
                           b.severity === 'CRITICAL'
-                            ? 'bg-rose-900 text-rose-200'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
                             : b.severity === 'WARNING'
-                              ? 'bg-amber-900 text-amber-200'
-                              : 'bg-emerald-900 text-emerald-200'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         }`}
                       >
                         {b.alert_type}
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] p-2 bg-slate-900/80 rounded border border-slate-800">
+                    <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] p-2 bg-white rounded border border-slate-200">
                       <div>
                         <span className="text-slate-500 block">Mínimo</span>
-                        <span className="text-white font-bold">{b.min_stock} t</span>
+                        <span className="text-slate-900 font-bold">{b.min_stock} t</span>
                       </div>
                       <div>
                         <span className="text-slate-500 block">Atual</span>
                         <span
                           className={`font-bold ${
-                            b.severity === 'NORMAL' ? 'text-emerald-400' : 'text-amber-400'
+                            b.severity === 'NORMAL' ? 'text-emerald-700' : 'text-amber-700'
                           }`}
                         >
                           {b.current_stock} t
@@ -859,11 +874,11 @@ export const SequencingPage: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-slate-500 block">Máximo</span>
-                        <span className="text-white font-bold">{b.max_stock} t</span>
+                        <span className="text-slate-900 font-bold">{b.max_stock} t</span>
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-300">{b.message}</p>
+                    <p className="text-[11px] text-slate-700">{b.message}</p>
                   </div>
                 ))}
               </div>
@@ -886,13 +901,13 @@ export const SequencingPage: React.FC = () => {
 
       {/* ABA 6: ANÁLISE DE GARGALOS */}
       {activeTab === 'GARGALOS' && (
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="p-4 border-b border-slate-800">
-            <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
+        <Card className="bg-white border-slate-200 shadow-sm">
+          <CardHeader className="p-4 border-b border-slate-100">
+            <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
               Sinalização de Gargalos e Restrições de Cadência por Linha
             </CardTitle>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Cálculo de BottleneckRisk baseado na capacidade programável, utilização projetada e
               pulmões downstream.
             </p>
@@ -902,45 +917,45 @@ export const SequencingPage: React.FC = () => {
               {capacityLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 text-xs"
+                  className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs"
                 >
                   <div className="flex items-center justify-between font-mono">
-                    <span className="font-bold text-white text-sm">{log.line_code}</span>
+                    <span className="font-bold text-slate-900 text-sm">{log.line_code}</span>
                     <Badge
                       className={`text-[10px] font-mono ${
                         log.bottleneck_risk === 'CRITICAL'
-                          ? 'bg-rose-950 text-rose-300 border-rose-700'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
                           : log.bottleneck_risk === 'HIGH'
-                            ? 'bg-amber-950 text-amber-300 border-amber-700'
-                            : 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-300'
                       }`}
                     >
                       RISCO {log.bottleneck_risk}
                     </Badge>
                   </div>
 
-                  <div className="space-y-1 text-slate-300 text-[11px] font-mono">
+                  <div className="space-y-1 text-slate-700 text-[11px] font-mono">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Capacidade Programável:</span>
-                      <strong className="text-sky-400">
+                      <span className="text-slate-500">Capacidade Programável:</span>
+                      <strong className="text-[#004C97]">
                         {log.programmable_capacity} {log.unit}
                       </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Produção Realizada:</span>
-                      <strong className="text-emerald-400">
+                      <span className="text-slate-500">Produção Realizada:</span>
+                      <strong className="text-emerald-700">
                         {log.realized_capacity} {log.unit}
                       </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Perda por Gargalo:</span>
-                      <strong className="text-rose-400">
+                      <span className="text-slate-500">Perda por Gargalo:</span>
+                      <strong className="text-rose-700">
                         {log.bottleneck_loss || 0} {log.unit}
                       </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Utilização da Linha:</span>
-                      <strong className="text-white">{log.utilization_pct}%</strong>
+                      <span className="text-slate-500">Utilização da Linha:</span>
+                      <strong className="text-slate-900">{log.utilization_pct}%</strong>
                     </div>
                   </div>
                 </div>
@@ -952,21 +967,23 @@ export const SequencingPage: React.FC = () => {
 
       {/* Modal para Adicionar Ligação N:N */}
       <Dialog open={isAddEdgeModalOpen} onOpenChange={setIsAddEdgeModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-md">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold text-white flex items-center gap-2">
-              <Plus className="w-4 h-4 text-sky-400" />
+            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-[#004C97]" />
               Adicionar Ligação N:N à Rota [{selectedRoute?.code}]
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2 text-xs">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Origem (Linha)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Origem (Linha)
+                </label>
                 <select
                   value={edgeOrigin}
                   onChange={(e) => setEdgeOrigin(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono text-xs"
+                  className="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-900 font-mono text-xs focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.code}>
@@ -976,11 +993,13 @@ export const SequencingPage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Destino (Linha)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Destino (Linha)
+                </label>
                 <select
                   value={edgeTarget}
                   onChange={(e) => setEdgeTarget(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono text-xs"
+                  className="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-900 font-mono text-xs focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.code}>
@@ -993,11 +1012,13 @@ export const SequencingPage: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Tipo de Relação</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Tipo de Relação
+                </label>
                 <select
                   value={edgeRelation}
                   onChange={(e) => setEdgeRelation(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono text-xs"
+                  className="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-900 font-mono text-xs focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   <option value="MANDATORY">MANDATORY (Obrigatória)</option>
                   <option value="PARALLEL">PARALLEL (Paralela)</option>
@@ -1007,57 +1028,65 @@ export const SequencingPage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Lead Time (min)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Lead Time (min)
+                </label>
                 <Input
                   type="number"
                   value={edgeLeadTime}
                   onChange={(e) => setEdgeLeadTime(Number(e.target.value))}
-                  className="bg-slate-950 border-slate-700 text-white font-mono text-xs"
+                  className="bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Buffer Mín (t)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Buffer Mín (t)
+                </label>
                 <Input
                   type="number"
                   value={edgeBufferMin}
                   onChange={(e) => setEdgeBufferMin(Number(e.target.value))}
-                  className="bg-slate-950 border-slate-700 text-white font-mono text-xs"
+                  className="bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97]"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Buffer Alvo (t)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Buffer Alvo (t)
+                </label>
                 <Input
                   type="number"
                   value={edgeBufferTarget}
                   onChange={(e) => setEdgeBufferTarget(Number(e.target.value))}
-                  className="bg-slate-950 border-slate-700 text-white font-mono text-xs"
+                  className="bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97]"
                 />
               </div>
               <div>
-                <label className="block text-slate-400 mb-1 font-mono">Buffer Máx (t)</label>
+                <label className="block text-slate-700 mb-1 font-mono font-medium">
+                  Buffer Máx (t)
+                </label>
                 <Input
                   type="number"
                   value={edgeBufferMax}
                   onChange={(e) => setEdgeBufferMax(Number(e.target.value))}
-                  className="bg-slate-950 border-slate-700 text-white font-mono text-xs"
+                  className="bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-slate-200 pt-3">
             <Button
               variant="outline"
               onClick={() => setIsAddEdgeModalOpen(false)}
-              className="border-slate-700 text-slate-300 text-xs"
+              className="border-slate-300 text-slate-700 text-xs hover:bg-slate-50"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleAddEdge}
-              className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold"
+              className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold shadow-xs"
             >
               Salvar Relação &rarr;
             </Button>

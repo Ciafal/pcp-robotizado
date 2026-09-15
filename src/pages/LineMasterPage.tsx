@@ -238,8 +238,13 @@ export default function LineMasterPage() {
           element =
             document.getElementById('section-raw-materials') ||
             document.getElementById('target-add-raw-material-btn')
-        } else if (mainGrp === 'PROCESS') {
+        } else if (
+          subTab === 'IDEAL_GAUGE_SEQUENCE' ||
+          anchor === 'sequencing-process' ||
+          mainGrp === 'PROCESS'
+        ) {
           element =
+            document.getElementById('section-ideal-gauge-sequence') ||
             document.getElementById('section-sequencing-process') ||
             document.getElementById('target-sequencing-btn') ||
             document.getElementById('target-sequencing-empty-card')

@@ -152,6 +152,8 @@ export interface LineExecutiveIndicators {
   line: ProductionLine
   master: LineMaster | null
   activeVersion: number
+  programmingType?: string
+  programmingStages?: string[]
   // 1. Capacidade Mensal (line_masters.nominal_monthly_capacity)
   monthlyCapacityTons: number
   capacityUnit: string

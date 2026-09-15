@@ -191,8 +191,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               element =
                 document.getElementById('section-raw-materials') ||
                 document.getElementById('target-add-raw-material-btn')
-            } else if (initialNavigationTarget.mainGroup === 'PROCESS') {
+            } else if (
+              initialNavigationTarget.masterSubTab === 'IDEAL_GAUGE_SEQUENCE' ||
+              initialNavigationTarget.anchorId === 'sequencing-process' ||
+              initialNavigationTarget.mainGroup === 'PROCESS'
+            ) {
               element =
+                document.getElementById('section-ideal-gauge-sequence') ||
                 document.getElementById('section-sequencing-process') ||
                 document.getElementById('target-sequencing-btn') ||
                 document.getElementById('target-sequencing-empty-card')
@@ -1972,13 +1977,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 6. CONTEÚDO: GRUPO 4 - FICHA MESTRE EXPANDIDA */}
       {mainGroup === 'MASTERDATA' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200 shadow-xs">
             <Button
               size="sm"
               variant={masterSubTab === 'CAPACITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('CAPACITY')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'CAPACITY' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                masterSubTab === 'CAPACITY'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5" /> Paradas Programadas
@@ -1989,7 +1996,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               variant={masterSubTab === 'SHIFTS_CREWS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('SHIFTS_CREWS')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'SHIFTS_CREWS' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                masterSubTab === 'SHIFTS_CREWS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
               <Clock className="w-3.5 h-3.5" /> Turnos & Turmas ({shifts.length}T /{' '}
@@ -2001,7 +2010,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               variant={masterSubTab === 'MATRIZ_GARGALOS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('MATRIZ_GARGALOS')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'MATRIZ_GARGALOS' ? 'bg-rose-600 text-white' : 'text-rose-400'
+                masterSubTab === 'MATRIZ_GARGALOS'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-rose-700 hover:bg-rose-50'
               }`}
             >
               <ShieldAlert className="w-3.5 h-3.5" /> Matriz de Gargalos Integrada
@@ -2012,7 +2023,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               variant={masterSubTab === 'PRODUCTIVITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PRODUCTIVITY')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'PRODUCTIVITY' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                masterSubTab === 'PRODUCTIVITY'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
               <FileSpreadsheet className="w-3.5 h-3.5" /> Produtividade ({productivity.length})
@@ -2023,7 +2036,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               variant={masterSubTab === 'RAW_MATERIALS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('RAW_MATERIALS')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'RAW_MATERIALS' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                masterSubTab === 'RAW_MATERIALS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
               <Layers className="w-3.5 h-3.5" /> Prioridades de Matéria-Prima ({rawMaterials.length}
@@ -2035,30 +2050,36 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               variant={masterSubTab === 'BLOCKED' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('BLOCKED')}
               className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'BLOCKED' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                masterSubTab === 'BLOCKED'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
               <Lock className="w-3.5 h-3.5" /> Produtos Bloqueados ({blockedProducts.length})
             </Button>
 
-            <div className="inline-flex items-center rounded-md p-0.5 bg-slate-900 border border-slate-800">
+            <div className="inline-flex items-center rounded-md p-0.5 bg-slate-200 border border-slate-300">
               <Button
                 size="sm"
                 variant={masterSubTab === 'SETUP_MATRIX' ? 'default' : 'ghost'}
                 onClick={() => setMasterSubTab('SETUP_MATRIX')}
                 className={`text-xs h-7 gap-1 font-bold rounded-r-none ${
-                  masterSubTab === 'SETUP_MATRIX' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                  masterSubTab === 'SETUP_MATRIX'
+                    ? 'bg-[#004C97] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
               >
                 <Wrench className="w-3.5 h-3.5" /> Matriz de Setup DE→PARA ({setupMatrix.length})
               </Button>
-              <span className="text-slate-600 px-1 font-normal">|</span>
+              <span className="text-slate-400 px-1 font-normal">|</span>
               <Button
                 size="sm"
                 variant={masterSubTab === 'ACERTOS' ? 'default' : 'ghost'}
                 onClick={() => setMasterSubTab('ACERTOS')}
                 className={`text-xs h-7 gap-1 font-bold rounded-l-none ${
-                  masterSubTab === 'ACERTOS' ? 'bg-[#004C97] text-white' : 'text-slate-400'
+                  masterSubTab === 'ACERTOS'
+                    ? 'bg-[#004C97] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
               >
                 <Settings2 className="w-3.5 h-3.5" /> Acertos ({activeAdjustmentRulesCount})
@@ -2071,8 +2092,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               onClick={() => setMasterSubTab('IDEAL_GAUGE_SEQUENCE')}
               className={`text-xs h-7 gap-1 font-bold ${
                 masterSubTab === 'IDEAL_GAUGE_SEQUENCE'
-                  ? 'bg-amber-600 text-white'
-                  : 'text-amber-400'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-amber-800 hover:bg-amber-50'
               }`}
             >
               <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal de Bitolas & Tolerâncias
@@ -2333,14 +2354,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Produtividade */}
           {masterSubTab === 'PRODUCTIVITY' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-[#004C97]" />
                     Tabela de Produtividade & Cadência de Materiais
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
+                  <CardDescription className="text-xs text-slate-500">
                     Cadência nominal e planejada por produto, família e dimensão (Unidades: t/h,
                     peça/h, m/h).
                   </CardDescription>
@@ -2348,7 +2369,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 <Button
                   size="sm"
                   onClick={() => setIsProdModalOpen(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Cadastrar Produtividade
                 </Button>
@@ -2356,8 +2377,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                       <tr>
                         <th className="p-2.5">Material</th>
                         <th className="p-2.5">Matéria-Prima</th>
@@ -2369,7 +2390,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Vigência</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {productivity.map((p) => {
                         const vigenciaLabel = p.valid_from
                           ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
@@ -2379,32 +2400,34 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             }`
                           : 'Indeterminada'
                         return (
-                          <tr key={p.id} className="hover:bg-slate-900/60">
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-2.5">
-                              <span className="font-mono font-bold text-white block">
+                              <span className="font-mono font-bold text-slate-900 block">
                                 {p.material_product_code}
                               </span>
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-[11px] text-slate-500">
                                 {p.material_product_name}
                               </span>
                             </td>
-                            <td className="p-2.5 font-mono text-xs text-amber-300">
+                            <td className="p-2.5 font-mono text-xs text-amber-700 font-semibold">
                               {p.raw_material_type || '-'}
                             </td>
-                            <td className="p-2.5 font-mono text-xs text-cyan-300">
+                            <td className="p-2.5 font-mono text-xs text-[#004C97] font-semibold">
                               {p.enfornamento_type || '-'}
                             </td>
-                            <td className="p-2.5 font-bold text-cyan-300">{p.productivity_unit}</td>
-                            <td className="p-2.5 font-mono font-bold text-white">
+                            <td className="p-2.5 font-bold text-[#004C97]">
+                              {p.productivity_unit}
+                            </td>
+                            <td className="p-2.5 font-mono font-bold text-slate-900">
                               {p.nominal_productivity}
                             </td>
-                            <td className="p-2.5 font-mono text-slate-200">
+                            <td className="p-2.5 font-mono text-slate-700">
                               {p.planned_productivity}
                             </td>
-                            <td className="p-2.5 font-mono text-emerald-400 font-bold">
+                            <td className="p-2.5 font-mono text-emerald-600 font-bold">
                               {p.expected_efficiency_pct}%
                             </td>
-                            <td className="p-2.5 text-slate-300 font-mono text-[11px]">
+                            <td className="p-2.5 text-slate-500 font-mono text-[11px]">
                               {vigenciaLabel}
                             </td>
                           </tr>
@@ -2422,15 +2445,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <Card
               id="section-raw-materials"
               data-target-id="raw-materials"
-              className="bg-slate-950 border-slate-800 text-slate-100 transition-all duration-500"
+              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
             >
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-cyan-400" />
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#004C97]" />
                     Prioridades de Matéria-Prima & Bobinas
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
+                  <CardDescription className="text-xs text-slate-500">
                     Materiais preferenciais para a programação (1 = Prioridade Máxima).
                   </CardDescription>
                 </div>
@@ -2438,7 +2461,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   id="target-add-raw-material-btn"
                   size="sm"
                   onClick={() => setIsRawModalOpen(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar Matéria-Prima
                 </Button>
@@ -2446,8 +2469,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                       <tr>
                         <th className="p-2.5">Prioridade</th>
                         <th className="p-2.5">Material</th>
@@ -2457,35 +2480,38 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {rawMaterials.map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-900/60">
+                        <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-2.5">
-                            <Badge className="bg-amber-950 text-amber-300 border-amber-600 font-mono font-bold text-xs">
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-mono font-bold text-xs">
                               #{r.priority_order}
                             </Badge>
                           </td>
                           <td className="p-2.5">
-                            <span className="font-mono font-bold text-white block">
+                            <span className="font-mono font-bold text-slate-900 block">
                               {r.material_code}
                             </span>
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-slate-500">
                               {r.material_description}
                             </span>
                           </td>
-                          <td className="p-2.5 text-slate-300 font-medium">
+                          <td className="p-2.5 text-slate-700 font-medium">
                             {r.material_origin || 'CSN / Gerdau'}
                           </td>
-                          <td className="p-2.5 text-[11px] text-slate-400">
+                          <td className="p-2.5 text-[11px] text-slate-500">
                             {r.condition_rule || 'Uso Padrão'}
                           </td>
                           <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
+                            >
                               {r.source_mode}
                             </Badge>
                           </td>
                           <td className="p-2.5">
-                            <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
                               Ativo
                             </Badge>
                           </td>
@@ -2500,21 +2526,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Produtos Bloqueados */}
           {masterSubTab === 'BLOCKED' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-rose-400" />
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-rose-600" />
                     Produtos Bloqueados na Linha (Restrição Forte de Programação)
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
+                  <CardDescription className="text-xs text-slate-500">
                     Materiais que NÃO podem ser alocados nesta linha sob nenhuma circunstância.
                   </CardDescription>
                 </div>
                 <Button
                   size="sm"
                   onClick={handleOpenAddBlockedProduct}
-                  className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-7 gap-1 font-bold"
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs h-7 gap-1 font-bold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar Bloqueio
                 </Button>
@@ -2522,8 +2548,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                       <tr>
                         <th className="p-2.5">Código</th>
                         <th className="p-2.5">Material</th>
@@ -2536,44 +2562,44 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5 text-right">Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {blockedProducts.map((b) => {
                         const isItemActive = b.active !== false
                         return (
-                          <tr key={b.id} className="hover:bg-slate-900/60 transition-colors">
-                            <td className="p-2.5 font-mono font-bold text-rose-400">
+                          <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-2.5 font-mono font-bold text-rose-700">
                               {b.product_code}
                             </td>
-                            <td className="p-2.5 text-slate-200">
+                            <td className="p-2.5 text-slate-800">
                               {b.product_description || b.product_code}
                             </td>
                             <td className="p-2.5">
-                              <Badge className="bg-rose-950 text-rose-300 border-rose-800 text-[10px]">
+                              <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px]">
                                 {b.block_type}
                               </Badge>
                             </td>
                             <td
-                              className="p-2.5 text-xs text-slate-300 max-w-xs truncate"
+                              className="p-2.5 text-xs text-slate-600 max-w-xs truncate"
                               title={b.block_reason}
                             >
                               {b.block_reason}
                             </td>
-                            <td className="p-2.5 text-slate-400">
+                            <td className="p-2.5 text-slate-500">
                               {b.expand?.responsible_user_id?.name || 'Sistema'}
                             </td>
-                            <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                            <td className="p-2.5 font-mono text-[11px] text-slate-600">
                               {b.valid_from ? b.valid_from.substring(0, 10) : '—'}
                             </td>
-                            <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                            <td className="p-2.5 font-mono text-[11px] text-slate-600">
                               {b.valid_until ? b.valid_until.substring(0, 10) : '—'}
                             </td>
                             <td className="p-2.5 text-center">
                               {isItemActive ? (
-                                <Badge className="bg-emerald-950 text-emerald-400 border-emerald-800 text-[10px]">
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
                                   ATIVO
                                 </Badge>
                               ) : (
-                                <Badge className="bg-slate-800 text-slate-400 border-slate-700 text-[10px]">
+                                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px]">
                                   INATIVO
                                 </Badge>
                               )}
@@ -2584,15 +2610,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleToggleBlockedProductStatus(b)}
-                                  className="h-6 px-1.5 text-[11px] text-slate-300 hover:text-white"
+                                  className="h-6 px-1.5 text-[11px] text-slate-600 hover:text-slate-900"
                                   title={isItemActive ? 'Inativar bloqueio' : 'Ativar bloqueio'}
                                 >
                                   {isItemActive ? (
-                                    <span className="text-amber-400 font-semibold text-[10px]">
+                                    <span className="text-amber-700 font-semibold text-[10px]">
                                       Inativar
                                     </span>
                                   ) : (
-                                    <span className="text-emerald-400 font-semibold text-[10px]">
+                                    <span className="text-emerald-700 font-semibold text-[10px]">
                                       Ativar
                                     </span>
                                   )}
@@ -2601,7 +2627,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleOpenEditBlockedProduct(b)}
-                                  className="h-6 px-2 text-[11px] font-semibold text-cyan-400 hover:bg-slate-800"
+                                  className="h-6 px-2 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50"
                                 >
                                   Editar
                                 </Button>
@@ -2622,15 +2648,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <Card
               id="section-setup-matrix"
               data-target-id="setup-matrix"
-              className="bg-slate-950 border-slate-800 text-slate-100 transition-all duration-500"
+              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
             >
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <Wrench className="w-4 h-4 text-cyan-400" />
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-[#004C97]" />
                     Matriz de Setup DE→PARA & Troca de Ferramental
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
+                  <CardDescription className="text-xs text-slate-500">
                     Tempos de transição padrão entre famílias de produtos e calibração de bitola.
                   </CardDescription>
                 </div>
@@ -2638,7 +2664,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   id="target-add-setup-transition-btn"
                   size="sm"
                   onClick={() => setIsSetupMatrixModalOpen(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs h-7 gap-1 font-bold"
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar Transição de Setup
                 </Button>
@@ -2646,8 +2672,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                       <tr>
                         <th className="p-2.5">Código Setup</th>
                         <th className="p-2.5">Descrição</th>
@@ -2657,27 +2683,33 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Fonte</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {setupMatrix.map((sm) => (
-                        <tr key={sm.id} className="hover:bg-slate-900/60">
-                          <td className="p-2.5 font-mono font-bold text-cyan-300">
+                        <tr key={sm.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-2.5 font-mono font-bold text-[#004C97]">
                             {sm.setup_code}
                           </td>
-                          <td className="p-2.5 text-slate-200">{sm.setup_description}</td>
+                          <td className="p-2.5 text-slate-800">{sm.setup_description}</td>
                           <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
+                            >
                               {sm.setup_category}
                             </Badge>
                           </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                          <td className="p-2.5 font-mono text-[11px] text-slate-600">
                             {sm.expand?.from_family_id?.name || 'Qualquer'} →{' '}
                             {sm.expand?.to_family_id?.name || 'Qualquer'}
                           </td>
-                          <td className="p-2.5 font-mono font-bold text-amber-300">
+                          <td className="p-2.5 font-mono font-bold text-amber-700">
                             {sm.setup_duration_minutes} min
                           </td>
                           <td className="p-2.5">
-                            <Badge variant="outline" className="text-[10px] border-slate-700">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
+                            >
                               {sm.source_mode}
                             </Badge>
                           </td>
@@ -2692,7 +2724,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Acertos */}
           {masterSubTab === 'ACERTOS' && (
-            <div className="rounded-lg bg-slate-950 border border-slate-800 p-3">
+            <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
               <SetupAcertoMatrixPanel
                 lineId={line.id}
                 lineCode={line.code}
@@ -2707,27 +2739,31 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           )}
           {/* Sub-aba: Sequência Ideal de Bitolas */}
           {masterSubTab === 'IDEAL_GAUGE_SEQUENCE' && (
-            <Card className="bg-slate-950 border-slate-800 text-slate-100">
-              <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <Card
+              id="section-ideal-gauge-sequence"
+              data-target-id="sequencing-process"
+              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
+            >
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                    <ArrowDownUp className="w-4 h-4 text-amber-400" />
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <ArrowDownUp className="w-4 h-4 text-amber-600" />
                     Sequência Ideal de Bitolas, Tempo de Ciclo SAP & Cobertura Máxima
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
+                  <CardDescription className="text-xs text-slate-500">
                     Encadeamento metalúrgico ótimo por família/subsequência, ciclo de máquina
                     oficial SAP/MRP e tolerância parametrizada.
                   </CardDescription>
                 </div>
-                <Badge className="bg-amber-950 text-amber-300 border-amber-600 text-xs font-mono">
+                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-mono font-bold">
                   Matriz Metalúrgica CIAFAL
                 </Badge>
               </CardHeader>
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
-                    <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                       <tr>
                         <th className="p-2.5">Ordem Família</th>
                         <th className="p-2.5">Família</th>
@@ -2740,7 +2776,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {[
                         {
                           famOrder: 1,
@@ -2809,28 +2845,30 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                           maxCovDays: 35,
                         },
                       ].map((seq, idx) => (
-                        <tr key={idx} className="hover:bg-slate-900/60">
-                          <td className="p-2.5 font-mono font-bold text-amber-300">
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-2.5 font-mono font-bold text-amber-700">
                             #{seq.famOrder}
                           </td>
-                          <td className="p-2.5 font-bold text-white">{seq.famName}</td>
-                          <td className="p-2.5 font-mono text-cyan-300">Sub. {seq.subSeq}</td>
-                          <td className="p-2.5 font-mono text-slate-200">{seq.gauge}</td>
-                          <td className="p-2.5 font-mono text-white">
+                          <td className="p-2.5 font-bold text-slate-900">{seq.famName}</td>
+                          <td className="p-2.5 font-mono text-[#004C97] font-semibold">
+                            Sub. {seq.subSeq}
+                          </td>
+                          <td className="p-2.5 font-mono text-slate-700">{seq.gauge}</td>
+                          <td className="p-2.5 font-mono text-slate-900">
                             <span className="block font-bold">{seq.matCode}</span>
-                            <span className="text-[10px] text-slate-400 font-sans">
+                            <span className="text-[10px] text-slate-500 font-sans">
                               {seq.matDesc}
                             </span>
                           </td>
-                          <td className="p-2.5 font-mono font-bold text-emerald-400">
+                          <td className="p-2.5 font-mono font-bold text-emerald-600">
                             {seq.cycleMin} min
                           </td>
-                          <td className="p-2.5 font-mono text-slate-300">±{seq.tolPct}%</td>
-                          <td className="p-2.5 font-mono font-bold text-blue-300">
+                          <td className="p-2.5 font-mono text-slate-600">±{seq.tolPct}%</td>
+                          <td className="p-2.5 font-mono font-bold text-[#004C97]">
                             {seq.maxCovDays} dias
                           </td>
                           <td className="p-2.5">
-                            <Badge className="bg-emerald-950 text-emerald-300 border-emerald-600 text-[10px]">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
                               HOMOLOGADA
                             </Badge>
                           </td>
@@ -2971,10 +3009,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
       {/* MODAL: Cadastrar / Editar Produtividade */}
       <Dialog open={isProdModalOpen} onOpenChange={setIsProdModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-lg shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-white text-base flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+            <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-[#004C97]" />
               Cadastrar / Editar Produtividade
             </DialogTitle>
           </DialogHeader>
@@ -2982,20 +3020,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           <div className="space-y-3 py-2 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Código do Produto / Material *</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Código do Produto / Material *
+                </Label>
                 <Input
                   placeholder="Ex: TQ-50x50x2.0"
                   value={prodMaterialCode}
                   onChange={(e) => setProdMaterialCode(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white font-mono uppercase font-bold"
+                  className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus-visible:ring-[#004C97]"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Família de Produtos</Label>
+                <Label className="text-xs text-slate-700 font-medium">Família de Produtos</Label>
                 <select
                   value={prodFamilyId}
                   onChange={(e) => setProdFamilyId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   <option value="">Selecione a família...</option>
                   {productFamilies.map((f) => (
@@ -3008,23 +3048,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Descrição do Material *</Label>
+              <Label className="text-xs text-slate-700 font-medium">Descrição do Material *</Label>
               <Input
                 placeholder="Ex: Tubo Quadrado 50x50x2.00mm SAE 1012"
                 value={prodMaterialName}
                 onChange={(e) => setProdMaterialName(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
               />
             </div>
 
             {/* Campos novos: Tipo de Matéria-Prima & Tipo de Enfornamento */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Matéria-Prima</Label>
+                <Label className="text-xs text-slate-700 font-medium">Tipo de Matéria-Prima</Label>
                 <select
                   value={prodRawMaterialType}
                   onChange={(e) => setProdRawMaterialType(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   {OFFICIAL_MP_TYPES_CATALOG.map((mp) => (
                     <option key={mp.code} value={mp.code}>
@@ -3035,11 +3075,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Enfornamento</Label>
+                <Label className="text-xs text-slate-700 font-medium">Tipo de Enfornamento</Label>
                 <select
                   value={prodEnfornamentoType}
                   onChange={(e) => setProdEnfornamentoType(e.target.value as EnfornamentoType)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   {ENFORNAMENTO_OPTIONS.map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -3052,11 +3092,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Unidade de Medida</Label>
+                <Label className="text-xs text-slate-700 font-medium">Unidade de Medida</Label>
                 <select
                   value={prodUnit}
                   onChange={(e) => setProdUnit(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
                 >
                   <option value="t/h">t/h (Toneladas/h)</option>
                   <option value="peça/h">peça/h</option>
@@ -3064,64 +3104,66 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Prod. Nominal</Label>
+                <Label className="text-xs text-slate-700 font-medium">Prod. Nominal</Label>
                 <Input
                   type="number"
                   step="0.1"
                   value={prodNominal}
                   onChange={(e) => setProdNominal(Number(e.target.value))}
-                  className="bg-slate-900 border-slate-700 text-white font-mono font-bold"
+                  className="bg-white border-slate-300 text-slate-900 font-mono font-bold focus-visible:ring-[#004C97]"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Prod. Planejada</Label>
+                <Label className="text-xs text-slate-700 font-medium">Prod. Planejada</Label>
                 <Input
                   type="number"
                   step="0.1"
                   value={prodPlanned}
                   onChange={(e) => setProdPlanned(Number(e.target.value))}
-                  className="bg-slate-900 border-slate-700 text-white font-mono"
+                  className="bg-white border-slate-300 text-slate-900 font-mono focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
 
             {/* Vigência da Produtividade */}
-            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-200">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Vigência Inicial (De)</Label>
+                <Label className="text-xs text-slate-700 font-medium">Vigência Inicial (De)</Label>
                 <Input
                   type="date"
                   value={prodValidFrom}
                   onChange={(e) => setProdValidFrom(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white text-xs font-mono"
+                  className="bg-white border-slate-300 text-slate-900 text-xs font-mono focus-visible:ring-[#004C97]"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Vigência Final (Até - Opcional)</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Vigência Final (Até - Opcional)
+                </Label>
                 <Input
                   type="date"
                   value={prodValidUntil}
                   onChange={(e) => setProdValidUntil(e.target.value)}
                   placeholder="Vigente sem término"
-                  className="bg-slate-900 border-slate-700 text-white text-xs font-mono"
+                  className="bg-white border-slate-300 text-slate-900 text-xs font-mono focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 border-t border-slate-200 pt-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsProdModalOpen(false)}
-              className="border-slate-700 bg-slate-900 text-slate-300"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
             >
               Cancelar
             </Button>
             <Button
               size="sm"
               onClick={handleSaveProductivity}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs shadow-xs"
             >
               Homologar Produtividade
             </Button>
@@ -3131,10 +3173,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
       {/* MODAL: Cadastrar Prioridade de Matéria-Prima */}
       <Dialog open={isRawModalOpen} onOpenChange={setIsRawModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-lg shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-white text-base flex items-center gap-2">
-              <Layers className="w-4 h-4 text-cyan-400" />
+            <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#004C97]" />
               Cadastrar Prioridade de Matéria-Prima
             </DialogTitle>
           </DialogHeader>
@@ -3142,63 +3184,69 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           <div className="space-y-3 py-2 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Código do Material (Bobina/Aço)</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Código do Material (Bobina/Aço)
+                </Label>
                 <Input
                   placeholder="Ex: BOB_CSN_BQ_1012"
                   value={rawCode}
                   onChange={(e) => setRawCode(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white font-mono uppercase font-bold"
+                  className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus-visible:ring-[#004C97]"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Ordem de Prioridade (1 = Máx)</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Ordem de Prioridade (1 = Máx)
+                </Label>
                 <Input
                   type="number"
                   min="1"
                   value={rawPriority}
                   onChange={(e) => setRawPriority(Number(e.target.value))}
-                  className="bg-slate-900 border-slate-700 text-amber-300 font-mono font-bold"
+                  className="bg-white border-slate-300 text-amber-800 font-mono font-bold focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Descrição do Material</Label>
+              <Label className="text-xs text-slate-700 font-medium">Descrição do Material</Label>
               <Input
                 placeholder="Ex: Bobina Laminada a Quente SAE 1012"
                 value={rawDesc}
                 onChange={(e) => setRawDesc(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Origem / Usina Fornecedora</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Origem / Usina Fornecedora
+                </Label>
                 <Input
                   placeholder="Ex: CSN Volta Redonda"
                   value={rawOrigin}
                   onChange={(e) => setRawOrigin(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Grupo do Material</Label>
+                <Label className="text-xs text-slate-700 font-medium">Grupo do Material</Label>
                 <Input
                   value={rawGroup}
                   onChange={(e) => setRawGroup(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
                 />
               </div>
             </div>
 
-            <div className="p-3 bg-slate-900/80 rounded border border-slate-800 space-y-2">
+            <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-cyan-400">Origem do Cadastro</Label>
+                <Label className="text-xs font-bold text-[#004C97]">Origem do Cadastro</Label>
                 <select
                   value={rawSource}
                   onChange={(e) => setRawSource(e.target.value as any)}
-                  className="bg-slate-950 border border-slate-700 rounded text-xs text-white p-1"
+                  className="bg-white border border-slate-300 rounded text-xs text-slate-900 p-1 focus:ring-1 focus:ring-[#004C97]"
                 >
                   <option value="MANUAL">MANUAL</option>
                   <option value="SAP">SAP</option>
@@ -3207,11 +3255,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               {rawSource === 'SAP' && (
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-slate-300">Integração SAP</Label>
+                  <Label className="text-[11px] text-slate-600">Integração SAP</Label>
                   <select
                     value={rawSapId}
                     onChange={(e) => setRawSapId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-cyan-300 p-2"
+                    className="w-full bg-white border border-slate-300 rounded text-xs text-[#004C97] p-2 focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione a BAPI / Função Z...</option>
                     {sapCatalog.map((s) => (
@@ -3225,19 +3273,19 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 border-t border-slate-200 pt-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsRawModalOpen(false)}
-              className="border-slate-700 bg-slate-900 text-slate-300"
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
             >
               Cancelar
             </Button>
             <Button
               size="sm"
               onClick={handleSaveRawMaterial}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs shadow-xs"
             >
               Salvar Prioridade
             </Button>
@@ -3852,8 +3900,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 element =
                   document.getElementById('section-raw-materials') ||
                   document.getElementById('target-add-raw-material-btn')
-              } else if (target.mainGroup === 'PROCESS') {
+              } else if (
+                target.masterSubTab === 'IDEAL_GAUGE_SEQUENCE' ||
+                anchor === 'sequencing-process' ||
+                target.mainGroup === 'PROCESS'
+              ) {
                 element =
+                  document.getElementById('section-ideal-gauge-sequence') ||
                   document.getElementById('section-sequencing-process') ||
                   document.getElementById('target-sequencing-btn') ||
                   document.getElementById('target-sequencing-empty-card')
