@@ -89,8 +89,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view'
 
-  // Se for rota operacional de visualização e houver sessão ou authStore válida (ou role autorizada), renderiza imediatamente
-  if (isDirectOperationalView && (user || hasValidAuthStore || effectiveRole)) {
+  // Se for rota de visão operacional direta e houver sessão válida (authStore.isValid com token válido),
+  // renderiza imediatamente sem exigir que user ou effectiveRole do AuthContext já tenham resolvido.
+  // Isso resolve a corrida no cold start onde authStore.isValid é true mas user ainda é null.
+  if (
+    isDirectOperationalView &&
+    (pb.authStore.isValid || user || hasValidAuthStore || effectiveRole)
+  ) {
     return <>{children}</>
   }
 

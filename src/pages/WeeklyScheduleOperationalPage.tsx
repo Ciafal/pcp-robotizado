@@ -751,10 +751,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [lines, selectedProgrammingType])
 
   // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, atualiza para a primeira elegível
+  // Trava anti-reentrância: só atualiza se realmente for necessário trocar
   useEffect(() => {
     if (eligibleLines.length > 0) {
       const isCurrentEligible = eligibleLines.some((l) => l.code === selectedLineCode)
-      if (!isCurrentEligible) {
+      if (
+        !isCurrentEligible &&
+        eligibleLines[0]?.code &&
+        eligibleLines[0].code !== selectedLineCode
+      ) {
         setSelectedLineCode(eligibleLines[0].code)
       }
     }
@@ -762,18 +767,30 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
   const calculationResult = useMemo(() => {
-    const result = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+    return WeeklyScheduleEngine.recalculateWeeklyTimeline(
       items,
       currentLineOverview,
       headerFilter,
       rawMaterialContext,
     )
+  }, [items, currentLineOverview, headerFilter, rawMaterialContext])
+
+  // Trava anti-reentrância: sincronização com Oficina de Cilindros executada como efeito colateral
+  // apenas quando houver dados prontos (itens carregados e overview disponível), evitando reexecução em cascata durante useMemo
+  const prevRollShopSyncKeyRef = React.useRef<string>('')
+  useEffect(() => {
+    if (!currentLineOverview || calculationResult.items.length === 0) return
+    const syncKey = `${headerFilter.lineCode}-${headerFilter.year}-${headerFilter.weekNumber}-${calculationResult.items.length}-${calculationResult.items.map((i) => i.id).join(',')}`
+    if (prevRollShopSyncKeyRef.current === syncKey) return
+    prevRollShopSyncKeyRef.current = syncKey
 
     // Sincronização automática em ciclo fechado com a Oficina de Cilindros (Requisitos 13, 14, 19, 21)
-    rollShopSetupService.syncScheduleWithRollShop(result.items, headerFilter, currentLineOverview)
-
-    return result
-  }, [items, currentLineOverview, headerFilter, rawMaterialContext])
+    rollShopSetupService.syncScheduleWithRollShop(
+      calculationResult.items,
+      headerFilter,
+      currentLineOverview,
+    )
+  }, [calculationResult.items, headerFilter, currentLineOverview])
 
   const calculatedItems = calculationResult.items
   const indicators: WeeklyIndicators = calculationResult.indicators

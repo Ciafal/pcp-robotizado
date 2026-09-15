@@ -90,91 +90,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userRef.current = user
   }, [user])
 
+  // Single-flight promise ref para evitar requisições concorrentes idênticas de permissões
+  const inFlightPermissionsRef = React.useRef<Promise<void> | null>(null)
+  // Flag para rastrear se um auto-login está em andamento (para evitar que onChange dispare chamadas redundantes)
+  const isAutoLoggingInRef = React.useRef<boolean>(false)
+
   const loadPermissions = useCallback(
     async (options?: { force?: boolean }) => {
       const force = options?.force ?? false
-      // Se não for forçado e já temos dados (cache, userRef ou authStore), stale-while-revalidate:
-      // NÃO exibe tela de loading bloqueante, resolve em segundo plano
-      const hasInitialState =
-        !force &&
-        (getCachedPermissions() !== null ||
-          userRef.current !== null ||
-          (pb.authStore.isValid && pb.authStore.record !== null))
 
-      if (!hasInitialState) {
-        setIsLoading(true)
+      // Se já houver uma requisição em andamento e não for forçada, reutiliza a promise existente (single-flight)
+      if (!force && inFlightPermissionsRef.current) {
+        return inFlightPermissionsRef.current
       }
 
-      // Timeout defensivo de segurança no AuthContext para resolução de permissões (máximo 5s)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT_RESOLVING_PERMISSIONS')), 5000)
-      })
+      const executeLoad = async () => {
+        // Se não for forçado e já temos dados (cache, userRef ou authStore), stale-while-revalidate:
+        // NÃO exibe tela de loading bloqueante, resolve em segundo plano
+        const hasInitialState =
+          !force &&
+          (getCachedPermissions() !== null ||
+            userRef.current !== null ||
+            (pb.authStore.isValid && pb.authStore.record !== null))
 
-      try {
-        if (!pb.authStore.isValid) {
-          // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
-          try {
-            await Promise.race([
-              pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
-              timeoutPromise,
-            ])
-          } catch (loginErr) {
-            console.warn('Falha no auto-login CIAFAL:', loginErr)
-            // Se falhou e não temos usuário autenticado nem cache, seta erro claro sem crashar
-            if (!userRef.current && (!pb.authStore.isValid || !pb.authStore.record)) {
-              clearPermissionsCache()
-              setUser(null)
-              setIsGlobal(false)
-              setScopes([])
-              setDelegations([])
-              setPermissions([])
-              setPermissionKeys(new Set())
-              setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
-              setIsLoading(false)
-              return
-            }
-          }
+        if (!hasInitialState) {
+          setIsLoading(true)
         }
 
-        const resolvePromise = authService.resolvePermissions({
-          forceRefresh: force,
+        // Timeout defensivo de segurança no AuthContext para resolução de permissões (máximo 5s)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('TIMEOUT_RESOLVING_PERMISSIONS')), 5000)
         })
 
-        const res: AuthPermissionsResponse = await Promise.race([resolvePromise, timeoutPromise])
-
-        setUser(res.user)
-        setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
-        setScopes(res.scopes || [])
-        setDelegations(res.delegations || [])
-        setPermissions(res.permissions || [])
-        setPermissionKeys(new Set(res.permission_keys || []))
-        setAuthError(null)
-      } catch (err: unknown) {
-        console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
-        // Em caso de falha de rede/backend temporária ou timeout com sessão válida, usar fallback resiliente
-        if (pb.authStore.isValid && pb.authStore.record) {
-          const u = pb.authStore.record as unknown as {
-            id: string
-            email: string
-            name?: string
-            role?: PCPUserRole
+        try {
+          if (!pb.authStore.isValid) {
+            // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
+            isAutoLoggingInRef.current = true
+            try {
+              await Promise.race([
+                pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
+                timeoutPromise,
+              ])
+            } catch (loginErr) {
+              console.warn('Falha no auto-login CIAFAL:', loginErr)
+              // Se falhou e não temos usuário autenticado nem cache, seta erro claro sem crashar
+              if (!userRef.current && (!pb.authStore.isValid || !pb.authStore.record)) {
+                clearPermissionsCache()
+                setUser(null)
+                setIsGlobal(false)
+                setScopes([])
+                setDelegations([])
+                setPermissions([])
+                setPermissionKeys(new Set())
+                setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+                setIsLoading(false)
+                return
+              }
+            } finally {
+              isAutoLoggingInRef.current = false
+            }
           }
-          const fallbackRole: PCPUserRole = u.role || 'PCP_ADMIN'
-          setUser({
-            id: u.id,
-            email: u.email,
-            name: u.name || u.email,
-            role: fallbackRole,
+
+          const resolvePromise = authService.resolvePermissions({
+            forceRefresh: force,
           })
-          setIsGlobal(fallbackRole === 'PCP_ADMIN')
-          setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
+
+          const res: AuthPermissionsResponse = await Promise.race([resolvePromise, timeoutPromise])
+
+          setUser(res.user)
+          setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
+          setScopes(res.scopes || [])
+          setDelegations(res.delegations || [])
+          setPermissions(res.permissions || [])
+          setPermissionKeys(new Set(res.permission_keys || []))
           setAuthError(null)
-        } else if (!userRef.current) {
-          setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+        } catch (err: unknown) {
+          console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
+          // Em caso de falha de rede/backend temporária ou timeout com sessão válida, usar fallback resiliente
+          if (pb.authStore.isValid && pb.authStore.record) {
+            const u = pb.authStore.record as unknown as {
+              id: string
+              email: string
+              name?: string
+              role?: PCPUserRole
+            }
+            const fallbackRole: PCPUserRole = u.role || 'PCP_ADMIN'
+            setUser({
+              id: u.id,
+              email: u.email,
+              name: u.name || u.email,
+              role: fallbackRole,
+            })
+            setIsGlobal(fallbackRole === 'PCP_ADMIN')
+            setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
+            setAuthError(null)
+          } else if (!userRef.current) {
+            setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+          }
+        } finally {
+          setIsLoading(false)
+          inFlightPermissionsRef.current = null
         }
-      } finally {
-        setIsLoading(false)
       }
+
+      const promise = executeLoad()
+      inFlightPermissionsRef.current = promise
+      return promise
     },
     [], // Sem dependência de user: callback estável previne desmontagens e loops do useEffect
   )
@@ -183,6 +204,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadPermissions()
 
     const unsubscribe = pb.authStore.onChange(() => {
+      // Ignora chamadas disparadas pelo onChange se um auto-login já estiver executando loadPermissions
+      if (isAutoLoggingInRef.current) {
+        return
+      }
       loadPermissions()
     })
 

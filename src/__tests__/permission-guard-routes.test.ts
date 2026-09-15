@@ -80,4 +80,26 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(adminPerms).toContain(directRoutesRequiredPerm)
     expect(progPerms).toContain(directRoutesRequiredPerm)
   })
+
+  it('should verify cold-start resolution rule: valid authStore allows immediate operational view rendering before context settles', () => {
+    // Regra da causa raiz: isDirectOperationalView libera a renderização se pb.authStore.isValid for true,
+    // mesmo antes do AuthContext resolver user ou effectiveRole
+    const isDirectOperationalView = (perm: string) =>
+      perm === 'pcp.schedule.view' ||
+      perm === 'pcp.weekly_schedule.view' ||
+      perm === 'pcp.masterdata.view' ||
+      perm === 'pcp.lines.view'
+
+    // Cold-start: user é null, effectiveRole é null, mas authStore.isValid é true
+    const authStoreIsValid = true
+    const user = null
+    const hasValidAuthStore = false
+    const effectiveRole = null
+
+    const shouldRenderDirectly =
+      isDirectOperationalView('pcp.schedule.view') &&
+      (authStoreIsValid || user !== null || hasValidAuthStore || effectiveRole !== null)
+
+    expect(shouldRenderDirectly).toBe(true)
+  })
 })

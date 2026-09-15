@@ -245,7 +245,7 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp/montagem-sewanal"
                       element={
-                        <PermissionGuard required="pcp.schedule.view">
+                        <PermissionGuard permission="pcp.schedule.view">
                           <WeeklyScheduleOperationalPage />
                         </PermissionGuard>
                       }
@@ -253,7 +253,7 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp/montagem-semanal"
                       element={
-                        <PermissionGuard required="pcp.schedule.view">
+                        <PermissionGuard permission="pcp.schedule.view">
                           <WeeklyScheduleOperationalPage />
                         </PermissionGuard>
                       }
@@ -261,7 +261,7 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp/programacao-semanal"
                       element={
-                        <PermissionGuard required="pcp.schedule.view">
+                        <PermissionGuard permission="pcp.schedule.view">
                           <WeeklyScheduleOperationalPage />
                         </PermissionGuard>
                       }
