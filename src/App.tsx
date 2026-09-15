@@ -243,6 +243,14 @@ export const App: React.FC = () => {
                   <Route element={<Layout />}>
                     {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases) */}
                     <Route
+                      path="/pcp/montagem-sewanal"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <WeeklyScheduleOperationalPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
                       path="/pcp/montagem-semanal"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
