@@ -34,6 +34,7 @@ import {
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
 import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Sliders, Users } from 'lucide-react'
+import { pb } from '@/lib/pocketbase/client'
 
 export interface EditLineModalProps {
   open: boolean
@@ -58,6 +59,8 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [isActive, setIsActive] = useState<boolean>(true)
+  const [companyId, setCompanyId] = useState<string>('')
+  const [hierarchyLineId, setHierarchyLineId] = useState<string>('')
   const [programmingType, setProgrammingType] = useState<ProgrammingType>('Laminação')
   const [processName, setProcessName] = useState<string>('')
   const [hierarchyDescription, setHierarchyDescription] = useState<string>(
@@ -72,6 +75,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [substituteManagerId, setSubstituteManagerId] = useState<string>('')
   const [pcpApproverId, setPcpApproverId] = useState<string>('')
   const [lineApproverId, setLineApproverId] = useState<string>('')
+
+  // Collections state
+  const [availableCompanies, setAvailableCompanies] = useState<
+    Array<{ id: string; name: string; code?: string; sap_company_code?: string; status: string }>
+  >([])
+  const [availableHierarchyLines, setAvailableHierarchyLines] = useState<
+    Array<{ id: string; code: string; name: string; plant_id?: string; company_id?: string }>
+  >([])
+
   // Control states
   const [loadingContext, setLoadingContext] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -117,10 +129,58 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     setFutureSchedulesCount(null)
     setBlockedByFutureSchedules(false)
 
-    // Load full context (managers, approvers, active master)
+    // Load full context (managers, approvers, active master, companies, hierarchy lines)
     const loadContext = async () => {
       setLoadingContext(true)
       try {
+        // Carregar empresas reais e linhas produtivas reais do PocketBase
+        const [companiesRes, linesRes, plantsRes] = await Promise.all([
+          pb
+            .collection('companies')
+            .getFullList({
+              filter: "status='ACTIVE'",
+              sort: 'name',
+            })
+            .catch((e) => {
+              console.warn('Erro ao carregar companies:', e)
+              return []
+            }),
+          pb
+            .collection('production_lines')
+            .getFullList({
+              sort: 'code',
+            })
+            .catch((e) => {
+              console.warn('Erro ao carregar production_lines:', e)
+              return []
+            }),
+          pb
+            .collection('plants')
+            .getFullList()
+            .catch((e) => {
+              console.warn('Erro ao carregar plants:', e)
+              return []
+            }),
+        ])
+
+        const plantMap = new Map<string, string>()
+        plantsRes.forEach((p: any) => {
+          if (p.id && p.company_id) {
+            plantMap.set(p.id, p.company_id)
+          }
+        })
+
+        const mappedLines = linesRes.map((l: any) => ({
+          id: l.id,
+          code: l.code,
+          name: l.name,
+          plant_id: l.plant_id,
+          company_id: l.plant_id ? plantMap.get(l.plant_id) : undefined,
+        }))
+
+        setAvailableCompanies(companiesRes as any[])
+        setAvailableHierarchyLines(mappedLines)
+
         const overview = await lineMasterService.getLineOverview(line.id)
         if (overview.master) {
           setActiveMasterRecord(overview.master)
@@ -132,6 +192,72 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             setCapacityUnit(overview.master.capacity_unit)
           }
         }
+
+        // Tentar resolver Empresa e Linha Produtiva a partir do registro real
+        let detectedCompanyId = ''
+        let detectedHierarchyLineId = ''
+
+        // 1. Verificar se line.plant_id aponta para um plant
+        if (line.plant_id) {
+          const compId = plantMap.get(line.plant_id)
+          if (compId) {
+            detectedCompanyId = compId
+          }
+        }
+
+        // 2. Verificar dependências de sequenciamento onde este centro seja next_line_id
+        try {
+          const parentDeps = await pb.collection('line_sequencing_dependencies').getFullList({
+            filter: `next_line_id = '${line.id}'`,
+            expand: 'line_id',
+          })
+          if (parentDeps && parentDeps.length > 0) {
+            const parentLine = parentDeps[0].line_id
+            if (parentLine) {
+              detectedHierarchyLineId = parentLine
+              const pLineObj = mappedLines.find((m) => m.id === parentLine)
+              if (pLineObj?.company_id && !detectedCompanyId) {
+                detectedCompanyId = pLineObj.company_id
+              }
+            }
+          }
+        } catch (depErr) {
+          console.warn('Erro ao buscar dependência hierárquica:', depErr)
+        }
+
+        // 3. Fallback inteligente baseado no sapPlantCode ou sap_company_code
+        if (!detectedCompanyId && (line.sap_plant_code || overview.master?.sap_plant_code)) {
+          const codeToFind = (line.sap_plant_code || overview.master?.sap_plant_code || '').trim()
+          const matchedComp = (companiesRes as any[]).find(
+            (c) => c.sap_company_code === codeToFind || c.code === codeToFind,
+          )
+          if (matchedComp) {
+            detectedCompanyId = matchedComp.id
+          }
+        }
+
+        // Se ainda não encontrou empresa mas existe CIAFAL (1000)
+        if (!detectedCompanyId && companiesRes.length > 0) {
+          const ciafal = (companiesRes as any[]).find(
+            (c) => c.sap_company_code === '1000' || c.name?.includes('CIAFAL'),
+          )
+          if (ciafal) {
+            detectedCompanyId = ciafal.id
+          }
+        }
+
+        // Se a própria linha está em availableHierarchyLines e possui company_id
+        const selfInLines = mappedLines.find((l) => l.id === line.id)
+        if (selfInLines && !detectedHierarchyLineId) {
+          detectedHierarchyLineId = selfInLines.id
+          if (selfInLines.company_id && !detectedCompanyId) {
+            detectedCompanyId = selfInLines.company_id
+          }
+        }
+
+        if (detectedCompanyId) setCompanyId(detectedCompanyId)
+        if (detectedHierarchyLineId) setHierarchyLineId(detectedHierarchyLineId)
+
         // Identificar vínculo hierárquico se houver predecessor/sequenciamento
         if (overview.sequencing && overview.sequencing.length > 0) {
           const firstSeq = overview.sequencing[0]

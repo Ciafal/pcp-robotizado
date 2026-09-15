@@ -180,7 +180,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         toast({
           variant: 'destructive',
           title: 'Campo Obrigatório',
-          description: 'O Código Interno da Linha é obrigatório.',
+          description: 'O Código Interno do Centro é obrigatório.',
         })
         return false
       }
@@ -188,7 +188,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         toast({
           variant: 'destructive',
           title: 'Campo Obrigatório',
-          description: 'O Nome da Linha é obrigatório.',
+          description: 'O Nome do Centro de Produção é obrigatório.',
         })
         return false
       }
@@ -197,7 +197,45 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         toast({
           variant: 'destructive',
           title: 'Código já existente',
-          description: `Já existe uma linha cadastrada com este código (${code.trim().toUpperCase()}).`,
+          description: `Já existe um centro cadastrado com este código (${code.trim().toUpperCase()}).`,
+        })
+        return false
+      }
+      if (!companyId) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'A Empresa é obrigatória.',
+        })
+        return false
+      }
+      if (!hierarchyLineId) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'A Linha Produtiva é obrigatória.',
+        })
+        return false
+      }
+      // Validar consistência linha.empresa_id === empresa selecionada
+      const selectedLineObj = availableHierarchyLines.find((l) => l.id === hierarchyLineId)
+      if (
+        selectedLineObj &&
+        selectedLineObj.company_id &&
+        selectedLineObj.company_id !== companyId
+      ) {
+        toast({
+          variant: 'destructive',
+          title: 'Inconsistência de Hierarquia',
+          description: 'A Linha Produtiva selecionada não pertence à Empresa informada.',
+        })
+        return false
+      }
+      if (!programmingType) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: 'O Tipo de Programação é obrigatório.',
         })
         return false
       }
@@ -273,7 +311,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       const validLineStatus: 'running' | 'idle' | 'stopped' | 'maintenance' =
         status === 'running' || status === 'stopped' || status === 'maintenance' ? status : 'idle'
 
-      // 1. Criar a Linha Produtiva no Banco
+      // Localizar objeto da Linha Produtiva e Empresa selecionadas
+      const selectedLineObj = availableHierarchyLines.find((l) => l.id === hierarchyLineId)
+      const selectedCompanyObj = availableCompanies.find((c) => c.id === companyId)
+
+      // 1. Criar o Centro na coleção production_lines (compatibilidade de centro de trabalho)
       const createdLine = await lineMasterService.createLine({
         code: code.trim().toUpperCase(),
         name: name.trim(),
@@ -289,28 +331,38 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         manager_user_id: primaryManagerId || undefined,
         pcp_programmer_user_id: pcpApproverId || undefined,
         programming_type: programmingType as any,
+        plant_id: selectedLineObj?.plant_id || undefined,
       })
 
       if (!createdLine || !createdLine.id) {
-        throw new Error('Falha ao obter confirmação de criação da Linha no backend.')
+        throw new Error('Falha ao obter confirmação de criação do Centro de Produção no backend.')
       }
 
       createdLineId = createdLine.id
 
-      // 2. Criar a Ficha Mestre Versão 1 Inicial no Banco
-      const validResourceType = [
-        'PRODUCTION_LINE',
-        'FURNACE',
-        'FINISHING',
-        'STRAIGHTENER',
-        'REWORK',
-        'AUXILIARY_PROCESS',
-        'STORAGE',
-        'OTHER',
-      ].includes(resourceType)
-        ? resourceType
-        : 'PRODUCTION_LINE'
+      // Vincular centro à Linha Produtiva via line_sequencing_dependencies
+      if (hierarchyLineId) {
+        try {
+          const currentDeps = await pb.collection('line_sequencing_dependencies').getFullList({
+            filter: `line_id = '${hierarchyLineId}'`,
+          })
+          const nextOrder = (currentDeps.length + 1) * 10
+          await pb.collection('line_sequencing_dependencies').create({
+            line_id: hierarchyLineId,
+            next_line_id: createdLine.id,
+            sequence_order: nextOrder,
+            relation_nature: 'MANDATORY',
+            dependency_type: 'TRANSFER_BATCH',
+            standard_lead_time_minutes: Number(leadTimeMinutes) || 30,
+            active: true,
+            notes: `Vínculo com a Linha Produtiva ${selectedLineObj?.code || ''}`,
+          })
+        } catch (depErr) {
+          console.warn('Falha ao criar dependência de hierarquia com a linha produtiva:', depErr)
+        }
+      }
 
+      // 2. Criar a Ficha Mestre Versão 1 Inicial no Banco
       const validCapacityUnit = ['t/h', 't', 'kg', 'peça', 'm', 'mm', 'h', 'min'].includes(
         capacityUnit,
       )
@@ -324,9 +376,9 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         name: createdLine.name,
         description: description.trim() || undefined,
         status: 'DRAFT',
-        resource_type: validResourceType as any,
+        resource_type: 'PRODUCTION_LINE',
         unit: validCapacityUnit === 't/h' ? 't' : validCapacityUnit === 'peça' ? 'peça' : 'm',
-        sap_plant_code: sapPlantCode || '1000',
+        sap_plant_code: sapPlantCode || selectedCompanyObj?.sap_company_code || '1000',
         sector: sector || 'Laminação',
         process_step: processStep || 'Conformação',
         primary_responsible_id: primaryManagerId || undefined,
@@ -345,7 +397,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         max_recommended_utilization_pct: 85,
         ready_for_scheduling: Boolean(primaryManagerId),
         completeness_score: 75,
-        change_reason: 'Cadastro Inicial da Linha via Wizard Estruturado',
+        change_reason: `Cadastro Inicial do Centro via Wizard Estruturado - Empresa: ${selectedCompanyObj?.name || ''} - Linha: ${selectedLineObj?.code || ''}`,
         technical_notes: notes.trim() || undefined,
       })
 
@@ -580,10 +632,10 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         },
       })
 
-      // Toast de Sucesso conforme especificação
+      // Toast de Sucesso somente após confirmação do backend (verbatim do requisito)
       toast({
         title: 'Sucesso',
-        description: 'Linha cadastrada com sucesso.',
+        description: 'Centro de Produção cadastrado com sucesso.',
       })
 
       setCreatedLineRecord(createdLine)
@@ -668,13 +720,14 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
-                Adicionar Nova Linha Produtiva
+                Adicionar Novo Centro de Produção
                 <Badge className="bg-blue-900 text-blue-200 border-blue-400/40 text-[10px]">
                   Etapa {currentStep} de 6
                 </Badge>
               </h2>
               <p className="text-xs text-blue-100/80">
-                Cadastro estruturado de recursos, governança, sequenciamento e parâmetros técnicos.
+                Cadastro estruturado do centro de produção, vínculo com empresa e linha produtiva,
+                parâmetros técnicos e Ficha Mestra.
               </p>
             </div>
           </div>
@@ -764,24 +817,86 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Select Empresa */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Tipo de Recurso</Label>
+                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
+                    Empresa <span className="text-rose-400">*</span>
+                  </Label>
                   <select
-                    value={resourceType}
-                    onChange={(e) => setResourceType(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-md text-xs text-white p-2"
+                    value={companyId}
+                    onChange={(e) => {
+                      const newCompanyId = e.target.value
+                      setCompanyId(newCompanyId)
+                      setHierarchyLineId('') // Limpar Linha ao trocar Empresa
+                      const matched = availableCompanies.find((c) => c.id === newCompanyId)
+                      if (matched) {
+                        setPlant(matched.name)
+                        if (matched.sap_company_code) {
+                          setSapPlantCode(matched.sap_company_code)
+                        }
+                      }
+                    }}
+                    className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-cyan-200 font-bold p-2"
                   >
-                    <option value="PRODUCTION_LINE">
-                      PRODUCTION_LINE (Linha de Produção Contínua)
-                    </option>
-                    <option value="FURNACE">FURNACE (Forno / Tratamento)</option>
-                    <option value="FINISHING">FINISHING (Acabamento)</option>
-                    <option value="STRAIGHTENER">STRAIGHTENER (Endireitadeira)</option>
-                    <option value="REWORK">REWORK (Retrabalho)</option>
-                    <option value="AUXILIARY_PROCESS">AUXILIARY_PROCESS (Processo Auxiliar)</option>
-                    <option value="STORAGE">STORAGE (Armazenamento)</option>
-                    <option value="OTHER">OTHER (Outro)</option>
+                    <option value="">Selecione a empresa...</option>
+                    {availableCompanies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{' '}
+                        {c.sap_company_code
+                          ? `(${c.sap_company_code})`
+                          : c.code
+                            ? `(${c.code})`
+                            : ''}
+                      </option>
+                    ))}
                   </select>
+                </div>
+
+                {/* Select Linha Produtiva (Filtrada por Empresa) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
+                    Linha Produtiva <span className="text-rose-400">*</span>
+                  </Label>
+                  {companyId &&
+                  availableHierarchyLines.filter((l) => l.company_id === companyId).length === 0 ? (
+                    <div className="p-2 bg-amber-950/40 border border-amber-600/40 rounded-md text-[11px] text-amber-200 space-y-1.5">
+                      <p>
+                        Nenhuma Linha Produtiva cadastrada para esta empresa. Cadastre primeiro a
+                        Linha Produtiva em Hierarquia de Linhas.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          onClose()
+                          navigate('/pcp/linhas/capacidades')
+                        }}
+                        className="h-6 text-[10px] bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-2 w-full"
+                      >
+                        Ir para Hierarquia de Linhas
+                      </Button>
+                    </div>
+                  ) : (
+                    <select
+                      value={hierarchyLineId}
+                      onChange={(e) => setHierarchyLineId(e.target.value)}
+                      disabled={!companyId}
+                      className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-white p-2 disabled:opacity-50"
+                    >
+                      <option value="">
+                        {!companyId
+                          ? 'Selecione primeiro a empresa...'
+                          : 'Selecione a Linha Produtiva...'}
+                      </option>
+                      {availableHierarchyLines
+                        .filter((l) => l.company_id === companyId)
+                        .map((hl) => (
+                          <option key={hl.id} value={hl.id}>
+                            {hl.code} - {hl.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -805,15 +920,6 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     <option value="Alto-Forno">Alto-Forno</option>
                     <option value="Aciaria">Aciaria</option>
                   </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Planta / Unidade</Label>
-                  <Input
-                    value={plant}
-                    onChange={(e) => setPlant(e.target.value)}
-                    className="bg-slate-900 border-slate-700 text-white text-xs"
-                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -1357,7 +1463,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   'Cadastrando...'
                 ) : (
                   <>
-                    <Save className="w-4 h-4" /> Concluir & Cadastrar Linha
+                    <Save className="w-4 h-4" /> Concluir & Cadastrar Centro
                   </>
                 )}
               </Button>
@@ -1383,14 +1489,14 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <DialogTitle className="text-center text-lg font-bold text-white">
-              Linha Cadastrada com Sucesso!
+              Centro de Produção Cadastrado com Sucesso!
             </DialogTitle>
             <DialogDescription className="text-center text-slate-400 text-xs mt-1">
-              A linha{' '}
+              O centro de produção{' '}
               <span className="text-cyan-400 font-mono font-bold">
                 {createdLineRecord?.code} - {createdLineRecord?.name}
               </span>{' '}
-              foi persistida com sucesso e sua Ficha Mestre inicial (Versão 1 - Em preenchimento) já
+              foi persistido com sucesso e sua Ficha Mestre inicial (Versão 1 - Em preenchimento) já
               está disponível.
             </DialogDescription>
           </DialogHeader>
@@ -1406,7 +1512,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
               }}
               className="w-full sm:w-auto border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 text-xs gap-1.5"
             >
-              <ArrowLeft className="w-4 h-4" /> Voltar para Linhas
+              <ArrowLeft className="w-4 h-4" /> Voltar para Centros
             </Button>
             <Button
               onClick={() => {
