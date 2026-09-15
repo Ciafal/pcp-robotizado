@@ -17,10 +17,10 @@ export const LineManagementLayout: React.FC = () => {
   return (
     <ErrorBoundary moduleName="Hierarquia das Linhas">
       <div className="space-y-4">
-        {/* Sub-navegação interna rápida da Hierarquia das Linhas — Padrão CIAFAL Claro */}
-        <div className="w-full max-w-full sticky top-16 z-20 mb-4 pb-1">
-          <div className="relative w-full max-w-full bg-white/95 backdrop-blur border border-slate-200/80 rounded-lg shadow-xs px-2 py-1.5 before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-4 before:bg-gradient-to-r before:from-white/95 before:to-transparent before:pointer-events-none before:z-10 after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-4 after:bg-gradient-to-l after:from-white/95 after:to-transparent after:pointer-events-none after:z-10">
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 max-w-full">
+        {/* Sub-navegação interna rápida da Hierarquia das Linhas — Fluxo normal sem sticky/fixed para permitir rolagem vertical única */}
+        <div className="w-full max-w-full mb-4">
+          <div className="w-full max-w-full bg-white border border-slate-200 rounded-lg shadow-xs px-3 py-2">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 max-w-full">
               {subTabs.map((tab) => {
                 const isActive =
                   location.pathname === tab.path || location.pathname.startsWith(tab.path)
@@ -30,13 +30,13 @@ export const LineManagementLayout: React.FC = () => {
                   <Link
                     key={tab.path}
                     to={tab.path}
-                    className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 border ${
+                    className={`shrink-0 px-3.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-2 border ${
                       isActive
                         ? 'bg-[#004C97] text-white border-[#004C97] shadow-xs'
-                        : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-200/60'
+                        : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-slate-200'
                     }`}
                   >
-                    <IconComponent className="w-3.5 h-3.5 shrink-0" />
+                    <IconComponent className="w-4 h-4 shrink-0" />
                     <span>{tab.label}</span>
                   </Link>
                 )

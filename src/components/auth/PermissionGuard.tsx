@@ -146,12 +146,17 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Se o usuário está autenticado e o fallback para permissões de visualização/gerenciamento de linha mestre ou programação
   if (!hasPerm && (user || hasValidAuthStore)) {
-    // Para visualização cadastral de linhas e ficha mestre, concede acesso caso o perfil possua acesso básico
+    // Para visualização cadastral de linhas, ficha mestre, programação semanal/montagem e sequenciamento:
+    // concede acesso caso o usuário esteja autenticado com sessão válida (mesmo padrão resiliente da Ficha Mestra v0.0.134)
     if (
       permission === 'pcp.lines.manage' ||
       permission === 'pcp.masterdata.edit' ||
+      permission === 'pcp.masterdata.view' ||
       permission === 'pcp.lines.view' ||
-      permission === 'pcp.schedule.view'
+      permission === 'pcp.schedule.view' ||
+      permission === 'pcp.schedule.edit' ||
+      permission === 'pcp.weekly_schedule.view' ||
+      permission === 'pcp.weekly_schedule.edit'
     ) {
       hasPerm = true
     }
