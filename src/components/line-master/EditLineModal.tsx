@@ -34,7 +34,7 @@ import {
 } from '@/types/line-master'
 import { UserProfile } from '@/types/pcp-auth'
 import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Sliders, Users } from 'lucide-react'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 
 export interface EditLineModalProps {
   open: boolean

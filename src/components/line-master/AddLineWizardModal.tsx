@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import pb from '@/lib/pocketbase/client'
 import { lineMasterService } from '@/services/line-master'
 import { UserProfile } from '@/types/pcp-auth'
 import { ProductionLine, ProductFamily } from '@/types/line-master'
