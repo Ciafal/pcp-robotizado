@@ -285,8 +285,19 @@ export const ControlTowerProvider: React.FC<{
     }
   })
 
-  // Sincronizar query params com o estado de filtros
+  // Sincronizar query params com o estado de filtros APENAS em rotas da Torre de Controle / Sequenciamento Central
+  // Na raiz ('/') e demais telas operacionais, NUNCA mutar os searchParams nem sobrescrever parâmetros como `?v=...`
   useEffect(() => {
+    const isControlTowerRoute =
+      location.pathname.startsWith('/pcp/sequenciamento/torre-controle') ||
+      location.pathname.startsWith('/pcp-robotizado/torre-controle') ||
+      location.pathname.startsWith('/pcp/sequenciamento/cenarios') ||
+      location.pathname.startsWith('/pcp/sequenciamento/historico')
+
+    if (!isControlTowerRoute) {
+      return
+    }
+
     const currentParams = new URLSearchParams(location.search)
     let hasChanged = false
 
@@ -310,7 +321,7 @@ export const ControlTowerProvider: React.FC<{
     if (hasChanged) {
       setSearchParams(currentParams, { replace: true })
     }
-  }, [filters, location.search, setSearchParams])
+  }, [filters, location.pathname, location.search, setSearchParams])
 
   // Hierarquia
   const [companies] = useState<Company[]>(mockCompanies)

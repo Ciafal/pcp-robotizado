@@ -4,48 +4,40 @@ import { PCPNavbar, PCPSidebar } from './layout/PCPNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { AlertCircle, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
 export const Layout: React.FC = () => {
-  const { isLoading } = useAuth()
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
-        {/* Skeleton Topbar */}
-        <div className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Skeleton className="w-8 h-8 rounded-lg bg-slate-200" />
-            <Skeleton className="w-48 h-5 bg-slate-200" />
-          </div>
-          <Skeleton className="w-64 h-8 rounded-md bg-slate-200" />
-        </div>
-
-        <div className="flex-1 flex">
-          {/* Skeleton Sidebar */}
-          <div className="w-64 border-r border-slate-200 bg-white p-4 space-y-3">
-            <Skeleton className="w-full h-8 rounded bg-slate-200" />
-            <Skeleton className="w-full h-8 rounded bg-slate-200" />
-            <Skeleton className="w-full h-8 rounded bg-slate-200" />
-            <Skeleton className="w-full h-8 rounded bg-slate-200" />
-            <Skeleton className="w-full h-8 rounded bg-slate-200" />
-          </div>
-
-          {/* Skeleton Content */}
-          <div className="flex-1 p-8 space-y-6">
-            <Skeleton className="w-72 h-10 bg-slate-200" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Skeleton className="h-32 rounded-xl bg-slate-200" />
-              <Skeleton className="h-32 rounded-xl bg-slate-200" />
-              <Skeleton className="h-32 rounded-xl bg-slate-200" />
-            </div>
-            <Skeleton className="h-96 rounded-xl bg-slate-200" />
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const { isLoading, authError, refreshPermissions } = useAuth()
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white">
+      {/* Barra de carregamento discreta no topo (não obstrutiva) */}
+      {isLoading && (
+        <div className="w-full bg-blue-100 h-1 overflow-hidden sticky top-0 z-50">
+          <div className="bg-[#004C97] h-full w-1/3 animate-pulse transition-all duration-300" />
+        </div>
+      )}
+
+      {/* Banner amigável de reconexão sem desmontar a navegação */}
+      {authError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-900 sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{authError}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => refreshPermissions()}
+            className="h-7 text-xs border-amber-300 bg-white hover:bg-amber-100 text-amber-900 gap-1.5"
+          >
+            <RefreshCw className="w-3 h-3 text-amber-700" />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       <PCPNavbar />
       <div className="flex-1 flex">
         <PCPSidebar />

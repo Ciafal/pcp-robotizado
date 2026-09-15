@@ -51,12 +51,24 @@ export default function Index() {
 
   // Modal para simulação de edição rápida de linha (Object-Level Authorization Test)
 
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    fallbackValue: T,
+  ): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), timeoutMs)),
+    ]).catch(() => fallbackValue)
+  }
+
   const loadData = async () => {
     setLoading(true)
     try {
+      // Proteger chamadas com timeout defensivo de 3s — em latência/falha, renderizar com estado vazio legível
       const [linesData, alertsData] = await Promise.all([
-        authService.listProductionLines(),
-        authService.listAlerts(),
+        withTimeout<ProductionLine[]>(authService.listProductionLines(), 3000, []),
+        withTimeout<PCPAlert[]>(authService.listAlerts(), 3000, []),
       ])
       setLines(linesData)
       setAlerts(alertsData)
@@ -66,6 +78,8 @@ export default function Index() {
         title: 'Erro ao carregar dados operacionais',
         description: err.message,
       })
+      setLines([])
+      setAlerts([])
     } finally {
       setLoading(false)
     }

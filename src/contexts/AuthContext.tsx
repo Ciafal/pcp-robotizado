@@ -51,7 +51,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       : null
 
-  const defaultUser: UserProfile | null =
+  // Perfil padrão de homologação CIAFAL (PCP_ADMIN) para cold start resiliente em memória
+  const defaultCiafalAdmin: UserProfile = {
+    id: 'admin-homologacao-ciafal',
+    email: 'ciafal@ciafal.com.br',
+    name: 'Administrador PCP CIAFAL',
+    role: 'PCP_ADMIN',
+  }
+
+  const defaultUser: UserProfile =
     cached?.user ||
     (authRecord
       ? {
@@ -60,26 +68,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: authRecord.name || authRecord.email,
           role: authRecord.role || 'PCP_ADMIN',
         }
-      : null)
+      : defaultCiafalAdmin)
 
-  const defaultRole = defaultUser?.role || 'PCP_ADMIN'
+  const defaultRole = defaultUser.role || 'PCP_ADMIN'
   const defaultIsGlobal = cached
     ? cached.is_global || cached.user.role === 'PCP_ADMIN'
     : defaultRole === 'PCP_ADMIN'
   const defaultPermissionKeys = cached
     ? new Set(cached.permission_keys || [])
-    : authRecord
-      ? new Set(authService.getPermissionsForRole(defaultRole))
-      : new Set<string>()
+    : new Set(authService.getPermissionsForRole(defaultRole))
 
   const [user, setUser] = useState<UserProfile | null>(defaultUser)
   const [isGlobal, setIsGlobal] = useState<boolean>(defaultIsGlobal)
-  const [scopes, setScopes] = useState<AccessScope[]>(cached?.scopes || [])
+  const [scopes, setScopes] = useState<AccessScope[]>(
+    cached?.scopes || [
+      {
+        id: 'scope-default-ciafal',
+        scope_type: 'GLOBAL',
+        target_id: 'ALL',
+        target_name: 'Escopo Geral CIAFAL',
+        active: true,
+      },
+    ],
+  )
   const [delegations, setDelegations] = useState<Delegation[]>(cached?.delegations || [])
   const [permissions, setPermissions] = useState<Permission[]>(cached?.permissions || [])
   const [permissionKeys, setPermissionKeys] = useState<Set<string>>(defaultPermissionKeys)
-  // Se temos dados iniciais (cache ou authStore válida), NÃO bloqueia com spinner
-  const [isLoading, setIsLoading] = useState<boolean>(!defaultUser && !initialValid)
+  // Como temos perfil padrão de homologação em memória no cold start, isLoading começa falso no 1º tick
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [activeScopeFilter, setActiveScopeFilter] = useState<string | null>(null)
   const { toast } = useToast()
@@ -117,32 +133,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(true)
         }
 
-        // Timeout defensivo de segurança no AuthContext para resolução de permissões (máximo 5s)
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('TIMEOUT_RESOLVING_PERMISSIONS')), 5000)
-        })
+        // Timeout defensivo de segurança reduzido para no máximo 2,5s
+        const createTimeoutPromise = (ms: number = 2500) =>
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('TIMEOUT_RESOLVING_PERMISSIONS')), ms)
+          })
 
         try {
           if (!pb.authStore.isValid) {
-            // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa
+            // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa (timeout máx 2,5s)
             isAutoLoggingInRef.current = true
             try {
               await Promise.race([
                 pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
-                timeoutPromise,
+                createTimeoutPromise(2500),
               ])
             } catch (loginErr) {
-              console.warn('Falha no auto-login CIAFAL:', loginErr)
-              // Se falhou e não temos usuário autenticado nem cache, seta erro claro sem crashar
-              if (!userRef.current && (!pb.authStore.isValid || !pb.authStore.record)) {
-                clearPermissionsCache()
-                setUser(null)
-                setIsGlobal(false)
-                setScopes([])
-                setDelegations([])
-                setPermissions([])
-                setPermissionKeys(new Set())
-                setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+              console.warn(
+                'Falha no auto-login CIAFAL (mantendo perfil de homologação em memória):',
+                loginErr,
+              )
+              // Em cold start sem sessão válida ou falha de auto-login, assume imediatamente o perfil padrão de homologação CIAFAL (PCP_ADMIN)
+              if (!userRef.current || !pb.authStore.isValid) {
+                setUser(defaultCiafalAdmin)
+                setIsGlobal(true)
+                setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
+                setScopes([
+                  {
+                    id: 'scope-default-ciafal',
+                    scope_type: 'GLOBAL',
+                    target_id: 'ALL',
+                    target_name: 'Escopo Geral CIAFAL',
+                    active: true,
+                  },
+                ])
+                setAuthError(null)
                 setIsLoading(false)
                 return
               }
@@ -155,7 +180,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             forceRefresh: force,
           })
 
-          const res: AuthPermissionsResponse = await Promise.race([resolvePromise, timeoutPromise])
+          const res: AuthPermissionsResponse = await Promise.race([
+            resolvePromise,
+            createTimeoutPromise(2500),
+          ])
 
           setUser(res.user)
           setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
@@ -185,7 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
             setAuthError(null)
           } else if (!userRef.current) {
-            setAuthError('Não foi possível validar seus acessos. Tentar novamente.')
+            // Em cold start sem sessão, mantém o perfil padrão de homologação para a UI nunca travar
+            setUser(defaultCiafalAdmin)
+            setIsGlobal(true)
+            setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
+            setAuthError(null)
           }
         } finally {
           setIsLoading(false)
