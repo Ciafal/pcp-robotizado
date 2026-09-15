@@ -241,7 +241,7 @@ export const App: React.FC = () => {
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
-                    {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases) */}
+                    {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases com correção de typo) */}
                     <Route
                       path="/pcp/montagem-sewanal"
                       element={

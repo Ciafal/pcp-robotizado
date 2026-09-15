@@ -78,7 +78,10 @@ export interface ProductionRoute {
   author_id?: string
   author_name?: string
   change_reason?: string
-  metadata?: Record<string, unknown>
+  metadata?: {
+    name?: string
+    [key: string]: unknown
+  }
   nodes?: ProductionRouteNode[]
   edges?: ProductionRouteEdge[]
   created?: string
