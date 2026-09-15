@@ -334,12 +334,31 @@ export const ControlTowerProvider: React.FC<{
   const [orders, setOrders] = useState<ProductOrder[]>(mockCentralOrders)
 
   // Sincronização em tempo real das programações semanais publicadas/aprovadas da coleção weekly_schedules
+  // Restrita a rotas da Torre de Controle / Sequenciamento e adiada via requestIdleCallback/setTimeout
+  // para NUNCA travar nem abrir stream SSE bloqueante no primeiro tick ou na raiz ('/')
   useEffect(() => {
+    // Não executa sincronização pesada na raiz ('/') ou no Cockpit
+    const isControlTowerOrSequencingRoute =
+      location.pathname.startsWith('/pcp/sequenciamento') ||
+      location.pathname.startsWith('/pcp-robotizado/torre-controle') ||
+      location.pathname.startsWith('/pcp-robotizado/sequenciamento')
+
+    if (!isControlTowerOrSequencingRoute) {
+      return
+    }
+
+    let isSubscribed = true
+    let unsubscribe: (() => void) | undefined
+    let idleHandle: number | undefined
+    let timerHandle: ReturnType<typeof setTimeout> | undefined
+
     const syncWeeklySchedulesToTower = async () => {
+      if (!isSubscribed) return
       try {
         const records = await pb.collection('weekly_schedules').getFullList({
           sort: 'sequence_order',
         })
+        if (!isSubscribed) return
         if (records && records.length > 0) {
           const syncedOrders: ProductOrder[] = records.map((r: any, idx: number) => {
             const planned = Number(r.planned_quantity_tons) || 100
@@ -419,25 +438,56 @@ export const ControlTowerProvider: React.FC<{
       }
     }
 
-    syncWeeklySchedulesToTower()
+    const initSubscription = () => {
+      if (!isSubscribed) return
+      syncWeeklySchedulesToTower()
 
-    let unsubscribe: (() => void) | undefined
-    try {
-      pb.collection('weekly_schedules')
-        .subscribe('*', () => {
-          syncWeeklySchedulesToTower()
-        })
-        .then((unsub) => {
-          unsubscribe = unsub
-        })
-    } catch {
-      /* intentionally ignored */
+      try {
+        pb.collection('weekly_schedules')
+          .subscribe('*', () => {
+            if (isSubscribed) {
+              syncWeeklySchedulesToTower()
+            }
+          })
+          .then((unsub) => {
+            if (!isSubscribed) {
+              unsub()
+            } else {
+              unsubscribe = unsub
+            }
+          })
+          .catch(() => {
+            /* intentionally ignored */
+          })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+
+    // CORREÇÃO 1: Adiar inscrição com requestIdleCallback (fallback setTimeout 1000ms)
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleHandle = (window as any).requestIdleCallback(initSubscription, { timeout: 1500 })
+    } else {
+      timerHandle = setTimeout(initSubscription, 1000)
     }
 
     return () => {
-      if (unsubscribe) unsubscribe()
+      isSubscribed = false
+      if (
+        idleHandle !== undefined &&
+        typeof window !== 'undefined' &&
+        'cancelIdleCallback' in window
+      ) {
+        ;(window as any).cancelIdleCallback(idleHandle)
+      }
+      if (timerHandle !== undefined) {
+        clearTimeout(timerHandle)
+      }
+      if (unsubscribe) {
+        unsubscribe()
+      }
     }
-  }, [])
+  }, [location.pathname])
   const [processNodes, setProcessNodes] = useState<ProductionProcessNode[]>(mockProcessNodes)
   const [bottlenecks, setBottlenecks] = useState<BottleneckItem[]>(mockBottlenecks)
   const [buffers, setBuffers] = useState<BufferStatus[]>(mockBuffers)
