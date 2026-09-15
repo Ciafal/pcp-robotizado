@@ -2016,23 +2016,37 @@ export const WeeklyScheduleEngine = {
       const shift = shifts.find((s) => s.code === item.shift_code) || shifts[0]
       const shiftStartParts = shift?.start_time ? shift.start_time.split(':').map(Number) : [6, 0]
 
-      let itemStart: Date
-
-      if (i === 0 || !previousEndDateTime || sorted[i - 1].day_of_week !== item.day_of_week) {
-        itemStart = new Date(itemBaseDate)
-        itemStart.setHours(shiftStartParts[0], shiftStartParts[1], 0, 0)
+      // Início base: se for o primeiro item de todos, usa o horário base da semana + dia + turno.
+      // Se já houver fim anterior (previousEndDateTime), a linha do tempo é contínua e encadeada:
+      // se o item atual já estiver num dia calendário posterior à previousEndDateTime e não houver continuidade direta,
+      // compara com o início do turno do dia; mas se previousEndDateTime for maior ou contínua, o DateTime contínuo NUNCA reinicia à meia-noite.
+      let chainBaseDate: Date
+      if (i === 0 || !previousEndDateTime) {
+        chainBaseDate = new Date(itemBaseDate)
+        chainBaseDate.setHours(shiftStartParts[0], shiftStartParts[1], 0, 0)
       } else {
-        itemStart = new Date(previousEndDateTime)
+        // Encadeamento contínuo estrito: nunca retrocede nem reseta à meia-noite
+        const shiftBaseDate = new Date(itemBaseDate)
+        shiftBaseDate.setHours(shiftStartParts[0], shiftStartParts[1], 0, 0)
+        // Se a data do turno for posterior ao previousEndDateTime (ex: pulou dias explicitamente), respeita o avanço,
+        // mas se previousEndDateTime já alcançou ou ultrapassou a data base do dia (ex: virada de noite), continua o DateTime
+        chainBaseDate =
+          previousEndDateTime > shiftBaseDate
+            ? new Date(previousEndDateTime)
+            : new Date(shiftBaseDate)
       }
 
       if (item.item_type === 'SCHEDULED_STOP') {
         const stopMinutes = item.stop_duration_minutes || 60
-        const itemEnd = new Date(itemStart.getTime() + stopMinutes * 60 * 1000)
-        item.start_datetime = formatIsoDateTime(itemStart)
-        item.end_datetime = formatIsoDateTime(itemEnd)
+        const stopStart = new Date(chainBaseDate)
+        const stopEnd = new Date(stopStart.getTime() + stopMinutes * 60 * 1000)
+        item.start_datetime = formatIsoDateTime(stopStart)
+        item.end_datetime = formatIsoDateTime(stopEnd)
         item.production_hours = 0
         item.setup_duration_minutes = 0
-        previousEndDateTime = itemEnd
+        // Paradas geram 0 t de produção
+        item.planned_quantity_tons = 0
+        previousEndDateTime = stopEnd
         processedItems.push(item)
         continue
       }
@@ -2044,7 +2058,7 @@ export const WeeklyScheduleEngine = {
         familyCode: item.family_code,
         rawMaterialType: item.raw_material_type,
         enfornamentoType: item.enfornamento_type,
-        targetDate: itemStart,
+        targetDate: chainBaseDate,
         lineOverview,
       })
       const productivity =
@@ -2080,7 +2094,7 @@ export const WeeklyScheduleEngine = {
         lineOverview,
         headerFilter.lineCode,
         {
-          targetDate: itemStart,
+          targetDate: chainBaseDate,
           sampleType: item.sample_type,
           requiresAdjustment: item.sample_type !== undefined && item.sample_type !== '',
         },
@@ -2102,17 +2116,25 @@ export const WeeklyScheduleEngine = {
         })
       }
 
-      // 4. Linha do Tempo Temporal Encadeada
-      // Setup como elemento próprio encadeado:
-      // Fim de A = Início do Setup, Fim do Setup = Início da Produção de B (itemStartProduction),
-      // Fim da Produção de B = Início da Produção + Horas Produtivas
-      // O item guarda o intervalo consolidado da atividade abrangendo o setup precedente encadeado
+      // 4. Linha do Tempo Temporal Encadeada (Cadeia Temporal Obrigatória):
+      // setupStart = fim do produto anterior (chainBaseDate)
+      // setupEnd = setupStart + setupDurationMinutes
+      // productionStart = setupEnd (bloqueio estrito: nenhum produto inicia antes do fim do setup)
+      // productionEnd = productionStart + prodHours
+      // item.start_datetime = productionStart; item.end_datetime = productionEnd; previousEndDateTime = productionEnd
+      // DateTime contínuo atravessa dias sem reiniciar à meia-noite (ex: 16/09 23:00 + 180 min -> setup 16/09 23:00 -> 17/09 02:00; prod >= 17/09 02:00)
       const setupMin = setupResult.setupDurationMinutes || 0
       const prodMinutes = prodHours * 60
-      const totalMinutes = setupMin + prodMinutes
-      const itemEnd = new Date(itemStart.getTime() + totalMinutes * 60 * 1000)
-      item.start_datetime = formatIsoDateTime(itemStart)
-      item.end_datetime = formatIsoDateTime(itemEnd)
+
+      const setupStart = new Date(chainBaseDate)
+      const setupEnd = new Date(setupStart.getTime() + setupMin * 60 * 1000)
+      const productionStart = new Date(setupEnd)
+      const productionEnd = new Date(productionStart.getTime() + prodMinutes * 60 * 1000)
+
+      item.start_datetime = formatIsoDateTime(productionStart)
+      item.end_datetime = formatIsoDateTime(productionEnd)
+      const itemEnd = productionEnd
+      const itemStart = productionStart
 
       // 5. MOTOR DE MP (Necessidade Líquida & Disponibilidade Projetada)
       const gradeKey = (item.steel_grade || 'SAE 1020').trim().toUpperCase()

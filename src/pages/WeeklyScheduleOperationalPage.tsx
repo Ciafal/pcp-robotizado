@@ -833,7 +833,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [monthlyWeeksGrid, selectedMonthDateIso])
 
   // -------------------------------------------------------------
-  // VISÃO DIA — Mesma Coleção/Base, Filtrada por Dia Focalizado
+  // VISÃO DIA — Data de referência ÚNICA e Sincronizada (Requisito 4)
+  // Cabeçalho, calendário, botões [Dia Anterior]/[Dia Seguinte] e grade usam a MESMA data.
   // -------------------------------------------------------------
   const dayOffsetMap: Record<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM', number> =
     useMemo(
@@ -863,6 +864,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       [],
     )
 
+  // Data de referência única da visão DIA (activeDayDate)
+  // Calculada a partir de selectedYear, selectedWeekNumber e selectedDayOfWeek
   const activeDayDate = useMemo(() => {
     const d = new Date(weekRange.startDate)
     d.setDate(weekRange.startDate.getDate() + (dayOffsetMap[selectedDayOfWeek] ?? 0))
@@ -874,11 +877,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     return `${pad(activeDayDate.getDate())}/${pad(activeDayDate.getMonth() + 1)}/${activeDayDate.getFullYear()}`
   }, [activeDayDate])
 
+  const activeDayDateShort = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${pad(activeDayDate.getDate())}/${pad(activeDayDate.getMonth() + 1)}`
+  }, [activeDayDate])
+
   const dailyHeaderTitle = useMemo(() => {
     return `DIA — ${dayLabelMap[selectedDayOfWeek]}, ${activeDayDateStr}`
   }, [dayLabelMap, selectedDayOfWeek, activeDayDateStr])
 
   // Grade do modo DIA = calculatedItems filtrado pelo dia focalizado + filtros ativos + status ativo (excluindo CANCELLED)
+  // Apenas a atividade correspondente ao activeDayDate é exibida
   const dailyCalculatedItems = useMemo(() => {
     return calculatedItems.filter((it) => {
       if (it.status === 'CANCELLED') return false
@@ -921,19 +930,25 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   ])
 
   // Resumo compacto do dia usando estritamente a mesma fonte única (dailyCalculatedItems)
+  // Correção estrita:
+  // Horas produtivas = só períodos de produção (item_type === 'PRODUCTION')
+  // Setup/Troca = soma dos setups (item_type === 'SETUP' ou setup_duration_minutes)
+  // Paradas Programadas = soma das demais paradas (item_type === 'SCHEDULED_STOP')
+  // Tempo ocupado = produtivas + setup + paradas
+  // Horas livres = capacidade disponível − tempo ocupado
+  // Setup/parada NÃO aumentam "Qtd. Programada" (totalTons inclui apenas itens de produção)
   const dailySummary = useMemo(() => {
     // Produtos programados: itens produtivos ativos do dia
     const prods = dailyCalculatedItems.filter((it) => it.item_type === 'PRODUCTION')
-    // Atividades da programação: contagem total de blocos do dia (produção, setups/trocas, paradas)
     const totalActivitiesCount = dailyCalculatedItems.length
 
-    // Qtd. Programada: Σ quantidade dos itens produtivos em toneladas
+    // Qtd. Programada: Σ quantidade estritamente dos itens produtivos em toneladas (setup/parada geram 0 t)
     const totalTons = prods.reduce((acc, it) => acc + (it.planned_quantity_tons || 0), 0)
 
-    // Horas Programadas: Σ duração das atividades produtivas do dia
+    // Horas produtivas: Σ duração estritamente produtiva (exclui setup embutido se houver)
     const totalProdHours = prods.reduce((acc, it) => acc + (it.production_hours || 0), 0)
 
-    // Setup / Troca: Σ duração dos registros classificados como setup/troca do dia
+    // Setup / Troca: soma da duração dos setups (troca + acerto)
     const totalSetupMinutes = dailyCalculatedItems.reduce((acc, it) => {
       const explicitSetup = it.item_type === 'SETUP' ? (it.production_hours || 0) * 60 : 0
       const embeddedSetup = it.setup_duration_minutes || 0
@@ -941,14 +956,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }, 0)
     const setupHours = Number((totalSetupMinutes / 60).toFixed(2))
 
-    // Paradas Programadas: Σ das paradas programadas do dia (itens SCHEDULED_STOP ou Ficha Mestra da linha)
+    // Paradas Programadas: Σ das paradas do dia
     const dayStopsFromItems = dailyCalculatedItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
     const itemStopsMinutes = dayStopsFromItems.reduce(
       (acc, it) => acc + (it.stop_duration_minutes || 0),
       0,
     )
 
-    // Paradas padrão da linha aplicáveis a este dia da semana (standard_scheduled_stops)
     const masterStops = (currentLineOverview?.scheduledStops || []).filter((s) => {
       return WeeklyScheduleEngine.isScheduledStopApplicable(s, {
         dayOfWeek: selectedDayOfWeek,
@@ -958,7 +972,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       (acc, s) => acc + (s.expected_duration_minutes || 0),
       0,
     )
-    // Se o item já foi materializado na grade usa a soma dos itens, senão computa as da Ficha Mestra
     const effectiveStopMinutes = itemStopsMinutes > 0 ? itemStopsMinutes : masterStopsMinutes
     const stopHours = Number((effectiveStopMinutes / 60).toFixed(2))
 
@@ -974,14 +987,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         }, 0)
       : null
 
-    // Horas Livres: capacidade disponível efetiva do dia - Horas Programadas - Setup/Troca - Paradas Programadas
+    // Tempo ocupado = produtivas + setup + paradas
+    const occupiedHours = totalProdHours + setupHours + stopHours
+
+    // Horas Livres: capacidade disponível − tempo ocupado
     let freeHoursText: string
     if (dayConfiguredCapacityHours === null || dayConfiguredCapacityHours <= 0) {
       freeHoursText = 'Capacidade não configurada'
     } else {
-      const free = Number(
-        (dayConfiguredCapacityHours - (totalProdHours + setupHours + stopHours)).toFixed(2),
-      )
+      const free = Number((dayConfiguredCapacityHours - occupiedHours).toFixed(2))
       freeHoursText = `${Math.max(0, free)}h`
     }
 
@@ -993,6 +1007,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       plannedHours: Number(totalProdHours.toFixed(2)),
       setupHours,
       stopHours,
+      occupiedHours: Number(occupiedHours.toFixed(2)),
       freeHoursText,
       totalTons: Number(totalTons.toFixed(1)),
       productsCount: prods.length,
@@ -1009,42 +1024,51 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     currentLineOverview?.scheduledStops,
   ])
 
-  // Navegação de Dia Anterior / Dia Seguinte cruzando a semana
+  // Navegação de Dia Anterior / Dia Seguinte unificada sobre a MESMA data de referência (activeDayDate)
+  // Quando o usuário navega, move activeDayDate em -1 ou +1 dia e recalcula selectedYear, selectedWeekNumber e selectedDayOfWeek
   const daySequence: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = useMemo(
     () => ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'],
     [],
   )
 
-  const handlePrevDay = () => {
-    const currIdx = daySequence.indexOf(selectedDayOfWeek)
-    if (currIdx > 0) {
-      setSelectedDayOfWeek(daySequence[currIdx - 1])
-    } else {
-      // Vira para a semana anterior no Domingo (cruzando ano se S01 -> S52)
-      if (selectedWeekNumber > 1) {
-        setSelectedWeekNumber(selectedWeekNumber - 1)
-      } else {
-        setSelectedYear((prev) => prev - 1)
-        setSelectedWeekNumber(52)
-      }
-      setSelectedDayOfWeek('DOM')
+  const applyNewActiveDate = useCallback((targetDate: Date) => {
+    // Converte a nova data calendário para ano ISO e semana ISO
+    const getIsoWeekInfo = (date: Date) => {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+      const dayNum = d.getUTCDay() || 7
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+      const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+      return { year: d.getUTCFullYear(), week: weekNo }
     }
+    const iso = getIsoWeekInfo(targetDate)
+    const jsDay = targetDate.getDay() // 0 = Dom, 1 = Seg, ...
+    const dayMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
+      'DOM',
+      'SEG',
+      'TER',
+      'QUA',
+      'QUI',
+      'SEX',
+      'SAB',
+    ]
+    const newDayKey = dayMap[jsDay] as 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+
+    setSelectedYear(iso.year)
+    setSelectedWeekNumber(iso.week)
+    setSelectedDayOfWeek(newDayKey)
+  }, [])
+
+  const handlePrevDay = () => {
+    const prevDate = new Date(activeDayDate)
+    prevDate.setDate(prevDate.getDate() - 1)
+    applyNewActiveDate(prevDate)
   }
 
   const handleNextDay = () => {
-    const currIdx = daySequence.indexOf(selectedDayOfWeek)
-    if (currIdx < daySequence.length - 1) {
-      setSelectedDayOfWeek(daySequence[currIdx + 1])
-    } else {
-      // Vira para a semana seguinte na Segunda (cruzando ano se S52/S53 -> S01)
-      if (selectedWeekNumber < 52) {
-        setSelectedWeekNumber(selectedWeekNumber + 1)
-      } else {
-        setSelectedYear((prev) => prev + 1)
-        setSelectedWeekNumber(1)
-      }
-      setSelectedDayOfWeek('SEG')
-    }
+    const nextDate = new Date(activeDayDate)
+    nextDate.setDate(nextDate.getDate() + 1)
+    applyNewActiveDate(nextDate)
   }
 
   // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
@@ -3158,7 +3182,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <div className="h-4 w-px bg-slate-200 hidden sm:block" />
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">
-                  Horas Programadas
+                  Horas Produtivas
                 </span>
                 <span className="font-bold text-[#004C97] font-mono">
                   {dailySummary.plannedHours}h
@@ -3178,6 +3202,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 </span>
                 <span className="font-bold text-slate-700 font-mono">
                   {dailySummary.stopHours}h
+                </span>
+              </div>
+              <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+              <div>
+                <span className="text-[10px] text-slate-500 font-medium block">Tempo Ocupado</span>
+                <span className="font-bold text-slate-800 font-mono">
+                  {dailySummary.occupiedHours}h
                 </span>
               </div>
               <div className="h-4 w-px bg-slate-200 hidden sm:block" />
@@ -3240,6 +3271,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   selectedItemId={selectedScheduleItem?.id}
                   year={selectedYear}
                   weekNumber={selectedWeekNumber}
+                  singleDayKey={selectedDayOfWeek}
+                  targetDateStr={activeDayDateShort}
                   onSelectItem={(item) => setSelectedScheduleItem(item)}
                   onEditItem={handleOpenEditItem}
                   onMoveItem={(from, to, targetOverrides) =>

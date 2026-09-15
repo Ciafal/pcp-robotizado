@@ -28,6 +28,8 @@ interface OperationalTimelineGridProps {
   selectedItemId?: string | null
   year?: number
   weekNumber?: number
+  singleDayKey?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
+  targetDateStr?: string
   onSelectItem?: (item: WeeklyScheduleItem) => void
   onMoveItem?: (
     fromIndex: number,
@@ -122,6 +124,8 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   selectedItemId,
   year = getCurrentPlantIsoWeek().year,
   weekNumber = getCurrentPlantIsoWeek().week,
+  singleDayKey,
+  targetDateStr,
   onSelectItem,
   onEditItem,
   onMoveItem,
@@ -138,11 +142,11 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({
     SEG: true,
     TER: true,
-    QUA: false,
-    QUI: false,
-    SEX: false,
-    SAB: false,
-    DOM: false,
+    QUA: true,
+    QUI: true,
+    SEX: true,
+    SAB: true,
+    DOM: true,
   })
 
   const toggleDay = (dayKey: string) => {
@@ -167,7 +171,9 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     totalSegmentParts: number
   }
 
-  // Agrupa itens por Dia da Semana com suporte a quebra visual por dia por interseção de intervalos (Requisito 3a)
+  // Agrupa itens por Dia da Semana com suporte a quebra visual por dia por interseção de intervalos (Requisito 3)
+  // Exemplo: atividade 15/09 22:00 -> 16/09 03:00 aparece na visão DIA 15/09 como trecho 22:00 -> 24:00 (ou 22:00)
+  // e na 16/09 como 00:00 -> 03:00 (ou 06:00 -> 03:00 na régua).
   const itemsByDay = useMemo(() => {
     const daysList = getDaysListForWeek(year, weekNumber)
     const map: Record<string, DaySegmentItem[]> = {
@@ -199,8 +205,8 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
         | 'SEX'
         | 'SAB'
         | 'DOM'
-      const startIso = item.start_datetime // ex: "2026-08-24 14:20"
-      const endIso = item.end_datetime // ex: "2026-08-25 03:00"
+      const startIso = item.start_datetime // ex: "2026-09-15 22:00"
+      const endIso = item.end_datetime // ex: "2026-09-16 03:00"
 
       if (!startIso || !endIso) {
         const fallbackMeta = daysList.find((d) => d.key === primaryDay) || daysList[0]
@@ -223,7 +229,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
       const startDate = new Date(startIso.replace(' ', 'T'))
       const endDate = new Date(endIso.replace(' ', 'T'))
 
-      // Se a data for inválida ou o item termina no mesmo dia
+      // Se a data for inválida ou o item termina no mesmo dia calendário
       const isCrossDay =
         !isNaN(startDate.getTime()) &&
         !isNaN(endDate.getTime()) &&
@@ -250,7 +256,10 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
         if (map[primaryDay]) map[primaryDay].push(singleSeg)
         else map.SEG.push(singleSeg)
       } else {
-        // Interseção temporal com N dias do calendário semanal
+        // Atividade que atravessa a meia-noite (Requisito 3)
+        // Segmentação visual entre dias:
+        // Dia 1: trecho início -> 24:00 (representado visualmente até o encerramento do dia)
+        // Dia 2: trecho 00:00 -> fim
         const primaryIdx = dayKeys.indexOf(primaryDay)
         const nextDayKey =
           primaryIdx !== -1 && primaryIdx < dayKeys.length - 1
@@ -259,30 +268,30 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
         const day1Meta = daysList.find((d) => d.key === primaryDay) || daysList[0]
         const day2Meta = daysList.find((d) => d.key === nextDayKey) || daysList[1] || daysList[0]
 
-        const sTime1 = startIso.includes(' ') ? startIso.split(' ')[1].slice(0, 5) : '06:00'
-        const eTime2 = endIso.includes(' ') ? endIso.split(' ')[1].slice(0, 5) : '08:00'
+        const sTime1 = startIso.includes(' ') ? startIso.split(' ')[1].slice(0, 5) : '22:00'
+        const eTime2 = endIso.includes(' ') ? endIso.split(' ')[1].slice(0, 5) : '03:00'
 
-        // Segmento do Dia 1 (do início até 22:00)
+        // Segmento do Dia 1 (do início até 24:00 / 22:00 na régua)
         const seg1: DaySegmentItem = {
           item,
           originalIndex: index,
           segmentDayKey: primaryDay,
           segmentDateStr: item.date_str || day1Meta.date,
           segmentStartStr: sTime1,
-          segmentEndStr: '22:00',
+          segmentEndStr: '24:00',
           isMultiDaySegment: true,
           segmentPartIndex: 0,
           totalSegmentParts: 2,
         }
         map[primaryDay].push(seg1)
 
-        // Segmento do Dia 2 (das 06:00 até o horário final)
+        // Segmento do Dia 2 (das 00:00 até o horário final)
         const seg2: DaySegmentItem = {
           item,
           originalIndex: index,
           segmentDayKey: nextDayKey,
           segmentDateStr: day2Meta.date,
-          segmentStartStr: '06:00',
+          segmentStartStr: '00:00',
           segmentEndStr: eTime2,
           isMultiDaySegment: true,
           segmentPartIndex: 1,
@@ -554,594 +563,599 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
 
         {/* CORPO DOS DIAS E SEQUÊNCIAS */}
         <div className="divide-y divide-slate-200">
-          {getDaysListForWeek(year, weekNumber).map((dayObj) => {
-            const dayItems = itemsByDay[dayObj.key] || []
-            const isExpanded = expandedDays[dayObj.key] ?? false
-            const isDayPast = isWeekPast || isDayInPast(year, weekNumber, dayObj.key)
+          {getDaysListForWeek(year, weekNumber)
+            .filter((dayObj) => !singleDayKey || dayObj.key === singleDayKey)
+            .map((dayObj) => {
+              const displayDate = singleDayKey && targetDateStr ? targetDateStr : dayObj.date
+              const dayItems = itemsByDay[dayObj.key] || []
+              const isExpanded = expandedDays[dayObj.key] ?? false
+              const isDayPast = isWeekPast || isDayInPast(year, weekNumber, dayObj.key)
 
-            return (
-              <div key={dayObj.key} className="flex flex-col bg-white">
-                {/* BARRA DO DIA (RECOLHÍVEL E ÁREA DE DROP DE DIA) */}
-                <div
-                  onClick={() => toggleDay(dayObj.key)}
-                  onDragOver={(e) => {
-                    if (isDayPast) return
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                  }}
-                  onDrop={(e) => {
-                    if (isDayPast) return
-                    handleDropOnDayOrShift(e, dayObj.key, dayObj.date)
-                  }}
-                  className={`flex items-center justify-between px-3 py-1.5 cursor-pointer transition-colors select-none ${
-                    isExpanded
-                      ? 'bg-slate-50 font-bold border-b border-slate-200'
-                      : 'bg-white hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="text-slate-400 hover:text-slate-700 p-0.5 rounded"
-                      aria-label="Alternar dia"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                    </button>
-                    <span className="font-black text-xs text-slate-900">{dayObj.label}</span>
-                    <span className="font-mono text-[10px] text-slate-500 font-normal">
-                      {dayObj.date}
-                    </span>
-                    {isDayPast && (
-                      <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 font-medium">
-                        Histórico / Bloqueado
-                      </span>
-                    )}
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      • {dayItems.length} atividade(s)
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={isDayPast}
-                      title={
-                        isDayPast ? TEMPORAL_MESSAGES.ADD_PAST_BLOCKED : 'Adicionar item ao dia'
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!isDayPast && onAddItem) onAddItem(dayObj.key, 'T1_L1')
-                      }}
-                      className={`text-[10px] font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${
-                        isDayPast
-                          ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
-                          : 'text-[#004C97] hover:underline bg-blue-50/60 border-blue-200'
-                      }`}
-                    >
-                      <Plus className="w-3 h-3" /> Adicionar item
-                    </button>
-                  </div>
-                </div>
-
-                {/* CONTEÚDO EXPANDIDO DO DIA */}
-                {isExpanded && (
-                  <div className="divide-y divide-slate-100">
-                    {dayItems.length === 0 ? (
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault()
-                          e.dataTransfer.dropEffect = 'move'
-                        }}
-                        onDrop={(e) => handleDropOnDayOrShift(e, dayObj.key, dayObj.date)}
-                        className="flex py-4 px-4 text-xs text-slate-500 items-center justify-between bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-md m-1.5 hover:bg-blue-50/40 hover:border-blue-300 transition-colors"
+              return (
+                <div key={dayObj.key} className="flex flex-col bg-white">
+                  {/* BARRA DO DIA (RECOLHÍVEL E ÁREA DE DROP DE DIA) */}
+                  <div
+                    onClick={() => toggleDay(dayObj.key)}
+                    onDragOver={(e) => {
+                      if (isDayPast) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                    }}
+                    onDrop={(e) => {
+                      if (isDayPast) return
+                      handleDropOnDayOrShift(e, dayObj.key, dayObj.date)
+                    }}
+                    className={`flex items-center justify-between px-3 py-1.5 cursor-pointer transition-colors select-none ${
+                      isExpanded
+                        ? 'bg-slate-50 font-bold border-b border-slate-200'
+                        : 'bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="text-slate-400 hover:text-slate-700 p-0.5 rounded"
+                        aria-label="Alternar dia"
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            Nenhum produto programado para este dia.
-                          </span>
-                          <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">
-                            Solte um item aqui para transferir para {dayObj.label} ({dayObj.date})
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onAddItem && onAddItem(dayObj.key, 'T1_L1')}
-                          className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200"
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
+                      <span className="font-black text-xs text-slate-900">{dayObj.label}</span>
+                      <span className="font-mono text-[10px] text-slate-500 font-normal">
+                        {displayDate}
+                      </span>
+                      {isDayPast && (
+                        <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 font-medium">
+                          Histórico / Bloqueado
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        • {dayItems.length} atividade(s)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isDayPast}
+                        title={
+                          isDayPast ? TEMPORAL_MESSAGES.ADD_PAST_BLOCKED : 'Adicionar item ao dia'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!isDayPast && onAddItem) onAddItem(dayObj.key, 'T1_L1')
+                        }}
+                        className={`text-[10px] font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${
+                          isDayPast
+                            ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                            : 'text-[#004C97] hover:underline bg-blue-50/60 border-blue-200'
+                        }`}
+                      >
+                        <Plus className="w-3 h-3" /> Adicionar item
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CONTEÚDO EXPANDIDO DO DIA */}
+                  {isExpanded && (
+                    <div className="divide-y divide-slate-100">
+                      {dayItems.length === 0 ? (
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.dataTransfer.dropEffect = 'move'
+                          }}
+                          onDrop={(e) => handleDropOnDayOrShift(e, dayObj.key, dayObj.date)}
+                          className="flex py-4 px-4 text-xs text-slate-500 items-center justify-between bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-md m-1.5 hover:bg-blue-50/40 hover:border-blue-300 transition-colors"
                         >
-                          <Plus className="w-3 h-3" /> Inserir Atividade
-                        </button>
-                      </div>
-                    ) : (
-                      dayItems.map((seg, idx) => {
-                        const {
-                          item,
-                          originalIndex,
-                          segmentStartStr,
-                          segmentEndStr,
-                          isMultiDaySegment,
-                          segmentPartIndex,
-                          totalSegmentParts,
-                        } = seg
-                        const isSelected = selectedItemId === item.id
-                        const isStop = item.item_type === 'SCHEDULED_STOP'
-                        const isAwaiting =
-                          item.status === 'AGUARDANDO_OBSERVACOES' ||
-                          item.awaiting_observations?.is_awaiting
-                        const isCoolingViolated = item.cooling_validation?.hasViolation
-                        // O setup encadeado ocorre no primeiro segmento do item
-                        const hasSetupBefore =
-                          !isStop &&
-                          item.setup_duration_minutes > 0 &&
-                          (!isMultiDaySegment || segmentPartIndex === 0)
-
-                        const startStr = segmentStartStr
-                        const endStr = segmentEndStr
-                        const timelinePos = calculateTimelinePosition(startStr, endStr)
-
-                        return (
-                          <div
-                            key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, originalIndex)}
-                            onDragOver={(e) => handleDragOver(e, originalIndex)}
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              const fromIndex =
-                                draggedIdx !== null
-                                  ? draggedIdx
-                                  : Number(e.dataTransfer.getData('text/plain'))
-                              if (!isNaN(fromIndex) && onMoveItem) {
-                                onMoveItem(fromIndex, originalIndex, {
-                                  day_of_week: item.day_of_week || dayObj.key,
-                                  date_str: item.date_str || dayObj.date,
-                                  shift_code: item.shift_code,
-                                  shift_name: item.shift_name,
-                                  crew_name: item.crew_name,
-                                })
-                              }
-                              setDraggedIdx(null)
-                              setDragOverIdx(null)
-                              setDragValidationMsg(null)
-                            }}
-                            onClick={() => onSelectItem && onSelectItem(item)}
-                            className={`flex min-h-[44px] transition-colors cursor-pointer group ${
-                              dragOverIdx === originalIndex
-                                ? 'bg-blue-50/80 border-t-2 border-blue-500'
-                                : ''
-                            } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              Nenhum produto programado para este dia.
+                            </span>
+                            <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              Solte um item aqui para transferir para {dayObj.label} ({dayObj.date})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onAddItem && onAddItem(dayObj.key, 'T1_L1')}
+                            className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200"
                           >
-                            {/* Coluna Fixa 1: DIA/DATA COMPACTA (Sticky) */}
-                            <div className="w-[80px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center sticky left-0 z-20 bg-white group-hover:bg-slate-50">
-                              <span className="font-black text-slate-900 text-[11px] flex items-center justify-center gap-1">
-                                {dayObj.label}
-                                {isMultiDaySegment && (
-                                  <span
-                                    title={`Item contínuo dividido entre dias (Parte ${segmentPartIndex + 1}/${totalSegmentParts})`}
-                                    className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded font-mono font-bold"
-                                  >
-                                    P{segmentPartIndex + 1}
-                                  </span>
-                                )}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-mono">
-                                {dayObj.date}
-                              </span>
-                            </div>
+                            <Plus className="w-3 h-3" /> Inserir Atividade
+                          </button>
+                        </div>
+                      ) : (
+                        dayItems.map((seg, idx) => {
+                          const {
+                            item,
+                            originalIndex,
+                            segmentStartStr,
+                            segmentEndStr,
+                            isMultiDaySegment,
+                            segmentPartIndex,
+                            totalSegmentParts,
+                          } = seg
+                          const isSelected = selectedItemId === item.id
+                          const isStop = item.item_type === 'SCHEDULED_STOP'
+                          const isAwaiting =
+                            item.status === 'AGUARDANDO_OBSERVACOES' ||
+                            item.awaiting_observations?.is_awaiting
+                          const isCoolingViolated = item.cooling_validation?.hasViolation
+                          // O setup encadeado ocorre no primeiro segmento do item
+                          const hasSetupBefore =
+                            !isStop &&
+                            item.setup_duration_minutes > 0 &&
+                            (!isMultiDaySegment || segmentPartIndex === 0)
 
-                            {/* Coluna Fixa 2: TURNO COMPACTO (T1, T2...) COM TOOLTIP DA TURMA COMPLETA (Sticky) */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="w-[70px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white group-hover:bg-slate-50 cursor-help">
-                                  <span className="font-black text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[11px]">
-                                    {WeeklyScheduleEngine.formatShiftCodeOnly(
-                                      item.shift_name,
-                                      item.shift_code,
-                                    )}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                className="bg-slate-900 text-white text-xs p-2"
-                              >
-                                <p className="font-bold text-amber-300">
-                                  {WeeklyScheduleEngine.getShiftTooltipDetails(
-                                    item.shift_name,
-                                    item.shift_code,
-                                    item.crew_name,
+                          const startStr = segmentStartStr
+                          const endStr = segmentEndStr
+                          const timelinePos = calculateTimelinePosition(startStr, endStr)
+
+                          return (
+                            <div
+                              key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, originalIndex)}
+                              onDragOver={(e) => handleDragOver(e, originalIndex)}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                const fromIndex =
+                                  draggedIdx !== null
+                                    ? draggedIdx
+                                    : Number(e.dataTransfer.getData('text/plain'))
+                                if (!isNaN(fromIndex) && onMoveItem) {
+                                  onMoveItem(fromIndex, originalIndex, {
+                                    day_of_week: item.day_of_week || dayObj.key,
+                                    date_str: item.date_str || dayObj.date,
+                                    shift_code: item.shift_code,
+                                    shift_name: item.shift_name,
+                                    crew_name: item.crew_name,
+                                  })
+                                }
+                                setDraggedIdx(null)
+                                setDragOverIdx(null)
+                                setDragValidationMsg(null)
+                              }}
+                              onClick={() => onSelectItem && onSelectItem(item)}
+                              className={`flex min-h-[44px] transition-colors cursor-pointer group ${
+                                dragOverIdx === originalIndex
+                                  ? 'bg-blue-50/80 border-t-2 border-blue-500'
+                                  : ''
+                              } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
+                            >
+                              {/* Coluna Fixa 1: DIA/DATA COMPACTA (Sticky) */}
+                              <div className="w-[80px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center sticky left-0 z-20 bg-white group-hover:bg-slate-50">
+                                <span className="font-black text-slate-900 text-[11px] flex items-center justify-center gap-1">
+                                  {dayObj.label}
+                                  {isMultiDaySegment && (
+                                    <span
+                                      title={`Item contínuo dividido entre dias (Parte ${segmentPartIndex + 1}/${totalSegmentParts})`}
+                                      className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded font-mono font-bold"
+                                    >
+                                      P{segmentPartIndex + 1}
+                                    </span>
                                   )}
-                                </p>
-                                <p className="text-[10px] text-slate-300 mt-0.5">
-                                  Horário de trabalho e escala vinculados à Ficha Mestra
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-
-                            {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky) */}
-                            <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
-                              <div className="flex items-center gap-0.5">
-                                <div
-                                  className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
-                                  title="Clique e arraste para alterar a sequência"
-                                >
-                                  <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
-                                </div>
-                                <span className="font-black text-slate-900 text-[11px]">
-                                  {item.sequence_order || originalIndex + 1}
                                 </span>
-                                {draggedIdx === originalIndex && dragOverIdx !== null && (
-                                  <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
-                                    {item.sequence_order} →{' '}
-                                    {items[dragOverIdx]?.sequence_order || dragOverIdx + 1}
-                                  </span>
-                                )}
-                                {item.exception_approval_status === 'PENDING_SUPERVISOR' && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="top"
-                                      className="text-xs bg-slate-900 text-amber-200"
-                                    >
-                                      Exceção pendente de aprovação do Supervisor PCP
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {displayDate}
+                                </span>
                               </div>
-                            </div>
 
-                            {/* LINHA DO TEMPO COM BLOCO PROPORCIONAL AO TEMPO */}
-                            <div className="flex-1 overflow-x-auto no-scrollbar relative min-w-[720px] p-1 flex items-center">
-                              {/* Linhas verticais de fundo a cada hora */}
-                              <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
-
-                              {/* BLOCO DE SETUP EXPLÍCITO (TROCA E ACERTO SEPARADOS) */}
-                              {hasSetupBefore && (
-                                <div
-                                  style={{
-                                    left: `${Math.max(0, timelinePos.leftPct - 9.0)}%`,
-                                    width: '8.8%',
-                                  }}
-                                  className="absolute h-7 flex items-center gap-1 z-20"
-                                >
-                                  {/* Bloco Troca (planned_change_minutes) */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                        }}
-                                        className="h-7 flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs"
-                                      >
-                                        <span className="truncate">
-                                          🔧 {item.setup_breakdown?.planned_change_minutes || 0}m
-                                        </span>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="top"
-                                      className="bg-slate-900 text-white text-xs p-2.5 max-w-xs"
-                                    >
-                                      <div className="font-bold text-slate-100 flex items-center gap-1 mb-1">
-                                        🔧 Troca Mecânica / Setup DE→PARA
-                                      </div>
-                                      <p className="text-[11px] text-slate-300">
-                                        Tempo planejado:{' '}
-                                        <strong className="text-white">
-                                          {item.setup_breakdown?.planned_change_minutes || 0} min
-                                        </strong>
-                                      </p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">
-                                        Responsável:{' '}
-                                        {item.setup_breakdown?.responsible_area ===
-                                        'OFICINA_CILINDROS'
-                                          ? 'Oficina de Cilindros'
-                                          : 'Produção'}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-
-                                  {/* Bloco Acerto (planned_tuning_minutes) */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                        }}
-                                        className={`h-7 flex-1 border rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs ${
-                                          item.tuning_unparametrized
-                                            ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
-                                            : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
-                                        }`}
-                                      >
-                                        <span className="truncate">
-                                          {item.tuning_unparametrized
-                                            ? '⚠️ N/P'
-                                            : `⚙ ${item.setup_breakdown?.planned_tuning_minutes || 0}m`}
-                                        </span>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="top"
-                                      className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
-                                    >
-                                      <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1">
-                                        <span
-                                          className={`font-bold flex items-center gap-1 ${
-                                            item.tuning_unparametrized
-                                              ? 'text-amber-400'
-                                              : 'text-blue-300'
-                                          }`}
-                                        >
-                                          ⚙ ACERTO DE BITOLA
-                                        </span>
-                                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
-                                          {item.tuning_unparametrized
-                                            ? 'Alerta'
-                                            : `${item.setup_breakdown?.planned_tuning_minutes || 0} min`}
-                                        </span>
-                                      </div>
-                                      {item.tuning_unparametrized ? (
-                                        <div className="text-amber-300 text-[11px] space-y-1">
-                                          <p className="font-bold flex items-center gap-1">
-                                            ⚠️ Acerto não parametrizado
-                                          </p>
-                                          <p className="text-[10px] text-slate-300">
-                                            Não há regra de acerto vigente para a bitola{' '}
-                                            <strong>{item.material_code}</strong>
-                                            {item.sample_type ? ` (${item.sample_type})` : ''} na
-                                            Ficha Mestre Expandida.
-                                          </p>
-                                        </div>
-                                      ) : (
-                                        <div className="text-[11px] text-slate-300">
-                                          <p>
-                                            Tempo de Acerto:{' '}
-                                            <strong className="text-white">
-                                              {item.setup_breakdown?.planned_tuning_minutes || 0}{' '}
-                                              min
-                                            </strong>
-                                          </p>
-                                          {item.sample_type && (
-                                            <p className="text-[10px] text-slate-400 mt-0.5">
-                                              Tipo de Amostra:{' '}
-                                              <span className="text-slate-200">
-                                                {item.sample_type}
-                                              </span>
-                                            </p>
-                                          )}
-                                        </div>
-                                      )}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              )}
-
-                              {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
+                              {/* Coluna Fixa 2: TURNO COMPACTO (T1, T2...) COM TOOLTIP DA TURMA COMPLETA (Sticky) */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div
-                                    style={{
-                                      left: `${timelinePos.leftPct}%`,
-                                      width: `${timelinePos.widthPct}%`,
-                                    }}
-                                    className={`absolute h-8 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
-                                      item,
-                                      isSelected,
-                                    )} shadow-2xs hover:shadow-xs`}
-                                  >
-                                    {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
-                                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
-                                      {isCoolingViolated && (
-                                        <span
-                                          className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
-                                          title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
-                                        >
-                                          ⚠ NÃO ATENDIDO
-                                        </span>
+                                  <div className="w-[70px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white group-hover:bg-slate-50 cursor-help">
+                                    <span className="font-black text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[11px]">
+                                      {WeeklyScheduleEngine.formatShiftCodeOnly(
+                                        item.shift_name,
+                                        item.shift_code,
                                       )}
-
-                                      {!isCoolingViolated && !isStop && (
-                                        <span
-                                          className="text-[9px] text-sky-700 shrink-0 font-bold"
-                                          title="Resfriamento atendido"
-                                        >
-                                          ❄
-                                        </span>
-                                      )}
-
-                                      <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
-                                        {item.material_code}
-                                      </span>
-
-                                      {item.tuning_unparametrized && (
-                                        <span
-                                          className="text-[9px] text-amber-900 bg-amber-200 border border-amber-300 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 whitespace-nowrap"
-                                          title="Acerto não parametrizado na Ficha Mestre"
-                                        >
-                                          ⚠ Acerto N/P
-                                        </span>
-                                      )}
-
-                                      {item.dimensions && (
-                                        <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
-                                          {item.dimensions}
-                                        </span>
-                                      )}
-
-                                      {isMultiDaySegment && (
-                                        <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-mono font-bold shrink-0">
-                                          Parte {segmentPartIndex + 1}/{totalSegmentParts}
-                                        </span>
-                                      )}
-
-                                      {!isStop && (
-                                        <>
-                                          <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="font-mono text-[11px] font-black text-slate-900 shrink-0 whitespace-nowrap">
-                                            {item.planned_quantity_tons} t
-                                          </span>
-                                          <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap hidden sm:inline-block">
-                                            {isAwaiting
-                                              ? 'AGUARDANDO OBS'
-                                              : item.exception_approval_status ===
-                                                  'PENDING_SUPERVISOR'
-                                                ? 'PENDENTE PCP'
-                                                : item.order_type === 'MTO'
-                                                  ? `MTO · ${item.sales_order_mto || 'Ped'}`
-                                                  : 'MTS'}
-                                          </span>
-                                        </>
-                                      )}
-
-                                      {isStop && (
-                                        <>
-                                          <span className="text-slate-400 shrink-0">•</span>
-                                          <span className="text-[10px] font-bold text-amber-900 shrink-0 whitespace-nowrap">
-                                            Parada ({item.stop_duration_minutes || 60} min)
-                                          </span>
-                                        </>
-                                      )}
-                                    </div>
-
-                                    {/* Horário sempre legível e botões de edição e exclusão */}
-                                    <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
-                                      <span className="shrink-0">
-                                        {startStr} &rarr; {endStr}
-                                      </span>
-                                      {onEditItem && !isItemInPast(item) && !isWeekPast && (
-                                        <button
-                                          type="button"
-                                          title="Editar item da programação"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            onEditItem(item)
-                                          }}
-                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
-                                        >
-                                          ✏️
-                                        </button>
-                                      )}
-                                      {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
-                                        <button
-                                          type="button"
-                                          title="Eliminar"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            onRemoveItem(item)
-                                          }}
-                                          className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
-                                        </button>
-                                      )}
-                                      {(isItemInPast(item) || isWeekPast) && (
-                                        <span
-                                          title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
-                                          className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
-                                        >
-                                          🔒 Bloqueado
-                                        </span>
-                                      )}
-                                    </div>
+                                    </span>
                                   </div>
                                 </TooltipTrigger>
                                 <TooltipContent
                                   side="top"
-                                  className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
+                                  className="bg-slate-900 text-white text-xs p-2"
                                 >
-                                  <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
-                                    <span className="font-black text-amber-400 text-sm">
-                                      {item.material_code} —{' '}
-                                      {item.material_description || 'Produto Laminado'}
-                                    </span>
-                                    <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
-                                      Seq. #{item.sequence_order || originalIndex + 1}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                                    <div>
-                                      <span className="text-slate-400">Família:</span>{' '}
-                                      <strong className="text-slate-200">
-                                        {item.family_code || 'Não informada'}
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Dimensões:</span>{' '}
-                                      <strong className="text-slate-200">
-                                        {item.dimensions || 'Padrão'}
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Quantidade:</span>{' '}
-                                      <strong className="text-emerald-400 font-mono">
-                                        {item.planned_quantity_tons} t
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Cadência:</span>{' '}
-                                      <strong className="text-blue-300 font-mono">
-                                        {item.productivity_rate_th || 12} t/h
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Horário:</span>{' '}
-                                      <strong className="text-amber-300 font-mono">
-                                        {startStr} &rarr; {endStr}
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Duração:</span>{' '}
-                                      <strong className="text-slate-200">
-                                        {item.production_hours || 0} h
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Regime:</span>{' '}
-                                      <strong className="text-slate-200">
-                                        {item.order_type === 'MTO'
-                                          ? `MTO (${item.sales_order_mto || 'Ped'})`
-                                          : 'MTS (Estoque)'}
-                                      </strong>
-                                    </div>
-                                    <div>
-                                      <span className="text-slate-400">Status:</span>{' '}
-                                      <strong className="text-slate-200">{item.status}</strong>
-                                    </div>
-                                    {item.setup_duration_minutes > 0 && (
-                                      <div className="col-span-2 text-slate-300 border-t border-slate-800 pt-1 mt-1">
-                                        🔧 <span className="text-slate-400">Setup Prévio:</span>{' '}
-                                        <strong>{item.setup_duration_minutes} min</strong> (
-                                        {item.setup_breakdown?.responsible_area || 'Produção'})
-                                      </div>
+                                  <p className="font-bold text-amber-300">
+                                    {WeeklyScheduleEngine.getShiftTooltipDetails(
+                                      item.shift_name,
+                                      item.shift_code,
+                                      item.crew_name,
                                     )}
-                                    {item.pcp_notes && (
-                                      <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
-                                        📝 <span className="text-slate-400">Obs:</span>{' '}
-                                        {item.pcp_notes}
-                                      </div>
-                                    )}
-                                  </div>
+                                  </p>
+                                  <p className="text-[10px] text-slate-300 mt-0.5">
+                                    Horário de trabalho e escala vinculados à Ficha Mestra
+                                  </p>
                                 </TooltipContent>
                               </Tooltip>
+
+                              {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky) */}
+                              <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
+                                <div className="flex items-center gap-0.5">
+                                  <div
+                                    className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
+                                    title="Clique e arraste para alterar a sequência"
+                                  >
+                                    <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+                                  </div>
+                                  <span className="font-black text-slate-900 text-[11px]">
+                                    {item.sequence_order || originalIndex + 1}
+                                  </span>
+                                  {draggedIdx === originalIndex && dragOverIdx !== null && (
+                                    <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
+                                      {item.sequence_order} →{' '}
+                                      {items[dragOverIdx]?.sequence_order || dragOverIdx + 1}
+                                    </span>
+                                  )}
+                                  {item.exception_approval_status === 'PENDING_SUPERVISOR' && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="text-xs bg-slate-900 text-amber-200"
+                                      >
+                                        Exceção pendente de aprovação do Supervisor PCP
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* LINHA DO TEMPO COM BLOCO PROPORCIONAL AO TEMPO */}
+                              <div className="flex-1 overflow-x-auto no-scrollbar relative min-w-[720px] p-1 flex items-center">
+                                {/* Linhas verticais de fundo a cada hora */}
+                                <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
+
+                                {/* BLOCO DE SETUP EXPLÍCITO (TROCA E ACERTO SEPARADOS) */}
+                                {hasSetupBefore && (
+                                  <div
+                                    style={{
+                                      left: `${Math.max(0, timelinePos.leftPct - 9.0)}%`,
+                                      width: '8.8%',
+                                    }}
+                                    className="absolute h-7 flex items-center gap-1 z-20"
+                                  >
+                                    {/* Bloco Troca (planned_change_minutes) */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                          }}
+                                          className="h-7 flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs"
+                                        >
+                                          <span className="truncate">
+                                            🔧 {item.setup_breakdown?.planned_change_minutes || 0}m
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="bg-slate-900 text-white text-xs p-2.5 max-w-xs"
+                                      >
+                                        <div className="font-bold text-slate-100 flex items-center gap-1 mb-1">
+                                          🔧 Troca Mecânica / Setup DE→PARA
+                                        </div>
+                                        <p className="text-[11px] text-slate-300">
+                                          Tempo planejado:{' '}
+                                          <strong className="text-white">
+                                            {item.setup_breakdown?.planned_change_minutes || 0} min
+                                          </strong>
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                          Responsável:{' '}
+                                          {item.setup_breakdown?.responsible_area ===
+                                          'OFICINA_CILINDROS'
+                                            ? 'Oficina de Cilindros'
+                                            : 'Produção'}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+
+                                    {/* Bloco Acerto (planned_tuning_minutes) */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                          }}
+                                          className={`h-7 flex-1 border rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs ${
+                                            item.tuning_unparametrized
+                                              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
+                                              : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
+                                          }`}
+                                        >
+                                          <span className="truncate">
+                                            {item.tuning_unparametrized
+                                              ? '⚠️ N/P'
+                                              : `⚙ ${item.setup_breakdown?.planned_tuning_minutes || 0}m`}
+                                          </span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
+                                      >
+                                        <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1">
+                                          <span
+                                            className={`font-bold flex items-center gap-1 ${
+                                              item.tuning_unparametrized
+                                                ? 'text-amber-400'
+                                                : 'text-blue-300'
+                                            }`}
+                                          >
+                                            ⚙ ACERTO DE BITOLA
+                                          </span>
+                                          <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                                            {item.tuning_unparametrized
+                                              ? 'Alerta'
+                                              : `${item.setup_breakdown?.planned_tuning_minutes || 0} min`}
+                                          </span>
+                                        </div>
+                                        {item.tuning_unparametrized ? (
+                                          <div className="text-amber-300 text-[11px] space-y-1">
+                                            <p className="font-bold flex items-center gap-1">
+                                              ⚠️ Acerto não parametrizado
+                                            </p>
+                                            <p className="text-[10px] text-slate-300">
+                                              Não há regra de acerto vigente para a bitola{' '}
+                                              <strong>{item.material_code}</strong>
+                                              {item.sample_type
+                                                ? ` (${item.sample_type})`
+                                                : ''} na
+                                              Ficha Mestre Expandida.
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <div className="text-[11px] text-slate-300">
+                                            <p>
+                                              Tempo de Acerto:{' '}
+                                              <strong className="text-white">
+                                                {item.setup_breakdown?.planned_tuning_minutes || 0}{' '}
+                                                min
+                                              </strong>
+                                            </p>
+                                            {item.sample_type && (
+                                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                                Tipo de Amostra:{' '}
+                                                <span className="text-slate-200">
+                                                  {item.sample_type}
+                                                </span>
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                )}
+
+                                {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      style={{
+                                        left: `${timelinePos.leftPct}%`,
+                                        width: `${timelinePos.widthPct}%`,
+                                      }}
+                                      className={`absolute h-8 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
+                                        item,
+                                        isSelected,
+                                      )} shadow-2xs hover:shadow-xs`}
+                                    >
+                                      {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
+                                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
+                                        {isCoolingViolated && (
+                                          <span
+                                            className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
+                                            title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
+                                          >
+                                            ⚠ NÃO ATENDIDO
+                                          </span>
+                                        )}
+
+                                        {!isCoolingViolated && !isStop && (
+                                          <span
+                                            className="text-[9px] text-sky-700 shrink-0 font-bold"
+                                            title="Resfriamento atendido"
+                                          >
+                                            ❄
+                                          </span>
+                                        )}
+
+                                        <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
+                                          {item.material_code}
+                                        </span>
+
+                                        {item.tuning_unparametrized && (
+                                          <span
+                                            className="text-[9px] text-amber-900 bg-amber-200 border border-amber-300 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 whitespace-nowrap"
+                                            title="Acerto não parametrizado na Ficha Mestre"
+                                          >
+                                            ⚠ Acerto N/P
+                                          </span>
+                                        )}
+
+                                        {item.dimensions && (
+                                          <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
+                                            {item.dimensions}
+                                          </span>
+                                        )}
+
+                                        {isMultiDaySegment && (
+                                          <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-mono font-bold shrink-0">
+                                            Parte {segmentPartIndex + 1}/{totalSegmentParts}
+                                          </span>
+                                        )}
+
+                                        {!isStop && (
+                                          <>
+                                            <span className="text-slate-400 shrink-0">•</span>
+                                            <span className="font-mono text-[11px] font-black text-slate-900 shrink-0 whitespace-nowrap">
+                                              {item.planned_quantity_tons} t
+                                            </span>
+                                            <span className="text-slate-400 shrink-0">•</span>
+                                            <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap hidden sm:inline-block">
+                                              {isAwaiting
+                                                ? 'AGUARDANDO OBS'
+                                                : item.exception_approval_status ===
+                                                    'PENDING_SUPERVISOR'
+                                                  ? 'PENDENTE PCP'
+                                                  : item.order_type === 'MTO'
+                                                    ? `MTO · ${item.sales_order_mto || 'Ped'}`
+                                                    : 'MTS'}
+                                            </span>
+                                          </>
+                                        )}
+
+                                        {isStop && (
+                                          <>
+                                            <span className="text-slate-400 shrink-0">•</span>
+                                            <span className="text-[10px] font-bold text-amber-900 shrink-0 whitespace-nowrap">
+                                              Parada ({item.stop_duration_minutes || 60} min)
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {/* Horário sempre legível e botões de edição e exclusão */}
+                                      <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
+                                        <span className="shrink-0">
+                                          {startStr} &rarr; {endStr}
+                                        </span>
+                                        {onEditItem && !isItemInPast(item) && !isWeekPast && (
+                                          <button
+                                            type="button"
+                                            title="Editar item da programação"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              onEditItem(item)
+                                            }}
+                                            className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                          >
+                                            ✏️
+                                          </button>
+                                        )}
+                                        {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
+                                          <button
+                                            type="button"
+                                            title="Eliminar"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              onRemoveItem(item)
+                                            }}
+                                            className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
+                                          </button>
+                                        )}
+                                        {(isItemInPast(item) || isWeekPast) && (
+                                          <span
+                                            title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                            className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                                          >
+                                            🔒 Bloqueado
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
+                                  >
+                                    <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
+                                      <span className="font-black text-amber-400 text-sm">
+                                        {item.material_code} —{' '}
+                                        {item.material_description || 'Produto Laminado'}
+                                      </span>
+                                      <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                        Seq. #{item.sequence_order || originalIndex + 1}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                      <div>
+                                        <span className="text-slate-400">Família:</span>{' '}
+                                        <strong className="text-slate-200">
+                                          {item.family_code || 'Não informada'}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Dimensões:</span>{' '}
+                                        <strong className="text-slate-200">
+                                          {item.dimensions || 'Padrão'}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Quantidade:</span>{' '}
+                                        <strong className="text-emerald-400 font-mono">
+                                          {item.planned_quantity_tons} t
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Cadência:</span>{' '}
+                                        <strong className="text-blue-300 font-mono">
+                                          {item.productivity_rate_th || 12} t/h
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Horário:</span>{' '}
+                                        <strong className="text-amber-300 font-mono">
+                                          {startStr} &rarr; {endStr}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Duração:</span>{' '}
+                                        <strong className="text-slate-200">
+                                          {item.production_hours || 0} h
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Regime:</span>{' '}
+                                        <strong className="text-slate-200">
+                                          {item.order_type === 'MTO'
+                                            ? `MTO (${item.sales_order_mto || 'Ped'})`
+                                            : 'MTS (Estoque)'}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400">Status:</span>{' '}
+                                        <strong className="text-slate-200">{item.status}</strong>
+                                      </div>
+                                      {item.setup_duration_minutes > 0 && (
+                                        <div className="col-span-2 text-slate-300 border-t border-slate-800 pt-1 mt-1">
+                                          🔧 <span className="text-slate-400">Setup Prévio:</span>{' '}
+                                          <strong>{item.setup_duration_minutes} min</strong> (
+                                          {item.setup_breakdown?.responsible_area || 'Produção'})
+                                        </div>
+                                      )}
+                                      {item.pcp_notes && (
+                                        <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
+                                          📝 <span className="text-slate-400">Obs:</span>{' '}
+                                          {item.pcp_notes}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                          )
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
         </div>
 
         {/* FAIXA DE LEGENDA DISCRETA ABAIXO DA GRADE */}

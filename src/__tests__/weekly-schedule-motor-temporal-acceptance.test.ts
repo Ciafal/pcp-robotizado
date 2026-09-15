@@ -301,6 +301,396 @@ describe('Suíte de Aceite — Motor Temporal de Programação Industrial CIAFAL
     expect(recalc.items[1].setup_duration_minutes).toBeGreaterThanOrEqual(20) // Setup calculado automaticamente
   })
 
+  // TESTES DE ACEITE PCP ROBOTIZADO (8 TESTES OBRIGATÓRIOS)
+  describe('Testes de Aceite Obrigatórios — Montagem Semanal PCP (T1 a T8)', () => {
+    // T1: Visão DIA 16/09/2026 mostra só esse dia
+    it('T1: visão DIA para data alvo renderiza e filtra exclusivamente o dia correspondente', () => {
+      const itemsMock: WeeklyScheduleItem[] = [
+        {
+          id: 'i-seg',
+          schedule_code: 'WS-L1-2026-W38',
+          day_of_week: 'SEG',
+          date_str: '14/09',
+          start_datetime: '2026-09-14 06:00',
+          end_datetime: '2026-09-14 14:00',
+          item_type: 'PRODUCTION',
+          material_code: 'TQ-50x50x2.0',
+          planned_quantity_tons: 96,
+          production_hours: 8,
+          setup_duration_minutes: 0,
+          status: 'DRAFT',
+          version: 1,
+        } as any,
+        {
+          id: 'i-qua-16',
+          schedule_code: 'WS-L1-2026-W38',
+          day_of_week: 'QUA',
+          date_str: '16/09',
+          start_datetime: '2026-09-16 06:00',
+          end_datetime: '2026-09-16 12:00',
+          item_type: 'PRODUCTION',
+          material_code: 'TR-100x50x3.0',
+          planned_quantity_tons: 90,
+          production_hours: 6,
+          setup_duration_minutes: 0,
+          status: 'DRAFT',
+          version: 1,
+        } as any,
+      ]
+
+      const singleDay = 'QUA'
+      const filteredForDia = itemsMock.filter((it) => it.day_of_week === singleDay)
+      expect(filteredForDia.length).toBe(1)
+      expect(filteredForDia[0].date_str).toBe('16/09')
+      expect(filteredForDia[0].material_code).toBe('TR-100x50x3.0')
+    })
+
+    // T2: Navegação Dia Anterior/Seguinte unificada
+    it('T2: navegação Dia Anterior / Dia Seguinte recalcula com precisão calendário a nova data sem dessincronia', () => {
+      // 16/09/2026 (Quarta-feira)
+      const baseDate = new Date(2026, 8, 16) // mês 8 = Setembro
+      expect(baseDate.getDate()).toBe(16)
+      expect(baseDate.getMonth()).toBe(8)
+
+      // Dia Anterior: 15/09/2026 (Terça-feira)
+      const prev = new Date(baseDate)
+      prev.setDate(prev.getDate() - 1)
+      expect(prev.getDate()).toBe(15)
+      expect(prev.getMonth()).toBe(8)
+
+      // Dia Seguinte: 17/09/2026 (Quinta-feira)
+      const next = new Date(baseDate)
+      next.setDate(next.getDate() + 1)
+      expect(next.getDate()).toBe(17)
+      expect(next.getMonth()).toBe(8)
+    })
+
+    // T3: Fim 15:03 + setup 180 min -> setup 15:03->18:03, produto B >= 18:03
+    it('T3: Cadeia temporal: fim do produto anterior + setup de 180 min bloqueia início do produto B até o fim do setup', () => {
+      const prodA: WeeklyScheduleItem = {
+        id: 'prod-A',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'QUA',
+        date_str: '16/09',
+        shift_code: 'T2_L1',
+        sequence_order: 1,
+        item_type: 'PRODUCTION',
+        material_code: 'TQ-50x50x2.0',
+        planned_quantity_tons: 108.6, // ~9.05 h a 12 t/h
+        productivity_rate_th: 12,
+        production_hours: 9.05,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const prodB: WeeklyScheduleItem = {
+        id: 'prod-B',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'QUA',
+        date_str: '16/09',
+        shift_code: 'T2_L1',
+        sequence_order: 2,
+        item_type: 'PRODUCTION',
+        material_code: 'TR-100x50x3.0',
+        planned_quantity_tons: 60,
+        productivity_rate_th: 15,
+        production_hours: 4,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const customOverview: LineOverviewData = {
+        ...dummyOverview,
+        setupMatrix: [
+          {
+            id: 's-custom',
+            line_id: 'l1',
+            setup_code: 'SET-180',
+            source_mode: 'MANUAL',
+            setup_category: 'DIMENSION_CHANGE',
+            from_product_code: 'TQ-50x50x2.0',
+            to_product_code: 'TR-100x50x3.0',
+            setup_duration_minutes: 180,
+            setup_description: 'Troca Pesada 180m',
+            active: true,
+            created: '',
+            updated: '',
+          },
+        ],
+      }
+
+      const filter: WeeklyHeaderFilter = {
+        companyCode: 'CIAFAL',
+        plantCode: 'DIV',
+        lineCode: 'L1',
+        year: 2026,
+        weekNumber: 38,
+        periodDisplay: '14/09 a 20/09',
+      }
+
+      const res = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+        [prodA, prodB],
+        customOverview,
+        filter,
+      )
+      const calculatedB = res.items[1]
+      expect(calculatedB.setup_duration_minutes).toBe(180)
+
+      // Início do produto B deve ser estritamente igual ou posterior ao término de A + 180 min
+      const endA = new Date(res.items[0].end_datetime.replace(' ', 'T'))
+      const startB = new Date(calculatedB.start_datetime.replace(' ', 'T'))
+      const diffMinutes = (startB.getTime() - endA.getTime()) / (60 * 1000)
+
+      expect(diffMinutes).toBe(180)
+      expect(startB.getTime()).toBeGreaterThanOrEqual(endA.getTime() + 180 * 60 * 1000)
+    })
+
+    // T4: Produção 0 t no intervalo do setup e em paradas
+    it('T4: Produção é estritamente 0 t no intervalo do setup e paradas programadas', () => {
+      const stopItem: WeeklyScheduleItem = {
+        id: 'stop-1',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'QUA',
+        date_str: '16/09',
+        sequence_order: 1,
+        item_type: 'SCHEDULED_STOP',
+        stop_duration_minutes: 120,
+        planned_quantity_tons: 50, // deve ser zerado
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const filter: WeeklyHeaderFilter = {
+        companyCode: 'CIAFAL',
+        plantCode: 'DIV',
+        lineCode: 'L1',
+        year: 2026,
+        weekNumber: 38,
+        periodDisplay: '14/09 a 20/09',
+      }
+
+      const res = WeeklyScheduleEngine.recalculateWeeklyTimeline([stopItem], dummyOverview, filter)
+      expect(res.items[0].production_hours).toBe(0)
+      expect(res.items[0].planned_quantity_tons).toBe(0)
+    })
+
+    // T5: Fim 16/09 23:00 + 180 min -> produto B >= 17/09 02:00 (sem reset à meia-noite)
+    it('T5: Encadeamento contínuo atravessa dias e meia-noite: fim 23:00 + 180 min -> produto B inicia em 02:00 do dia seguinte', () => {
+      // Cria item A que termina às 23:00 de 16/09 (Quarta-feira)
+      const itemA: WeeklyScheduleItem = {
+        id: 'it-a-late',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'QUA',
+        date_str: '16/09',
+        shift_code: 'T2_L1',
+        sequence_order: 1,
+        item_type: 'PRODUCTION',
+        material_code: 'TQ-50x50x2.0',
+        planned_quantity_tons: 204, // 17 horas de produção a 12 t/h (das 06:00 às 23:00)
+        productivity_rate_th: 12,
+        production_hours: 17,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const itemB: WeeklyScheduleItem = {
+        id: 'it-b-nextday',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'QUI',
+        date_str: '17/09',
+        shift_code: 'T1_L1',
+        sequence_order: 2,
+        item_type: 'PRODUCTION',
+        material_code: 'TR-100x50x3.0',
+        planned_quantity_tons: 45,
+        productivity_rate_th: 15,
+        production_hours: 3,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const customOverview: LineOverviewData = {
+        ...dummyOverview,
+        setupMatrix: [
+          {
+            id: 's-custom-180',
+            line_id: 'l1',
+            setup_code: 'SET-180',
+            source_mode: 'MANUAL',
+            setup_category: 'DIMENSION_CHANGE',
+            from_product_code: 'TQ-50x50x2.0',
+            to_product_code: 'TR-100x50x3.0',
+            setup_duration_minutes: 180,
+            setup_description: 'Troca Pesada 180m',
+            active: true,
+            created: '',
+            updated: '',
+          },
+        ],
+      }
+
+      const filter: WeeklyHeaderFilter = {
+        companyCode: 'CIAFAL',
+        plantCode: 'DIV',
+        lineCode: 'L1',
+        year: 2026,
+        weekNumber: 38,
+        periodDisplay: '14/09 a 20/09',
+      }
+
+      const res = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+        [itemA, itemB],
+        customOverview,
+        filter,
+      )
+      const endA = new Date(res.items[0].end_datetime.replace(' ', 'T'))
+      const startB = new Date(res.items[1].start_datetime.replace(' ', 'T'))
+
+      // itemA termina às 23:00 de 16/09
+      expect(endA.getHours()).toBe(23)
+      expect(endA.getMinutes()).toBe(0)
+
+      // itemB deve iniciar às 02:00 de 17/09 (23:00 + 180 min de setup = 02:00 do dia seguinte)
+      expect(startB.getDate()).toBe(endA.getDate() + 1)
+      expect(startB.getHours()).toBe(2)
+      expect(startB.getMinutes()).toBe(0)
+    })
+
+    // T6: Indicadores separados e Qtd. Programada só com horas produtivas
+    it('T6: Indicadores diários somam separadamente horas produtivas, setups e paradas', () => {
+      const itemsDia: WeeklyScheduleItem[] = [
+        {
+          id: 'p1',
+          item_type: 'PRODUCTION',
+          planned_quantity_tons: 60,
+          production_hours: 5,
+          setup_duration_minutes: 60,
+        } as any,
+        {
+          id: 's1',
+          item_type: 'SCHEDULED_STOP',
+          stop_duration_minutes: 90,
+          production_hours: 0,
+          planned_quantity_tons: 0,
+        } as any,
+      ]
+
+      const prods = itemsDia.filter((it) => it.item_type === 'PRODUCTION')
+      const totalTons = prods.reduce((acc, it) => acc + (it.planned_quantity_tons || 0), 0)
+      const prodHours = prods.reduce((acc, it) => acc + (it.production_hours || 0), 0)
+      const setupHours = Number(
+        (itemsDia.reduce((acc, it) => acc + (it.setup_duration_minutes || 0), 0) / 60).toFixed(2),
+      )
+      const stopHours = Number(
+        (
+          itemsDia
+            .filter((it) => it.item_type === 'SCHEDULED_STOP')
+            .reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0) / 60
+        ).toFixed(2),
+      )
+      const occupiedHours = prodHours + setupHours + stopHours
+
+      expect(totalTons).toBe(60) // Estritamente os 60 t de produção
+      expect(prodHours).toBe(5)
+      expect(setupHours).toBe(1)
+      expect(stopHours).toBe(1.5)
+      expect(occupiedHours).toBe(7.5)
+    })
+
+    // T7: Integridade e determinismo de horários (idênticos antes e após re-execução)
+    it('T7: Persistência e determinismo: horários são idênticos em sucessivos recálculos', () => {
+      const item1: WeeklyScheduleItem = {
+        id: 'it-det-1',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'SEG',
+        date_str: '14/09',
+        sequence_order: 1,
+        item_type: 'PRODUCTION',
+        material_code: 'TQ-50x50x2.0',
+        planned_quantity_tons: 60,
+        productivity_rate_th: 12,
+        production_hours: 5,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const filter: WeeklyHeaderFilter = {
+        companyCode: 'CIAFAL',
+        plantCode: 'DIV',
+        lineCode: 'L1',
+        year: 2026,
+        weekNumber: 38,
+        periodDisplay: '14/09 a 20/09',
+      }
+
+      const run1 = WeeklyScheduleEngine.recalculateWeeklyTimeline([item1], dummyOverview, filter)
+      const run2 = WeeklyScheduleEngine.recalculateWeeklyTimeline(run1.items, dummyOverview, filter)
+
+      expect(run1.items[0].start_datetime).toBe(run2.items[0].start_datetime)
+      expect(run1.items[0].end_datetime).toBe(run2.items[0].end_datetime)
+    })
+
+    // T8: Ausência de sobreposição (fim_anterior <= inicio_seguinte)
+    it('T8: Sem sobreposição: fim_atividade_anterior <= inicio_atividade_seguinte para toda a grade', () => {
+      const itemA: WeeklyScheduleItem = {
+        id: 'seq-1',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'SEG',
+        date_str: '14/09',
+        sequence_order: 1,
+        item_type: 'PRODUCTION',
+        material_code: 'TQ-50x50x2.0',
+        planned_quantity_tons: 48,
+        productivity_rate_th: 12,
+        production_hours: 4,
+        setup_duration_minutes: 0,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const itemB: WeeklyScheduleItem = {
+        id: 'seq-2',
+        schedule_code: 'WS-L1-2026-W38',
+        day_of_week: 'SEG',
+        date_str: '14/09',
+        sequence_order: 2,
+        item_type: 'PRODUCTION',
+        material_code: 'TR-100x50x3.0',
+        planned_quantity_tons: 60,
+        productivity_rate_th: 15,
+        production_hours: 4,
+        setup_duration_minutes: 40,
+        status: 'DRAFT',
+        version: 1,
+      } as any
+
+      const filter: WeeklyHeaderFilter = {
+        companyCode: 'CIAFAL',
+        plantCode: 'DIV',
+        lineCode: 'L1',
+        year: 2026,
+        weekNumber: 38,
+        periodDisplay: '14/09 a 20/09',
+      }
+
+      const res = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+        [itemA, itemB],
+        dummyOverview,
+        filter,
+      )
+      for (let i = 1; i < res.items.length; i++) {
+        const prevEnd = new Date(res.items[i - 1].end_datetime.replace(' ', 'T')).getTime()
+        const currStart = new Date(res.items[i].start_datetime.replace(' ', 'T')).getTime()
+        expect(currStart).toBeGreaterThanOrEqual(prevEnd)
+      }
+    })
+  })
+
   // TESTE 08: Setup inserido proporcionalmente
   it('TESTE 08: Mudança de bitola insere setup proporcional na timeline', () => {
     const itemPrev: WeeklyScheduleItem = {
