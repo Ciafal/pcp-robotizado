@@ -312,14 +312,15 @@ const INITIAL_CASES: RouteTestCase[] = [
   {
     id: 'R-24',
     route: '/pcp/ficha-mestre',
-    label: 'Ficha Mestre (Documento Versionado)',
+    label: 'Centros e Ficha Mestra (Cadastro e Parâmetros)',
     category: 'Auxiliares',
     expectedComponent: 'LineMasterPage',
     expectedStatus: 'PENDING',
     f5Safe: true,
     rbacProtected: true,
     queryParamsTest: '',
-    detail: 'Configuração técnica detalhada e matriz de aprovação.',
+    detail:
+      'Cadastro estruturado do centro de produção, vínculo com empresa e linha produtiva, parâmetros técnicos e Ficha Mestra.',
   },
   {
     id: 'R-25',

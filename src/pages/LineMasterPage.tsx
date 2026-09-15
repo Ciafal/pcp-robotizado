@@ -43,6 +43,7 @@ import { Can } from '@/components/auth/Can'
 import { AddLineWizardModal } from '@/components/line-master/AddLineWizardModal'
 import { EditLineModal } from '@/components/line-master/EditLineModal'
 import { SapIntegrationCatalogModal } from '@/components/line-master/SapIntegrationCatalogModal'
+// Centros e Ficha Mestra
 import { LineMasterDetailView } from '@/components/line-master/LineMasterDetailView'
 import { MasterSheetNavigationTarget } from '@/types/line-master'
 

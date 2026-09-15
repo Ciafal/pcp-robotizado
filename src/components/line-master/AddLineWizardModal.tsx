@@ -66,14 +66,70 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [saving, setSaving] = useState<boolean>(false)
+  const [availableCompanies, setAvailableCompanies] = useState<
+    Array<{ id: string; name: string; code: string; sap_company_code?: string }>
+  >([])
+  const [availableHierarchyLines, setAvailableHierarchyLines] = useState<
+    Array<{ id: string; name: string; code: string; plant_id?: string; company_id?: string }>
+  >([])
+  const [loadingCompaniesLines, setLoadingCompaniesLines] = useState<boolean>(false)
   const [successDialogOpen, setSuccessDialogOpen] = useState<boolean>(false)
   const [createdLineRecord, setCreatedLineRecord] = useState<ProductionLine | null>(null)
+
+  // Carrega empresas e linhas da hierarquia
+  useEffect(() => {
+    if (!open) return
+    let isMounted = true
+    async function loadCompaniesAndLines() {
+      setLoadingCompaniesLines(true)
+      try {
+        const [compRes, linesRes, plantsRes] = await Promise.all([
+          pb.collection('companies').getFullList({ filter: 'status="ACTIVE"', sort: 'name' }),
+          pb.collection('production_lines').getFullList({ filter: 'is_active=true', sort: 'name' }),
+          pb.collection('plants').getFullList({ sort: 'name' }),
+        ])
+        if (!isMounted) return
+        setAvailableCompanies(
+          compRes.map((c) => ({
+            id: c.id,
+            name: c.name || c.corporate_name || c.code,
+            code: c.code,
+            sap_company_code: c.sap_company_code || '',
+          })),
+        )
+
+        const plantMap = new Map<string, string>()
+        plantsRes.forEach((p) => {
+          if (p.company_id) plantMap.set(p.id, p.company_id)
+        })
+
+        setAvailableHierarchyLines(
+          linesRes.map((l) => ({
+            id: l.id,
+            name: l.name,
+            code: l.code,
+            plant_id: l.plant_id || '',
+            company_id: (l.plant_id && plantMap.get(l.plant_id)) || '',
+          })),
+        )
+      } catch (err) {
+        console.warn('Erro ao carregar empresas e linhas:', err)
+      } finally {
+        if (isMounted) setLoadingCompaniesLines(false)
+      }
+    }
+    loadCompaniesAndLines()
+    return () => {
+      isMounted = false
+    }
+  }, [open])
 
   // Etapa 1: Identificação
   const [code, setCode] = useState<string>('')
   const [name, setName] = useState<string>('')
   const [description, setDescription] = useState<string>('')
-  const [resourceType, setResourceType] = useState<string>('PRODUCTION_LINE')
+  const [companyId, setCompanyId] = useState<string>('')
+  const [hierarchyLineId, setHierarchyLineId] = useState<string>('')
   const [programmingType, setProgrammingType] = useState<string>('Laminação')
   const [plant, setPlant] = useState<string>('Planta Principal - CIAFAL 01')
   const [sapPlantCode, setSapPlantCode] = useState<string>('1000')

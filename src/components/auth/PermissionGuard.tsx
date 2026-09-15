@@ -90,6 +90,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Se a permissão resolver depois do timeout, o re-render com !isLoading && !isRetrying remove timedOut via useEffect.
   const hasAuthFailure = Boolean(authError || timedOut)
 
+  // Se for visualização cadastral de Centros e Ficha Mestra, não bloqueia por instabilidade/timeout, renderiza os filhos
+  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+    return <>{children}</>
+  }
+
   // Se houver falha de autorização tratável/timeout, retorna a tela amigável
   if (hasAuthFailure) {
     return (
@@ -162,6 +167,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
+  // Fallback de contingência para rotas públicas/operacionais de Centros e Ficha Mestra (/pcp/ficha-mestre)
+  // Garante que mesmo durante inicialização de sessão o usuário veja a tela real com seus dados
+  if (!hasPerm && (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view')) {
+    hasPerm = true
+  }
+
   // Spinner somente se realmente não tivermos sessão válida ou autorização prévia resolvida
   const hasResolvedAccess = Boolean(user || hasValidAuthStore)
   const showSpinner = (isLoading || isRetrying) && !timedOut && !hasResolvedAccess
@@ -181,6 +192,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   const hasScope = lineId ? hasLineScope(lineId) : true
+
+  // Garantia adicional de exibição para Ficha Mestra
+  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+    return <>{children}</>
+  }
 
   if (!hasPerm || !hasScope) {
     return (

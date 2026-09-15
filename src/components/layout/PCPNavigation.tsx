@@ -532,7 +532,7 @@ const navSections: NavSectionItem[] = [
     ],
   },
   {
-    title: 'Linhas e Ficha Mestre',
+    title: 'Centros e Ficha Mestra',
     href: '/pcp/ficha-mestre',
     icon: FileSpreadsheet,
     badge: 'SAP ECC',
@@ -826,7 +826,7 @@ const officialNavGroups: NavGroup[] = [
     groupTitle: 'CADASTROS',
     items: [
       {
-        title: 'Linhas e Ficha Mestre',
+        title: 'Centros e Ficha Mestra',
         href: '/pcp/ficha-mestre',
         icon: FileSpreadsheet,
         permission: 'pcp.masterdata.view',

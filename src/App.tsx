@@ -801,7 +801,7 @@ export const App: React.FC = () => {
                         </PermissionGuard>
                       }
                     />
-                    {/* 6. Módulos Auxiliares & Governança */}
+                    {/* 6. Módulos Auxiliares & Governança - Centros e Ficha Mestra */}
                     <Route
                       path="/pcp/ficha-mestre"
                       element={
@@ -809,6 +809,22 @@ export const App: React.FC = () => {
                           <LineMasterPage />
                         </PermissionGuard>
                       }
+                    />
+                    <Route
+                      path="/pcp/centros-ficha-mestre"
+                      element={
+                        <PermissionGuard permission="pcp.masterdata.view">
+                          <LineMasterPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/centros-ficha-mestre"
+                      element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    />
+                    <Route
+                      path="/pcp-robotizado/centros-ficha-mestre"
+                      element={<Navigate to="/pcp/ficha-mestre" replace />}
                     />
                     <Route
                       path="/pcp/regras"

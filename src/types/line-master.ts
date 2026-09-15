@@ -86,6 +86,12 @@ export interface ProductionLine {
   description?: string
   plant?: string
   plant_id?: string
+  company_id?: string
+  company_name?: string
+  company_code?: string
+  werks?: string
+  linha_produtiva_id?: string
+  linha_produtiva_nome?: string
   process?: string
   status:
     | 'running'
@@ -160,9 +166,14 @@ export interface LineMaster {
   version: number
   code?: string
   name?: string
+  company_id?: string
+  company_name?: string
+  linha_produtiva_id?: string
+  linha_produtiva_nome?: string
+  werks?: string
   description?: string
   status: MasterDataStatus
-  resource_type: ResourceType
+  resource_type?: ResourceType
   unit: string
   sap_plant_code: string
   sector: string
