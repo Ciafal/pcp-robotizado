@@ -66,11 +66,31 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
+  // Resolução imediata resiliente quando há sessão válida no authStore (Stale-While-Revalidate):
+  // Se pb.authStore contém sessão válida (token + model/record), resolvemos as permissões síncronas
+  // em memória e sincronizamos em background. A tela não fica presa no spinner/instabilidade transitória.
+  const hasValidAuthStore = Boolean(
+    pb.authStore.isValid && (pb.authStore.record || pb.authStore.model),
+  )
+  const authStoreRecord = hasValidAuthStore ? pb.authStore.record || pb.authStore.model : null
+  const effectiveRole =
+    user?.role || (authStoreRecord ? (authStoreRecord as any).role || 'PCP_ADMIN' : null)
+
+  // Disparo em background da sincronização se ainda não foi carregado pelo contexto mas há authStore válida
+  React.useEffect(() => {
+    if (hasValidAuthStore && isLoading && !isRetrying) {
+      authService.resolvePermissions().catch((err) => {
+        console.warn('Background sync de permissões:', err)
+      })
+    }
+  }, [hasValidAuthStore, isLoading, isRetrying])
+
   // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica preso no spinner.
   // Quando timedOut for true, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
   // Se a permissão resolver depois do timeout, o re-render com !isLoading && !isRetrying remove timedOut via useEffect.
   const hasAuthFailure = Boolean(authError || timedOut)
 
+  // Se houver falha de autorização tratável/timeout, retorna a tela amigável
   if (hasAuthFailure) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80">
@@ -111,13 +131,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     )
   }
 
-  // Resolução imediata resiliente quando há sessão válida no authStore:
-  // Se ainda estiver em loading/retrying mas temos sessão válida no authStore ou user no contexto,
-  // consultamos authService.getPermissionsForRole(role) como fallback síncrono imediato para destravar a rota
-  const authStoreRecord = pb.authStore.isValid && pb.authStore.record ? pb.authStore.record : null
-  const effectiveRole =
-    user?.role || (authStoreRecord ? (authStoreRecord as any).role || 'PCP_ADMIN' : null)
-
   // Verifica permissão com can(), ou se role puder via getPermissionsForRole
   let hasPerm = can(permission)
   if (!hasPerm && effectiveRole) {
@@ -131,7 +144,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   // Spinner somente se realmente não tivermos sessão válida ou autorização prévia resolvida
-  const hasResolvedAccess = Boolean(user || authStoreRecord)
+  const hasResolvedAccess = Boolean(user || hasValidAuthStore)
   const showSpinner = (isLoading || isRetrying) && !timedOut && !hasResolvedAccess
 
   if (showSpinner) {

@@ -1,7 +1,19 @@
 // Tipos TypeScript para Gestão de Linhas & Ficha Mestre Expandida (Prompt 03.1)
 // Ciafal HUB > PCP Robotizado
 
-export type ResourceType = 'LINE' | 'CELL' | 'MACHINE' | 'FURNACE' | 'WORKCENTER'
+export type ResourceType =
+  | 'PRODUCTION_LINE'
+  | 'LINE'
+  | 'CELL'
+  | 'MACHINE'
+  | 'FURNACE'
+  | 'FINISHING'
+  | 'STRAIGHTENER'
+  | 'REWORK'
+  | 'AUXILIARY_PROCESS'
+  | 'STORAGE'
+  | 'OTHER'
+  | 'WORKCENTER'
 export type MasterDataStatus = 'ACTIVE' | 'DRAFT' | 'HISTORIC' | 'OBSOLETE'
 export type SourceMode = 'MANUAL' | 'SAP'
 export type SapStatus = 'CONECTADO' | 'ERRO' | 'NAO_TESTADO' | 'INDISPONIVEL'

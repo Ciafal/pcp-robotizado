@@ -274,25 +274,20 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         }
       }
 
-      // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters)
-      if (activeMasterRecord?.id) {
-        try {
-          await lineMasterService.saveLineMaster({
-            id: activeMasterRecord.id,
-            name: name.trim(),
-            code: code.trim().toUpperCase(),
-            programming_type: programmingType,
-            sap_plant_code: sapPlantCode.trim(),
-            nominal_hourly_capacity: nominalCapacity,
-            capacity_unit: capacityUnit as any,
-            planned_efficiency_pct: efficiency,
-            primary_responsible_id: primaryManagerId || undefined,
-            substitute_responsible_id: substituteManagerId || undefined,
-          })
-        } catch (masterErr: unknown) {
-          console.warn('Falha ao salvar line_masters na edição da linha:', masterErr)
-        }
-      }
+      // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters via upsert)
+      await lineMasterService.saveLineMaster({
+        id: activeMasterRecord?.id,
+        line_id: line.id,
+        name: name.trim(),
+        code: code.trim().toUpperCase(),
+        programming_type: programmingType,
+        sap_plant_code: sapPlantCode.trim(),
+        nominal_hourly_capacity: nominalCapacity,
+        capacity_unit: capacityUnit as any,
+        planned_efficiency_pct: efficiency,
+        primary_responsible_id: primaryManagerId || undefined,
+        substitute_responsible_id: substituteManagerId || undefined,
+      })
 
       // 4. Sincroniza Gestor Titular e Substituto em coleções de responsáveis (line_managers_assignment)
       if (primaryManagerId) {
@@ -409,22 +404,20 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Falha ao gravar auditoria:', auditErr)
       }
 
-      // Toast de sucesso apenas após confirmação do backend
+      // Toast de sucesso apenas após confirmação do backend (texto exato)
       toast({
         title: 'Alterações salvas com sucesso.',
-        description: `Os dados da linha ${code.trim().toUpperCase()} e status (${isActive ? 'Ativa' : 'Inativa'}) foram persistidos.`,
       })
 
       // onSuccess recarrega listagem e fecha modal
       onSuccess(updatedLine)
       onClose()
     } catch (err: unknown) {
-      console.error('Erro ao atualizar linha produtiva:', err)
-      // Em erro, NÃO fechar o modal e exibir mensagem prescrita
+      console.error('Erro ao salvar alterações da linha:', err)
+      // Em erro, NÃO fechar o modal, manter formulário intacto e exibir mensagem prescrita
       toast({
         variant: 'destructive',
         title: 'Não foi possível salvar as alterações. Verifique os dados e tente novamente.',
-        description: err instanceof Error ? err.message : 'Falha na persistência dos dados.',
       })
     } finally {
       setSaving(false)

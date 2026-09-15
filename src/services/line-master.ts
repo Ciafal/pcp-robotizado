@@ -86,6 +86,11 @@ export const lineMasterService = {
           programming_type: resolvedProgrammingType,
           shifts_summary: lineShifts,
           crews_summary: lineCrews,
+          sap_plant_code: activeMaster?.sap_plant_code ?? (l as any).sap_plant_code,
+          nominal_hourly_capacity:
+            activeMaster?.nominal_hourly_capacity ?? (l as any).nominal_hourly_capacity,
+          planned_efficiency_pct:
+            activeMaster?.planned_efficiency_pct ?? (l as any).planned_efficiency_pct,
         }
       })
     } catch (err) {
@@ -1675,14 +1680,42 @@ export const lineMasterService = {
   },
 
   // ==========================================
-  // 14. FICHA MESTRE (Criação de versão / Atualização)
+  // 14. FICHA MESTRE (Criação de versão / Atualização - UPSERT)
   // ==========================================
   async saveLineMaster(data: Partial<LineMaster>): Promise<LineMaster> {
     invalidateCompletenessCache(data.line_id)
     if (data.id) {
       return await pb.collection('line_masters').update<LineMaster>(data.id, data)
     }
-    return await pb.collection('line_masters').create<LineMaster>(data)
+
+    // Upsert: se não passou id, busca se já existe Ficha Mestre para line_id (priorizando ACTIVE)
+    if (data.line_id) {
+      try {
+        const existingMasters = await pb.collection('line_masters').getFullList<LineMaster>({
+          filter: `line_id = '${data.line_id}'`,
+          sort: '-version',
+        })
+        const activeExisting =
+          existingMasters.find((m) => m.status === 'ACTIVE') || existingMasters[0]
+        if (activeExisting) {
+          return await pb.collection('line_masters').update<LineMaster>(activeExisting.id, data)
+        }
+      } catch (findErr) {
+        console.warn('Erro ao verificar existência de line_masters para upsert:', findErr)
+      }
+    }
+
+    // Criar novo registro com status ACTIVE e versão inicial se ausente
+    const payloadToCreate: Partial<LineMaster> = {
+      status: 'ACTIVE',
+      version: 1,
+      unit: 't',
+      capacity_unit: 't/h',
+      resource_type: 'PRODUCTION_LINE',
+      ...data,
+      line_id: data.line_id!,
+    }
+    return await pb.collection('line_masters').create<LineMaster>(payloadToCreate)
   },
 
   // ==========================================
@@ -1697,13 +1730,19 @@ export const lineMasterService = {
     change_reason: string
     snapshot_data: Record<string, unknown>
   }): Promise<void> {
-    const user = pb.authStore.record
+    const authId = pb.authStore.model?.id || pb.authStore.record?.id
+    if (!authId) {
+      // Se não há usuário autenticado, a regra da coleção rejeitará (@request.auth.id != '' && user_id = @request.auth.id)
+      return
+    }
+
+    const user = pb.authStore.record || pb.authStore.model
     try {
       // Gravação na coleção oficial de auditoria pcp_audit_logs (best-effort)
       await pb.collection('pcp_audit_logs').create({
-        user_id: user?.id || null,
-        user_email: user?.email || '',
-        user_name: user?.name || user?.email || 'Usuário PCP',
+        user_id: authId,
+        user_email: (user as any)?.email || '',
+        user_name: (user as any)?.name || (user as any)?.email || 'Usuário PCP',
         user_role: (user as any)?.role || 'PCP_PROGRAMMER',
         event_type: 'SCHEDULE_ACTION',
         action: `LINE_${data.action}`,
