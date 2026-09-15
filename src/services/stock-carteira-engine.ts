@@ -43,14 +43,38 @@ export interface CoverageEvaluation {
   situationStatus: 'WITHIN_TOLERANCE' | 'BELOW_MIN' | 'ABOVE_MAX' | 'UNAVAILABLE'
 }
 
+export interface ExistingScheduleDetail {
+  id: string
+  schedule_code: string
+  date_str: string
+  start_datetime: string
+  line_code: string
+  planned_quantity_tons: number
+  status: string
+  version: number
+  shift_name?: string
+  crew_name?: string
+}
+
+export interface ExistingProgrammingData {
+  totalPlannedTons: number
+  nextPredictedDate: string | null
+  items: ExistingScheduleDetail[]
+}
+
 export interface MaterialStockAndCarteiraData {
   materialCode: string
   // Origem SAP / Integração existente
   estoqueAcab: ValueWithAvailability<number>
   estoqueSemi: ValueWithAvailability<number>
+  estoqueQualidade: ValueWithAvailability<number>
+  estoqueBloqueado: ValueWithAvailability<number>
   carteira: ValueWithAvailability<number>
   tempoMedioCicloMin: ValueWithAvailability<number>
   mediaDiariaFaturamentoTDia: ValueWithAvailability<number>
+
+  // Programação existente (origem PCP Robotizado)
+  programacaoExistente: ExistingProgrammingData
 
   // Calculados
   saldoCarteira: ValueWithAvailability<number> // Carteira − Estoque ACAB + Estoque SEMI
@@ -95,17 +119,19 @@ export class StockCarteiraEngine {
   }
 
   /**
-   * Cobertura pós-programação = (Estoque atual + Produção boa programada) / Média diária de faturamento
+   * Cobertura pós-programação = (Estoque Acabado livre + Programação Existente vigente + nova quantidade) / Média diária de faturamento
    */
   public static calculatePostCoverage(
     estoqueAtual: number | null,
     producaoBoa: number | null,
     mediaDiaria: number | null,
+    programacaoExistenteTons = 0,
   ): number | null {
     if (estoqueAtual === null || producaoBoa === null || mediaDiaria === null || mediaDiaria <= 0) {
       return null
     }
-    return Math.round(((estoqueAtual + producaoBoa) / mediaDiaria) * 10) / 10
+    const totalConsiderado = estoqueAtual + (programacaoExistenteTons || 0) + producaoBoa
+    return Math.round((totalConsiderado / mediaDiaria) * 10) / 10
   }
 
   /**
@@ -172,6 +198,115 @@ export class StockCarteiraEngine {
       console.warn('Falha na busca em carteira_items:', err)
     }
 
+    // 2b. Busca dados de Estoque Físico Real em inventory_items (Origem SAP)
+    let inventoryRecords: any[] = []
+    try {
+      inventoryRecords = await pb.collection('inventory_items').getFullList({
+        filter: `material_code = '${cleanCode}'`,
+      })
+    } catch (err) {
+      console.warn('Falha na busca em inventory_items:', err)
+    }
+
+    // 2c. Consulta Programação Existente no PCP Robotizado (weekly_schedules)
+    // Filtro: material_code = <código limpo> && item_type = 'PRODUCTION' && status != 'REJECTED' && status != 'CANCELLED'
+    // Apenas programações futuras/vigentes, agrupando por schedule_code e retendo SOMENTE a maior version (sem dupla contagem).
+    let programacaoExistente: ExistingProgrammingData = {
+      totalPlannedTons: 0,
+      nextPredictedDate: null,
+      items: [],
+    }
+
+    try {
+      const filterExpr = `material_code = '${cleanCode}' && item_type = 'PRODUCTION' && status != 'REJECTED' && status != 'CANCELLED'`
+      const schedulesList = await pb.collection('weekly_schedules').getFullList({
+        filter: filterExpr,
+        sort: 'start_datetime',
+      })
+
+      const now = new Date()
+      // Agrupa por schedule_code retendo apenas a maior versão
+      const scheduleMap = new Map<string, any>()
+      for (const item of schedulesList) {
+        const schedCode = (item.schedule_code || item.id || '').trim()
+        const itemVersion = Number(item.version) || 1
+
+        // Verifica se a programação é futura (start_datetime ou data no futuro ou hoje)
+        let isFuture = true
+        if (item.start_datetime) {
+          const itemDate = new Date(item.start_datetime.replace(' ', 'T'))
+          if (
+            !isNaN(itemDate.getTime()) &&
+            itemDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          ) {
+            isFuture = false
+          }
+        }
+
+        if (isFuture) {
+          if (!scheduleMap.has(schedCode)) {
+            scheduleMap.set(schedCode, item)
+          } else {
+            const existing = scheduleMap.get(schedCode)
+            const existingVersion = Number(existing.version) || 1
+            if (itemVersion > existingVersion) {
+              scheduleMap.set(schedCode, item)
+            }
+          }
+        }
+      }
+
+      const deduplicatedItems = Array.from(scheduleMap.values())
+      // Ordena por data prevista
+      deduplicatedItems.sort((a, b) => {
+        const da = a.start_datetime || a.date_str || ''
+        const db = b.start_datetime || b.date_str || ''
+        return da.localeCompare(db)
+      })
+
+      const totalPlannedTons = deduplicatedItems.reduce(
+        (acc, it) => acc + (Number(it.planned_quantity_tons) || 0),
+        0,
+      )
+
+      let nextPredictedDate: string | null = null
+      if (deduplicatedItems.length > 0) {
+        const first = deduplicatedItems[0]
+        if (first.start_datetime) {
+          const raw = first.start_datetime.split(' ')[0]
+          if (raw.includes('-')) {
+            const parts = raw.split('-')
+            if (parts.length === 3) {
+              nextPredictedDate = `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`
+            }
+          } else {
+            nextPredictedDate = raw
+          }
+        } else if (first.date_str) {
+          nextPredictedDate = first.date_str
+        }
+      }
+
+      programacaoExistente = {
+        totalPlannedTons: Math.round(totalPlannedTons * 100) / 100,
+        nextPredictedDate,
+        items: deduplicatedItems.map((it) => ({
+          id: it.id,
+          schedule_code: it.schedule_code || it.id,
+          date_str: it.date_str || '',
+          start_datetime: it.start_datetime || '',
+          line_code: it.line_code || '',
+          planned_quantity_tons: Number(it.planned_quantity_tons) || 0,
+          status: it.status || 'DRAFT',
+          version: Number(it.version) || 1,
+          shift_name: it.shift_name,
+          crew_name: it.crew_name,
+        })),
+      }
+    } catch (err) {
+      console.warn('Falha na busca em weekly_schedules para programação existente:', err)
+    }
+
     // 3. Monta cada campo com seu respectivo status de disponibilidade
     // (a) SAP indisponível -> MSG_SAP_OFFLINE
     // (b) Sem mapeamento -> MSG_NOT_MAPPED
@@ -181,14 +316,20 @@ export class StockCarteiraEngine {
     let estoqueAcab: ValueWithAvailability<number>
     if (!sapOnline) {
       estoqueAcab = { value: null, status: 'SAP_OFFLINE', statusMessage: MSG_SAP_OFFLINE }
-    } else if (!carteiraRecord) {
-      estoqueAcab = { value: null, status: 'NOT_REGISTERED', statusMessage: MSG_NOT_REGISTERED }
     } else if (
+      carteiraRecord &&
       carteiraRecord.estoque_acabado_tons !== undefined &&
       carteiraRecord.estoque_acabado_tons !== null
     ) {
       estoqueAcab = {
         value: Number(carteiraRecord.estoque_acabado_tons),
+        status: 'AVAILABLE',
+      }
+    } else if (inventoryRecords.length > 0) {
+      const acabItems = inventoryRecords.filter((i) => i.category === 'FINISHED_GOOD')
+      const totalAcab = acabItems.reduce((acc, i) => acc + (Number(i.qty_unrestricted) || 0), 0)
+      estoqueAcab = {
+        value: Math.round(totalAcab * 100) / 100,
         status: 'AVAILABLE',
       }
     } else {
@@ -199,9 +340,11 @@ export class StockCarteiraEngine {
     let estoqueSemi: ValueWithAvailability<number>
     if (!sapOnline) {
       estoqueSemi = { value: null, status: 'SAP_OFFLINE', statusMessage: MSG_SAP_OFFLINE }
-    } else if (!carteiraRecord) {
-      estoqueSemi = { value: null, status: 'NOT_REGISTERED', statusMessage: MSG_NOT_REGISTERED }
-    } else {
+    } else if (
+      carteiraRecord &&
+      (carteiraRecord.estoque_semiacabado_ciafal_tons !== undefined ||
+        carteiraRecord.estoque_semiacabado_tons !== undefined)
+    ) {
       const semi =
         carteiraRecord.estoque_semiacabado_ciafal_tons ??
         carteiraRecord.estoque_semiacabado_tons ??
@@ -210,6 +353,54 @@ export class StockCarteiraEngine {
         estoqueSemi = { value: Number(semi), status: 'AVAILABLE' }
       } else {
         estoqueSemi = { value: null, status: 'NOT_REGISTERED', statusMessage: MSG_NOT_REGISTERED }
+      }
+    } else if (inventoryRecords.length > 0) {
+      const semiItems = inventoryRecords.filter((i) => i.category === 'SEMI_FINISHED')
+      const totalSemi = semiItems.reduce((acc, i) => acc + (Number(i.qty_unrestricted) || 0), 0)
+      estoqueSemi = {
+        value: Math.round(totalSemi * 100) / 100,
+        status: 'AVAILABLE',
+      }
+    } else {
+      estoqueSemi = { value: null, status: 'NOT_REGISTERED', statusMessage: MSG_NOT_REGISTERED }
+    }
+
+    // Campo: Estoque Qualidade (Origem SAP: inventory_items.qty_in_quality)
+    let estoqueQualidade: ValueWithAvailability<number>
+    if (!sapOnline) {
+      estoqueQualidade = { value: null, status: 'SAP_OFFLINE', statusMessage: MSG_SAP_OFFLINE }
+    } else if (inventoryRecords.length > 0) {
+      const sumQuality = inventoryRecords.reduce(
+        (acc, i) => acc + (Number(i.qty_in_quality) || 0),
+        0,
+      )
+      estoqueQualidade = {
+        value: Math.round(sumQuality * 100) / 100,
+        status: 'AVAILABLE',
+      }
+    } else {
+      estoqueQualidade = {
+        value: null,
+        status: 'NOT_MAPPED',
+        statusMessage: 'Dado não disponível no SAP',
+      }
+    }
+
+    // Campo: Estoque Bloqueado (Origem SAP: inventory_items.qty_blocked)
+    let estoqueBloqueado: ValueWithAvailability<number>
+    if (!sapOnline) {
+      estoqueBloqueado = { value: null, status: 'SAP_OFFLINE', statusMessage: MSG_SAP_OFFLINE }
+    } else if (inventoryRecords.length > 0) {
+      const sumBlocked = inventoryRecords.reduce((acc, i) => acc + (Number(i.qty_blocked) || 0), 0)
+      estoqueBloqueado = {
+        value: Math.round(sumBlocked * 100) / 100,
+        status: 'AVAILABLE',
+      }
+    } else {
+      estoqueBloqueado = {
+        value: null,
+        status: 'NOT_MAPPED',
+        statusMessage: 'Dado não disponível no SAP',
       }
     }
 
@@ -303,7 +494,8 @@ export class StockCarteiraEngine {
     }
 
     // 5. Cobertura Atual e Pós-Programação
-    // Estoque considerado = Estoque ACAB
+    // Estoque considerado = Estoque ACAB (livre)
+    // Cobertura Pós-Prog. = (Estoque Acabado livre + Programação Existente vigente + nova quantidade) / Média Diária Faturamento
     const currentCov = this.calculateCurrentCoverage(
       estoqueAcab.value,
       mediaDiariaFaturamentoTDia.value,
@@ -312,6 +504,7 @@ export class StockCarteiraEngine {
       estoqueAcab.value,
       plannedTons,
       mediaDiariaFaturamentoTDia.value,
+      programacaoExistente.totalPlannedTons,
     )
     const situationText = this.evaluateCoverageSituation(postCov, toleranceMin, toleranceMax)
 
@@ -324,9 +517,12 @@ export class StockCarteiraEngine {
       materialCode: cleanCode,
       estoqueAcab,
       estoqueSemi,
+      estoqueQualidade,
+      estoqueBloqueado,
       carteira,
       tempoMedioCicloMin,
       mediaDiariaFaturamentoTDia,
+      programacaoExistente,
       saldoCarteira,
       coverage: {
         currentCoverageDays: currentCov,

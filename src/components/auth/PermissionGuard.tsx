@@ -7,16 +7,19 @@ import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
 
 interface PermissionGuardProps {
-  permission: string
+  permission?: string
+  required?: string
   children: React.ReactNode
   lineId?: string
 }
 
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
-  permission,
+  permission: propPermission,
+  required,
   children,
   lineId,
 }) => {
+  const permission = propPermission || required || ''
   const { can, hasLineScope, isLoading, user, authError, refreshPermissions } = useAuth()
   const [isRetrying, setIsRetrying] = useState(false)
   const [timedOut, setTimedOut] = useState(false)

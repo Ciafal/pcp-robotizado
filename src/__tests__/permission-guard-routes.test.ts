@@ -71,4 +71,13 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(viewerPerms).not.toContain('pcp.schedule.approve')
     expect(viewerPerms).not.toContain('pcp.schedule.publish')
   })
+
+  it('should validate direct weekly schedule routes protection with pcp.schedule.view', () => {
+    // Rotas diretas: /pcp/montagem-sewanal, /pcp/montagem-semanal, /pcp/programacao-semanal
+    const directRoutesRequiredPerm = 'pcp.schedule.view'
+    const adminPerms = authService.getPermissionsForRole('PCP_ADMIN')
+    const progPerms = authService.getPermissionsForRole('PCP_PROGRAMMER')
+    expect(adminPerms).toContain(directRoutesRequiredPerm)
+    expect(progPerms).toContain(directRoutesRequiredPerm)
+  })
 })

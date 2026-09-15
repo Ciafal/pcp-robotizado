@@ -123,11 +123,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [orderType, setOrderType] = useState<'MTS' | 'MTO' | 'INDUSTRIALIZACAO'>('MTS')
   const [pcpNotes, setPcpNotes] = useState('')
 
-  // PARTE 2: ESTOQUE & CARTEIRA
+  // PARTE 2: ESTOQUE & CARTEIRA & PROGRAMADO
   const [stockCarteiraData, setStockCarteiraData] = useState<MaterialStockAndCarteiraData | null>(
     null,
   )
   const [loadingStockCarteira, setLoadingStockCarteira] = useState<boolean>(false)
+  const [isExistingScheduleModalOpen, setIsExistingScheduleModalOpen] = useState<boolean>(false)
 
   // PARTE 4: ENFORNAMENTO (SOMENTE LAMINAÇÃO)
   const isLaminacao = useMemo(() => {
@@ -345,50 +346,56 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   // Helper visual para exibir campos de disponibilidade
   const renderFieldWithAvailability = (
     label: string,
-    field: ValueWithAvailability<number> | undefined,
+    field: ValueWithAvailability<number> | undefined | null,
     unit: string,
     isCalculated = false,
+    customBadge = 'Origem SAP',
   ) => {
-    if (!field || field.status !== 'AVAILABLE') {
+    if (
+      !field ||
+      field.status !== 'AVAILABLE' ||
+      field.value === null ||
+      field.value === undefined
+    ) {
       const msg = field?.statusMessage || 'Dado indisponível — aguardando integração SAP.'
       return (
-        <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium">
-              Origem SAP
+        <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between min-h-[72px]">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase truncate">{label}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 font-medium shrink-0">
+              {customBadge}
             </span>
           </div>
-          <p className="text-[11px] text-amber-700 italic mt-1 leading-snug">{msg}</p>
+          <p className="text-[10px] text-amber-700 italic mt-1 leading-snug line-clamp-2">{msg}</p>
         </div>
       )
     }
 
     return (
       <div
-        className={`rounded p-2.5 border flex flex-col justify-between ${
+        className={`rounded p-2.5 border flex flex-col justify-between min-h-[72px] ${
           isCalculated
             ? 'bg-blue-50/60 border-blue-200 ring-1 ring-blue-300/30'
             : 'bg-white border-slate-200'
         }`}
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-[10px] font-bold text-slate-500 uppercase truncate">{label}</span>
           <span
-            className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+            className={`text-[9px] px-1.5 py-0.2 rounded font-medium shrink-0 ${
               isCalculated
                 ? 'bg-blue-100 text-[#004C97] font-semibold'
                 : 'bg-emerald-100 text-emerald-800'
             }`}
           >
-            {isCalculated ? 'Calculado' : 'SAP Oficial'}
+            {isCalculated ? 'Calculado' : customBadge}
           </span>
         </div>
         <div className="mt-1 flex items-baseline gap-1">
-          <span className="font-mono text-base font-bold text-slate-900">
+          <span className="font-mono text-base font-bold text-slate-900 truncate">
             {field.value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
           </span>
-          <span className="text-[10px] text-slate-500 font-bold">{unit}</span>
+          <span className="text-[10px] text-slate-500 font-bold shrink-0">{unit}</span>
         </div>
       </div>
     )
@@ -620,19 +627,19 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* PARTE 2: BLOCO ESTOQUE & CARTEIRA (EXIBIDO IMEDIATAMENTE APÓS SELECIONAR PRODUTO) */}
+          {/* PARTE 2: BLOCO ESTOQUE & CARTEIRA & PROGRAMADO (EXIBIDO IMEDIATAMENTE APÓS SELECIONAR PRODUTO) */}
           {selectedMaterial && (
             <div className="bg-white border-2 border-[#004C97]/30 rounded-xl p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <div className="flex items-center gap-2">
                   <Database className="w-4 h-4 text-[#004C97]" />
                   <span className="font-bold text-xs uppercase tracking-wide text-slate-900">
-                    Estoque & Carteira — Material {selectedMaterial.material_code}
+                    ESTOQUE & CARTEIRA & PROGRAMADO — MATERIAL {selectedMaterial.material_code}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono">
-                    Fonte Oficial SAP ZSD28C
+                    Fonte Oficial SAP ZSD28C / PCP
                   </Badge>
                   {loadingStockCarteira && (
                     <span className="text-[10px] text-slate-500 animate-pulse">
@@ -642,12 +649,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
-              {/* Guia de Legenda Visual (Diferenciação Visual Obrigatória) */}
-              <div className="flex items-center gap-4 text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
-                <span className="font-bold text-slate-700">Legenda de Origem:</span>
+              {/* Guia de Legenda Visual Atualizada */}
+              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-200">
+                <span className="font-bold text-slate-700">Legenda:</span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded bg-white border border-slate-300" />
-                  Origem SAP Oficial (Somente Leitura)
+                  Origem SAP Oficial
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-indigo-100 border border-indigo-400" />
+                  Origem PCP Robotizado
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded bg-blue-100 border border-blue-300" />
@@ -659,63 +670,178 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </span>
               </div>
 
-              {/* Grid com os 9 Campos Obrigatórios */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {/* 1. Estoque ACAB */}
+              {/* Alerta informativo não-bloqueante se já existir programação futura no PCP */}
+              {stockCarteiraData?.programacaoExistente &&
+                stockCarteiraData.programacaoExistente.totalPlannedTons > 0 && (
+                  <div className="p-2.5 bg-indigo-50/90 border border-indigo-200 rounded-lg flex items-center justify-between gap-3 text-xs text-indigo-950">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping shrink-0" />
+                      <span>
+                        Este material já possui{' '}
+                        <strong className="font-mono text-indigo-900 font-bold">
+                          {stockCarteiraData.programacaoExistente.totalPlannedTons.toLocaleString(
+                            'pt-BR',
+                            {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
+                            },
+                          )}{' '}
+                          t
+                        </strong>{' '}
+                        programadas no PCP Robotizado.{' '}
+                        {stockCarteiraData.programacaoExistente.nextPredictedDate && (
+                          <span>
+                            Próxima produção prevista para{' '}
+                            <strong className="font-mono text-indigo-900 font-bold">
+                              {stockCarteiraData.programacaoExistente.nextPredictedDate}
+                            </strong>
+                            .
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {stockCarteiraData.programacaoExistente.items.length > 1 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsExistingScheduleModalOpen(true)}
+                        className="h-7 text-[10px] bg-white text-indigo-800 border-indigo-300 hover:bg-indigo-100 font-semibold shrink-0"
+                      >
+                        Ver programação existente (
+                        {stockCarteiraData.programacaoExistente.items.length})
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+              {/* Grid 3 linhas × 4 colunas responsivo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {/* LINHA 1: Estoque Acab / Estoque Semi / Estoque Qualidade / Estoque Bloqueado */}
+                {/* L1.1 Estoque ACAB */}
                 {renderFieldWithAvailability(
-                  '1. Estoque ACAB',
+                  'Estoque Acabado',
                   stockCarteiraData?.estoqueAcab,
                   't',
                   false,
+                  'Origem SAP',
                 )}
 
-                {/* 2. Estoque SEMI */}
+                {/* L1.2 Estoque SEMI */}
                 {renderFieldWithAvailability(
-                  '2. Estoque SEMI',
+                  'Estoque Semi-Acab.',
                   stockCarteiraData?.estoqueSemi,
                   't',
                   false,
+                  'Origem SAP',
                 )}
 
-                {/* 3. Carteira */}
+                {/* L1.3 Estoque QUALIDADE (inventory_items.qty_in_quality) */}
                 {renderFieldWithAvailability(
-                  '3. Carteira Total',
+                  'Estoque Qualidade',
+                  stockCarteiraData?.estoqueQualidade,
+                  't',
+                  false,
+                  'Origem SAP',
+                )}
+
+                {/* L1.4 Estoque BLOQUEADO (inventory_items.qty_blocked) */}
+                {renderFieldWithAvailability(
+                  'Estoque Bloqueado',
+                  stockCarteiraData?.estoqueBloqueado,
+                  't',
+                  false,
+                  'Origem SAP',
+                )}
+
+                {/* LINHA 2: Carteira Total / Saldo Carteira / Média Diária Fat. / Tempo Médio Ciclo */}
+                {/* L2.1 Carteira Total */}
+                {renderFieldWithAvailability(
+                  'Carteira Total',
                   stockCarteiraData?.carteira,
                   't',
                   false,
+                  'Origem SAP',
                 )}
 
-                {/* 4. Saldo Carteira (Carteira − Estoque ACAB + Estoque SEMI) */}
+                {/* L2.2 Saldo Carteira */}
                 {renderFieldWithAvailability(
-                  '4. Saldo Carteira',
+                  'Saldo Carteira',
                   stockCarteiraData?.saldoCarteira,
                   't',
                   true,
+                  'Calculado',
                 )}
 
-                {/* 5. Média diária de faturamento */}
+                {/* L2.3 Média Diária Fat. */}
                 {renderFieldWithAvailability(
-                  '5. Média Diária Fat.',
+                  'Média Diária Fat.',
                   stockCarteiraData?.mediaDiariaFaturamentoTDia,
                   't/dia',
                   false,
+                  'Origem SAP',
                 )}
 
-                {/* 6. Tempo médio de ciclo */}
+                {/* L2.4 Tempo Médio Ciclo */}
                 {renderFieldWithAvailability(
-                  '6. Tempo Médio Ciclo',
+                  'Tempo Médio Ciclo',
                   stockCarteiraData?.tempoMedioCicloMin,
                   'min',
                   false,
+                  'Origem SAP',
                 )}
 
-                {/* 7. Cobertura atual */}
-                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">
-                      7. Cobertura Atual
+                {/* LINHA 3: Programação Existente / Cobertura Atual / Cobertura Pós-Prog. / Situação Cobertura */}
+                {/* L3.1 Programação Existente */}
+                <div className="bg-indigo-50/70 border border-indigo-200 rounded p-2.5 flex flex-col justify-between min-h-[72px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-indigo-900 uppercase truncate">
+                      Prog. Existente
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold">
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 border border-indigo-300 font-semibold shrink-0">
+                      PCP Robotizado
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-1">
+                    <div className="flex items-baseline gap-1 truncate">
+                      <span className="font-mono text-base font-bold text-indigo-950">
+                        {stockCarteiraData?.programacaoExistente
+                          ? stockCarteiraData.programacaoExistente.totalPlannedTons.toLocaleString(
+                              'pt-BR',
+                              {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 3,
+                              },
+                            )
+                          : '0,000'}
+                      </span>
+                      <span className="text-[10px] text-indigo-700 font-bold shrink-0">t</span>
+                    </div>
+                    {stockCarteiraData?.programacaoExistente &&
+                      stockCarteiraData.programacaoExistente.items.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsExistingScheduleModalOpen(true)}
+                          className="text-[10px] text-indigo-700 underline font-medium hover:text-indigo-950 shrink-0"
+                        >
+                          Ver detalhes
+                        </button>
+                      )}
+                  </div>
+                  {stockCarteiraData?.programacaoExistente?.nextPredictedDate && (
+                    <div className="text-[9px] text-indigo-700 font-mono mt-0.5 truncate">
+                      Próx: {stockCarteiraData.programacaoExistente.nextPredictedDate}
+                    </div>
+                  )}
+                </div>
+
+                {/* L3.2 Cobertura Atual */}
+                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between min-h-[72px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase truncate">
+                      Cobertura Atual
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold shrink-0">
                       Calculado
                     </span>
                   </div>
@@ -730,13 +856,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   </div>
                 </div>
 
-                {/* 8. Cobertura pós-programação */}
-                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">
-                      8. Cobertura Pós-Prog.
+                {/* L3.3 Cobertura Pós-Prog. */}
+                <div className="bg-blue-50/60 border border-blue-200 rounded p-2.5 flex flex-col justify-between min-h-[72px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase truncate">
+                      Cobertura Pós-Prog.
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold">
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-100 text-[#004C97] font-semibold shrink-0">
                       Calculado
                     </span>
                   </div>
@@ -751,19 +877,19 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   </div>
                 </div>
 
-                {/* 9. Situação da cobertura (TEXTO + STATUS EXPLÍCITO) */}
-                <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">
-                      9. Situação Cobertura
+                {/* L3.4 Situação Cobertura */}
+                <div className="bg-slate-50 border border-slate-200 rounded p-2.5 flex flex-col justify-between min-h-[72px]">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase truncate">
+                      Situação Cobertura
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-medium">
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-medium shrink-0">
                       Faixa: 5-8 dias
                     </span>
                   </div>
                   <div className="mt-1">
                     <Badge
-                      className={`text-[10px] font-bold px-2 py-0.5 ${
+                      className={`text-[10px] font-bold px-2 py-0.5 truncate max-w-full ${
                         stockCarteiraData?.coverage?.situationStatus === 'WITHIN_TOLERANCE'
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                           : stockCarteiraData?.coverage?.situationStatus === 'BELOW_MIN'
@@ -1449,6 +1575,114 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Modal Compacto Somente Leitura: Programação Existente */}
+      {isExistingScheduleModalOpen && (
+        <Dialog open={isExistingScheduleModalOpen} onOpenChange={setIsExistingScheduleModalOpen}>
+          <DialogContent className="max-w-2xl bg-white text-slate-900 border-slate-300 shadow-2xl p-0 overflow-hidden">
+            <div className="bg-[#004C97] px-5 py-3 text-white flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-sm font-bold text-white flex items-center gap-2">
+                  Programação Existente no PCP Robotizado
+                </DialogTitle>
+                <p className="text-[11px] text-blue-100 font-mono">
+                  Material: {selectedMaterial?.material_code} — {selectedMaterial?.material_name}
+                </p>
+              </div>
+              <Badge className="bg-white/20 text-white text-[10px] font-mono">
+                Somente Leitura
+              </Badge>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
+                <span>
+                  Total já programado (versões vigentes):{' '}
+                  <strong className="text-indigo-900 font-mono">
+                    {stockCarteiraData?.programacaoExistente.totalPlannedTons.toLocaleString(
+                      'pt-BR',
+                      {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      },
+                    )}{' '}
+                    t
+                  </strong>
+                </span>
+                <span>
+                  Itens únicos:{' '}
+                  <strong className="text-slate-900 font-mono">
+                    {stockCarteiraData?.programacaoExistente.items.length || 0}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="py-2 px-3">Data Prevista</th>
+                      <th className="py-2 px-3">Linha</th>
+                      <th className="py-2 px-3 text-right">Quantidade (t)</th>
+                      <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2 px-3 text-center">Versão</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {stockCarteiraData?.programacaoExistente.items.map((item) => {
+                      const displayDate = item.start_datetime
+                        ? item.start_datetime.split(' ')[0]
+                        : item.date_str || '--'
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-mono text-slate-800">{displayDate}</td>
+                          <td className="py-2 px-3 font-bold text-slate-700">
+                            Linha {item.line_code}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-indigo-950">
+                            {item.planned_quantity_tons.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 3,
+                            })}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] font-mono ${
+                                item.status === 'PUBLISHED'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : item.status === 'APPROVED'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                    : 'bg-amber-50 text-amber-700 border-amber-300'
+                              }`}
+                            >
+                              {item.status}
+                            </Badge>
+                          </td>
+                          <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-600">
+                            v{item.version}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsExistingScheduleModalOpen(false)}
+                className="text-xs border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   )
 }

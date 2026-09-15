@@ -359,6 +359,45 @@ const INITIAL_CASES: RouteTestCase[] = [
     queryParamsTest: '',
     detail: 'Garante que o alias /pcp-robotizado/regras abra o Motor de Regras, nunca Index.',
   },
+  {
+    id: 'R-28',
+    route: '/pcp/montagem-semanal',
+    label: 'Montagem Semanal Direta (Operacional)',
+    category: 'Central',
+    expectedComponent: 'WeeklyScheduleOperationalPage',
+    expectedStatus: 'PENDING',
+    f5Safe: true,
+    rbacProtected: true,
+    queryParamsTest: '',
+    detail:
+      'Renderiza WeeklyScheduleOperationalPage protegido com PermissionGuard required="pcp.schedule.view".',
+  },
+  {
+    id: 'R-29',
+    route: '/pcp/programacao-semanal',
+    label: 'Programação Semanal Direta',
+    category: 'Central',
+    expectedComponent: 'WeeklyScheduleOperationalPage',
+    expectedStatus: 'PENDING',
+    f5Safe: true,
+    rbacProtected: true,
+    queryParamsTest: '',
+    detail:
+      'Renderiza WeeklyScheduleOperationalPage protegido com PermissionGuard required="pcp.schedule.view".',
+  },
+  {
+    id: 'R-30',
+    route: '/pcp/montagem-sewanal',
+    label: 'Montagem Semanal Typo Alias',
+    category: 'Auxiliares',
+    expectedComponent: 'WeeklyScheduleOperationalPage',
+    expectedStatus: 'PENDING',
+    f5Safe: true,
+    rbacProtected: true,
+    queryParamsTest: '',
+    detail:
+      'Renderiza WeeklyScheduleOperationalPage com PermissionGuard required="pcp.schedule.view".',
+  },
 ]
 
 export const RouteIntegritySuiteModal: React.FC<{
