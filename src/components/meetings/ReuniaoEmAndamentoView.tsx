@@ -1365,12 +1365,12 @@ export const ReuniaoEmAndamentoView: React.FC<ReuniaoEmAndamentoViewProps> = ({
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-center space-y-1">
                 <MicOff className="w-6 h-6 text-slate-400 mx-auto" />
                 <p className="text-xs font-semibold text-slate-700">
-                  Recurso aguardando integração do provedor de telecom/gravação.
+                  Recurso aguardando configuração do provedor de reunião.
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Assim como o canal de notificações da Fatia 1, o streaming automático de áudio
                   respeita os endpoints do HUB. Você pode inserir trechos manualmente ou consultar o
-                  histórico.
+                  histórico sem bloqueio do restante do fluxo.
                 </p>
               </div>
             )}

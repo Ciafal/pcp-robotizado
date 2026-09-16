@@ -45,9 +45,16 @@ export function parsePendencyCodeSequence(code: string): number {
 
 export class PcpMeetingFatia1Service {
   /**
-   * Obtém próximo código legível REUNIAO-000001
+   * Obtém detalhes de semana e ano ISO a partir de Date ou string
    */
-  async getNextMeetingCode(): Promise<string> {
+  getIsoWeekDetails(date: Date | string): { week: number; year: number } {
+    const d = typeof date === 'string' ? new Date(date) : date
+    return getIsoWeekAndYear(d)
+  }
+
+  /**
+   * Obtém próximo código sequencial de reunião (Ex: REUNIAO-000001)
+   */ async getNextMeetingCode(): Promise<string> {
     try {
       const records = await pb.collection('pcp_meeting').getList(1, 1, {
         sort: '-meeting_code',
@@ -373,6 +380,22 @@ export class PcpMeetingFatia1Service {
    * - Montagem semanal (weeklyScheduleService)
    * - Pendências de reuniões anteriores
    */
+  async generateBriefing(
+    meetingId: string,
+    userContext?: { id?: string; name: string },
+  ): Promise<PCPMeetingBriefingRecord & { executive_summary?: string; critical_risks?: string[] }> {
+    const user = userContext || { id: 'sys-pcp', name: 'Sistema PCP' }
+    const brf = await this.generateExecutiveBriefing(meetingId, user)
+    const criticals = brf.briefing_items
+      .filter((i) => i.classificacao === 'CRITICO')
+      .map((i) => `${i.titulo}: ${i.descricao}`)
+    return {
+      ...brf,
+      executive_summary: `Briefing executivo consolidado com ${brf.briefing_items.length} itens mapeados (${brf.critical_items_count} críticos).`,
+      critical_risks: criticals,
+    }
+  }
+
   async generateExecutiveBriefing(
     meetingId: string,
     userContext: { id?: string; name: string },
@@ -815,24 +838,66 @@ export class PcpMeetingFatia1Service {
    * Adiciona item à pauta
    */
   async addAgendaItem(
-    item: Omit<PCPMeetingAgendaItemRecord, 'id' | 'created' | 'updated'>,
-    userContext: { id?: string; name: string },
+    item: Omit<PCPMeetingAgendaItemRecord, 'id' | 'created' | 'updated'> | any,
+    userContext?: { id?: string; name: string },
   ): Promise<PCPMeetingAgendaItemRecord> {
+    const normalizedItem: Omit<PCPMeetingAgendaItemRecord, 'id' | 'created' | 'updated'> = {
+      meeting_id: item.meeting_id,
+      subject: item.subject,
+      area: item.area || 'PCP',
+      reason: item.reason || '',
+      priority: item.priority || 'NORMAL',
+      estimated_time_min: item.estimated_time_min ?? item.estimated_duration_min ?? 15,
+      presenter: item.presenter ?? item.responsible ?? 'PCP',
+      decision_needed: item.decision_needed ?? false,
+      order: item.order ?? (item.order_index !== undefined ? item.order_index + 1 : 1),
+      origin_ref: item.origin_ref || 'MANUAL',
+    }
+
     const created = await pb
       .collection('pcp_meeting_agenda_item')
-      .create<PCPMeetingAgendaItemRecord>(item)
+      .create<PCPMeetingAgendaItemRecord>(normalizedItem)
 
-    await this.logAction({
-      meeting_id: item.meeting_id,
-      user_id: userContext.id,
-      user_name: userContext.name,
-      action: 'ITEM_PAUTA_ADICIONADO',
-      target_object: 'pcp_meeting_agenda_item',
-      new_value: item.subject,
-      reason: 'Inclusão manual de item na pauta',
-    })
+    if (userContext) {
+      await this.logAction({
+        meeting_id: item.meeting_id,
+        user_id: userContext.id,
+        user_name: userContext.name,
+        action: 'ITEM_PAUTA_ADICIONADO',
+        target_object: 'pcp_meeting_agenda_item',
+        new_value: item.subject,
+        reason: 'Inclusão manual de item na pauta',
+      })
+    }
 
     return created
+  }
+
+  /**
+   * Atualiza item da pauta
+   */
+  async updateAgendaItem(
+    itemId: string,
+    updates: Partial<PCPMeetingAgendaItemRecord> | any,
+    userContext?: { id?: string; name: string },
+  ): Promise<PCPMeetingAgendaItemRecord> {
+    const updated = await pb
+      .collection('pcp_meeting_agenda_item')
+      .update<PCPMeetingAgendaItemRecord>(itemId, updates)
+
+    if (userContext) {
+      await this.logAction({
+        meeting_id: updated.meeting_id,
+        user_id: userContext.id,
+        user_name: userContext.name,
+        action: 'ITEM_PAUTA_ATUALIZADO',
+        target_object: 'pcp_meeting_agenda_item',
+        new_value: updated.subject,
+        reason: 'Atualização de item da pauta',
+      })
+    }
+
+    return updated
   }
 
   /**
@@ -1194,6 +1259,26 @@ export class PcpMeetingFatia1Service {
    * registra o envio no banco e marca claramente o canal como
    * REGISTRO_SISTEMA_CANAL_NOTIF_PENDENTE (nunca fingir sucesso falso de e-mail).
    */
+  async sendPreviaToGroup(
+    meetingId: string,
+    destinatarios: string[],
+    userContext: { id?: string; name: string },
+  ): Promise<{
+    meeting: PCPMeetingRecord
+    envioInfo: PreviaEnvioInfo
+    notificationStatus: string
+  }> {
+    const res = await this.sendPreviaToGrupoPCP(meetingId, destinatarios, userContext)
+    return {
+      meeting: {
+        ...res.meeting,
+        status_previa: 'ENVIADA',
+      } as any,
+      envioInfo: res.envioInfo,
+      notificationStatus: 'DISPARO_REGISTRADO_SISTEMA_CANAL_NOTIF_PENDENTE',
+    }
+  }
+
   async sendPreviaToGrupoPCP(
     meetingId: string,
     destinatarios: string[],
@@ -1289,6 +1374,21 @@ export class PcpMeetingFatia1Service {
    * Integra com a Agenda Corporativa: se a coleção existir, grava; caso contrário, persiste o compromisso
    * e sinaliza a integração como pendente sem duplicar base.
    */
+  async startMeeting(
+    meetingId: string,
+    userContext: { id?: string; name: string },
+  ): Promise<PCPMeetingRecord> {
+    return await pcpMeetingFatia2Service.startMeeting(meetingId, userContext)
+  }
+
+  async confirmSchedule(
+    meetingId: string,
+    userContext: { id?: string; name: string },
+  ): Promise<PCPMeetingRecord> {
+    const res = await this.confirmMeetingSchedule(meetingId, userContext)
+    return res.meeting
+  }
+
   async confirmMeetingSchedule(
     meetingId: string,
     userContext: { id?: string; name: string },
@@ -1465,14 +1565,89 @@ export class PcpMeetingFatia1Service {
   // PARTICIPANTES
   // --------------------------------------------------------------------------
 
+  async addParticipant(
+    data: Omit<PCPMeetingParticipantRecord, 'id' | 'created' | 'updated'> & {
+      user_id?: string
+      name?: string
+      email?: string
+      department?: string
+      participant_type?: string
+    },
+    userContext?: { id?: string; name: string },
+  ): Promise<PCPMeetingParticipantRecord> {
+    const person_name = data.person_name || data.name || 'Participante'
+    const person_email = data.person_email || data.email || ''
+    const role_title = data.role_title || data.department || data.participant_type || ''
+    const status = (data.status ||
+      (data.attendance_status === 'CONFIRMADO' ? 'CONFIRMOU' : 'CONVOCADO')) as ParticipantStatus
+
+    const payload: Omit<PCPMeetingParticipantRecord, 'id' | 'created' | 'updated'> = {
+      meeting_id: data.meeting_id,
+      person_name,
+      person_email,
+      role_title,
+      area: data.area || 'PCP',
+      status,
+      attendance_status: data.attendance_status,
+      is_mandatory: data.is_mandatory ?? true,
+    }
+
+    const created = await pb
+      .collection('pcp_meeting_participant')
+      .create<PCPMeetingParticipantRecord>(payload)
+
+    if (userContext) {
+      await this.logAction({
+        meeting_id: data.meeting_id,
+        user_id: userContext.id,
+        user_name: userContext.name,
+        action: 'PARTICIPANTE_ADICIONADO',
+        target_object: 'pcp_meeting_participant',
+        new_value: person_name,
+        reason: `Inclusão de participante ${person_name} (${data.area})`,
+      })
+    }
+
+    return {
+      ...created,
+      name: created.person_name,
+      email: created.person_email,
+      department: created.role_title,
+    } as any
+  }
+
+  async removeParticipant(
+    participantId: string,
+    meetingId: string,
+    userContext?: { id?: string; name: string },
+  ): Promise<void> {
+    await pb.collection('pcp_meeting_participant').delete(participantId)
+    if (userContext) {
+      await this.logAction({
+        meeting_id: meetingId,
+        user_id: userContext.id,
+        user_name: userContext.name,
+        action: 'PARTICIPANTE_REMOVIDO',
+        target_object: 'pcp_meeting_participant',
+        reason: 'Remoção de participante da reunião',
+      })
+    }
+  }
+
   async listParticipants(meetingId: string): Promise<PCPMeetingParticipantRecord[]> {
     try {
-      return await pb
+      const list = await pb
         .collection('pcp_meeting_participant')
         .getFullList<PCPMeetingParticipantRecord>({
           filter: `meeting_id = '${meetingId}'`,
           sort: 'area,person_name',
         })
+      return list.map((p) => ({
+        ...p,
+        name: p.person_name,
+        email: p.person_email,
+        department: p.role_title,
+      })) as any
     } catch {
       return []
     }
