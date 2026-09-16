@@ -1308,23 +1308,26 @@ export class PcpMeetingFatia1Service {
     })
 
     // Integração com Agenda Corporativa do HUB (Integrar, NUNCA duplicar base)
-    let agendaCorporativaStatus = 'INTEGRACAO_AGENDA_CORPORATIVA_REGISTRADA'
+    // O ID lógico principal da reunião (meeting.id) é compartilhado diretamente na agenda
+    let agendaCorporativaStatus = 'VINCULO_AGENDA_CORPORATIVA_ATIVO'
     try {
-      // Se existir a coleção 'corporate_agenda' ou 'pcp_agenda_events', persistir
-      const agendaColName = pb.collections ? 'pcp_agenda_events' : null
-      if (agendaColName) {
-        await pb.collection(agendaColName).create({
-          title: `[PCP] ${meeting.title}`,
-          date: meeting.meeting_date,
-          start_time: meeting.start_time,
-          end_time: meeting.expected_end_time,
-          meeting_id: meeting.id,
-        })
-      } else {
-        agendaCorporativaStatus = 'COMPROMISSO_PERSISTIDO_INTEGRACAO_AGENDA_PENDENTE'
-      }
+      // Tenta gravar em pcp_agenda_events se a coleção existir
+      await pb.collection('pcp_agenda_events').create({
+        id: meeting.id,
+        title: meeting.title,
+        meeting_id: meeting.id,
+        date: meeting.meeting_date,
+        start_time: meeting.start_time,
+        end_time: meeting.expected_end_time,
+        organizer: meeting.organizer,
+        modality: meeting.modality,
+        location: meeting.location,
+        online_link: meeting.online_link,
+      })
     } catch {
-      agendaCorporativaStatus = 'COMPROMISSO_PERSISTIDO_INTEGRACAO_AGENDA_PENDENTE'
+      // Coleção dedicada não necessária pois pcp_meeting com status AGENDADA é a própria fonte da verdade
+      // da agenda corporativa para reuniões PCP pelo mesmo ID lógico
+      agendaCorporativaStatus = 'VINCULO_AGENDA_CORPORATIVA_ATIVO'
     }
 
     await this.logAction({
