@@ -21,6 +21,8 @@ import {
   Send,
   X,
   ExternalLink,
+  Bell,
+  ShieldCheck,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,6 +57,10 @@ import {
   rawMaterialInventoryService,
   RawMaterialInventoryService,
 } from '@/services/pcp-raw-material-inventory-service'
+import { FieldSituationResolver } from '@/services/pcp-adapters-service'
+import { IntegrationGovernancePanel } from '@/components/pcp/IntegrationGovernancePanel'
+import { OrderDetailDrawer } from '@/components/pcp/OrderDetailDrawer'
+import { InternalNotificationCenterModal } from '@/components/pcp/InternalNotificationCenterModal'
 
 // Helpers visuais de Status
 export const getStatusBadge = (status: MPInventoryStatus) => {
@@ -176,6 +182,15 @@ export const RawMaterialInventoryPage: React.FC = () => {
 
   // Modal de Histórico e Auditoria
   const [historyModalOpen, setHistoryModalOpen] = useState<boolean>(false)
+
+  // Drawer de Detalhe Completo da Ordem (4 blocos operacionais)
+  const [detailModalItem, setDetailModalItem] = useState<MPInventoryItem | null>(null)
+
+  // Modal Central de Notificações Internas
+  const [notificationModalOpen, setNotificationModalOpen] = useState<boolean>(false)
+
+  // Área de Integrações e Governança Visível/Colapsável
+  const [showGovernance, setShowGovernance] = useState<boolean>(false)
 
   // Drag and drop temporário de reordenação
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
@@ -398,6 +413,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
         enfornamentoSequence: Number(sequence),
         observation: observation || '',
         userName: pb.authStore.record?.name || 'Operador DP07',
+        clientRecordVersion: item.record_version,
       })
 
       if (res.success) {
@@ -412,16 +428,25 @@ export const RawMaterialInventoryPage: React.FC = () => {
         await loadItems(selectedHeaderId)
 
         toast({
-          title: 'Alteração Salva com Sucesso',
+          title: 'Alterações salvas com sucesso.',
           description: res.message,
         })
+      } else if (res.isConflict) {
+        // Requisito 6: Alerta claro de concorrência sem sobrescrita silenciosa
+        toast({
+          variant: 'destructive',
+          title: 'Conflito de Concorrência Detectado',
+          description: res.message,
+        })
+        await loadItems(selectedHeaderId)
       }
     } catch (err) {
       console.error('Falha ao salvar item:', err)
       toast({
         variant: 'destructive',
-        title: 'Não foi possível salvar esta alteração.',
-        description: 'Verifique a conexão e tente novamente.',
+        title:
+          'Não foi possível salvar as alterações. Nenhuma informação foi perdida. Tente novamente.',
+        description: 'Falha de comunicação com o servidor de banco de dados.',
         action: (
           <Button
             size="sm"
@@ -557,6 +582,28 @@ export const RawMaterialInventoryPage: React.FC = () => {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setNotificationModalOpen(true)}
+              className="h-8 px-2.5 text-xs border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-600" />
+              <span>Notificações Internas</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowGovernance(!showGovernance)}
+              className={`h-8 px-2.5 text-xs border-slate-300 flex items-center gap-1.5 ${
+                showGovernance
+                  ? 'bg-slate-100 text-[#004C97] font-bold'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Integrações & Governança</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setHistoryModalOpen(true)}
               className="h-8 px-2.5 text-xs border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center gap-1.5"
             >
@@ -640,6 +687,17 @@ export const RawMaterialInventoryPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* PAINEL DE INTEGRAÇÕES & GOVERNANÇA (ISOLADO DO DP07) */}
+      {showGovernance && (
+        <div className="transition-all animate-in fade-in-50">
+          <IntegrationGovernancePanel
+            onStateChange={() => {
+              if (selectedHeaderId) loadItems(selectedHeaderId)
+            }}
+          />
+        </div>
+      )}
 
       {/* 2. RESUMO OPERACIONAL COM CARDS COMPACTOS (8 CARDS OBRIGATÓRIOS) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
@@ -1151,17 +1209,24 @@ export const RawMaterialInventoryPage: React.FC = () => {
                       <td className="p-2.5 font-mono font-bold text-slate-800">
                         {item.expected_enfornamento_time}
                       </td>
-                      {/* 6. Ordem */}
+                      {/* 6. Ordem (Situação individual PCP) */}
                       <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                        {item.production_order}
+                        <button
+                          type="button"
+                          onClick={() => setDetailModalItem(item)}
+                          className="hover:underline text-left"
+                          title="Abrir detalhe completo da ordem"
+                        >
+                          {item.production_order}
+                        </button>
                       </td>
                       {/* 7. Código Matéria-Prima */}
                       <td className="p-2.5 font-mono font-bold text-slate-900">
                         <button
                           type="button"
-                          onClick={() => setWmsModalItem(item)}
+                          onClick={() => setDetailModalItem(item)}
                           className="hover:underline text-[#004C97] text-left flex items-center gap-1 group"
-                          title="Clique para ver rastreabilidade WMS"
+                          title="Clique para ver detalhe completo da ordem"
                         >
                           <span>{item.raw_material_code}</span>
                           <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100" />
@@ -1174,17 +1239,31 @@ export const RawMaterialInventoryPage: React.FC = () => {
                       >
                         {item.raw_material_description}
                       </td>
-                      {/* 9. Corrida/Lote */}
+                      {/* 9. Corrida/Lote (Situação individual SAP) */}
                       <td className="p-2.5 font-mono text-slate-700">
-                        <button
-                          type="button"
-                          onClick={() => setWmsModalItem(item)}
-                          className="hover:underline font-semibold text-slate-800 group inline-flex items-center gap-1"
-                          title="Clique para ver rastreabilidade WMS"
-                        >
-                          <span>{item.heat_number}</span>
-                          <ExternalLink className="w-2.5 h-2.5 text-slate-400 group-hover:text-slate-800" />
-                        </button>
+                        {(() => {
+                          const sapSit = FieldSituationResolver.resolve('heat_number', item)
+                          return (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setDetailModalItem(item)}
+                                className="hover:underline font-semibold text-slate-800 group inline-flex items-center gap-1"
+                                title="Clique para ver detalhe completo"
+                              >
+                                <span>{item.heat_number}</span>
+                              </button>
+                              {sapSit.is_unavailable && (
+                                <span
+                                  className="block text-[8.5px] text-rose-600 font-bold leading-tight"
+                                  title={sapSit.sublabel}
+                                >
+                                  SAP Indisponível
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
                       {/* 10. Bitola/Produto Produzido */}
                       <td className="p-2.5 text-slate-700">{item.produced_gauge_product}</td>
@@ -1206,11 +1285,29 @@ export const RawMaterialInventoryPage: React.FC = () => {
                       <td className="p-2.5 text-right font-mono font-bold text-slate-900">
                         {item.sap_pieces_count}
                       </td>
-                      {/* 15. Localização Física */}
+                      {/* 15. Localização Física (Situação individual WMS) */}
                       <td className="p-2.5 text-slate-700">
-                        <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                          {item.wms_physical_location}
-                        </span>
+                        {(() => {
+                          const wmsSit = FieldSituationResolver.resolve(
+                            'wms_physical_location',
+                            item,
+                          )
+                          return (
+                            <div>
+                              <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 block truncate">
+                                {item.wms_physical_location}
+                              </span>
+                              {wmsSit.is_unavailable && (
+                                <span
+                                  className="block text-[8.5px] text-rose-600 font-bold leading-tight mt-0.5"
+                                  title={wmsSit.sublabel}
+                                >
+                                  WMS Indisponível (Pendência)
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* 16. Nº Peças Inventariadas (DP07 - EDITÁVEL) */}
@@ -1419,6 +1516,28 @@ export const RawMaterialInventoryPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* 5.1 PAINEL / DRAWER COMPLETO DA ORDEM (4 BLOCOS OPERACIONAIS) */}
+      <OrderDetailDrawer
+        item={detailModalItem}
+        timeline={
+          detailModalItem
+            ? RawMaterialInventoryService.buildOrderTimeline(detailModalItem, historyEvents)
+            : []
+        }
+        open={!!detailModalItem}
+        onClose={() => setDetailModalItem(null)}
+      />
+
+      {/* 5.2 CENTRAL INTERNA DE NOTIFICAÇÕES HUB */}
+      <InternalNotificationCenterModal
+        open={notificationModalOpen}
+        onClose={() => setNotificationModalOpen(false)}
+        targetAudience="DP07"
+        onSelectOrder={(ord) => {
+          setFilterOrder(ord)
+        }}
+      />
 
       {/* 6. MODAL DE RASTREABILIDADE WMS (CLIQUE NO MATERIAL/CORRIDA) */}
       <Dialog open={!!wmsModalItem} onOpenChange={() => setWmsModalItem(null)}>

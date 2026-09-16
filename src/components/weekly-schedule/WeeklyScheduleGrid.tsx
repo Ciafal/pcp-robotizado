@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Link } from 'react-router-dom'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
@@ -348,6 +349,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 <th className="py-2.5 px-3 w-28 text-center">Ordem / MTO</th>
                 <th className="py-2.5 px-3 w-28 text-right">Necessidade MP</th>
                 <th className="py-2.5 px-3 w-32 text-center">Status MP</th>
+                <th className="py-2.5 px-3 w-36 text-center">Inventário MP</th>
                 <th className="py-2.5 px-3 w-28 text-center">Status</th>
                 <th className="py-2.5 px-3 w-24 text-center">Ações</th>
               </tr>
@@ -812,6 +814,40 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                         ) : (
                           <span className="text-slate-400 text-[11px]">--</span>
                         )}
+                      </td>
+
+                      {/* Indicador Operacional de Inventário MP (FRIO / L1) */}
+                      <td className="py-2 px-3 text-center whitespace-nowrap">
+                        {(() => {
+                          const enfType = (
+                            (item as any).enfornamento_type ||
+                            (item as any).enfornamentoType ||
+                            'FRIO'
+                          ).toUpperCase()
+                          if (isStop || enfType !== 'FRIO') {
+                            return (
+                              <span className="text-[10px] text-slate-300 font-mono">
+                                N/A ({enfType})
+                              </span>
+                            )
+                          }
+
+                          // Badges com cores operacionais conforme Requisito 8:
+                          // 🟡 aguardando, 🔵 em preparação, 🟠 divergência, 🔴 risco de atraso, 🟢 pronto
+                          return (
+                            <Link
+                              to="/pcp/sequenciamento/inventario-mp"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 group hover:opacity-90"
+                              title="Clique para abrir detalhes do Inventário de Matéria-Prima (DP07 / L1)"
+                            >
+                              <Badge className="bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 text-[9px] font-bold py-0.5 px-1.5 flex items-center gap-1 cursor-pointer shadow-2xs transition-all">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                <span>Inventário MP</span>
+                              </Badge>
+                            </Link>
+                          )
+                        })()}
                       </td>
 
                       {/* Status da Atividade */}

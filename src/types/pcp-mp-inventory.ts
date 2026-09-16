@@ -68,6 +68,7 @@ export interface MPInventoryItem {
   inventory_id: string
   inventory_code: string
   item_control_key: string // CIAFAL|L1|FORNOL1|Data|Versao|Ordem|Material|Corrida
+  record_version?: number // Controle de concorrência otimista (OCC)
 
   // 1. Empresa (Origem: PCP)
   company: string
@@ -95,6 +96,8 @@ export interface MPInventoryItem {
   sap_stock_tons: number
   // 13. Necessidade (t) (Origem: PCP)
   planned_requirement_tons: number
+  // 13.1 Necessidade em peças calculada pelo PCP
+  planned_pieces_required?: number
   // 14. Nº Peças SAP (Origem: SAP)
   sap_pieces_count: number
   // 15. Localização Física (Origem: WMS)
@@ -202,4 +205,15 @@ export interface MPInventoryItemAlert {
   piecesShort?: number
   tonsShort?: number
   expectedTime?: string
+  previousSequence?: number
+  newSequence?: number
+}
+
+export interface MPInventoryTimelineEntry {
+  timestamp: string
+  time_display: string // "08:10", "09:03", etc.
+  actor: string // "PCP", "Sistema", "João (DP07)", etc.
+  title: string
+  description: string
+  type: 'INFO' | 'ACTION' | 'WARNING' | 'SUCCESS' | 'ALERT'
 }

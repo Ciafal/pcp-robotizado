@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T19:57:33.904Z",
+  "generatedAt": "2026-09-16T20:22:28.297Z",
   "collections": [
     {
       "name": "users",
@@ -20429,6 +20429,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "record_version",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -20668,6 +20674,263 @@
       "indexes": [
         "CREATE INDEX idx_pcp_mp_hist_inv ON pcp_mp_inventory_history (inventory_id)",
         "CREATE INDEX idx_pcp_mp_hist_evt ON pcp_mp_inventory_history (event_type)"
+      ]
+    },
+    {
+      "name": "pcp_integration_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "origin_system",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_system",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operation",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SUCCESS", "ERROR", "TIMEOUT", "UNAVAILABLE", "DEGRADED"]
+        },
+        {
+          "name": "response_time_ms",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "records_processed",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "endpoint",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payload_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_int_logs_sys ON pcp_integration_logs (origin_system)",
+        "CREATE INDEX idx_pcp_int_logs_time ON pcp_integration_logs (timestamp)",
+        "CREATE INDEX idx_pcp_int_logs_stat ON pcp_integration_logs (status)"
+      ]
+    },
+    {
+      "name": "pcp_internal_notifications",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "notification_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_audience",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["DP07", "PCP", "ALL", "MES"]
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "RISCO_ATRASO",
+            "NOVO_INVENTARIO",
+            "DIVERGENCIA",
+            "QTD_INSUFICIENTE",
+            "MUDANCA_SEQUENCIA",
+            "MATERIAL_NAO_LOCALIZADO",
+            "INVENTARIO_PRONTO",
+            "PROGRAMACAO_ALTERADA"
+          ]
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "order_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "required_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inventoried_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "missing_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "severity",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["CRITICAL", "WARNING", "INFO"]
+        },
+        {
+          "name": "is_read",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_dispatch_channels",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_notif_code ON pcp_internal_notifications (notification_code)",
+        "CREATE INDEX idx_pcp_notif_target ON pcp_internal_notifications (target_audience)",
+        "CREATE INDEX idx_pcp_notif_read ON pcp_internal_notifications (is_read)"
       ]
     }
   ]
