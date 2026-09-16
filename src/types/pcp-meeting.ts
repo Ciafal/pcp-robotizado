@@ -12,10 +12,14 @@ export type PCPMeetingStatus =
   | 'PREVIA_ENVIADA'
   | 'AGENDADA'
   | 'EM_ANDAMENTO'
+  | 'AGUARDANDO_ATA_FINAL'
+  | 'MINUTA_GERADA'
+  | 'AGUARDANDO_APROVACAO'
   | 'REALIZADA'
   | 'ATA_FINAL_GERADA'
   | 'ATA_APROVADA'
   | 'PUBLICADA'
+  | 'ENCERRADA'
   | 'CANCELADA'
   | 'REAGENDADA'
 
@@ -73,6 +77,32 @@ export interface RecurrenceConfig {
   periodicity: 'SEMANAL' | 'QUINZENAL' | 'MENSAL'
 }
 
+export interface TranscriptionSnippet {
+  id: string
+  speaker?: string
+  timestamp: string // HH:mm:ss
+  text: string
+  timeOffsetSec: number
+  source?: 'AUDIO' | 'SISTEMA' | 'USUARIO'
+}
+
+export interface AiSuggestionItem {
+  id: string
+  tipo:
+    | 'DECISAO'
+    | 'PENDENCIA'
+    | 'RESPONSAVEL'
+    | 'PRAZO'
+    | 'ALTERACAO_PREVIA'
+    | 'RISCO'
+    | 'FORA_DA_PAUTA'
+  trechoOrigem: string
+  sugestao: string
+  confianca: number // 0-100%
+  status: 'PENDENTE' | 'CONFIRMADO' | 'DESCARTADO' | 'EDITADO'
+  payload?: Record<string, any>
+}
+
 export interface PCPMeetingRecord {
   id: string
   meeting_code: string // Ex: REUNIAO-000001
@@ -102,6 +132,24 @@ export interface PCPMeetingRecord {
   cancellation_reason?: string
   reschedule_reason?: string
   created_by_user?: string
+  // Fatia 2: Execução real, gravação, transcrição e concorrência
+  real_start_time?: string
+  real_end_time?: string
+  started_by_user?: string
+  ended_by_user?: string
+  actual_duration_seconds?: number
+  recording_status?: 'INATIVO' | 'GRAVANDO' | 'PAUSADO' | 'FINALIZADO'
+  transcription_status?:
+    | 'INATIVO'
+    | 'TRANSCREVENDO'
+    | 'PAUSADO'
+    | 'FINALIZADO'
+    | 'AGUARDANDO_INTEGRACAO'
+  transcription_snippets?: TranscriptionSnippet[]
+  ai_suggestions?: AiSuggestionItem[]
+  version_lock?: number
+  last_edited_by?: string
+  last_edited_at?: string
   created?: string
   updated?: string
 }
@@ -116,6 +164,11 @@ export interface PCPMeetingParticipantRecord {
   status: ParticipantStatus
   response_notes?: string
   responded_at?: string
+  // Fatia 2: Presença real
+  attendance_status?: 'PRESENTE' | 'AUSENTE' | 'ENTROU_DEPOIS' | 'SAIU_ANTES'
+  joined_at?: string
+  left_at?: string
+  is_mandatory?: boolean
   created?: string
   updated?: string
 }
@@ -137,6 +190,12 @@ export interface PCPMeetingPendencyRecord {
   evidence?: string
   origin?: string
   performance_action_id?: string
+  // Fatia 2: Seção e herança
+  ata_section_id?: string
+  inherited_from_meeting_id?: string
+  is_recurrent?: boolean
+  recurrence_count?: number
+  recurrence_notes?: string
   created?: string
   updated?: string
 }
@@ -144,11 +203,18 @@ export interface PCPMeetingPendencyRecord {
 export interface PCPMeetingDecisionRecord {
   id?: string
   meeting_id: string
+  subject?: string
   description: string
   area: string
   responsible: string
   decision_date: string // YYYY-MM-DD
   origin: 'PREVIA' | 'REUNIAO'
+  origin_type?: 'MANUAL' | 'ATA_AO_VIVO' | 'TRANSCRICAO_IA' | 'PREVIA'
+  ata_section_id?: string
+  registered_by?: string
+  registered_at?: string
+  is_confirmed?: boolean
+  performance_action_id?: string
   notes?: string
   created?: string
   updated?: string
@@ -166,6 +232,12 @@ export interface PCPMeetingAgendaItemRecord {
   decision_needed: boolean
   order: number
   origin_ref?: string
+  // Fatia 2: Execução na reunião
+  discussion_status?: 'NAO_INICIADO' | 'EM_DISCUSSAO' | 'CONCLUIDO' | 'ADIADO'
+  discussion_start_time?: string
+  discussion_end_time?: string
+  discussion_duration_sec?: number
+  discussion_notes?: string
   created?: string
   updated?: string
 }
@@ -195,6 +267,26 @@ export interface AtaStructuredContent {
   secoes: Record<string, AtaSectionData>
 }
 
+export type DiffClassification =
+  | 'SEM_ALTERACAO'
+  | 'ATUALIZADO'
+  | 'DECISAO_NOVA'
+  | 'INFORMACAO_NOVA'
+  | 'INFORMACAO_REMOVIDA'
+  | 'PENDENTE_VALIDACAO'
+
+export interface AtaDiffItem {
+  secaoId: string
+  secaoNome: string
+  campo: string
+  antesPrevia: string
+  duranteReuniao: string
+  definidoAtaFinal: string
+  classificacao: DiffClassification
+  origem: string
+  statusRevisao: 'PENDENTE' | 'ACEITO' | 'REJEITADO' | 'EDITADO'
+}
+
 export interface PCPMeetingAtaRecord {
   id?: string
   meeting_id: string
@@ -207,8 +299,26 @@ export interface PCPMeetingAtaRecord {
   template_code?: string
   published_at?: string
   published_by?: string
+  approver_name?: string
+  approved_at?: string
+  human_review_notes?: string
+  comparison_data?: AtaDiffItem[]
   created?: string
   updated?: string
+}
+
+export interface RecurrenceDetectionItem {
+  id: string
+  assunto: string
+  tipo: 'PENDENCIA' | 'PARADA' | 'LINHA' | 'MATERIA_PRIMA' | 'CLIENTE' | 'MTO' | 'GARGALO'
+  indicadorTexto: string
+  totalOcorrencias: number
+  primeiraSemana: string
+  ultimaSemana: string
+  reunioesIds: string[]
+  severidade: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAIXA'
+  isAiSuggested?: boolean
+  detalhes: string
 }
 
 export interface TemplateSectionDefinition {

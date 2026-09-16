@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   CalendarDays,
+  AlertCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -416,6 +417,23 @@ export const PreparacaoReuniaoView: React.FC<PreparacaoReuniaoViewProps> = ({
     }
   }
 
+  // Fatia 2: Recorrências e Alertas automáticos para a reunião
+  const [recurrenceAlerts, setRecurrenceAlerts] = useState<{
+    recorrencias: any[]
+    pendenciasVencidas: any[]
+    decisoesPendentes: any[]
+  } | null>(null)
+
+  useEffect(() => {
+    if (currentMeeting?.id) {
+      import('@/services/pcp-meeting-fatia2-service').then(({ pcpMeetingFatia2Service }) => {
+        pcpMeetingFatia2Service.getRecurrenceAlertsForMeeting(currentMeeting.id).then((alerts) => {
+          setRecurrenceAlerts(alerts)
+        })
+      })
+    }
+  }, [currentMeeting?.id])
+
   const toggleSection = (secId: string) => {
     setExpandedSections((prev) => ({ ...prev, [secId]: !prev[secId] }))
   }
@@ -471,6 +489,37 @@ export const PreparacaoReuniaoView: React.FC<PreparacaoReuniaoViewProps> = ({
             </div>
           )}
         </div>
+
+        {/* Alertas Automáticos de Recorrência e Pendências Vencidas da Fatia 2 */}
+        {recurrenceAlerts &&
+          (recurrenceAlerts.recorrencias.length > 0 ||
+            recurrenceAlerts.pendenciasVencidas.length > 0) && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-2">
+              <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                Alertas Inteligentes para esta Reunião (Fatia 2 & Recorrências):
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                {recurrenceAlerts.recorrencias.slice(0, 2).map((rec, rIdx) => (
+                  <div key={rIdx} className="bg-white p-2 rounded border border-amber-100">
+                    <span className="font-bold text-slate-800">{rec.assunto}</span>
+                    <p className="text-slate-600">{rec.indicadorTexto}</p>
+                  </div>
+                ))}
+                {recurrenceAlerts.pendenciasVencidas.length > 0 && (
+                  <div className="bg-white p-2 rounded border border-rose-200 text-rose-800">
+                    <span className="font-bold">
+                      Atenção: {recurrenceAlerts.pendenciasVencidas.length} pendências com prazo
+                      vencido.
+                    </span>
+                    <p className="text-slate-500">
+                      Serão priorizadas automaticamente na pauta da reunião.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         {/* Linha do Tempo Visual do Fluxo */}
         {currentMeeting && (

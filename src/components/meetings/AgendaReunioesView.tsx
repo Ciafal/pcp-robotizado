@@ -334,6 +334,26 @@ export const AgendaReunioesView: React.FC<AgendaReunioesViewProps> = ({
 
                   {/* Ações Rápidas por Reunião */}
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {meeting.status === 'AGENDADA' && (
+                      <Button
+                        size="sm"
+                        onClick={() => onNavigateTab('andamento', meeting.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-8 shadow-sm"
+                      >
+                        Iniciar Reunião
+                      </Button>
+                    )}
+
+                    {meeting.status === 'EM_ANDAMENTO' && (
+                      <Button
+                        size="sm"
+                        onClick={() => onNavigateTab('andamento', meeting.id)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold h-8 animate-pulse"
+                      >
+                        Acessar Em Andamento
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       onClick={() => onNavigateTab('preparacao', meeting.id)}

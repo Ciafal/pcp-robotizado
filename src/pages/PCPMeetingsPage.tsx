@@ -19,10 +19,15 @@ import { PreparacaoReuniaoView } from '@/components/meetings/PreparacaoReuniaoVi
 import { AgendaReunioesView } from '@/components/meetings/AgendaReunioesView'
 import { PendenciasReuniaoView } from '@/components/meetings/PendenciasReuniaoView'
 import { ConfiguracoesReuniaoView } from '@/components/meetings/ConfiguracoesReuniaoView'
+import { ReuniaoEmAndamentoView } from '@/components/meetings/ReuniaoEmAndamentoView'
+import { CentralAtasFatia2View } from '@/components/meetings/CentralAtasFatia2View'
+import { HistoricoReunioesView } from '@/components/meetings/HistoricoReunioesView'
 import { CreatePcpMeetingModal } from '@/components/meetings/CreatePcpMeetingModal'
 import { PCPMeetingRecord } from '@/types/pcp-meeting'
+import { useAuth } from '@/contexts/AuthContext'
 
 export const PCPMeetingsPage: React.FC = () => {
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -171,83 +176,50 @@ export const PCPMeetingsPage: React.FC = () => {
 
         {activeTab === 'configuracoes' && <ConfiguracoesReuniaoView />}
 
-        {/* Subtópicos Planejados para a Próxima Fatia (Honestos, sem botões falsos) */}
-        {activeTab === 'andamento' && (
-          <Card className="border-slate-200 shadow-2xs">
-            <CardContent className="p-12 text-center space-y-3">
-              <Activity className="w-12 h-12 text-[#004C97] mx-auto opacity-60" />
-              <h3 className="text-base font-black text-slate-900">
-                Reunião em Andamento (Sala ao Vivo & Gravação)
-              </h3>
-              <p className="text-xs text-slate-500 max-w-lg mx-auto">
-                Disponível na <strong>FATIA 2</strong> da Reunião PCP: Painel de condução ao vivo,
-                presença em tempo real, cronômetro de pauta, gravação/transcrição de áudio e
-                registro dinâmico de deliberações.
-              </p>
-              <div className="pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleTabChange('preparacao')}
-                  className="text-xs font-semibold"
-                >
-                  &larr; Voltar para a Preparação da Reunião
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Subtópicos Operacionais da Fatia 2 */}
+        {activeTab === 'andamento' &&
+          (selectedMeetingId ? (
+            <ReuniaoEmAndamentoView
+              meetingId={selectedMeetingId}
+              onNavigateTab={handleTabChange}
+              currentUser={{ id: user?.id, name: user?.name || 'Coordenação PCP' }}
+            />
+          ) : (
+            <Card className="border-slate-200 shadow-2xs">
+              <CardContent className="p-12 text-center space-y-3">
+                <Activity className="w-12 h-12 text-[#004C97] mx-auto opacity-60" />
+                <h3 className="text-base font-black text-slate-900">Nenhuma Reunião Selecionada</h3>
+                <p className="text-xs text-slate-500 max-w-lg mx-auto">
+                  Para conduzir a Reunião em Andamento, selecione uma reunião com status{' '}
+                  <strong>AGENDADA</strong> na Agenda de Reuniões e clique em{' '}
+                  <strong>"Iniciar Reunião"</strong>.
+                </p>
+                <div className="pt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleTabChange('agenda')}
+                    className="bg-[#004C97] text-white text-xs font-bold"
+                  >
+                    Ver Agenda de Reuniões &rarr;
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
 
         {activeTab === 'atas' && (
-          <Card className="border-slate-200 shadow-2xs">
-            <CardContent className="p-12 text-center space-y-3">
-              <FileText className="w-12 h-12 text-[#004C97] mx-auto opacity-60" />
-              <h3 className="text-base font-black text-slate-900">
-                Central de ATAs Oficiais (Publicação & Assinaturas)
-              </h3>
-              <p className="text-xs text-slate-500 max-w-lg mx-auto">
-                Disponível na <strong>FATIA 2</strong> da Reunião PCP: Fluxo de aprovação formal,
-                revisão de minutas, assinatura eletrônica e publicação da ATA oficial (8.1.001-R002)
-                no repositório SGQ.
-              </p>
-              <div className="pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleTabChange('preparacao')}
-                  className="text-xs font-semibold"
-                >
-                  Ver Minuta na Preparação da Reunião &rarr;
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <CentralAtasFatia2View
+            initialMeetingId={selectedMeetingId}
+            currentUser={{ id: user?.id, name: user?.name || 'Coordenação PCP' }}
+            onNavigateTab={handleTabChange}
+          />
         )}
 
         {activeTab === 'historico' && (
-          <Card className="border-slate-200 shadow-2xs">
-            <CardContent className="p-12 text-center space-y-3">
-              <History className="w-12 h-12 text-[#004C97] mx-auto opacity-60" />
-              <h3 className="text-base font-black text-slate-900">
-                Histórico & Inteligência de Decisões PCP
-              </h3>
-              <p className="text-xs text-slate-500 max-w-lg mx-auto">
-                Disponível na <strong>FATIA 2</strong> da Reunião PCP: Consulta histórica com IA,
-                rastreamento temporal de deliberações passadas e indicadores comparativos de
-                resolução de pendências por área fabril.
-              </p>
-              <div className="pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleTabChange('agenda')}
-                  className="text-xs font-semibold"
-                >
-                  Consultar Reuniões na Agenda &rarr;
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <HistoricoReunioesView
+            onNavigateTab={handleTabChange}
+            currentUser={{ id: user?.id, name: user?.name || 'Coordenação PCP' }}
+          />
         )}
       </div>
 
