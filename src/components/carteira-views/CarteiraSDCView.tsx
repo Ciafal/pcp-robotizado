@@ -23,6 +23,7 @@ import {
   CarteiraSDCImportRow,
 } from '@/types/carteira-sdc'
 import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
+import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
 import { ImportacaoCarteiraSDCModal } from './ImportacaoCarteiraSDCModal'
 
@@ -94,6 +95,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [apenasComDeficit, setApenasComDeficit] = useState(false)
   const [apenasComProg, setApenasComProg] = useState(false)
   const [apenasEmProducao, setApenasEmProducao] = useState(false)
+  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
 
   // Ordenação
   const [ordenacaoCampo, setOrdenacaoCampo] = useState<string>('PRIORIZAR_NECESSIDADE')
@@ -554,6 +556,20 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => setMostrarColunasTemporais(!mostrarColunasTemporais)}
+                className={`h-7 text-xs gap-1 border-slate-300 ${
+                  mostrarColunasTemporais
+                    ? 'bg-blue-50 text-[#004C97] font-bold border-blue-300'
+                    : 'text-slate-700'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Colunas: Cobertura Temporal</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   setBusca('')
                   setFiltroFamilia('TODAS')
@@ -679,6 +695,16 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                 >
                   Data Prevista
                 </th>
+                {mostrarColunasTemporais && (
+                  <>
+                    <th className="p-2.5 font-bold text-right bg-blue-900/40">Média (t/d)</th>
+                    <th className="p-2.5 font-bold text-right bg-blue-900/40">Cobertura</th>
+                    <th className="p-2.5 font-bold text-center bg-blue-900/40">Fim Estoque</th>
+                    <th className="p-2.5 font-bold text-center bg-blue-900/40">Próx. Reposição</th>
+                    <th className="p-2.5 font-bold text-center bg-blue-900/40">Gap Dias</th>
+                    <th className="p-2.5 font-bold text-center bg-blue-900/40">Status Temporal</th>
+                  </>
+                )}
                 <th className="p-2.5 font-bold text-center">Alerta</th>
                 <th className="p-2.5 font-bold text-center">Ações</th>
               </tr>
@@ -838,6 +864,48 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                       <td className="p-2.5 text-center font-mono text-slate-600">
                         {it.data_prevista || '-'}
                       </td>
+
+                      {mostrarColunasTemporais &&
+                        (() => {
+                          const inputTemp =
+                            CoberturaTemporalEngine.converterCarteiraSDCParaInput(it)
+                          const resTemp = CoberturaTemporalEngine.calcular(inputTemp)
+                          return (
+                            <>
+                              <td className="p-2.5 text-right font-mono text-slate-700">
+                                {resTemp.mediaDiariaFaturamentoT
+                                  ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                                  : 'N/D'}
+                              </td>
+                              <td className="p-2.5 text-right font-mono font-bold text-slate-800">
+                                {resTemp.diasCoberturaFormatado}
+                              </td>
+                              <td className="p-2.5 text-center font-mono text-slate-700">
+                                {resTemp.dataFimEstoqueFormatada}
+                              </td>
+                              <td
+                                className="p-2.5 text-center font-mono text-[10px] text-blue-900 truncate max-w-[120px]"
+                                title={resTemp.proximaDataPrevistaFormatada}
+                              >
+                                {resTemp.proximaDataPrevistaFormatada}
+                              </td>
+                              <td
+                                className={`p-2.5 text-center font-mono font-bold ${
+                                  resTemp.temGapRuptura ? 'text-rose-700' : 'text-emerald-700'
+                                }`}
+                              >
+                                {resTemp.diasEstoqueNegativoFormatado}
+                              </td>
+                              <td className="p-2.5 text-center">
+                                <Badge
+                                  className={`text-[9px] font-bold border ${resTemp.badgeCor.bg} ${resTemp.badgeCor.text} ${resTemp.badgeCor.border}`}
+                                >
+                                  {resTemp.status}
+                                </Badge>
+                              </td>
+                            </>
+                          )
+                        })()}
 
                       {/* Alerta */}
                       <td className="p-2.5 text-center">

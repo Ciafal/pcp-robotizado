@@ -37,8 +37,13 @@ import {
 export interface DetalheMaterialUnificadoModalProps {
   isOpen: boolean
   onClose: () => void
-  item: CarteiraItem | CarteiraSDCItem | null
+  item?: CarteiraItem | CarteiraSDCItem | null
+  material?: string
   origemCarteira: OrigemCarteira
+  centro?: string
+  genItem?: CarteiraItem | null
+  sdcItem?: CarteiraSDCItem | null
+  entradasFuturas?: CarteiraEntradaFutura[]
   entradasFuturasDisponiveis?: CarteiraEntradaFutura[]
 }
 
@@ -46,22 +51,35 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
   isOpen,
   onClose,
   item,
+  material: materialProp,
   origemCarteira,
+  centro: centroProp,
+  genItem: genItemProp,
+  sdcItem: sdcItemProp,
+  entradasFuturas = [],
   entradasFuturasDisponiveis = [],
 }) => {
-  if (!item) return null
+  // Resolução unificada do item
+  const resolvedItem = item || genItemProp || sdcItemProp
+  if (!resolvedItem && !materialProp) return null
+
+  // Entradas futuras consolidadas
+  const todasEntradas = entradasFuturas.length > 0 ? entradasFuturas : entradasFuturasDisponiveis
 
   // Normalização polimórfica: CarteiraItem vs CarteiraSDCItem
-  const isSDC = origemCarteira === 'SDC' || ('carteira_t' in item && 'estoque_total_t' in item)
-  const sdcItem = isSDC ? (item as CarteiraSDCItem) : null
-  const genItem = !isSDC ? (item as CarteiraItem) : null
+  const isSDC =
+    origemCarteira === 'SDC' ||
+    Boolean(sdcItemProp) ||
+    Boolean(resolvedItem && 'carteira_t' in resolvedItem && 'estoque_total_t' in resolvedItem)
+  const sdcItem = sdcItemProp || (isSDC && resolvedItem ? (resolvedItem as CarteiraSDCItem) : null)
+  const genItem = genItemProp || (!isSDC && resolvedItem ? (resolvedItem as CarteiraItem) : null)
 
   const materialCodigo = sdcItem ? sdcItem.material : genItem ? genItem.codigo_material : ''
   const descricao = sdcItem ? sdcItem.descricao : genItem ? genItem.descricao_material : ''
   const familia = sdcItem ? sdcItem.familia : genItem ? genItem.familia : 'Geral'
   const bitola = sdcItem ? sdcItem.bitola : '-'
   const curvaAbc = sdcItem ? sdcItem.curva_abc : genItem ? genItem.curva_abc : 'B'
-  const centro = sdcItem ? 'SDPL' : genItem ? genItem.centro || '1000' : '1000'
+  const centro = centroProp || (sdcItem ? 'SDPL' : genItem ? genItem.centro || '1000' : '1000')
 
   // Estoque
   const estoqueTotal = sdcItem
@@ -109,7 +127,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
     : undefined
 
   // Entradas futuras associadas (Revenda, Importado ou Geral)
-  const entradasDoMaterial = entradasFuturasDisponiveis.filter(
+  const entradasDoMaterial = todasEntradas.filter(
     (e) => e.codigo_material.toLowerCase() === materialCodigo.toLowerCase(),
   )
 

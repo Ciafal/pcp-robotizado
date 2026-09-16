@@ -539,20 +539,23 @@ export class CoberturaTemporalEngine {
       }
     }
 
-    // 6. Próxima Data (Demanda / Menor Data Desejada da Carteira)
+    // 6. Próxima Data (Demanda / Menor Data Desejada da Carteira - Ordenação Estrita)
     let menorDataDemandaDate: Date | null = null
     let proximaDemandaDetalhe: DemandaCarteiraItem | null = null
 
     if (input.pedidos && input.pedidos.length > 0) {
-      for (const ped of input.pedidos) {
-        if (!ped.dataDesejada || ped.quantidadeTons <= 0) continue
-        const d = CoberturaTemporalEngine.parseDataGenerica(ped.dataDesejada)
-        if (d) {
-          if (!menorDataDemandaDate || d.getTime() < menorDataDemandaDate.getTime()) {
-            menorDataDemandaDate = d
-            proximaDemandaDetalhe = ped
-          }
-        }
+      const pedidosOrdenados = input.pedidos
+        .filter((p) => p.dataDesejada && p.quantidadeTons > 0)
+        .map((p) => ({
+          ...p,
+          _dateObj: CoberturaTemporalEngine.parseDataGenerica(p.dataDesejada),
+        }))
+        .filter((p): p is typeof p & { _dateObj: Date } => p._dateObj !== null)
+        .sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime())
+
+      if (pedidosOrdenados.length > 0) {
+        menorDataDemandaDate = pedidosOrdenados[0]._dateObj
+        proximaDemandaDetalhe = pedidosOrdenados[0]
       }
     }
 
@@ -590,18 +593,22 @@ export class CoberturaTemporalEngine {
       }
     }
 
+    // Ordenação cronológica estrita das reposições futuras válidas
+    const reposicoesOrdenadas = listaReposicoes
+      .filter((r) => r.dataPrevista && r.quantidadeTons > 0)
+      .map((r) => ({
+        ...r,
+        _dateObj: CoberturaTemporalEngine.parseDataGenerica(r.dataPrevista),
+      }))
+      .filter((r): r is typeof r & { _dateObj: Date } => r._dateObj !== null)
+      .sort((a, b) => a._dateObj.getTime() - b._dateObj.getTime())
+
     let menorDataReposicaoDate: Date | null = null
     let proximaReposicaoDetalhe: EntradaReposicaoFutura | null = null
 
-    for (const rep of listaReposicoes) {
-      if (!rep.dataPrevista || rep.quantidadeTons <= 0) continue
-      const d = CoberturaTemporalEngine.parseDataGenerica(rep.dataPrevista)
-      if (d) {
-        if (!menorDataReposicaoDate || d.getTime() < menorDataReposicaoDate.getTime()) {
-          menorDataReposicaoDate = d
-          proximaReposicaoDetalhe = rep
-        }
-      }
+    if (reposicoesOrdenadas.length > 0) {
+      menorDataReposicaoDate = reposicoesOrdenadas[0]._dateObj
+      proximaReposicaoDetalhe = reposicoesOrdenadas[0]
     }
 
     const proximaDataPrevistaReposicao = menorDataReposicaoDate

@@ -31,6 +31,8 @@ import {
 } from 'lucide-react'
 import { AlertaCarteiraSDC, SeveridadeAlertaSDC } from '@/types/carteira-sdc'
 import { CarteiraSDCService } from '@/services/carteira-sdc-service'
+import { carteiraService } from '@/services/carteira-service'
+import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { AnalisarImpactoSDCModal } from '@/components/carteira-views/AnalisarImpactoSDCModal'
 import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { Button } from '@/components/ui/button'
@@ -94,6 +96,21 @@ export default function Index() {
     useState<AlertaCarteiraSDC | null>(null)
   const [isModalImpactoOpen, setIsModalImpactoOpen] = useState(false)
 
+  // Riscos temporais padronizados calculados das 7 carteiras
+  interface AlertaTemporal7Carteiras {
+    id: string
+    carteira: string
+    material: string
+    descricao: string
+    severidade: 'CRÍTICO' | 'ALTO' | 'ATENÇÃO'
+    mensagem: string
+    diasSemCobertura: number | string
+    dataFimEstoque: string
+    dataReposicao: string
+    link: string
+  }
+  const [alertasTemporais, setAlertasTemporais] = useState<AlertaTemporal7Carteiras[]>([])
+
   // Filtros do Painel "Alertas do Seu Escopo"
   const [filtroSeveridade, setFiltroSeveridade] = useState<string>('ALL')
   const [filtroOrigem, setFiltroOrigem] = useState<string>('ALL')
@@ -139,6 +156,175 @@ export default function Index() {
     }
   }, [])
 
+  // Carregar riscos temporais padronizados das 7 carteiras com o motor central
+  const carregarRiscosTemporais = useCallback(async () => {
+    try {
+      const [itensGerais, entradasFuturas, itensSDC] = await Promise.all([
+        carteiraService.listarItens({}),
+        carteiraService.listarEntradasFuturas(),
+        CarteiraSDCService.listarItens(),
+      ])
+
+      const novosAlertas: AlertaTemporal7Carteiras[] = []
+
+      // 1. Linhas L1 e L2
+      const itensL1 = itensGerais.filter((i) => i.linha === 'L1')
+      for (const it of itensL1) {
+        const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          'L1',
+          entradasFuturas,
+        )
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-L1-${it.codigo_material}`,
+            carteira: 'Carteira L1',
+            material: it.codigo_material,
+            descricao: it.descricao_material,
+            severidade: 'CRÍTICO',
+            mensagem: `ficará sem cobertura por ${diasGap} dias antes da próxima produção L1`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/l1?material=${it.codigo_material}`,
+          })
+        }
+      }
+
+      const itensL2 = itensGerais.filter((i) => i.linha === 'L2')
+      for (const it of itensL2) {
+        const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          'L2',
+          entradasFuturas,
+        )
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-L2-${it.codigo_material}`,
+            carteira: 'Carteira L2',
+            material: it.codigo_material,
+            descricao: it.descricao_material,
+            severidade: 'CRÍTICO',
+            mensagem: `previsão de ruptura antes da próxima programação L2`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/l2?material=${it.codigo_material}`,
+          })
+        }
+      }
+
+      // 2. MTO
+      const itensMTO = itensGerais.filter(
+        (i) => i.tipo_ordem === 'ZPRM' || i.tipo_ordem === 'MTO' || (i.estoque_mto_tons || 0) > 0,
+      )
+      for (const it of itensMTO) {
+        const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          'MTO',
+          entradasFuturas,
+        )
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-MTO-${it.codigo_material}`,
+            carteira: 'Carteira MTO',
+            material: it.codigo_material,
+            descricao: it.descricao_material,
+            severidade: 'CRÍTICO',
+            mensagem: `necessidade anterior à conclusão prevista da OP`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/mto?material=${it.codigo_material}`,
+          })
+        }
+      }
+
+      // 3. Revenda
+      const itensRevenda = itensGerais.filter((i) => i.origem_produto === 'REVENDA')
+      for (const it of itensRevenda) {
+        const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          'REVENDA',
+          entradasFuturas,
+        )
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-REV-${it.codigo_material}`,
+            carteira: 'Carteira Revenda',
+            material: it.codigo_material,
+            descricao: it.descricao_material,
+            severidade: 'CRÍTICO',
+            mensagem: `termina estoque antes do próximo recebimento`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/revenda?material=${it.codigo_material}`,
+          })
+        }
+      }
+
+      // 4. Importado
+      const itensImportado = itensGerais.filter((i) => i.origem_produto === 'IMPORTADO')
+      for (const it of itensImportado) {
+        const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          'IMPORTADO',
+          entradasFuturas,
+        )
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-IMP-${it.codigo_material}`,
+            carteira: 'Carteira Importado',
+            material: it.codigo_material,
+            descricao: it.descricao_material,
+            severidade: 'CRÍTICO',
+            mensagem: `estoque termina antes da disponibilidade prevista da importação`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/importado?material=${it.codigo_material}`,
+          })
+        }
+      }
+
+      // 5. SDC
+      for (const it of itensSDC) {
+        const inp = CoberturaTemporalEngine.converterCarteiraSDCParaInput(it)
+        const calc = CoberturaTemporalEngine.calcular(inp)
+        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+          novosAlertas.push({
+            id: `temp-SDC-${it.material}`,
+            carteira: 'Carteira SDC',
+            material: it.material,
+            descricao: it.descricao,
+            severidade: 'CRÍTICO',
+            mensagem: `ficará sem cobertura antes do retorno da industrialização`,
+            diasSemCobertura: diasGap,
+            dataFimEstoque: calc.dataFimEstoqueFormatada,
+            dataReposicao: calc.proximaDataPrevistaFormatada,
+            link: `/pcp/analise-carteira/sdc?material=${it.material}`,
+          })
+        }
+      }
+
+      setAlertasTemporais(novosAlertas)
+    } catch (err) {
+      console.warn('Erro ao carregar riscos temporais das carteiras:', err)
+    }
+  }, [])
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -174,8 +360,9 @@ export default function Index() {
 
   useEffect(() => {
     const signal = { aborted: false }
-    // Carga inicial de alertas SDC imediata para não atrasar o Cockpit
+    // Carga inicial de alertas SDC e riscos temporais das 7 carteiras
     carregarAlertasSDC()
+    carregarRiscosTemporais()
 
     // Adiar revalidação com setTimeout(..., 1500) para não colidir com o mount inicial
     const timer = setTimeout(() => {
@@ -234,11 +421,12 @@ export default function Index() {
   const totalAlertasAtivosConsolidado = useMemo(() => {
     const operacionaisAtivos = scopedAlerts.filter((a) => !a.acknowledged)
     const sdcAtivos = alertasSDC.filter((a) => a.ativo)
-    const total = operacionaisAtivos.length + sdcAtivos.length
+    const temporaisCriticos = alertasTemporais.filter((a) => a.severidade === 'CRÍTICO').length
+    const total = operacionaisAtivos.length + sdcAtivos.length + alertasTemporais.length
 
     const criticosSDC = metricasAlertasSDC.criticos
     const criticosOperacionais = operacionaisAtivos.filter((a) => a.severity === 'critical').length
-    const totalCriticos = criticosSDC + criticosOperacionais
+    const totalCriticos = criticosSDC + criticosOperacionais + temporaisCriticos
 
     // Categorias operacionais discriminadas
     const countProg =
@@ -269,9 +457,9 @@ export default function Index() {
       countRestricao,
       countCapacidade,
       countOutros: Math.max(0, countOutros),
-      subtextoDiscriminado: `${total} (${criticosSDC} críticos SDC, ${countProg > 0 ? `${countProg} programação` : '3 programação'}, ${countRestricao > 0 ? `${countRestricao} restrição` : '1 restrição'}, ${countCapacidade > 0 ? `${countCapacidade} capacidade` : '1 capacidade'})`,
+      subtextoDiscriminado: `${total} (${totalCriticos} críticos: ${temporaisCriticos} riscos de carteira, ${criticosSDC} SDC, ${countProg > 0 ? `${countProg} programação` : '3 programação'})`,
     }
-  }, [scopedAlerts, alertasSDC, metricasAlertasSDC])
+  }, [scopedAlerts, alertasSDC, metricasAlertasSDC, alertasTemporais])
 
   // Métricas de capacidade calculadas
   const metrics = useMemo(() => {
@@ -698,6 +886,7 @@ export default function Index() {
                   className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700 font-semibold"
                 >
                   <option value="ALL">Todas as origens</option>
+                  <option value="Riscos Temporais">Riscos Temporais (7 Carteiras)</option>
                   <option value="Carteira SDC">Carteira SDC</option>
                   <option value="Operacional">Operacional / Linhas</option>
                 </select>
@@ -810,6 +999,76 @@ export default function Index() {
           </div>
 
           <div className="space-y-2.5">
+            {/* 0. SEÇÃO DE RISCOS TEMPORAIS DAS 7 CARTEIRAS (Cobertura Temporal & Previsão) */}
+            {alertasTemporais
+              .filter((al) => {
+                if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Riscos Temporais') return false
+                if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade) return false
+                if (
+                  filtroMaterial &&
+                  !al.material.toLowerCase().includes(filtroMaterial.toLowerCase())
+                )
+                  return false
+                return true
+              })
+              .map((al) => (
+                <div
+                  key={al.id}
+                  className="p-3 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-950 transition-all text-xs shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                        <AlertCircle className="w-3 h-3" /> [CRÍTICO]
+                      </Badge>
+                      <span className="text-[11px] font-bold text-slate-800">
+                        {al.carteira} &bull; Cobertura Temporal
+                      </span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1.5 py-0 font-semibold border-rose-300 text-rose-800 bg-white"
+                    >
+                      Ruptura Prevista
+                    </Badge>
+                  </div>
+
+                  {/* Formato padrão solicitado: CRÍTICO · Carteira L1 — Material X — Estoque termina 20/09, próxima produção 25/09 — N dias sem cobertura */}
+                  <div className="p-2 bg-white/95 rounded border border-rose-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
+                    <span className="font-bold">
+                      CRÍTICO &bull; {al.carteira} — Material {al.material}
+                    </span>{' '}
+                    &bull;{' '}
+                    <span>
+                      Estoque termina {al.dataFimEstoque}, próxima reposição {al.dataReposicao} —{' '}
+                      <strong className="text-rose-700">
+                        {al.diasSemCobertura} dias sem cobertura
+                      </strong>
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
+                    {al.material} ({al.descricao}): {al.mensagem}.
+                  </p>
+
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-rose-200/80">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      asChild
+                      className="h-6 px-2 text-[10px] font-bold border-rose-300 text-rose-800 hover:bg-rose-100"
+                    >
+                      <Link to={al.link}>
+                        <ExternalLink className="w-3 h-3 mr-1" /> Ver análise na carteira
+                      </Link>
+                    </Button>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      Motor Cobertura Temporal CIAFAL
+                    </span>
+                  </div>
+                </div>
+              ))}
+
             {/* 1. SEÇÃO DE ALERTAS DA CARTEIRA SDC (Centro SDPL) */}
             {alertasSDC
               .filter((al) => {

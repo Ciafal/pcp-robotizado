@@ -18,6 +18,8 @@ import {
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
 import { InventoryItem } from '@/types/inventory-projection'
 import { CarteiraSDCItem, CarteiraSDCKpis, AlertaCarteiraSDC } from '@/types/carteira-sdc'
+import { CoberturaTemporalEngine, ResultadoCalculoTemporal } from './cobertura-temporal-engine'
+import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 
 /**
  * Utilitário de formatação de números padrão CIAFAL (Brasil)
@@ -51,6 +53,32 @@ export interface RawPcpDataSnapshot {
   carteiraSDCItens?: CarteiraSDCItem[]
   carteiraSDCKpis?: CarteiraSDCKpis
   carteiraSDCAlertas?: AlertaCarteiraSDC[]
+  carteiraGeralItens?: CarteiraItem[]
+  entradasFuturas?: CarteiraEntradaFutura[]
+}
+
+export interface ExecutiveTemporalQueryResponse {
+  tipo:
+    | 'MENOR_COBERTURA'
+    | 'RUPTURAS'
+    | 'DIAS_RUPTURA_MATERIAL'
+    | 'IMPORTADOS_APOS_FIM'
+    | 'SDC_APOS_NECESSIDADE'
+    | 'MTO_PRODUCAO_POSTERIOR'
+    | 'CARTEIRA_MAIOR_RISCO'
+    | 'GERAL'
+  respostaTexto: string
+  indicadoresReais: {
+    material?: string
+    carteira?: string
+    diasCobertura?: number | null
+    dataFimEstoque?: string
+    proximaDataPrevista?: string
+    diasEstoqueNegativo?: number | null | string
+    status?: string
+    mediaDiariaTons?: number | null
+    detalhes?: any[]
+  }
 }
 
 /**
@@ -899,6 +927,263 @@ export class DeterministicExecutiveEngine {
       recommendation:
         'Executar reordenação prioritária via solver CP-SAT agrupando bitolas semelhantes, avaliar programação/industrialização para cobertura de 19,16 t no centro SDPL e priorizar reabastecimento do buffer térmico intermediário.',
       resumoSDCFormatado: sdcFormatado,
+    }
+  }
+
+  /**
+   * 15. Consultas Executivas Determinísticas sobre Cobertura Temporal & Previsão
+   * Consome SOMENTE números reais do motor central CoberturaTemporalEngine.
+   */
+  public responderConsultaTemporalExecutiva(
+    pergunta: string,
+    snapshot: RawPcpDataSnapshot,
+  ): ExecutiveTemporalQueryResponse {
+    const p = pergunta.toLowerCase()
+
+    // Consolidar resultados do motor CoberturaTemporalEngine para itens disponíveis
+    const entradasFuturas = snapshot.entradasFuturas || []
+    const resultadosCalculados: {
+      origem: string
+      material: string
+      descricao: string
+      resultado: ResultadoCalculoTemporal
+    }[] = []
+
+    if (snapshot.carteiraGeralItens && snapshot.carteiraGeralItens.length > 0) {
+      for (const it of snapshot.carteiraGeralItens) {
+        const origem =
+          it.linha === 'L1'
+            ? 'L1'
+            : it.linha === 'L2'
+              ? 'L2'
+              : it.origem_produto === 'REVENDA'
+                ? 'REVENDA'
+                : it.origem_produto === 'IMPORTADO'
+                  ? 'IMPORTADO'
+                  : it.tipo_ordem === 'ZPRM' || it.tipo_ordem === 'MTO'
+                    ? 'MTO'
+                    : 'GERAL'
+
+        const input = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          origem as any,
+          entradasFuturas,
+        )
+        const res = CoberturaTemporalEngine.calcular(input)
+        resultadosCalculados.push({
+          origem,
+          material: it.codigo_material,
+          descricao: it.descricao_material,
+          resultado: res,
+        })
+      }
+    }
+
+    if (snapshot.carteiraSDCItens && snapshot.carteiraSDCItens.length > 0) {
+      for (const it of snapshot.carteiraSDCItens) {
+        const input = CoberturaTemporalEngine.converterCarteiraSDCParaInput(it)
+        const res = CoberturaTemporalEngine.calcular(input)
+        resultadosCalculados.push({
+          origem: 'SDC',
+          material: it.material,
+          descricao: it.descricao,
+          resultado: res,
+        })
+      }
+    }
+
+    // Identificar intenção determinística da pergunta
+    // 1. Menor cobertura
+    if (
+      p.includes('menor cobertura') ||
+      p.includes('menor prazo') ||
+      p.includes('termina primeiro')
+    ) {
+      const comCobertura = resultadosCalculados
+        .filter((r) => r.resultado.diasCobertura !== null && r.resultado.diasCobertura >= 0)
+        .sort((a, b) => (a.resultado.diasCobertura ?? 999) - (b.resultado.diasCobertura ?? 999))
+
+      if (comCobertura.length > 0) {
+        const item = comCobertura[0]
+        return {
+          tipo: 'MENOR_COBERTURA',
+          respostaTexto: `O material com menor cobertura temporal no HUB CIAFAL é **${item.material}** (${item.descricao}, Carteira ${item.origem}), apresentando **${item.resultado.diasCoberturaFormatado} de cobertura**. A data prevista de fim de estoque é **${item.resultado.dataFimEstoqueFormatada}** e a próxima reposição é **${item.resultado.proximaDataPrevistaFormatada}** (Status: **${item.resultado.status}**).`,
+          indicadoresReais: {
+            material: item.material,
+            carteira: item.origem,
+            diasCobertura: item.resultado.diasCobertura,
+            dataFimEstoque: item.resultado.dataFimEstoqueFormatada,
+            proximaDataPrevista: item.resultado.proximaDataPrevistaFormatada,
+            diasEstoqueNegativo: item.resultado.diasEstoqueNegativoFormatado,
+            status: item.resultado.status,
+            mediaDiariaTons: item.resultado.mediaDiariaFaturamentoT,
+          },
+        }
+      }
+    }
+
+    // 2. Importados que chegam após o fim do estoque
+    if (
+      p.includes('importad') &&
+      (p.includes('após') || p.includes('depois') || p.includes('ruptura') || p.includes('fim'))
+    ) {
+      const importadosComRuptura = resultadosCalculados.filter(
+        (r) =>
+          r.origem === 'IMPORTADO' &&
+          (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+      )
+      if (importadosComRuptura.length > 0) {
+        const itensTxt = importadosComRuptura
+          .map(
+            (i) =>
+              `• **${i.material}**: Estoque termina em ${i.resultado.dataFimEstoqueFormatada}, disponibilidade prevista (ETA + desembaraço) em ${i.resultado.proximaDataPrevistaFormatada} (${i.resultado.diasEstoqueNegativoFormatado} dias negativos).`,
+          )
+          .join('\n')
+        return {
+          tipo: 'IMPORTADOS_APOS_FIM',
+          respostaTexto: `Foram identificados **${importadosComRuptura.length} itens de Importação** com chegada/desembaraço posterior ao fim do estoque disponível:\n${itensTxt}`,
+          indicadoresReais: {
+            carteira: 'IMPORTADO',
+            status: 'RISCO DE RUPTURA',
+            detalhes: importadosComRuptura.map((i) => ({
+              material: i.material,
+              fimEstoque: i.resultado.dataFimEstoqueFormatada,
+              reposicao: i.resultado.proximaDataPrevistaFormatada,
+              gapDias: i.resultado.diasEstoqueNegativo,
+            })),
+          },
+        }
+      } else {
+        return {
+          tipo: 'IMPORTADOS_APOS_FIM',
+          respostaTexto:
+            'Nenhum item da Carteira Importado apresenta disponibilidade posterior ao fim do estoque segundo os parâmetros temporais ativos.',
+          indicadoresReais: { carteira: 'IMPORTADO', status: 'COBERTURA PRESERVADA' },
+        }
+      }
+    }
+
+    // 3. Retornos SDC após a necessidade / fim
+    if (
+      p.includes('sdc') &&
+      (p.includes('retorno') ||
+        p.includes('necessidade') ||
+        p.includes('após') ||
+        p.includes('ruptura'))
+    ) {
+      const sdcComRuptura = resultadosCalculados.filter(
+        (r) =>
+          r.origem === 'SDC' && (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+      )
+      if (sdcComRuptura.length > 0) {
+        const itensTxt = sdcComRuptura
+          .map(
+            (i) =>
+              `• **${i.material}**: Necessidade/fim em ${i.resultado.dataFimEstoqueFormatada}, retorno industrialização/produção em ${i.resultado.proximaDataPrevistaFormatada} (${i.resultado.diasEstoqueNegativoFormatado} dias sem cobertura).`,
+          )
+          .join('\n')
+        return {
+          tipo: 'SDC_APOS_NECESSIDADE',
+          respostaTexto: `Existem **${sdcComRuptura.length} itens da Carteira SDC** cujo retorno previsto de industrialização ou produção é posterior à necessidade:\n${itensTxt}`,
+          indicadoresReais: {
+            carteira: 'SDC',
+            status: 'RISCO DE RUPTURA',
+            detalhes: sdcComRuptura.map((i) => ({
+              material: i.material,
+              fimEstoque: i.resultado.dataFimEstoqueFormatada,
+              reposicao: i.resultado.proximaDataPrevistaFormatada,
+              gapDias: i.resultado.diasEstoqueNegativo,
+            })),
+          },
+        }
+      }
+    }
+
+    // 4. OPs MTO com produção posterior à necessidade
+    if (
+      p.includes('mto') ||
+      p.includes('ordem') ||
+      (p.includes('op') && p.includes('necessidade'))
+    ) {
+      const mtoComRuptura = resultadosCalculados.filter(
+        (r) =>
+          r.origem === 'MTO' && (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+      )
+      if (mtoComRuptura.length > 0) {
+        const itensTxt = mtoComRuptura
+          .map(
+            (i) =>
+              `• **${i.material}**: Conclusão da OP prevista para ${i.resultado.proximaDataPrevistaFormatada}, porém a necessidade ocorre em ${i.resultado.dataFimEstoqueFormatada} (${i.resultado.diasEstoqueNegativoFormatado} dias sem cobertura).`,
+          )
+          .join('\n')
+        return {
+          tipo: 'MTO_PRODUCAO_POSTERIOR',
+          respostaTexto: `Existem **${mtoComRuptura.length} ordens MTO** com data de produção prevista posterior à necessidade do cliente:\n${itensTxt}`,
+          indicadoresReais: {
+            carteira: 'MTO',
+            status: 'RISCO DE RUPTURA',
+            detalhes: mtoComRuptura.map((i) => ({
+              material: i.material,
+              fimEstoque: i.resultado.dataFimEstoqueFormatada,
+              reposicao: i.resultado.proximaDataPrevistaFormatada,
+              gapDias: i.resultado.diasEstoqueNegativo,
+            })),
+          },
+        }
+      }
+    }
+
+    // 5. Rupturas gerais e dias de ruptura por material
+    if (p.includes('ruptura') || p.includes('dias de ruptura') || p.includes('sem cobertura')) {
+      const comRuptura = resultadosCalculados.filter(
+        (r) => r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO',
+      )
+      if (comRuptura.length > 0) {
+        const itensTxt = comRuptura
+          .slice(0, 5)
+          .map(
+            (i) =>
+              `• **${i.material}** (${i.origem}): ${i.resultado.diasEstoqueNegativoFormatado} dias negativos (Estoque acaba ${i.resultado.dataFimEstoqueFormatada}, reposição ${i.resultado.proximaDataPrevistaFormatada}).`,
+          )
+          .join('\n')
+        return {
+          tipo: 'RUPTURAS',
+          respostaTexto: `Total de **${comRuptura.length} materiais com ruptura temporal** identificada no HUB CIAFAL pelo motor determinístico:\n${itensTxt}`,
+          indicadoresReais: {
+            status: 'RISCO DE RUPTURA',
+            detalhes: comRuptura.map((i) => ({
+              material: i.material,
+              carteira: i.origem,
+              diasNegativos: i.resultado.diasEstoqueNegativo,
+              fimEstoque: i.resultado.dataFimEstoqueFormatada,
+              reposicao: i.resultado.proximaDataPrevistaFormatada,
+            })),
+          },
+        }
+      }
+    }
+
+    // 6. Carteira com maior risco
+    const contagemRiscoPorCarteira: Record<string, number> = {}
+    for (const r of resultadosCalculados) {
+      if (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO') {
+        contagemRiscoPorCarteira[r.origem] = (contagemRiscoPorCarteira[r.origem] || 0) + 1
+      }
+    }
+    const carteirasOrdenadas = Object.entries(contagemRiscoPorCarteira).sort((a, b) => b[1] - a[1])
+    const maiorCarteira = carteirasOrdenadas.length > 0 ? carteirasOrdenadas[0] : ['Nenhuma', 0]
+
+    return {
+      tipo: 'CARTEIRA_MAIOR_RISCO',
+      respostaTexto: `A carteira com maior concentração de risco temporal no momento é a **Carteira ${maiorCarteira[0]}**, com **${maiorCarteira[1]} materiais com risco de ruptura** antes da reposição programada. Todos os valores foram extraídos diretamente do motor central CoberturaTemporalEngine.`,
+      indicadoresReais: {
+        carteira: maiorCarteira[0],
+        status: 'AVALIAÇÃO CONCLUÍDA',
+        detalhes: carteirasOrdenadas.map(([cart, qtd]) => ({
+          carteira: cart,
+          materiaisEmRisco: qtd,
+        })),
+      },
     }
   }
 }

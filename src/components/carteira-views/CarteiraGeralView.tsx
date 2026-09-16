@@ -3,10 +3,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileSpreadsheet, Eye, Download, UploadCloud } from 'lucide-react'
-import { CarteiraItem, StatusRuptura } from '@/types/carteira-analise'
+import { CarteiraItem, StatusRuptura, CarteiraEntradaFutura } from '@/types/carteira-analise'
+import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import { SlidersHorizontal } from 'lucide-react'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
+  entradasFuturas?: CarteiraEntradaFutura[]
   isLoading?: boolean
   onOpenMemoria: (item: CarteiraItem) => void
   onOpenImportModal: () => void
@@ -16,6 +19,7 @@ interface CarteiraGeralViewProps {
 }
 export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   itens,
+  entradasFuturas = [],
   isLoading,
   onOpenMemoria,
   onOpenImportModal,
@@ -29,6 +33,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   const [filtroCurva, setFiltroCurva] = useState<string>('TODAS')
   const [filtroSaldo, setFiltroSaldo] = useState<'TODOS' | 'POSITIVO' | 'NEGATIVO'>('TODOS')
   const [filtroRuptura, setFiltroRuptura] = useState<string>('TODOS')
+  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const [pagina, setPagina] = useState(1)
   const itensPorPagina = 25
 
@@ -65,6 +70,32 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
 
   const totalPaginas = Math.ceil(itensFiltrados.length / itensPorPagina) || 1
   const itensExibidos = itensFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina)
+
+  // Cache memoizado dos cálculos do motor único por material para evitar recálculo duplicado na renderização
+  const mapaCalculosTemporais = useMemo(() => {
+    const mapa = new Map<string, any>()
+    for (const it of itensExibidos) {
+      const chave = `${it.codigo_material}-${it.linha}-${it.ordem_venda || ''}`
+      if (!mapa.has(chave)) {
+        const origemItem = (
+          it.linha === 'L1'
+            ? 'L1'
+            : it.linha === 'L2'
+              ? 'L2'
+              : it.tipo_ordem === 'ZPRM' || it.tipo_ordem === 'MTO'
+                ? 'MTO'
+                : 'GERAL'
+        ) as any
+        const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+          it,
+          origemItem,
+          entradasFuturas,
+        )
+        mapa.set(chave, CoberturaTemporalEngine.calcular(inputTemp))
+      }
+    }
+    return mapa
+  }, [itensExibidos, entradasFuturas])
 
   const getRupturaBadge = (status: StatusRuptura) => {
     switch (status) {
@@ -312,22 +343,38 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
               </select>
             </div>
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setSearchTerm('')
-                setFiltroLinha('TODAS')
-                setFiltroTipo('TODOS')
-                setFiltroCurva('TODAS')
-                setFiltroSaldo('TODOS')
-                setFiltroRuptura('TODOS')
-                setPagina(1)
-              }}
-              className="border-slate-300 text-slate-600 hover:bg-slate-50 text-xs h-7"
-            >
-              Limpar Filtros
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setMostrarColunasTemporais(!mostrarColunasTemporais)}
+                className={`h-7 text-xs gap-1 border-slate-300 ${
+                  mostrarColunasTemporais
+                    ? 'bg-blue-50 text-[#004C97] font-bold border-blue-300'
+                    : 'text-slate-700'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Colunas: Cobertura Temporal</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('')
+                  setFiltroLinha('TODAS')
+                  setFiltroTipo('TODOS')
+                  setFiltroCurva('TODAS')
+                  setFiltroSaldo('TODOS')
+                  setFiltroRuptura('TODOS')
+                  setPagina(1)
+                }}
+                className="border-slate-300 text-slate-600 hover:bg-slate-50 text-xs h-7"
+              >
+                Limpar Filtros
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -369,118 +416,173 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                   <th className="p-2.5 font-bold text-right">Nec. Líquida (t)</th>
                   <th className="p-2.5 font-bold text-center">Programação</th>
                   <th className="p-2.5 font-bold text-center">Ruptura</th>
+                  {mostrarColunasTemporais && (
+                    <>
+                      <th className="p-2.5 font-bold text-right bg-blue-900/40">Média (t/d)</th>
+                      <th className="p-2.5 font-bold text-right bg-blue-900/40">Cobertura</th>
+                      <th className="p-2.5 font-bold text-center bg-blue-900/40">Fim Estoque</th>
+                      <th className="p-2.5 font-bold text-center bg-blue-900/40">
+                        Próx. Reposição
+                      </th>
+                      <th className="p-2.5 font-bold text-center bg-blue-900/40">Gap Dias</th>
+                      <th className="p-2.5 font-bold text-center bg-blue-900/40">
+                        Status Temporal
+                      </th>
+                    </>
+                  )}
                   <th className="p-2.5 font-bold text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {itensExibidos.map((it, idx) => (
-                  <tr
-                    key={idx}
-                    onClick={() =>
-                      onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
-                    }
-                    className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
-                      it.possivel_duplicidade ? 'bg-amber-50/40' : ''
-                    }`}
-                  >
-                    <td className="p-2.5">
-                      <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                        {it.codigo_material}
-                        {it.possivel_duplicidade && (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
-                            Sobrecobertura
-                          </Badge>
-                        )}
-                        {it.bloqueio && (
-                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
-                            Bloqueado
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-500 block truncate max-w-[200px]">
-                        {it.descricao_material}
-                      </span>
-                    </td>
+                {itensExibidos.map((it, idx) => {
+                  const chave = `${it.codigo_material}-${it.linha}-${it.ordem_venda || ''}`
+                  const resTemp = mapaCalculosTemporais.get(chave)
 
-                    <td className="p-2.5">
-                      <span className="font-semibold text-slate-800 block truncate max-w-[160px]">
-                        {it.nome_cliente}
-                      </span>
-                      <span className="font-mono text-[10px] text-slate-500">
-                        Ped: {it.ordem_venda}/{it.item_ordem} &bull; Desejada: {it.data_desejada}
-                      </span>
-                    </td>
-
-                    <td className="p-2.5 text-center">
-                      <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
-                        {it.linha || 'GERAL'}
-                      </Badge>
-                    </td>
-
-                    <td className="p-2.5 text-center">
-                      <Badge
-                        className={`text-[9px] ${it.tipo_ordem === 'MTO' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}
-                      >
-                        {it.tipo_ordem}
-                      </Badge>
-                    </td>
-
-                    <td className="p-2.5 text-center font-bold text-slate-700">{it.curva_abc}</td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                      {it.carteira_aberta_tons.toFixed(1)}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono text-slate-700">
-                      {it.disponibilidade_fisica_elegivel_tons?.toFixed(1) || '0.0'}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                      {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                      {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
-                    </td>
-
-                    <td className="p-2.5 text-right font-mono font-bold text-amber-900">
-                      {it.necessidade_liquida_tons > 0
-                        ? it.necessidade_liquida_tons.toFixed(1)
-                        : '-'}
-                    </td>
-
-                    <td className="p-2.5 text-center">
-                      {it.qtd_programada_tons > 0 ? (
-                        <div>
-                          <strong className="font-mono text-slate-800 block text-[10px]">
-                            {it.qtd_programada_tons.toFixed(1)} t
-                          </strong>
-                          <span className="text-[9px] text-slate-500 font-mono">
-                            {it.data_programada || it.semana_programada || 'Programado'}
-                          </span>
+                  return (
+                    <tr
+                      key={idx}
+                      onClick={() =>
+                        onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                      }
+                      className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
+                        it.possivel_duplicidade ? 'bg-amber-50/40' : ''
+                      }`}
+                    >
+                      <td className="p-2.5">
+                        <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
+                          {it.codigo_material}
+                          {it.possivel_duplicidade && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
+                              Sobrecobertura
+                            </Badge>
+                          )}
+                          {it.bloqueio && (
+                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
+                              Bloqueado
+                            </Badge>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Sem Prog.</span>
+                        <span className="text-[10px] text-slate-500 block truncate max-w-[200px]">
+                          {it.descricao_material}
+                        </span>
+                      </td>
+
+                      <td className="p-2.5">
+                        <span className="font-semibold text-slate-800 block truncate max-w-[160px]">
+                          {it.nome_cliente}
+                        </span>
+                        <span className="font-mono text-[10px] text-slate-500">
+                          Ped: {it.ordem_venda}/{it.item_ordem} &bull; Desejada: {it.data_desejada}
+                        </span>
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
+                          {it.linha || 'GERAL'}
+                        </Badge>
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        <Badge
+                          className={`text-[9px] ${it.tipo_ordem === 'MTO' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}
+                        >
+                          {it.tipo_ordem}
+                        </Badge>
+                      </td>
+
+                      <td className="p-2.5 text-center font-bold text-slate-700">{it.curva_abc}</td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-blue-900">
+                        {it.carteira_aberta_tons.toFixed(1)}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono text-slate-700">
+                        {it.disponibilidade_fisica_elegivel_tons?.toFixed(1) || '0.0'}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                        {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                        {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
+                      </td>
+
+                      <td className="p-2.5 text-right font-mono font-bold text-amber-900">
+                        {it.necessidade_liquida_tons > 0
+                          ? it.necessidade_liquida_tons.toFixed(1)
+                          : '-'}
+                      </td>
+
+                      <td className="p-2.5 text-center">
+                        {it.qtd_programada_tons > 0 ? (
+                          <div>
+                            <strong className="font-mono text-slate-800 block text-[10px]">
+                              {it.qtd_programada_tons.toFixed(1)} t
+                            </strong>
+                            <span className="text-[9px] text-slate-500 font-mono">
+                              {it.data_programada || it.semana_programada || 'Programado'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Sem Prog.</span>
+                        )}
+                      </td>
+
+                      <td className="p-2.5 text-center">{getRupturaBadge(it.status_ruptura)}</td>
+
+                      {mostrarColunasTemporais && resTemp && (
+                        <>
+                          <td className="p-2.5 text-right font-mono text-slate-700">
+                            {resTemp.mediaDiariaFaturamentoT
+                              ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                              : 'N/D'}
+                          </td>
+                          <td className="p-2.5 text-right font-mono font-bold text-slate-800">
+                            {resTemp.diasCoberturaFormatado}
+                          </td>
+                          <td className="p-2.5 text-center font-mono text-slate-700">
+                            {resTemp.dataFimEstoqueFormatada}
+                          </td>
+                          <td
+                            className="p-2.5 text-center font-mono text-[10px] text-blue-900 truncate max-w-[120px]"
+                            title={resTemp.proximaDataPrevistaFormatada}
+                          >
+                            {resTemp.proximaDataPrevistaFormatada}
+                          </td>
+                          <td
+                            className={`p-2.5 text-center font-mono font-bold ${
+                              resTemp.temGapRuptura ? 'text-rose-700' : 'text-emerald-700'
+                            }`}
+                          >
+                            {resTemp.diasEstoqueNegativoFormatado}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <Badge
+                              className={`text-[9px] font-bold border ${resTemp.badgeCor.bg} ${resTemp.badgeCor.text} ${resTemp.badgeCor.border}`}
+                            >
+                              {resTemp.status}
+                            </Badge>
+                          </td>
+                        </>
                       )}
-                    </td>
 
-                    <td className="p-2.5 text-center">{getRupturaBadge(it.status_ruptura)}</td>
-
-                    <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
-                        }
-                        className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-                        title="Ver detalhe com Cobertura Temporal & Previsão"
-                      >
-                        <Eye className="w-3 h-3 text-[#004C97]" /> Detalhe
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                          }
+                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                          title="Ver detalhe com Cobertura Temporal & Previsão"
+                        >
+                          <Eye className="w-3 h-3 text-[#004C97]" /> Detalhe
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
