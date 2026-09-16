@@ -419,6 +419,12 @@ const navSections: NavSectionItem[] = [
         icon: Globe2,
         permission: 'pcp.carteira.view',
       },
+      {
+        title: 'Carteira SDC',
+        href: '/pcp/analise-carteira/sdc',
+        icon: Building2,
+        permission: 'pcp.carteira.view',
+      },
     ],
   },
   {
@@ -749,6 +755,12 @@ const officialNavGroups: NavGroup[] = [
         icon: Globe2,
         permission: 'pcp.carteira.view',
       },
+      {
+        title: 'Carteira SDC',
+        href: '/pcp/analise-carteira/sdc',
+        icon: Building2,
+        permission: 'pcp.carteira.view',
+      },
     ],
   },
   {
@@ -1021,9 +1033,11 @@ export const PCPSidebar: React.FC = () => {
                                       ? location.pathname === '/pcp/analise-carteira/revenda'
                                       : item.href === '/pcp/analise-carteira/importado'
                                         ? location.pathname === '/pcp/analise-carteira/importado'
-                                        : location.pathname === item.href ||
-                                          (item.href.includes('?') &&
-                                            location.pathname + location.search === item.href)
+                                        : item.href === '/pcp/analise-carteira/sdc'
+                                          ? location.pathname === '/pcp/analise-carteira/sdc'
+                                          : location.pathname === item.href ||
+                                            (item.href.includes('?') &&
+                                              location.pathname + location.search === item.href)
 
                     const navLink = (
                       <Link

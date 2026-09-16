@@ -404,6 +404,14 @@ export const App: React.FC = () => {
                       }
                     />
                     <Route
+                      path="/pcp/analise-carteira/sdc"
+                      element={
+                        <PermissionGuard permission="pcp.carteira.view">
+                          <AnaliseCarteiraPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
                       path="/pcp-robotizado/analise-carteira"
                       element={<Navigate to="/pcp/analise-carteira" replace />}
                     />

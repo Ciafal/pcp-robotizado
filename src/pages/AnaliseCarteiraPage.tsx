@@ -35,13 +35,16 @@ import CarteiraL2View from '@/components/carteira-views/CarteiraL2View'
 import CarteiraMTOView from '@/components/carteira-views/CarteiraMTOView'
 import CarteiraRevendaView from '@/components/carteira-views/CarteiraRevendaView'
 import CarteiraImportadoView from '@/components/carteira-views/CarteiraImportadoView'
+import CarteiraSDCView from '@/components/carteira-views/CarteiraSDCView'
 import AnalistaIACard from '@/components/carteira-views/AnalistaIACard'
+import { CarteiraSDCItem, CarteiraSDCKpis } from '@/types/carteira-sdc'
+import { CarteiraSDCService } from '@/services/carteira-sdc-service'
 import MemoriaCalculoModal from '@/components/carteira-views/MemoriaCalculoModal'
 import ImportacaoCarteiraModal from '@/components/carteira-views/ImportacaoCarteiraModal'
 import GovernancaRegrasModal from '@/components/carteira-views/GovernancaRegrasModal'
 import ReconciliacaoSapModal from '@/components/carteira-views/ReconciliacaoSapModal'
 
-type TopicoCarteira = 'GERAL' | 'L1' | 'L2' | 'MTO' | 'REVENDA' | 'IMPORTADO'
+type TopicoCarteira = 'GERAL' | 'L1' | 'L2' | 'MTO' | 'REVENDA' | 'IMPORTADO' | 'SDC'
 
 export const AnaliseCarteiraPage: React.FC = () => {
   const { toast } = useToast()
@@ -50,6 +53,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
 
   // Sincronizar topicoAtivo com a rota atual (/pcp/analise-carteira/l1, etc.)
   const getTopicoFromPath = (pathname: string): TopicoCarteira => {
+    if (pathname.includes('/analise-carteira/sdc')) return 'SDC'
     if (pathname.includes('/analise-carteira/l1')) return 'L1'
     if (pathname.includes('/analise-carteira/l2')) return 'L2'
     if (pathname.includes('/analise-carteira/mto')) return 'MTO'
@@ -82,6 +86,22 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const [historicoUploads, setHistoricoUploads] = useState<CarteiraUpload[]>([])
   const [insightsIA, setInsightsIA] = useState<CarteiraIAInsight[]>([])
 
+  // Estado da Carteira SDC (WERKS = SDPL)
+  const [itensSDC, setItensSDC] = useState<CarteiraSDCItem[]>([])
+  const [kpisSDC, setKpisSDC] = useState<CarteiraSDCKpis>({
+    carteira_total_t: 0,
+    estoque_total_t: 0,
+    deficit_atual_t: 0,
+    itens_com_deficit_count: 0,
+    em_producao_total_t: 0,
+    itens_cobertura_programada_count: 0,
+    itens_criticos_count: 0,
+    total_itens: 0,
+  })
+  const [analisesIASDC, setAnalisesIASDC] = useState<string[]>([])
+  const [fonteSDC, setFonteSDC] = useState<'Carga QAS' | 'SAP ECC'>('Carga QAS')
+  const [dataAtualizacaoSDC, setDataAtualizacaoSDC] = useState<string>(new Date().toISOString())
+
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMemoriaOpen, setIsMemoriaOpen] = useState(false)
   const [itemSelecionadoMemoria, setItemSelecionadoMemoria] = useState<CarteiraItem | null>(null)
@@ -109,6 +129,14 @@ export const AnaliseCarteiraPage: React.FC = () => {
       setUploadAtual(res.uploadAtual)
       setHistoricoUploads(res.historicoUploads)
       setInsightsIA(res.insights)
+
+      // Carregar Carteira SDC (WERKS = SDPL)
+      const resSDC = await CarteiraSDCService.carregarCarteiraSDC()
+      setItensSDC(resSDC.itens)
+      setKpisSDC(resSDC.kpis)
+      setAnalisesIASDC(resSDC.analisesIA)
+      setFonteSDC(resSDC.fonteAtual)
+      setDataAtualizacaoSDC(resSDC.dataAtualizacao)
     } catch (err: any) {
       console.error('Erro ao carregar dados da carteira:', err)
     } finally {
@@ -174,6 +202,8 @@ export const AnaliseCarteiraPage: React.FC = () => {
         return 'Carteira Revenda'
       case 'IMPORTADO':
         return 'Carteira Importado'
+      case 'SDC':
+        return 'Carteira SDC'
       default:
         return 'Carteira Geral'
     }
@@ -291,22 +321,28 @@ export const AnaliseCarteiraPage: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="flex items-center gap-1 font-bold text-slate-800">
             <Database className="w-3.5 h-3.5 text-[#004C97]" /> Fonte atual:{' '}
-            <span className="text-[#004C97]">
-              {uploadAtual
-                ? `${uploadAtual.source_mode === 'EXCEL_QAS' ? 'Carga Excel QAS' : uploadAtual.source_mode} (${uploadAtual.upload_code})`
-                : 'Carga Excel QAS'}
+            <span className="text-[#004C97] font-semibold">
+              {topicoAtivo === 'SDC'
+                ? `Fonte atual: ${fonteSDC}`
+                : uploadAtual
+                  ? `${uploadAtual.source_mode === 'EXCEL_QAS' ? 'Carga Excel QAS' : uploadAtual.source_mode} (${uploadAtual.upload_code})`
+                  : 'Carga Excel QAS'}
             </span>
           </span>
           <span className="text-slate-400">&bull;</span>
           <span className="flex items-center gap-1 text-slate-500 font-mono text-[10px]">
-            SAP ECC / ZSD28C — integração pendente
+            {topicoAtivo === 'SDC'
+              ? 'WERKS = SDPL (Sidercentro Industrializadora)'
+              : 'SAP ECC / ZSD28C — integração pendente'}
           </span>
           <span className="text-slate-400">&bull;</span>
           <span className="flex items-center gap-1 text-slate-500">
             <Clock className="w-3.5 h-3.5 text-slate-500" /> Carga:{' '}
-            {uploadAtual?.created
-              ? new Date(uploadAtual.created).toLocaleString('pt-BR')
-              : 'Padrão QAS Ativo'}
+            {topicoAtivo === 'SDC'
+              ? new Date(dataAtualizacaoSDC).toLocaleString('pt-BR')
+              : uploadAtual?.created
+                ? new Date(uploadAtual.created).toLocaleString('pt-BR')
+                : 'Padrão QAS Ativo'}
           </span>
         </div>
 
@@ -392,6 +428,17 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           6. Carteira Importado
         </button>
+
+        <button
+          onClick={() => handleSelectTab('SDC')}
+          className={`px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
+            topicoAtivo === 'SDC'
+              ? 'border-[#004C97] text-[#004C97] bg-blue-50/50'
+              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          7. Carteira SDC
+        </button>
       </div>
 
       <div className="pt-1">
@@ -427,6 +474,17 @@ export const AnaliseCarteiraPage: React.FC = () => {
             itens={itens}
             entradasFuturas={entradasFuturas}
             onOpenMemoria={handleOpenMemoria}
+          />
+        )}
+
+        {topicoAtivo === 'SDC' && (
+          <CarteiraSDCView
+            itens={itensSDC}
+            kpis={kpisSDC}
+            fonteAtual={fonteSDC}
+            dataAtualizacao={dataAtualizacaoSDC}
+            analisesIA={analisesIASDC}
+            onAtualizarItens={(novos) => setItensSDC(novos)}
           />
         )}
       </div>
