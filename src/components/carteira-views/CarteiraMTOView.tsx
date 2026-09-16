@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, Factory, SlidersHorizontal } from 'lucide-react'
+import { Eye, Factory, SlidersHorizontal, ClipboardCheck } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import { ConsultarRequisitosMTOModal } from './ConsultarRequisitosMTOModal'
 
 interface CarteiraMTOViewProps {
   itens: CarteiraItem[]
@@ -20,6 +21,10 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
 }) => {
   const [subAba, setSubAba] = useState<'RESUMO' | 'MTO_L1' | 'MTO_L2'>('RESUMO')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
+  const [isConsultarRequisitosOpen, setIsConsultarRequisitosOpen] = useState(false)
+  const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
+    null,
+  )
   const itensMTO = itens.filter((i) => i.tipo_ordem === 'MTO')
   const mtoL1 = itensMTO.filter(
     (i) =>
@@ -79,10 +84,24 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => {
+              setItemRequisitosSelecionado(itensMTO[0] || null)
+              setIsConsultarRequisitosOpen(true)
+            }}
+            className="h-7 text-xs gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white font-semibold shadow-xs"
+            title="Consultar Requisitos MTO do Pedido (Produto, Produção, Qualidade, Comercial)"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5 text-cyan-300" />
+            <span>Consultar Requisitos MTO</span>
+          </Button>
+
           <Badge
             variant="outline"
-            className="text-purple-800 bg-purple-50 border-purple-200 text-xs"
+            className="text-purple-800 bg-purple-50 border-purple-200 text-xs hidden sm:inline-flex"
           >
             Substitui Planilhas "Pedidos MTO L1" e "Pedidos MTO em aberto L2"
           </Badge>
@@ -273,17 +292,31 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                         </>
                       )}
                       <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
-                          }
-                          className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-                          title="Ver detalhe com Cobertura Temporal & Previsão"
-                        >
-                          <Eye className="w-3 h-3" /> Detalhe
-                        </Button>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setItemRequisitosSelecionado(it)
+                              setIsConsultarRequisitosOpen(true)
+                            }}
+                            className="h-6 px-1.5 text-[10px] text-purple-700 hover:bg-purple-50 font-semibold gap-1 border border-purple-200"
+                            title="Consultar Requisitos MTO do Pedido"
+                          >
+                            <ClipboardCheck className="w-3 h-3 text-purple-600" /> Requisitos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                            }
+                            className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                            title="Ver detalhe com Cobertura Temporal & Previsão"
+                          >
+                            <Eye className="w-3 h-3" /> Detalhe
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -293,6 +326,18 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modal Reutilizável de Consulta de Requisitos MTO */}
+      <ConsultarRequisitosMTOModal
+        isOpen={isConsultarRequisitosOpen}
+        onClose={() => {
+          setIsConsultarRequisitosOpen(false)
+          setItemRequisitosSelecionado(null)
+        }}
+        item={itemRequisitosSelecionado}
+        itensMtoDisponiveis={itensMTO}
+        onSelecionarItem={(it) => setItemRequisitosSelecionado(it)}
+      />
     </div>
   )
 }

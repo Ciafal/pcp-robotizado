@@ -27,12 +27,19 @@ import {
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
 import { CoverageTemporalAnalysis } from './CoverageTemporalAnalysis'
+import { OrderRequirementSheet } from '@/types/product-quality'
+import { qualityService } from '@/services/quality-service'
+import {
+  MtoRequirementValidationEngine,
+  MtoValidationResult,
+} from '@/services/mto-requirement-validation-engine'
 import {
   CoberturaTemporalEngine,
   InputAnaliseCobertura,
   OrigemCarteira,
   ResultadoCoberturaTemporal,
 } from '@/services/cobertura-temporal-engine'
+import { ClipboardCheck, ShieldAlert, ShieldCheck } from 'lucide-react'
 
 export interface DetalheMaterialUnificadoModalProps {
   isOpen: boolean
@@ -61,7 +68,6 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
 }) => {
   // Resolução unificada do item
   const resolvedItem = item || genItemProp || sdcItemProp
-  if (!resolvedItem && !materialProp) return null
 
   // Entradas futuras consolidadas
   const todasEntradas = entradasFuturas.length > 0 ? entradasFuturas : entradasFuturasDisponiveis
@@ -120,6 +126,74 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
     : genItem
       ? genItem.data_programada
       : undefined
+
+  // Consulta assíncrona da ficha MTO para a seção de Requisitos MTO (Hooks unconditionally no topo)
+  const [sheetMTO, setSheetMTO] = React.useState<OrderRequirementSheet | null>(null)
+  const [loadingSheetMTO, setLoadingSheetMTO] = React.useState(false)
+
+  React.useEffect(() => {
+    let active = true
+    async function fetchMtoRequirements() {
+      if (!isOpen || origemCarteira !== 'MTO' || !genItem) {
+        setSheetMTO(null)
+        return
+      }
+
+      setLoadingSheetMTO(true)
+      try {
+        const salesOrder = genItem.ordem_venda || ''
+        const itemNumber = genItem.item_ordem || '10'
+        let found = await qualityService.getRequirementSheetBySalesOrder(salesOrder, itemNumber)
+        if (!found && salesOrder) {
+          found = await qualityService.getRequirementSheetByOrder(salesOrder)
+        }
+        if (active) {
+          setSheetMTO(found)
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar Ficha MTO no modal unificado:', e)
+        if (active) setSheetMTO(null)
+      } finally {
+        if (active) setLoadingSheetMTO(false)
+      }
+    }
+
+    fetchMtoRequirements()
+    return () => {
+      active = false
+    }
+  }, [isOpen, origemCarteira, genItem?.ordem_venda, genItem?.item_ordem])
+
+  // Motor central MTO para a seção
+  const validacaoMTO: MtoValidationResult | null = React.useMemo(() => {
+    if (origemCarteira !== 'MTO' || !genItem) return null
+    return MtoRequirementValidationEngine.validarProgramacaoMTO({
+      pedidoMto: {
+        ordem_venda: genItem.ordem_venda,
+        item_ordem: genItem.item_ordem,
+        nome_cliente: genItem.nome_cliente,
+        codigo_cliente: genItem.codigo_cliente,
+        codigo_material: genItem.codigo_material,
+        descricao_material: genItem.descricao_material,
+        linha: genItem.linha,
+        centro: genItem.centro,
+        quantidade_tons: genItem.qtd_ordem_tons,
+        data_desejada: genItem.data_desejada,
+        empresa: genItem.empresa,
+      },
+      requisitosSheet: sheetMTO,
+      programacao:
+        genItem.linha_programada || genItem.data_programada
+          ? {
+              linha_programada: genItem.linha_programada || genItem.linha,
+              centro_programado: genItem.centro,
+              data_programada: genItem.data_programada,
+            }
+          : undefined,
+    })
+  }, [origemCarteira, genItem, sheetMTO])
+
+  if (!resolvedItem && !materialProp) return null
 
   // Histórico de faturamento
   const mediaFaturamentoInformada = genItem?.media_faturamento_diario_t_dia
@@ -545,6 +619,95 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                     {dataProgramada || 'Aguardando sequenciamento'}
                   </strong>
                 </div>
+              </div>
+
+              {/* SEÇÃO INTEGRADA: REQUISITOS MTO COM STATUS E CRITICIDADE */}
+              <div className="mt-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                    <ClipboardCheck className="w-3.5 h-3.5 text-[#004C97]" /> Requisitos MTO (Ficha
+                    Canônica)
+                  </span>
+                  {validacaoMTO?.statusGeral === 'BLOQUEADO' ? (
+                    <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold flex items-center gap-1">
+                      <ShieldAlert className="w-2.5 h-2.5" /> Bloqueado
+                    </Badge>
+                  ) : validacaoMTO?.statusGeral === 'LIBERADO' ? (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-2.5 h-2.5" /> Liberado
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
+                      Sob Análise
+                    </Badge>
+                  )}
+                </div>
+
+                {loadingSheetMTO ? (
+                  <div className="text-[10px] text-slate-500 py-1">
+                    Consultando requisitos no backend...
+                  </div>
+                ) : !sheetMTO ? (
+                  <div className="text-[11px] text-slate-500 bg-white p-2 rounded border border-slate-200 italic">
+                    Nenhum requisito registrado para este pedido na coleção{' '}
+                    <code>order_requirement_sheets</code>.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-slate-600 flex justify-between bg-white px-2 py-1 rounded border border-slate-200 font-mono">
+                      <span>
+                        Norma: <strong>{sheetMTO.technical_standard || '-'}</strong>
+                      </span>
+                      <span>
+                        Aço: <strong>{sheetMTO.steel_grade || '-'}</strong>
+                      </span>
+                      <span>
+                        US:{' '}
+                        <strong>{sheetMTO.requires_ultrasound ? 'Obrigatório' : 'Isento'}</strong>
+                      </span>
+                    </div>
+
+                    <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                      {validacaoMTO?.requisitos.slice(0, 5).map((req, rIdx) => (
+                        <div
+                          key={rIdx}
+                          className="bg-white p-1.5 rounded border border-slate-200 text-[10px] flex items-center justify-between"
+                        >
+                          <div className="truncate max-w-[190px]">
+                            <strong className="text-slate-800">{req.titulo}</strong>
+                            <span className="text-slate-500 block truncate">{req.descricao}</span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Badge
+                              className={`text-[8px] font-bold ${
+                                req.criticidade === 'CRITICO' || req.criticidade === 'OBRIGATORIO'
+                                  ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {req.criticidade}
+                            </Badge>
+                            <Badge
+                              className={`text-[8px] font-bold ${
+                                req.status === 'ATENDIDO' || req.status === 'VALIDADO'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {req.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {validacaoMTO && validacaoMTO.requisitos.length > 5 && (
+                      <div className="text-[10px] text-[#004C97] font-semibold text-right">
+                        + {validacaoMTO.requisitos.length - 5} requisito(s) adicionais validados
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
