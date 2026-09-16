@@ -99,6 +99,7 @@ const PCPHomologationStatusPage = lazy(() => import('@/pages/PCPHomologationStat
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 const TestProgrammingPage = lazy(() => import('@/pages/TestProgrammingPage'))
+const RawMaterialInventoryPage = lazy(() => import('@/pages/pcp/RawMaterialInventoryPage'))
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
 const MPOverviewConsolidatedPage = lazy(() =>
@@ -250,6 +251,23 @@ export const App: React.FC = () => {
                           <TestProgrammingPage />
                         </PermissionGuard>
                       }
+                    />
+                    {/* Rota Direta do Inventário de Matéria-Prima DP07 */}
+                    <Route
+                      path="/pcp/sequenciamento/inventario-mp"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <RawMaterialInventoryPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/inventario-mp"
+                      element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
+                    />
+                    <Route
+                      path="/inventario-mp"
+                      element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
                     />
                     <Route
                       path="/pcp/programacao-testes"
@@ -515,6 +533,7 @@ export const App: React.FC = () => {
                       {/* Rotas filhas protegidas pelo PermissionGuard de nível superior em /pcp/sequenciamento */}
                       <Route path="montagem-semanal" element={<WeeklyScheduleOperationalPage />} />
                       <Route path="programacao-testes" element={<TestProgrammingPage />} />
+                      <Route path="inventario-mp" element={<RawMaterialInventoryPage />} />
                       <Route
                         path="programacao-mensal"
                         element={<WeeklyScheduleOperationalPage />}

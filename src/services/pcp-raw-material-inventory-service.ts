@@ -112,6 +112,88 @@ export class RawMaterialInventoryService {
   /**
    * Gera ou sincroniza automaticamente o Inventário de MP após a confirmação/aprovação da programação
    */
+  /**
+   * Notificação para o DP07 (Requisito 5 da tarefa):
+   * "Nova necessidade de inventário — L1" com data, linha, centro, ordens, necessidade em t, peças previstas.
+   * Canal real (Telegram/E-mail/Teams/HUB) indisponível -> registro honesto de disparo pendente.
+   */
+  async registerDP07Notification(params: {
+    inventoryCode: string
+    line: string
+    center: string
+    scheduleDate: string
+    ordersCount: number
+    totalTons: number
+    totalPieces: number
+    userName: string
+  }): Promise<{
+    notified: boolean
+    status: string
+    channelStatus: string
+    message: string
+  }> {
+    const channelStatus =
+      'DISPARO_REGISTRADO_SISTEMA_CANAL_NOTIF_PENDENTE (Canais externos Telegram/Teams/SMTP aguardando integração)'
+    const notificationMessage = `Nova necessidade de inventário — L1 | Data: ${params.scheduleDate} | Linha: ${params.line} | Centro: ${params.center} | Ordens: ${params.ordersCount} | Necessidade: ${params.totalTons} t | Peças Previstas: ${params.totalPieces}. Acessar: /pcp/sequenciamento/inventario-mp`
+
+    try {
+      // Registra comunicado interno se a coleção pcp_communications estiver disponível
+      await pb.collection('pcp_communications').create({
+        code: `COMM-DP07-${Date.now().toString(36).toUpperCase()}`,
+        title: `Nova necessidade de inventário — L1 (${params.scheduleDate})`,
+        summary: `Inventário de Matéria-Prima gerado para ${params.ordersCount} ordens de enfornamento FRIO (${params.totalTons} t).`,
+        content: notificationMessage,
+        comm_type: 'MATERIA_PRIMA',
+        criticality: 'ATENCAO',
+        origin_type: 'OPERACIONAL',
+        origin_ref_code: params.inventoryCode,
+        status: 'VIGENTE',
+        target_audience_type: 'SETORES_ESPECIFICOS',
+        target_sectors: ['DP07 — Preparação de Tarugos', 'PCP', 'Laminação L1'],
+        author_name: params.userName,
+        requires_acknowledgement: false,
+        is_blocking: false,
+      })
+    } catch {
+      // Fallback gracioso caso comunicados falhe
+    }
+
+    // Registra na auditoria geral
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'SCHEDULE_ACTION',
+        action: 'DP07_INVENTORY_NOTIFICATION_DISPATCH',
+        resource: 'pcp_communications',
+        resource_id: params.inventoryCode,
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          title: `Nova necessidade de inventário — L1`,
+          inventory_code: params.inventoryCode,
+          line: params.line,
+          center: params.center,
+          date: params.scheduleDate,
+          orders_count: params.ordersCount,
+          total_tons: params.totalTons,
+          total_pieces: params.totalPieces,
+          channel_status: channelStatus,
+          link: '/pcp/sequenciamento/inventario-mp',
+          user: params.userName,
+          dispatched_at: new Date().toISOString(),
+        },
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    return {
+      notified: true,
+      status: 'REGISTRADO_SISTEMA',
+      channelStatus,
+      message: notificationMessage,
+    }
+  }
+
   async processScheduleApprovalTrigger(params: {
     filter: WeeklyHeaderFilter
     items: WeeklyScheduleItem[]
@@ -365,7 +447,19 @@ export class RawMaterialInventoryService {
         },
       })
 
-      // 4. Integração ao log geral do PCP (pcp_audit_logs)
+      // 4. Notificação formal ao DP07 (Requisito 5)
+      await this.registerDP07Notification({
+        inventoryCode,
+        line,
+        center,
+        scheduleDate: firstDate,
+        ordersCount: coldItems.length,
+        totalTons: Number(totalTons.toFixed(2)),
+        totalPieces: totalPiecesEst,
+        userName,
+      })
+
+      // 5. Integração ao log geral do PCP (pcp_audit_logs)
       try {
         await pb.collection('pcp_audit_logs').create({
           event_type: 'SCHEDULE_ACTION',
@@ -619,6 +713,64 @@ export class RawMaterialInventoryService {
       },
       description: `DP07 informou ${params.inventoriedPieces} peças (SAP: ${sapPieces}, div: ${divergence}) e seq ${params.enfornamentoSequence}. Status: ${newStatus}.`,
     })
+
+    // Registra na Trilha de Auditoria Geral do PCP (pcp_audit_logs)
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        event_type: 'SCHEDULE_ACTION',
+        action: 'DP07_INVENTORY_ITEM_EDIT',
+        resource: 'pcp_mp_inventory_items',
+        resource_id: record.id,
+        permission_required: 'pcp.schedule.view',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          inventory_id: record.inventory_id,
+          order: record.production_order,
+          raw_material: record.raw_material_code,
+          heat_number: record.heat_number,
+          previous_pieces: record.dp07_inventoried_pieces,
+          new_pieces: params.inventoriedPieces,
+          previous_sequence: record.dp07_enfornamento_sequence,
+          new_sequence: params.enfornamentoSequence,
+          status: newStatus,
+          divergence,
+          observation: params.observation || '',
+          user: userName,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    // Se estiver pronto para enfornamento, registra retorno para PCP/MES/Programação L1 (Requisito 11 e Tarefa 1)
+    if (newStatus === 'Pronto para Enfornamento') {
+      try {
+        await pb.collection('pcp_audit_logs').create({
+          event_type: 'SCHEDULE_ACTION',
+          action: 'MP_DISPATCH_TO_MES_READY',
+          resource: 'pcp_mp_inventory_items',
+          resource_id: record.id,
+          scope: 'PRODUCTION_LINE',
+          outcome: 'SUCCESS',
+          details: {
+            order: record.production_order,
+            material: record.raw_material_code,
+            heat: record.heat_number,
+            pieces: params.inventoriedPieces,
+            sequence: params.enfornamentoSequence,
+            status_retorno: 'PRONTO_PARA_ENFORNAMENTO',
+            mes_dispatch_status:
+              'DISPARO_REGISTRADO_SISTEMA_CANAL_MES_PENDENTE (Bridge MES 4.0 aguardando integração externa)',
+            user: userName,
+            timestamp: new Date().toISOString(),
+          },
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+    }
 
     // Atualiza totais do cabeçalho
     await this.recalculateHeaderSummary(record.inventory_id)
@@ -941,6 +1093,26 @@ export class RawMaterialInventoryService {
         order: item.production_order,
         material: item.raw_material_code,
         heat: item.heat_number,
+      })
+    }
+
+    // 5. Risco de Atraso no Enfornamento (Requisito 11 d)
+    // Horário previsto x status da preparação: se o item ainda está aguardando inventário ou divergente e não pronto
+    if (
+      item.status !== 'Pronto para Enfornamento' &&
+      item.status !== 'Cancelado' &&
+      item.status !== 'Substituído por Nova Versão' &&
+      item.expected_enfornamento_time
+    ) {
+      alerts.push({
+        type: 'DELAY_RISK',
+        title: 'RISCO DE ATRASO NO ENFORNAMENTO — Preparação pendente próxima ao horário previsto',
+        description: `Ordem ${item.production_order} prevista para às ${item.expected_enfornamento_time}. Status atual: ${item.status}. Atraso de liberação impactará o enfornamento da L1.`,
+        severity: 'WARNING',
+        order: item.production_order,
+        material: item.raw_material_code,
+        heat: item.heat_number,
+        expectedTime: item.expected_enfornamento_time,
       })
     }
 

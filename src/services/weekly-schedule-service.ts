@@ -1072,6 +1072,26 @@ export const weeklyScheduleService = {
       /* intentionally ignored */
     }
 
+    // DISPARO AUTOMÁTICO DE INVENTÁRIO DE MATÉRIA-PRIMA DP07 (Requisitos 1, 3, 18, 19 da especificação)
+    // Gatilho: Linha L1, Centro FORNOL1 ou L1, Status APROVADO_PCP / APROVADO / PUBLICADO
+    const isApprovalState =
+      targetState === 'APROVADO_PCP' || targetState === 'APROVADO' || targetState === 'PUBLICADO'
+
+    if (isApprovalState && (filter.lineCode === 'L1' || !filter.lineCode)) {
+      try {
+        const { rawMaterialInventoryService } = await import('./pcp-raw-material-inventory-service')
+        await rawMaterialInventoryService.processScheduleApprovalTrigger({
+          filter,
+          items: currentItems,
+          versionNumber: newVersion,
+          approvalReason: reason,
+          userName: user?.name || user?.email || 'Programador PCP',
+        })
+      } catch (triggerErr) {
+        console.warn('Gatilho automático de inventário MP registrado com observação:', triggerErr)
+      }
+    }
+
     return { success: true, newVersion }
   },
 

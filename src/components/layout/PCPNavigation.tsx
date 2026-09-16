@@ -159,6 +159,12 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Inventário de Matéria-Prima',
+        href: '/pcp/sequenciamento/inventario-mp',
+        icon: Boxes,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Oficina de Cilindros',
         href: '/pcp/oficina-cilindros',
         icon: Wrench,
@@ -665,6 +671,12 @@ const officialNavGroups: NavGroup[] = [
         title: 'Programação de Testes',
         href: '/pcp/sequenciamento/programacao-testes',
         icon: Sparkles,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'INVENTÁRIO DE MATÉRIA-PRIMA',
+        href: '/pcp/sequenciamento/inventario-mp',
+        icon: Boxes,
         permission: 'pcp.schedule.view',
       },
       {

@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { pcpMeetingFatia1Service } from '@/services/pcp-meeting-fatia1-service'
 import { pcpMeetingFatia2Service } from '@/services/pcp-meeting-fatia2-service'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { AtaStructuredContent } from '@/types/pcp-meeting'
 
 const userPcp = { id: 'usr-pcp-01', name: 'Coordenador PCP QAS' }
