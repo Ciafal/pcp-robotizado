@@ -127,7 +127,9 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
             <div className="mt-1">
               <strong
                 className={`font-mono text-sm block leading-tight ${
-                  analise.temHistoricoFaturamento ? 'text-slate-900 font-black' : 'text-slate-500 text-[11px]'
+                  analise.temHistoricoFaturamento
+                    ? 'text-slate-900 font-black'
+                    : 'text-slate-500 text-[11px]'
                 }`}
               >
                 {analise.mediaDiariaFaturamentoFormatada}
@@ -178,9 +180,7 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
               >
                 {analise.dataFimEstoqueFormatada}
               </strong>
-              <span className="text-[9px] text-slate-400 block mt-0.5">
-                Término projetado
-              </span>
+              <span className="text-[9px] text-slate-400 block mt-0.5">Término projetado</span>
             </div>
           </div>
 
@@ -218,7 +218,10 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
               <strong className="font-mono text-xs text-slate-900 block font-bold leading-tight">
                 {analise.proximaDataDemandaFormatada}
               </strong>
-              <span className="text-[9px] text-slate-500 truncate block mt-0.5" title={analise.proximaDemandaDetalhe?.cliente || ''}>
+              <span
+                className="text-[9px] text-slate-500 truncate block mt-0.5"
+                title={analise.proximaDemandaDetalhe?.cliente || ''}
+              >
                 {analise.proximaDemandaDetalhe
                   ? `${analise.proximaDemandaDetalhe.quantidadeTons.toFixed(1)}t · ${analise.proximaDemandaDetalhe.ordemVenda || 'Pedido'}`
                   : 'Necessidade carteira'}
@@ -232,7 +235,10 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
               6. Próxima Prevista (Reposição)
             </span>
             <div className="mt-1">
-              <strong className="font-mono text-xs text-[#004C97] block font-bold leading-tight truncate" title={analise.proximaDataPrevistaFormatada}>
+              <strong
+                className="font-mono text-xs text-[#004C97] block font-bold leading-tight truncate"
+                title={analise.proximaDataPrevistaFormatada}
+              >
                 {analise.proximaDataPrevistaFormatada}
               </strong>
               <span className="text-[9px] text-slate-500 block mt-0.5 truncate">
@@ -253,8 +259,14 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
             className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
           >
             <Calculator className="w-3 h-3 text-[#004C97]" />
-            <span>{mostrarMemoria ? 'Ocultar Memória de Cálculo' : 'Ver Memória de Cálculo Auditável'}</span>
-            {mostrarMemoria ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <span>
+              {mostrarMemoria ? 'Ocultar Memória de Cálculo' : 'Ver Memória de Cálculo Auditável'}
+            </span>
+            {mostrarMemoria ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            )}
           </Button>
 
           <span className="text-[10px] text-slate-400 font-mono">
@@ -280,7 +292,8 @@ export const CoverageTemporalAnalysis: React.FC<CoverageTemporalAnalysisProps> =
             </div>
 
             <div className="text-[10px] text-slate-500 font-sans italic">
-              Metodologia corporativa única aplicada a todas as carteiras (Geral, L1, L2, MTO, Revenda, Importado e SDC).
+              Metodologia corporativa única aplicada a todas as carteiras (Geral, L1, L2, MTO,
+              Revenda, Importado e SDC).
             </div>
           </div>
         )}

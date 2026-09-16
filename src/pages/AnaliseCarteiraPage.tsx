@@ -40,9 +40,11 @@ import AnalistaIACard from '@/components/carteira-views/AnalistaIACard'
 import { CarteiraSDCItem, CarteiraSDCKpis } from '@/types/carteira-sdc'
 import { CarteiraSDCService } from '@/services/carteira-sdc-service'
 import MemoriaCalculoModal from '@/components/carteira-views/MemoriaCalculoModal'
+import DetalheMaterialUnificadoModal from '@/components/carteira-views/DetalheMaterialUnificadoModal'
 import ImportacaoCarteiraModal from '@/components/carteira-views/ImportacaoCarteiraModal'
 import GovernancaRegrasModal from '@/components/carteira-views/GovernancaRegrasModal'
 import ReconciliacaoSapModal from '@/components/carteira-views/ReconciliacaoSapModal'
+import { OrigemCarteira } from '@/services/cobertura-temporal-engine'
 
 type TopicoCarteira = 'GERAL' | 'L1' | 'L2' | 'MTO' | 'REVENDA' | 'IMPORTADO' | 'SDC'
 
@@ -111,6 +113,14 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMemoriaOpen, setIsMemoriaOpen] = useState(false)
   const [itemSelecionadoMemoria, setItemSelecionadoMemoria] = useState<CarteiraItem | null>(null)
+
+  // Modal Unificado de Detalhe Material com a seção Cobertura Temporal & Previsão
+  const [materialUnificadoSelecionado, setMaterialUnificadoSelecionado] =
+    useState<CarteiraItem | null>(null)
+  const [materialSDCSelecionado, setMaterialSDCSelecionado] = useState<CarteiraSDCItem | null>(null)
+  const [origemUnificadaModal, setOrigemUnificadaModal] = useState<OrigemCarteira>('GERAL')
+  const [isDetalheUnificadoOpen, setIsDetalheUnificadoOpen] = useState(false)
+
   const [isRegrasModalOpen, setIsRegrasModalOpen] = useState(false)
   const [isReconciliacaoOpen, setIsReconciliacaoOpen] = useState(false)
   const [filtroMaterialDireto, setFiltroMaterialDireto] = useState('')
@@ -189,6 +199,13 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const handleOpenMemoria = (item: CarteiraItem) => {
     setItemSelecionadoMemoria(item)
     setIsMemoriaOpen(true)
+  }
+
+  const handleOpenDetalheUnificado = (item: CarteiraItem, origem: OrigemCarteira = 'GERAL') => {
+    setMaterialUnificadoSelecionado(item)
+    setMaterialSDCSelecionado(null)
+    setOrigemUnificadaModal(origem)
+    setIsDetalheUnificadoOpen(true)
   }
 
   const handleFiltrarMaterialIA = (material: string) => {
@@ -451,20 +468,52 @@ export const AnaliseCarteiraPage: React.FC = () => {
         {topicoAtivo === 'GERAL' && (
           <CarteiraGeralView
             itens={itens}
+            entradasFuturas={entradasFuturas}
             isLoading={isLoading}
             onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) =>
+              handleOpenDetalheUnificado(
+                it,
+                (it.linha === 'L1'
+                  ? 'L1'
+                  : it.linha === 'L2'
+                    ? 'L2'
+                    : it.tipo_ordem === 'ZPRM'
+                      ? 'MTO'
+                      : 'GERAL') as any,
+              )
+            }
             onOpenImportModal={() => setIsImportModalOpen(true)}
             onDownloadTemplate={handleDownloadTemplate}
             filtroMaterial={filtroMaterialDireto}
           />
         )}
 
-        {topicoAtivo === 'L1' && <CarteiraL1View itens={itens} onOpenMemoria={handleOpenMemoria} />}
+        {topicoAtivo === 'L1' && (
+          <CarteiraL1View
+            itens={itens}
+            entradasFuturas={entradasFuturas}
+            onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) => handleOpenDetalheUnificado(it, 'L1')}
+          />
+        )}
 
-        {topicoAtivo === 'L2' && <CarteiraL2View itens={itens} onOpenMemoria={handleOpenMemoria} />}
+        {topicoAtivo === 'L2' && (
+          <CarteiraL2View
+            itens={itens}
+            entradasFuturas={entradasFuturas}
+            onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) => handleOpenDetalheUnificado(it, 'L2')}
+          />
+        )}
 
         {topicoAtivo === 'MTO' && (
-          <CarteiraMTOView itens={itens} onOpenMemoria={handleOpenMemoria} />
+          <CarteiraMTOView
+            itens={itens}
+            entradasFuturas={entradasFuturas}
+            onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) => handleOpenDetalheUnificado(it, 'MTO')}
+          />
         )}
 
         {topicoAtivo === 'REVENDA' && (
@@ -472,6 +521,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
             itens={itens}
             entradasFuturas={entradasFuturas}
             onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) => handleOpenDetalheUnificado(it, 'REVENDA')}
           />
         )}
 
@@ -480,6 +530,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
             itens={itens}
             entradasFuturas={entradasFuturas}
             onOpenMemoria={handleOpenMemoria}
+            onOpenDetalheMaterial={(it) => handleOpenDetalheUnificado(it, 'IMPORTADO')}
           />
         )}
 
@@ -493,6 +544,12 @@ export const AnaliseCarteiraPage: React.FC = () => {
             materialAncorado={materialParam}
             abrirDetalheAncorado={Boolean(materialParam)}
             onAtualizarItens={(novos) => setItensSDC(novos)}
+            onOpenDetalheSDC={(sdc) => {
+              setMaterialSDCSelecionado(sdc)
+              setMaterialUnificadoSelecionado(null)
+              setOrigemUnificadaModal('SDC')
+              setIsDetalheUnificadoOpen(true)
+            }}
           />
         )}
       </div>
@@ -501,6 +558,23 @@ export const AnaliseCarteiraPage: React.FC = () => {
         isOpen={isMemoriaOpen}
         onClose={() => setIsMemoriaOpen(false)}
         item={itemSelecionadoMemoria}
+      />
+
+      <DetalheMaterialUnificadoModal
+        isOpen={isDetalheUnificadoOpen}
+        onClose={() => {
+          setIsDetalheUnificadoOpen(false)
+          setMaterialUnificadoSelecionado(null)
+          setMaterialSDCSelecionado(null)
+        }}
+        material={
+          materialUnificadoSelecionado?.codigo_material || materialSDCSelecionado?.material || ''
+        }
+        origemCarteira={origemUnificadaModal}
+        centro={materialSDCSelecionado?.centro || '1100'}
+        genItem={materialUnificadoSelecionado || undefined}
+        sdcItem={materialSDCSelecionado || undefined}
+        entradasFuturas={entradasFuturas}
       />
 
       <ImportacaoCarteiraModal

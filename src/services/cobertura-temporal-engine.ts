@@ -27,14 +27,7 @@
  * - 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO': estoque zero, sem reposição e com demanda
  */
 
-export type OrigemCarteira =
-  | 'GERAL'
-  | 'L1'
-  | 'L2'
-  | 'MTO'
-  | 'REVENDA'
-  | 'IMPORTADO'
-  | 'SDC'
+export type OrigemCarteira = 'GERAL' | 'L1' | 'L2' | 'MTO' | 'REVENDA' | 'IMPORTADO' | 'SDC'
 
 export type MetodoCalendario = 'DIAS_CORRIDOS' | 'CALENDARIO_OPERACIONAL'
 
@@ -69,7 +62,14 @@ export interface EntradaReposicaoFutura {
   dataPrevista: string // YYYY-MM-DD ou DD/MM/AAAA
   quantidadeTons: number
   origem: string // Ex: "Produção L1", "Retorno SDC", "Pedido de Compra", "ETA Importação"
-  tipoOrigem?: 'PRODUCAO_L1' | 'PRODUCAO_L2' | 'OP_MTO' | 'REVENDA' | 'IMPORTADO' | 'RETORNO_SDC' | 'OUTROS'
+  tipoOrigem?:
+    | 'PRODUCAO_L1'
+    | 'PRODUCAO_L2'
+    | 'OP_MTO'
+    | 'REVENDA'
+    | 'IMPORTADO'
+    | 'RETORNO_SDC'
+    | 'OUTROS'
   documentoRef?: string
   observacao?: string
 }
@@ -220,6 +220,101 @@ export class CoberturaTemporalEngine {
   }
 
   /**
+   * Converte um CarteiraItem clássico em InputAnaliseCobertura padronizado para o motor central
+   */
+  public static converterCarteiraItemParaInput(
+    item: any,
+    origem: OrigemCarteira,
+    entradasFuturasDisponiveis: any[] = [],
+  ): InputAnaliseCobertura {
+    const materialCodigo = item.codigo_material || item.material || ''
+    const descricao = item.descricao_material || item.descricao || ''
+    const familia = item.familia || 'Geral'
+    const bitola = item.bitola || '-'
+    const curvaAbc = item.curva_abc || 'B'
+
+    const estoqueLivre = Number(item.estoque_livre_tons || 0)
+    const estoqueAcabado = Number(item.estoque_acabado_tons || 0)
+    const estoqueSemiacabado = Number(
+      item.estoque_semiacabado_ciafal_tons || item.estoque_semiacabado_tons || 0,
+    )
+    const estoqueSemiacabadoVal = Number(item.estoque_semiacabado_vallourec_tons || 0)
+    const estoqueMto = Number(item.estoque_mto_tons || 0)
+    const estoqueTotal =
+      estoqueLivre + estoqueAcabado + estoqueSemiacabado + estoqueSemiacabadoVal + estoqueMto
+
+    const estoqueBloqueado = item.bloqueio ? estoqueAcabado : 0
+    const estoqueQualidade = 0
+    // Disponível utilizável: respeita regra da linha ou estoque livre
+    const estoqueDisponivelUtilizavel =
+      item.disponibilidade_fisica_elegivel_tons !== undefined
+        ? Math.max(
+            0,
+            Number(item.disponibilidade_fisica_elegivel_tons) -
+              (item.bloqueio ? estoqueAcabado : 0),
+          )
+        : Math.max(0, estoqueLivre)
+
+    const carteiraAberta = Number(item.carteira_aberta_tons || item.qtd_ordem_tons || 0)
+    const progTons = Number(item.qtd_programada_tons || 0)
+    const dataProg = item.data_programada || item.semana_programada
+
+    // Reposições estruturadas caso haja compras/importações vinculadas
+    const reposicoes: EntradaReposicaoFutura[] = []
+    const entradasDoMaterial = entradasFuturasDisponiveis.filter(
+      (e) => (e.codigo_material || '').toLowerCase() === materialCodigo.toLowerCase(),
+    )
+    for (const ent of entradasDoMaterial) {
+      reposicoes.push({
+        dataPrevista: ent.data_prevista_entrada,
+        quantidadeTons: Number(ent.quantidade_pendente_tons || ent.quantidade_prevista_tons || 0),
+        origem:
+          ent.origem === 'REVENDA'
+            ? 'Recebimento fornecedor'
+            : ent.origem === 'IMPORTADO'
+              ? 'Importação'
+              : ent.origem === 'PRODUCAO_INTERNA'
+                ? 'Produção Interna'
+                : 'Recebimento fornecedor',
+        documentoRef: ent.documento_ref,
+        observacao: ent.observacao,
+      })
+    }
+
+    const pedidos: DemandaCarteiraItem[] = [
+      {
+        ordemVenda: item.ordem_venda || 'OV-PADRAO',
+        itemOrdem: item.item_ordem || '10',
+        cliente: item.nome_cliente || 'Mercado Geral',
+        quantidadeTons: carteiraAberta,
+        dataDesejada: item.data_desejada || '',
+      },
+    ]
+
+    return {
+      material: materialCodigo,
+      descricao,
+      familia,
+      bitola,
+      curvaAbc,
+      origemCarteira: origem,
+      estoqueTotalT: estoqueTotal,
+      estoqueBloqueadoT: estoqueBloqueado,
+      estoqueQualidadeT: estoqueQualidade,
+      estoqueDisponivelUtilizavelT: estoqueDisponivelUtilizavel,
+      carteiraT: carteiraAberta,
+      pedidos,
+      reposicoesFuturas: reposicoes,
+      programadoT: progTons,
+      dataProgramada: dataProg,
+      situacaoProducao: progTons > 0 ? 'Programado' : 'Sem programação',
+      mediaDiariaFaturamentoInformadaT: item.media_faturamento_diario_t_dia
+        ? Number(item.media_faturamento_diario_t_dia)
+        : null,
+    }
+  }
+
+  /**
    * Converte string de data para objeto Date consistente sem bug de timezone local
    */
   public static parseDataGenerica(dataRaw?: string | Date | null): Date | null {
@@ -314,11 +409,7 @@ export class CoberturaTemporalEngine {
   /**
    * Calcula a diferença em dias entre duas datas (Data2 - Data1)
    */
-  public static diferencaDias(
-    data1: Date,
-    data2: Date,
-    metodo: MetodoCalendario,
-  ): number {
+  public static diferencaDias(data1: Date, data2: Date, metodo: MetodoCalendario): number {
     const d1 = new Date(data1.getFullYear(), data1.getMonth(), data1.getDate())
     const d2 = new Date(data2.getFullYear(), data2.getMonth(), data2.getDate())
 
@@ -363,7 +454,10 @@ export class CoberturaTemporalEngine {
     const estoqueQual = Math.max(0, Number(input.estoqueQualidadeT) || 0)
 
     let estoqueDisponivelUtilizavel: number
-    if (typeof input.estoqueDisponivelUtilizavelT === 'number' && !isNaN(input.estoqueDisponivelUtilizavelT)) {
+    if (
+      typeof input.estoqueDisponivelUtilizavelT === 'number' &&
+      !isNaN(input.estoqueDisponivelUtilizavelT)
+    ) {
       estoqueDisponivelUtilizavel = Math.max(0, input.estoqueDisponivelUtilizavelT)
     } else {
       let deducao = 0
@@ -402,9 +496,10 @@ export class CoberturaTemporalEngine {
       baseHistoricoTexto = `Base: últimos ${periodoDias} dias (histórico insuficiente)`
     }
 
-    const mediaDiariaFormatada = temHistorico && mediaDiaria !== null
-      ? `${mediaDiaria.toFixed(2).replace('.', ',')} t/dia`
-      : 'N/D — histórico insuficiente'
+    const mediaDiariaFormatada =
+      temHistorico && mediaDiaria !== null
+        ? `${mediaDiaria.toFixed(2).replace('.', ',')} t/dia`
+        : 'N/D — histórico insuficiente'
 
     // 4. Dias de Cobertura
     let diasCobertura: number | null = null
@@ -480,9 +575,7 @@ export class CoberturaTemporalEngine {
     // Se tiver programação / produção sem reposição estruturada na lista
     const totalProgDireto = (Number(input.programadoT) || 0) + (Number(input.emProducaoT) || 0)
     if (totalProgDireto > 0 && input.dataProgramada) {
-      const jaExiste = listaReposicoes.some(
-        (r) => r.dataPrevista === input.dataProgramada,
-      )
+      const jaExiste = listaReposicoes.some((r) => r.dataPrevista === input.dataProgramada)
       if (!jaExiste) {
         const origemNome = CoberturaTemporalEngine.obterRotuloOrigemPadrao(
           input.origemCarteira,
@@ -515,9 +608,10 @@ export class CoberturaTemporalEngine {
       ? CoberturaTemporalEngine.formatarDataISO(menorDataReposicaoDate)
       : null
 
-    const proximaDataPrevistaFormatada = menorDataReposicaoDate && proximaReposicaoDetalhe
-      ? `${CoberturaTemporalEngine.formatarDataBR(menorDataReposicaoDate)} · ${proximaReposicaoDetalhe.origem}`
-      : 'Sem reposição prevista'
+    const proximaDataPrevistaFormatada =
+      menorDataReposicaoDate && proximaReposicaoDetalhe
+        ? `${CoberturaTemporalEngine.formatarDataBR(menorDataReposicaoDate)} · ${proximaReposicaoDetalhe.origem}`
+        : 'Sem reposição prevista'
 
     // 8. Dias Estoque Negativo & Gap Temporal
     let diasEstoqueNegativo: number | null = null
@@ -645,7 +739,8 @@ export class CoberturaTemporalEngine {
 
     // 11. Memória de Cálculo Passo a Passo Auditável
     const passos: string[] = []
-    const metodoRotulo = config.metodoCalendario === 'DIAS_CORRIDOS' ? 'dias corridos' : 'calendário produtivo'
+    const metodoRotulo =
+      config.metodoCalendario === 'DIAS_CORRIDOS' ? 'dias corridos' : 'calendário produtivo'
 
     // Passo 1: Estoque
     passos.push(
@@ -664,7 +759,9 @@ export class CoberturaTemporalEngine {
         )
       }
     } else {
-      passos.push('Média diária de faturamento: N/D — histórico de faturamento insuficiente no período')
+      passos.push(
+        'Média diária de faturamento: N/D — histórico de faturamento insuficiente no período',
+      )
     }
 
     // Passo 3: Cobertura
@@ -679,7 +776,9 @@ export class CoberturaTemporalEngine {
     // Passo 4: Data Fim
     if (dataFimEstoqueDate && diasCobertura !== null) {
       if (estoqueDisponivelUtilizavel === 0) {
-        passos.push(`Data fim do estoque: Imediata / estoque indisponível na data de análise (${dataAnaliseStr})`)
+        passos.push(
+          `Data fim do estoque: Imediata / estoque indisponível na data de análise (${dataAnaliseStr})`,
+        )
       } else {
         passos.push(
           `Data fim do estoque: ${dataAnaliseStr} + ${diasCobertura.toFixed(1)} dias = ${dataFimEstoqueFormatada} (${metodoRotulo})`,
@@ -695,7 +794,9 @@ export class CoberturaTemporalEngine {
         `Próxima demanda na carteira: ${proximaDataDemandaFormatada} (OV: ${proximaDemandaDetalhe.ordemVenda || 'N/A'}, Cliente: ${proximaDemandaDetalhe.cliente || 'Mercado'}, Qtd: ${proximaDemandaDetalhe.quantidadeTons.toFixed(2)} t)`,
       )
     } else if (carteiraAberta > 0) {
-      passos.push(`Demanda total em carteira: ${carteiraAberta.toFixed(2)} t (sem data individual especificada)`)
+      passos.push(
+        `Demanda total em carteira: ${carteiraAberta.toFixed(2)} t (sem data individual especificada)`,
+      )
     } else {
       passos.push('Próxima demanda na carteira: Nenhuma pendência em carteira aberta')
     }
@@ -722,23 +823,29 @@ export class CoberturaTemporalEngine {
         )
       }
     } else if (dataFimEstoqueDate && !menorDataReposicaoDate && carteiraAberta > 0) {
-      passos.push('Gap temporal: Indeterminado — o estoque esgota e não há data futura de reposição cadastrada')
+      passos.push(
+        'Gap temporal: Indeterminado — o estoque esgota e não há data futura de reposição cadastrada',
+      )
     }
 
-    const formulaMediaDiaria = temHistorico && mediaDiaria !== null
-      ? `Média = Toneladas faturadas / ${periodoDias} dias = ${mediaDiaria.toFixed(2)} t/dia`
-      : 'Média diária: Histórico insuficiente'
-    const formulaCobertura = diasCobertura !== null && mediaDiaria !== null
-      ? `Cobertura = ${estoqueDisponivelUtilizavel.toFixed(2)} t / ${mediaDiaria.toFixed(2)} t/dia = ${diasCobertura.toFixed(1)} dias`
-      : 'Cobertura: N/D'
-    const formulaDataFim = dataFimEstoqueFormatada !== 'N/D'
-      ? `Data Fim = ${dataAnaliseStr} + ${diasCobertura?.toFixed(1) || 0} dias = ${dataFimEstoqueFormatada}`
-      : 'Data Fim: N/D'
+    const formulaMediaDiaria =
+      temHistorico && mediaDiaria !== null
+        ? `Média = Toneladas faturadas / ${periodoDias} dias = ${mediaDiaria.toFixed(2)} t/dia`
+        : 'Média diária: Histórico insuficiente'
+    const formulaCobertura =
+      diasCobertura !== null && mediaDiaria !== null
+        ? `Cobertura = ${estoqueDisponivelUtilizavel.toFixed(2)} t / ${mediaDiaria.toFixed(2)} t/dia = ${diasCobertura.toFixed(1)} dias`
+        : 'Cobertura: N/D'
+    const formulaDataFim =
+      dataFimEstoqueFormatada !== 'N/D'
+        ? `Data Fim = ${dataAnaliseStr} + ${diasCobertura?.toFixed(1) || 0} dias = ${dataFimEstoqueFormatada}`
+        : 'Data Fim: N/D'
     const formulaProximaDemanda = `Próxima demanda = ${proximaDataDemandaFormatada}`
     const formulaProximaReposicao = `Próxima reposição = ${proximaDataPrevistaFormatada}`
-    const formulaDiasNegativos = diasEstoqueNegativo !== null
-      ? `Gap = ${proximaDataPrevistaFormatada} − ${dataFimEstoqueFormatada} = ${diasEstoqueNegativoFormatado}`
-      : 'Gap = Indeterminado (sem reposição futura)'
+    const formulaDiasNegativos =
+      diasEstoqueNegativo !== null
+        ? `Gap = ${proximaDataPrevistaFormatada} − ${dataFimEstoqueFormatada} = ${diasEstoqueNegativoFormatado}`
+        : 'Gap = Indeterminado (sem reposição futura)'
 
     const resumoAuditoria = `${input.material} · Carteira: ${input.origemCarteira} · Cobertura: ${diasCoberturaFormatado} · Fim: ${dataFimEstoqueFormatada} · Reposição: ${proximaDataPrevistaFormatada} · Negativos: ${diasEstoqueNegativoFormatado} · Status: ${textoStatus}`
 
@@ -771,7 +878,8 @@ export class CoberturaTemporalEngine {
         severidade: 'CRÍTICO',
         titulo: `Sem Reposição Prevista · Carteira ${input.origemCarteira} (${input.material})`,
         mensagem: `Material ${input.material} possui previsão de término de estoque em ${dataFimEstoqueFormatada} sem NENHUMA entrada programada/prevista.`,
-        recomendacao: 'Programar ordem de produção, pedido de compras ou transferência emergencial.',
+        recomendacao:
+          'Programar ordem de produção, pedido de compras ou transferência emergencial.',
       }
     } else if (status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO') {
       alertaRecomendado = {
@@ -780,7 +888,8 @@ export class CoberturaTemporalEngine {
         severidade: 'CRÍTICO',
         titulo: `Estoque Esgotado · Carteira ${input.origemCarteira} (${input.material})`,
         mensagem: `Material ${input.material} com estoque zerado, ${carteiraAberta.toFixed(2)} t de demanda aberta e nenhuma reposição futura.`,
-        recomendacao: 'Bloquear novos pedidos e priorizar ordem imediata na programação industrial.',
+        recomendacao:
+          'Bloquear novos pedidos e priorizar ordem imediata na programação industrial.',
       }
     }
 
@@ -831,10 +940,7 @@ export class CoberturaTemporalEngine {
     }
   }
 
-  private static obterRotuloOrigemPadrao(
-    origem: OrigemCarteira,
-    situacao?: string,
-  ): string {
+  private static obterRotuloOrigemPadrao(origem: OrigemCarteira, situacao?: string): string {
     switch (origem) {
       case 'L1':
         return 'Produção L1'
@@ -847,9 +953,7 @@ export class CoberturaTemporalEngine {
       case 'IMPORTADO':
         return 'Importação (Disponibilidade)'
       case 'SDC':
-        return situacao && situacao.includes('CIAFAL')
-          ? 'Produção CIAFAL'
-          : 'Retorno SDC'
+        return situacao && situacao.includes('CIAFAL') ? 'Produção CIAFAL' : 'Retorno SDC'
       default:
         return 'Entrada Programada'
     }

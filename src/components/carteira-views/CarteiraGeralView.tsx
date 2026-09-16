@@ -376,7 +376,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                 {itensExibidos.map((it, idx) => (
                   <tr
                     key={idx}
-                    onClick={() => (onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it))}
+                    onClick={() =>
+                      onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                    }
                     className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
                       it.possivel_duplicidade ? 'bg-amber-50/40' : ''
                     }`}
@@ -468,7 +470,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => (onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it))}
+                        onClick={() =>
+                          onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                        }
                         className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
                         title="Ver detalhe com Cobertura Temporal & Previsão"
                       >

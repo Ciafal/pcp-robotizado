@@ -8,8 +8,10 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calculator, CheckCircle2, ShieldCheck, Database, Calendar } from 'lucide-react'
+import { Calculator, CheckCircle2, ShieldCheck, Database, Calendar, FileText } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
+import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import CoverageTemporalAnalysis from './CoverageTemporalAnalysis'
 
 interface MemoriaCalculoModalProps {
   isOpen: boolean
@@ -26,26 +28,45 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
 
   const memoria = item.memoria_calculo
 
+  // Gera a análise temporal pelo motor central
+  const inputAnalise = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+    item,
+    (item.linha === 'L1'
+      ? 'L1'
+      : item.linha === 'L2'
+        ? 'L2'
+        : item.tipo_ordem === 'ZPRM'
+          ? 'MTO'
+          : 'GERAL') as any,
+  )
+  const resultadoTemporal = CoberturaTemporalEngine.calcular(inputAnalise)
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-white border-slate-200 text-slate-900 shadow-xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white border-slate-200 text-slate-900 shadow-xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-[#004C97] text-white rounded-lg">
-              <Calculator className="w-5 h-5" />
+              <FileText className="w-5 h-5" />
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-slate-900">
-                Memória de Cálculo Auditável &bull; ZSD28C / PCP
+                Memória de Cálculo Auditável
               </DialogTitle>
               <p className="text-xs text-slate-500">
-                Rastreabilidade e composição detalhada dos saldos de estoque e carteira.
+                Material {item.codigo_material} &bull; {item.descricao_material}
               </p>
             </div>
           </div>
         </DialogHeader>
 
+        {/* Camada complementar: Cobertura Temporal & Previsão */}
+        <div className="pt-1">
+          <CoverageTemporalAnalysis analise={resultadoTemporal} />
+        </div>
+
         <div className="space-y-4 py-2 text-xs">
+          {' '}
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Material</span>
@@ -70,7 +91,6 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
               </Badge>
             </div>
           </div>
-
           <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
             <span className="text-[11px] font-bold text-[#004C97] block flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#004C97]" /> Fórmula Oficial do Motor
@@ -80,7 +100,6 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
                 'Regra Padrão ZSD28C: Saldo = Disponibilidade Elegível - Carteira Aberta'}
             </p>
           </div>
-
           {memoria?.explicacao_passo_a_passo && (
             <div className="space-y-2">
               <span className="font-bold text-slate-800 block text-xs">
@@ -99,7 +118,6 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
               </div>
             </div>
           )}
-
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
             <div>
               <span className="text-[10px] text-slate-500 font-medium block">Qtd Ordem:</span>
@@ -158,7 +176,6 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
               </strong>
             </div>
           </div>
-
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-100 rounded-lg text-[11px] text-slate-600">
             <span className="flex items-center gap-1">
               <Database className="w-3.5 h-3.5 text-slate-500" />

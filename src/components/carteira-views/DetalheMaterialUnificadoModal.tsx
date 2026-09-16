@@ -26,9 +26,7 @@ import {
 } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
-import {
-  CoverageTemporalAnalysis,
-} from './CoverageTemporalAnalysis'
+import { CoverageTemporalAnalysis } from './CoverageTemporalAnalysis'
 import {
   CoberturaTemporalEngine,
   InputAnaliseCobertura,
@@ -80,7 +78,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
       : 0
   const estoqueQualidade = 0
   const estoqueDisponivelUtilizavel = sdcItem
-    ? Number(sdcItem.estoque_disponivel_t ?? (estoqueTotal - estoqueBloqueado))
+    ? Number(sdcItem.estoque_disponivel_t ?? estoqueTotal - estoqueBloqueado)
     : genItem
       ? Number(genItem.estoque_livre_tons || 0)
       : 0
@@ -185,7 +183,8 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
     programadoT: programadoTons,
     emProducaoT: emProducaoTons,
     dataProgramada: dataProgramada,
-    situacaoProducao: sdcItem?.situacao_producao || (programadoTons > 0 ? 'Programado' : 'Sem programação'),
+    situacaoProducao:
+      sdcItem?.situacao_producao || (programadoTons > 0 ? 'Programado' : 'Sem programação'),
   }
 
   // Executa o cálculo pelo motor central
@@ -225,12 +224,10 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             </Badge>
           </div>
 
-          <DialogTitle className="text-base font-bold text-slate-900 mt-2">
-            {descricao}
-          </DialogTitle>
+          <DialogTitle className="text-base font-bold text-slate-900 mt-2">{descricao}</DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
-            Família: <strong>{familia}</strong> &bull; Bitola: <strong>{bitola}</strong> &bull; Origem:{' '}
-            <strong>{origemCarteira}</strong>
+            Família: <strong>{familia}</strong> &bull; Bitola: <strong>{bitola}</strong> &bull;
+            Origem: <strong>{origemCarteira}</strong>
           </DialogDescription>
         </DialogHeader>
 
@@ -371,9 +368,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Programado:</span>
-                <strong className="text-slate-800 font-mono">
-                  {programadoTons.toFixed(2)} t
-                </strong>
+                <strong className="text-slate-800 font-mono">{programadoTons.toFixed(2)} t</strong>
               </div>
               {emProducaoTons > 0 && (
                 <div className="flex justify-between">
@@ -401,26 +396,35 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
                 <div className="bg-white p-1.5 rounded border border-slate-200">
                   <span className="text-[9px] text-slate-500 block">Destinada</span>
                   <strong className="font-mono text-slate-800">
-                    {(sdcItem.industrializacao_sdc?.destinada_t ?? sdcItem.programado_t).toFixed(2)} t
+                    {(sdcItem.industrializacao_sdc?.destinada_t ?? sdcItem.programado_t).toFixed(2)}{' '}
+                    t
                   </strong>
                 </div>
                 <div className="bg-white p-1.5 rounded border border-slate-200">
                   <span className="text-[9px] text-slate-500 block">Em Processo</span>
                   <strong className="font-mono text-indigo-700">
-                    {(sdcItem.industrializacao_sdc?.em_processo_t ?? sdcItem.em_producao_t).toFixed(2)} t
+                    {(sdcItem.industrializacao_sdc?.em_processo_t ?? sdcItem.em_producao_t).toFixed(
+                      2,
+                    )}{' '}
+                    t
                   </strong>
                 </div>
                 <div className="bg-white p-1.5 rounded border border-slate-200">
                   <span className="text-[9px] text-slate-500 block">Concluída</span>
                   <strong className="font-mono text-emerald-700">
-                    {(sdcItem.industrializacao_sdc?.concluida_t ?? sdcItem.estoque_total_t).toFixed(2)} t
+                    {(sdcItem.industrializacao_sdc?.concluida_t ?? sdcItem.estoque_total_t).toFixed(
+                      2,
+                    )}{' '}
+                    t
                   </strong>
                 </div>
               </div>
               <div className="text-[11px] text-slate-500 pt-1 flex justify-between">
                 <span>Retorno SDC:</span>
                 <span className="font-mono font-bold text-slate-700">
-                  {sdcItem.industrializacao_sdc?.previsao_retorno || sdcItem.data_prevista || 'A programar'}
+                  {sdcItem.industrializacao_sdc?.previsao_retorno ||
+                    sdcItem.data_prevista ||
+                    'A programar'}
                 </span>
               </div>
             </div>
@@ -428,7 +432,8 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Ship className="w-4 h-4 text-sky-600" /> Detalhes de Importação (ETA / Desembaraço)
+                  <Ship className="w-4 h-4 text-sky-600" /> Detalhes de Importação (ETA /
+                  Desembaraço)
                 </span>
                 <span className="text-xs font-mono font-bold text-sky-700">
                   {entradasDoMaterial.length} remessa(s)
@@ -463,7 +468,8 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <ShoppingBag className="w-4 h-4 text-emerald-600" /> Ordens de Compra &amp; Fornecedor
+                  <ShoppingBag className="w-4 h-4 text-emerald-600" /> Ordens de Compra &amp;
+                  Fornecedor
                 </span>
                 <span className="text-xs font-mono font-bold text-emerald-700">
                   {entradasDoMaterial.length} pedido(s)
@@ -561,7 +567,8 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
         <div className="bg-white border-2 border-slate-200 rounded-xl p-4 space-y-3 mt-1">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-[#004C97]" /> 4 Indicadores Estruturais de Balanço
+              <CheckCircle2 className="w-4 h-4 text-[#004C97]" /> 4 Indicadores Estruturais de
+              Balanço
             </span>
             <span className="text-xs font-mono font-bold text-slate-500">
               Unidade: Toneladas (t)

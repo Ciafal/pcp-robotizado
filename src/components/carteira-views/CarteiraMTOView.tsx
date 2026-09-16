@@ -1,17 +1,25 @@
 import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye } from 'lucide-react'
+import { Eye, Factory, SlidersHorizontal } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
+import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 
 interface CarteiraMTOViewProps {
   itens: CarteiraItem[]
+  entradasFuturas?: any[]
   onOpenMemoria: (item: CarteiraItem) => void
+  onOpenDetalheMaterial?: (item: CarteiraItem) => void
 }
 
-export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({ itens, onOpenMemoria }) => {
+export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
+  itens,
+  entradasFuturas = [],
+  onOpenMemoria,
+  onOpenDetalheMaterial,
+}) => {
   const [subAba, setSubAba] = useState<'RESUMO' | 'MTO_L1' | 'MTO_L2'>('RESUMO')
-
+  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const itensMTO = itens.filter((i) => i.tipo_ordem === 'MTO')
   const mtoL1 = itensMTO.filter(
     (i) =>
@@ -71,9 +79,27 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({ itens, onOpenM
           </button>
         </div>
 
-        <Badge variant="outline" className="text-purple-800 bg-purple-50 border-purple-200 text-xs">
-          Substitui Planilhas "Pedidos MTO L1" e "Pedidos MTO em aberto L2"
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-purple-800 bg-purple-50 border-purple-200 text-xs"
+          >
+            Substitui Planilhas "Pedidos MTO L1" e "Pedidos MTO em aberto L2"
+          </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMostrarColunasTemporais(!mostrarColunasTemporais)}
+            className={`h-7 text-xs gap-1 border-slate-300 ${
+              mostrarColunasTemporais
+                ? 'bg-blue-50 text-[#004C97] font-bold border-blue-300'
+                : 'text-slate-700'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Colunas: Cobertura Temporal</span>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -130,77 +156,138 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({ itens, onOpenM
                 <th className="p-2.5 text-right">Falta Produzir (t)</th>
                 <th className="p-2.5 text-center">Status Atendimento</th>
                 <th className="p-2.5 text-center">Data Desejada</th>
+                {mostrarColunasTemporais && (
+                  <>
+                    <th className="p-2.5 text-right bg-blue-900/40">Média (t/d)</th>
+                    <th className="p-2.5 text-right bg-blue-900/40">Cobertura</th>
+                    <th className="p-2.5 text-center bg-blue-900/40">Fim Estoque</th>
+                    <th className="p-2.5 text-center bg-blue-900/40">Próx. Reposição OP</th>
+                    <th className="p-2.5 text-center bg-blue-900/40">Gap Dias</th>
+                    <th className="p-2.5 text-center bg-blue-900/40">Status Temporal</th>
+                  </>
+                )}
                 <th className="p-2.5 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(subAba === 'MTO_L1' ? mtoL1 : subAba === 'MTO_L2' ? mtoL2 : itensMTO).map(
-                (it, idx) => (
-                  <tr key={idx} className="hover:bg-blue-50/40 text-[11px]">
-                    <td className="p-2.5 font-mono font-bold text-slate-900">
-                      {it.ordem_venda} / {it.item_ordem}
-                    </td>
-                    <td className="p-2.5 text-slate-800 font-medium max-w-[150px] truncate">
-                      {it.nome_cliente}
-                    </td>
-                    <td className="p-2.5">
-                      <span className="font-mono font-bold text-slate-900">
-                        {it.codigo_material}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block truncate max-w-[180px]">
-                        {it.descricao_material}
-                      </span>
-                    </td>
-                    <td className="p-2.5 text-center">
-                      <Badge className="bg-slate-100 text-[#004C97] text-[10px]">
-                        {it.linha || 'GERAL'}
-                      </Badge>
-                    </td>
-                    <td className="p-2.5 text-right font-mono text-slate-800">
-                      {it.qtd_ordem_tons.toFixed(1)}
-                    </td>
-                    <td className="p-2.5 text-right font-mono text-slate-600">
-                      {it.qtd_faturada_tons.toFixed(1)}
-                    </td>
-                    <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                      {it.carteira_aberta_tons.toFixed(1)}
-                    </td>
-                    <td className="p-2.5 text-right font-mono text-purple-800">
-                      {it.estoque_mto_tons.toFixed(1)}
-                    </td>
-                    <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                      {it.falta_produzir_tons > 0 ? it.falta_produzir_tons.toFixed(1) : '0.0'}
-                    </td>
-                    <td className="p-2.5 text-center">
-                      {it.bloqueio ? (
-                        <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
-                          Bloqueado
+                (it, idx) => {
+                  const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
+                    it,
+                    'MTO',
+                    entradasFuturas,
+                  )
+                  const resTemp = CoberturaTemporalEngine.calcular(inputTemp)
+
+                  return (
+                    <tr
+                      key={idx}
+                      onClick={() =>
+                        onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                      }
+                      className="hover:bg-blue-50/40 text-[11px] cursor-pointer"
+                    >
+                      <td className="p-2.5 font-mono font-bold text-slate-900">
+                        {it.ordem_venda} / {it.item_ordem}
+                      </td>
+                      <td className="p-2.5 text-slate-800 font-medium max-w-[150px] truncate">
+                        {it.nome_cliente}
+                      </td>
+                      <td className="p-2.5">
+                        <span className="font-mono font-bold text-slate-900">
+                          {it.codigo_material}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block truncate max-w-[180px]">
+                          {it.descricao_material}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <Badge className="bg-slate-100 text-[#004C97] text-[10px]">
+                          {it.linha || 'GERAL'}
                         </Badge>
-                      ) : it.status_atendimento === 'A_FATURAR' ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] font-bold">
-                          A Faturar
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
-                          A Produzir
-                        </Badge>
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-slate-800">
+                        {it.qtd_ordem_tons.toFixed(1)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-slate-600">
+                        {it.qtd_faturada_tons.toFixed(1)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-blue-900">
+                        {it.carteira_aberta_tons.toFixed(1)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-purple-800">
+                        {it.estoque_mto_tons.toFixed(1)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                        {it.falta_produzir_tons > 0 ? it.falta_produzir_tons.toFixed(1) : '0.0'}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        {it.bloqueio ? (
+                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
+                            Bloqueado
+                          </Badge>
+                        ) : it.status_atendimento === 'A_FATURAR' ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[9px] font-bold">
+                            A Faturar
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
+                            A Produzir
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-center font-mono text-slate-700">
+                        {it.data_desejada}
+                      </td>
+                      {mostrarColunasTemporais && (
+                        <>
+                          <td className="p-2.5 text-right font-mono text-slate-700">
+                            {resTemp.mediaDiariaFaturamentoT
+                              ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                              : 'N/D'}
+                          </td>
+                          <td className="p-2.5 text-right font-mono font-bold text-slate-800">
+                            {resTemp.diasCoberturaFormatado}
+                          </td>
+                          <td className="p-2.5 text-center font-mono text-slate-700">
+                            {resTemp.dataFimEstoqueFormatada}
+                          </td>
+                          <td
+                            className="p-2.5 text-center font-mono text-[10px] text-blue-900 truncate max-w-[120px]"
+                            title={resTemp.proximaDataPrevistaFormatada}
+                          >
+                            {resTemp.proximaDataPrevistaFormatada}
+                          </td>
+                          <td
+                            className={`p-2.5 text-center font-mono font-bold ${resTemp.temGapRuptura ? 'text-rose-700' : 'text-emerald-700'}`}
+                          >
+                            {resTemp.diasEstoqueNegativoFormatado}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <Badge
+                              className={`text-[9px] font-bold border ${resTemp.badgeCor.bg} ${resTemp.badgeCor.text} ${resTemp.badgeCor.border}`}
+                            >
+                              {resTemp.status}
+                            </Badge>
+                          </td>
+                        </>
                       )}
-                    </td>
-                    <td className="p-2.5 text-center font-mono text-slate-700">
-                      {it.data_desejada}
-                    </td>
-                    <td className="p-2.5 text-center">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onOpenMemoria(it)}
-                        className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50"
-                      >
-                        <Eye className="w-3 h-3 mr-0.5" /> Memória
-                      </Button>
-                    </td>
-                  </tr>
-                ),
+                      <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
+                          }
+                          className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                          title="Ver detalhe com Cobertura Temporal & Previsão"
+                        >
+                          <Eye className="w-3 h-3" /> Detalhe
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                },
               )}
             </tbody>
           </table>
