@@ -31,7 +31,7 @@ import {
 } from 'lucide-react'
 import { AlertaCarteiraSDC, SeveridadeAlertaSDC } from '@/types/carteira-sdc'
 import { CarteiraSDCService } from '@/services/carteira-sdc-service'
-import { carteiraService } from '@/services/carteira-service'
+import { CarteiraService } from '@/services/carteira-service'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { AnalisarImpactoSDCModal } from '@/components/carteira-views/AnalisarImpactoSDCModal'
 import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
@@ -159,11 +159,13 @@ export default function Index() {
   // Carregar riscos temporais padronizados das 7 carteiras com o motor central
   const carregarRiscosTemporais = useCallback(async () => {
     try {
-      const [itensGerais, entradasFuturas, itensSDC] = await Promise.all([
-        carteiraService.listarItens({}),
-        carteiraService.listarEntradasFuturas(),
-        CarteiraSDCService.listarItens(),
+      const [resGerais, resSDC] = await Promise.all([
+        CarteiraService.carregarCarteiraAtual(),
+        CarteiraSDCService.carregarCarteiraSDC(),
       ])
+      const itensGerais = resGerais.itens
+      const entradasFuturas = resGerais.entradasFuturas
+      const itensSDC = resSDC.itens
 
       const novosAlertas: AlertaTemporal7Carteiras[] = []
 
