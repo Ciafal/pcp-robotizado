@@ -1030,10 +1030,13 @@ export const PCPSidebar: React.FC = () => {
   // Estado de expansão dos grupos colapsáveis:
   // Conforme Requisito Parte 1: TODOS os grupos iniciam contraídos ao entrar no PCP Robotizado
   // e após reload voltam todos contraídos (estado em memória, sem persistência).
+  // Estado de expansão dos grupos colapsáveis:
+  // "INTEGRAÇÕES & GOVERNANÇA" inicia EXPANDIDO por padrão para garantir descobertura imediata de Logs & Auditoria.
+  // Regra geral: expande automaticamente qualquer grupo que contenha a rota ativa quando a navegação mudar.
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     officialNavGroups.forEach((g) => {
-      initial[g.groupTitle] = true
+      initial[g.groupTitle] = g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' ? false : true
     })
     return initial
   })
@@ -1044,6 +1047,24 @@ export const PCPSidebar: React.FC = () => {
       [groupTitle]: !prev[groupTitle],
     }))
   }
+
+  // Expandir automaticamente qualquer grupo que contenha a rota ativa ao navegar
+  useEffect(() => {
+    officialNavGroups.forEach((group) => {
+      const hasActiveItem = group.items.some((item) => {
+        if (item.href === location.pathname) return true
+        if (item.href.includes('?')) {
+          return location.pathname + location.search === item.href
+        }
+        return location.pathname.startsWith(item.href) && item.href !== '/pcp'
+      })
+      if (hasActiveItem) {
+        setCollapsedGroups((prev) =>
+          prev[group.groupTitle] ? { ...prev, [group.groupTitle]: false } : prev,
+        )
+      }
+    })
+  }, [location.pathname, location.search])
 
   return (
     <aside className="w-[215px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none">
