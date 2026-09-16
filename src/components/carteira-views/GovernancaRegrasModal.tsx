@@ -30,7 +30,7 @@ export const GovernancaRegrasModal: React.FC<GovernancaRegrasModalProps> = ({
 
   // Parâmetros corporativos centrais do motor de cobertura temporal
   const paramsGlobais = CoberturaTemporalEngine.getParametrosGlobais()
-  const [periodoFaturamento, setPeriodoFaturamento] = useState<number>(
+  const [periodoFaturamento, setPeriodoFaturamento] = useState<30 | 60 | 90 | 180>(
     paramsGlobais.periodoDiasHistorico,
   )
   const [metodoCalendario, setMetodoCalendario] = useState<MetodoCalendario>(
@@ -118,7 +118,7 @@ export const GovernancaRegrasModal: React.FC<GovernancaRegrasModalProps> = ({
                   Período Histórico da Média:
                 </label>
                 <div className="grid grid-cols-4 gap-1">
-                  {[30, 60, 90, 180].map((dias) => (
+                  {([30, 60, 90, 180] as const).map((dias) => (
                     <button
                       key={dias}
                       type="button"

@@ -52,7 +52,7 @@ export interface CanonicalCustomerOrder {
   requested_date: string
   confirmed_date?: string
   order_date: string
-  order_type: 'MTS' | 'MTO'
+  order_type: 'MTS' | 'MTO' | 'ZPRM'
   product_origin: 'PRODUCAO_PROPRIA' | 'REVENDA' | 'IMPORTADO' | 'INDUSTRIALIZACAO'
   production_line?: string
   lineage: CanonicalLineage

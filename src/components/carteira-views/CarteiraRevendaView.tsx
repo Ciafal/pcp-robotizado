@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Eye, SlidersHorizontal } from 'lucide-react'
@@ -18,6 +18,7 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
   onOpenMemoria,
   onOpenDetalheMaterial,
 }) => {
+  const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const itensRevenda = itens.filter((i) => i.origem_produto === 'REVENDA')
   const entradasRevenda = entradasFuturas.filter((e) => e.origem === 'REVENDA')
 

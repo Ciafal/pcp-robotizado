@@ -1,4 +1,4 @@
-export type TipoOrdemAtendimento = 'MTS' | 'MTO'
+export type TipoOrdemAtendimento = 'MTS' | 'MTO' | 'ZPRM'
 export type OrigemProduto = 'PRODUCAO_PROPRIA' | 'REVENDA' | 'IMPORTADO' | 'INDUSTRIALIZACAO'
 export type StatusAtendimento =
   | 'A_FATURAR'

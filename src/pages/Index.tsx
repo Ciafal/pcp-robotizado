@@ -178,8 +178,12 @@ export default function Index() {
           entradasFuturas,
         )
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-L1-${it.codigo_material}`,
             carteira: 'Carteira L1',
@@ -203,8 +207,12 @@ export default function Index() {
           entradasFuturas,
         )
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-L2-${it.codigo_material}`,
             carteira: 'Carteira L2',
@@ -231,8 +239,12 @@ export default function Index() {
           entradasFuturas,
         )
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-MTO-${it.codigo_material}`,
             carteira: 'Carteira MTO',
@@ -257,8 +269,12 @@ export default function Index() {
           entradasFuturas,
         )
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-REV-${it.codigo_material}`,
             carteira: 'Carteira Revenda',
@@ -283,8 +299,12 @@ export default function Index() {
           entradasFuturas,
         )
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-IMP-${it.codigo_material}`,
             carteira: 'Carteira Importado',
@@ -304,8 +324,12 @@ export default function Index() {
       for (const it of itensSDC) {
         const inp = CoberturaTemporalEngine.converterCarteiraSDCParaInput(it)
         const calc = CoberturaTemporalEngine.calcular(inp)
-        if (calc.temGapRuptura || calc.status === 'CRÍTICO' || calc.status === 'SEM ESTOQUE') {
-          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura
+        if (
+          calc.temGapRuptura ||
+          calc.status === 'CRÍTICO' ||
+          calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+        ) {
+          const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
           novosAlertas.push({
             id: `temp-SDC-${it.material}`,
             carteira: 'Carteira SDC',

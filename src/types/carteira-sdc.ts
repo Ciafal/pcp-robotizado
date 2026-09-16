@@ -48,6 +48,7 @@ export interface CarteiraSDCItem {
   data_desejada?: string // Data desejada da carteira/pedido
   alerta?: string
   alertas_lista?: string[]
+  centro?: string // Código de centro (ex: SDPL, 1100)
   centro_sap: 'SDPL' // Centro obrigatório
   empresa: string // Sidercentro / CIAFAL
   pedidos_compoem?: Array<{
@@ -159,5 +160,6 @@ export interface CarteiraSDCImportRow {
   data_prevista?: string
   data_desejada?: string
   estoque_bloqueado_t?: number
+  centro?: string
   centro_sap?: string
 }

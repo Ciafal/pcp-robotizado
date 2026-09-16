@@ -948,7 +948,6 @@ export class DeterministicExecutiveEngine {
       descricao: string
       resultado: ResultadoCalculoTemporal
     }[] = []
-
     if (snapshot.carteiraGeralItens && snapshot.carteiraGeralItens.length > 0) {
       for (const it of snapshot.carteiraGeralItens) {
         const origem =
@@ -1030,7 +1029,9 @@ export class DeterministicExecutiveEngine {
       const importadosComRuptura = resultadosCalculados.filter(
         (r) =>
           r.origem === 'IMPORTADO' &&
-          (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+          (r.resultado.temGapRuptura ||
+            r.resultado.status === 'CRÍTICO' ||
+            r.resultado.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'),
       )
       if (importadosComRuptura.length > 0) {
         const itensTxt = importadosComRuptura
@@ -1073,7 +1074,10 @@ export class DeterministicExecutiveEngine {
     ) {
       const sdcComRuptura = resultadosCalculados.filter(
         (r) =>
-          r.origem === 'SDC' && (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+          r.origem === 'SDC' &&
+          (r.resultado.temGapRuptura ||
+            r.resultado.status === 'CRÍTICO' ||
+            r.resultado.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'),
       )
       if (sdcComRuptura.length > 0) {
         const itensTxt = sdcComRuptura
@@ -1107,7 +1111,10 @@ export class DeterministicExecutiveEngine {
     ) {
       const mtoComRuptura = resultadosCalculados.filter(
         (r) =>
-          r.origem === 'MTO' && (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO'),
+          r.origem === 'MTO' &&
+          (r.resultado.temGapRuptura ||
+            r.resultado.status === 'CRÍTICO' ||
+            r.resultado.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'),
       )
       if (mtoComRuptura.length > 0) {
         const itensTxt = mtoComRuptura
@@ -1136,7 +1143,10 @@ export class DeterministicExecutiveEngine {
     // 5. Rupturas gerais e dias de ruptura por material
     if (p.includes('ruptura') || p.includes('dias de ruptura') || p.includes('sem cobertura')) {
       const comRuptura = resultadosCalculados.filter(
-        (r) => r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO',
+        (r) =>
+          r.resultado.temGapRuptura ||
+          r.resultado.status === 'CRÍTICO' ||
+          r.resultado.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO',
       )
       if (comRuptura.length > 0) {
         const itensTxt = comRuptura
@@ -1166,18 +1176,25 @@ export class DeterministicExecutiveEngine {
     // 6. Carteira com maior risco
     const contagemRiscoPorCarteira: Record<string, number> = {}
     for (const r of resultadosCalculados) {
-      if (r.resultado.temGapRuptura || r.resultado.status === 'CRÍTICO') {
+      if (
+        r.resultado.temGapRuptura ||
+        r.resultado.status === 'CRÍTICO' ||
+        r.resultado.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+      ) {
         contagemRiscoPorCarteira[r.origem] = (contagemRiscoPorCarteira[r.origem] || 0) + 1
       }
     }
     const carteirasOrdenadas = Object.entries(contagemRiscoPorCarteira).sort((a, b) => b[1] - a[1])
-    const maiorCarteira = carteirasOrdenadas.length > 0 ? carteirasOrdenadas[0] : ['Nenhuma', 0]
+    const maiorCarteira: [string, number] =
+      carteirasOrdenadas.length > 0
+        ? [carteirasOrdenadas[0][0], Number(carteirasOrdenadas[0][1])]
+        : ['Nenhuma', 0]
 
     return {
       tipo: 'CARTEIRA_MAIOR_RISCO',
       respostaTexto: `A carteira com maior concentração de risco temporal no momento é a **Carteira ${maiorCarteira[0]}**, com **${maiorCarteira[1]} materiais com risco de ruptura** antes da reposição programada. Todos os valores foram extraídos diretamente do motor central CoberturaTemporalEngine.`,
       indicadoresReais: {
-        carteira: maiorCarteira[0],
+        carteira: String(maiorCarteira[0]),
         status: 'AVALIAÇÃO CONCLUÍDA',
         detalhes: carteirasOrdenadas.map(([cart, qtd]) => ({
           carteira: cart,

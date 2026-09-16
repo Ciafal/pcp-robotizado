@@ -95,6 +95,7 @@ export interface InputAnaliseCobertura {
   bitola?: string
   curvaAbc?: string
   origemCarteira: OrigemCarteira
+  centro?: string
 
   // Balanço de Estoque
   estoqueTotalT: number
@@ -130,6 +131,7 @@ export interface InputAnaliseCobertura {
 export interface ResultadoCoberturaTemporal {
   material: string
   origemCarteira: OrigemCarteira
+  centro?: string
   dataAnaliseStr: string
 
   // Estoque
@@ -240,6 +242,7 @@ export class CoberturaTemporalEngine {
     const familia = item.familia || 'Industrialização SDC'
     const bitola = item.bitola || '-'
     const curvaAbc = item.curva_abc || 'B'
+    const centro = item.centro || item.centro_sap || 'SDPL'
 
     const estoqueTotal = Number(item.estoque_total_t || 0)
     const estoqueBloqueado = Number(item.estoque_bloqueado_t || 0)
@@ -287,6 +290,7 @@ export class CoberturaTemporalEngine {
       bitola,
       curvaAbc,
       origemCarteira: 'SDC',
+      centro,
       estoqueTotalT: estoqueTotal,
       estoqueBloqueadoT: estoqueBloqueado,
       estoqueQualidadeT: estoqueQualidade,
@@ -529,6 +533,7 @@ export class CoberturaTemporalEngine {
       bitola: rawInput.bitola || '',
       curvaAbc: rawInput.curvaAbc || '',
       origemCarteira: rawInput.origemCarteira,
+      centro: rawInput.centro,
       estoqueTotalT:
         rawInput.estoqueTotalT !== undefined
           ? rawInput.estoqueTotalT
@@ -573,17 +578,30 @@ export class CoberturaTemporalEngine {
     const config: ParametrosCoberturaCorporativos = {
       ...CoberturaTemporalEngine.parametrosGlobais,
       periodoDiasHistorico:
-        rawParams.periodoDiasHistorico || rawParams.diasHistoricoFaturamento || CoberturaTemporalEngine.parametrosGlobais.periodoDiasHistorico,
+        rawParams.periodoDiasHistorico ||
+        rawParams.diasHistoricoFaturamento ||
+        CoberturaTemporalEngine.parametrosGlobais.periodoDiasHistorico,
       metodoCalendario:
-        rawParams.metodoCalendario || (rawParams.tipoCalendario === 'CORRIDOS' ? 'DIAS_CORRIDOS' : (rawParams.tipoCalendario === 'OPERACIONAL' ? 'CALENDARIO_OPERACIONAL' : CoberturaTemporalEngine.parametrosGlobais.metodoCalendario)),
+        rawParams.metodoCalendario ||
+        (rawParams.tipoCalendario === 'CORRIDOS'
+          ? 'DIAS_CORRIDOS'
+          : rawParams.tipoCalendario === 'OPERACIONAL'
+            ? 'CALENDARIO_OPERACIONAL'
+            : CoberturaTemporalEngine.parametrosGlobais.metodoCalendario),
       limiteAtencaoDias:
-        rawParams.limiteAtencaoDias ?? rawParams.limiarDiasAtencao ?? CoberturaTemporalEngine.parametrosGlobais.limiteAtencaoDias,
+        rawParams.limiteAtencaoDias ??
+        rawParams.limiarDiasAtencao ??
+        CoberturaTemporalEngine.parametrosGlobais.limiteAtencaoDias,
       limiteCriticoDias:
-        rawParams.limiteCriticoDias ?? rawParams.limiarDiasCritico ?? CoberturaTemporalEngine.parametrosGlobais.limiteCriticoDias,
+        rawParams.limiteCriticoDias ??
+        rawParams.limiarDiasCritico ??
+        CoberturaTemporalEngine.parametrosGlobais.limiteCriticoDias,
       considerarEstoqueQualidade:
-        rawParams.considerarEstoqueQualidade ?? CoberturaTemporalEngine.parametrosGlobais.considerarEstoqueQualidade,
+        rawParams.considerarEstoqueQualidade ??
+        CoberturaTemporalEngine.parametrosGlobais.considerarEstoqueQualidade,
       considerarEstoqueBloqueado:
-        rawParams.considerarEstoqueBloqueado ?? CoberturaTemporalEngine.parametrosGlobais.considerarEstoqueBloqueado,
+        rawParams.considerarEstoqueBloqueado ??
+        CoberturaTemporalEngine.parametrosGlobais.considerarEstoqueBloqueado,
     }
 
     // 1. Data de referência da análise
@@ -820,9 +838,15 @@ export class CoberturaTemporalEngine {
         border: 'border-slate-300',
       }
     } else if (estoqueDisponivelUtilizavel === 0) {
-      status = 'CRÍTICO'
+      status =
+        !menorDataReposicaoDate && carteiraAberta > 0
+          ? 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+          : 'CRÍTICO'
       severidade = 'CRÍTICO'
-      textoStatus = 'CRÍTICO — Estoque zero'
+      textoStatus =
+        status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+          ? 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+          : 'CRÍTICO — Estoque zero'
       badgeCor = {
         bg: 'bg-rose-100',
         text: 'text-rose-900',
@@ -1045,6 +1069,7 @@ export class CoberturaTemporalEngine {
     return {
       material: input.material,
       origemCarteira: input.origemCarteira,
+      centro: input.centro,
       dataAnaliseStr,
       estoqueTotalT: estoqueTotal,
       estoqueBloqueadoT: estoqueBloq,

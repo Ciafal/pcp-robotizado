@@ -36,6 +36,7 @@ interface CarteiraSDCViewProps {
   materialAncorado?: string
   abrirDetalheAncorado?: boolean
   onAtualizarItens?: (itens: CarteiraSDCItem[]) => void
+  onOpenDetalheSDC?: (item: CarteiraSDCItem) => void
 }
 
 export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
@@ -47,6 +48,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   materialAncorado,
   abrirDetalheAncorado = false,
   onAtualizarItens,
+  onOpenDetalheSDC,
 }) => {
   const [itens, setItens] = useState<CarteiraSDCItem[]>(itensIniciais)
   const [kpis, setKpis] = useState<CarteiraSDCKpis>(kpisIniciais)
@@ -167,6 +169,10 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   }
 
   const handleOpenDetalhe = (item: CarteiraSDCItem) => {
+    if (onOpenDetalheSDC) {
+      onOpenDetalheSDC(item)
+      return
+    }
     setItemSelecionado(item)
     setIsModalDetalheOpen(true)
   }
