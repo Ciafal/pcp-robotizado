@@ -206,12 +206,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createTimeoutPromise(2500),
           ])
 
-          setUser(res.user)
-          setIsGlobal(res.is_global || res.user.role === 'PCP_ADMIN')
-          setScopes(res.scopes || [])
-          setDelegations(res.delegations || [])
-          setPermissions(res.permissions || [])
-          setPermissionKeys(new Set(res.permission_keys || []))
+          setUser((prev) => (JSON.stringify(prev) === JSON.stringify(res.user) ? prev : res.user))
+          setIsGlobal((prev) => {
+            const nextVal = res.is_global || res.user.role === 'PCP_ADMIN'
+            return prev === nextVal ? prev : nextVal
+          })
+          setScopes((prev) => {
+            const nextScopes = res.scopes || []
+            if (
+              prev.length === nextScopes.length &&
+              prev.every(
+                (p, idx) => p.id === nextScopes[idx]?.id && p.active === nextScopes[idx]?.active,
+              )
+            ) {
+              return prev
+            }
+            return nextScopes
+          })
+          setDelegations((prev) => {
+            const nextDelegations = res.delegations || []
+            if (
+              prev.length === nextDelegations.length &&
+              prev.every(
+                (d, idx) =>
+                  d.id === nextDelegations[idx]?.id && d.active === nextDelegations[idx]?.active,
+              )
+            ) {
+              return prev
+            }
+            return nextDelegations
+          })
+          setPermissions((prev) => {
+            const nextPerms = res.permissions || []
+            if (
+              prev.length === nextPerms.length &&
+              prev.every(
+                (p, idx) => p.key === nextPerms[idx]?.key && p.name === nextPerms[idx]?.name,
+              )
+            ) {
+              return prev
+            }
+            return nextPerms
+          })
+          setPermissionKeys((prev) => {
+            const nextKeys = res.permission_keys || []
+            if (prev.size === nextKeys.length && nextKeys.every((k) => prev.has(k))) {
+              return prev
+            }
+            return new Set(nextKeys)
+          })
           setAuthError(null)
         } catch (err: unknown) {
           console.error('Erro ao resolver permissões do HUB CIAFAL:', err)
@@ -440,11 +483,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       permissions,
       permissionKeys,
       activeScopeFilter,
+      setActiveScopeFilter,
       can,
       canAny,
       canAll,
       hasLineScope,
-      loadPermissions,
     ],
   )
 

@@ -62,6 +62,8 @@ export default function LineMasterPage() {
   const [selectedLineId, setSelectedLineId] = useState<string | null>(urlLineId)
   const [selectedLineOverview, setSelectedLineOverview] = useState<LineOverviewData | null>(null)
   const [loadingOverview, setLoadingOverview] = useState<boolean>(false)
+  const lastLoadedLineIdRef = React.useRef<string | null>(null)
+  const isLoadingOverviewRef = React.useRef<boolean>(false)
 
   // Filtros de Linhas/Centros (Ativos / Inativos / Todos)
   const [searchTerm, setSearchTerm] = useState<string>('')
@@ -106,28 +108,52 @@ export default function LineMasterPage() {
       setProductFamilies(famsData)
       setSapCatalog(sapData)
 
-      // Carrega completude calculada de cada linha (forceRefresh: true para evitar leitura de cache desatualizado)
-      const completenessEntries = await Promise.all(
-        linesData.map(async (l) => {
-          try {
-            const comp = await lineMasterService.getMasterSheetCompleteness(l.id, {
-              forceRefresh: true,
-            })
-            return [l.id, comp] as const
-          } catch {
-            return null
-          }
-        }),
-      )
+      // FIX 2: Limitar paralelismo das completudes para evitar rajada de 200+ queries filhas.
+      // Prioriza a linha selecionada na URL / estado inicial e calcula as demais em lotes controlados
+      const initialTargetId = selectedLineId || (linesData.length > 0 ? linesData[0].id : null)
       const map: Record<string, MasterSheetCompletenessResult> = {}
-      completenessEntries.forEach((entry) => {
-        if (entry) map[entry[0]] = entry[1]
-      })
-      setCompletenessByLine(map)
 
-      // Se houver uma linha já selecionada, recarrega o overview dela
+      if (initialTargetId) {
+        try {
+          const initialComp = await lineMasterService.getMasterSheetCompleteness(initialTargetId, {
+            forceRefresh: false,
+          })
+          map[initialTargetId] = initialComp
+          setCompletenessByLine({ ...map })
+        } catch {
+          // segue em frente
+        }
+      }
+
+      // Executa as demais completudes em background em pequenos lotes (concorrência = 2)
+      const remainingLines = linesData.filter((l) => l.id !== initialTargetId)
+      const batchSize = 2
+      ;(async () => {
+        for (let i = 0; i < remainingLines.length; i += batchSize) {
+          const slice = remainingLines.slice(i, i + batchSize)
+          const results = await Promise.all(
+            slice.map(async (l) => {
+              try {
+                const comp = await lineMasterService.getMasterSheetCompleteness(l.id, {
+                  forceRefresh: false,
+                })
+                return [l.id, comp] as const
+              } catch {
+                return null
+              }
+            }),
+          )
+          results.forEach((entry) => {
+            if (entry) map[entry[0]] = entry[1]
+          })
+          setCompletenessByLine({ ...map })
+        }
+      })()
+
+      // Se houver uma linha já selecionada, recarrega o overview dela aproveitando a linha em memória
       if (selectedLineId) {
-        await loadLineOverview(selectedLineId)
+        const found = linesData.find((l) => l.id === selectedLineId)
+        await loadLineOverview(selectedLineId, found)
       }
     } catch (err: any) {
       toast({
@@ -141,10 +167,15 @@ export default function LineMasterPage() {
   }
 
   const loadLineOverview = useCallback(
-    async (lineId: string) => {
+    async (lineId: string, lineOverride?: ProductionLine) => {
+      if (!lineId || isLoadingOverviewRef.current) {
+        return
+      }
+      isLoadingOverviewRef.current = true
+      lastLoadedLineIdRef.current = lineId
       setLoadingOverview(true)
       try {
-        const data = await lineMasterService.getLineOverview(lineId)
+        const data = await lineMasterService.getLineOverview(lineId, lineOverride)
         setSelectedLineOverview(data)
         setSelectedLineId(lineId)
 
@@ -153,8 +184,14 @@ export default function LineMasterPage() {
           forceRefresh: true,
         })
         setCompletenessByLine((prev) => ({ ...prev, [lineId]: comp }))
+
+        // Só atualiza searchParams se a URL ainda não contém este lineId, evitando re-renders em loop
         setSearchParams(
           (prev) => {
+            const currentLineId = prev.get('lineId') || prev.get('id')
+            if (currentLineId === lineId) {
+              return prev
+            }
             const next = new URLSearchParams(prev)
             next.set('lineId', lineId)
             return next
@@ -185,6 +222,7 @@ export default function LineMasterPage() {
           description: userFriendlyMsg,
         })
       } finally {
+        isLoadingOverviewRef.current = false
         setLoadingOverview(false)
       }
     },
@@ -196,12 +234,13 @@ export default function LineMasterPage() {
   }, [])
 
   // Se houver lineId na URL ao montar ou alterar, carregar o overview correspondente
+  // FIX 1: lastLoadedLineIdRef previne loop com setSearchParams e remove selectedLineOverview das dependências
   useEffect(() => {
     const qLineId = searchParams.get('lineId') || searchParams.get('id')
-    if (qLineId && qLineId !== selectedLineOverview?.line?.id) {
+    if (qLineId && qLineId !== lastLoadedLineIdRef.current && !isLoadingOverviewRef.current) {
       loadLineOverview(qLineId)
     }
-  }, [searchParams, loadLineOverview, selectedLineOverview])
+  }, [searchParams, loadLineOverview])
 
   const filteredLines = lines.filter((line) => {
     const matchesSearch =
@@ -595,7 +634,7 @@ export default function LineMasterPage() {
                 return (
                   <Card
                     key={l.id}
-                    onClick={() => loadLineOverview(l.id)}
+                    onClick={() => loadLineOverview(l.id, l)}
                     className="bg-white border-slate-200 hover:border-[#004C97] text-slate-900 transition-all cursor-pointer shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Barra de destaque no topo em Pantone 2945 */}
@@ -750,7 +789,7 @@ export default function LineMasterPage() {
                                 setActiveCompletenessResult(comp)
                                 setIsCompletenessModalOpen(true)
                               } else {
-                                loadLineOverview(l.id)
+                                loadLineOverview(l.id, l)
                               }
                             }}
                             className="p-2 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-[#004C97]/50 rounded transition-all flex items-center justify-between gap-2"

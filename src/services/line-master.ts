@@ -4,6 +4,18 @@ import {
   calculateCompletenessFromOverview,
   invalidateCompletenessCache,
 } from '@/services/master-sheet-completeness'
+
+// Cache em memória com TTL de 60s por lineId para evitar getOne quando o registro já está em mãos
+const LINE_CACHE_TTL_MS = 60_000
+const lineMemoryCache = new Map<string, { record: ProductionLine; timestamp: number }>()
+
+export function invalidateLineMemoryCache(lineId?: string) {
+  if (lineId) {
+    lineMemoryCache.delete(lineId)
+  } else {
+    lineMemoryCache.clear()
+  }
+}
 import {
   LineAdjustmentTimeRule,
   LineApproverMatrix,
@@ -76,6 +88,8 @@ export const lineMasterService = {
       ])
 
       return lines.map((l) => {
+        // Alimenta o cache em memória com o registro da listagem para evitar getOne posterior
+        lineMemoryCache.set(l.id, { record: l, timestamp: Date.now() })
         const lineShifts = allShifts.filter((s) => s.line_id === l.id).map((s) => s.code)
         const lineCrews = allCrews.filter((c) => c.line_id === l.id).map((c) => c.code)
         const activeMaster = allMasters.find((m) => m.line_id === l.id)
@@ -175,8 +189,18 @@ export const lineMasterService = {
     }
   },
 
-  async getLineById(lineId: string): Promise<ProductionLine> {
-    return await pb.collection('production_lines').getOne<ProductionLine>(lineId)
+  async getLineById(lineId: string, lineOverride?: ProductionLine): Promise<ProductionLine> {
+    if (lineOverride && lineOverride.id === lineId) {
+      lineMemoryCache.set(lineId, { record: lineOverride, timestamp: Date.now() })
+      return lineOverride
+    }
+    const cached = lineMemoryCache.get(lineId)
+    if (cached && Date.now() - cached.timestamp < LINE_CACHE_TTL_MS) {
+      return cached.record
+    }
+    const record = await pb.collection('production_lines').getOne<ProductionLine>(lineId)
+    lineMemoryCache.set(lineId, { record, timestamp: Date.now() })
+    return record
   },
 
   async createLine(data: Partial<ProductionLine>): Promise<ProductionLine> {
@@ -253,6 +277,7 @@ export const lineMasterService = {
 
     // Invalida cache de completude da linha para recomposição imediata
     invalidateCompletenessCache(lineId)
+    lineMemoryCache.set(lineId, { record: confirmedRecord, timestamp: Date.now() })
     return confirmedRecord
   },
 
@@ -263,8 +288,8 @@ export const lineMasterService = {
   // ==========================================
   // 2. CONTEXTO COMPLETO DA LINHA (Visão 360)
   // ==========================================
-  async getLineOverview(lineId: string): Promise<LineOverviewData> {
-    const line = await this.getLineById(lineId)
+  async getLineOverview(lineId: string, lineOverride?: ProductionLine): Promise<LineOverviewData> {
+    const line = await this.getLineById(lineId, lineOverride)
 
     // Consultas paralelas para performance industrial
     const [

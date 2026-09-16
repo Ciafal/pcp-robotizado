@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react'
 import { OeeContext, OeeCalculatedData } from '@/types/oee-drilldown'
 import { OeeDrilldownEngine } from '@/services/oee-drilldown-engine'
 
@@ -66,20 +66,20 @@ export const OeeDrilldownProvider: React.FC<{ children: ReactNode }> = ({ childr
     })
   }, [])
 
-  return (
-    <OeeDrilldownContext.Provider
-      value={{
-        isOpen,
-        context,
-        oeeData,
-        openDrilldown,
-        closeDrilldown,
-        updateContext,
-      }}
-    >
-      {children}
-    </OeeDrilldownContext.Provider>
+  // FIX 3: Estabilizar o valor do Provider em useMemo
+  const value = useMemo<OeeDrilldownContextType>(
+    () => ({
+      isOpen,
+      context,
+      oeeData,
+      openDrilldown,
+      closeDrilldown,
+      updateContext,
+    }),
+    [isOpen, context, oeeData, openDrilldown, closeDrilldown, updateContext],
   )
+
+  return <OeeDrilldownContext.Provider value={value}>{children}</OeeDrilldownContext.Provider>
 }
 
 export function useOeeDrilldown(): OeeDrilldownContextType {
