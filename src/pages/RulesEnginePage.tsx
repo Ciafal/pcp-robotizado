@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Cpu,
   Layers,
@@ -21,17 +22,16 @@ import {
   ChevronRight,
   Database,
   Lock,
-  Download,
-  UploadCloud,
-  FileCheck,
-  Zap,
-  ArrowUpDown,
+  ExternalLink,
+  Calendar,
+  Layers2,
   SlidersHorizontal,
-  ChevronDown,
+  FileText,
+  Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -41,7 +41,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import {
   pcpRulesService,
@@ -55,27 +54,28 @@ import {
 import { lineMasterService } from '@/services/line-master'
 import { ProductionLine } from '@/types/line-master'
 import { SetupDetailDrawer } from '@/components/rules-engine/SetupDetailDrawer'
-import { NewRevisionModal } from '@/components/rules-engine/NewRevisionModal'
-import { ImportPreviewModal } from '@/components/rules-engine/ImportPreviewModal'
 import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalculatorWidget'
 import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndustrialRulesTab'
-import { downloadOfficialTemplate } from '@/services/rules-template-export'
 
 export const RulesEnginePage: React.FC = () => {
-  const { can, user } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
 
-  // Permissões RBAC
-  const canEdit = can('pcp.rules.edit') || can('pcp.rules.manage') || can('pcp.schedule.edit')
-  const canApprove = can('pcp.rules.approve') || can('pcp.schedule.approve')
+  // Painel de Filtros Operacionais no Topo
+  const [selectedCompany, setSelectedCompany] = useState<string>('ALL') // Empresa
+  const [selectedPlant, setSelectedPlant] = useState<string>('ALL') // Centro/Planta
+  const [selectedLine, setSelectedLine] = useState<string>('ALL') // Linha Produtiva
+  const [selectedRuleType, setSelectedRuleType] = useState<string>('ALL') // Tipo de Regra
+  const [selectedScheduleType, setSelectedScheduleType] = useState<string>('ALL') // Tipo de Programação
+  const [selectedGaugeMaterial, setSelectedGaugeMaterial] = useState<string>('') // Material/Bitola
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL') // Status
+  const [validityFilter, setValidityFilter] = useState<string>('ALL') // Período de Validade/Vigência
+  const [searchTerm, setSearchTerm] = useState<string>('') // Busca textual geral
 
-  // Filtros Globais
-  const [selectedPlant, setSelectedPlant] = useState<string>('ALL')
-  const [selectedLine, setSelectedLine] = useState<string>('ALL')
-  const [searchTerm, setSearchTerm] = useState<string>('')
   const [activeTab, setActiveTab] = useState<string>('setup-acerto')
 
-  // Estados de Dados do Backend
+  // Estados de Dados do Backend (Fontes Oficiais da Ficha Mestra / Centro)
   const [lines, setLines] = useState<ProductionLine[]>([])
   const [setupList, setSetupList] = useState<SetupAcertoRecord[]>([])
   const [stopsList, setStopsList] = useState<ScheduledStopRecord[]>([])
@@ -86,19 +86,13 @@ export const RulesEnginePage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
-  // Drawer & Modais
+  // Drawer de Detalhes Estatísticos (Read-Only)
   const [selectedSetupForDrawer, setSelectedSetupForDrawer] = useState<SetupAcertoRecord | null>(
     null,
   )
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false)
-  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState<boolean>(false)
-  const [setupForRevision, setSetupForRevision] = useState<SetupAcertoRecord | null>(null)
-  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false)
-  const [importTemplateType, setImportTemplateType] = useState<
-    'SETUP' | 'STOP' | 'COOLING' | 'SEQUENCING'
-  >('SETUP')
 
-  // Carrega todos os dados do Backend PocketBase
+  // Carrega dados oficiais do Backend PocketBase (Mesmas tabelas oficiais da Ficha Mestra)
   const loadAllData = async () => {
     setIsLoading(true)
     try {
@@ -123,7 +117,7 @@ export const RulesEnginePage: React.FC = () => {
       console.error('Erro ao carregar dados do motor de regras:', err)
       toast({
         variant: 'destructive',
-        title: 'Erro ao conectar ao Backend',
+        title: 'Erro ao carregar Ficha Mestra',
         description: 'Não foi possível buscar as parametrizações oficiais do PocketBase.',
       })
     } finally {
@@ -135,169 +129,240 @@ export const RulesEnginePage: React.FC = () => {
     loadAllData()
   }, [])
 
-  // Abertura de Drawer ao selecionar linha
+  // Abertura do drawer puramente consultivo
   const handleSelectSetupRow = (row: SetupAcertoRecord) => {
     setSelectedSetupForDrawer(row)
     setIsDrawerOpen(true)
   }
 
-  // Abertura de Nova Revisão a partir de um registro ou do Drawer
-  const handleOpenRevisionProposal = (row?: SetupAcertoRecord) => {
-    const target = row || selectedSetupForDrawer || setupList[0]
-    setSetupForRevision(target)
-    setIsRevisionModalOpen(true)
-  }
-
-  // Submissão da proposta de revisão
-  const handleSubmitRevision = async (data: {
-    proposedMinutes: number
-    changeReason: string
-    justificationCategory?: string
-    justificationDetail?: string
-    aiClassification: string
-    aiExplanation: string
-    mesSnapshot: any
-  }) => {
-    if (!setupForRevision) return
-
-    try {
-      await pcpRulesService.createRevisionProposal({
-        entityType: 'SETUP',
-        entityId: setupForRevision.setup_code || setupForRevision.id,
-        lineCode: setupForRevision.line_code,
-        currentValue: `${setupForRevision.setup_time_minutes} min`,
-        proposedValue: `${data.proposedMinutes} min`,
-        changeReason: data.changeReason,
-        justificationCategory: data.justificationCategory,
-        justificationDetail: data.justificationDetail,
-        aiClassification: data.aiClassification,
-        aiExplanation: data.aiExplanation,
-        mesSnapshot: data.mesSnapshot,
-      })
-
-      toast({
-        title: 'Proposta de Revisão Criada',
-        description: `Proposta enviada para a esteira de dupla aprovação (PCP + Linha ${setupForRevision.line_code}).`,
-      })
-
-      loadAllData()
-    } catch (err) {
-      console.error('Erro ao enviar proposta de revisão:', err)
-      toast({
-        variant: 'destructive',
-        title: 'Falha ao salvar proposta',
-        description: 'Não foi possível registrar a proposta de revisão no banco de dados.',
-      })
-    }
-  }
-
-  // Aprovação em esteira
-  const handleApproveRevision = async (
-    record: PendingRevisionRecord,
-    stage: 'PCP' | 'LINE_MANAGER',
+  // Navegação direta para a Ficha Mestra oficial com ancoragem de seção
+  const handleOpenMasterSheet = (
+    lineCodeOrId?: string,
+    sectionAnchor: 'setup' | 'paradas' | 'resfriamento' | 'sequenciamento' | 'geral' = 'geral',
   ) => {
-    try {
-      await pcpRulesService.approveRevision(record.id, stage, user?.name || 'Carlos Alberto (PCP)')
+    // Localiza id da linha correspondente caso venha apenas código (ex: 'L1', 'L2')
+    const matchedLine = lines.find((l) => l.code === lineCodeOrId || l.id === lineCodeOrId)
+    const lineParam = matchedLine ? matchedLine.id : lineCodeOrId || ''
 
-      toast({
-        title: stage === 'PCP' ? 'Fase 1 (PCP) Aprovada' : 'Fase 2 (Linha) Homologada & Publicada',
-        description: `Revisão do parâmetro ${record.parameter_name} atualizada com sucesso.`,
-      })
+    let hashAnchor = ''
+    if (sectionAnchor === 'setup') hashAnchor = '#section-setup-matrix'
+    else if (sectionAnchor === 'sequenciamento') hashAnchor = '#section-sequencing-process'
+    else if (sectionAnchor === 'paradas') hashAnchor = '#section-raw-materials'
+    else if (sectionAnchor === 'resfriamento') hashAnchor = '#section-setup-matrix'
 
-      loadAllData()
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro na aprovação',
-        description: 'Falha ao homologar etapa da revisão.',
-      })
-    }
+    const targetUrl = lineParam
+      ? `/pcp/ficha-mestre?lineId=${encodeURIComponent(lineParam)}${hashAnchor}`
+      : `/pcp/ficha-mestre${hashAnchor}`
+
+    navigate(targetUrl)
   }
+
+  // Helper de filtro de vigência
+  const matchesValidity = (validityStr?: string, validFrom?: string, validUntil?: string) => {
+    if (validityFilter === 'ALL') return true
+    const currentYear = new Date().getFullYear().toString()
+    const str = `${validityStr || ''} ${validFrom || ''} ${validUntil || ''}`
+    if (validityFilter === 'CURRENT') {
+      return (
+        str.includes(currentYear) || str.includes('2025') || str.includes('2026') || !str.trim()
+      )
+    }
+    if (validityFilter === 'HISTORIC') {
+      return str.includes('2023') || str.includes('2024')
+    }
+    return true
+  }
+
+  // Lista de Centros distintos
+  const availableCenters = useMemo(() => {
+    const set = new Set<string>()
+    lines.forEach((l) => {
+      if (l.plant) set.add(l.plant)
+    })
+    setupList.forEach((s) => {
+      if (s.center_code) set.add(s.center_code)
+    })
+    return Array.from(set)
+  }, [lines, setupList])
 
   // Filtros aplicados na lista de Setup
   const filteredSetups = useMemo(() => {
     return setupList.filter((item) => {
+      if (selectedPlant !== 'ALL' && item.center_code && item.center_code !== selectedPlant)
+        return false
       if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
+      if (!matchesValidity(`${item.validity_start} ${item.validity_end}`)) return false
+
+      if (selectedGaugeMaterial) {
+        const gm = selectedGaugeMaterial.toLowerCase()
+        const matchGauge =
+          item.from_family_code.toLowerCase().includes(gm) ||
+          item.from_code_prefix.toLowerCase().includes(gm) ||
+          item.from_description_gauge.toLowerCase().includes(gm) ||
+          item.to_family_code.toLowerCase().includes(gm) ||
+          item.to_code_prefix.toLowerCase().includes(gm) ||
+          item.to_description_gauge.toLowerCase().includes(gm)
+        if (!matchGauge) return false
+      }
+
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
-        return (
+        const matchSearch =
           item.line_code.toLowerCase().includes(q) ||
           item.from_family_code.toLowerCase().includes(q) ||
           item.to_family_code.toLowerCase().includes(q) ||
           item.to_description_gauge.toLowerCase().includes(q) ||
-          item.work_center.toLowerCase().includes(q)
-        )
+          item.work_center.toLowerCase().includes(q) ||
+          (item.responsible_name && item.responsible_name.toLowerCase().includes(q))
+        if (!matchSearch) return false
       }
       return true
     })
-  }, [setupList, selectedLine, searchTerm])
+  }, [
+    setupList,
+    selectedPlant,
+    selectedLine,
+    selectedStatus,
+    validityFilter,
+    selectedGaugeMaterial,
+    searchTerm,
+  ])
 
   // Filtros aplicados nas Paradas Programadas
   const filteredStops = useMemo(() => {
     return stopsList.filter((item) => {
+      if (selectedPlant !== 'ALL' && item.center_code && item.center_code !== selectedPlant)
+        return false
       if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
+      if (selectedRuleType !== 'ALL' && item.stop_type !== selectedRuleType) return false
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
+      if (!matchesValidity(item.validity)) return false
+
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
-        return (
+        const matchSearch =
           item.line_code.toLowerCase().includes(q) ||
           item.stop_type.toLowerCase().includes(q) ||
           item.description.toLowerCase().includes(q) ||
-          item.reason.toLowerCase().includes(q)
-        )
+          item.reason.toLowerCase().includes(q) ||
+          (item.responsible_name && item.responsible_name.toLowerCase().includes(q))
+        if (!matchSearch) return false
       }
       return true
     })
-  }, [stopsList, selectedLine, searchTerm])
+  }, [
+    stopsList,
+    selectedPlant,
+    selectedLine,
+    selectedRuleType,
+    selectedStatus,
+    validityFilter,
+    searchTerm,
+  ])
 
   // Filtros aplicados em Tempos de Resfriamento
   const filteredCoolings = useMemo(() => {
     return coolingList.filter((item) => {
-      if (selectedLine !== 'ALL' && item.origin_line_code !== selectedLine) return false
+      if (selectedPlant !== 'ALL' && item.center_code && item.center_code !== selectedPlant)
+        return false
+      if (
+        selectedLine !== 'ALL' &&
+        item.origin_line_code !== selectedLine &&
+        item.dest_line_code !== selectedLine
+      )
+        return false
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
+      if (!matchesValidity('', item.valid_from, item.valid_until)) return false
+
+      if (selectedGaugeMaterial) {
+        const gm = selectedGaugeMaterial.toLowerCase()
+        const matchGauge =
+          (item.material_code && item.material_code.toLowerCase().includes(gm)) ||
+          (item.family_code && item.family_code.toLowerCase().includes(gm)) ||
+          item.gauge_dimension.toLowerCase().includes(gm)
+        if (!matchGauge) return false
+      }
+
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
-        return (
+        const matchSearch =
           item.origin_line_code.toLowerCase().includes(q) ||
           item.dest_line_code.toLowerCase().includes(q) ||
           (item.material_code && item.material_code.toLowerCase().includes(q)) ||
           (item.family_code && item.family_code.toLowerCase().includes(q)) ||
-          item.gauge_dimension.toLowerCase().includes(q)
-        )
+          item.gauge_dimension.toLowerCase().includes(q) ||
+          (item.responsible_name && item.responsible_name.toLowerCase().includes(q))
+        if (!matchSearch) return false
       }
       return true
     })
-  }, [coolingList, selectedLine, searchTerm])
+  }, [
+    coolingList,
+    selectedPlant,
+    selectedLine,
+    selectedStatus,
+    validityFilter,
+    selectedGaugeMaterial,
+    searchTerm,
+  ])
 
   // Filtros aplicados em Regras de Sequenciamento
   const filteredSequencings = useMemo(() => {
     return sequencingList.filter((item) => {
+      if (selectedLine !== 'ALL' && item.line_code && item.line_code !== selectedLine) return false
+      if (selectedRuleType !== 'ALL' && item.rule_type !== selectedRuleType) return false
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
+
+      if (selectedGaugeMaterial) {
+        const gm = selectedGaugeMaterial.toLowerCase()
+        const matchGauge =
+          (item.from_family_code && item.from_family_code.toLowerCase().includes(gm)) ||
+          (item.from_material_code && item.from_material_code.toLowerCase().includes(gm)) ||
+          (item.to_family_code && item.to_family_code.toLowerCase().includes(gm)) ||
+          (item.to_material_code && item.to_material_code.toLowerCase().includes(gm))
+        if (!matchGauge) return false
+      }
+
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
-        return (
+        const matchSearch =
           item.code.toLowerCase().includes(q) ||
           item.name.toLowerCase().includes(q) ||
           (item.from_family_code && item.from_family_code.toLowerCase().includes(q)) ||
           (item.to_family_code && item.to_family_code.toLowerCase().includes(q)) ||
-          item.scope_level.toLowerCase().includes(q)
-        )
+          item.scope_level.toLowerCase().includes(q) ||
+          item.reason.toLowerCase().includes(q)
+        if (!matchSearch) return false
       }
       return true
     })
-  }, [sequencingList, searchTerm])
+  }, [
+    sequencingList,
+    selectedLine,
+    selectedRuleType,
+    selectedStatus,
+    selectedGaugeMaterial,
+    searchTerm,
+  ])
 
-  // Filtros aplicados em Revisões Pendentes
+  // Filtros aplicados em Revisões Registradas
   const filteredPendings = useMemo(() => {
     return pendingList.filter((item) => {
+      if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
+      if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
         return (
           item.entity_type.toLowerCase().includes(q) ||
           item.line_code.toLowerCase().includes(q) ||
-          item.change_reason.toLowerCase().includes(q)
+          item.change_reason.toLowerCase().includes(q) ||
+          item.parameter_name.toLowerCase().includes(q)
         )
       }
       return true
     })
-  }, [pendingList, searchTerm])
+  }, [pendingList, selectedLine, selectedStatus, searchTerm])
 
   // Filtros aplicados em Histórico de Alterações
   const filteredAudits = useMemo(() => {
@@ -314,81 +379,59 @@ export const RulesEnginePage: React.FC = () => {
     })
   }, [auditList, searchTerm])
 
+  const clearAllFilters = () => {
+    setSelectedCompany('ALL')
+    setSelectedPlant('ALL')
+    setSelectedLine('ALL')
+    setSelectedRuleType('ALL')
+    setSelectedScheduleType('ALL')
+    setSelectedGaugeMaterial('')
+    setSelectedStatus('ALL')
+    setValidityFilter('ALL')
+    setSearchTerm('')
+  }
+
   return (
     <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen text-slate-900 relative">
-      {/* 1. CABEÇALHO PADRÃO CIAFAL COM GOVERNANÇA E BOTÕES DE TEMPLATE */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      {/* 1. CABEÇALHO READ ONLY PADRÃO CIAFAL COM BADGES OBRIGATÓRIAS */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-sm">
+          <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-xs shrink-0">
             <Cpu className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-black text-slate-900 tracking-tight">
                 Motor de Regras & Setup
               </h1>
-              <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-[10px] font-mono">
-                PCP Robotizado &bull; Hub CIAFAL
+              {/* Badge Obrigatória 1 */}
+              <Badge className="bg-blue-50 text-[#004C97] border border-blue-200 text-[10px] font-semibold gap-1">
+                <Database className="w-3 h-3 text-[#004C97]" />
+                Consulta Operacional &bull; Fonte: Centros e Ficha Mestra
               </Badge>
-              {canEdit ? (
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  Perfil Gravador
-                </Badge>
-              ) : (
-                <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] gap-1">
-                  <Lock className="w-3 h-3 text-amber-600" />
-                  Somente Consulta
-                </Badge>
-              )}
+              {/* Badge Obrigatória 2 */}
+              <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-semibold gap-1">
+                <Lock className="w-3 h-3 text-slate-500" />
+                Modo Somente Leitura
+              </Badge>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Fonte oficial governada de tempos DE&rarr;PARA, acertos, paradas de capacidade,
-              resfriamento metalúrgico e penalidades CP-SAT.
+            <p className="text-xs text-slate-600 mt-1">
+              Painel analítico e consultivo das regras mestras industriais (tempos DE&rarr;PARA,
+              acertos, paradas de capacidade, resfriamento metalúrgico e penalidades CP-SAT). Para
+              ajustes, utilize a Ficha Mestra oficial.
             </p>
           </div>
         </div>
 
-        {/* BOTÕES HORIZONTAIS DE TEMPLATES & WORKFLOW (REQUISITO 1 & 10) */}
+        {/* AÇÕES NO TOPO: APENAS CONSULTAS / NAVEGAÇÃO / ATUALIZAÇÃO */}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => downloadOfficialTemplate('SETUP')}
-            className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50"
+            onClick={() => handleOpenMasterSheet(selectedLine !== 'ALL' ? selectedLine : undefined)}
+            className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs gap-1.5 h-8 font-bold shadow-xs"
           >
-            <Download className="w-3.5 h-3.5 text-slate-600" />
-            <span>Baixar Template</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setImportTemplateType(
-                activeTab === 'paradas-programadas'
-                  ? 'STOP'
-                  : activeTab === 'resfriamento'
-                    ? 'COOLING'
-                    : activeTab === 'sequenciamento'
-                      ? 'SEQUENCING'
-                      : 'SETUP',
-              )
-              setIsImportModalOpen(true)
-            }}
-            className="text-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100 gap-1.5 h-8 font-semibold"
-          >
-            <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
-            <span>Importar Template</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => handleOpenRevisionProposal()}
-            className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs gap-1.5 h-8 font-bold shadow-sm"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Nova Proposta de Revisão</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Abrir na Ficha Mestra</span>
           </Button>
 
           <Button
@@ -396,21 +439,212 @@ export const RulesEnginePage: React.FC = () => {
             variant="outline"
             onClick={loadAllData}
             disabled={isLoading}
-            className="text-xs border-slate-300 gap-1 h-8 bg-white hover:bg-slate-50 px-2"
-            title="Atualizar dados do backend"
+            className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50 px-3 text-slate-700"
+            title="Recarregar parâmetros da Ficha Mestra"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Atualizar</span>
           </Button>
         </div>
       </div>
 
-      {/* 2. CARDS COMPACTOS DE GOVERNANÇA INDUSTRIAL */}
+      {/* 2. PAINEL DE FILTROS AVANÇADOS NO TOPO (8 DIMENSÕES ESPECIFICADAS) */}
+      <Card className="border-slate-200 shadow-xs bg-white">
+        <CardContent className="p-3.5 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <Filter className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Painel de Filtros Operacionais</span>
+              <span className="text-[10px] text-slate-400 font-normal lowercase">
+                (consulta consolidada)
+              </span>
+            </div>
+            {(selectedCompany !== 'ALL' ||
+              selectedPlant !== 'ALL' ||
+              selectedLine !== 'ALL' ||
+              selectedRuleType !== 'ALL' ||
+              selectedScheduleType !== 'ALL' ||
+              selectedGaugeMaterial ||
+              selectedStatus !== 'ALL' ||
+              validityFilter !== 'ALL' ||
+              searchTerm) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="h-6 px-2 text-[11px] text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              >
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5 text-xs">
+            {/* 1. Empresa */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Empresa
+              </label>
+              <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas (CIAFAL)</SelectItem>
+                  <SelectItem value="CIAFAL_MATRIZ">CIAFAL Matriz</SelectItem>
+                  <SelectItem value="CIAFAL_FILIAL">CIAFAL Contagem</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Linha Produtiva */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Linha Produtiva
+              </label>
+              <Select value={selectedLine} onValueChange={setSelectedLine}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Linha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as Linhas</SelectItem>
+                  {lines.map((l) => (
+                    <SelectItem key={l.id} value={l.code}>
+                      {l.code} - {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 3. Centro/Planta */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Centro / Planta
+              </label>
+              <Select value={selectedPlant} onValueChange={setSelectedPlant}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Centro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos os Centros</SelectItem>
+                  {availableCenters.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 4. Tipo de Regra */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Tipo de Regra
+              </label>
+              <Select value={selectedRuleType} onValueChange={setSelectedRuleType}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos os Tipos</SelectItem>
+                  <SelectItem value="SETUP">Setup DE&rarr;PARA</SelectItem>
+                  <SelectItem value="MANUTENCAO">Parada Manutenção</SelectItem>
+                  <SelectItem value="LIMPEZA">Parada Limpeza</SelectItem>
+                  <SelectItem value="PROIBITIVA">Proibitiva (CP-SAT)</SelectItem>
+                  <SelectItem value="NAO_RECOMENDADA">Não Recomendada</SelectItem>
+                  <SelectItem value="PREFERENCIAL">Preferencial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 5. Tipo de Programação */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Programação
+              </label>
+              <Select value={selectedScheduleType} onValueChange={setSelectedScheduleType}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Prog." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Semanal / Mensal</SelectItem>
+                  <SelectItem value="SEMANAL">Apenas Semanal</SelectItem>
+                  <SelectItem value="MENSAL">Apenas Mensal (PMP)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 6. Material / Bitola */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Material / Bitola
+              </label>
+              <Input
+                placeholder="Ex: TQ-100, 1020..."
+                value={selectedGaugeMaterial}
+                onChange={(e) => setSelectedGaugeMaterial(e.target.value)}
+                className="h-8 text-xs bg-slate-50 border-slate-200"
+              />
+            </div>
+
+            {/* 7. Status */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Status
+              </label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="ATIVO">ATIVO</SelectItem>
+                  <SelectItem value="INATIVO">INATIVO</SelectItem>
+                  <SelectItem value="APPROVED">APPROVED</SelectItem>
+                  <SelectItem value="PENDING">PENDING</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 8. Período de Validade / Vigência */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-1">
+                Vigência
+              </label>
+              <Select value={validityFilter} onValueChange={setValidityFilter}>
+                <SelectTrigger className="h-8 text-xs bg-slate-50 border-slate-200">
+                  <SelectValue placeholder="Vigência" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas as Vigências</SelectItem>
+                  <SelectItem value="CURRENT">Vigente (Atual)</SelectItem>
+                  <SelectItem value="HISTORIC">Histórico / Expirado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Busca textual livre */}
+          <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <Input
+              placeholder="Busca textual por código, família, bitola, responsável, descrição ou motivo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8 text-xs bg-slate-50 border-slate-200 flex-1"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. RESUMO ANALÍTICO DE REGRAS VINCULADAS À FICHA MESTRA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card
           onClick={() => setActiveTab('setup-acerto')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'setup-acerto'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -418,15 +652,17 @@ export const RulesEnginePage: React.FC = () => {
             <Clock className="w-3.5 h-3.5 text-blue-600" />
             <span>Setups Cadastrados</span>
           </div>
-          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">{setupList.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Matriz De/Para</div>
+          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
+            {filteredSetups.length}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Matriz De/Para Ficha Mestra</div>
         </Card>
 
         <Card
           onClick={() => setActiveTab('paradas-programadas')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'paradas-programadas'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -434,15 +670,17 @@ export const RulesEnginePage: React.FC = () => {
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
             <span>Paradas Programadas</span>
           </div>
-          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">{stopsList.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Preventivas/Limpeza</div>
+          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
+            {filteredStops.length}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Capacidade e Manutenção</div>
         </Card>
 
         <Card
           onClick={() => setActiveTab('resfriamento')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'resfriamento'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -451,16 +689,16 @@ export const RulesEnginePage: React.FC = () => {
             <span>Resfriamentos</span>
           </div>
           <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
-            {coolingList.length}
+            {filteredCoolings.length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Regras de Cura</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Cura Metalúrgica (h)</div>
         </Card>
 
         <Card
           onClick={() => setActiveTab('sequenciamento')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'sequenciamento'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -469,34 +707,34 @@ export const RulesEnginePage: React.FC = () => {
             <span>Sequenciamento</span>
           </div>
           <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
-            {sequencingList.length}
+            {filteredSequencings.length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Penalidades CP-SAT</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Penalidades CP-SAT</div>
         </Card>
 
         <Card
           onClick={() => setActiveTab('revisoes-pendentes')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'revisoes-pendentes'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
           <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Revisões Pendentes</span>
+            <span>Revisões Registradas</span>
           </div>
           <div className="text-xl font-bold text-amber-700 mt-1 font-mono">
-            {pendingList.length}
+            {filteredPendings.length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Aprovação 2 Fases</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Histórico de Esteira</div>
         </Card>
 
         <Card
           onClick={() => setActiveTab('historico-alteracoes')}
-          className={`p-3 shadow-sm cursor-pointer transition-all ${
+          className={`p-3 shadow-xs cursor-pointer transition-all ${
             activeTab === 'historico-alteracoes'
-              ? 'border-[#004C97] bg-blue-50/30'
+              ? 'border-[#004C97] bg-blue-50/40 ring-1 ring-[#004C97]'
               : 'bg-white border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -504,182 +742,140 @@ export const RulesEnginePage: React.FC = () => {
             <History className="w-3.5 h-3.5 text-purple-600" />
             <span>Auditoria & Logs</span>
           </div>
-          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">{auditList.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Trilha de Versões</div>
+          <div className="text-xl font-bold text-slate-900 mt-1 font-mono">
+            {filteredAudits.length}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Rastreabilidade Completa</div>
         </Card>
       </div>
 
-      {/* 3. BARRA DE FILTROS RÁPIDOS */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-sm">
-        <div className="flex items-center gap-2 flex-1 min-w-[240px] max-w-md">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
-          <Input
-            placeholder="Filtrar por linha, bitola DE/PARA, motivo ou código..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-8 text-xs bg-slate-50 border-slate-200"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Filtrar Linha:</span>
-          </div>
-          <Select value={selectedLine} onValueChange={setSelectedLine}>
-            <SelectTrigger className="h-8 w-48 text-xs bg-white border-slate-200 font-medium">
-              <SelectValue placeholder="Todas as Linhas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todas as Linhas</SelectItem>
-              {lines.map((l) => (
-                <SelectItem key={l.id} value={l.code}>
-                  {l.code} - {l.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* 4. ÁREA CENTRAL: 6 ABAS FUNCIONAIS COMPLETAS */}
-      <Card className="border-slate-200 shadow-sm bg-white">
+      {/* 4. ÁREA CENTRAL: ABAS DE CONSULTA READ-ONLY */}
+      <Card className="border-slate-200 shadow-xs bg-white">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="border-b border-slate-200 px-4 pt-3 bg-slate-50/50 rounded-t-xl overflow-x-auto">
+          <div className="border-b border-slate-200 px-4 pt-3 bg-slate-50/70 rounded-t-xl overflow-x-auto">
             <TabsList className="h-9 bg-slate-200/60 p-0.5 gap-1">
               <TabsTrigger
-                value="regras-industriais-master"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>0. Biblioteca Mestre de Regras</span>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1 py-0 h-4 border-slate-300 bg-blue-50 text-[#004C97]"
-                >
-                  Ativo
-                </Badge>
-              </TabsTrigger>
-
-              <TabsTrigger
                 value="setup-acerto"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <Clock className="w-3.5 h-3.5" />
                 <span>1. Setup & Acerto</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {setupList.length}
+                  {filteredSetups.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="paradas-programadas"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>2. Paradas Programadas</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {stopsList.length}
+                  {filteredStops.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="resfriamento"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <ThermometerSnowflake className="w-3.5 h-3.5" />
                 <span>3. Tempo de Resfriamento</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {coolingList.length}
+                  {filteredCoolings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="sequenciamento"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>4. Regras de Sequenciamento</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {sequencingList.length}
+                  {filteredSequencings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
+                value="regras-industriais-master"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>5. Parâmetros Mestres CP-SAT</span>
+              </TabsTrigger>
+
+              <TabsTrigger
                 value="revisoes-pendentes"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>5. Revisões Pendentes</span>
+                <span>6. Histórico de Revisões</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {pendingList.length}
+                  {filteredPendings.length}
                 </Badge>
               </TabsTrigger>
 
               <TabsTrigger
                 value="historico-alteracoes"
-                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-sm font-semibold gap-1.5"
+                className="text-xs data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs font-semibold gap-1.5"
               >
                 <History className="w-3.5 h-3.5" />
-                <span>6. Histórico & Auditoria</span>
+                <span>7. Trilha de Auditoria</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-slate-300">
-                  {auditList.length}
+                  {filteredAudits.length}
                 </Badge>
               </TabsTrigger>
             </TabsList>
           </div>
 
           {/* ========================================================================= */}
-          {/* ABA 0 — BIBLIOTECA MESTRE DE REGRAS INDUSTRIAIS (PARAMETRIZÁVEIS)           */}
-          {/* ========================================================================= */}
-          <TabsContent value="regras-industriais-master" className="m-0 p-4 space-y-3">
-            <MasterIndustrialRulesTab />
-          </TabsContent>
-
-          {/* ========================================================================= */}
-          {/* ABA 1 — SETUP & ACERTO (ALTA DENSIDADE, SAP STYLE, DE -> PARA)             */}
+          {/* ABA 1 — SETUP & ACERTO (CONSULTA READ ONLY DA TABELA OFICIAL)             */}
           {/* ========================================================================= */}
           <TabsContent value="setup-acerto" className="m-0 p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  Matriz de Setup & Acerto DE &rarr; PARA (Estilo SAP / Alta Densidade)
+                  Matriz de Setup & Acerto DE &rarr; PARA (Fonte: Ficha Mestra / SAP)
                   <Badge className="bg-slate-100 text-slate-700 font-mono text-[10px]">
-                    Edição Direta Bloqueada &bull; Clique na linha para Evidências MES/IA
+                    Modo Consulta &bull; Clique na linha para evidência estatística MES
                   </Badge>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Quando não existir regra DE específica, o motor aplica a regra genérica de entrada
-                  PARA.
+                  Origem: <strong>Centros e Ficha Mestra (Tabelas Oficiais)</strong>. Para
+                  alterações, clique no botão &ldquo;Abrir na Ficha Mestra&rdquo;.
                 </p>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredSetups.length} registro(s) oficiais
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleOpenMasterSheet(selectedLine !== 'ALL' ? selectedLine : undefined, 'setup')
+                }
+                className="h-7 text-xs border-blue-200 text-[#004C97] hover:bg-blue-50 gap-1 font-semibold"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Abrir na Ficha Mestra (Setup)</span>
+              </Button>
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg shadow-2xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
-                    <th className="p-2.5">Centro</th>
-                    <th className="p-2.5">Linha</th>
-                    <th className="p-2.5">Centro de Trabalho</th>
-                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Família DE</th>
-                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Código DE</th>
-                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Descrição / Bitola DE</th>
-                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">Família PARA</th>
-                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">Código PARA</th>
-                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">
-                      Descrição / Bitola PARA
-                    </th>
-                    <th className="p-2.5 text-right font-mono font-bold">Tempo Setup</th>
-                    <th className="p-2.5 text-right font-mono">Tempo Acerto</th>
-                    <th className="p-2.5 text-center">Origem</th>
+                    <th className="p-2.5">Origem do Dado</th>
+                    <th className="p-2.5">Centro / Linha</th>
+                    <th className="p-2.5">Centro Trabalho</th>
+                    <th className="p-2.5 bg-blue-50/50 text-blue-900">Família / Bitola DE</th>
+                    <th className="p-2.5 bg-indigo-50/50 text-indigo-900">Família / Bitola PARA</th>
+                    <th className="p-2.5 text-right font-mono font-bold">Tempo Setup (min)</th>
+                    <th className="p-2.5 text-right font-mono">Tempo Acerto (min)</th>
                     <th className="p-2.5 text-center">Status</th>
-                    <th className="p-2.5">Vigência</th>
-                    <th className="p-2.5">Última Revisão</th>
+                    <th className="p-2.5">Período de Vigência</th>
+                    <th className="p-2.5">Última Atualização</th>
                     <th className="p-2.5">Responsável</th>
+                    <th className="p-2.5 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -689,48 +885,48 @@ export const RulesEnginePage: React.FC = () => {
                       onClick={() => handleSelectSetupRow(row)}
                       className="hover:bg-blue-50/60 cursor-pointer transition-colors whitespace-nowrap group"
                     >
-                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                      <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
+                      {/* Origem do Dado */}
+                      <td className="p-2.5">
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                          title="Centros e Ficha Mestra (Tabelas Oficiais)"
+                        >
+                          Centros e Ficha Mestra
+                        </Badge>
+                      </td>
+
+                      <td className="p-2.5">
+                        <span className="font-mono text-slate-600">{row.center_code}</span> /{' '}
+                        <strong className="text-[#004C97]">{row.line_code}</strong>
+                      </td>
                       <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
 
-                      {/* COLUNAS DE */}
-                      <td className="p-2.5 bg-blue-50/20 font-medium">
-                        {row.is_generic ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-slate-100 text-slate-600 text-[10px]"
-                          >
-                            * (QUALQUER)
-                          </Badge>
-                        ) : (
-                          row.from_family_code
-                        )}
-                      </td>
-                      <td className="p-2.5 bg-blue-50/20 font-mono text-slate-600">
-                        {row.from_code_prefix}
-                      </td>
-                      <td
-                        className="p-2.5 bg-blue-50/20 text-slate-700 max-w-xs truncate"
-                        title={row.from_description_gauge}
-                      >
-                        {row.from_description_gauge}
+                      {/* Transição DE */}
+                      <td className="p-2.5 bg-blue-50/20">
+                        <div className="font-bold text-slate-800">
+                          {row.is_generic ? '* (QUALQUER)' : row.from_family_code}
+                        </div>
+                        <div
+                          className="text-[10px] text-slate-500 truncate max-w-xs"
+                          title={row.from_description_gauge}
+                        >
+                          {row.from_code_prefix} &bull; {row.from_description_gauge}
+                        </div>
                       </td>
 
-                      {/* COLUNAS PARA */}
-                      <td className="p-2.5 bg-indigo-50/20 font-bold text-slate-800">
-                        {row.to_family_code}
-                      </td>
-                      <td className="p-2.5 bg-indigo-50/20 font-mono font-bold text-indigo-900">
-                        {row.to_code_prefix}
-                      </td>
-                      <td
-                        className="p-2.5 bg-indigo-50/20 text-slate-800 font-medium max-w-xs truncate"
-                        title={row.to_description_gauge}
-                      >
-                        {row.to_description_gauge}
+                      {/* Transição PARA */}
+                      <td className="p-2.5 bg-indigo-50/20">
+                        <div className="font-bold text-indigo-950">{row.to_family_code}</div>
+                        <div
+                          className="text-[10px] text-slate-600 truncate max-w-xs"
+                          title={row.to_description_gauge}
+                        >
+                          {row.to_code_prefix} &bull; {row.to_description_gauge}
+                        </div>
                       </td>
 
-                      {/* TEMPOS */}
+                      {/* Parâmetros e Unidade */}
                       <td className="p-2.5 text-right font-mono font-bold text-slate-900 group-hover:text-[#004C97]">
                         {row.setup_time_minutes} min
                       </td>
@@ -738,19 +934,7 @@ export const RulesEnginePage: React.FC = () => {
                         {row.tuning_time_minutes} min
                       </td>
 
-                      {/* ORIGEM & STATUS */}
-                      <td className="p-2.5 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] font-mono ${
-                            row.origin === 'SAP'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {row.origin}
-                        </Badge>
-                      </td>
+                      {/* Status */}
                       <td className="p-2.5 text-center">
                         <Badge
                           className={`text-[10px] ${
@@ -763,13 +947,35 @@ export const RulesEnginePage: React.FC = () => {
                         </Badge>
                       </td>
 
-                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
-                        {row.validity_start} &rarr; {row.validity_end}
+                      {/* Vigência */}
+                      <td className="p-2.5 text-slate-600 text-[11px] font-mono">
+                        {row.validity_start || '01/01/2025'} &rarr;{' '}
+                        {row.validity_end || '31/12/2026'}
                       </td>
+
+                      {/* Última atualização */}
                       <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                        {row.last_revision}
+                        {row.last_revision || '2025-01-15'}
                       </td>
-                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
+
+                      {/* Responsável */}
+                      <td className="p-2.5 text-slate-700">
+                        {row.responsible_name || 'Engenharia de Processos'}
+                      </td>
+
+                      {/* Única Ação Permitida */}
+                      <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenMasterSheet(row.line_code, 'setup')}
+                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                          title="Abrir este parâmetro diretamente na Ficha Mestra"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir na Ficha Mestra</span>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -778,38 +984,46 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 2 — PARADAS PROGRAMADAS (COM HORAS E CAPACIDADE PERDIDA EM TONELADAS) */}
+          {/* ABA 2 — PARADAS PROGRAMADAS (CONSULTA READ ONLY)                           */}
           {/* ========================================================================= */}
           <TabsContent value="paradas-programadas" className="m-0 p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Paradas Programadas de Linha & Impacto na Capacidade
+                  Paradas Programadas de Linha & Impacto de Capacidade (Fonte Oficial)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Somente paradas <strong>PUBLICADAS</strong> consomem capacidade oficial no cálculo
-                  de horas úteis e toneladas programáveis.
+                  Origem: <strong>Centros e Ficha Mestra (Tabelas Oficiais)</strong> &bull; Valores
+                  calculados a partir do calendário industrial.
                 </p>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredStops.length} parada(s) programada(s)
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleOpenMasterSheet(
+                    selectedLine !== 'ALL' ? selectedLine : undefined,
+                    'paradas',
+                  )
+                }
+                className="h-7 text-xs border-amber-200 text-amber-800 hover:bg-amber-50 gap-1 font-semibold"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Abrir na Ficha Mestra (Paradas)</span>
+              </Button>
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
-                    <th className="p-2.5">Centro</th>
-                    <th className="p-2.5">Linha</th>
-                    <th className="p-2.5">Centro de Trabalho</th>
-                    <th className="p-2.5">Tipo</th>
-                    <th className="p-2.5">Motivo / Código</th>
-                    <th className="p-2.5">Descrição</th>
-                    <th className="p-2.5 text-right">Duração Padrão</th>
-                    <th className="p-2.5 text-center">Hora Início</th>
-                    <th className="p-2.5">Recorrência</th>
-                    <th className="p-2.5">Turno</th>
+                    <th className="p-2.5">Origem do Dado</th>
+                    <th className="p-2.5">Centro / Linha</th>
+                    <th className="p-2.5">Centro Trabalho</th>
+                    <th className="p-2.5">Tipo / Motivo</th>
+                    <th className="p-2.5">Descrição Operacional</th>
+                    <th className="p-2.5 text-right">Duração (min)</th>
+                    <th className="p-2.5 text-center">Início / Turno</th>
                     <th className="p-2.5 text-right text-amber-800 bg-amber-50/50">
                       Horas Perdidas / Mês
                     </th>
@@ -819,6 +1033,7 @@ export const RulesEnginePage: React.FC = () => {
                     <th className="p-2.5 text-center">Status</th>
                     <th className="p-2.5">Vigência</th>
                     <th className="p-2.5">Responsável</th>
+                    <th className="p-2.5 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -827,8 +1042,18 @@ export const RulesEnginePage: React.FC = () => {
                       key={row.id}
                       className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
                     >
-                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                      <td className="p-2.5 font-bold text-[#004C97]">{row.line_code}</td>
+                      <td className="p-2.5">
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                        >
+                          Centros e Ficha Mestra
+                        </Badge>
+                      </td>
+                      <td className="p-2.5">
+                        <span className="font-mono text-slate-600">{row.center_code}</span> /{' '}
+                        <strong className="text-[#004C97]">{row.line_code}</strong>
+                      </td>
                       <td className="p-2.5 font-mono text-slate-600">{row.work_center}</td>
                       <td className="p-2.5">
                         <Badge
@@ -837,8 +1062,10 @@ export const RulesEnginePage: React.FC = () => {
                         >
                           {row.stop_type}
                         </Badge>
+                        <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                          {row.reason}
+                        </span>
                       </td>
-                      <td className="p-2.5 font-mono font-medium text-slate-700">{row.reason}</td>
                       <td
                         className="p-2.5 text-slate-800 font-medium max-w-xs truncate"
                         title={row.description}
@@ -849,19 +1076,14 @@ export const RulesEnginePage: React.FC = () => {
                         {row.duration_minutes} min
                       </td>
                       <td className="p-2.5 text-center font-mono text-slate-700">
-                        {row.start_time}
+                        {row.start_time || '06:00'} ({row.shift || '1T'})
                       </td>
-                      <td className="p-2.5 text-slate-700">{row.recurrence}</td>
-                      <td className="p-2.5 text-slate-600">{row.shift}</td>
-
-                      {/* IMPACTO CALCULADO EM HORAS E TONELADAS (REQUISITO 5) */}
                       <td className="p-2.5 text-right font-mono font-bold text-amber-800 bg-amber-50/20">
                         {row.lost_hours_month || 0} h/mês
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700 bg-amber-50/20">
                         {row.lost_capacity_tons || 0} t
                       </td>
-
                       <td className="p-2.5 text-center">
                         <Badge
                           className={`text-[10px] ${
@@ -873,8 +1095,19 @@ export const RulesEnginePage: React.FC = () => {
                           {row.status}
                         </Badge>
                       </td>
-                      <td className="p-2.5 text-slate-500 text-[11px]">{row.validity}</td>
-                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
+                      <td className="p-2.5 text-slate-600 text-[11px] font-mono">{row.validity}</td>
+                      <td className="p-2.5 text-slate-700">{row.responsible_name}</td>
+                      <td className="p-2.5 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenMasterSheet(row.line_code, 'paradas')}
+                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir na Ficha Mestra</span>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -883,47 +1116,52 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 3 — TEMPO DE RESFRIAMENTO (COM FLUXO LINHA ORIGEM -> DESTINO)         */}
+          {/* ABA 3 — TEMPO DE RESFRIAMENTO (CONSULTA READ ONLY)                         */}
           {/* ========================================================================= */}
           <TabsContent value="resfriamento" className="m-0 p-4 space-y-4">
-            {/* WIDGET DE CÁLCULO DE DEPENDÊNCIA TÉRMICA (REQUISITO 6) */}
             <CoolingCalculatorWidget />
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Tabela Oficial de Tempos de Resfriamento & Cura Metalúrgica
+                  Tabela Oficial de Resfriamento & Cura Metalúrgica (Fonte: Ficha Mestra)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Valores homologados: 18h, 23h, 24h e 36h dependendo da seção, espessura e
-                  material.
+                  Origem: <strong>Centros e Ficha Mestra (Tabelas Oficiais)</strong> &bull;
+                  Parâmetros de espera obrigatória de resfriamento entre processos.
                 </p>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredCoolings.length} regra(s) de resfriamento
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleOpenMasterSheet(
+                    selectedLine !== 'ALL' ? selectedLine : undefined,
+                    'resfriamento',
+                  )
+                }
+                className="h-7 text-xs border-cyan-200 text-cyan-800 hover:bg-cyan-50 gap-1 font-semibold"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Abrir na Ficha Mestra (Resfriamento)</span>
+              </Button>
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Origem do Dado</th>
                     <th className="p-2.5">Centro</th>
-                    <th className="p-2.5">Linha Origem</th>
-                    <th className="p-2.5">Centro Trab. Origem</th>
-                    <th className="p-2.5 text-[#004C97] font-bold">Linha Destino</th>
-                    <th className="p-2.5 text-[#004C97]">Centro Trab. Destino</th>
-                    <th className="p-2.5">Família</th>
-                    <th className="p-2.5">Material / Bitola</th>
-                    <th className="p-2.5 text-right text-cyan-900 bg-cyan-50/50">
-                      Tempo Mínimo Resfriamento
-                    </th>
+                    <th className="p-2.5">Origem &rarr; Destino</th>
+                    <th className="p-2.5">Família / Material</th>
+                    <th className="p-2.5">Bitola / Seção</th>
+                    <th className="p-2.5 text-right text-cyan-900 bg-cyan-50/50">Tempo Mínimo</th>
                     <th className="p-2.5">Unidade</th>
-                    <th className="p-2.5">Origem</th>
-                    <th className="p-2.5">Vigência</th>
                     <th className="p-2.5 text-center">Status</th>
+                    <th className="p-2.5">Período de Vigência</th>
                     <th className="p-2.5">Responsável</th>
-                    <th className="p-2.5 text-center">Revisão</th>
+                    <th className="p-2.5 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -932,34 +1170,32 @@ export const RulesEnginePage: React.FC = () => {
                       key={row.id}
                       className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
                     >
-                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
-                      <td className="p-2.5 font-bold text-slate-800">{row.origin_line_code}</td>
-                      <td className="p-2.5 font-mono text-slate-600">{row.origin_work_center}</td>
-                      <td className="p-2.5 font-bold text-[#004C97] bg-blue-50/20">
-                        {row.dest_line_code}
-                      </td>
-                      <td className="p-2.5 font-mono text-slate-600 bg-blue-50/20">
-                        {row.dest_work_center}
-                      </td>
-                      <td className="p-2.5 font-medium">{row.family_code}</td>
-                      <td className="p-2.5 text-slate-800 font-medium">
-                        {row.gauge_dimension}{' '}
-                        <span className="text-slate-400 font-mono text-[10px]">
-                          ({row.material_code})
-                        </span>
-                      </td>
-                      <td className="p-2.5 text-right font-mono font-bold text-cyan-800 bg-cyan-50/30">
-                        {row.cooling_time_hours} h
-                      </td>
-                      <td className="p-2.5 text-slate-500 font-mono">{row.unit}</td>
                       <td className="p-2.5">
-                        <Badge variant="outline" className="text-[10px] font-mono bg-slate-50">
-                          {row.origin}
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                        >
+                          Centros e Ficha Mestra
                         </Badge>
                       </td>
-                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
-                        {row.valid_from} &rarr; {row.valid_until}
+                      <td className="p-2.5 font-mono text-slate-600">{row.center_code}</td>
+                      <td className="p-2.5">
+                        <strong className="text-slate-800">{row.origin_line_code}</strong> &rarr;{' '}
+                        <strong className="text-[#004C97]">{row.dest_line_code}</strong>
                       </td>
+                      <td className="p-2.5">
+                        <span className="font-semibold text-slate-800">{row.family_code}</span>
+                        {row.material_code && (
+                          <span className="text-slate-400 font-mono text-[10px] ml-1">
+                            ({row.material_code})
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2.5 font-mono text-slate-700">{row.gauge_dimension}</td>
+                      <td className="p-2.5 text-right font-mono font-bold text-cyan-800 bg-cyan-50/30">
+                        {row.cooling_time_hours}
+                      </td>
+                      <td className="p-2.5 text-slate-500 font-mono">{row.unit || 'h'}</td>
                       <td className="p-2.5 text-center">
                         <Badge
                           className={`text-[10px] ${
@@ -971,9 +1207,20 @@ export const RulesEnginePage: React.FC = () => {
                           {row.status}
                         </Badge>
                       </td>
-                      <td className="p-2.5 text-slate-600">{row.responsible_name}</td>
-                      <td className="p-2.5 text-center font-mono text-slate-500">
-                        v{row.revision_number}
+                      <td className="p-2.5 text-slate-500 text-[11px] font-mono">
+                        {row.valid_from} &rarr; {row.valid_until}
+                      </td>
+                      <td className="p-2.5 text-slate-700">{row.responsible_name}</td>
+                      <td className="p-2.5 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenMasterSheet(row.dest_line_code, 'resfriamento')}
+                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir na Ficha Mestra</span>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -983,39 +1230,49 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 4 — REGRAS DE SEQUENCIAMENTO (PROIBITIVA, NÃO RECOMENDADA, ETC)       */}
+          {/* ABA 4 — REGRAS DE SEQUENCIAMENTO (CONSULTA READ ONLY)                     */}
           {/* ========================================================================= */}
           <TabsContent value="sequenciamento" className="m-0 p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Regras de Sequenciamento & Penalidades no Score (0–100)
+                  Regras de Sequenciamento & Penalidades no Motor CP-SAT (Fonte Oficial)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Tipos: <strong>PROIBITIVA</strong> (hard constraint),{' '}
-                  <strong>NÃO RECOMENDADA</strong> (soft constraint), <strong>PREFERENCIAL</strong>{' '}
-                  (bonifica) e <strong>NEUTRA</strong>.
+                  Origem: <strong>Centros e Ficha Mestra (Tabelas Oficiais)</strong> &bull;
+                  Consumidas em tempo real pelo sequenciamento automático.
                 </p>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {filteredSequencings.length} regra(s) registradas
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleOpenMasterSheet(
+                    selectedLine !== 'ALL' ? selectedLine : undefined,
+                    'sequenciamento',
+                  )
+                }
+                className="h-7 text-xs border-indigo-200 text-indigo-800 hover:bg-indigo-50 gap-1 font-semibold"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>Abrir na Ficha Mestra (Sequenciamento)</span>
+              </Button>
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Origem do Dado</th>
                     <th className="p-2.5">Linha</th>
-                    <th className="p-2.5">Família DE</th>
-                    <th className="p-2.5">Material DE</th>
-                    <th className="p-2.5">Família PARA</th>
-                    <th className="p-2.5">Material PARA</th>
+                    <th className="p-2.5">Família / Material DE</th>
+                    <th className="p-2.5">Família / Material PARA</th>
                     <th className="p-2.5 text-center">Tipo da Regra</th>
-                    <th className="p-2.5 text-right font-mono">Impacto no Score</th>
-                    <th className="p-2.5">Motivo Técnico / Rationale</th>
+                    <th className="p-2.5 text-right font-mono">Penalidade Score</th>
+                    <th className="p-2.5">Justificativa Técnica</th>
                     <th className="p-2.5 text-center">Status</th>
                     <th className="p-2.5 text-center">Versão</th>
+                    <th className="p-2.5 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -1024,20 +1281,24 @@ export const RulesEnginePage: React.FC = () => {
                       key={row.id}
                       className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
                     >
+                      <td className="p-2.5">
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                        >
+                          Centros e Ficha Mestra
+                        </Badge>
+                      </td>
                       <td className="p-2.5 font-bold text-[#004C97]">
                         {row.line_code || 'GLOBAL'}
                       </td>
                       <td className="p-2.5 font-mono text-slate-700">
-                        {row.from_family_code || '*'}
-                      </td>
-                      <td className="p-2.5 font-mono text-slate-500">
-                        {row.from_material_code || '*'}
+                        {row.from_family_code || '*'}{' '}
+                        {row.from_material_code ? `(${row.from_material_code})` : ''}
                       </td>
                       <td className="p-2.5 font-mono font-bold text-indigo-900">
-                        {row.to_family_code || '*'}
-                      </td>
-                      <td className="p-2.5 font-mono text-slate-500">
-                        {row.to_material_code || '*'}
+                        {row.to_family_code || '*'}{' '}
+                        {row.to_material_code ? `(${row.to_material_code})` : ''}
                       </td>
                       <td className="p-2.5 text-center">
                         <Badge
@@ -1074,6 +1335,17 @@ export const RulesEnginePage: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="p-2.5 text-center font-mono text-slate-500">{row.version}</td>
+                      <td className="p-2.5 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenMasterSheet(row.line_code, 'sequenciamento')}
+                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir na Ficha Mestra</span>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1082,21 +1354,27 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 5 — REVISÕES PENDENTES (ESTEIRA DE DUPLA APROVAÇÃO PCP + LINHA)        */}
+          {/* ABA 5 — BIBLIOTECA MESTRE DE REGRAS INDUSTRIAIS (CONSOLIDADA READ ONLY)     */}
+          {/* ========================================================================= */}
+          <TabsContent value="regras-industriais-master" className="m-0 p-4 space-y-3">
+            <MasterIndustrialRulesTab />
+          </TabsContent>
+
+          {/* ========================================================================= */}
+          {/* ABA 6 — HISTÓRICO DE REVISÕES (CONSULTA READ ONLY)                        */}
           {/* ========================================================================= */}
           <TabsContent value="revisoes-pendentes" className="m-0 p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Esteira de Homologação Dupla (Fase 1: PCP &rarr; Fase 2: Gestor da Linha)
+                  Histórico de Revisões e Pareceres Técnicos (Modo Consulta)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Nenhum parâmetro é publicado diretamente. A aprovação exige parecer técnico e
-                  histórico preservado.
+                  Registro de propostas, pareceres de IA e histórico de dupla homologação.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
-                {filteredPendings.length} revisão(ões) na esteira
+                {filteredPendings.length} registro(s) arquivados
               </div>
             </div>
 
@@ -1108,11 +1386,11 @@ export const RulesEnginePage: React.FC = () => {
                     <th className="p-2.5">Linha / Entidade</th>
                     <th className="p-2.5">Parâmetro / Código</th>
                     <th className="p-2.5 font-mono">Atual &rarr; Proposto</th>
-                    <th className="p-2.5">Motivo & Justificativa Técnica</th>
+                    <th className="p-2.5">Motivo & Parecer Técnico</th>
                     <th className="p-2.5 text-center">Fase 1: PCP</th>
                     <th className="p-2.5 text-center">Fase 2: Gestor Linha</th>
                     <th className="p-2.5 text-center">Status</th>
-                    <th className="p-2.5 text-right">Ações</th>
+                    <th className="p-2.5 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -1194,26 +1472,16 @@ export const RulesEnginePage: React.FC = () => {
                         </Badge>
                       </td>
 
-                      {/* BOTÕES DE APROVAÇÃO */}
                       <td className="p-2.5 text-right">
-                        {canApprove && !row.pcp_approved_at && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveRevision(row, 'PCP')}
-                            className="h-7 text-xs bg-[#004C97] hover:bg-[#003d7a] text-white font-semibold"
-                          >
-                            Aprovar PCP (Fase 1)
-                          </Button>
-                        )}
-                        {canApprove && row.pcp_approved_at && !row.line_manager_approved_at && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveRevision(row, 'LINE_MANAGER')}
-                            className="h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
-                          >
-                            Homologar Linha (Fase 2)
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenMasterSheet(row.line_code, 'setup')}
+                          className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100 gap-1 font-semibold"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir na Ficha Mestra</span>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -1223,17 +1491,17 @@ export const RulesEnginePage: React.FC = () => {
           </TabsContent>
 
           {/* ========================================================================= */}
-          {/* ABA 6 — HISTÓRICO & AUDITORIA (TRILHA COMPLETA COM RASTREABILIDADE)       */}
+          {/* ABA 7 — HISTÓRICO & AUDITORIA (TRILHA READ ONLY PRESERVADA)               */}
           {/* ========================================================================= */}
           <TabsContent value="historico-alteracoes" className="m-0 p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Trilha de Auditoria & Preservação Histórica de Parâmetros
+                  Trilha de Auditoria & Preservação Histórica (100% dos Registros Preservados)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Nunca apagamos versões anteriores: todas as alterações guardam solicitante,
-                  data/hora, parecer IA, evidência MES e aprovador.
+                  Todas as versões anteriores guardam solicitante, data/hora, parecer IA, evidência
+                  MES e aprovador.
                 </p>
               </div>
               <div className="text-xs text-slate-500 font-mono">
@@ -1245,6 +1513,7 @@ export const RulesEnginePage: React.FC = () => {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] whitespace-nowrap">
+                    <th className="p-2.5">Origem do Dado</th>
                     <th className="p-2.5">Parâmetro / Regra</th>
                     <th className="p-2.5 font-mono">Valor Anterior</th>
                     <th className="p-2.5 font-mono">Novo Valor Publicado</th>
@@ -1255,7 +1524,6 @@ export const RulesEnginePage: React.FC = () => {
                     <th className="p-2.5 text-center">Validação MES</th>
                     <th className="p-2.5">Recomendação IA</th>
                     <th className="p-2.5">Aprovador</th>
-                    <th className="p-2.5">Data Publicação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
@@ -1264,6 +1532,14 @@ export const RulesEnginePage: React.FC = () => {
                       key={row.id}
                       className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"
                     >
+                      <td className="p-2.5">
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300 text-[10px] font-mono"
+                        >
+                          Centros e Ficha Mestra
+                        </Badge>
+                      </td>
                       <td className="p-2.5 font-bold text-slate-900">{row.parameter_name}</td>
                       <td className="p-2.5 font-mono text-slate-500 line-through">
                         {row.previous_value || '-'}
@@ -1301,9 +1577,6 @@ export const RulesEnginePage: React.FC = () => {
                         {row.ai_recommendation || '-'}
                       </td>
                       <td className="p-2.5 text-slate-600">{row.approver_name || '-'}</td>
-                      <td className="p-2.5 font-mono text-slate-500 text-[11px]">
-                        {row.published_at || '-'}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1313,39 +1586,14 @@ export const RulesEnginePage: React.FC = () => {
         </Tabs>
       </Card>
 
-      {/* DRAWER LATERAL DE DETALHE DE SETUP & EVIDÊNCIA MES/IA */}
+      {/* DRAWER LATERAL DE DETALHE DE SETUP & EVIDÊNCIA MES/IA (PURAMENTE CONSULTIVO) */}
       <SetupDetailDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         record={selectedSetupForDrawer}
-        onRequestRevision={(rec) => {
-          setIsDrawerOpen(false)
-          handleOpenRevisionProposal(rec)
-        }}
-      />
-
-      {/* MODAL DE NOVA PROPOSTA DE REVISÃO */}
-      <NewRevisionModal
-        isOpen={isRevisionModalOpen}
-        onClose={() => setIsRevisionModalOpen(false)}
-        record={setupForRevision}
-        onSubmitProposal={handleSubmitRevision}
-      />
-
-      {/* MODAL DE PRÉVIA DA IMPORTAÇÃO */}
-      <ImportPreviewModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        templateType={importTemplateType}
-        onConfirmSendToWorkflow={(items) => {
-          toast({
-            title: 'Lote Enviado para Validação',
-            description: `${items.length} registro(s) encaminhados para validação MES e esteira de revisão.`,
-          })
-          loadAllData()
-        }}
       />
     </div>
   )
 }
+
 export default RulesEnginePage

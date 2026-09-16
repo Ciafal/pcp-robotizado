@@ -539,12 +539,6 @@ const navSections: NavSectionItem[] = [
     permission: 'pcp.masterdata.view',
   },
   {
-    title: 'Motor de Regras & Setup',
-    href: '/pcp/regras',
-    icon: Cpu,
-    permission: 'pcp.rules.view',
-  },
-  {
     title: 'Painel de Aprovações',
     href: '/pcp/aprovacoes',
     icon: CheckCircle2,
@@ -697,6 +691,12 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Motor de Regras & Setup',
+        href: '/pcp/regras',
+        icon: Cpu,
+        permission: 'pcp.rules.view',
+      },
+      {
         title: 'Previsto x Realizado',
         href: '/pcp/sequenciamento/eficiencia/assertividade',
         icon: BarChart3,
@@ -836,12 +836,6 @@ const officialNavGroups: NavGroup[] = [
         href: '/pcp/ficha-mestre',
         icon: FileSpreadsheet,
         permission: 'pcp.masterdata.view',
-      },
-      {
-        title: 'Motor de Regras & Setup',
-        href: '/pcp/regras',
-        icon: Cpu,
-        permission: 'pcp.rules.view',
       },
       {
         title: 'Hierarquia das Linhas',

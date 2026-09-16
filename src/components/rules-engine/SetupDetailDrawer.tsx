@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Clock,
   Sparkles,
@@ -13,6 +14,8 @@ import {
   FileText,
   ShieldCheck,
   Zap,
+  ExternalLink,
+  Database,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,15 +26,15 @@ interface SetupDetailDrawerProps {
   isOpen: boolean
   onClose: () => void
   record: SetupAcertoRecord | null
-  onRequestRevision: (record: SetupAcertoRecord) => void
+  onRequestRevision?: (record: SetupAcertoRecord) => void
 }
 
 export const SetupDetailDrawer: React.FC<SetupDetailDrawerProps> = ({
   isOpen,
   onClose,
   record,
-  onRequestRevision,
 }) => {
+  const navigate = useNavigate()
   // Busca evidência estatística MES oficial
   const mesEvidence = useMemo(() => {
     if (!record) return MesStatisticalEngine.getMesEvidence('L1', 60)
@@ -104,14 +107,10 @@ export const SetupDetailDrawer: React.FC<SetupDetailDrawerProps> = ({
               <span className="text-[10px] text-amber-800 font-mono">
                 Divergência: ~{outdatedCheck.details?.differencePct}%
               </span>
-              <Button
-                size="sm"
-                onClick={() => onRequestRevision(record)}
-                className="h-7 px-2.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white gap-1 shadow-2xs"
-              >
-                <Zap className="w-3 h-3" />
-                Criar Proposta de Revisão
-              </Button>
+              <span className="text-[10px] text-amber-900 font-semibold flex items-center gap-1">
+                <Database className="w-3 h-3 text-amber-700" />
+                Edições governadas na Ficha Mestra
+              </span>
             </div>
           </div>
         )}
@@ -322,17 +321,20 @@ export const SetupDetailDrawer: React.FC<SetupDetailDrawerProps> = ({
         </div>
       </div>
 
-      {/* 3. RODAPÉ DO PAINEL LATERAL COM AÇÃO DE REVISÃO */}
+      {/* 3. RODAPÉ DO PAINEL LATERAL COM AÇÃO ÚNICA PERMITIDA: ABRIR NA FICHA MESTRA */}
       <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
         <div className="text-[11px] text-slate-500">
-          Edição direta bloqueada (Governança CIAFAL).
+          Consulta read-only &bull; Fonte oficial: Ficha Mestra.
         </div>
         <Button
-          onClick={() => onRequestRevision(record)}
+          onClick={() => {
+            onClose()
+            navigate(`/pcp/ficha-mestre?lineId=${record.line_code || ''}#section-setup-matrix`)
+          }}
           className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
         >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Nova Proposta de Revisão</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+          <span>Abrir na Ficha Mestra</span>
         </Button>
       </div>
     </div>
