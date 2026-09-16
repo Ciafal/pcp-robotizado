@@ -725,31 +725,33 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
       )}
 
       {/* Mensagem de Vazio */}
-      {!loading && filteredCapacityLines.length === 0 && (
-        <Card className="bg-white border-slate-200 p-8 shadow-sm text-center">
-          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-slate-900">
-            Não existem dados de capacidade para os filtros selecionados.
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Verifique o Centro SAP, a linha selecionada na Ficha Mestre ou redefina o período de
-            pesquisa.
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setSelectedPlant('ALL')
-              setSelectedLine('ALL')
-              setSelectedNature('TODAS')
-              setSearchTerm('')
-            }}
-            className="mt-3 text-xs"
-          >
-            Limpar Filtros
-          </Button>
-        </Card>
-      )}
+      {!loading &&
+        (filteredCapacityLines.length === 0 ||
+          (items.length === 0 && filteredCapacityLines.length === 0)) && (
+          <Card className="bg-white border-slate-200 p-8 shadow-sm text-center">
+            <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+            <h3 className="text-sm font-bold text-slate-900">
+              Nenhum dado disponível para os filtros selecionados.
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              Verifique o Centro SAP, a linha selecionada na Ficha Mestre ou redefina o período de
+              pesquisa.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSelectedPlant('ALL')
+                setSelectedLine('ALL')
+                setSelectedNature('TODAS')
+                setSearchTerm('')
+              }}
+              className="mt-3 text-xs"
+            >
+              Limpar Filtros
+            </Button>
+          </Card>
+        )}
 
       {/* =========================================================================
           CONTEÚDO DINÂMICO QUE MUDA CONFORME AS 4 VISÕES
@@ -817,7 +819,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-[#004C97] font-mono">
-                      {kpis ? kpis.adherenceOverallPct.toLocaleString('pt-BR') : 0}%
+                      {(kpis?.adherenceOverallPct ?? 0).toLocaleString('pt-BR')}%
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -831,7 +833,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-amber-700 font-mono">
-                      {kpis ? kpis.adherenceMixPct.toLocaleString('pt-BR') : 0}%
+                      {(kpis?.adherenceMixPct ?? 0).toLocaleString('pt-BR')}%
                     </span>
                   </div>
                   <span className="text-[9px] text-amber-700 font-semibold block mt-0.5">
@@ -845,7 +847,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-slate-800 font-mono">
-                      {kpis ? kpis.adherenceVolumePct.toLocaleString('pt-BR') : 0}%
+                      {(kpis?.adherenceVolumePct ?? 0).toLocaleString('pt-BR')}%
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -859,7 +861,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-[#004C97] font-mono">
-                      {capacityTotals.avgUtilization.toFixed(1).replace('.', ',')}%
+                      {(capacityTotals?.avgUtilization ?? 0).toFixed(1).replace('.', ',')}%
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -873,7 +875,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-emerald-700 font-mono">
-                      {capacityTotals.totalAvailableTons.toLocaleString('pt-BR', {
+                      {(capacityTotals?.totalAvailableTons ?? 0).toLocaleString('pt-BR', {
                         maximumFractionDigits: 1,
                       })}
                     </span>
@@ -890,13 +892,13 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-slate-900 font-mono">
-                      {kpis ? kpis.totalPlannedTons.toLocaleString('pt-BR') : '0'}
+                      {(kpis?.totalPlannedTons ?? 0).toLocaleString('pt-BR')}
                     </span>
                     <span className="text-xs font-bold text-slate-400">t</span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
                     Remanescente:{' '}
-                    {capacityTotals.totalRemainingTons.toLocaleString('pt-BR', {
+                    {(capacityTotals?.totalRemainingTons ?? 0).toLocaleString('pt-BR', {
                       maximumFractionDigits: 1,
                     })}{' '}
                     t
@@ -1136,7 +1138,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-[#004C97] font-mono">
-                      {kpis ? kpis.adherenceOverallPct : 0}%
+                      {kpis?.adherenceOverallPct ?? 0}%
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -1150,7 +1152,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-amber-700 font-mono">
-                      {kpis ? kpis.adherenceMixPct : 0}%
+                      {kpis?.adherenceMixPct ?? 0}%
                     </span>
                   </div>
                   <span className="text-[9px] text-amber-700 font-semibold block mt-0.5">
@@ -1164,7 +1166,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-slate-800 font-mono">
-                      {kpis ? kpis.adherenceVolumePct : 0}%
+                      {kpis?.adherenceVolumePct ?? 0}%
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -1178,7 +1180,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-emerald-700 font-mono">
-                      {kpis ? kpis.forecastAccuracyPct : 0}%
+                      {kpis?.forecastAccuracyPct ?? 0}%
                     </span>
                   </div>
                   <span className="text-[9px] text-emerald-700 font-semibold block mt-0.5">
@@ -1194,11 +1196,9 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                     <span
                       className={`text-xl font-black font-mono ${(kpis?.forecastBiasPct ?? 0) > 0 ? 'text-rose-600' : 'text-blue-700'}`}
                     >
-                      {kpis
-                        ? kpis.forecastBiasPct > 0
-                          ? `+${kpis.forecastBiasPct}%`
-                          : `${kpis.forecastBiasPct}%`
-                        : '0%'}
+                      {(kpis?.forecastBiasPct ?? 0) > 0
+                        ? `+${kpis?.forecastBiasPct ?? 0}%`
+                        : `${kpis?.forecastBiasPct ?? 0}%`}
                     </span>
                   </div>
                   <span className="text-[9px] text-slate-500 block mt-0.5">
@@ -1214,7 +1214,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   </span>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-xl font-black text-slate-900 font-mono">
-                      {kpis ? kpis.totalPlannedTons.toLocaleString('pt-BR') : '0'}
+                      {(kpis?.totalPlannedTons ?? 0).toLocaleString('pt-BR')}
                     </span>
                     <span className="text-xs font-bold text-slate-400">t</span>
                   </div>
@@ -1393,7 +1393,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                     Aderência de Volume
                   </CardTitle>
                   <div className="text-2xl font-black text-slate-900 font-mono mt-1">
-                    {kpis?.adherenceVolumePct}%
+                    {kpis?.adherenceVolumePct ?? 0}%
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
                     Capacidade total executada versus plano consolidado em toneladas.
@@ -1405,7 +1405,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                     Aderência de Mix (SKU a SKU)
                   </CardTitle>
                   <div className="text-2xl font-black text-amber-700 font-mono mt-1">
-                    {kpis?.adherenceMixPct}%
+                    {kpis?.adherenceMixPct ?? 0}%
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
                     Inibe falsa aderência por compensação indevida entre bitolas/aços.
@@ -1417,7 +1417,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                     Aderência Temporal (No Prazo)
                   </CardTitle>
                   <div className="text-2xl font-black text-[#004C97] font-mono mt-1">
-                    {kpis?.adherenceTemporalPct}%
+                    {kpis?.adherenceTemporalPct ?? 0}%
                   </div>
                   <p className="text-xs text-slate-500 mt-2">
                     Cumprimento das janelas de produção acordadas no S&OP.
@@ -1716,7 +1716,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   Capacidade Anual Teórica
                 </span>
                 <span className="text-lg font-black text-slate-800 font-mono">
-                  {(capacityTotals.totalTheoreticalTons * 12).toLocaleString('pt-BR')} t
+                  {((capacityTotals?.totalTheoreticalTons ?? 0) * 12).toLocaleString('pt-BR')} t
                 </span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">
                   8.760 h/ano por linha
@@ -1727,7 +1727,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   Capacidade Anual Disponível
                 </span>
                 <span className="text-lg font-black text-emerald-700 font-mono">
-                  {(capacityTotals.totalAvailableTons * 12).toLocaleString('pt-BR', {
+                  {((capacityTotals?.totalAvailableTons ?? 0) * 12).toLocaleString('pt-BR', {
                     maximumFractionDigits: 1,
                   })}{' '}
                   t
@@ -1741,7 +1741,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   Demanda Anual Prevista
                 </span>
                 <span className="text-lg font-black text-[#004C97] font-mono">
-                  {(capacityTotals.totalPlannedTons * 12).toLocaleString('pt-BR', {
+                  {((capacityTotals?.totalPlannedTons ?? 0) * 12).toLocaleString('pt-BR', {
                     maximumFractionDigits: 1,
                   })}{' '}
                   t
@@ -1753,7 +1753,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                   Taxa Anual de Utilização
                 </span>
                 <span className="text-lg font-black text-slate-900 font-mono">
-                  {capacityTotals.avgUtilization.toFixed(1).replace('.', ',')}%
+                  {(capacityTotals?.avgUtilization ?? 0).toFixed(1).replace('.', ',')}%
                 </span>
                 <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
                   Equilíbrio operacional
@@ -1868,8 +1868,8 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
             {/* Decomposição Semanal de Carga */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 my-4">
               {[1, 2, 3, 4].map((wk) => {
-                const wkAvailable = capacityTotals.totalAvailableTons / 4
-                const wkPlanned = capacityTotals.totalPlannedTons / 4
+                const wkAvailable = (capacityTotals?.totalAvailableTons ?? 0) / 4
+                const wkPlanned = (capacityTotals?.totalPlannedTons ?? 0) / 4
                 const wkUtil = wkAvailable > 0 ? (wkPlanned / wkAvailable) * 100 : 0
                 return (
                   <div
@@ -2048,12 +2048,12 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                       </div>
                       <div className="font-mono font-bold text-slate-900">
                         {dayPlannedTons > 0
-                          ? `${dayPlannedTons.toFixed(1).replace('.', ',')} t`
+                          ? `${(dayPlannedTons ?? 0).toFixed(1).replace('.', ',')} t`
                           : '0,0 t'}
                       </div>
                       <div className="text-[10px] font-mono text-slate-500">
                         {dayPlannedHours > 0
-                          ? `${dayPlannedHours.toFixed(1).replace('.', ',')} h prog.`
+                          ? `${(dayPlannedHours ?? 0).toFixed(1).replace('.', ',')} h prog.`
                           : 'Livre'}
                       </div>
                     </div>

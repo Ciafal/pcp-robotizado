@@ -820,6 +820,12 @@ const officialNavGroups: NavGroup[] = [
         icon: Building2,
         permission: 'pcp.mp_opt.view',
       },
+      {
+        title: 'MP e Fornecedores',
+        href: '/pcp/estoques?tab=materia-prima',
+        icon: Boxes,
+        permission: 'pcp.inventory.raw_material',
+      },
     ],
   },
   {
@@ -842,12 +848,6 @@ const officialNavGroups: NavGroup[] = [
         href: '/pcp/linhas/capacidades',
         icon: Clock,
         permission: 'pcp.masterdata.view',
-      },
-      {
-        title: 'MP e Fornecedores',
-        href: '/pcp/estoques?tab=materia-prima',
-        icon: Boxes,
-        permission: 'pcp.inventory.raw_material',
       },
     ],
   },

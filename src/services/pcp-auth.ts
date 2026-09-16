@@ -143,6 +143,8 @@ export const authService = {
         'pcp.schedule_changes.view',
         'pcp.approval.view',
         'pcp.masterplan.view',
+        'pcp.masterplan.overview',
+        'pcp.masterplan.adherence',
         'pcp.inventory.view',
         'pcp.inventory.overview',
         'pcp.mp_opt.view',
