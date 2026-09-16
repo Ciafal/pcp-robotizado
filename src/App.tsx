@@ -601,9 +601,29 @@ export const App: React.FC = () => {
                       <Route path="dependencias" element={<LineDependenciesSubpage />} />
                       <Route path="historico" element={<LineHistorySubpage />} />
                     </Route>
-                    {/* 5. Módulos de Reuniões PCP, Central de Comunicados e Inbox */}
+                    {/* 5. Módulo Oficial REUNIÃO PCP (8 Subtópicos) */}
                     <Route
                       path="/pcp/reunioes"
+                      element={<Navigate to="/pcp/reunioes/visao-geral" replace />}
+                    />
+                    <Route
+                      path="/pcp/reunioes/visao-geral"
+                      element={
+                        <PermissionGuard permission="pcp.meeting.view">
+                          <PCPMeetingsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/reunioes/preparacao"
+                      element={
+                        <PermissionGuard permission="pcp.meeting.view">
+                          <PCPMeetingsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/reunioes/agenda"
                       element={
                         <PermissionGuard permission="pcp.meeting.view">
                           <PCPMeetingsPage />
@@ -614,7 +634,7 @@ export const App: React.FC = () => {
                       path="/pcp/reunioes/andamento"
                       element={
                         <PermissionGuard permission="pcp.meeting.conduct">
-                          <LiveMeetingRoom />
+                          <PCPMeetingsPage />
                         </PermissionGuard>
                       }
                     />
@@ -628,6 +648,22 @@ export const App: React.FC = () => {
                     />
                     <Route
                       path="/pcp/reunioes/pendencias"
+                      element={
+                        <PermissionGuard permission="pcp.meeting.view">
+                          <PCPMeetingsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/reunioes/historico"
+                      element={
+                        <PermissionGuard permission="pcp.meeting.view">
+                          <PCPMeetingsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/reunioes/configuracoes"
                       element={
                         <PermissionGuard permission="pcp.meeting.view">
                           <PCPMeetingsPage />

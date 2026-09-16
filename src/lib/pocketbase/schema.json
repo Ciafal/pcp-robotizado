@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T18:23:24.769Z",
+  "generatedAt": "2026-09-16T18:39:40.210Z",
   "collections": [
     {
       "name": "users",
@@ -19005,6 +19005,950 @@
         "CREATE INDEX idx_tpl_tp_id ON test_programming_log (test_programming_id)",
         "CREATE INDEX idx_tpl_action ON test_programming_log (action)"
       ]
+    },
+    {
+      "name": "pcp_meeting",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "week",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meeting_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "start_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expected_end_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "modality",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PRESENCIAL", "ONLINE", "HIBRIDA"]
+        },
+        {
+          "name": "location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "room",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "online_link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "organizer",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "conductor",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "objective",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "RASCUNHO",
+            "PREPARACAO",
+            "PREVIA_GERADA",
+            "PREVIA_VALIDADA",
+            "PREVIA_ENVIADA",
+            "AGENDADA",
+            "EM_ANDAMENTO",
+            "REALIZADA",
+            "ATA_FINAL_GERADA",
+            "ATA_APROVADA",
+            "PUBLICADA",
+            "CANCELADA",
+            "REAGENDADA"
+          ]
+        },
+        {
+          "name": "briefing_gerado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pauta_gerada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previa_gerada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previa_enviada",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previa_envio_info",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agendamento_confirmado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recurrence_config",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cancellation_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reschedule_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_meeting_code ON pcp_meeting (meeting_code)",
+        "CREATE INDEX idx_pcp_meeting_status ON pcp_meeting (status)",
+        "CREATE INDEX idx_pcp_meeting_week_year ON pcp_meeting (year, week)",
+        "CREATE INDEX idx_pcp_meeting_date ON pcp_meeting (meeting_date)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_participant",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "person_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "person_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "role_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "CONVOCADO",
+            "CONFIRMOU",
+            "RECUSOU",
+            "SEM_RESPOSTA",
+            "PARTICIPOU",
+            "NAO_PARTICIPOU"
+          ]
+        },
+        {
+          "name": "response_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responded_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_part_meeting ON pcp_meeting_participant (meeting_id)",
+        "CREATE INDEX idx_pcp_part_area ON pcp_meeting_participant (area)",
+        "CREATE INDEX idx_pcp_part_status ON pcp_meeting_participant (status)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_pendency",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "pendency_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_week",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_year",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "deadline",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["CRITICA", "ALTA", "MEDIA", "BAIXA"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ABERTA",
+            "EM_ANDAMENTO",
+            "AGUARDANDO_TERCEIRO",
+            "CONCLUIDA",
+            "CANCELADA",
+            "VENCIDA"
+          ]
+        },
+        {
+          "name": "last_update_note",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidence",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "performance_action_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_pend_code ON pcp_meeting_pendency (pendency_code)",
+        "CREATE INDEX idx_pcp_pend_meeting ON pcp_meeting_pendency (meeting_id)",
+        "CREATE INDEX idx_pcp_pend_status ON pcp_meeting_pendency (status)",
+        "CREATE INDEX idx_pcp_pend_area ON pcp_meeting_pendency (area)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_decision",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "decision_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PREVIA", "REUNIAO"]
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_dec_meeting ON pcp_meeting_decision (meeting_id)",
+        "CREATE INDEX idx_pcp_dec_area ON pcp_meeting_decision (area)",
+        "CREATE INDEX idx_pcp_dec_origin ON pcp_meeting_decision (origin)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_agenda_item",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "area",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["CRITICO", "ALTO", "MEDIO", "INFORMATIVO"]
+        },
+        {
+          "name": "estimated_time_min",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "presenter",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "decision_needed",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_agenda_meeting ON pcp_meeting_agenda_item (meeting_id)",
+        "CREATE INDEX idx_pcp_agenda_order ON pcp_meeting_agenda_item (meeting_id, order)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_ata",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "structured_content",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ata_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["PREVIA", "FINAL"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MINUTA", "EM_REVISAO", "APROVADA", "PUBLICADA"]
+        },
+        {
+          "name": "section_completeness",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overall_completeness",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "template_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_ata_meeting ON pcp_meeting_ata (meeting_id)",
+        "CREATE INDEX idx_pcp_ata_status ON pcp_meeting_ata (status)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_template",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "effective_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "structure",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["VIGENTE", "EM_REVISAO", "OBSOLETO"]
+        },
+        {
+          "name": "responsible",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_tpl_code ON pcp_meeting_template (code)",
+        "CREATE INDEX idx_pcp_tpl_status ON pcp_meeting_template (status)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_log",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "meeting_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "week",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "year",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_object",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "previous_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_mlog_meeting ON pcp_meeting_log (meeting_id)",
+        "CREATE INDEX idx_pcp_mlog_action ON pcp_meeting_log (action)"
+      ]
+    },
+    {
+      "name": "pcp_meeting_briefing",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "meeting_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "briefing_items",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "priority_topics",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "missing_info_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "critical_items_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "generated_at",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "generated_by",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_pcp_brf_meeting ON pcp_meeting_briefing (meeting_id)"]
     }
   ]
 }
