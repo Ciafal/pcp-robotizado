@@ -18,7 +18,11 @@ import {
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
 import { InventoryItem } from '@/types/inventory-projection'
 import { CarteiraSDCItem, CarteiraSDCKpis, AlertaCarteiraSDC } from '@/types/carteira-sdc'
-import { CoberturaTemporalEngine, ResultadoCalculoTemporal } from './cobertura-temporal-engine'
+import {
+  CoberturaTemporalEngine,
+  ResultadoCalculoTemporal,
+  OrigemCarteira,
+} from './cobertura-temporal-engine'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 
 /**
@@ -950,7 +954,7 @@ export class DeterministicExecutiveEngine {
     }[] = []
     if (snapshot.carteiraGeralItens && snapshot.carteiraGeralItens.length > 0) {
       for (const it of snapshot.carteiraGeralItens) {
-        const origem =
+        const origem: OrigemCarteira =
           it.linha === 'L1'
             ? 'L1'
             : it.linha === 'L2'
@@ -965,7 +969,7 @@ export class DeterministicExecutiveEngine {
 
         const input = CoberturaTemporalEngine.converterCarteiraItemParaInput(
           it,
-          origem as any,
+          origem,
           entradasFuturas,
         )
         const res = CoberturaTemporalEngine.calcular(input)

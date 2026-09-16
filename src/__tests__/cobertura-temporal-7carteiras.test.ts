@@ -39,7 +39,7 @@ describe('Motor Único de Cobertura Temporal & Previsão — 7 Carteiras CIAFAL'
       // Cenário A: Data análise 16/09/2026, estoque 5 t, média 1 t/dia -> fim 21/09/2026, reposição 24/09/2026 -> 3 dias negativos, RISCO DE RUPTURA
       it('Cenário A: Risco de ruptura com gap de 3 dias de estoque negativo', () => {
         const input: InputCalculoTemporal = {
-          origemCarteira: origem as any,
+          origemCarteira: origem,
           materialCodigo: `MAT-${origem}-01`,
           materialDescricao: `Material Teste ${origem}`,
           dataBaseAnalise: '16/09/2026',
@@ -84,7 +84,7 @@ describe('Motor Único de Cobertura Temporal & Previsão — 7 Carteiras CIAFAL'
       // Cenário B: Reposição antecede o fim do estoque (19/09/2026 vs 21/09/2026) -> gap 0, COBERTURA PRESERVADA
       it('Cenário B: Reposição antecede o fim do estoque -> gap 0, status COBERTURA PRESERVADA', () => {
         const input: InputCalculoTemporal = {
-          origemCarteira: origem as any,
+          origemCarteira: origem,
           materialCodigo: `MAT-${origem}-02`,
           materialDescricao: `Material Teste ${origem} Antecede`,
           dataBaseAnalise: '16/09/2026',
@@ -127,7 +127,7 @@ describe('Motor Único de Cobertura Temporal & Previsão — 7 Carteiras CIAFAL'
       // Cenário C: Sem reposição prevista -> dias estoque negativo "Indeterminado", status SEM REPOSIÇÃO PREVISTA
       it('Cenário C: Sem reposição prevista -> dias estoque negativo Indeterminado, status SEM REPOSIÇÃO PREVISTA', () => {
         const input: InputCalculoTemporal = {
-          origemCarteira: origem as any,
+          origemCarteira: origem,
           materialCodigo: `MAT-${origem}-03`,
           materialDescricao: `Material Teste ${origem} Sem Reposição`,
           dataBaseAnalise: '16/09/2026',

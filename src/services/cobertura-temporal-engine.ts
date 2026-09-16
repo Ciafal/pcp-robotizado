@@ -1,5 +1,5 @@
 /**
- * MOTOR CENTRAL DE COBERTURA TEMPORAL & PREVISÃO — PCP ROBOTIZADO CIAFAL
+ * MOTOR CENTRAL DE COBERTURA TEMPORAL & PREVISÃO — PCP ROBOTIZADO CIAFAL (v0.0.158)
  *
  * Padrão Corporativo Unificado para TODAS as 7 Carteiras:
  * 1. Geral; 2. L1; 3. L2; 4. MTO; 5. Revenda; 6. Importado; 7. SDC.
@@ -75,9 +75,54 @@ export interface EntradaReposicaoFutura {
   observacao?: string
 }
 
-// Aliases de compatibilidade para suítes de teste e integração
-export type InputCalculoTemporal = any
-export type ParametrosGovernancaTemporal = any
+// Interfaces e aliases tipados para suítes de teste e integração
+export interface ParametrosGovernancaTemporal {
+  diasHistoricoFaturamento?: number
+  tipoCalendario?: 'CORRIDOS' | 'OPERACIONAL'
+  considerarEstoqueQualidade?: boolean
+  considerarEstoqueBloqueado?: boolean
+  limiarDiasAtencao?: number
+  limiarDiasCritico?: number
+}
+
+export interface PedidoDemandaTeste {
+  numeroDocumento?: string
+  ordemVenda?: string
+  item?: string
+  itemOrdem?: string
+  dataDesejada: string
+  quantidadeTons: number
+}
+
+export interface ReposicaoFuturaTeste {
+  idDocumento?: string
+  origem: string
+  tipoDocumento?: string
+  dataPrevista: string
+  quantidadeTons: number
+  observacao?: string
+}
+
+export interface InputCalculoTemporal {
+  origemCarteira: OrigemCarteira
+  materialCodigo?: string
+  material?: string
+  materialDescricao?: string
+  descricao?: string
+  dataBaseAnalise?: string | Date
+  dataAnalise?: string | Date
+  estoqueFisicoTotalT?: number
+  estoqueTotalT?: number
+  estoqueBloqueadoT?: number
+  estoqueQualidadeT?: number
+  estoqueDisponivelUtilizavelT?: number
+  mediaDiariaParametrizadaT?: number
+  mediaDiariaFaturamentoInformadaT?: number | null
+  pedidos?: PedidoDemandaTeste[]
+  reposicoesFuturas?: ReposicaoFuturaTeste[]
+  parametros?: ParametrosGovernancaTemporal | Partial<ParametrosCoberturaCorporativos>
+}
+
 export type ResultadoCalculoTemporal = ResultadoCoberturaTemporal
 
 export interface DemandaCarteiraItem {

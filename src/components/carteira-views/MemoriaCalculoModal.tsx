@@ -31,13 +31,13 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
   // Gera a análise temporal pelo motor central
   const inputAnalise = CoberturaTemporalEngine.converterCarteiraItemParaInput(
     item,
-    (item.linha === 'L1'
+    item.linha === 'L1'
       ? 'L1'
       : item.linha === 'L2'
         ? 'L2'
         : item.tipo_ordem === 'ZPRM'
           ? 'MTO'
-          : 'GERAL') as any,
+          : 'GERAL',
   )
   const resultadoTemporal = CoberturaTemporalEngine.calcular(inputAnalise)
 

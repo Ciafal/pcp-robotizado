@@ -77,7 +77,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     for (const it of itensExibidos) {
       const chave = `${it.codigo_material}-${it.linha}-${it.ordem_venda || ''}`
       if (!mapa.has(chave)) {
-        const origemItem = (
+        const origemItem =
           it.linha === 'L1'
             ? 'L1'
             : it.linha === 'L2'
@@ -85,7 +85,6 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
               : it.tipo_ordem === 'ZPRM' || it.tipo_ordem === 'MTO'
                 ? 'MTO'
                 : 'GERAL'
-        ) as any
         const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
           it,
           origemItem,
