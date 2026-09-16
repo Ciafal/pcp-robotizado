@@ -153,6 +153,12 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Programação de Testes',
+        href: '/pcp/sequenciamento/programacao-testes',
+        icon: Sparkles,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Oficina de Cilindros',
         href: '/pcp/oficina-cilindros',
         icon: Wrench,
@@ -638,6 +644,12 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Programação de Testes',
+        href: '/pcp/sequenciamento/programacao-testes',
+        icon: Sparkles,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Oficina de Cilindros',
         href: '/pcp/oficina-cilindros',
         icon: Wrench,
@@ -1010,34 +1022,38 @@ export const PCPSidebar: React.FC = () => {
                     const ItemIcon = item.icon
                     // Identifica seleção ativa
                     const isSelected =
-                      item.href === '/pcp/oficina-cilindros' || item.href === '/oficina-cilindros'
-                        ? location.pathname.includes('oficina-cilindros')
-                        : item.href === '/pcp/sequenciamento/montagem-semanal'
-                          ? (location.pathname.includes('montagem-semanal') ||
-                              location.pathname.includes('programacao-semanal')) &&
-                            !location.pathname.includes('programacao-mensal') &&
-                            !location.pathname.includes('oficina-cilindros')
-                          : item.href === '/pcp/sequenciamento/programacao-mensal'
-                            ? location.pathname.includes('programacao-mensal')
-                            : item.href === '/pcp/analise-carteira/geral'
-                              ? location.pathname === '/pcp/analise-carteira/geral' ||
-                                location.pathname === '/pcp/analise-carteira' ||
-                                location.pathname === '/pcp/analise-carteira/'
-                              : item.href === '/pcp/analise-carteira/l1'
-                                ? location.pathname === '/pcp/analise-carteira/l1'
-                                : item.href === '/pcp/analise-carteira/l2'
-                                  ? location.pathname === '/pcp/analise-carteira/l2'
-                                  : item.href === '/pcp/analise-carteira/mto'
-                                    ? location.pathname === '/pcp/analise-carteira/mto'
-                                    : item.href === '/pcp/analise-carteira/revenda'
-                                      ? location.pathname === '/pcp/analise-carteira/revenda'
-                                      : item.href === '/pcp/analise-carteira/importado'
-                                        ? location.pathname === '/pcp/analise-carteira/importado'
-                                        : item.href === '/pcp/analise-carteira/sdc'
-                                          ? location.pathname === '/pcp/analise-carteira/sdc'
-                                          : location.pathname === item.href ||
-                                            (item.href.includes('?') &&
-                                              location.pathname + location.search === item.href)
+                      item.href === '/pcp/sequenciamento/programacao-testes'
+                        ? location.pathname.includes('programacao-testes') ||
+                          location.pathname.includes('test-programming')
+                        : item.href === '/pcp/oficina-cilindros' ||
+                            item.href === '/oficina-cilindros'
+                          ? location.pathname.includes('oficina-cilindros')
+                          : item.href === '/pcp/sequenciamento/montagem-semanal'
+                            ? (location.pathname.includes('montagem-semanal') ||
+                                location.pathname.includes('programacao-semanal')) &&
+                              !location.pathname.includes('programacao-mensal') &&
+                              !location.pathname.includes('oficina-cilindros')
+                            : item.href === '/pcp/sequenciamento/programacao-mensal'
+                              ? location.pathname.includes('programacao-mensal')
+                              : item.href === '/pcp/analise-carteira/geral'
+                                ? location.pathname === '/pcp/analise-carteira/geral' ||
+                                  location.pathname === '/pcp/analise-carteira' ||
+                                  location.pathname === '/pcp/analise-carteira/'
+                                : item.href === '/pcp/analise-carteira/l1'
+                                  ? location.pathname === '/pcp/analise-carteira/l1'
+                                  : item.href === '/pcp/analise-carteira/l2'
+                                    ? location.pathname === '/pcp/analise-carteira/l2'
+                                    : item.href === '/pcp/analise-carteira/mto'
+                                      ? location.pathname === '/pcp/analise-carteira/mto'
+                                      : item.href === '/pcp/analise-carteira/revenda'
+                                        ? location.pathname === '/pcp/analise-carteira/revenda'
+                                        : item.href === '/pcp/analise-carteira/importado'
+                                          ? location.pathname === '/pcp/analise-carteira/importado'
+                                          : item.href === '/pcp/analise-carteira/sdc'
+                                            ? location.pathname === '/pcp/analise-carteira/sdc'
+                                            : location.pathname === item.href ||
+                                              (item.href.includes('?') &&
+                                                location.pathname + location.search === item.href)
 
                     const navLink = (
                       <Link

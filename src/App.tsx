@@ -98,6 +98,7 @@ const PCPDataQualityPage = lazy(() => import('@/pages/PCPDataQualityPage'))
 const PCPHomologationStatusPage = lazy(() => import('@/pages/PCPHomologationStatusPage'))
 const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
+const TestProgrammingPage = lazy(() => import('@/pages/TestProgrammingPage'))
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
 const MPOverviewConsolidatedPage = lazy(() =>
@@ -241,6 +242,31 @@ export const App: React.FC = () => {
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
+                    {/* Rota Direta de Programação de Testes (Ciclo Corporativo Integrado) */}
+                    <Route
+                      path="/pcp/sequenciamento/programacao-testes"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <TestProgrammingPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/programacao-testes"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <TestProgrammingPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/test-programming"
+                      element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
+                    />
+                    <Route
+                      path="/programacao-testes"
+                      element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
+                    />
                     {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases com correção de typo) */}
                     <Route
                       path="/pcp/montagem-sewanal"
@@ -488,6 +514,7 @@ export const App: React.FC = () => {
                       <Route index element={<CentralSequenciamentoLandingPage />} />
                       {/* Rotas filhas protegidas pelo PermissionGuard de nível superior em /pcp/sequenciamento */}
                       <Route path="montagem-semanal" element={<WeeklyScheduleOperationalPage />} />
+                      <Route path="programacao-testes" element={<TestProgrammingPage />} />
                       <Route
                         path="programacao-mensal"
                         element={<WeeklyScheduleOperationalPage />}
