@@ -588,9 +588,9 @@ const navSections: NavSectionItem[] = [
     permission: 'pcp.masterdata.view',
   },
   {
-    title: 'Trilha de Auditoria',
+    title: 'Logs & Auditoria',
     href: '/pcp/auditoria',
-    icon: ShieldCheck,
+    icon: History,
     permission: 'pcp.audit.view',
   },
   {
@@ -1009,9 +1009,9 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.audit.view',
       },
       {
-        title: 'Trilha de Auditoria',
+        title: 'Logs & Auditoria',
         href: '/pcp/auditoria',
-        icon: ShieldCheck,
+        icon: History,
         permission: 'pcp.audit.view',
       },
       {

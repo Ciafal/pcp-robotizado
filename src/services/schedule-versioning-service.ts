@@ -657,6 +657,45 @@ export const scheduleVersioningService = {
       console.warn('Aviso ao sincronizar weekly_schedules:', err)
     }
 
+    // 9. Registro oficial na trilha transacional de auditoria (pcp_audit_logs)
+    try {
+      const { pcpAuditService } = await import('@/services/pcp-audit-service')
+      await pcpAuditService.recordLog({
+        action: `Publicação da Versão ${newVersionTag} da Programação (${params.filter.lineCode})`,
+        event_type: 'Aprovação',
+        module: 'Programação',
+        screen: 'Montagem Semanal',
+        company: params.filter.companyCode || 'CIAFAL',
+        line: params.filter.lineCode,
+        record_id: createdVersionRec?.id || sharedEventId,
+        schedule_version: newVersionTag,
+        source: 'Usuário',
+        status: 'Concluída',
+        reason:
+          typeof params.changeReason === 'string'
+            ? params.changeReason
+            : (params.changeReason as any)?.title || 'Publicação de nova versão',
+        justification: params.changeNotes || `Publicação com ${diffs.length} alterações detectadas`,
+        changes: diffs.slice(0, 10).map((d) => ({
+          field: d.materialCode || 'material',
+          fieldNamePt: `Item ${d.materialCode}`,
+          before: d.previousItem
+            ? `${d.previousItem.planned_quantity_tons}t (${d.previousItem.date_str})`
+            : 'Novo',
+          after: d.newItem
+            ? `${d.newItem.planned_quantity_tons}t (${d.newItem.date_str})`
+            : 'Removido',
+        })),
+        details: {
+          diffsCount: diffs.length,
+          relevance: impact.overallRelevance,
+          sharedEventId,
+        },
+      })
+    } catch (audErr) {
+      console.warn('Erro ao registrar auditoria de publicação de versão:', audErr)
+    }
+
     return {
       success: true,
       versionRecord: createdVersionRec,

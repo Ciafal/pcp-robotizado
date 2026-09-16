@@ -1322,6 +1322,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
+    const originalItem = items.find((it) => it.id === updatedItem.id)
     const updatedList = items.map((it) => (it.id === updatedItem.id ? updatedItem : it))
     const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
       updatedList,
@@ -1331,13 +1332,97 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     )
     setItems(recalculated.items)
 
+    // Construção de diffs campo a campo para a auditoria
+    const fieldDiffs: Array<{ field: string; fieldNamePt: string; before: any; after: any }> = []
+    if (originalItem) {
+      if (originalItem.planned_quantity_tons !== updatedItem.planned_quantity_tons) {
+        fieldDiffs.push({
+          field: 'planned_quantity_tons',
+          fieldNamePt: 'Quantidade Programada (t)',
+          before: originalItem.planned_quantity_tons,
+          after: updatedItem.planned_quantity_tons,
+        })
+      }
+      if (originalItem.date_str !== updatedItem.date_str) {
+        fieldDiffs.push({
+          field: 'date_str',
+          fieldNamePt: 'Data Programada',
+          before: originalItem.date_str,
+          after: updatedItem.date_str,
+        })
+      }
+      if (originalItem.start_datetime !== updatedItem.start_datetime) {
+        fieldDiffs.push({
+          field: 'start_datetime',
+          fieldNamePt: 'Início',
+          before: originalItem.start_datetime,
+          after: updatedItem.start_datetime,
+        })
+      }
+      if (originalItem.productivity_rate_th !== updatedItem.productivity_rate_th) {
+        fieldDiffs.push({
+          field: 'productivity_rate_th',
+          fieldNamePt: 'Produtividade (t/h)',
+          before: originalItem.productivity_rate_th,
+          after: updatedItem.productivity_rate_th,
+        })
+      }
+      if (originalItem.shift_code !== updatedItem.shift_code) {
+        fieldDiffs.push({
+          field: 'shift_code',
+          fieldNamePt: 'Turno',
+          before: originalItem.shift_code,
+          after: updatedItem.shift_code,
+        })
+      }
+    }
+
     try {
       await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+
+      // Registra evento oficial de alteração
+      try {
+        const { pcpAuditService } = await import('@/services/pcp-audit-service')
+        await pcpAuditService.recordLog({
+          action: `Alteração na Programação: Item #${updatedItem.sequence_order} (${updatedItem.material_code})`,
+          event_type: 'Alteração',
+          module: 'Programação',
+          screen: 'Montagem Semanal',
+          company: headerFilter.companyCode || 'CIAFAL',
+          line: headerFilter.lineCode,
+          record_id: updatedItem.id || updatedItem.material_code,
+          source: 'Usuário',
+          status: 'Concluída',
+          reason: 'Ajuste de parâmetros de lote programado',
+          justification: `Modificação manual de parâmetros da programação semanal`,
+          schedule_version: `V${String(currentVersion).padStart(2, '0')}`,
+          changes: fieldDiffs,
+        })
+      } catch (audErr) {
+        console.warn('Falha na auditoria de edição de item:', audErr)
+      }
+
       toast({
         title: 'Programação Atualizada e Persistida',
         description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado com recálculo temporal, setups e MP.`,
       })
-    } catch {
+    } catch (saveErr: any) {
+      try {
+        const { pcpAuditService } = await import('@/services/pcp-audit-service')
+        await pcpAuditService.recordFailureAttempt({
+          operation: `Edição do item #${updatedItem.sequence_order} (${updatedItem.material_code})`,
+          module: 'Programação',
+          screen: 'Montagem Semanal',
+          line: headerFilter.lineCode,
+          company: headerFilter.companyCode || 'CIAFAL',
+          recordId: updatedItem.id || updatedItem.material_code,
+          errorMessage: saveErr?.message || 'Falha ao salvar no banco',
+          changesAttempted: fieldDiffs,
+        })
+      } catch {
+        /* ignore */
+      }
+
       toast({
         title: 'Programação Atualizada Localmente',
         description: `Item #${updatedItem.sequence_order} (${updatedItem.material_code}) atualizado.`,
@@ -1499,7 +1584,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     // Atualiza estado local imediatamente (otimista)
     setItems(recalculated.items)
 
-    // Persistência imediata com Rollback seguro
+    // Persistência imediata com Rollback seguro e Trilha de Auditoria Transacional Semântica
     try {
       await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
 
@@ -1511,14 +1596,80 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       )
 
       const seqDiffDesc = `${itemToMove.material_code} (${itemToMove.day_of_week} #${fromIndex + 1} → ${destDay} #${toIndex + 1})`
+
+      // Registro semântico na trilha oficial de auditoria
+      try {
+        const { pcpAuditService } = await import('@/services/pcp-audit-service')
+        await pcpAuditService.recordLog({
+          action: `Drag & Drop: Material ${itemToMove.material_code} transferido da posição #${fromIndex + 1} (${itemToMove.day_of_week}) para #${toIndex + 1} (${destDay})`,
+          event_type: 'Reprogramação',
+          module: 'Programação',
+          screen: 'Montagem Semanal',
+          company: headerFilter.companyCode || 'CIAFAL',
+          line: headerFilter.lineCode,
+          record_id: itemToMove.id || itemToMove.material_code,
+          source: 'Usuário',
+          status: 'Concluída',
+          reason: 'Ajuste manual de sequenciamento operacional',
+          justification: `Transferência de posição #${fromIndex + 1} para #${toIndex + 1} na Linha ${headerFilter.lineCode}`,
+          schedule_version: `V${String(currentVersion).padStart(2, '0')}`,
+          changes: [
+            {
+              field: 'sequence_order',
+              fieldNamePt: 'Posição na Sequência',
+              before: fromIndex + 1,
+              after: toIndex + 1,
+            },
+            {
+              field: 'day_of_week',
+              fieldNamePt: 'Dia da Semana',
+              before: itemToMove.day_of_week,
+              after: destDay,
+            },
+            {
+              field: 'date_str',
+              fieldNamePt: 'Data Programada',
+              before: itemToMove.date_str,
+              after: destDateStr || moved.date_str,
+            },
+          ],
+        })
+      } catch (audErr) {
+        console.warn('Falha na auditoria de drag & drop:', audErr)
+      }
+
       toast({
         title: 'Sequência Reordenada e Persistida',
         description: `Reordenação aplicada: ${seqDiffDesc}. Horários, setups e metadados recalculados e salvos com sucesso.`,
       })
-    } catch (saveError) {
+    } catch (saveError: any) {
       console.error('Falha ao persistir reordenação de sequência:', saveError)
       // Rollback para estado anterior
       setItems(backupItems)
+
+      // Registro de tentativa com falha na auditoria
+      try {
+        const { pcpAuditService } = await import('@/services/pcp-audit-service')
+        await pcpAuditService.recordFailureAttempt({
+          operation: `Reordenação / Drag & Drop de ${itemToMove.material_code}`,
+          module: 'Programação',
+          screen: 'Montagem Semanal',
+          line: headerFilter.lineCode,
+          company: headerFilter.companyCode || 'CIAFAL',
+          recordId: itemToMove.id || itemToMove.material_code,
+          errorMessage: saveError?.message || 'Falha de conexão com backend',
+          changesAttempted: [
+            {
+              field: 'sequence_order',
+              before: fromIndex + 1,
+              after: toIndex + 1,
+            },
+          ],
+        })
+      } catch {
+        /* ignore */
+      }
+
       toast({
         variant: 'destructive',
         title: 'Erro ao Salvar Reordenação',

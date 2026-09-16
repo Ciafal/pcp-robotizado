@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T20:22:28.297Z",
+  "generatedAt": "2026-09-16T20:39:37.259Z",
   "collections": [
     {
       "name": "users",
@@ -760,7 +760,7 @@
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != '' && user_id = @request.auth.id",
+        "create": "@request.auth.id != ''",
         "update": null,
         "delete": null
       },
@@ -877,11 +877,133 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "event_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "login",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "company",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "center",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "module",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "screen",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "entity",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "record_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "correlation_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_version",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "changes",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_details",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_pcp_audit_event ON pcp_audit_logs (event_type, created DESC)",
-        "CREATE INDEX idx_pcp_audit_user ON pcp_audit_logs (user_id, created DESC)"
+        "CREATE INDEX idx_pcp_audit_user ON pcp_audit_logs (user_id, created DESC)",
+        "CREATE INDEX `idx_pcp_audit_event_id` ON `pcp_audit_logs` (event_id)",
+        "CREATE INDEX `idx_pcp_audit_company` ON `pcp_audit_logs` (company)",
+        "CREATE INDEX `idx_pcp_audit_line` ON `pcp_audit_logs` (line)",
+        "CREATE INDEX `idx_pcp_audit_module` ON `pcp_audit_logs` (module)",
+        "CREATE INDEX `idx_pcp_audit_source` ON `pcp_audit_logs` (source)",
+        "CREATE INDEX `idx_pcp_audit_status` ON `pcp_audit_logs` (status)",
+        "CREATE INDEX `idx_pcp_audit_record_id` ON `pcp_audit_logs` (record_id)",
+        "CREATE INDEX `idx_pcp_audit_correlation` ON `pcp_audit_logs` (correlation_id)"
       ]
     },
     {

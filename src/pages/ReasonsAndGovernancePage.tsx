@@ -191,13 +191,49 @@ export default function ReasonsAndGovernancePage() {
 
     try {
       const targetFamily = families.find((f) => f.code === editingReason.family_code)
-      await pcpReasonsService.saveReason({
+      const isNew = !editingReason.id
+      const saved = await pcpReasonsService.saveReason({
         ...editingReason,
         family_name: targetFamily?.name || editingReason.family_name || 'Geral',
         family_id: targetFamily?.id,
         severity: editingReason.severity || 'MEDIA',
         active: editingReason.active !== false,
       })
+
+      // Auditoria oficial transacional da governança
+      try {
+        const { pcpAuditService } = await import('@/services/pcp-audit-service')
+        await pcpAuditService.recordLog({
+          action: `${isNew ? 'Criação' : 'Alteração'} de Motivo da Programação: ${editingReason.code} - ${editingReason.name}`,
+          event_type: isNew ? 'Criação' : 'Alteração',
+          module: 'Integrações & Governança',
+          screen: 'Motivos de Alteração',
+          record_id: saved.id || editingReason.id || editingReason.code,
+          entity: 'pcp_change_reasons',
+          source: 'Usuário',
+          status: 'Concluída',
+          reason: 'Governança e parametrização de motivos',
+          justification: `Manutenção cadastral do motivo ${editingReason.code}`,
+          changes: [
+            { field: 'code', fieldNamePt: 'Código', before: undefined, after: editingReason.code },
+            { field: 'name', fieldNamePt: 'Nome', before: undefined, after: editingReason.name },
+            {
+              field: 'family_code',
+              fieldNamePt: 'Família',
+              before: undefined,
+              after: editingReason.family_code,
+            },
+            {
+              field: 'severity',
+              fieldNamePt: 'Severidade',
+              before: undefined,
+              after: editingReason.severity,
+            },
+          ],
+        })
+      } catch (audErr) {
+        console.warn('Falha na auditoria de motivos:', audErr)
+      }
 
       toast({
         title: 'Motivo Gravado com Sucesso',

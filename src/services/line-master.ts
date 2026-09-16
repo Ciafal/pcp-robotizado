@@ -204,7 +204,32 @@ export const lineMasterService = {
   },
 
   async createLine(data: Partial<ProductionLine>): Promise<ProductionLine> {
-    return await pb.collection('production_lines').create<ProductionLine>(data)
+    const created = await pb.collection('production_lines').create<ProductionLine>(data)
+    try {
+      const { pcpAuditService } = await import('@/services/pcp-audit-service')
+      await pcpAuditService.recordLog({
+        action: `Criação de Linha / Centro Produtivo: ${created.name} (${created.code})`,
+        event_type: 'Criação',
+        module: 'Centros e Ficha Mestra',
+        screen: 'Hierarquia das Linhas',
+        line: created.code,
+        record_id: created.id,
+        entity: 'production_lines',
+        source: 'Usuário',
+        status: 'Concluída',
+        reason: 'Estruturação cadastral de linha de produção',
+        justification: `Cadastro de nova linha produtiva ${created.name}`,
+        changes: Object.entries(data).map(([field, val]) => ({
+          field,
+          fieldNamePt: field,
+          before: null,
+          after: val,
+        })),
+      })
+    } catch (audErr) {
+      console.warn('Erro na auditoria de criação de linha:', audErr)
+    }
+    return created
   },
 
   async updateLine(lineId: string, data: Partial<ProductionLine>): Promise<ProductionLine> {
@@ -278,6 +303,34 @@ export const lineMasterService = {
     // Invalida cache de completude da linha para recomposição imediata
     invalidateCompletenessCache(lineId)
     lineMemoryCache.set(lineId, { record: confirmedRecord, timestamp: Date.now() })
+
+    // Registro na Trilha Oficial de Auditoria Transacional
+    try {
+      const { pcpAuditService } = await import('@/services/pcp-audit-service')
+      const changesList = Object.entries(sanitizedPayload).map(([field, val]) => ({
+        field,
+        fieldNamePt: field,
+        before: undefined,
+        after: val,
+      }))
+      await pcpAuditService.recordLog({
+        action: `Alteração de Linha / Ficha Mestra: ${confirmedRecord.name} (${confirmedRecord.code})`,
+        event_type: 'Alteração',
+        module: 'Centros e Ficha Mestra',
+        screen: 'Ficha Mestra',
+        line: confirmedRecord.code,
+        record_id: lineId,
+        entity: 'production_lines',
+        source: 'Usuário',
+        status: 'Concluída',
+        reason: 'Atualização de parâmetros cadastrais da linha',
+        justification: `Modificação de parâmetros estruturais da Linha ${confirmedRecord.code}`,
+        changes: changesList,
+      })
+    } catch (audErr) {
+      console.warn('Erro ao auditar updateLine:', audErr)
+    }
+
     return confirmedRecord
   },
 

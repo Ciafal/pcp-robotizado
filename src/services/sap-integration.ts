@@ -106,6 +106,34 @@ export const sapIntegrationService = {
       last_status: 'CONECTADO',
       last_sync_records_count: (catalog.last_sync_records_count || 50) + 5,
     })
+
+    // Registro na auditoria oficial com Origem = SAP / Integração
+    try {
+      const { pcpAuditService } = await import('@/services/pcp-audit-service')
+      await pcpAuditService.recordLog({
+        action: `Sincronização de Interface SAP: ${catalog.code} (${catalog.function_name})`,
+        event_type: 'Integração',
+        module: 'Integrações & Governança',
+        screen: 'Catálogo de Integrações SAP',
+        record_id: definitionId,
+        entity: 'sap_integration_catalog',
+        source: 'SAP',
+        status: 'Concluída',
+        reason: 'Sincronização periódica de dados SAP',
+        justification: `Execução de carga BAPI/RFC com sucesso para ${catalog.code}`,
+        technical_details: {
+          sapDetails: {
+            bapi: catalog.function_name || 'BAPI_MATERIAL_AVAILABILITY',
+            docNumber: `DOC-SAP-${Date.now().toString().slice(-6)}`,
+            status: '200 OK',
+            message: 'Interface SAP executada com sucesso',
+          },
+        },
+      })
+    } catch (audErr) {
+      console.warn('Erro na auditoria SAP:', audErr)
+    }
+
     return {
       success: true,
       count: (catalog.last_sync_records_count || 50) + 5,
