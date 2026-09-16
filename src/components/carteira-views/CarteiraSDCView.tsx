@@ -23,7 +23,7 @@ import {
   CarteiraSDCImportRow,
 } from '@/types/carteira-sdc'
 import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
-import { DetalheMaterialSDCModal } from './DetalheMaterialSDCModal'
+import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
 import { ImportacaoCarteiraSDCModal } from './ImportacaoCarteiraSDCModal'
 
 interface CarteiraSDCViewProps {
@@ -874,11 +874,12 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         </div>
       </div>
 
-      {/* MODAL DETALHAMENTO DO MATERIAL (5 Blocos) */}
-      <DetalheMaterialSDCModal
+      {/* MODAL DETALHAMENTO DO MATERIAL (Padronizado com Cobertura Temporal & Previsão) */}
+      <DetalheMaterialUnificadoModal
         isOpen={isModalDetalheOpen}
         onClose={() => setIsModalDetalheOpen(false)}
         item={itemSelecionado}
+        origemCarteira="SDC"
       />
 
       {/* MODAL IMPORTAÇÃO QAS (Modo Preparado para SAP ECC) */}

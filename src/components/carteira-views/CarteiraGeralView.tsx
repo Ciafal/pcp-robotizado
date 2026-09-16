@@ -10,10 +10,10 @@ interface CarteiraGeralViewProps {
   isLoading?: boolean
   onOpenMemoria: (item: CarteiraItem) => void
   onOpenImportModal: () => void
-  onDownloadTemplate?: () => void
+  onDownloadTemplate: () => void
   filtroMaterial?: string
+  onOpenDetalheMaterial?: (item: CarteiraItem) => void
 }
-
 export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   itens,
   isLoading,
@@ -21,6 +21,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   onOpenImportModal,
   onDownloadTemplate,
   filtroMaterial,
+  onOpenDetalheMaterial,
 }) => {
   const [searchTerm, setSearchTerm] = useState(filtroMaterial)
   const [filtroLinha, setFiltroLinha] = useState<string>('TODAS')
@@ -375,7 +376,8 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                 {itensExibidos.map((it, idx) => (
                   <tr
                     key={idx}
-                    className={`hover:bg-blue-50/40 transition-colors text-[11px] ${
+                    onClick={() => (onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it))}
+                    className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
                       it.possivel_duplicidade ? 'bg-amber-50/40' : ''
                     }`}
                   >
@@ -462,15 +464,15 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
 
                     <td className="p-2.5 text-center">{getRupturaBadge(it.status_ruptura)}</td>
 
-                    <td className="p-2.5 text-center">
+                    <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => onOpenMemoria(it)}
+                        onClick={() => (onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it))}
                         className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-                        title="Ver memória de cálculo auditável"
+                        title="Ver detalhe com Cobertura Temporal & Previsão"
                       >
-                        <Eye className="w-3 h-3 text-[#004C97]" /> Memória
+                        <Eye className="w-3 h-3 text-[#004C97]" /> Detalhe
                       </Button>
                     </td>
                   </tr>
