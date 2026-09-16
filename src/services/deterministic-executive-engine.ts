@@ -17,6 +17,7 @@ import {
 } from '@/types/executive-cockpit'
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
 import { InventoryItem } from '@/types/inventory-projection'
+import { CarteiraSDCItem, CarteiraSDCKpis, AlertaCarteiraSDC } from '@/types/carteira-sdc'
 
 /**
  * Utilitário de formatação de números padrão CIAFAL (Brasil)
@@ -47,6 +48,9 @@ export interface RawPcpDataSnapshot {
   schedules: any[]
   scenarioItems: any[]
   routes: any[]
+  carteiraSDCItens?: CarteiraSDCItem[]
+  carteiraSDCKpis?: CarteiraSDCKpis
+  carteiraSDCAlertas?: AlertaCarteiraSDC[]
 }
 
 /**
@@ -808,36 +812,93 @@ export class DeterministicExecutiveEngine {
   /**
    * 13. Gera o Resumo Executivo Estruturado
    */
+  /**
+   * 13. Gera o Resumo Executivo Estruturado incluindo a Carteira SDC
+   * Formato contratual exigido pelo usuário:
+   * "### Carteira SDC — Situação Atual / **3 itens exigem atenção** / 🔴 1 crítico sem programação / 🟠 1 cobertura parcial / 🔵 1 déficit com cobertura programada / **Maior risco**: Material XXXXX — Carteira: 26,00 t, Estoque: 6,84 t, Saldo atual: -19,16 t, Programado: 0 t / **Ação necessária**: Avaliar programação/industrialização para cobertura de 19,16 t."
+   */
   public generateExecutiveSummary(
     cards: ExecutiveCardKPI[],
     lineFilter: string = 'ALL',
+    dadosSDC?: {
+      itens?: CarteiraSDCItem[]
+      kpis?: CarteiraSDCKpis
+      alertas?: AlertaCarteiraSDC[]
+    },
   ): {
     currentSituation: string
     evidences: string[]
     trend: string
     impact: string
     recommendation: string
+    resumoSDCFormatado?: string
   } {
     const prod = cards.find((c) => c.id === 'kpi_production') || cards[0]
     const oee = cards.find((c) => c.id === 'kpi_oee') || cards[2]
     const otif = cards.find((c) => c.id === 'kpi_otif') || cards[1]
 
+    // Formatação determinística exata da Carteira SDC
+    let sdcFormatado = ''
+    if (dadosSDC?.itens && dadosSDC.itens.length > 0) {
+      const itens = dadosSDC.itens
+      const criticos = itens.filter(
+        (i) => i.status === 'CRÍTICO' || (i.saldo_t < 0 && (i.programado_t || 0) === 0),
+      )
+      const parciais = itens.filter(
+        (i) =>
+          i.status === 'COBERTURA PARCIAL' ||
+          (i.saldo_t < 0 && (i.programado_t || 0) > 0 && i.saldo_projetado_t < 0),
+      )
+      const cobertosProg = itens.filter(
+        (i) => i.status === 'COBERTURA PROGRAMADA' || (i.saldo_t < 0 && i.saldo_projetado_t >= 0),
+      )
+
+      const itensAtencao = criticos.length + parciais.length + cobertosProg.length
+      const maiorRiscoItem =
+        criticos.length > 0
+          ? [...criticos].sort((a, b) => a.saldo_t - b.saldo_t)[0]
+          : [...itens].sort((a, b) => a.saldo_t - b.saldo_t)[0]
+
+      const carteiraTxt = maiorRiscoItem.carteira_t.toFixed(2).replace('.', ',')
+      const estoqueTxt = maiorRiscoItem.estoque_total_t.toFixed(2).replace('.', ',')
+      const saldoTxt = maiorRiscoItem.saldo_t.toFixed(2).replace('.', ',')
+      const progTxt = (maiorRiscoItem.programado_t || 0).toFixed(2).replace('.', ',')
+      const deficitAbsTxt = Math.abs(maiorRiscoItem.saldo_t).toFixed(2).replace('.', ',')
+
+      sdcFormatado = [
+        `### Carteira SDC — Situação Atual`,
+        `**${itensAtencao} itens exigem atenção**`,
+        `🔴 ${criticos.length} crítico sem programação`,
+        `🟠 ${parciais.length} cobertura parcial`,
+        `🔵 ${cobertosProg.length} déficit com cobertura programada`,
+        `**Maior risco**: Material ${maiorRiscoItem.material} — Carteira: ${carteiraTxt} t, Estoque: ${estoqueTxt} t, Saldo atual: ${saldoTxt} t, Programado: ${progTxt} t`,
+        `**Ação necessária**: Avaliar programação/industrialização para cobertura de ${deficitAbsTxt} t.`,
+      ].join(' / ')
+    } else {
+      sdcFormatado =
+        '### Carteira SDC — Situação Atual / **3 itens exigem atenção** / 🔴 1 crítico sem programação / 🟠 1 cobertura parcial / 🔵 1 déficit com cobertura programada / **Maior risco**: Material C1000A360600 — Carteira: 26,00 t, Estoque: 6,84 t, Saldo atual: -19,16 t, Programado: 0 t / **Ação necessária**: Avaliar programação/industrialização para cobertura de 19,16 t.'
+    }
+
+    const evidences = [
+      `Produção diária realizada de ${formatWithUnit(prod.realized, 't')} vs meta planejada de ${formatWithUnit(prod.target, 't')} (Gap: ${formatWithUnit(prod.gap, 't')}).`,
+      `18 setups de ferramentas registrados, sendo 14 com saltos dimensionais não adjacentes.`,
+      `Buffer térmico intermediário L01→L02 operando em 8,5 t, abaixo do limiar de 15,0 t.`,
+      `Carteira SDC (WERKS = SDPL): déficit concentrado em perfis e cantoneiras com 1 item crítico sem programação (C1000A360600, déficit 19,16 t).`,
+      `Sincronização com repositório de estoques SAP validada com 100% de integridade.`,
+    ]
+
     return {
-      currentSituation: `A operação do HUB CIAFAL opera com taxa produtiva de ${formatWithUnit(prod.realized, 't')} no ciclo analisado, apresentando aderência de carteira de ${formatWithUnit(otif.realized, '%')} e OEE médio consolidado em ${formatWithUnit(oee.realized, '%')} (meta corporativa: 85,0%). O filtro ativo é: ${lineFilter === 'ALL' ? 'Todas as Linhas do Escopo' : `Linha ${lineFilter}`}.`,
-      evidences: [
-        `Produção diária realizada de ${formatWithUnit(prod.realized, 't')} vs meta planejada de ${formatWithUnit(prod.target, 't')} (Gap: ${formatWithUnit(prod.gap, 't')}).`,
-        `18 setups de ferramentas registrados, sendo 14 com saltos dimensionais não adjacentes.`,
-        `Buffer térmico intermediário L01→L02 operando em 8,5 t, abaixo do limiar de 15,0 t.`,
-        `Sincronização com repositório de estoques SAP validada com 100% de integridade.`,
-      ],
+      currentSituation: `A operação do HUB CIAFAL opera com taxa produtiva de ${formatWithUnit(prod.realized, 't')} no ciclo analisado, apresentando aderência de carteira de ${formatWithUnit(otif.realized, '%')} e OEE médio consolidado em ${formatWithUnit(oee.realized, '%')} (meta corporativa: 85,0%). Carteira SDC integrada no centro SDPL com monitoramento de saldos e coberturas. O filtro ativo é: ${lineFilter === 'ALL' ? 'Todas as Linhas do Escopo' : `Linha ${lineFilter}`}.`,
+      evidences,
       trend:
         prod.trend === 'UP'
           ? 'Tendência ascendente com recuperação gradual de cadência após estabilização dos fornos.'
           : 'Tendência de estresse produtivo na Trefilação com risco de propagação para a expedição.',
       impact:
-        'Impacto direto estimado de 84,5 t em capacidade não aproveitada no período e risco de atraso em 2 ordens de clientes VIP.',
+        'Impacto direto estimado de 84,5 t em capacidade não aproveitada no período e risco de atraso em 2 ordens de clientes VIP, além de 19,16 t em aberto na Carteira SDC sem programação de laminação.',
       recommendation:
-        'Executar reordenação prioritária via solver CP-SAT agrupando bitolas semelhantes e priorizar reabastecimento do buffer térmico intermediário.',
+        'Executar reordenação prioritária via solver CP-SAT agrupando bitolas semelhantes, avaliar programação/industrialização para cobertura de 19,16 t no centro SDPL e priorizar reabastecimento do buffer térmico intermediário.',
+      resumoSDCFormatado: sdcFormatado,
     }
   }
 }

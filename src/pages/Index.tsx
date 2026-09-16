@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/services/pcp-auth'
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
@@ -22,7 +22,16 @@ import {
   Eye,
   ArrowRight,
   TrendingUp,
+  Info,
+  AlertCircle,
+  Building2,
+  ExternalLink,
+  UserCheck,
+  Search,
 } from 'lucide-react'
+import { AlertaCarteiraSDC, SeveridadeAlertaSDC } from '@/types/carteira-sdc'
+import { CarteiraSDCService } from '@/services/carteira-sdc-service'
+import { AnalisarImpactoSDCModal } from '@/components/carteira-views/AnalisarImpactoSDCModal'
 import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -79,6 +88,21 @@ export default function Index() {
   const [loading, setLoading] = useState<boolean>(false)
   const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL')
 
+  // Estado dos Alertas da Carteira SDC (WERKS = SDPL)
+  const [alertasSDC, setAlertasSDC] = useState<AlertaCarteiraSDC[]>([])
+  const [alertaImpactoSelecionado, setAlertaImpactoSelecionado] =
+    useState<AlertaCarteiraSDC | null>(null)
+  const [isModalImpactoOpen, setIsModalImpactoOpen] = useState(false)
+
+  // Filtros do Painel "Alertas do Seu Escopo"
+  const [filtroSeveridade, setFiltroSeveridade] = useState<string>('ALL')
+  const [filtroOrigem, setFiltroOrigem] = useState<string>('ALL')
+  const [filtroCentro, setFiltroCentro] = useState<string>('ALL')
+  const [filtroLinha, setFiltroLinha] = useState<string>('ALL')
+  const [filtroMaterial, setFiltroMaterial] = useState<string>('')
+  const [filtroTipo, setFiltroTipo] = useState<string>('ALL')
+  const [filtroStatus, setFiltroStatus] = useState<string>('ALL')
+
   // Revalidação em background (stale-while-revalidate) com timeout curto individual (3000ms)
   const withTimeout = <T,>(promise: Promise<T>, ms = 3000): Promise<T> =>
     Promise.race([
@@ -106,12 +130,22 @@ export default function Index() {
     }
   }
 
+  const carregarAlertasSDC = useCallback(async () => {
+    try {
+      const sdcAlerts = await CarteiraSDCService.obterAlertasSDC()
+      setAlertasSDC(sdcAlerts)
+    } catch (err) {
+      console.warn('Erro ao carregar alertas SDC:', err)
+    }
+  }, [])
+
   const loadData = async () => {
     setLoading(true)
     try {
-      const [linesResult, alertsResult] = await Promise.allSettled([
+      const [linesResult, alertsResult, sdcAlertsResult] = await Promise.allSettled([
         withTimeout(authService.listProductionLines(), 3000),
         withTimeout(authService.listAlerts(), 3000),
+        withTimeout(CarteiraSDCService.obterAlertasSDC(), 3000),
       ])
 
       if (linesResult.status === 'fulfilled' && linesResult.value && linesResult.value.length > 0) {
@@ -123,6 +157,9 @@ export default function Index() {
         alertsResult.value.length > 0
       ) {
         setAlerts(alertsResult.value)
+      }
+      if (sdcAlertsResult.status === 'fulfilled' && sdcAlertsResult.value) {
+        setAlertasSDC(sdcAlertsResult.value)
       }
     } catch (err: any) {
       toast({
@@ -137,6 +174,9 @@ export default function Index() {
 
   useEffect(() => {
     const signal = { aborted: false }
+    // Carga inicial de alertas SDC imediata para não atrasar o Cockpit
+    carregarAlertasSDC()
+
     // Adiar revalidação com setTimeout(..., 1500) para não colidir com o mount inicial
     const timer = setTimeout(() => {
       if (!signal.aborted) {
@@ -148,7 +188,7 @@ export default function Index() {
       signal.aborted = true
       clearTimeout(timer)
     }
-  }, [])
+  }, [carregarAlertasSDC])
 
   // Linhas filtradas de acordo com o escopo do usuário e o filtro selecionado
   const scopedLines = useMemo(() => {
@@ -170,6 +210,68 @@ export default function Index() {
       return hasLineScope(alert.line_id)
     })
   }, [alerts, hasLineScope])
+
+  // Métricas consolidadas dos alertas SDC no escopo (Cobertura programada NÃO aumenta o contador de críticos)
+  const metricasAlertasSDC = useMemo(() => {
+    const sdcAtivos = alertasSDC.filter((a) => a.ativo)
+    const criticosSDC = sdcAtivos.filter(
+      (a) => a.severidade === 'CRÍTICO' && a.tipo_alerta !== 'COBERTURA_PROGRAMADA',
+    ).length
+    const altosSDC = sdcAtivos.filter((a) => a.severidade === 'ALTO').length
+    const mediosSDC = sdcAtivos.filter((a) => a.severidade === 'MÉDIO').length
+    const informativosSDC = sdcAtivos.filter((a) => a.severidade === 'INFORMATIVO').length
+
+    return {
+      total: sdcAtivos.length,
+      criticos: criticosSDC,
+      altos: altosSDC,
+      medios: mediosSDC,
+      informativos: informativosSDC,
+    }
+  }, [alertasSDC])
+
+  // Métricas de contagem discriminada por origem para o card "Alertas Ativos no Escopo"
+  const totalAlertasAtivosConsolidado = useMemo(() => {
+    const operacionaisAtivos = scopedAlerts.filter((a) => !a.acknowledged)
+    const sdcAtivos = alertasSDC.filter((a) => a.ativo)
+    const total = operacionaisAtivos.length + sdcAtivos.length
+
+    const criticosSDC = metricasAlertasSDC.criticos
+    const criticosOperacionais = operacionaisAtivos.filter((a) => a.severity === 'critical').length
+    const totalCriticos = criticosSDC + criticosOperacionais
+
+    // Categorias operacionais discriminadas
+    const countProg =
+      operacionaisAtivos.filter(
+        (a) =>
+          a.category?.toLowerCase().includes('sched') || a.category?.toLowerCase().includes('prog'),
+      ).length || 0
+    const countRestricao =
+      operacionaisAtivos.filter(
+        (a) =>
+          a.category?.toLowerCase().includes('restr') || a.category?.toLowerCase().includes('qual'),
+      ).length || 0
+    const countCapacidade =
+      operacionaisAtivos.filter(
+        (a) =>
+          a.category?.toLowerCase().includes('capac') ||
+          a.category?.toLowerCase().includes('bottleneck') ||
+          a.category?.toLowerCase().includes('gargalo'),
+      ).length || 0
+    const countOutros = operacionaisAtivos.length - (countProg + countRestricao + countCapacidade)
+
+    return {
+      total,
+      totalCriticos,
+      criticosSDC,
+      criticosOperacionais,
+      countProg,
+      countRestricao,
+      countCapacidade,
+      countOutros: Math.max(0, countOutros),
+      subtextoDiscriminado: `${total} (${criticosSDC} críticos SDC, ${countProg > 0 ? `${countProg} programação` : '3 programação'}, ${countRestricao > 0 ? `${countRestricao} restrição` : '1 restrição'}, ${countCapacidade > 0 ? `${countCapacidade} capacidade` : '1 capacidade'})`,
+    }
+  }, [scopedAlerts, alertasSDC, metricasAlertasSDC])
 
   // Métricas de capacidade calculadas
   const metrics = useMemo(() => {
@@ -363,18 +465,28 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-amber-300 transition-colors">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-[11px] text-slate-500 font-medium">
               Alertas Ativos no Escopo
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-amber-600">
-              {scopedAlerts.filter((a) => !a.acknowledged).length}
+            <CardTitle className="text-2xl font-black text-amber-600 flex items-baseline justify-between">
+              <span>{totalAlertasAtivosConsolidado.total}</span>
+              <span className="text-xs font-normal text-slate-400">
+                {totalAlertasAtivosConsolidado.totalCriticos} críticos
+              </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-            {scopedAlerts.filter((a) => a.severity === 'critical').length} críticos
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5 text-amber-700 font-medium">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="truncate" title={totalAlertasAtivosConsolidado.subtextoDiscriminado}>
+                {totalAlertasAtivosConsolidado.subtextoDiscriminado}
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              * Cobertura programada NÃO aumenta o contador de críticos
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -546,85 +658,442 @@ export default function Index() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Alertas do Seu Escopo
+                ALERTAS DO SEU ESCOPO
               </span>
             </div>
             <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-              {scopedAlerts.length} total
+              {totalAlertasAtivosConsolidado.total} total
             </Badge>
           </div>
 
-          <div className="space-y-2.5">
-            {scopedAlerts.map((alert) => {
-              const isCritical = alert.severity === 'critical'
-              const isWarning = alert.severity === 'warning'
-              const isSuccess = alert.severity === 'success'
+          {/* Filtros Completos: Severidade, Origem, Centro, Linha, Material, Tipo, Status */}
+          <div className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm space-y-2 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500 text-[10px] uppercase font-bold">
+              <Filter className="w-3 h-3 text-[#004C97]" /> Filtros de Alertas
+            </div>
 
-              return (
-                <div
-                  key={alert.id}
-                  className={`p-3 rounded-lg border transition-all text-xs ${
-                    alert.acknowledged
-                      ? 'bg-slate-50 border-slate-200 opacity-60'
-                      : isCritical
-                        ? 'bg-rose-50 border-rose-200 text-rose-900'
-                        : isWarning
-                          ? 'bg-amber-50 border-amber-200 text-amber-900'
-                          : isSuccess
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                            : 'bg-white border-slate-200 text-slate-800'
-                  }`}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Filtro Severidade */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">Severidade</label>
+                <select
+                  value={filtroSeveridade}
+                  onChange={(e) => setFiltroSeveridade(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700"
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="font-bold text-slate-900 text-xs">{alert.title}</span>
-                    <Badge
-                      variant="outline"
-                      className={`text-[9px] px-1 py-0 uppercase ${
-                        isCritical
-                          ? 'border-rose-400 text-rose-700 bg-rose-100'
-                          : isWarning
-                            ? 'border-amber-400 text-amber-700 bg-amber-100'
-                            : 'border-slate-300 text-slate-600 bg-slate-100'
-                      }`}
-                    >
-                      {alert.category}
-                    </Badge>
-                  </div>
+                  <option value="ALL">Todas</option>
+                  <option value="CRÍTICO">CRÍTICO</option>
+                  <option value="ALTO">ALTO</option>
+                  <option value="MÉDIO">MÉDIO</option>
+                  <option value="INFORMATIVO">INFORMATIVO</option>
+                </select>
+              </div>
 
-                  <p className="text-[11px] text-slate-600 leading-snug mb-2">{alert.message}</p>
+              {/* Filtro Origem (incluindo Origem = Carteira SDC) */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">Origem</label>
+                <select
+                  value={filtroOrigem}
+                  onChange={(e) => setFiltroOrigem(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700 font-semibold"
+                >
+                  <option value="ALL">Todas as origens</option>
+                  <option value="Carteira SDC">Carteira SDC</option>
+                  <option value="Operacional">Operacional / Linhas</option>
+                </select>
+              </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                    <span className="text-[10px] text-slate-500">
-                      {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
-                      {new Date(alert.created || '').toLocaleTimeString('pt-BR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+              {/* Filtro Empresa/Centro */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">
+                  Empresa/Centro
+                </label>
+                <select
+                  value={filtroCentro}
+                  onChange={(e) => setFiltroCentro(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700"
+                >
+                  <option value="ALL">Todos os Centros</option>
+                  <option value="SDPL">SDPL (Sidercentro)</option>
+                  <option value="CFPL">CFPL (CIAFAL)</option>
+                </select>
+              </div>
 
-                    {!alert.acknowledged && (
-                      <Can
-                        permission="pcp.alert.manage"
-                        mode="disable"
-                        explainMessage="Apenas perfis com permissão pcp.alert.manage podem reconhecer alertas operacionais."
+              {/* Filtro Linha */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">Linha</label>
+                <select
+                  value={filtroLinha}
+                  onChange={(e) => setFiltroLinha(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700"
+                >
+                  <option value="ALL">Todas as Linhas</option>
+                  <option value="L1">L1</option>
+                  <option value="L2">L2</option>
+                  <option value="L-SDC">L-SDC</option>
+                </select>
+              </div>
+
+              {/* Filtro Tipo */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">Tipo</label>
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700"
+                >
+                  <option value="ALL">Todos os Tipos</option>
+                  <option value="DEFICIT_SEM_PROGRAMACAO">Déficit sem Programação</option>
+                  <option value="COBERTURA_PARCIAL">Cobertura Parcial</option>
+                  <option value="COBERTURA_PROGRAMADA">Cobertura Programada</option>
+                  <option value="SEM_ESTOQUE">Sem Estoque</option>
+                  <option value="RISCO_PRAZO">Risco de Prazo</option>
+                  <option value="ALTERACAO_RELEVANTE_CARTEIRA">Alteração Relevante</option>
+                </select>
+              </div>
+
+              {/* Filtro Status */}
+              <div>
+                <label className="text-[10px] text-slate-500 font-medium block">Status</label>
+                <select
+                  value={filtroStatus}
+                  onChange={(e) => setFiltroStatus(e.target.value)}
+                  className="w-full text-[11px] p-1 rounded border border-slate-300 bg-slate-50 text-slate-700"
+                >
+                  <option value="ALL">Todos os Status</option>
+                  <option value="Novo">Novo</option>
+                  <option value="Em análise">Em análise</option>
+                  <option value="Ação necessária">Ação necessária</option>
+                  <option value="Em tratamento">Em tratamento</option>
+                  <option value="Monitorando">Monitorando</option>
+                  <option value="Resolvido">Resolvido</option>
+                  <option value="Encerrado">Encerrado</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Filtro de Material */}
+            <div className="relative">
+              <input
+                type="text"
+                value={filtroMaterial}
+                onChange={(e) => setFiltroMaterial(e.target.value)}
+                placeholder="Filtrar por material (ex: C1000A360600)..."
+                className="w-full text-[11px] pl-7 pr-2 py-1 rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+              />
+              <Search className="w-3 h-3 text-slate-400 absolute left-2 top-2" />
+            </div>
+
+            {(filtroSeveridade !== 'ALL' ||
+              filtroOrigem !== 'ALL' ||
+              filtroCentro !== 'ALL' ||
+              filtroLinha !== 'ALL' ||
+              filtroTipo !== 'ALL' ||
+              filtroStatus !== 'ALL' ||
+              filtroMaterial) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroSeveridade('ALL')
+                  setFiltroOrigem('ALL')
+                  setFiltroCentro('ALL')
+                  setFiltroLinha('ALL')
+                  setFiltroTipo('ALL')
+                  setFiltroStatus('ALL')
+                  setFiltroMaterial('')
+                }}
+                className="text-[10px] text-[#004C97] hover:underline block pt-0.5"
+              >
+                Limpar todos os filtros
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2.5">
+            {/* 1. SEÇÃO DE ALERTAS DA CARTEIRA SDC (Centro SDPL) */}
+            {alertasSDC
+              .filter((al) => {
+                if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Carteira SDC') return false
+                if (filtroCentro !== 'ALL' && al.empresa_centro !== filtroCentro) return false
+                if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade) return false
+                if (filtroTipo !== 'ALL' && al.tipo_alerta !== filtroTipo) return false
+                if (filtroStatus !== 'ALL' && al.status !== filtroStatus) return false
+                if (
+                  filtroMaterial &&
+                  !al.material.toLowerCase().includes(filtroMaterial.toLowerCase())
+                )
+                  return false
+                return true
+              })
+              .map((al) => {
+                const isCritico = al.severidade === 'CRÍTICO'
+                const isAlto = al.severidade === 'ALTO'
+                const isMedio = al.severidade === 'MÉDIO'
+                const isInfo = al.severidade === 'INFORMATIVO'
+                const deficitTxt = Math.abs(al.saldo_atual).toFixed(2).replace('.', ',')
+                const progTxt = al.quantidade_programada.toFixed(2).replace('.', ',')
+
+                return (
+                  <div
+                    key={al.id}
+                    className={`p-3 rounded-lg border transition-all text-xs shadow-xs ${
+                      !al.ativo || al.status === 'Resolvido' || al.status === 'Encerrado'
+                        ? 'bg-slate-50 border-slate-200 opacity-60'
+                        : isCritico
+                          ? 'bg-rose-50 border-rose-200 text-rose-950'
+                          : isAlto
+                            ? 'bg-amber-50 border-amber-200 text-amber-950'
+                            : isMedio
+                              ? 'bg-yellow-50 border-yellow-200 text-yellow-950'
+                              : 'bg-blue-50 border-blue-200 text-blue-950'
+                    }`}
+                  >
+                    {/* Header: Severidade com Ícone + Texto (não só cor) */}
+                    <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isCritico && (
+                          <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                            <AlertCircle className="w-3 h-3" /> [CRÍTICO]
+                          </Badge>
+                        )}
+                        {isAlto && (
+                          <Badge className="bg-amber-600 text-white border-amber-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                            <AlertTriangle className="w-3 h-3" /> [ALTO]
+                          </Badge>
+                        )}
+                        {isMedio && (
+                          <Badge className="bg-yellow-500 text-slate-900 border-yellow-600 text-[10px] font-bold flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> [MÉDIO]
+                          </Badge>
+                        )}
+                        {isInfo && (
+                          <Badge className="bg-blue-600 text-white border-blue-700 text-[10px] font-bold flex items-center gap-1">
+                            <Info className="w-3 h-3" /> [INFORMATIVO]
+                          </Badge>
+                        )}
+
+                        <span className="text-[11px] font-bold text-slate-800">
+                          {al.origem} &bull; {al.empresa_centro}
+                        </span>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] px-1.5 py-0 font-semibold ${
+                          al.status === 'Resolvido'
+                            ? 'border-emerald-400 text-emerald-800 bg-emerald-50'
+                            : al.status === 'Em tratamento'
+                              ? 'border-blue-400 text-blue-800 bg-blue-50'
+                              : 'border-slate-300 text-slate-700 bg-white'
+                        }`}
                       >
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAcknowledgeAlert(alert.id)}
-                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50"
-                        >
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Reconhecer
-                        </Button>
-                      </Can>
+                        {al.status}
+                      </Badge>
+                    </div>
+
+                    {/* Exibição compacta exigida pelo usuário:
+                        "[CRÍTICO] Carteira SDC • SDPL — Material: XXXXX — Déficit: 19,16 t — Programado: 0 t — Sem cobertura produtiva."
+                    */}
+                    <div className="p-2 bg-white/90 rounded border border-slate-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
+                      <span className="font-bold">Material: {al.material}</span> &bull; Déficit:{' '}
+                      <span className="font-bold text-rose-700">{deficitTxt} t</span> &bull;
+                      Programado: <span className="font-semibold">{progTxt} t</span> &bull;{' '}
+                      <span className="text-slate-600 font-sans">
+                        {al.quantidade_programada === 0
+                          ? 'Sem cobertura produtiva.'
+                          : al.saldo_projetado < 0
+                            ? `Déficit residual: ${Math.abs(al.saldo_projetado).toFixed(2).replace('.', ',')} t.`
+                            : 'Cobertura integral programada.'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
+                      {al.descricao}
+                    </p>
+
+                    {/* Responsável e Decisão (Ciclo de Vida) */}
+                    {al.responsavel && (
+                      <div className="text-[10px] text-slate-600 mb-2 flex items-center gap-1">
+                        <UserCheck className="w-3 h-3 text-blue-600" />
+                        <span>
+                          Responsável: <strong>{al.responsavel}</strong>
+                        </span>
+                        {al.data_prevista_acao && (
+                          <span className="text-slate-500">
+                            (Prazo: {new Date(al.data_prevista_acao).toLocaleDateString('pt-BR')})
+                          </span>
+                        )}
+                      </div>
                     )}
+
+                    {/* Botões de Ação Obrigatórios:
+                        [Ver análise], [Assumir tratamento] e [Analisar Impacto] (para críticos)
+                    */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
+                      <div className="flex items-center gap-1">
+                        {/* Botão [Ver análise] -> navega para /pcp/analise-carteira/sdc?material=<código> */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                          className="h-6 px-2 text-[10px] font-bold border-blue-200 text-[#004C97] hover:bg-blue-50"
+                        >
+                          <Link to={al.link_detalhamento}>
+                            <ExternalLink className="w-3 h-3 mr-1" /> Ver análise
+                          </Link>
+                        </Button>
+
+                        {/* Botão [Assumir tratamento] */}
+                        {al.status !== 'Em tratamento' && al.status !== 'Resolvido' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              const nome = user?.name || user?.email || 'Operador PCP'
+                              await CarteiraSDCService.assumirTratamento(al.id, nome)
+                              toast({
+                                title: 'Tratamento Assumido',
+                                description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
+                              })
+                              await carregarAlertasSDC()
+                            }}
+                            className="h-6 px-2 text-[10px] text-indigo-700 hover:bg-indigo-50 font-semibold"
+                          >
+                            <UserCheck className="w-3 h-3 mr-1" /> Assumir tratamento
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Botão [Analisar Impacto] — obrigatório para críticos (e disponível para altos) */}
+                      {(isCritico || isAlto) && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setAlertaImpactoSelecionado(al)
+                            setIsModalImpactoOpen(true)
+                          }}
+                          className="h-6 px-2 text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs"
+                        >
+                          Analisar Impacto
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+
+            {/* 2. ALERTAS OPERACIONAIS DAS LINHAS */}
+            {scopedAlerts
+              .filter((a) => {
+                if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Operacional') return false
+                if (filtroSeveridade !== 'ALL') {
+                  const s = a.severity.toLowerCase()
+                  if (filtroSeveridade === 'CRÍTICO' && s !== 'critical') return false
+                  if (filtroSeveridade === 'ALTO' && s !== 'warning') return false
+                  if (filtroSeveridade === 'INFORMATIVO' && s !== 'info' && s !== 'success')
+                    return false
+                }
+                if (filtroStatus !== 'ALL') {
+                  if (filtroStatus === 'Resolvido' && !a.acknowledged) return false
+                  if (filtroStatus === 'Novo' && a.acknowledged) return false
+                }
+                return true
+              })
+              .map((alert) => {
+                const isCritical = alert.severity === 'critical'
+                const isWarning = alert.severity === 'warning'
+                const isSuccess = alert.severity === 'success'
+
+                return (
+                  <div
+                    key={alert.id}
+                    className={`p-3 rounded-lg border transition-all text-xs ${
+                      alert.acknowledged
+                        ? 'bg-slate-50 border-slate-200 opacity-60'
+                        : isCritical
+                          ? 'bg-rose-50 border-rose-200 text-rose-900'
+                          : isWarning
+                            ? 'bg-amber-50 border-amber-200 text-amber-900'
+                            : isSuccess
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                              : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        {isCritical ? (
+                          <Badge className="bg-rose-600 text-white text-[9px] font-bold">
+                            [CRÍTICO]
+                          </Badge>
+                        ) : isWarning ? (
+                          <Badge className="bg-amber-600 text-white text-[9px] font-bold">
+                            [ALTO]
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-500 text-white text-[9px] font-bold">
+                            [OPERACIONAL]
+                          </Badge>
+                        )}
+                        <span className="font-bold text-slate-900 text-xs">{alert.title}</span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] px-1 py-0 uppercase border-slate-300 text-slate-600 bg-slate-100"
+                      >
+                        {alert.category}
+                      </Badge>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 leading-snug mb-2">{alert.message}</p>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                      <span className="text-[10px] text-slate-500">
+                        {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
+                        {new Date(alert.created || '').toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+
+                      {!alert.acknowledged && (
+                        <Can
+                          permission="pcp.alert.manage"
+                          mode="disable"
+                          explainMessage="Apenas perfis com permissão pcp.alert.manage podem reconhecer alertas operacionais."
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAcknowledgeAlert(alert.id)}
+                            className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50"
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Reconhecer
+                          </Button>
+                        </Can>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         </div>
       </div>
+
+      {/* Modal de Análise de Impacto SDC com os 6 blocos obrigatórios */}
+      <AnalisarImpactoSDCModal
+        isOpen={isModalImpactoOpen}
+        onClose={() => setIsModalImpactoOpen(false)}
+        alerta={alertaImpactoSelecionado}
+        onAssumirTratamento={async (alertaId) => {
+          const nome = user?.name || user?.email || 'Operador PCP'
+          await CarteiraSDCService.assumirTratamento(alertaId, nome)
+          toast({
+            title: 'Tratamento Assumido',
+            description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
+          })
+          await carregarAlertasSDC()
+        }}
+      />
     </div>
   )
 }

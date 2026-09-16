@@ -35,6 +35,10 @@ import {
   StatusCarteiraSDC,
   SituacaoProducaoSDC,
   OrigemProducaoSDC,
+  AlertaCarteiraSDC,
+  SeveridadeAlertaSDC,
+  TipoAlertaSDC,
+  ConfiguracaoVariacaoCarteiraSDC,
 } from '@/types/carteira-sdc'
 
 export class CarteiraSDCEngine {
@@ -374,5 +378,402 @@ export class CarteiraSDCEngine {
     }
 
     return analises
+  }
+
+  /**
+   * Constrói a chave lógica única anti-duplicação:
+   * Centro + Material + Tipo de Alerta + Contexto da Carteira
+   * Exemplo: SDPL:C1000A360600:DEFICIT_SEM_PROGRAMACAO:CARTEIRA_SDC
+   */
+  public static gerarChaveLogicaAlerta(
+    centro: string,
+    material: string,
+    tipoAlerta: TipoAlertaSDC,
+    contexto: string = 'CARTEIRA_SDC',
+  ): string {
+    return `${centro}:${material}:${tipoAlerta}:${contexto}`
+  }
+
+  /**
+   * Gera e reconcilia alertas determinísticos da Carteira SDC aplicando estritamente as regras:
+   * - Déficit sem programação: Saldo < 0 E Programado = 0 -> CRÍTICO
+   * - Cobertura parcial: Saldo < 0 E Programado > 0 E Saldo Projetado < 0 -> ALTO (com déficit atual, programado, residual)
+   * - Cobertura programada: Saldo < 0 E Saldo Projetado >= 0 -> INFORMATIVO (não aumenta contador de críticos)
+   * - Sem estoque (Carteira > 0 E Estoque = 0): sem programação -> CRÍTICO; insuficiente -> ALTO; cobre -> INFORMATIVO
+   * - Risco de prazo: Data prevista > Data necessária -> CRÍTICO/ALTO com atraso projetado em dias
+   * - Alteração relevante da carteira: variação configurável absoluta e percentual
+   * - Deduplicação por chave lógica + Upsert + Resolução automática com preservação de histórico
+   */
+  public static reconciliarAlertasSDC(
+    itensAtuais: CarteiraSDCItem[],
+    alertasExistentes: AlertaCarteiraSDC[] = [],
+    opcoes?: {
+      itensAnteriores?: CarteiraSDCItem[]
+      configVariacao?: ConfiguracaoVariacaoCarteiraSDC
+    },
+  ): AlertaCarteiraSDC[] {
+    const configVariacao: ConfiguracaoVariacaoCarteiraSDC = opcoes?.configVariacao || {
+      variacaoAbsolutaMinima_t: 10,
+      variacaoPercentualMinima_pct: 30,
+    }
+
+    const mapaExistentes = new Map<string, AlertaCarteiraSDC>()
+    for (const al of alertasExistentes) {
+      mapaExistentes.set(al.id, { ...al, historico: [...(al.historico || [])] })
+    }
+
+    const chavesDetectadasNesteCiclo = new Set<string>()
+    const alertasResultado: AlertaCarteiraSDC[] = []
+    const agoraIso = new Date().toISOString()
+
+    const mapaAnteriores = new Map<string, CarteiraSDCItem>()
+    if (opcoes?.itensAnteriores) {
+      for (const ant of opcoes.itensAnteriores) {
+        mapaAnteriores.set(ant.material, ant)
+      }
+    }
+
+    for (const item of itensAtuais) {
+      const centro = item.centro_sap || 'SDPL'
+      const mat = item.material
+      const carteira = this.round2(item.carteira_t)
+      const estoque = this.round2(item.estoque_total_t)
+      const saldo = this.round2(item.saldo_t)
+      const programadoTotal = this.round2((item.programado_t || 0) + (item.em_producao_t || 0))
+      const saldoProjetado = this.round2(item.saldo_projetado_t)
+      const deficitAbs = Math.abs(saldo).toFixed(2).replace('.', ',')
+      const residualAbs = Math.abs(saldoProjetado).toFixed(2).replace('.', ',')
+      const progAbs = programadoTotal.toFixed(2).replace('.', ',')
+      const link = `/pcp/analise-carteira/sdc?material=${encodeURIComponent(mat)}`
+
+      // 1. REGRA: Sem estoque (Carteira > 0 E Estoque = 0)
+      if (carteira > 0 && estoque === 0) {
+        const chaveSemEstoque = this.gerarChaveLogicaAlerta(centro, mat, 'SEM_ESTOQUE')
+        chavesDetectadasNesteCiclo.add(chaveSemEstoque)
+
+        let sev: SeveridadeAlertaSDC = 'CRÍTICO'
+        let rec = `Material ${mat} sem nenhum estoque físico em ${centro}. Avaliar abertura emergencial de ordem de produção/industrialização.`
+        let desc = `Material ${mat} possui carteira de ${carteira.toFixed(2).replace('.', ',')} t e estoque ZERO no centro ${centro}.`
+
+        if (saldoProjetado >= 0 && programadoTotal > 0) {
+          sev = 'INFORMATIVO'
+          rec = `Material ${mat} sem estoque físico atual, porém programação de ${progAbs} t cobre a carteira.`
+          desc = `Material ${mat} sem estoque, mas programação cobre integralmente a demanda.`
+        } else if (programadoTotal > 0 && saldoProjetado < 0) {
+          sev = 'ALTO'
+          rec = `Material ${mat} sem estoque físico atual. Programação de ${progAbs} t é insuficiente, restando ${residualAbs} t sem cobertura.`
+          desc = `Material ${mat} sem estoque físico e com cobertura parcial (${progAbs} t programado, déficit residual de ${residualAbs} t).`
+        }
+
+        this.upsertAlerta(mapaExistentes, alertasResultado, chaveSemEstoque, {
+          material: mat,
+          descricao: item.descricao,
+          tipo_alerta: 'SEM_ESTOQUE',
+          estoque,
+          saldo_atual: saldo,
+          quantidade_programada: programadoTotal,
+          saldo_projetado: saldoProjetado,
+          data_desejada: item.data_desejada,
+          data_prevista: item.data_prevista,
+          severidade: sev,
+          descricao_texto: desc,
+          recomendacao: rec,
+          link_detalhamento: link,
+          agoraIso,
+        })
+      }
+
+      // 2. REGRA: Déficit sem programação (Saldo < 0 E Programado = 0) -> CRÍTICO
+      if (saldo < 0 && programadoTotal === 0) {
+        const chaveDeficit = this.gerarChaveLogicaAlerta(centro, mat, 'DEFICIT_SEM_PROGRAMACAO')
+        chavesDetectadasNesteCiclo.add(chaveDeficit)
+
+        const desc = `Material ${mat} possui déficit de ${deficitAbs} t e não possui programação para cobertura.`
+        const rec = `Avaliar programação/industrialização imediata no centro ${centro} para cobertura de ${deficitAbs} t.`
+
+        this.upsertAlerta(mapaExistentes, alertasResultado, chaveDeficit, {
+          material: mat,
+          descricao: item.descricao,
+          tipo_alerta: 'DEFICIT_SEM_PROGRAMACAO',
+          estoque,
+          saldo_atual: saldo,
+          quantidade_programada: programadoTotal,
+          saldo_projetado: saldoProjetado,
+          data_desejada: item.data_desejada,
+          data_prevista: item.data_prevista,
+          severidade: 'CRÍTICO',
+          descricao_texto: desc,
+          recomendacao: rec,
+          link_detalhamento: link,
+          agoraIso,
+        })
+      }
+
+      // 3. REGRA: Cobertura parcial (Saldo < 0 E Programado > 0 E Saldo Projetado < 0) -> ALTO
+      if (saldo < 0 && programadoTotal > 0 && saldoProjetado < 0) {
+        const chaveParcial = this.gerarChaveLogicaAlerta(centro, mat, 'COBERTURA_PARCIAL')
+        chavesDetectadasNesteCiclo.add(chaveParcial)
+
+        const desc = `Material ${mat} possui produção programada (${progAbs} t), porém permanecerá déficit projetado de ${residualAbs} t (déficit atual: ${deficitAbs} t).`
+        const rec = `Ampliar lote programado ou ordem de industrialização em ${residualAbs} t para garantir cobertura integral.`
+
+        this.upsertAlerta(mapaExistentes, alertasResultado, chaveParcial, {
+          material: mat,
+          descricao: item.descricao,
+          tipo_alerta: 'COBERTURA_PARCIAL',
+          estoque,
+          saldo_atual: saldo,
+          quantidade_programada: programadoTotal,
+          saldo_projetado: saldoProjetado,
+          data_desejada: item.data_desejada,
+          data_prevista: item.data_prevista,
+          severidade: 'ALTO',
+          descricao_texto: desc,
+          recomendacao: rec,
+          link_detalhamento: link,
+          agoraIso,
+        })
+      }
+
+      // 4. REGRA: Cobertura programada (Saldo < 0 E Saldo Projetado >= 0) -> INFORMATIVO
+      if (saldo < 0 && saldoProjetado >= 0) {
+        const chaveCobProg = this.gerarChaveLogicaAlerta(centro, mat, 'COBERTURA_PROGRAMADA')
+        chavesDetectadasNesteCiclo.add(chaveCobProg)
+
+        const desc = `Material ${mat} possui déficit atual de ${deficitAbs} t, porém a programação existente (${progAbs} t) cobre integralmente a necessidade.`
+        const rec = `Monitorar cumprimento da data prevista (${item.data_prevista || 'em definição'}) para liberação do saldo ao cliente.`
+
+        this.upsertAlerta(mapaExistentes, alertasResultado, chaveCobProg, {
+          material: mat,
+          descricao: item.descricao,
+          tipo_alerta: 'COBERTURA_PROGRAMADA',
+          estoque,
+          saldo_atual: saldo,
+          quantidade_programada: programadoTotal,
+          saldo_projetado: saldoProjetado,
+          data_desejada: item.data_desejada,
+          data_prevista: item.data_prevista,
+          severidade: 'INFORMATIVO',
+          descricao_texto: desc,
+          recomendacao: rec,
+          link_detalhamento: link,
+          agoraIso,
+        })
+      }
+
+      // 5. REGRA: Risco de prazo (Data prevista > Data necessária/desejada)
+      if (item.data_desejada && item.data_prevista) {
+        const dtDesejada = new Date(item.data_desejada)
+        const dtPrevista = new Date(item.data_prevista)
+        if (
+          !isNaN(dtDesejada.getTime()) &&
+          !isNaN(dtPrevista.getTime()) &&
+          dtPrevista > dtDesejada
+        ) {
+          const diffMs = dtPrevista.getTime() - dtDesejada.getTime()
+          const diasAtraso = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+          const chavePrazo = this.gerarChaveLogicaAlerta(centro, mat, 'RISCO_PRAZO')
+          chavesDetectadasNesteCiclo.add(chavePrazo)
+
+          const sevPrazo: SeveridadeAlertaSDC = diasAtraso >= 5 ? 'CRÍTICO' : 'ALTO'
+          const desc = `Material ${mat} com risco de atraso na Carteira SDC: entrega prevista em ${item.data_prevista} ultrapassa a data desejada (${item.data_desejada}) com atraso projetado de ${diasAtraso} dia(s).`
+          const rec = `Antecipar lote na escala de laminação SDC ou renegociar prazo de entrega com o cliente.`
+
+          this.upsertAlerta(mapaExistentes, alertasResultado, chavePrazo, {
+            material: mat,
+            descricao: item.descricao,
+            tipo_alerta: 'RISCO_PRAZO',
+            estoque,
+            saldo_atual: saldo,
+            quantidade_programada: programadoTotal,
+            saldo_projetado: saldoProjetado,
+            data_desejada: item.data_desejada,
+            data_prevista: item.data_prevista,
+            dias_atraso_projetado: diasAtraso,
+            severidade: sevPrazo,
+            descricao_texto: desc,
+            recomendacao: rec,
+            link_detalhamento: link,
+            agoraIso,
+          })
+        }
+      }
+
+      // 6. REGRA: Alteração relevante da carteira (parâmetro configurável)
+      const itemAnterior = mapaAnteriores.get(mat)
+      if (itemAnterior) {
+        const deltaAbs = this.round2(carteira - itemAnterior.carteira_t)
+        const pctVar =
+          itemAnterior.carteira_t > 0
+            ? this.round2(((carteira - itemAnterior.carteira_t) / itemAnterior.carteira_t) * 100)
+            : carteira > 0
+              ? 100
+              : 0
+
+        if (
+          deltaAbs >= configVariacao.variacaoAbsolutaMinima_t &&
+          pctVar >= configVariacao.variacaoPercentualMinima_pct
+        ) {
+          const chaveVar = this.gerarChaveLogicaAlerta(centro, mat, 'ALTERACAO_RELEVANTE_CARTEIRA')
+          chavesDetectadasNesteCiclo.add(chaveVar)
+
+          const desc = `Carteira SDC aumentou significativamente: Material ${mat} saltou de ${itemAnterior.carteira_t.toFixed(2).replace('.', ',')} t para ${carteira.toFixed(2).replace('.', ',')} t (+${deltaAbs.toFixed(2).replace('.', ',')} t / +${pctVar.toFixed(1).replace('.', ',')}%).`
+          const rec = `Revisar capacidade disponível no centro ${centro} e alocação de matéria-prima para atender ao acréscimo de demanda.`
+
+          this.upsertAlerta(mapaExistentes, alertasResultado, chaveVar, {
+            material: mat,
+            descricao: item.descricao,
+            tipo_alerta: 'ALTERACAO_RELEVANTE_CARTEIRA',
+            estoque,
+            saldo_atual: saldo,
+            quantidade_programada: programadoTotal,
+            saldo_projetado: saldoProjetado,
+            data_desejada: item.data_desejada,
+            data_prevista: item.data_prevista,
+            severidade: deltaAbs > 20 ? 'ALTO' : 'MÉDIO',
+            descricao_texto: desc,
+            recomendacao: rec,
+            link_detalhamento: link,
+            agoraIso,
+          })
+        }
+      }
+    }
+
+    // 7. RESOLUÇÃO AUTOMÁTICA para alertas anteriores cujo problema deixou de existir
+    for (const [id, alertaAntigo] of mapaExistentes.entries()) {
+      if (!chavesDetectadasNesteCiclo.has(id)) {
+        // Problema deixou de existir: manter histórico e marcar como Resolvido / inativo
+        const jaResolvido =
+          alertaAntigo.status === 'Resolvido' || alertaAntigo.status === 'Encerrado'
+        const alertaResolvido: AlertaCarteiraSDC = {
+          ...alertaAntigo,
+          ativo: false,
+          status: jaResolvido ? alertaAntigo.status : 'Resolvido',
+          historico: jaResolvido
+            ? alertaAntigo.historico
+            : [
+                ...(alertaAntigo.historico || []),
+                {
+                  data_hora: agoraIso,
+                  usuario: 'Sistema PCP (Automático)',
+                  mensagem: 'Resolvido automaticamente após atualização da programação.',
+                  status_anterior: alertaAntigo.status,
+                  status_novo: 'Resolvido',
+                },
+              ],
+        }
+        alertasResultado.push(alertaResolvido)
+      }
+    }
+
+    return alertasResultado
+  }
+
+  private static upsertAlerta(
+    mapaExistentes: Map<string, AlertaCarteiraSDC>,
+    listaResultado: AlertaCarteiraSDC[],
+    chaveId: string,
+    dados: {
+      material: string
+      descricao: string
+      tipo_alerta: TipoAlertaSDC
+      estoque: number
+      saldo_atual: number
+      quantidade_programada: number
+      saldo_projetado: number
+      data_desejada?: string
+      data_prevista?: string
+      dias_atraso_projetado?: number
+      severidade: SeveridadeAlertaSDC
+      descricao_texto: string
+      recomendacao: string
+      link_detalhamento: string
+      agoraIso: string
+    },
+  ) {
+    const existente = mapaExistentes.get(chaveId)
+
+    if (existente) {
+      // Mesmo problema atualiza valores numéricos e severidade se mudou
+      const severidadeMudou = existente.severidade !== dados.severidade
+      const historicoAtualizado = [...(existente.historico || [])]
+
+      if (severidadeMudou) {
+        historicoAtualizado.push({
+          data_hora: dados.agoraIso,
+          usuario: 'Sistema PCP (Automático)',
+          mensagem: `Severidade recalculada de ${existente.severidade} para ${dados.severidade} devido a alteração nos saldos/programação.`,
+        })
+      }
+
+      // Se estava resolvido e voltou a falhar, reabre
+      let novoStatus = existente.status
+      if (
+        !existente.ativo &&
+        (existente.status === 'Resolvido' || existente.status === 'Encerrado')
+      ) {
+        novoStatus = 'Ação necessária'
+        historicoAtualizado.push({
+          data_hora: dados.agoraIso,
+          usuario: 'Sistema PCP (Automático)',
+          mensagem: 'Alerta reaberto automaticamente: condição de déficit reincidente.',
+          status_anterior: existente.status,
+          status_novo: 'Ação necessária',
+        })
+      }
+
+      const atualizado: AlertaCarteiraSDC = {
+        ...existente,
+        ativo: true,
+        estoque: dados.estoque,
+        saldo_atual: dados.saldo_atual,
+        quantidade_programada: dados.quantidade_programada,
+        saldo_projetado: dados.saldo_projetado,
+        data_desejada: dados.data_desejada,
+        data_prevista: dados.data_prevista,
+        dias_atraso_projetado: dados.dias_atraso_projetado,
+        severidade: dados.severidade,
+        descricao: dados.descricao_texto,
+        recomendacao: dados.recomendacao,
+        status: novoStatus,
+        historico: historicoAtualizado,
+      }
+      listaResultado.push(atualizado)
+    } else {
+      // Novo alerta
+      const novo: AlertaCarteiraSDC = {
+        id: chaveId,
+        origem: 'Carteira SDC',
+        empresa_centro: 'SDPL',
+        material: dados.material,
+        descricao: dados.descricao_texto,
+        tipo_alerta: dados.tipo_alerta,
+        carteira: 'CARTEIRA_SDC',
+        estoque: dados.estoque,
+        saldo_atual: dados.saldo_atual,
+        quantidade_programada: dados.quantidade_programada,
+        saldo_projetado: dados.saldo_projetado,
+        data_desejada: dados.data_desejada,
+        data_prevista: dados.data_prevista,
+        dias_atraso_projetado: dados.dias_atraso_projetado,
+        severidade: dados.severidade,
+        data_hora_geracao: dados.agoraIso,
+        status: 'Novo',
+        recomendacao: dados.recomendacao,
+        link_detalhamento: dados.link_detalhamento,
+        ativo: true,
+        historico: [
+          {
+            data_hora: dados.agoraIso,
+            usuario: 'Sistema PCP (Automático)',
+            mensagem: `Alerta gerado com severidade ${dados.severidade}.`,
+            status_novo: 'Novo',
+          },
+        ],
+      }
+      listaResultado.push(novo)
+    }
   }
 }

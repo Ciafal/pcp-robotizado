@@ -72,6 +72,67 @@ export interface CarteiraSDCItem {
   }
 }
 
+export type SeveridadeAlertaSDC = 'CRÍTICO' | 'ALTO' | 'MÉDIO' | 'INFORMATIVO'
+
+export type StatusAlertaSDC =
+  | 'Novo'
+  | 'Em análise'
+  | 'Ação necessária'
+  | 'Em tratamento'
+  | 'Monitorando'
+  | 'Resolvido'
+  | 'Encerrado'
+
+export type TipoAlertaSDC =
+  | 'DEFICIT_SEM_PROGRAMACAO'
+  | 'COBERTURA_PARCIAL'
+  | 'COBERTURA_PROGRAMADA'
+  | 'SEM_ESTOQUE'
+  | 'RISCO_PRAZO'
+  | 'ALTERACAO_RELEVANTE_CARTEIRA'
+  | 'ESTOQUE_BLOQUEADO'
+
+export interface AlertaSDCHistorico {
+  data_hora: string
+  usuario?: string
+  mensagem: string
+  status_anterior?: StatusAlertaSDC
+  status_novo?: StatusAlertaSDC
+}
+
+export interface AlertaCarteiraSDC {
+  id: string // Chave lógica: Centro:Material:TipoAlerta:Contexto ex SDPL:C1000A360600:DEFICIT_SEM_PROGRAMACAO:CARTEIRA_SDC
+  origem: 'Carteira SDC'
+  empresa_centro: 'SDPL'
+  material: string
+  descricao: string
+  tipo_alerta: TipoAlertaSDC
+  carteira: 'CARTEIRA_SDC'
+  estoque: number // t
+  saldo_atual: number // t
+  quantidade_programada: number // t
+  saldo_projetado: number // t
+  data_desejada?: string
+  data_prevista?: string
+  dias_atraso_projetado?: number
+  severidade: SeveridadeAlertaSDC
+  data_hora_geracao: string
+  status: StatusAlertaSDC
+  responsavel?: string
+  comentario?: string
+  decisao?: string
+  data_prevista_acao?: string
+  recomendacao: string
+  link_detalhamento: string
+  historico: AlertaSDCHistorico[]
+  ativo: boolean // true se o problema persiste, false se resolvido automaticamente
+}
+
+export interface ConfiguracaoVariacaoCarteiraSDC {
+  variacaoAbsolutaMinima_t: number // ex: 10 t
+  variacaoPercentualMinima_pct: number // ex: 25 %
+}
+
 export interface CarteiraSDCKpis {
   carteira_total_t: number
   estoque_total_t: number

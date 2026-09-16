@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import {
   Layers,
@@ -65,6 +65,12 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const [topicoAtivo, setTopicoAtivo] = useState<TopicoCarteira>(() =>
     getTopicoFromPath(location.pathname),
   )
+
+  // Extrair ?material= da query string para suporte de ancoragem
+  const materialParam = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search)
+    return searchParams.get('material') || undefined
+  }, [location.search])
 
   useEffect(() => {
     const t = getTopicoFromPath(location.pathname)
@@ -484,6 +490,8 @@ export const AnaliseCarteiraPage: React.FC = () => {
             fonteAtual={fonteSDC}
             dataAtualizacao={dataAtualizacaoSDC}
             analisesIA={analisesIASDC}
+            materialAncorado={materialParam}
+            abrirDetalheAncorado={Boolean(materialParam)}
             onAtualizarItens={(novos) => setItensSDC(novos)}
           />
         )}

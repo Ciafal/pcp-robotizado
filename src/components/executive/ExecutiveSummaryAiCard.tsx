@@ -10,6 +10,7 @@ interface ExecutiveSummaryAiCardProps {
     trend: string
     impact: string
     recommendation: string
+    resumoSDCFormatado?: string
   }
   sourcesUsed: Array<{
     system: string
@@ -64,12 +65,48 @@ export const ExecutiveSummaryAiCard: React.FC<ExecutiveSummaryAiCardProps> = ({
         {/* Seção 1: Situação Atual */}
         <div className="space-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#004C97] flex items-center gap-1">
-            <FileText className="w-3.5 h-3.5" /> 1. Situação Atual
+            <FileText className="w-3.5 h-3.5" /> 1. Situação Atual Consolidada
           </span>
           <p className="text-slate-800 leading-relaxed bg-slate-50/80 p-2.5 rounded-lg border border-slate-200">
             {summary.currentSituation}
           </p>
         </div>
+
+        {/* Seção 1.1: Resumo Determinístico da Carteira SDC (Formato Exato Contratual) */}
+        {summary.resumoSDCFormatado && (
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#004C97] flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Síntese Carteira SDC (WERKS =
+              SDPL)
+            </span>
+            <div className="bg-gradient-to-r from-blue-50/90 via-white to-amber-50/60 p-3 rounded-lg border border-blue-200 font-mono text-[11px] text-slate-800 leading-relaxed shadow-xs">
+              <div className="font-sans font-bold text-slate-900 mb-1">
+                {summary.resumoSDCFormatado.split(' / ')[0].replace('### ', '')}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="font-semibold text-slate-800">
+                  {summary.resumoSDCFormatado.split(' / ')[1]}
+                </span>
+                <span className="text-slate-300">&bull;</span>
+                <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-bold">
+                  {summary.resumoSDCFormatado.split(' / ')[2]}
+                </Badge>
+                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                  {summary.resumoSDCFormatado.split(' / ')[3]}
+                </Badge>
+                <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px] font-bold">
+                  {summary.resumoSDCFormatado.split(' / ')[4]}
+                </Badge>
+              </div>
+              <div className="p-2 rounded bg-white/90 border border-slate-200 text-slate-900 mb-1.5 font-sans">
+                {summary.resumoSDCFormatado.split(' / ')[5]}
+              </div>
+              <div className="font-sans text-rose-700 font-semibold">
+                {summary.resumoSDCFormatado.split(' / ')[6]}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Seção 2: Evidências Extraídas */}
         <div className="space-y-1">

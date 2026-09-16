@@ -32,6 +32,8 @@ interface CarteiraSDCViewProps {
   fonteAtual: 'Carga QAS' | 'SAP ECC'
   dataAtualizacao: string
   analisesIA: string[]
+  materialAncorado?: string
+  abrirDetalheAncorado?: boolean
   onAtualizarItens?: (itens: CarteiraSDCItem[]) => void
 }
 
@@ -41,6 +43,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   fonteAtual,
   dataAtualizacao,
   analisesIA,
+  materialAncorado,
+  abrirDetalheAncorado = false,
   onAtualizarItens,
 }) => {
   const [itens, setItens] = useState<CarteiraSDCItem[]>(itensIniciais)
@@ -56,6 +60,28 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [itemSelecionado, setItemSelecionado] = useState<CarteiraSDCItem | null>(null)
   const [isModalDetalheOpen, setIsModalDetalheOpen] = useState(false)
   const [isModalImportOpen, setIsModalImportOpen] = useState(false)
+  const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
+
+  // Efeito de ancoragem por parâmetro de URL (?material=)
+  React.useEffect(() => {
+    if (materialAncorado && itens.length > 0) {
+      setDestaqueMaterial(materialAncorado)
+      const achado = itens.find((i) => i.material.toLowerCase() === materialAncorado.toLowerCase())
+      if (achado) {
+        if (abrirDetalheAncorado) {
+          setItemSelecionado(achado)
+          setIsModalDetalheOpen(true)
+        }
+        // Rolagem suave até a linha do material ancorado
+        setTimeout(() => {
+          const el = document.getElementById(`row-material-${materialAncorado}`)
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 300)
+      }
+    }
+  }, [materialAncorado, abrirDetalheAncorado, itens])
 
   // Filtros compactos
   const [busca, setBusca] = useState('')
@@ -671,18 +697,30 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
                   return (
                     <tr
+                      id={`row-material-${it.material}`}
                       key={it.material + idx}
                       onClick={() => handleOpenDetalhe(it)}
                       className={`hover:bg-blue-50/50 transition-colors cursor-pointer text-[11px] ${
-                        it.status === 'CRÍTICO' || it.status === 'SEM ESTOQUE'
-                          ? 'bg-rose-50/30'
-                          : idx % 2 === 0
-                            ? 'bg-white'
-                            : 'bg-slate-50/30'
+                        destaqueMaterial &&
+                        it.material.toLowerCase() === destaqueMaterial.toLowerCase()
+                          ? 'bg-amber-100 ring-2 ring-amber-400 font-bold'
+                          : it.status === 'CRÍTICO' || it.status === 'SEM ESTOQUE'
+                            ? 'bg-rose-50/30'
+                            : idx % 2 === 0
+                              ? 'bg-white'
+                              : 'bg-slate-50/30'
                       }`}
                     >
                       {/* Material */}
-                      <td className="p-2.5 font-mono font-bold text-slate-900">{it.material}</td>
+                      <td className="p-2.5 font-mono font-bold text-slate-900">
+                        <div className="flex items-center gap-1.5">
+                          {destaqueMaterial &&
+                            it.material.toLowerCase() === destaqueMaterial.toLowerCase() && (
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                            )}
+                          <span>{it.material}</span>
+                        </div>
+                      </td>
 
                       {/* Descrição */}
                       <td className="p-2.5 text-slate-700 max-w-[220px]">

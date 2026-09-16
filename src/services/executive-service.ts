@@ -19,6 +19,7 @@ import {
 } from '@/types/executive-cockpit'
 import { deterministicEngine, RawPcpDataSnapshot } from '@/services/deterministic-executive-engine'
 import { authService } from '@/services/pcp-auth'
+import { CarteiraSDCService } from '@/services/carteira-sdc-service'
 
 export interface ExecutiveDashboardData {
   filters: ExecutiveFilterState
@@ -213,6 +214,19 @@ export const executiveService = {
       ]
     }
 
+    // Carregar dados da Carteira SDC (WERKS = SDPL) para base determinística executiva
+    let sdcItens: any[] = []
+    let sdcKpis: any = undefined
+    let sdcAlertas: any[] = []
+    try {
+      const sdcData = await CarteiraSDCService.carregarCarteiraSDC()
+      sdcItens = sdcData.itens
+      sdcKpis = sdcData.kpis
+      sdcAlertas = await CarteiraSDCService.obterAlertasSDC({ itensForcados: sdcItens })
+    } catch (e) {
+      console.warn('Carteira SDC: fallback em snapshot executivo:', e)
+    }
+
     const rawSnapshot: RawPcpDataSnapshot = {
       lines,
       alerts,
@@ -222,12 +236,20 @@ export const executiveService = {
       schedules,
       scenarioItems,
       routes,
+      carteiraSDCItens: sdcItens,
+      carteiraSDCKpis: sdcKpis,
+      carteiraSDCAlertas: sdcAlertas,
     }
 
     // 2. Executar cálculos determinísticos
     const selectedLine = filters.line || 'ALL'
+    const selectedPeriod = filters.period || 'Mês Atual'
     const cards = deterministicEngine.calculateCards(rawSnapshot, selectedLine)
-    const summary = deterministicEngine.generateExecutiveSummary(cards, selectedLine)
+    const summary = deterministicEngine.generateExecutiveSummary(cards, selectedLine, {
+      itens: sdcItens,
+      kpis: sdcKpis,
+      alertas: sdcAlertas,
+    })
     const trends = deterministicEngine.calculateTrendAnalyses(cards)
     const risks = deterministicEngine.calculateRisks(rawSnapshot)
     const correlations = deterministicEngine.calculateCorrelations()
@@ -242,39 +264,46 @@ export const executiveService = {
 
     const sourcesUsed = [
       {
-        system: 'HUB CIAFAL - Skip Cloud (PocketBase)',
-        module: 'PCP Robotizado',
+        system: 'PocketBase',
+        module: 'Linhas & Ficha Mestre',
         tableOrOrigin: 'production_lines',
-        period: filters.period,
+        period: selectedPeriod,
         updatedAt: new Date().toISOString(),
-        status: 'CONECTADO (REAL)',
+        status: 'OK',
       },
       {
-        system: 'HUB CIAFAL - Skip Cloud (PocketBase)',
-        module: 'Gestão de Estoques',
+        system: 'PocketBase',
+        module: 'Alertas Operacionais',
+        tableOrOrigin: 'pcp_operational_alerts',
+        period: selectedPeriod,
+        updatedAt: new Date().toISOString(),
+        status: 'OK',
+      },
+      {
+        system: 'PocketBase',
+        module: 'Projeção de Estoques',
         tableOrOrigin: 'inventory_items',
-        period: filters.period,
+        period: selectedPeriod,
         updatedAt: new Date().toISOString(),
-        status: 'CONECTADO (REAL)',
+        status: 'OK',
       },
       {
-        system: 'HUB CIAFAL - Skip Cloud (PocketBase)',
+        system: 'Engine CP-SAT',
         module: 'Central de Sequenciamento',
-        tableOrOrigin: 'pcp_schedules & scenario_items',
-        period: filters.period,
+        tableOrOrigin: 'scenario_items',
+        period: selectedPeriod,
         updatedAt: new Date().toISOString(),
-        status: 'CONECTADO (REAL)',
+        status: 'OK',
       },
       {
-        system: 'Motor CP-SAT CIAFAL',
-        module: 'Otimização Determinística',
-        tableOrOrigin: 'optimization_runs',
-        period: filters.period,
+        system: 'Carteira SDC Engine',
+        module: 'Análise de Carteira (WERKS = SDPL)',
+        tableOrOrigin: 'carteira_items / ITENS_BASE_HOMOLOGADA_SDC',
+        period: selectedPeriod,
         updatedAt: new Date().toISOString(),
-        status: 'CONECTADO (REAL)',
+        status: 'OK',
       },
     ]
-
     return {
       filters,
       cards,

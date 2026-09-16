@@ -4,7 +4,14 @@
  */
 
 import pb from '@/lib/pocketbase/client'
-import { CarteiraSDCItem, CarteiraSDCKpis, CarteiraSDCImportRow } from '@/types/carteira-sdc'
+import {
+  CarteiraSDCItem,
+  CarteiraSDCKpis,
+  CarteiraSDCImportRow,
+  AlertaCarteiraSDC,
+  StatusAlertaSDC,
+  ConfiguracaoVariacaoCarteiraSDC,
+} from '@/types/carteira-sdc'
 import { CarteiraSDCEngine } from './carteira-sdc-engine'
 
 // Base Real Homologada SDC (Centro SDPL) com o caso contratual do usuário:
@@ -318,5 +325,138 @@ export class CarteiraSDCService {
 
     const kpis = CarteiraSDCEngine.calcularKpis(itensCalculados)
     return { itens: itensCalculados, kpis }
+  }
+
+  // Cache em memória dos alertas persistidos no ciclo de sessão
+  private static alertasCacheSDC: AlertaCarteiraSDC[] = []
+  private static itensAnterioresSDC: CarteiraSDCItem[] = []
+  private static configVariacao: ConfiguracaoVariacaoCarteiraSDC = {
+    variacaoAbsolutaMinima_t: 10,
+    variacaoPercentualMinima_pct: 30,
+  }
+
+  /**
+   * Obtém a lista consolidada de alertas da Carteira SDC sincronizados com a fonte da verdade
+   */
+  public static async obterAlertasSDC(opcoes?: {
+    itensForcados?: CarteiraSDCItem[]
+    forcarRecalculo?: boolean
+  }): Promise<AlertaCarteiraSDC[]> {
+    let itens: CarteiraSDCItem[] = opcoes?.itensForcados || []
+    if (!itens || itens.length === 0) {
+      const dados = await this.carregarCarteiraSDC()
+      itens = dados.itens
+    }
+
+    const novosAlertas = CarteiraSDCEngine.reconciliarAlertasSDC(itens, this.alertasCacheSDC, {
+      itensAnteriores: this.itensAnterioresSDC,
+      configVariacao: this.configVariacao,
+    })
+
+    this.alertasCacheSDC = novosAlertas
+    this.itensAnterioresSDC = itens
+    return novosAlertas
+  }
+
+  /**
+   * Assume o tratamento de um alerta SDC pelo usuário logado
+   */
+  public static async assumirTratamento(
+    alertaId: string,
+    usuarioNome: string,
+    comentario?: string,
+  ): Promise<AlertaCarteiraSDC | null> {
+    const idx = this.alertasCacheSDC.findIndex((a) => a.id === alertaId)
+    if (idx === -1) return null
+
+    const alerta = this.alertasCacheSDC[idx]
+    const agora = new Date().toISOString()
+    const statusAnterior = alerta.status
+    const novoStatus: StatusAlertaSDC = 'Em tratamento'
+
+    const atualizado: AlertaCarteiraSDC = {
+      ...alerta,
+      status: novoStatus,
+      responsavel: usuarioNome,
+      comentario: comentario || alerta.comentario,
+      historico: [
+        ...(alerta.historico || []),
+        {
+          data_hora: agora,
+          usuario: usuarioNome,
+          mensagem: comentario
+            ? `Tratamento assumido: ${comentario}`
+            : 'Tratamento assumido pelo usuário.',
+          status_anterior: statusAnterior,
+          status_novo: novoStatus,
+        },
+      ],
+    }
+
+    this.alertasCacheSDC[idx] = atualizado
+    return atualizado
+  }
+
+  /**
+   * Atualiza o ciclo de vida e governança de um alerta SDC (comentário, decisão, prazo de ação)
+   */
+  public static async atualizarGovernancaAlerta(
+    alertaId: string,
+    dados: {
+      status: StatusAlertaSDC
+      responsavel?: string
+      comentario?: string
+      decisao?: string
+      data_prevista_acao?: string
+      usuario: string
+    },
+  ): Promise<AlertaCarteiraSDC | null> {
+    const idx = this.alertasCacheSDC.findIndex((a) => a.id === alertaId)
+    if (idx === -1) return null
+
+    const alerta = this.alertasCacheSDC[idx]
+    const agora = new Date().toISOString()
+    const statusAnterior = alerta.status
+
+    const atualizado: AlertaCarteiraSDC = {
+      ...alerta,
+      status: dados.status,
+      responsavel: dados.responsavel !== undefined ? dados.responsavel : alerta.responsavel,
+      comentario: dados.comentario !== undefined ? dados.comentario : alerta.comentario,
+      decisao: dados.decisao !== undefined ? dados.decisao : alerta.decisao,
+      data_prevista_acao:
+        dados.data_prevista_acao !== undefined
+          ? dados.data_prevista_acao
+          : alerta.data_prevista_acao,
+      historico: [
+        ...(alerta.historico || []),
+        {
+          data_hora: agora,
+          usuario: dados.usuario,
+          mensagem: `Atualização de governança: status alterado para ${dados.status}.${
+            dados.decisao ? ` Decisão: ${dados.decisao}.` : ''
+          }${dados.comentario ? ` Comentário: ${dados.comentario}.` : ''}`,
+          status_anterior: statusAnterior,
+          status_novo: dados.status,
+        },
+      ],
+    }
+
+    this.alertasCacheSDC[idx] = atualizado
+    return atualizado
+  }
+
+  /**
+   * Atualiza a configuração de variação relevante da carteira
+   */
+  public static atualizarConfigVariacao(config: Partial<ConfiguracaoVariacaoCarteiraSDC>) {
+    this.configVariacao = {
+      ...this.configVariacao,
+      ...config,
+    }
+  }
+
+  public static obterConfigVariacao(): ConfiguracaoVariacaoCarteiraSDC {
+    return { ...this.configVariacao }
   }
 }

@@ -29,11 +29,11 @@ interface ChatMessage {
 }
 
 const EXAMPLE_QUESTIONS = [
+  'Qual é a situação atual da Carteira SDC no centro SDPL?',
+  'Quais materiais da Carteira SDC estão sem cobertura produtiva?',
   'Quais são as pendências da L01 vindas da reunião de PCP?',
   'Existe algum comunicado vigente ou alerta crítico para as linhas?',
   'O que foi decidido na última reunião sobre qualidade e materiais?',
-  'Por que a produção da L01 registrou perda de cadência esta semana?',
-  'Quais indicadores apresentam risco de não atingir a meta no fechamento?',
 ]
 
 export const ExecutiveAskHubAi: React.FC<ExecutiveAskHubAiProps> = () => {
@@ -67,8 +67,42 @@ export const ExecutiveAskHubAi: React.FC<ExecutiveAskHubAiProps> = () => {
     setLoading(true)
 
     try {
+      // Contextualização determinística da Carteira SDC:
+      // Quando a pergunta faz referência a SDC, carteira, sidercentro, SDPL ou materiais SDC,
+      // injeta dados reais calculados da Carteira SDC para que a IA responda com precisão
+      const lowerQuery = query.toLowerCase()
+      let queryComContexto = query
+      if (
+        lowerQuery.includes('sdc') ||
+        lowerQuery.includes('sidercentro') ||
+        lowerQuery.includes('sdpl') ||
+        lowerQuery.includes('c1000a360600') ||
+        lowerQuery.includes('sem cobertura') ||
+        lowerQuery.includes('cobertura parcial')
+      ) {
+        try {
+          const dadosSDC = await import('@/services/carteira-sdc-service').then((m) =>
+            m.CarteiraSDCService.carregarCarteiraSDC(),
+          )
+          const alertasSDC = await import('@/services/carteira-sdc-service').then((m) =>
+            m.CarteiraSDCService.obterAlertasSDC({ itensForcados: dadosSDC.itens }),
+          )
+          const resumoSDC = dadosSDC.itens
+            .slice(0, 5)
+            .map(
+              (i) =>
+                `Material ${i.material}: Carteira ${i.carteira_t.toFixed(2)}t, Estoque ${i.estoque_total_t.toFixed(2)}t, Saldo ${i.saldo_t.toFixed(2)}t, Programado ${(i.programado_t || 0).toFixed(2)}t, Saldo Proj ${i.saldo_projetado_t.toFixed(2)}t, Status ${i.status}`,
+            )
+            .join('; ')
+
+          queryComContexto = `${query} [DADOS REAIS CARTEIRA SDC (Centro SDPL): Total Carteira ${dadosSDC.kpis.carteira_total_t}t, Déficit Atual ${dadosSDC.kpis.deficit_atual_t}t, Itens Críticos ${dadosSDC.kpis.itens_criticos_count}. Itens principais: ${resumoSDC}. Alertas ativos: ${alertasSDC.length} alertas identificados]`
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+
       const response = await executiveService.askExecutiveAgent({
-        message: query,
+        message: queryComContexto,
         conversation_id: conversationId,
       })
 
