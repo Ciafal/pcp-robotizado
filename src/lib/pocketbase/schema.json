@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T19:31:56.035Z",
+  "generatedAt": "2026-09-16T19:57:33.904Z",
   "collections": [
     {
       "name": "users",
@@ -19949,6 +19949,726 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_pcp_brf_meeting ON pcp_meeting_briefing (meeting_id)"]
+    },
+    {
+      "name": "pcp_mp_inventory_orders",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "inventory_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "control_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible_sector",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "schedule_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "schedule_version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "schedule_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programming_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "enfornamento_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "Aguardando Inventário",
+            "Em Inventário",
+            "Inventário Parcial",
+            "Inventário Concluído",
+            "Divergência Encontrada",
+            "Aguardando Material",
+            "Material Bloqueado",
+            "Preparação em Andamento",
+            "Pronto para Enfornamento",
+            "Cancelado",
+            "Substituído por Nova Versão"
+          ]
+        },
+        {
+          "name": "orders_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_tons_required",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_pieces_required",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_pieces_inventoried",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergent_materials_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pending_materials_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ready_orders_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delay_risk_orders_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "generated_at",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "generated_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_updated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_updated_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notification_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_dispatch_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_sync_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_sync_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_mp_inv_code ON pcp_mp_inventory_orders (inventory_code)",
+        "CREATE UNIQUE INDEX idx_pcp_mp_inv_control ON pcp_mp_inventory_orders (control_key)",
+        "CREATE INDEX idx_pcp_mp_inv_date ON pcp_mp_inventory_orders (schedule_date)",
+        "CREATE INDEX idx_pcp_mp_inv_status ON pcp_mp_inventory_orders (status)"
+      ]
+    },
+    {
+      "name": "pcp_mp_inventory_items",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "inventory_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inventory_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_control_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "enfornamento_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expected_enfornamento_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "production_order",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "raw_material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "raw_material_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "produced_gauge_product",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "enfornamento_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_stock_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_requirement_tons",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_pieces_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_physical_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_warehouse",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_address",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_stock_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_material_blocked",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_material_located",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp07_inventoried_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp07_enfornamento_sequence",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dp07_observation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pcp_planned_sequence",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "pieces_divergence",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "Aguardando Inventário",
+            "Em Inventário",
+            "Inventário Parcial",
+            "Inventário Concluído",
+            "Divergência Encontrada",
+            "Aguardando Material",
+            "Material Bloqueado",
+            "Preparação em Andamento",
+            "Pronto para Enfornamento",
+            "Cancelado",
+            "Substituído por Nova Versão"
+          ]
+        },
+        {
+          "name": "responsible_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_at_timestamp",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_snapshot_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_snapshot_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cancelled_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ready_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_mp_items_inv ON pcp_mp_inventory_items (inventory_id)",
+        "CREATE UNIQUE INDEX idx_pcp_mp_items_ctrl ON pcp_mp_inventory_items (item_control_key)",
+        "CREATE INDEX idx_pcp_mp_items_order ON pcp_mp_inventory_items (production_order)",
+        "CREATE INDEX idx_pcp_mp_items_heat ON pcp_mp_inventory_items (heat_number)",
+        "CREATE INDEX idx_pcp_mp_items_status ON pcp_mp_inventory_items (status)"
+      ]
+    },
+    {
+      "name": "pcp_mp_inventory_occurrences",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "occurrence_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inventory_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inventory_item_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "production_order",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "raw_material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "heat_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "divergence_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "inventoried_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_pieces",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "wms_location",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dp07_observation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reported_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reported_at",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_mp_occ_code ON pcp_mp_inventory_occurrences (occurrence_code)",
+        "CREATE INDEX idx_pcp_mp_occ_inv ON pcp_mp_inventory_occurrences (inventory_id)",
+        "CREATE INDEX idx_pcp_mp_occ_item ON pcp_mp_inventory_occurrences (inventory_item_id)"
+      ]
+    },
+    {
+      "name": "pcp_mp_inventory_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "inventory_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inventory_item_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "event_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "schedule_version",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lead_time_seconds",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_mp_hist_inv ON pcp_mp_inventory_history (inventory_id)",
+        "CREATE INDEX idx_pcp_mp_hist_evt ON pcp_mp_inventory_history (event_type)"
+      ]
     }
   ]
 }
