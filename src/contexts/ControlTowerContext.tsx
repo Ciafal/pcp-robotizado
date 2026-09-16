@@ -334,31 +334,35 @@ export const ControlTowerProvider: React.FC<{
   const [orders, setOrders] = useState<ProductOrder[]>(mockCentralOrders)
 
   // Sincronização em tempo real das programações semanais publicadas/aprovadas da coleção weekly_schedules
-  // Restrita a rotas da Torre de Controle / Sequenciamento e adiada via requestIdleCallback/setTimeout
-  // para NUNCA travar nem abrir stream SSE bloqueante no primeiro tick ou na raiz ('/')
+  // Restrita EXCLUSIVAMENTE às rotas de sequenciamento e torre de controle:
+  // /pcp/sequenciamento*, /pcp-robotizado/torre-controle*, /pcp-robotizado/sequenciamento*
+  // NUNCA executada na raiz "/" ou no Cockpit Operacional PCP
   useEffect(() => {
-    // Não executa sincronização pesada na raiz ('/') ou no Cockpit
-    const isControlTowerOrSequencingRoute =
-      location.pathname.startsWith('/pcp/sequenciamento') ||
-      location.pathname.startsWith('/pcp-robotizado/torre-controle') ||
-      location.pathname.startsWith('/pcp-robotizado/sequenciamento')
+    const isTargetRoute = (pathname: string): boolean => {
+      return (
+        pathname.startsWith('/pcp/sequenciamento') ||
+        pathname.startsWith('/pcp-robotizado/torre-controle') ||
+        pathname.startsWith('/pcp-robotizado/sequenciamento')
+      )
+    }
 
-    if (!isControlTowerOrSequencingRoute) {
+    if (!isTargetRoute(location.pathname)) {
       return
     }
 
     let isSubscribed = true
     let unsubscribe: (() => void) | undefined
-    let idleHandle: number | undefined
-    let timerHandle: ReturnType<typeof setTimeout> | undefined
 
     const syncWeeklySchedulesToTower = async () => {
-      if (!isSubscribed) return
+      // Reavalia no momento da execução
+      const currentPath =
+        typeof window !== 'undefined' ? window.location.pathname : location.pathname
+      if (!isSubscribed || !isTargetRoute(currentPath)) return
       try {
         const records = await pb.collection('weekly_schedules').getFullList({
           sort: 'sequence_order',
         })
-        if (!isSubscribed) return
+        if (!isSubscribed || !isTargetRoute(currentPath)) return
         if (records && records.length > 0) {
           const syncedOrders: ProductOrder[] = records.map((r: any, idx: number) => {
             const planned = Number(r.planned_quantity_tons) || 100
@@ -369,7 +373,6 @@ export const ControlTowerProvider: React.FC<{
                 : r.status === 'EXECUTANDO'
                   ? Math.round(planned * 0.6)
                   : 0)
-            const prodHours = Number(r.production_hours) || 6
             const orderStatus: ProductOrder['status'] =
               r.status === 'EXECUTANDO'
                 ? 'IN_PRODUCTION'
@@ -439,18 +442,26 @@ export const ControlTowerProvider: React.FC<{
     }
 
     const initSubscription = () => {
-      if (!isSubscribed) return
+      // Condicionar a subscrição exclusivamente ao match de rota avaliado no MOMENTO DA CONEXÃO
+      const currentPath =
+        typeof window !== 'undefined' ? window.location.pathname : location.pathname
+      if (!isSubscribed || !isTargetRoute(currentPath)) return
+
       syncWeeklySchedulesToTower()
 
       try {
         pb.collection('weekly_schedules')
           .subscribe('*', () => {
-            if (isSubscribed) {
+            const activePath =
+              typeof window !== 'undefined' ? window.location.pathname : location.pathname
+            if (isSubscribed && isTargetRoute(activePath)) {
               syncWeeklySchedulesToTower()
             }
           })
           .then((unsub) => {
-            if (!isSubscribed) {
+            const activePath =
+              typeof window !== 'undefined' ? window.location.pathname : location.pathname
+            if (!isSubscribed || !isTargetRoute(activePath)) {
               unsub()
             } else {
               unsubscribe = unsub
@@ -464,25 +475,10 @@ export const ControlTowerProvider: React.FC<{
       }
     }
 
-    // CORREÇÃO 1: Adiar inscrição com requestIdleCallback (fallback setTimeout 1000ms)
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      idleHandle = (window as any).requestIdleCallback(initSubscription, { timeout: 1500 })
-    } else {
-      timerHandle = setTimeout(initSubscription, 1000)
-    }
+    initSubscription()
 
     return () => {
       isSubscribed = false
-      if (
-        idleHandle !== undefined &&
-        typeof window !== 'undefined' &&
-        'cancelIdleCallback' in window
-      ) {
-        ;(window as any).cancelIdleCallback(idleHandle)
-      }
-      if (timerHandle !== undefined) {
-        clearTimeout(timerHandle)
-      }
       if (unsubscribe) {
         unsubscribe()
       }

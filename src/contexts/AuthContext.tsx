@@ -33,6 +33,9 @@ interface AuthContextType {
   refreshPermissions: () => Promise<void>
 }
 
+// Flag de módulo: auto-login só UMA vez por sessão de página
+let hasAttemptedAutoLogin = false
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -115,9 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async (options?: { force?: boolean }) => {
       const force = options?.force ?? false
 
-      // Se já houver uma requisição em andamento e não for forçada, reutiliza a promise existente (single-flight)
-      if (!force && inFlightPermissionsRef.current) {
-        return inFlightPermissionsRef.current
+      // Single-flight rigoroso: se auto-login ou permissões já estiverem em voo, não iniciar nova chamada
+      if (!force) {
+        if (isAutoLoggingInRef.current) {
+          return
+        }
+        if (inFlightPermissionsRef.current) {
+          return inFlightPermissionsRef.current
+        }
       }
 
       const executeLoad = async () => {
@@ -141,38 +149,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         try {
           if (!pb.authStore.isValid) {
-            // Tenta auto-login com usuário default CIAFAL se não houver sessão ativa (timeout máx 2,5s)
-            isAutoLoggingInRef.current = true
-            try {
-              await Promise.race([
-                pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
-                createTimeoutPromise(2500),
-              ])
-            } catch (loginErr) {
-              console.warn(
-                'Falha no auto-login CIAFAL (mantendo perfil de homologação em memória):',
-                loginErr,
-              )
-              // Em cold start sem sessão válida ou falha de auto-login, assume imediatamente o perfil padrão de homologação CIAFAL (PCP_ADMIN)
+            // Auto-login só UMA vez por sessão de página (hasAttemptedAutoLogin flag de módulo). Sem retry em loop.
+            if (!hasAttemptedAutoLogin) {
+              hasAttemptedAutoLogin = true
+              isAutoLoggingInRef.current = true
+              try {
+                await Promise.race([
+                  pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass'),
+                  createTimeoutPromise(2500),
+                ])
+              } catch (loginErr) {
+                console.warn(
+                  'Falha no auto-login CIAFAL (mantendo perfil de homologação em memória):',
+                  loginErr,
+                )
+                // Em cold start sem sessão válida ou falha de auto-login, assume imediatamente o perfil padrão de homologação CIAFAL (PCP_ADMIN)
+                if (!userRef.current || !pb.authStore.isValid) {
+                  setUser(defaultCiafalAdmin)
+                  setIsGlobal(true)
+                  setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
+                  setScopes([
+                    {
+                      id: 'scope-default-ciafal',
+                      scope_type: 'GLOBAL',
+                      target_id: 'ALL',
+                      target_name: 'Escopo Geral CIAFAL',
+                      active: true,
+                    },
+                  ])
+                  setAuthError(null)
+                  setIsLoading(false)
+                  return
+                }
+              } finally {
+                isAutoLoggingInRef.current = false
+              }
+            } else {
+              // Já tentou auto-login nesta sessão; manter perfil de homologação em memória sem bater na rede
               if (!userRef.current || !pb.authStore.isValid) {
                 setUser(defaultCiafalAdmin)
                 setIsGlobal(true)
                 setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
-                setScopes([
-                  {
-                    id: 'scope-default-ciafal',
-                    scope_type: 'GLOBAL',
-                    target_id: 'ALL',
-                    target_name: 'Escopo Geral CIAFAL',
-                    active: true,
-                  },
-                ])
                 setAuthError(null)
                 setIsLoading(false)
                 return
               }
-            } finally {
-              isAutoLoggingInRef.current = false
             }
           }
 
@@ -236,8 +257,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadPermissions()
 
     const unsubscribe = pb.authStore.onChange(() => {
-      // Ignora chamadas disparadas pelo onChange se um auto-login já estiver executando loadPermissions
-      if (isAutoLoggingInRef.current) {
+      // pb.authStore.onChange NÃO deve disparar auto-login nem fetch de permissões enquanto um já estiver em voo
+      if (isAutoLoggingInRef.current || inFlightPermissionsRef.current !== null) {
         return
       }
       loadPermissions()

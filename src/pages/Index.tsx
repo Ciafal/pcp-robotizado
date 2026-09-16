@@ -79,13 +79,21 @@ export default function Index() {
   const [loading, setLoading] = useState<boolean>(false)
   const [selectedLineFilter, setSelectedLineFilter] = useState<string>('ALL')
 
-  // Revalidação em background (stale-while-revalidate) sem bloquear o carregamento da página
-  const revalidateInBackground = async () => {
+  // Revalidação em background (stale-while-revalidate) com timeout curto individual (3000ms)
+  const withTimeout = <T,>(promise: Promise<T>, ms = 3000): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_EXCEEDED')), ms)),
+    ])
+
+  const revalidateInBackground = async (signal?: { aborted: boolean }) => {
     try {
       const [linesData, alertsData] = await Promise.allSettled([
-        authService.listProductionLines(),
-        authService.listAlerts(),
+        withTimeout(authService.listProductionLines(), 3000),
+        withTimeout(authService.listAlerts(), 3000),
       ])
+
+      if (signal?.aborted) return
 
       if (linesData.status === 'fulfilled' && linesData.value && linesData.value.length > 0) {
         setLines(linesData.value)
@@ -102,8 +110,8 @@ export default function Index() {
     setLoading(true)
     try {
       const [linesResult, alertsResult] = await Promise.allSettled([
-        authService.listProductionLines(),
-        authService.listAlerts(),
+        withTimeout(authService.listProductionLines(), 3000),
+        withTimeout(authService.listAlerts(), 3000),
       ])
 
       if (linesResult.status === 'fulfilled' && linesResult.value && linesResult.value.length > 0) {
@@ -128,7 +136,18 @@ export default function Index() {
   }
 
   useEffect(() => {
-    revalidateInBackground()
+    const signal = { aborted: false }
+    // Adiar revalidação com setTimeout(..., 1500) para não colidir com o mount inicial
+    const timer = setTimeout(() => {
+      if (!signal.aborted) {
+        revalidateInBackground(signal)
+      }
+    }, 1500)
+
+    return () => {
+      signal.aborted = true
+      clearTimeout(timer)
+    }
   }, [])
 
   // Linhas filtradas de acordo com o escopo do usuário e o filtro selecionado
