@@ -1325,7 +1325,7 @@ export class PcpMeetingFatia1Service {
       year: meeting.year,
       user_id: userContext.id,
       user_name: userContext.name,
-      action: 'PREVIA_ENVIADA_GRUPO_PCP',
+      action: 'ENVIO_PREVIA_GRUPO_PCP',
       target_object: 'pcp_meeting',
       new_value: 'PREVIA_ENVIADA',
       reason: `Prévia da ATA v${versao} registrada como enviada para ${finalDestinatarios.length} destinatários.`,
@@ -1378,7 +1378,41 @@ export class PcpMeetingFatia1Service {
     meetingId: string,
     userContext: { id?: string; name: string },
   ): Promise<PCPMeetingRecord> {
-    return await pcpMeetingFatia2Service.startMeeting(meetingId, userContext)
+    const meeting = await this.getMeetingById(meetingId)
+    if (!meeting) throw new Error('Reunião não encontrada')
+    if (meeting.status !== 'AGENDADA') {
+      throw new Error(
+        `Apenas reuniões com status AGENDADA podem ser iniciadas. Status atual: ${meeting.status}`,
+      )
+    }
+
+    const nowIso = new Date().toISOString()
+    const updated = await pb.collection('pcp_meeting').update<PCPMeetingRecord>(meetingId, {
+      status: 'EM_ANDAMENTO',
+      real_start_time: nowIso,
+      started_by_user: userContext.name,
+      version_lock: (meeting.version_lock || 0) + 1,
+      last_edited_by: userContext.name,
+      last_edited_at: nowIso,
+      recording_status: meeting.recording_status || 'INATIVO',
+      transcription_status: meeting.transcription_status || 'AGUARDANDO_INTEGRACAO',
+    })
+
+    await this.logAction({
+      meeting_id: meetingId,
+      meeting_code: meeting.meeting_code,
+      week: meeting.week,
+      year: meeting.year,
+      user_id: userContext.id,
+      user_name: userContext.name,
+      action: 'INICIO_REUNIAO',
+      target_object: 'pcp_meeting',
+      previous_value: 'AGENDADA',
+      new_value: 'EM_ANDAMENTO',
+      reason: `Reunião iniciada efetivamente às ${new Date().toLocaleTimeString('pt-BR')}`,
+    })
+
+    return updated
   }
 
   async confirmSchedule(
@@ -1437,7 +1471,7 @@ export class PcpMeetingFatia1Service {
       year: meeting.year,
       user_id: userContext.id,
       user_name: userContext.name,
-      action: 'AGENDAMENTO_CONFIRMADO',
+      action: 'CONFIRMACAO_AGENDAMENTO',
       target_object: 'pcp_meeting',
       previous_value: meeting.status,
       new_value: 'AGENDADA',
@@ -1579,7 +1613,9 @@ export class PcpMeetingFatia1Service {
     const person_email = data.person_email || data.email || ''
     const role_title = data.role_title || data.department || data.participant_type || ''
     const status = (data.status ||
-      (data.attendance_status === 'CONFIRMADO' ? 'CONFIRMOU' : 'CONVOCADO')) as ParticipantStatus
+      ((data.attendance_status as string) === 'CONFIRMADO'
+        ? 'CONFIRMOU'
+        : 'CONVOCADO')) as ParticipantStatus
 
     const payload: Omit<PCPMeetingParticipantRecord, 'id' | 'created' | 'updated'> = {
       meeting_id: data.meeting_id,

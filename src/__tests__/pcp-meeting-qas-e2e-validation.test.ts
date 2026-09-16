@@ -1,5 +1,5 @@
 /**
- * SUÍTE END-TO-END DE VALIDAÇÃO FUNCIONAL — REUNIÃO PCP NO QAS (35 PASSOS)
+ * QA REGRESSION RUNNER — SUÍTE END-TO-END DE VALIDAÇÃO FUNCIONAL — REUNIÃO PCP NO QAS (35 PASSOS)
  * Executa todos os passos solicitados no fluxo contra os serviços reais (pcpMeetingFatia1Service e pcpMeetingFatia2Service)
  * e o banco PocketBase em ambiente QAS/local.
  */
@@ -141,11 +141,11 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
     await pcpMeetingFatia1Service.updateAgendaItem(item2.id, { priority: 'ALTA' })
 
     // Reordenar os 3 itens: [item3, item1, item2]
-    await pcpMeetingFatia1Service.reorderAgendaItems(createdMeetingId, [
-      item3.id,
-      item1.id,
-      item2.id,
-    ])
+    await pcpMeetingFatia1Service.reorderAgendaItems(
+      createdMeetingId,
+      [item3.id, item1.id, item2.id],
+      userPcp,
+    )
 
     const reordered = await pcpMeetingFatia1Service.listAgendaItems(createdMeetingId)
     expect(reordered.length).toBe(3)
@@ -167,6 +167,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'LAMINACAO_1',
         responsible: 'Especialista PCP',
         deadline: '2025-09-25',
+        priority: 'ALTA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -183,6 +185,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'QUALIDADE',
         responsible: 'Metalurgia',
         deadline: '2025-09-19',
+        priority: 'MEDIA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -190,7 +194,7 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
     )
     await pcpMeetingFatia1Service.updatePendency(
       pend2.id,
-      { status: 'CONCLUIDA', resolution_notes: 'Concluído no teste QAS' },
+      { status: 'CONCLUIDA', last_update_note: 'Concluído no teste QAS' },
       userPcp,
     )
 
@@ -208,30 +212,33 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
   // --------------------------------------------------------------------------
   it('Passo 7: Completude da ATA - cálculo por seção e total reage dinamicamente aos campos', () => {
     const mockContent: AtaStructuredContent = {
-      template_id: 'sgq-std',
+      template_code: 'SGQ 8.1.001-R002',
+      template_revision: 8,
       secoes: {
         sec1: {
           id: 'sec1',
           nome: 'PCP',
-          obrigatoria: true,
-          peso: 50,
+          obrigatorio: true,
+          ordem: 1,
           itens: [
             {
               id: 'i1',
               topico: 'Carteira SDC',
               detalhes: 'Programação de laminados balanceada',
-              status_info: 'NORMAL',
+              status_info: 'MANTER',
               responsavel: 'PCP',
               origem: 'Plano Semanal',
             },
           ],
+          observacoes: 'Aderência validada',
         },
         sec2: {
           id: 'sec2',
           nome: 'Qualidade',
-          obrigatoria: true,
-          peso: 50,
+          obrigatorio: true,
+          ordem: 2,
           itens: [],
+          observacoes: '',
         },
       },
     }
@@ -288,7 +295,7 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
     )
 
     expect(sendResult.meeting.previa_enviada).toBe(true)
-    expect(sendResult.meeting.status_previa).toBe('ENVIADA')
+    expect(sendResult.meeting.status).toBe('PREVIA_ENVIADA')
     expect(sendResult.notificationStatus).toContain('DISPARO_REGISTRADO_SISTEMA')
 
     // Confirmar que o log foi gravado
@@ -323,16 +330,16 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
     const part1 = await pcpMeetingFatia1Service.addParticipant({
       meeting_id: createdMeetingId,
       user_id: 'usr-lam-01',
-      name: 'Supervisor Laminação',
-      email: 'laminacao@ciafal.com.br',
-      department: 'Laminacao',
+      person_name: 'Supervisor Laminação',
+      person_email: 'laminacao@ciafal.com.br',
+      role_title: 'Laminacao',
       area: 'LAMINACAO_1',
-      participant_type: 'TITULAR',
-      attendance_status: 'CONFIRMADO',
+      status: 'CONFIRMOU',
+      attendance_status: 'PRESENTE',
     })
 
     expect(part1.id).toBeDefined()
-    expect(part1.name).toBe('Supervisor Laminação')
+    expect(part1.person_name).toBe('Supervisor Laminação')
 
     const listParts = await pcpMeetingFatia1Service.listParticipants(createdMeetingId)
     expect(listParts.length).toBeGreaterThanOrEqual(1)
@@ -386,8 +393,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
       content.secoes.sec_pcp = {
         id: 'sec_pcp',
         nome: 'PCP',
-        obrigatoria: true,
-        peso: 100,
+        obrigatorio: true,
+        ordem: 1,
         itens: [],
       }
     }
@@ -396,11 +403,10 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
       id: 'live_item_1',
       topico: 'Ajuste de Carga L2',
       detalhes: 'Transferida carga de 250t para Laminação L1 devido a manutenção da gaiola',
-      status_info: 'NORMAL',
+      status_info: 'NOVA',
       responsavel: 'PCP Operacional',
       origem: 'Reunião ao Vivo',
     })
-
     const updatedAta = await pcpMeetingFatia2Service.updateLiveAtaContent(
       createdMeetingId,
       content,
@@ -449,6 +455,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'SUPPLY_CHAIN',
         responsible: 'Analista MP',
         deadline: '2025-09-22',
+        priority: 'CRITICA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -464,6 +472,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'MANUTENCAO',
         responsible: '',
         deadline: '2025-09-25',
+        priority: 'ALTA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -479,6 +489,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'SUPRIMENTOS',
         responsible: 'Comprador Aço',
         deadline: '',
+        priority: 'MEDIA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -695,7 +707,6 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         modality: 'PRESENCIAL',
         organizer: 'Coordenador PCP QAS',
         conductor: 'Especialista PCP',
-        secretary: 'Analista de Planejamento',
       },
       userPcp,
     )
@@ -710,6 +721,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'SUPPLY_CHAIN',
         responsible: 'Comprador',
         deadline: '2025-09-29',
+        priority: 'ALTA',
+        status: 'ABERTA',
         origin_week: 39,
         origin_year: 2025,
       },
@@ -725,6 +738,8 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
         area: 'SUPPLY_CHAIN',
         responsible: 'Comprador',
         deadline: '2025-09-20',
+        priority: 'ALTA',
+        status: 'ABERTA',
         origin_week: 38,
         origin_year: 2025,
       },
@@ -749,7 +764,7 @@ describe('VALIDAÇÃO FUNCIONAL END-TO-END DA REUNIÃO PCP NO QAS (35 PASSOS)', 
     // Conclui a pendência
     await pcpMeetingFatia1Service.updatePendency(
       openPendencyId,
-      { status: 'CONCLUIDA', resolution_notes: 'Resolvido no teste funcional' },
+      { status: 'CONCLUIDA', last_update_note: 'Resolvido no teste funcional' },
       userPcp,
     )
 
