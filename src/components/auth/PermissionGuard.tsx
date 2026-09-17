@@ -153,12 +153,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Determina permissão de forma resiliente:
   // Se can(permission) for verdadeiro, ou se effectiveRole conceder, ou se houver sessão ativa
   let hasPerm = can(permission)
-  if (!hasPerm && effectiveRole) {
-    const roleUpper = String(effectiveRole).toUpperCase()
-    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN') {
+  if (!hasPerm && (effectiveRole || user?.role)) {
+    const roleUpper = String(effectiveRole || user?.role).toUpperCase()
+    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN' || roleUpper === 'ADMINISTRADOR') {
       hasPerm = true
     } else {
-      const perms = authService.getPermissionsForRole(effectiveRole)
+      const perms = authService.getPermissionsForRole((effectiveRole || user?.role) as any)
       hasPerm = perms.includes(permission) || perms.includes('*')
     }
   }
@@ -210,6 +210,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Garantia adicional de exibição para Ficha Mestra
   if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+    return <>{children}</>
+  }
+
+  // Administrador geral e PCP_ADMIN nunca devem ser bloqueados
+  const currentRoleUpper = String(effectiveRole || user?.role || '').toUpperCase()
+  if (
+    currentRoleUpper === 'PCP_ADMIN' ||
+    currentRoleUpper === 'ADMIN' ||
+    currentRoleUpper === 'ADMINISTRADOR'
+  ) {
     return <>{children}</>
   }
 

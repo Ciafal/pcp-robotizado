@@ -1032,6 +1032,14 @@ export const App: React.FC = () => {
                         </PermissionGuard>
                       }
                     />
+                    <Route
+                      path="/pcp/configuracoes"
+                      element={<Navigate to="/pcp/admin/acessos" replace />}
+                    />
+                    <Route
+                      path="/pcp/configuracoes-acessos"
+                      element={<Navigate to="/pcp/admin/acessos" replace />}
+                    />
                     {/* Aliases e Redirecionamentos de Compatibilidade */}
                     <Route
                       path="/pcp-robotizado/programacoes"

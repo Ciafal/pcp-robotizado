@@ -319,8 +319,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const can = useCallback(
     (permissionKey: string): boolean => {
       if (!user) return false
-      // PCP_ADMIN tem acesso total a todas as permissões pcp.*
-      if (user.role === 'PCP_ADMIN') return true
+      const roleUpper = String(user.role || '').toUpperCase()
+      // Administrador geral e PCP_ADMIN têm acesso total a todas as permissões pcp.*
+      if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN' || roleUpper === 'ADMINISTRADOR')
+        return true
       return permissionKeys.has(permissionKey) || permissionKeys.has('*')
     },
     [user, permissionKeys],
@@ -346,7 +348,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasLineScope = useCallback(
     (lineId: string, lineCode?: string): boolean => {
       if (!user) return false
-      if (user.role === 'PCP_ADMIN' || isGlobal) return true
+      const roleUpper = String(user.role || '').toUpperCase()
+      if (
+        roleUpper === 'PCP_ADMIN' ||
+        roleUpper === 'ADMIN' ||
+        roleUpper === 'ADMINISTRADOR' ||
+        isGlobal
+      )
+        return true
 
       // 1. Verificar escopos diretos
       const inDirectScope = scopes.some((s) => {

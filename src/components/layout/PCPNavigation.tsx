@@ -1032,9 +1032,20 @@ export const PCPSidebar: React.FC = () => {
   // (b) Auto-expandir qualquer grupo que contenha a rota ativa
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
+    const currentPath = window.location?.pathname || ''
     officialNavGroups.forEach((g) => {
-      // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão
-      if (g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA') {
+      // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
+      const isGovernanceRoute =
+        g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
+        (currentPath.startsWith('/pcp/auditoria') ||
+          currentPath.startsWith('/pcp/motivos') ||
+          currentPath.startsWith('/pcp/integracoes') ||
+          currentPath.startsWith('/pcp/configuracoes') ||
+          currentPath.startsWith('/pcp/admin/acessos') ||
+          currentPath.startsWith('/pcp/status-homologacao') ||
+          currentPath.startsWith('/pcp/qualidade-dados'))
+
+      if (g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' || isGovernanceRoute) {
         initial[g.groupTitle] = false
       } else {
         initial[g.groupTitle] = true
@@ -1044,22 +1055,67 @@ export const PCPSidebar: React.FC = () => {
   })
 
   const toggleGroup = (groupTitle: string) => {
-    setCollapsedGroups((prev) => ({
-      ...prev,
-      [groupTitle]: !prev[groupTitle],
-    }))
+    const isGov =
+      groupTitle.toUpperCase().includes('INTEGRAÇÕES') ||
+      groupTitle.toUpperCase().includes('GOVERNANÇA')
+    const key = isGov ? 'INTEGRAÇÕES & GOVERNANÇA' : groupTitle
+    setCollapsedGroups((prev) => {
+      const current = prev[key] ?? (isGov ? false : true)
+      return {
+        ...prev,
+        [key]: !current,
+        ...(isGov
+          ? { 'INTEGRAÇÕES & GOVERNANÇA': !current, 'Integrações & Governança': !current }
+          : {}),
+      }
+    })
   }
 
-  // Auto-expandir o grupo do menu que contém a rota ativa (e garantir INTEGRAÇÕES & GOVERNANÇA expandido)
+  // Auto-expandir o grupo do menu que contém a rota ativa
+  // Suporte a rotas internas de governança (ex: /pcp/auditoria, /pcp/motivos, /pcp/motivos-justificativas, /pcp/integracoes, /pcp/configuracoes, /pcp/admin/acessos)
   useEffect(() => {
     officialNavGroups.forEach((group) => {
       const hasActiveItem = group.items.some((item) => {
         const itemCleanHref = item.href.split('?')[0]
         if (location.pathname === item.href || location.pathname === itemCleanHref) return true
         if (itemCleanHref !== '/pcp' && location.pathname.startsWith(itemCleanHref)) return true
+
+        // Casos especiais de alias para INTEGRAÇÕES & GOVERNANÇA
+        if (group.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA') {
+          if (
+            (itemCleanHref.includes('motivos') && location.pathname.startsWith('/pcp/motivos')) ||
+            (itemCleanHref.includes('auditoria') &&
+              location.pathname.startsWith('/pcp/auditoria')) ||
+            (itemCleanHref.includes('integracoes') &&
+              location.pathname.startsWith('/pcp/integracoes')) ||
+            (itemCleanHref.includes('acessos') &&
+              (location.pathname.startsWith('/pcp/admin') ||
+                location.pathname.startsWith('/pcp/configuracoes'))) ||
+            (itemCleanHref.includes('homologacao') &&
+              location.pathname.startsWith('/pcp/status-homologacao')) ||
+            (itemCleanHref.includes('qualidade-dados') &&
+              location.pathname.startsWith('/pcp/qualidade-dados'))
+          ) {
+            return true
+          }
+        }
+
         return false
       })
-      if (hasActiveItem) {
+
+      // Se a rota for interna de governança direta (/pcp/motivos, /pcp/configuracoes, etc.), força expansão
+      const isGovernanceDirect =
+        group.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
+        (location.pathname.startsWith('/pcp/auditoria') ||
+          location.pathname.startsWith('/pcp/motivos') ||
+          location.pathname.startsWith('/pcp/justificativas') ||
+          location.pathname.startsWith('/pcp/integracoes') ||
+          location.pathname.startsWith('/pcp/configuracoes') ||
+          location.pathname.startsWith('/pcp/admin/acessos') ||
+          location.pathname.startsWith('/pcp/status-homologacao') ||
+          location.pathname.startsWith('/pcp/qualidade-dados'))
+
+      if (hasActiveItem || isGovernanceDirect) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
             return { ...prev, [group.groupTitle]: false }
@@ -1071,7 +1127,10 @@ export const PCPSidebar: React.FC = () => {
   }, [location.pathname, location.search])
 
   return (
-    <aside className="w-[215px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none">
+    <aside
+      data-testid="pcp-sidebar"
+      className="w-[215px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none"
+    >
       {/* Topo do menu lateral */}
       <div className="p-3 border-b border-slate-200 bg-white">
         <div className="flex items-center gap-2">
@@ -1084,7 +1143,7 @@ export const PCPSidebar: React.FC = () => {
       </div>
 
       {/* Itens agrupados compactos */}
-      <nav className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2 text-xs">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar p-2 space-y-2 text-xs h-auto min-h-0">
         {officialNavGroups.map((group) => {
           // Por padrão todos iniciam contraídos (true)
           const isCollapsed = collapsedGroups[group.groupTitle] ?? true
@@ -1095,9 +1154,11 @@ export const PCPSidebar: React.FC = () => {
               className="space-y-0.5 border-b border-slate-100/60 pb-1.5 last:border-0"
             >
               <div
+                data-testid={`nav-group-header-${group.groupTitle}`}
                 onClick={() => toggleGroup(group.groupTitle)}
                 className="px-2 py-1.5 text-[9px] font-black tracking-widest uppercase flex items-center justify-between select-none cursor-pointer text-slate-700 hover:text-[#004C97] hover:bg-slate-100/70 rounded transition-colors"
                 role="button"
+                aria-expanded={!isCollapsed}
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -1125,7 +1186,10 @@ export const PCPSidebar: React.FC = () => {
               </div>
 
               {!isCollapsed && (
-                <div className="space-y-0.5 pl-0.5">
+                <div
+                  data-testid={`nav-group-items-${group.groupTitle}`}
+                  className="space-y-0.5 pl-0.5 h-auto min-h-fit opacity-100 visible"
+                >
                   {group.items.map((item) => {
                     const ItemIcon = item.icon
                     // Identifica seleção ativa
@@ -1159,9 +1223,16 @@ export const PCPSidebar: React.FC = () => {
                                           ? location.pathname === '/pcp/analise-carteira/importado'
                                           : item.href === '/pcp/analise-carteira/sdc'
                                             ? location.pathname === '/pcp/analise-carteira/sdc'
-                                            : location.pathname === item.href ||
-                                              (item.href.includes('?') &&
-                                                location.pathname + location.search === item.href)
+                                            : item.href === '/pcp/motivos-justificativas'
+                                              ? location.pathname.startsWith('/pcp/motivos') ||
+                                                location.pathname.startsWith('/pcp/justificativas')
+                                              : item.href === '/pcp/admin/acessos'
+                                                ? location.pathname.startsWith('/pcp/admin') ||
+                                                  location.pathname.startsWith('/pcp/configuracoes')
+                                                : location.pathname === item.href ||
+                                                  (item.href.includes('?') &&
+                                                    location.pathname + location.search ===
+                                                      item.href)
 
                     const navLink = (
                       <Link

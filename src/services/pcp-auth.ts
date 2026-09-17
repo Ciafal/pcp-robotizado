@@ -78,7 +78,7 @@ export const authService = {
    */
   getPermissionsForRole(role: string): string[] {
     const roleUpper = (role || '').toUpperCase()
-    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN') {
+    if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN' || roleUpper === 'ADMINISTRADOR') {
       return [
         'pcp.schedule.view',
         'pcp.schedule.create',
@@ -97,11 +97,14 @@ export const authService = {
         'pcp.integrations.view',
         'pcp.integrations.manage',
         'pcp.integrations.reconcile',
+        'pcp.integration.view',
+        'pcp.integration.manage',
         'pcp.audit.view',
         'pcp.rules.view',
         'pcp.rules.edit',
         'pcp.security.manage',
         'pcp.admin.manage',
+        'pcp.admin.access',
         'pcp.approval.view',
         'pcp.approval.decide',
         'pcp.masterplan.overview',
@@ -138,6 +141,7 @@ export const authService = {
       return [
         'pcp.audit.view',
         'pcp.integrations.view',
+        'pcp.integration.view',
         'pcp.schedule.view',
         'pcp.masterdata.view',
         'pcp.quality.view',
@@ -150,6 +154,7 @@ export const authService = {
         'pcp.schedule.view',
         'pcp.audit.view',
         'pcp.integrations.view',
+        'pcp.integration.view',
         'pcp.masterplan.overview',
         'pcp.inventory.overview',
         'pcp.quality.view',
@@ -175,7 +180,10 @@ export const authService = {
         'pcp.mp_opt.simulate',
         'pcp.masterdata.view',
         'pcp.integrations.view',
+        'pcp.integration.view',
         'pcp.audit.view',
+        'pcp.admin.manage',
+        'pcp.admin.access',
         'pcp.rules.view',
         'pcp.quality.view',
         'pcp.meeting.view',

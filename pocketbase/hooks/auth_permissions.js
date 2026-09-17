@@ -237,6 +237,18 @@ routerAdd(
           'pcp.weekly_schedule.edit',
           'pcp.approval.view',
           'pcp.carteira.view',
+          'pcp.integrations.view',
+          'pcp.audit.view',
+          'pcp.admin.manage',
+          'pcp.admin.access',
+        ],
+        AUDITOR: [
+          'pcp.schedule.view',
+          'pcp.audit.view',
+          'pcp.integrations.view',
+          'pcp.masterdata.view',
+          'pcp.quality.view',
+          'pcp.carteira.view',
         ],
         LINE_MANAGER: [
           'pcp.schedule.view',
