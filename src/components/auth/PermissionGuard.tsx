@@ -227,16 +227,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // Administrador geral e PCP_ADMIN nunca devem ser bloqueados
-  const currentRoleUpper = String(effectiveRole || user?.role || '').toUpperCase()
-  if (
-    currentRoleUpper === 'PCP_ADMIN' ||
-    currentRoleUpper === 'ADMIN' ||
-    currentRoleUpper === 'ADMINISTRADOR'
-  ) {
-    return <>{children}</>
-  }
-
   if (!hasPerm || !hasScope) {
     return (
       <div className="min-h-[65vh] flex items-center justify-center p-6 bg-slate-50/80">
