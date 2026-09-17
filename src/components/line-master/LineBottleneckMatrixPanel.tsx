@@ -497,13 +497,13 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
           </div>
         </CardHeader>
 
-        {/* CARDS DE RESUMO (GRID RESPONSIVO 4 -> 2 -> 1, sem textos cortados nem sobrepostos) */}
+        {/* CARDS DE RESUMO (GRID RESPONSIVO E AUTO-AJUSTÁVEL: 4 -> 2 -> 1, sem sobreposição nem cortes) */}
         <CardContent className="p-4 bg-slate-50/70 border-b border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 min-w-0">
             {/* Card 1: MATRIZ SELECIONADA */}
-            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5">
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
+                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5 truncate">
                   1. Matriz Selecionada
                 </span>
                 <div
@@ -516,36 +516,36 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                       : 'Matriz de Referência')}
                 </div>
               </div>
-              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium min-w-0">
                 <span>Revisão:</span>
                 <Badge
                   variant="outline"
-                  className="font-mono text-xs font-bold text-slate-700 bg-slate-50 border-slate-300"
+                  className="font-mono text-xs font-bold text-slate-700 bg-slate-50 border-slate-300 shrink-0"
                 >
                   Rev.{selectedMatrix?.version || 1}
                 </Badge>
               </div>
             </div>
 
-            {/* Card 2: EMPRESA & WERKS SAP */}
-            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider">
-                    2. Empresa & WERKS SAP
+            {/* Card 2: EMPRESA / PLANTA SAP */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
+                  <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider truncate">
+                    2. Empresa / Planta SAP
                   </span>
                   <Badge
                     variant="outline"
-                    className="font-mono text-xs text-[#004C97] border-blue-200 bg-blue-50/50 font-bold px-1.5 py-0"
+                    className="font-mono text-[11px] text-[#004C97] border-blue-200 bg-blue-50/50 font-bold px-1.5 py-0 shrink-0"
                   >
                     WERKS: {currentWerks}
                   </Badge>
                 </div>
-                <div className="mt-1">
+                <div className="mt-1 min-w-0">
                   <select
                     value={selectedCompany}
                     onChange={(e) => setSelectedCompany(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-800 font-bold focus:ring-1 focus:ring-[#004C97] outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-800 font-bold focus:ring-1 focus:ring-[#004C97] outline-none truncate"
                   >
                     <option value="CIAFAL">CIAFAL (WERKS 1001 — CFPL)</option>
                     <option value="KS-FERRADURA">KS - Ferradura (WERKS 2001)</option>
@@ -554,39 +554,51 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                   </select>
                 </div>
               </div>
-              <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between min-w-0">
                 <span>Planta:</span>
-                <strong className="text-slate-700 font-semibold">{selectedCompany}</strong>
+                <strong className="text-slate-700 font-semibold truncate ml-1">
+                  {selectedCompany}
+                </strong>
               </div>
             </div>
 
-            {/* Card 3: PLANEJADOR MRP / SAP MARC-DISPO */}
-            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between relative">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider whitespace-nowrap">
-                    3. Planejador MRP / SAP MARC-DISPO
-                  </span>
-                  {selectedControllerCode ? (
-                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-mono px-1.5 py-0">
-                      Associado
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-amber-700 border-amber-300 text-[10px] px-1.5 py-0"
+            {/* Card 3: PLANEJADOR MRP (Zero Sobreposição — Título simplificado, Origem como secundária, Badge dentro do card) */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between relative min-w-0">
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-1.5 mb-1.5 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className="text-slate-400 block text-xs uppercase font-bold tracking-wider truncate"
+                      title="3. PLANEJADOR MRP"
                     >
-                      Não Definido
-                    </Badge>
-                  )}
+                      3. Planejador MRP
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium block truncate">
+                      Origem: SAP MARC-DISPO
+                    </span>
+                  </div>
+                  <div className="shrink-0">
+                    {selectedControllerCode ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-mono px-1.5 py-0.5 whitespace-nowrap">
+                        Associado
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-700 border-amber-300 bg-amber-50/50 text-[10px] font-semibold px-1.5 py-0.5 whitespace-nowrap"
+                      >
+                        Não Definido
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-1 text-xs space-y-1">
+                <div className="mt-1 text-xs space-y-1 min-w-0">
                   {selectedControllerCode ? (
                     <>
-                      <div className="text-xs text-slate-800 leading-snug">
-                        <span className="text-slate-500 font-medium">Código: </span>
-                        <strong className="font-mono text-slate-900 font-bold">
+                      <div className="text-xs text-slate-800 leading-snug flex items-baseline gap-1 min-w-0">
+                        <span className="text-slate-500 font-medium shrink-0">Código: </span>
+                        <strong className="font-mono text-slate-900 font-bold truncate">
                           {selectedControllerCode}
                         </strong>
                       </div>
@@ -594,22 +606,18 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                         className="text-xs text-slate-800 leading-snug truncate"
                         title={selectedControllerDesc || 'Sem descrição'}
                       >
-                        <span className="text-slate-500 font-medium">Descrição: </span>
+                        <span className="text-slate-500 font-medium shrink-0">Descrição: </span>
                         <span className="font-semibold text-slate-700">
                           {selectedControllerDesc || 'Planejador Cadastrado'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        <span>Origem: </span>
-                        <strong className="text-[#004C97]">SAP MARC-DISPO</strong>
-                      </div>
                     </>
                   ) : (
-                    <div className="py-0.5">
-                      <span className="text-xs text-amber-700 font-semibold block">
+                    <div className="py-0.5 space-y-0.5 min-w-0">
+                      <span className="text-xs text-amber-700 font-semibold block truncate">
                         Não definido
                       </span>
-                      <span className="text-[11px] text-slate-500 block">
+                      <span className="text-[11px] text-slate-500 block truncate">
                         Origem: SAP MARC-DISPO
                       </span>
                     </div>
@@ -618,13 +626,13 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               </div>
 
               {/* Dropdown / Botão Selecionar Planejador */}
-              <div className="mt-2.5 pt-2 border-t border-slate-100 relative">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 relative min-w-0">
                 <button
                   type="button"
                   onClick={() => setIsControllerDropdownOpen(!isControllerDropdownOpen)}
-                  className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-xs text-left font-semibold text-slate-800 flex items-center justify-between transition-colors"
+                  className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-left font-semibold text-slate-800 flex items-center justify-between transition-colors min-w-0 h-8"
                 >
-                  <span className="truncate">
+                  <span className="truncate pr-1">
                     {selectedControllerCode
                       ? `Alterar: ${selectedControllerCode}`
                       : 'Selecionar Planejador...'}
@@ -637,7 +645,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 </button>
 
                 {isControllerDropdownOpen && (
-                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[280px]">
+                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[280px] max-w-[340px]">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                       <Input
@@ -687,16 +695,16 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                                   : 'text-slate-800'
                               }`}
                             >
-                              <div>
-                                <span className="block font-mono text-xs">
+                              <div className="min-w-0 flex-1 pr-1">
+                                <span className="block font-mono text-xs truncate">
                                   {sapMrpService.formatMrpControllerDisplay(c)}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[10px] text-slate-400 truncate block">
                                   Origem: {c.origin_source || 'SAP_RFC'} &bull; WERKS {c.werks}{' '}
                                   &bull; {c.materials_count || 0} materiais
                                 </span>
                               </div>
-                              {isSelected && <Check className="w-4 h-4 text-[#004C97]" />}
+                              {isSelected && <Check className="w-4 h-4 text-[#004C97] shrink-0" />}
                             </div>
                           )
                         })
@@ -708,14 +716,14 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
             </div>
 
             {/* Card 4: VIGÊNCIA & STATUS */}
-            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5">
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
+                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5 truncate">
                   4. Vigência & Status
                 </span>
-                <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5 mt-1">
+                <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5 mt-1 min-w-0">
                   <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span className="font-mono text-xs text-slate-900">
+                  <span className="font-mono text-xs text-slate-900 truncate">
                     {selectedMatrix?.valid_from
                       ? new Date(selectedMatrix.valid_from).toLocaleDateString('pt-BR')
                       : '01/01/2026'}{' '}
@@ -727,17 +735,17 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 </div>
               </div>
 
-              <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1 text-xs">
-                <div className="flex items-center justify-between">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1 text-xs min-w-0">
+                <div className="flex items-center justify-between gap-1 min-w-0">
                   <span className="text-slate-500 font-medium">Status:</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold px-1.5 py-0">
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold px-1.5 py-0 shrink-0">
                     {selectedMatrix?.status || 'VIGENTE'}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1 min-w-0">
                   <span className="text-slate-500 font-medium">Homologação:</span>
                   <span
-                    className={`font-semibold text-xs ${
+                    className={`font-semibold text-xs shrink-0 ${
                       selectedMatrix?.is_homologated !== false ? 'text-[#004C97]' : 'text-amber-700'
                     }`}
                   >
@@ -770,17 +778,17 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               )}
             </div>
 
-            {/* Ações: Atualizar SAP, Simular Offline e Salvar Associação */}
-            <div className="flex items-center gap-2">
+            {/* Ações: Atualizar SAP, Simular Offline e Salvar Associação (Alinhamento e altura estrita h-8) */}
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => handleSyncSap(false)}
                 disabled={isSyncingSap}
-                className="h-8 text-xs border-slate-300 text-[#004C97] hover:bg-blue-50 font-semibold"
+                className="h-8 text-xs border-slate-300 text-[#004C97] hover:bg-blue-50 font-semibold px-3"
                 title="Sincronizar Planejadores MRP no SAP ECC via RFC"
               >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isSyncingSap ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncingSap ? 'animate-spin' : ''}`} />
                 Atualizar SAP
               </Button>
 
@@ -790,7 +798,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 variant="ghost"
                 onClick={() => handleSyncSap(true)}
                 disabled={isSyncingSap}
-                className="h-8 text-[11px] text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                className="h-8 text-xs text-slate-600 hover:text-rose-600 hover:bg-rose-50 font-medium px-2.5"
                 title="Testar resiliência com simulação de SAP Indisponível"
               >
                 Simular Offline
@@ -800,7 +808,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 size="sm"
                 onClick={handleSaveAssociation}
                 disabled={isSavingAssociation}
-                className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1.5 shadow-xs"
+                className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1.5 shadow-xs px-3"
               >
                 <Save className="w-3.5 h-3.5" />
                 {isSavingAssociation ? 'Salvando...' : 'Salvar Associação'}

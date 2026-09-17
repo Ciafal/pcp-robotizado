@@ -248,8 +248,8 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border-slate-200">
-        <DialogHeader className="border-b border-slate-100 pb-3">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-white border-slate-200">
+        <DialogHeader className="border-b border-slate-100 p-4 pb-3 shrink-0">
           <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Plus className="w-4 h-4 text-[#004C97]" />
             Nova Matriz de Referência Técnica
@@ -260,7 +260,7 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 text-xs">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
           {/* Nome da Matriz */}
           <div className="space-y-1">
             <Label className="text-xs font-bold text-slate-700">
@@ -448,13 +448,13 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
           )}
         </div>
 
-        <DialogFooter className="border-t border-slate-100 pt-3 flex items-center justify-between">
+        <DialogFooter className="border-t border-slate-100 p-3 bg-slate-50 shrink-0 flex items-center justify-between">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={saving}
-            className="h-8 text-xs text-slate-600"
+            className="h-8 text-xs text-slate-600 font-semibold"
           >
             Cancelar
           </Button>

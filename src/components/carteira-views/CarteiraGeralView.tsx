@@ -167,23 +167,23 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 min-w-0">
         <div
           onClick={() => {
             setFiltroSaldo('TODOS')
             setFiltroTipo('TODOS')
             setFiltroRuptura('TODOS')
           }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
             Carteira Total
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-slate-900">
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-slate-900 truncate">
               {totalCarteiraTons.toFixed(1)}
             </strong>
-            <span className="text-xs font-semibold text-slate-500">t</span>
+            <span className="text-xs font-semibold text-slate-500 shrink-0">t</span>
           </div>
         </div>
 
@@ -191,16 +191,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           onClick={() => {
             setFiltroSaldo('POSITIVO')
           }}
-          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block">
+          <span className="text-[10px] uppercase font-bold text-emerald-700 block truncate">
             Saldo Positivo (+)
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700">
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700 truncate">
               +{totalSaldoPositivoTons.toFixed(1)}
             </strong>
-            <span className="text-xs font-semibold text-emerald-600">t</span>
+            <span className="text-xs font-semibold text-emerald-600 shrink-0">t</span>
           </div>
         </div>
 
@@ -208,16 +208,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           onClick={() => {
             setFiltroSaldo('NEGATIVO')
           }}
-          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block">
+          <span className="text-[10px] uppercase font-bold text-rose-700 block truncate">
             Saldo Negativo (-)
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700 truncate">
               {totalSaldoNegativoTons.toFixed(1)}
             </strong>
-            <span className="text-xs font-semibold text-rose-600">t</span>
+            <span className="text-xs font-semibold text-rose-600 shrink-0">t</span>
           </div>
         </div>
 
@@ -225,16 +225,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           onClick={() => {
             setFiltroTipo('MTO')
           }}
-          className="p-3 bg-white rounded-xl border border-purple-200 hover:border-purple-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-purple-200 hover:border-purple-400 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-purple-700 block">
+          <span className="text-[10px] uppercase font-bold text-purple-700 block truncate">
             MTO a Produzir
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-purple-800">
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-purple-800 truncate">
               {totalMtoProduzir.toFixed(1)}
             </strong>
-            <span className="text-xs font-semibold text-purple-600">t</span>
+            <span className="text-xs font-semibold text-purple-600 shrink-0">t</span>
           </div>
         </div>
 
@@ -242,16 +242,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           onClick={() => {
             setFiltroRuptura('VERMELHO')
           }}
-          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-amber-400 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-amber-400 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-amber-700 block">
+          <span className="text-[10px] uppercase font-bold text-amber-700 block truncate">
             Risco Ruptura
           </span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-amber-800">
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-amber-800 truncate">
               {itensRuptura}
             </strong>
-            <span className="text-xs font-semibold text-amber-600">itens</span>
+            <span className="text-xs font-semibold text-amber-600 shrink-0">itens</span>
           </div>
         </div>
 
@@ -259,14 +259,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           onClick={() => {
             setSearchTerm('')
           }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all"
+          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all min-w-0"
         >
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Duplicidades</span>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            <strong className="text-base sm:text-lg font-bold font-mono text-blue-900">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
+            Duplicidades
+          </span>
+          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
+            <strong className="text-base sm:text-lg font-bold font-mono text-blue-900 truncate">
               {itensDuplicidade}
             </strong>
-            <span className="text-xs font-semibold text-slate-500">alertas</span>
+            <span className="text-xs font-semibold text-slate-500 shrink-0">alertas</span>
           </div>
         </div>
       </div>

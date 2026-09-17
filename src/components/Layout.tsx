@@ -14,14 +14,14 @@ export const Layout: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white">
       {/* Barra de carregamento discreta no topo (não obstrutiva) */}
       {isLoading && (
-        <div className="w-full bg-blue-100 h-1 overflow-hidden sticky top-0 z-50">
+        <div className="w-full bg-blue-100 h-1 overflow-hidden">
           <div className="bg-[#004C97] h-full w-1/3 animate-pulse transition-all duration-300" />
         </div>
       )}
 
       {/* Banner amigável de reconexão sem desmontar a navegação */}
       {authError && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-900 sticky top-0 z-40">
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-900">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>{authError}</span>
@@ -39,9 +39,9 @@ export const Layout: React.FC = () => {
       )}
 
       <PCPNavbar />
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-w-0">
         <PCPSidebar />
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-50">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-50 min-w-0">
           <Outlet />
         </main>
       </div>

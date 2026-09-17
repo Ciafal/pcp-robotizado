@@ -648,6 +648,233 @@ export const CiafalTooltip: React.FC<{
   )
 }
 
+/* =========================================================================================
+ * 7. COMPONENTES PADRONIZADOS DE LAYOUT E RESPONSIVIDADE (REQUISITOS GLOBAIS PCP)
+ * ========================================================================================= */
+
+export type StatusBadgeVariant =
+  | 'VIGENTE'
+  | 'HOMOLOGADA'
+  | 'NAO_HOMOLOGADA'
+  | 'NAO_DEFINIDO'
+  | 'ATIVO'
+  | 'INATIVO'
+  | 'ERRO'
+  | 'ALERTA'
+  | 'REVISAO'
+  | 'RASCUNHO'
+  | 'SUCESSO'
+
+export interface ResponsiveStatusBadgeProps {
+  status: StatusBadgeVariant | string
+  label?: string
+  className?: string
+  size?: 'sm' | 'md'
+}
+
+export const ResponsiveStatusBadge: React.FC<ResponsiveStatusBadgeProps> = ({
+  status,
+  label,
+  className = '',
+  size = 'sm',
+}) => {
+  const norm = String(status || '')
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+
+  let style = 'bg-slate-100 text-slate-700 border-slate-300'
+  let display = label || status
+
+  if (norm === 'VIGENTE' || norm === 'ATIVO' || norm === 'SUCESSO') {
+    style = 'bg-emerald-50 text-emerald-800 border-emerald-300'
+    display = label || (norm === 'VIGENTE' ? 'VIGENTE' : norm === 'ATIVO' ? 'ATIVO' : 'SUCESSO')
+  } else if (norm === 'HOMOLOGADA') {
+    style = 'bg-blue-50 text-[#004C97] border-blue-200'
+    display = label || 'HOMOLOGADA'
+  } else if (norm === 'NAO_HOMOLOGADA' || norm === 'NÃO_HOMOLOGADA') {
+    style = 'bg-amber-100 text-amber-800 border-amber-300'
+    display = label || 'NÃO HOMOLOGADA'
+  } else if (norm === 'NAO_DEFINIDO' || norm === 'NÃO_DEFINIDO') {
+    style = 'bg-amber-50 text-amber-800 border-amber-300'
+    display = label || 'NÃO DEFINIDO'
+  } else if (norm === 'ERRO' || norm === 'INATIVO' || norm === 'BLOQUEADO') {
+    style = 'bg-rose-50 text-rose-800 border-rose-300'
+    display = label || (norm === 'ERRO' ? 'ERRO' : norm === 'INATIVO' ? 'INATIVO' : 'BLOQUEADO')
+  } else if (norm === 'ALERTA' || norm === 'ATENCAO') {
+    style = 'bg-amber-50 text-amber-800 border-amber-300'
+    display = label || 'ALERTA'
+  } else if (
+    norm === 'REVISAO' ||
+    norm === 'REVISÃO' ||
+    norm === 'EM_REVISAO' ||
+    norm === 'RASCUNHO'
+  ) {
+    style = 'bg-slate-100 text-slate-700 border-slate-300'
+    display = label || (norm === 'RASCUNHO' ? 'RASCUNHO' : 'REVISÃO')
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className={`font-semibold shrink-0 whitespace-nowrap leading-none transition-colors max-w-full truncate ${style} ${
+        size === 'sm' ? 'text-[11px] px-2 py-0.5' : 'text-xs px-2.5 py-1'
+      } ${className}`}
+    >
+      {display}
+    </Badge>
+  )
+}
+
+export interface ResponsiveCardProps {
+  title?: ReactNode
+  subtitle?: ReactNode
+  badge?: ReactNode
+  actions?: ReactNode
+  footer?: ReactNode
+  className?: string
+  contentClassName?: string
+  headerClassName?: string
+  children: ReactNode
+}
+
+export const ResponsiveCard: React.FC<ResponsiveCardProps> = ({
+  title,
+  subtitle,
+  badge,
+  actions,
+  footer,
+  className = '',
+  contentClassName = '',
+  headerClassName = '',
+  children,
+}) => {
+  return (
+    <div
+      className={`bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between overflow-hidden min-w-0 transition-shadow ${className}`}
+    >
+      {(title || badge || actions) && (
+        <div
+          className={`p-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 min-w-0 ${headerClassName}`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              {typeof title === 'string' ? (
+                <h3 className="font-bold text-slate-900 text-sm leading-snug break-words">
+                  {title}
+                </h3>
+              ) : (
+                title
+              )}
+              {badge}
+            </div>
+            {subtitle && (
+              <div className="text-xs text-slate-500 mt-0.5 leading-snug break-words">
+                {subtitle}
+              </div>
+            )}
+          </div>
+          {actions && <div className="shrink-0 flex items-center gap-1.5">{actions}</div>}
+        </div>
+      )}
+
+      <div className={`p-3.5 min-w-0 flex-1 ${contentClassName}`}>{children}</div>
+
+      {footer && (
+        <div className="p-3 bg-slate-50/70 border-t border-slate-100 text-xs text-slate-600 min-w-0">
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export interface ResponsiveGridProps {
+  columns?: 2 | 3 | 4 | 5 | 6
+  minColWidth?: string
+  gap?: string
+  className?: string
+  children: ReactNode
+}
+
+export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
+  columns = 4,
+  minColWidth = '280px',
+  gap = 'gap-3',
+  className = '',
+  children,
+}) => {
+  // Configuração por repeat(auto-fit, minmax(...)) ou classes Tailwind balanceadas
+  const colClass =
+    columns === 4
+      ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+      : columns === 3
+        ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+        : columns === 2
+          ? 'grid grid-cols-1 md:grid-cols-2'
+          : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'
+
+  return <div className={`${colClass} ${gap} min-w-0 ${className}`}>{children}</div>
+}
+
+export interface SAPFieldProps {
+  label: string
+  code?: string | null
+  description?: string | null
+  origin?: string
+  statusBadge?: ReactNode
+  action?: ReactNode
+  className?: string
+}
+
+export const SAPField: React.FC<SAPFieldProps> = ({
+  label,
+  code,
+  description,
+  origin = 'SAP MARC-DISPO',
+  statusBadge,
+  action,
+  className = '',
+}) => {
+  return (
+    <div className={`space-y-1.5 text-xs min-w-0 ${className}`}>
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <span className="text-slate-400 block text-[11px] uppercase font-bold tracking-wider truncate">
+          {label}
+        </span>
+        {statusBadge}
+      </div>
+
+      <div className="min-w-0 space-y-0.5">
+        {code ? (
+          <>
+            <div className="text-xs text-slate-800 leading-snug flex items-baseline gap-1 min-w-0">
+              <span className="text-slate-500 font-medium shrink-0">Código:</span>
+              <strong className="font-mono text-slate-900 font-bold truncate">{code}</strong>
+            </div>
+            {description && (
+              <div className="text-xs text-slate-700 leading-snug truncate" title={description}>
+                <span className="text-slate-500 font-medium shrink-0">Descrição: </span>
+                <span className="font-semibold">{description}</span>
+              </div>
+            )}
+            <div className="text-[11px] text-slate-500 flex items-center gap-1 min-w-0">
+              <span className="shrink-0">Origem:</span>
+              <strong className="text-[#004C97] truncate">{origin}</strong>
+            </div>
+          </>
+        ) : (
+          <div className="py-0.5">
+            <span className="text-xs text-amber-700 font-semibold block">Não definido</span>
+            <span className="text-[11px] text-slate-500 block">Origem: {origin}</span>
+          </div>
+        )}
+      </div>
+
+      {action && <div className="pt-1.5">{action}</div>}
+    </div>
+  )
+}
+
 export const CiafalKPI = CiafalKPICard
 export const CiafalBreadcrumb = CiafalPageHeader
 export {

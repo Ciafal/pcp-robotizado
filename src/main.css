@@ -106,6 +106,33 @@
     padding: 0 !important;
     margin: 0 !important;
   }
+
+  /* Regras Globais de Tipografia e Prevenção de Quebras Inadequadas */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  /* Badges não devem quebrar termos técnicos nem estourar os limites */
+  [data-badge],
+  .badge-compact {
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Tabelas devem sempre manter scroll horizontal estritamente interno */
+  .table-responsive-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @layer utilities {

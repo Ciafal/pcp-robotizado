@@ -53,9 +53,9 @@ export const CentralSequenciamentoLayout: React.FC = () => {
   return (
     <ErrorBoundary moduleName="Central de Sequenciamento">
       <div className="space-y-4">
-        {/* Sub-navegação interna rápida da Central — Padrão CIAFAL Claro */}
-        <div className="w-full max-w-full sticky top-16 z-20 mb-4 pb-1">
-          <div className="relative w-full max-w-full bg-white/95 backdrop-blur border border-slate-200/80 rounded-lg shadow-xs px-2 py-1.5 before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-4 before:bg-gradient-to-r before:from-white/95 before:to-transparent before:pointer-events-none before:z-10 after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-4 after:bg-gradient-to-l after:from-white/95 after:to-transparent after:pointer-events-none after:z-10">
+        {/* Sub-navegação interna rápida da Central — Padrão CIAFAL Claro (Fluxo normal sem sticky/fixed) */}
+        <div className="w-full max-w-full mb-4 pb-1">
+          <div className="relative w-full max-w-full bg-white border border-slate-200/80 rounded-lg shadow-xs px-2 py-1.5 before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-4 before:bg-gradient-to-r before:from-white before:to-transparent before:pointer-events-none before:z-10 after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-4 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none after:z-10">
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 max-w-full">
               <Link
                 ref={(el) => {

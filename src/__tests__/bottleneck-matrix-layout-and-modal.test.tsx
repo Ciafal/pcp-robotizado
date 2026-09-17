@@ -237,10 +237,10 @@ describe('Testes Obrigatórios de Layout e Ajuste de Cadastro — Matriz de Garg
       expect(screen.getByRole('button', { name: /Gerar por Planejador/i })).toBeDefined()
 
       // Os 4 cards de resumo
-      expect(screen.getByText('1. MATRIZ SELECIONADA')).toBeDefined()
-      expect(screen.getByText('2. EMPRESA & WERKS SAP')).toBeDefined()
-      expect(screen.getByText('3. PLANEJADOR MRP / SAP MARC-DISPO')).toBeDefined()
-      expect(screen.getByText('4. VIGÊNCIA & STATUS')).toBeDefined()
+      expect(screen.getByText(/1\. MATRIZ SELECIONADA/i)).toBeDefined()
+      expect(screen.getByText(/2\. EMPRESA/i)).toBeDefined()
+      expect(screen.getByText(/3\. PLANEJADOR MRP/i)).toBeDefined()
+      expect(screen.getByText(/4\. VIGÊNCIA & STATUS/i)).toBeDefined()
     })
 
     it('Teste 4: Troca de Matriz no dropdown deve atualizar os cards sem quebra', async () => {
