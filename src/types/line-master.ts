@@ -764,7 +764,6 @@ export interface CompletenessItem {
     masterSubTab?:
       | 'CAPACITY'
       | 'SHIFTS_CREWS'
-      | 'MATRIZ_GARGALOS'
       | 'PRODUCTIVITY'
       | 'RAW_MATERIALS'
       | 'BLOCKED'

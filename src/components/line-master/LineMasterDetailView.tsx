@@ -269,7 +269,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [masterSubTab, setMasterSubTab] = useState<
     | 'CAPACITY'
     | 'SHIFTS_CREWS'
-    | 'MATRIZ_GARGALOS'
     | 'PRODUCTIVITY'
     | 'RAW_MATERIALS'
     | 'BLOCKED'
@@ -2007,19 +2006,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <Button
               size="sm"
-              variant={masterSubTab === 'MATRIZ_GARGALOS' ? 'default' : 'ghost'}
-              onClick={() => setMasterSubTab('MATRIZ_GARGALOS')}
-              className={`text-xs h-7 gap-1 font-bold ${
-                masterSubTab === 'MATRIZ_GARGALOS'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-rose-700 hover:bg-rose-50'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" /> Matriz de Gargalos Integrada
-            </Button>
-
-            <Button
-              size="sm"
               variant={masterSubTab === 'PRODUCTIVITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PRODUCTIVITY')}
               className={`text-xs h-7 gap-1 font-bold ${
@@ -2109,11 +2095,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               shiftCrews={overview.shiftCrews || []}
               onRefresh={onRefresh}
             />
-          )}
-
-          {/* Sub-aba: Matriz de Gargalos */}
-          {masterSubTab === 'MATRIZ_GARGALOS' && (
-            <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
           )}
 
           {/* Sub-aba: Paradas Programadas */}
