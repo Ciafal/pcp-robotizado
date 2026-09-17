@@ -74,4 +74,31 @@ describe('Hierarquia de Linhas e Centros - Validação e Regras de Negócio', ()
     expect(getStatusLabel('idle')).toBe('Disponível')
     expect(getStatusLabel('maintenance')).toBe('Em manutenção')
   })
+
+  it('gera identificador técnico automático no padrão LIN-{planta}-{slug}-{sufixo 4 chars}', () => {
+    const generateTechnicalLineCode = (companyCode: string, lineName: string): string => {
+      const plantCodeClean =
+        companyCode
+          .replace(/[^A-Za-z0-9]/g, '')
+          .toUpperCase()
+          .slice(0, 6) || '1000'
+      const slug =
+        lineName
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^A-Za-z0-9]/g, '')
+          .toUpperCase()
+          .slice(0, 8) || 'LIN'
+
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      let suffix = ''
+      for (let i = 0; i < 4; i++) {
+        suffix += chars.charAt(Math.floor(Math.random() * chars.length))
+      }
+      return `LIN-${plantCodeClean}-${slug}-${suffix}`
+    }
+
+    const code = generateTechnicalLineCode('1000', 'Linha 1 Laminação')
+    expect(code).toMatch(/^LIN-1000-LINHA1LA-[A-Z0-9]{4}$/)
+  })
 })

@@ -107,7 +107,6 @@ export default function LineCapacitiesSubpage() {
   const [creatingLine, setCreatingLine] = useState(false)
   const [createForm, setCreateForm] = useState({
     companyId: '',
-    code: '',
     name: '',
     description: '',
     status: 'ACTIVE', // Ativa / Inativa
@@ -452,7 +451,6 @@ export default function LineCapacitiesSubpage() {
     setCreateFieldError(null)
     setCreateForm({
       companyId: companies.length > 0 ? companies[0].id : '',
-      code: '',
       name: '',
       description: '',
       status: 'ACTIVE',
@@ -460,17 +458,45 @@ export default function LineCapacitiesSubpage() {
     setIsCreateModalOpen(true)
   }
 
+  // Gera identificador técnico automático no formato LIN-{planta}-{slug da linha}-{sufixo 4 chars}
+  const generateTechnicalLineCode = (companyId: string, lineName: string): string => {
+    const targetComp = companies.find((c) => c.id === companyId)
+    const plantForComp = plants.find((p) => p.company_id === companyId)
+
+    // Planta: code ou fallback WERKS
+    const plantCodeRaw =
+      (targetComp as any)?.sap_company_code || targetComp?.code || plantForComp?.code || '1000'
+    const plantCodeClean =
+      plantCodeRaw
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 6) || '1000'
+
+    // Slug simples do nome da linha (maiúsculo, sem acentos, caracteres alfanuméricos)
+    const slug =
+      lineName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 8) || 'LIN'
+
+    // Sufixo aleatório de 4 caracteres alfanuméricos (ex.: A7K2)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    let suffix = ''
+    for (let i = 0; i < 4; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+
+    return `LIN-${plantCodeClean}-${slug}-${suffix}`
+  }
+
   const handleCreateLine = async (e: React.FormEvent) => {
     e.preventDefault()
     setCreateFieldError(null)
 
-    const trimmedCode = createForm.code.trim().toUpperCase()
     const trimmedName = createForm.name.trim()
 
-    if (!trimmedCode) {
-      setCreateFieldError('O código interno da linha é obrigatório (ex.: L1, L2, L3).')
-      return
-    }
     if (!trimmedName) {
       setCreateFieldError('O nome oficial da linha é obrigatório.')
       return
@@ -480,26 +506,17 @@ export default function LineCapacitiesSubpage() {
       return
     }
 
-    // Validação de unicidade no banco: Empresa + Código
-    // Primeiro verifica no estado local e depois consulta o banco
-    const targetComp = companies.find((c) => c.id === createForm.companyId)
-    const compName = targetComp?.name || targetComp?.code || 'Empresa selecionada'
+    // Gerar identificador técnico automaticamente no formato LIN-{planta}-{slug}-{sufixo 4 chars}
+    let generatedCode = generateTechnicalLineCode(createForm.companyId, trimmedName)
 
-    const existingInLocal = hierarchyLines.find(
-      (l) => l.companyId === createForm.companyId && l.code.toUpperCase() === trimmedCode,
-    )
-    if (existingInLocal) {
-      setCreateFieldError(
-        `A linha com código "${trimmedCode}" já está cadastrada na empresa ${compName}.`,
-      )
-      return
-    }
-
-    // Checagem global de código duplicado na coleção production_lines (unique index)
-    const existingCodeGlobally = lines.find((l) => l.code.toUpperCase() === trimmedCode)
-    if (existingCodeGlobally) {
-      setCreateFieldError(`O código "${trimmedCode}" já está em uso na malha industrial.`)
-      return
+    // Garantir unicidade contra linhas existentes
+    let attempts = 0
+    while (
+      lines.some((l) => l.code.toUpperCase() === generatedCode.toUpperCase()) &&
+      attempts < 10
+    ) {
+      generatedCode = generateTechnicalLineCode(createForm.companyId, trimmedName)
+      attempts++
     }
 
     setCreatingLine(true)
@@ -509,7 +526,7 @@ export default function LineCapacitiesSubpage() {
 
       // Payload estritamente compatível com o schema de production_lines
       const payload: Partial<ProductionLine> = {
-        code: trimmedCode,
+        code: generatedCode,
         name: trimmedName,
         description: createForm.description.trim() || `Linha Produtiva ${trimmedName}`,
         status: 'idle',
@@ -537,6 +554,7 @@ export default function LineCapacitiesSubpage() {
 
       // Auditoria em try/catch isolada em pcp_audit_logs
       try {
+        const targetComp = companies.find((c) => c.id === createForm.companyId)
         const currentUser = pb.authStore.record || pb.authStore.model
         await pb.collection('pcp_audit_logs').create({
           user_id: currentUser?.id || null,
@@ -562,7 +580,6 @@ export default function LineCapacitiesSubpage() {
       } catch (auditErr) {
         console.warn('Auditoria em pcp_audit_logs falhou (não bloqueante):', auditErr)
       }
-
       // Toast somente após confirmação real
       toast({
         title: 'Sucesso',
@@ -652,13 +669,10 @@ export default function LineCapacitiesSubpage() {
     if (!editingLineStruct) return
     setEditFieldError(null)
 
-    const trimmedCode = editForm.code.trim().toUpperCase()
+    // Código readOnly no modal de edição preserva o código existente
+    const trimmedCode = (editForm.code || editingLineStruct.code).trim().toUpperCase()
     const trimmedName = editForm.name.trim()
 
-    if (!trimmedCode) {
-      setEditFieldError('O código interno da linha é obrigatório.')
-      return
-    }
     if (!trimmedName) {
       setEditFieldError('O nome oficial da linha é obrigatório.')
       return
@@ -1103,10 +1117,15 @@ export default function LineCapacitiesSubpage() {
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 bg-blue-950/80 rounded border border-blue-400/30 text-cyan-200">
-                        {lineStruct.companyCode} &rarr; {lineStruct.code}
-                      </span>
+                      {/* Nome Oficial da Linha em Destaque Principal */}
                       <h2 className="text-base font-black text-white">{lineStruct.name}</h2>
+                      {/* Identificador Técnico como tag discreta secundária */}
+                      <span
+                        className="text-[11px] font-mono font-medium px-2 py-0.5 bg-slate-900/60 rounded border border-slate-700 text-slate-300"
+                        title="Identificador técnico da linha na malha industrial"
+                      >
+                        {lineStruct.companyCode} &bull; {lineStruct.code}
+                      </span>
                       {lineStruct.isActive ? (
                         <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
                           Ativa
@@ -1124,7 +1143,6 @@ export default function LineCapacitiesSubpage() {
                     )}
                   </div>
                 </div>
-
                 {/* Ações do Card de Linha: [ Editar Linha ] [ + Adicionar Centro à Linha ] [ Salvar Sequência ] */}
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -1357,25 +1375,6 @@ export default function LineCapacitiesSubpage() {
               </Select>
             </div>
 
-            {/* Código Interno da Linha * */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">
-                Código Interno da Linha <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                value={createForm.code}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))
-                }
-                placeholder="Ex.: L1, L2, L3, LINHA-PERFIS"
-                className="text-xs h-9 uppercase font-mono"
-                required
-              />
-              <span className="text-[11px] text-slate-400">
-                Código único de identificação na malha industrial da empresa.
-              </span>
-            </div>
-
             {/* Nome Oficial da Linha * */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
@@ -1388,8 +1387,10 @@ export default function LineCapacitiesSubpage() {
                 className="text-xs h-9"
                 required
               />
+              <span className="text-[11px] text-slate-400">
+                O identificador técnico será gerado automaticamente (ex.: LIN-1000-LAM-A7K2).
+              </span>
             </div>
-
             {/* Descrição (opcional) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
@@ -1533,19 +1534,18 @@ export default function LineCapacitiesSubpage() {
                     </Select>
                   </div>
 
-                  {/* Código */}
+                  {/* Código Interno (readOnly informativo) */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-700">Código Interno *</Label>
+                    <Label className="text-xs font-semibold text-slate-700">
+                      Identificador Técnico (Código)
+                    </Label>
                     <Input
                       value={editForm.code}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))
-                      }
-                      className="text-xs h-9 uppercase font-mono bg-white"
-                      required
+                      readOnly
+                      className="text-xs h-9 uppercase font-mono bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200"
+                      title="Identificador gerado automaticamente no padrão LIN-{planta}-{slug}-{sufixo}"
                     />
                   </div>
-
                   {/* Nome Oficial */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-slate-700">Nome Oficial *</Label>

@@ -262,6 +262,12 @@ export const lineMasterService = {
       'shifts_count',
     ])
 
+    const relationFields = new Set<keyof ProductionLine>([
+      'plant_id',
+      'manager_user_id',
+      'pcp_programmer_user_id',
+    ])
+
     const sanitizeNumber = (val: unknown): number | null => {
       if (val === '' || val === null || val === undefined) return null
       const n = Number(val)
@@ -279,6 +285,14 @@ export const lineMasterService = {
             sanitizedPayload[key] = numVal
           }
           // Quando nulo, OMITIR a chave do payload (nunca enviar "" e nunca enviar string)
+        } else if (relationFields.has(key)) {
+          // Campos relacionais do PocketBase: nunca enviar "" (string vazia causa erro 400).
+          // Se string vazia ou nulo/indefinido, enviar null se a intenção for desvincular ou omitir se indefinido.
+          if (rawVal === '' || rawVal === null) {
+            sanitizedPayload[key] = null
+          } else if (typeof rawVal === 'string' && rawVal.trim()) {
+            sanitizedPayload[key] = rawVal.trim()
+          }
         } else if (key === 'is_active') {
           sanitizedPayload[key] = Boolean(rawVal)
         } else if (
@@ -291,8 +305,8 @@ export const lineMasterService = {
             const trimmed = rawVal.trim()
             if (trimmed !== '') {
               sanitizedPayload[key] = trimmed
-            } else if (key === 'sap_work_center') {
-              // Campos opcionais de texto vazios são omitidos
+            } else if (key === 'sap_work_center' || key === 'process') {
+              sanitizedPayload[key] = ''
             } else {
               sanitizedPayload[key] = trimmed
             }
@@ -707,12 +721,25 @@ export const lineMasterService = {
     data: Partial<LineManagerAssignment>,
   ): Promise<LineManagerAssignment> {
     invalidateCompletenessCache(data.line_id)
+
+    // Sanitização de campos relacionais e vazios
+    const cleanPayload: Record<string, unknown> = { ...data }
+    if (cleanPayload.user_id === '') cleanPayload.user_id = null
+    if (cleanPayload.line_id === '') cleanPayload.line_id = null
+
+    // Remover chaves com valor undefined
+    Object.keys(cleanPayload).forEach((k) => {
+      if (cleanPayload[k] === undefined) delete cleanPayload[k]
+    })
+
     if (data.id) {
       return await pb
         .collection('line_managers_assignment')
-        .update<LineManagerAssignment>(data.id, data)
+        .update<LineManagerAssignment>(data.id, cleanPayload)
     }
-    return await pb.collection('line_managers_assignment').create<LineManagerAssignment>(data)
+    return await pb
+      .collection('line_managers_assignment')
+      .create<LineManagerAssignment>(cleanPayload)
   },
 
   async deleteManagerAssignment(id: string): Promise<boolean> {
@@ -724,10 +751,23 @@ export const lineMasterService = {
   // ==========================================
   async saveApprover(data: Partial<LineApproverMatrix>): Promise<LineApproverMatrix> {
     invalidateCompletenessCache(data.line_id)
+
+    // Sanitização de campos relacionais e vazios
+    const cleanPayload: Record<string, unknown> = { ...data }
+    if (cleanPayload.user_id === '') cleanPayload.user_id = null
+    if (cleanPayload.substitute_user_id === '') cleanPayload.substitute_user_id = null
+    if (cleanPayload.line_id === '') cleanPayload.line_id = null
+
+    Object.keys(cleanPayload).forEach((k) => {
+      if (cleanPayload[k] === undefined) delete cleanPayload[k]
+    })
+
     if (data.id) {
-      return await pb.collection('line_approvers_matrix').update<LineApproverMatrix>(data.id, data)
+      return await pb
+        .collection('line_approvers_matrix')
+        .update<LineApproverMatrix>(data.id, cleanPayload)
     }
-    return await pb.collection('line_approvers_matrix').create<LineApproverMatrix>(data)
+    return await pb.collection('line_approvers_matrix').create<LineApproverMatrix>(cleanPayload)
   },
 
   async deleteApprover(id: string): Promise<boolean> {
@@ -1923,21 +1963,70 @@ export const lineMasterService = {
       invalidateCompletenessCache(data.line_id)
     }
 
+    // Sanitização de números
+    const sanitizeNumber = (val: unknown): number | null => {
+      if (val === '' || val === null || val === undefined) return null
+      const n = Number(val)
+      return isNaN(n) ? null : n
+    }
+
     // Sanitiza e garante campos obrigatórios e válidos da Ficha Mestre
-    const sanitizedData: Partial<LineMaster> = {
+    const sanitizedData: Record<string, unknown> = {
       ...data,
       change_reason: (
         data.change_reason || 'Atualização de parâmetros cadastrais via HUB CIAFAL'
       ).trim(),
     }
 
+    // Sanitização de campos relacionais: nunca enviar string vazia para relacionamentos do PocketBase
+    const relationalKeys = [
+      'line_id',
+      'primary_responsible_id',
+      'substitute_responsible_id',
+      'upstream_line_id',
+      'downstream_line_id',
+      'author_id',
+    ]
+    for (const rKey of relationalKeys) {
+      if (rKey in sanitizedData) {
+        const val = sanitizedData[rKey]
+        if (val === '' || val === null) {
+          sanitizedData[rKey] = null
+        }
+      }
+    }
+
     // Validação de tipos numéricos
-    if (sanitizedData.nominal_hourly_capacity !== undefined) {
-      sanitizedData.nominal_hourly_capacity = Number(sanitizedData.nominal_hourly_capacity) || 0.1
+    if ('nominal_hourly_capacity' in sanitizedData) {
+      const parsed = sanitizeNumber(sanitizedData.nominal_hourly_capacity)
+      if (parsed !== null) sanitizedData.nominal_hourly_capacity = parsed
+      else delete sanitizedData.nominal_hourly_capacity
     }
-    if (sanitizedData.planned_efficiency_pct !== undefined) {
-      sanitizedData.planned_efficiency_pct = Number(sanitizedData.planned_efficiency_pct) || 90
+    if ('planned_efficiency_pct' in sanitizedData) {
+      const parsed = sanitizeNumber(sanitizedData.planned_efficiency_pct)
+      if (parsed !== null) sanitizedData.planned_efficiency_pct = parsed
+      else delete sanitizedData.planned_efficiency_pct
     }
+    if ('nominal_shift_capacity' in sanitizedData) {
+      const parsed = sanitizeNumber(sanitizedData.nominal_shift_capacity)
+      if (parsed !== null) sanitizedData.nominal_shift_capacity = parsed
+      else delete sanitizedData.nominal_shift_capacity
+    }
+    if ('nominal_daily_capacity' in sanitizedData) {
+      const parsed = sanitizeNumber(sanitizedData.nominal_daily_capacity)
+      if (parsed !== null) sanitizedData.nominal_daily_capacity = parsed
+      else delete sanitizedData.nominal_daily_capacity
+    }
+    if ('nominal_monthly_capacity' in sanitizedData) {
+      const parsed = sanitizeNumber(sanitizedData.nominal_monthly_capacity)
+      if (parsed !== null) sanitizedData.nominal_monthly_capacity = parsed
+      else delete sanitizedData.nominal_monthly_capacity
+    }
+
+    // Limpar campos undefined
+    Object.keys(sanitizedData).forEach((k) => {
+      if (sanitizedData[k] === undefined) delete sanitizedData[k]
+    })
 
     if (data.id) {
       return await pb.collection('line_masters').update<LineMaster>(data.id, sanitizedData)

@@ -884,6 +884,9 @@ export default function LineMasterPage() {
           ) {
             await loadLineOverview(updatedLine.id)
           }
+          if (updatedLine) {
+            setLineEditTarget(updatedLine)
+          }
         }}
       />
 

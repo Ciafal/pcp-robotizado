@@ -56,26 +56,26 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 }) => {
   const { toast } = useToast()
 
-  // Form states
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [isActive, setIsActive] = useState<boolean>(true)
-  const [companyId, setCompanyId] = useState<string>('')
-  const [hierarchyLineId, setHierarchyLineId] = useState<string>('')
-  const [programmingType, setProgrammingType] = useState<ProgrammingType>('Laminação')
-  const [processName, setProcessName] = useState<string>('')
-  const [hierarchyDescription, setHierarchyDescription] = useState<string>(
-    'Não alocado em uma linha',
-  )
-  const [sapPlantCode, setSapPlantCode] = useState('1000')
-  const [sapWorkCenter, setSapWorkCenter] = useState('')
-  const [nominalCapacity, setNominalCapacity] = useState<number>(12)
-  const [capacityUnit, setCapacityUnit] = useState<string>('t/h')
-  const [efficiency, setEfficiency] = useState<number>(90)
-  const [primaryManagerId, setPrimaryManagerId] = useState<string>('')
-  const [substituteManagerId, setSubstituteManagerId] = useState<string>('')
-  const [pcpApproverId, setPcpApproverId] = useState<string>('')
-  const [lineApproverId, setLineApproverId] = useState<string>('')
+  // Unified form state
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    isActive: true,
+    companyId: '',
+    hierarchyLineId: '',
+    programmingType: 'Laminação' as ProgrammingType,
+    processName: '',
+    hierarchyDescription: 'Não alocado em uma linha',
+    sapPlantCode: '1000',
+    sapWorkCenter: '',
+    nominalCapacity: 12,
+    capacityUnit: 't/h',
+    efficiency: 90,
+    primaryManagerId: '',
+    substituteManagerId: '',
+    pcpApproverId: '',
+    lineApproverId: '',
+  })
 
   // Collections state
   const [availableCompanies, setAvailableCompanies] = useState<
@@ -104,27 +104,30 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     if (!open || !line) return
 
     setValidationErrors({})
-    setName(line.name || '')
-    setCode(line.code || '')
-    setIsActive(line.is_active !== false)
-    setProgrammingType((line.programming_type as ProgrammingType) || 'Laminação')
-    setProcessName(line.process || '')
-    setSapPlantCode(line.sap_plant_code || '1000')
-    setSapWorkCenter(line.sap_work_center || '')
-    setNominalCapacity(Number(line.nominal_capacity || line.current_rate || 12))
-    setCapacityUnit(line.capacity_unit || 't/h')
-    setEfficiency(Number(line.efficiency || 90))
-    setPrimaryManagerId(line.manager_user_id || '')
-    setSubstituteManagerId('')
-    setPcpApproverId(line.pcp_programmer_user_id || '')
-    setLineApproverId('')
-
-    // Determina a Hierarquia da Linha a partir dos vínculos
     let hierarchyText = 'Não alocado em uma linha'
     if (line.plant) {
       hierarchyText = line.plant
     }
-    setHierarchyDescription(hierarchyText)
+
+    setFormData({
+      name: line.name || '',
+      code: line.code || '',
+      isActive: line.is_active !== false,
+      companyId: '',
+      hierarchyLineId: '',
+      programmingType: (line.programming_type as ProgrammingType) || 'Laminação',
+      processName: line.process || '',
+      hierarchyDescription: hierarchyText,
+      sapPlantCode: line.sap_plant_code || '1000',
+      sapWorkCenter: line.sap_work_center || '',
+      nominalCapacity: Number(line.nominal_capacity || line.current_rate || 12),
+      capacityUnit: line.capacity_unit || 't/h',
+      efficiency: Number(line.efficiency || 90),
+      primaryManagerId: line.manager_user_id || '',
+      substituteManagerId: '',
+      pcpApproverId: line.pcp_programmer_user_id || '',
+      lineApproverId: '',
+    })
 
     setShowDeactivateConfirm(false)
     setFutureSchedulesCount(null)
@@ -185,13 +188,6 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         const overview = await lineMasterService.getLineOverview(line.id)
         if (overview.master) {
           setActiveMasterRecord(overview.master)
-          if (overview.master.sap_plant_code) setSapPlantCode(overview.master.sap_plant_code)
-          if (overview.master.nominal_hourly_capacity) {
-            setNominalCapacity(overview.master.nominal_hourly_capacity)
-          }
-          if (overview.master.capacity_unit) {
-            setCapacityUnit(overview.master.capacity_unit)
-          }
         }
 
         // Tentar resolver Empresa e Linha Produtiva a partir do registro real
@@ -256,9 +252,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           }
         }
 
-        if (detectedCompanyId) setCompanyId(detectedCompanyId)
-        if (detectedHierarchyLineId) setHierarchyLineId(detectedHierarchyLineId)
-
+        let updatedHierarchyDesc = hierarchyText
         // Identificar vínculo hierárquico se houver predecessor/sequenciamento
         if (overview.sequencing && overview.sequencing.length > 0) {
           const firstSeq = overview.sequencing[0]
@@ -266,35 +260,55 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           const next = firstSeq.expand?.next_line_id
           const orderStr = String(firstSeq.sequence_order).padStart(2, '0')
           if (prev) {
-            setHierarchyDescription(`CIAFAL → ${prev.code} → posição ${orderStr}`)
+            updatedHierarchyDesc = `CIAFAL → ${prev.code} → posição ${orderStr}`
           } else if (next) {
-            setHierarchyDescription(`CIAFAL → ${next.code} → posição ${orderStr}`)
+            updatedHierarchyDesc = `CIAFAL → ${next.code} → posição ${orderStr}`
           } else {
-            setHierarchyDescription(`CIAFAL → ${line.code} (posição ${orderStr})`)
+            updatedHierarchyDesc = `CIAFAL → ${line.code} (posição ${orderStr})`
           }
         } else if (line.code === 'ENF_L1') {
-          setHierarchyDescription('CIAFAL → L1 → posição 01')
+          updatedHierarchyDesc = 'CIAFAL → L1 → posição 01'
         } else if (line.code === 'L1') {
-          setHierarchyDescription('CIAFAL → L1 (Linha Principal)')
+          updatedHierarchyDesc = 'CIAFAL → L1 (Linha Principal)'
         } else if (line.code === 'ACAB_L2' || line.code === 'L2' || line.code === 'ENDIR') {
-          setHierarchyDescription(`CIAFAL → L2 → ${line.code}`)
+          updatedHierarchyDesc = `CIAFAL → L2 → ${line.code}`
         }
+
+        let resolvedPrimaryMgr = line.manager_user_id || ''
+        let resolvedSubstituteMgr = ''
         if (overview.managers && overview.managers.length > 0) {
           setManagerAssignments(overview.managers)
           const primary = overview.managers.find((m) => m.responsibility_type === 'PRIMARY_MANAGER')
           const substitute = overview.managers.find(
             (m) => m.responsibility_type === 'SUBSTITUTE_MANAGER',
           )
-          if (primary?.user_id) setPrimaryManagerId(primary.user_id)
-          if (substitute?.user_id) setSubstituteManagerId(substitute.user_id)
+          if (primary?.user_id) resolvedPrimaryMgr = primary.user_id
+          if (substitute?.user_id) resolvedSubstituteMgr = substitute.user_id
         }
+
+        let resolvedPcpApp = line.pcp_programmer_user_id || ''
+        let resolvedLineApp = ''
         if (overview.approvers && overview.approvers.length > 0) {
           setApproversList(overview.approvers)
           const pcp = overview.approvers.find((a) => a.approval_type === 'PCP_APPROVAL')
           const lm = overview.approvers.find((a) => a.approval_type === 'LINE_MANAGER_APPROVAL')
-          if (pcp?.user_id) setPcpApproverId(pcp.user_id)
-          if (lm?.user_id) setLineApproverId(lm.user_id)
+          if (pcp?.user_id) resolvedPcpApp = pcp.user_id
+          if (lm?.user_id) resolvedLineApp = lm.user_id
         }
+
+        setFormData((prev) => ({
+          ...prev,
+          sapPlantCode: overview.master?.sap_plant_code || prev.sapPlantCode,
+          nominalCapacity: overview.master?.nominal_hourly_capacity ?? prev.nominalCapacity,
+          capacityUnit: overview.master?.capacity_unit || prev.capacityUnit,
+          companyId: detectedCompanyId || prev.companyId,
+          hierarchyLineId: detectedHierarchyLineId || prev.hierarchyLineId,
+          hierarchyDescription: updatedHierarchyDesc,
+          primaryManagerId: resolvedPrimaryMgr,
+          substituteManagerId: resolvedSubstituteMgr,
+          pcpApproverId: resolvedPcpApp,
+          lineApproverId: resolvedLineApp,
+        }))
       } catch (err) {
         console.warn('Erro ao carregar contexto detalhado da linha para edição:', err)
       } finally {
@@ -309,7 +323,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const handleStatusChange = async (targetActive: boolean) => {
     if (!line) return
 
-    if (!targetActive && isActive) {
+    if (!targetActive && formData.isActive) {
       // Trying to deactivate: check future schedules count first
       setCheckingFutureSchedules(true)
       try {
@@ -338,12 +352,12 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       }
     } else {
       // Re-activating: directly set state
-      setIsActive(targetActive)
+      setFormData((prev) => ({ ...prev, isActive: targetActive }))
     }
   }
 
   const handleConfirmDeactivation = () => {
-    setIsActive(false)
+    setFormData((prev) => ({ ...prev, isActive: false }))
     setShowDeactivateConfirm(false)
   }
 
@@ -353,24 +367,24 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     const errors: Record<string, string> = {}
 
     // Validações obrigatórias com exibição explícita junto aos campos
-    if (!code.trim()) {
+    if (!formData.code.trim()) {
       errors.code = 'Informe o código identificador do centro (ex.: L1, L2, ENF_L1).'
     }
 
-    if (!name.trim()) {
+    if (!formData.name.trim()) {
       errors.name = 'Informe o nome oficial do centro de produção.'
     }
 
-    const numCapacity = Number(nominalCapacity)
+    const numCapacity = Number(formData.nominalCapacity)
     if (isNaN(numCapacity) || numCapacity <= 0) {
       errors.nominalCapacity = 'A capacidade nominal horária deve ser maior que zero.'
     }
 
     const isCodeDuplicate = existingLines.some(
-      (l) => l.id !== line.id && l.code.toUpperCase() === code.trim().toUpperCase(),
+      (l) => l.id !== line.id && l.code.toUpperCase() === formData.code.trim().toUpperCase(),
     )
     if (isCodeDuplicate) {
-      errors.code = `Já existe outra linha cadastrada com o código ${code.trim().toUpperCase()}.`
+      errors.code = `Já existe outra linha cadastrada com o código ${formData.code.trim().toUpperCase()}.`
     }
 
     if (Object.keys(errors).length > 0) {
@@ -386,7 +400,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     setValidationErrors({})
 
     // If changing to inactive, verify future schedules again as safety
-    if (line.is_active !== false && !isActive) {
+    if (line.is_active !== false && !formData.isActive) {
       try {
         const count = await lineMasterService.checkFutureSchedulesCount(line.code)
         if (count > 0) {
@@ -412,100 +426,118 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
     try {
       // 1. Atualiza dados estritos do centro de produção com getOne de confirmação
-      const parsedCapacity = sanitizeNumber(nominalCapacity) ?? 0.1
-      const parsedEfficiency = sanitizeNumber(efficiency) ?? 90
+      const parsedCapacity = sanitizeNumber(formData.nominalCapacity) ?? 0.1
+      const parsedEfficiency = sanitizeNumber(formData.efficiency) ?? 90
 
       const lineUpdatePayload: Partial<ProductionLine> = {
-        name: name.trim(),
-        code: code.trim().toUpperCase(),
-        is_active: isActive,
-        programming_type: programmingType,
-        process: processName.trim(),
-        sap_work_center: sapWorkCenter.trim() || undefined,
+        name: formData.name.trim(),
+        code: formData.code.trim().toUpperCase(),
+        is_active: formData.isActive,
+        programming_type: formData.programmingType,
+        process: formData.processName.trim(),
+        sap_work_center: formData.sapWorkCenter.trim() || undefined,
         current_rate: parsedCapacity,
         nominal_capacity: parsedCapacity,
-        capacity_unit: capacityUnit,
+        capacity_unit: formData.capacityUnit,
         efficiency: parsedEfficiency,
-        manager_user_id: primaryManagerId || undefined,
-        pcp_programmer_user_id: pcpApproverId || undefined,
+        manager_user_id: formData.primaryManagerId ? formData.primaryManagerId : (null as any),
+        pcp_programmer_user_id: formData.pcpApproverId ? formData.pcpApproverId : (null as any),
       }
 
       const updatedLine = await lineMasterService.updateLine(line.id, lineUpdatePayload)
 
       // 2. Se o status ativo/inativo foi alterado, sincronizar com toggleLineActive
-      if (line.is_active !== isActive) {
+      if (line.is_active !== formData.isActive) {
         try {
-          await lineMasterService.toggleLineActive(line.id, isActive)
+          await lineMasterService.toggleLineActive(line.id, formData.isActive)
         } catch (statusErr: unknown) {
           console.warn('Status toggle via service:', statusErr)
         }
       }
 
       // 3. Atualiza ou sincroniza Ficha Mestre correspondente (coleção line_masters via upsert)
-      const cleanReason = `Edição cadastral do centro ${code.trim().toUpperCase()}. Status: ${isActive ? 'Ativo' : 'Inativo'}`
+      const cleanReason = `Edição cadastral do centro ${formData.code.trim().toUpperCase()}. Status: ${formData.isActive ? 'Ativo' : 'Inativo'}`
       await lineMasterService.saveLineMaster({
         id: activeMasterRecord?.id,
         line_id: line.id,
-        name: name.trim(),
-        code: code.trim().toUpperCase(),
-        programming_type: programmingType,
-        process_step: processName.trim() || 'Processo Industrial',
-        sap_plant_code: sapPlantCode.trim(),
+        name: formData.name.trim(),
+        code: formData.code.trim().toUpperCase(),
+        programming_type: formData.programmingType,
+        process_step: formData.processName.trim() || 'Processo Industrial',
+        sap_plant_code: formData.sapPlantCode.trim(),
         nominal_hourly_capacity: parsedCapacity,
-        capacity_unit: capacityUnit as any,
+        capacity_unit: formData.capacityUnit as any,
         planned_efficiency_pct: parsedEfficiency,
-        primary_responsible_id: primaryManagerId || undefined,
-        substitute_responsible_id: substituteManagerId || undefined,
+        primary_responsible_id: formData.primaryManagerId
+          ? formData.primaryManagerId
+          : (null as any),
+        substitute_responsible_id: formData.substituteManagerId
+          ? formData.substituteManagerId
+          : (null as any),
         change_reason: cleanReason,
       })
 
       // 4. Sincroniza Gestor Titular e Substituto em coleções de responsáveis (line_managers_assignment)
-      if (primaryManagerId) {
+      const existingPrimary = managerAssignments.find(
+        (m) => m.responsibility_type === 'PRIMARY_MANAGER',
+      )
+      if (formData.primaryManagerId) {
         try {
-          const existingPrimary = managerAssignments.find(
-            (m) => m.responsibility_type === 'PRIMARY_MANAGER',
-          )
           await lineMasterService.saveManagerAssignment({
             id: existingPrimary?.id,
             line_id: line.id,
-            user_id: primaryManagerId,
+            user_id: formData.primaryManagerId,
             responsibility_type: 'PRIMARY_MANAGER',
-            role_title: `Gestor Titular da Linha ${code.trim().toUpperCase()}`,
+            role_title: `Gestor Titular da Linha ${formData.code.trim().toUpperCase()}`,
             active: true,
             scope_description: 'Responsabilidade operacional principal da linha.',
           })
         } catch (mgrErr: unknown) {
           console.warn('Falha ao salvar gestor titular:', mgrErr)
         }
+      } else if (existingPrimary?.id) {
+        // Desvincular se foi limpo
+        try {
+          await lineMasterService.deleteManagerAssignment(existingPrimary.id)
+        } catch (delMgrErr) {
+          console.warn('Falha ao desvincular gestor titular anterior:', delMgrErr)
+        }
       }
 
-      if (substituteManagerId) {
+      const existingSubstitute = managerAssignments.find(
+        (m) => m.responsibility_type === 'SUBSTITUTE_MANAGER',
+      )
+      if (formData.substituteManagerId) {
         try {
-          const existingSubstitute = managerAssignments.find(
-            (m) => m.responsibility_type === 'SUBSTITUTE_MANAGER',
-          )
           await lineMasterService.saveManagerAssignment({
             id: existingSubstitute?.id,
             line_id: line.id,
-            user_id: substituteManagerId,
+            user_id: formData.substituteManagerId,
             responsibility_type: 'SUBSTITUTE_MANAGER',
-            role_title: `Gestor Substituto da Linha ${code.trim().toUpperCase()}`,
+            role_title: `Gestor Substituto da Linha ${formData.code.trim().toUpperCase()}`,
             active: true,
             scope_description: 'Cobertura operacional de férias e substituição programada.',
           })
         } catch (subErr: unknown) {
           console.warn('Falha ao salvar gestor substituto:', subErr)
         }
+      } else if (existingSubstitute?.id) {
+        // Desvincular substituto se foi limpo
+        try {
+          await lineMasterService.deleteManagerAssignment(existingSubstitute.id)
+        } catch (delSubErr) {
+          console.warn('Falha ao desvincular gestor substituto anterior:', delSubErr)
+        }
       }
 
       // 5. Sincroniza Aprovador PCP e Gestor Homologador (line_approvers_matrix)
-      if (pcpApproverId) {
+      const existingPcp = approversList.find((a) => a.approval_type === 'PCP_APPROVAL')
+      if (formData.pcpApproverId) {
         try {
-          const existingPcp = approversList.find((a) => a.approval_type === 'PCP_APPROVAL')
           await lineMasterService.saveApprover({
             id: existingPcp?.id,
             line_id: line.id,
-            user_id: pcpApproverId,
+            user_id: formData.pcpApproverId,
             approval_stage: 'STAGE_1_PCP',
             approval_type: 'PCP_APPROVAL',
             requirement_type: 'MANDATORY',
@@ -516,17 +548,21 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         } catch (pcpErr: unknown) {
           console.warn('Falha ao salvar aprovador PCP:', pcpErr)
         }
+      } else if (existingPcp?.id) {
+        try {
+          await lineMasterService.deleteApprover(existingPcp.id)
+        } catch (delPcpErr) {
+          console.warn('Falha ao desvincular aprovador PCP anterior:', delPcpErr)
+        }
       }
 
-      if (lineApproverId) {
+      const existingLineApp = approversList.find((a) => a.approval_type === 'LINE_MANAGER_APPROVAL')
+      if (formData.lineApproverId) {
         try {
-          const existingLineApp = approversList.find(
-            (a) => a.approval_type === 'LINE_MANAGER_APPROVAL',
-          )
           await lineMasterService.saveApprover({
             id: existingLineApp?.id,
             line_id: line.id,
-            user_id: lineApproverId,
+            user_id: formData.lineApproverId,
             approval_stage: 'STAGE_2_LINE_MANAGER',
             approval_type: 'LINE_MANAGER_APPROVAL',
             requirement_type: 'MANDATORY',
@@ -536,6 +572,12 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           })
         } catch (lineAppErr: unknown) {
           console.warn('Falha ao salvar aprovador do gestor da linha:', lineAppErr)
+        }
+      } else if (existingLineApp?.id) {
+        try {
+          await lineMasterService.deleteApprover(existingLineApp.id)
+        } catch (delLineAppErr) {
+          console.warn('Falha ao desvincular gestor homologador anterior:', delLineAppErr)
         }
       }
 
@@ -560,16 +602,16 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           ],
           change_reason: cleanReason,
           snapshot_data: {
-            name,
-            code,
-            is_active: isActive,
-            programming_type: programmingType,
-            process: processName,
-            sap_plant_code: sapPlantCode,
+            name: formData.name,
+            code: formData.code,
+            is_active: formData.isActive,
+            programming_type: formData.programmingType,
+            process: formData.processName,
+            sap_plant_code: formData.sapPlantCode,
             nominal_capacity: parsedCapacity,
             efficiency: parsedEfficiency,
-            primaryManagerId,
-            pcpApproverId,
+            primaryManagerId: formData.primaryManagerId,
+            pcpApproverId: formData.pcpApproverId,
           },
         })
       } catch (auditErr) {
@@ -597,15 +639,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
               : 'Erro desconhecido ao salvar alterações do centro'
 
         await pcpAuditService.recordFailureAttempt({
-          operation: `Salvar alterações do centro ${code.trim().toUpperCase()}`,
+          operation: `Salvar alterações do centro ${formData.code.trim().toUpperCase()}`,
           module: 'Centros e Ficha Mestra',
           screen: 'Editar Centro',
-          line: code.trim().toUpperCase(),
-          center: code.trim().toUpperCase(),
+          line: formData.code.trim().toUpperCase(),
+          center: formData.code.trim().toUpperCase(),
           recordId: line.id,
           errorMessage,
           reason: 'Falha ao atualizar parâmetros cadastrais',
-          justification: `Tentativa de salvar alterações do centro ${code.trim().toUpperCase()} falhou.`,
+          justification: `Tentativa de salvar alterações do centro ${formData.code.trim().toUpperCase()} falhou.`,
         })
       } catch (auditFailureErr) {
         console.warn('Erro ao registrar auditoria de falha:', auditFailureErr)
@@ -649,7 +691,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
                 {/* Badge de status atual */}
                 <div>
-                  {isActive ? (
+                  {formData.isActive ? (
                     <Badge className="bg-emerald-600 text-white font-bold text-xs">
                       ● Centro Ativo
                     </Badge>
@@ -683,7 +725,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     type="button"
                     onClick={() => handleStatusChange(true)}
                     className={`py-1 px-3 rounded text-center transition-all ${
-                      isActive
+                      formData.isActive
                         ? 'bg-emerald-600 text-white shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -695,7 +737,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     disabled={checkingFutureSchedules}
                     onClick={() => handleStatusChange(false)}
                     className={`py-1 px-3 rounded text-center transition-all ${
-                      !isActive
+                      !formData.isActive
                         ? 'bg-amber-600 text-white shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -730,9 +772,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Código Interno do Centro *
                   </Label>
                   <Input
-                    value={code}
+                    value={formData.code}
                     onChange={(e) => {
-                      setCode(e.target.value.toUpperCase())
+                      const val = e.target.value.toUpperCase()
+                      setFormData((prev) => ({ ...prev, code: val }))
                       if (validationErrors.code) {
                         setValidationErrors((prev) => ({ ...prev, code: '' }))
                       }
@@ -752,9 +795,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Nome Oficial do Centro *
                   </Label>
                   <Input
-                    value={name}
+                    value={formData.name}
                     onChange={(e) => {
-                      setName(e.target.value)
+                      const val = e.target.value
+                      setFormData((prev) => ({ ...prev, name: val }))
                       if (validationErrors.name) {
                         setValidationErrors((prev) => ({ ...prev, name: '' }))
                       }
@@ -772,8 +816,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">Processo *</Label>
                   <Input
-                    value={processName}
-                    onChange={(e) => setProcessName(e.target.value)}
+                    value={formData.processName}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, processName: e.target.value }))
+                    }
                     className="h-8 text-xs bg-slate-50"
                     placeholder="Ex.: Conformação, Laminação, Aquecimento..."
                   />
@@ -782,8 +828,13 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">Tipo de Programação</Label>
                   <select
-                    value={programmingType}
-                    onChange={(e) => setProgrammingType(e.target.value as ProgrammingType)}
+                    value={formData.programmingType}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        programmingType: e.target.value as ProgrammingType,
+                      }))
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     {PROGRAMMING_TYPES_CATALOG.map((t) => (
@@ -797,7 +848,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">Hierarquia da Linha</Label>
                   <Input
-                    value={hierarchyDescription}
+                    value={formData.hierarchyDescription}
                     readOnly
                     className="h-8 text-xs bg-slate-100 text-slate-700 font-mono cursor-not-allowed"
                     title="Vínculo organizacional e sequencial do centro na Linha Produtiva"
@@ -807,8 +858,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">Centro SAP (Werk)</Label>
                   <Input
-                    value={sapPlantCode}
-                    onChange={(e) => setSapPlantCode(e.target.value)}
+                    value={formData.sapPlantCode}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, sapPlantCode: e.target.value }))
+                    }
                     className="h-8 text-xs font-mono bg-slate-50"
                     placeholder="Ex.: 1000"
                   />
@@ -819,8 +872,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Centro de Trabalho SAP
                   </Label>
                   <Input
-                    value={sapWorkCenter}
-                    onChange={(e) => setSapWorkCenter(e.target.value)}
+                    value={formData.sapWorkCenter}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, sapWorkCenter: e.target.value }))
+                    }
                     className="h-8 text-xs font-mono bg-slate-50"
                     placeholder="Ex.: CRHD_LAM_L1"
                   />
@@ -835,9 +890,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       type="number"
                       step="0.1"
                       min="0.1"
-                      value={nominalCapacity}
+                      value={formData.nominalCapacity}
                       onChange={(e) => {
-                        setNominalCapacity(Number(e.target.value))
+                        const val = Number(e.target.value)
+                        setFormData((prev) => ({ ...prev, nominalCapacity: val }))
                         if (validationErrors.nominalCapacity) {
                           setValidationErrors((prev) => ({ ...prev, nominalCapacity: '' }))
                         }
@@ -849,8 +905,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       }`}
                     />
                     <select
-                      value={capacityUnit}
-                      onChange={(e) => setCapacityUnit(e.target.value)}
+                      value={formData.capacityUnit}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, capacityUnit: e.target.value }))
+                      }
                       className="bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium"
                     >
                       <option value="t/h">t/h</option>
@@ -874,8 +932,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     step="1"
                     min="1"
                     max="100"
-                    value={efficiency}
-                    onChange={(e) => setEfficiency(Number(e.target.value))}
+                    value={formData.efficiency}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, efficiency: Number(e.target.value) }))
+                    }
                     className="h-8 text-xs font-mono bg-slate-50"
                   />
                 </div>
@@ -895,8 +955,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Gestor Operacional Titular *
                   </Label>
                   <select
-                    value={primaryManagerId}
-                    onChange={(e) => setPrimaryManagerId(e.target.value)}
+                    value={formData.primaryManagerId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, primaryManagerId: e.target.value }))
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Titular...</option>
@@ -911,8 +973,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">Gestor Substituto</Label>
                   <select
-                    value={substituteManagerId}
-                    onChange={(e) => setSubstituteManagerId(e.target.value)}
+                    value={formData.substituteManagerId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, substituteManagerId: e.target.value }))
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Substituto (opcional)...</option>
@@ -929,8 +993,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Aprovador Homologador PCP *
                   </Label>
                   <select
-                    value={pcpApproverId}
-                    onChange={(e) => setPcpApproverId(e.target.value)}
+                    value={formData.pcpApproverId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, pcpApproverId: e.target.value }))
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Aprovador PCP...</option>
@@ -947,8 +1013,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     Aprovador do Gestor da Linha
                   </Label>
                   <select
-                    value={lineApproverId}
-                    onChange={(e) => setLineApproverId(e.target.value)}
+                    value={formData.lineApproverId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, lineApproverId: e.target.value }))
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Homologador (opcional)...</option>
