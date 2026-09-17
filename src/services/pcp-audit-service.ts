@@ -77,6 +77,10 @@ export const FIELD_LABELS_PT_BR: Record<string, string> = {
   reference_matrix_name: 'Matriz de Referência',
   valid_from: 'Vigência Inicial',
   valid_until: 'Vigência Final',
+  interference_categories: 'Interferência na Programação',
+  document_code: 'Código do Documento',
+  revision: 'Revisão',
+  title: 'Título do Documento',
 }
 
 export interface ComputeDiffOptions {

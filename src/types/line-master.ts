@@ -758,6 +758,7 @@ export interface CompletenessItem {
       | 'OVERVIEW'
       | 'ORGANIZATION'
       | 'PROCESS'
+      | 'REFERENCE_DOCUMENTS'
       | 'MASTERDATA'
       | 'BOTTLENECK_MATRIX'
       | 'GOVERNANCE'

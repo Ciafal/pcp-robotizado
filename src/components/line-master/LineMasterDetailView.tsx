@@ -9,6 +9,7 @@ import {
   Database,
   Edit,
   FileSpreadsheet,
+  FileText,
   GitCommit,
   Layers,
   Lock,
@@ -54,6 +55,8 @@ import { lineMasterService } from '@/services/line-master'
 import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
 import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
 import { SetupAcertoMatrixPanel } from '@/components/line-master/SetupAcertoMatrixPanel'
+import { LineReferenceDocumentsPanel } from '@/components/line-master/LineReferenceDocumentsPanel'
+import { lineReferenceDocumentsService } from '@/services/line-reference-documents-service'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
   MULTIPLE_PROGRAMMING_STAGES_CATALOG,
@@ -261,10 +264,32 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     loadCompleteness()
   }, [loadCompleteness, overview])
 
-  // Sub-aba ativa no agrupamento de Governança / Processo / Ficha Mestre
+  // Sub-aba ativa no agrupamento de Governança / Documentos de Referência / Ficha Mestre
   const [mainGroup, setMainGroup] = useState<
-    'OVERVIEW' | 'ORGANIZATION' | 'PROCESS' | 'MASTERDATA' | 'BOTTLENECK_MATRIX' | 'GOVERNANCE'
+    | 'OVERVIEW'
+    | 'ORGANIZATION'
+    | 'REFERENCE_DOCUMENTS'
+    | 'PROCESS'
+    | 'MASTERDATA'
+    | 'BOTTLENECK_MATRIX'
+    | 'GOVERNANCE'
   >('OVERVIEW')
+
+  // Contagem de documentos de referência do SGQ vinculados
+  const [referenceDocsCount, setReferenceDocsCount] = useState<number>(0)
+
+  const loadReferenceDocsCount = React.useCallback(async () => {
+    try {
+      const count = await lineReferenceDocumentsService.countByLineId(line.id)
+      setReferenceDocsCount(count)
+    } catch (err) {
+      console.warn('Erro ao carregar contagem de documentos de referência:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadReferenceDocsCount()
+  }, [loadReferenceDocsCount, overview])
 
   const [masterSubTab, setMasterSubTab] = useState<
     | 'CAPACITY'
@@ -1185,14 +1210,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </button>
 
         <button
-          onClick={() => setMainGroup('PROCESS')}
+          onClick={() => setMainGroup('REFERENCE_DOCUMENTS')}
           className={`px-4 py-2 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            mainGroup === 'PROCESS'
+            mainGroup === 'REFERENCE_DOCUMENTS' || mainGroup === 'PROCESS'
               ? 'bg-[#004C97] text-white shadow-md'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
           }`}
         >
-          <GitCommit className="w-3.5 h-3.5" /> PROCESSO & SEQUENCIAMENTO ({sequencing.length})
+          <FileText className="w-3.5 h-3.5" /> DOCUMENTOS DE REFERÊNCIA ({referenceDocsCount})
         </button>
 
         <button
@@ -1850,127 +1875,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </div>
       )}
 
-      {/* 5. CONTEÚDO: GRUPO 3 - PROCESSO & SEQUENCIAMENTO */}
-      {mainGroup === 'PROCESS' && (
-        <div className="space-y-6">
-          <Card
-            id="section-sequencing-process"
-            data-target-id="sequencing-process"
-            className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
-          >
-            <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <GitCommit className="w-4 h-4 text-[#004C97]" />
-                  Sequenciamento Estrutural no Fluxo Produtivo
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500">
-                  Dependências físicas e fluxos entre linhas (Predecessores → Esta Linha →
-                  Sucessores & Pulmões).
-                </CardDescription>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-4 pt-3 space-y-4">
-              {sequencing.length === 0 ? (
-                <div
-                  id="target-sequencing-empty-card"
-                  tabIndex={-1}
-                  className="p-6 text-center bg-blue-50/40 border-2 border-dashed border-blue-200 rounded-xl space-y-3"
-                >
-                  <div className="w-12 h-12 rounded-full bg-blue-100 text-[#004C97] flex items-center justify-center mx-auto shadow-xs">
-                    <GitCommit className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-slate-900">
-                      Sequenciamento produtivo não definido
-                    </h4>
-                    <p className="text-xs text-slate-600 max-w-md mx-auto">
-                      A linha ainda não possui predecessores ou sucessores configurados.
-                    </p>
-                  </div>
-                  <div className="pt-2">
-                    <Button
-                      id="target-sequencing-btn"
-                      size="sm"
-                      onClick={() => (onOpenSapCatalog ? onOpenSapCatalog() : undefined)}
-                      className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
-                    >
-                      <GitCommit className="w-3.5 h-3.5" /> Configurar Sequenciamento
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                sequencing.map((s) => (
-                  <div
-                    key={s.id}
-                    className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-[#004C97] text-white font-mono text-xs">
-                          Etapa #{s.sequence_order}
-                        </Badge>
-                        <span className="text-xs font-bold text-slate-900">
-                          Relação {s.relation_nature} ({s.dependency_type})
-                        </span>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="text-[11px] border-blue-300 text-[#004C97] bg-white font-mono"
-                      >
-                        Lead Time Padrão: {s.standard_lead_time_minutes || 0} min
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                      <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
-                        <span className="block uppercase text-[10px] font-bold text-amber-700">
-                          ← Origem / Predecessor
-                        </span>
-                        <span className="font-bold text-slate-900 block">
-                          {s.previous_process_name || 'Processo Externo / Matéria-Prima'}
-                        </span>
-                        {s.expand?.previous_line_id && (
-                          <span className="text-[#004C97] font-mono text-[11px]">
-                            Linha: {s.expand?.previous_line_id?.code || 'Não cadastrado'} (
-                            {s.expand?.previous_line_id?.name || 'Não cadastrado'})
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="p-3 bg-white rounded border border-slate-200 space-y-1">
-                        <span className="block uppercase text-[10px] font-bold text-emerald-700">
-                          → Destino / Sucessor
-                        </span>
-                        <span className="font-bold text-slate-900 block">
-                          {s.next_process_name || 'Expedição / Estoque Intermediário'}
-                        </span>
-                        {s.expand?.next_line_id && (
-                          <span className="text-[#004C97] font-mono text-[11px]">
-                            Linha: {s.expand?.next_line_id?.code || 'Não cadastrado'} (
-                            {s.expand?.next_line_id?.name || 'Não cadastrado'})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {s.intermediate_buffer_type && (
-                      <div className="p-2.5 bg-blue-50/60 rounded border border-blue-200 text-xs flex items-center justify-between">
-                        <span className="text-slate-800">
-                          Pulmão: <strong>{s.intermediate_buffer_type}</strong>
-                        </span>
-                        <span className="font-mono font-bold text-[#004C97]">
-                          Capacidade: {s.intermediate_buffer_capacity} {s.intermediate_buffer_unit}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+      {/* 5. CONTEÚDO: GRUPO 3 - DOCUMENTOS DE REFERÊNCIA (SGQ) */}
+      {(mainGroup === 'REFERENCE_DOCUMENTS' || mainGroup === 'PROCESS') && (
+        <LineReferenceDocumentsPanel
+          lineId={line.id}
+          lineCode={line.code}
+          lineName={line.name}
+          companyId={line.company_id || 'CIAFAL'}
+          onCountChange={(count) => setReferenceDocsCount(count)}
+        />
       )}
 
       {/* 6. CONTEÚDO: GRUPO 4 - FICHA MESTRE EXPANDIDA */}
