@@ -38,6 +38,45 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const effectiveRole =
     user?.role || (authStoreRecord ? (authStoreRecord as any).role || 'PCP_ADMIN' : null)
 
+  const currentRoleUpper = String(effectiveRole || user?.role || '').toUpperCase()
+  const isAdminUser =
+    currentRoleUpper === 'PCP_ADMIN' ||
+    currentRoleUpper === 'ADMIN' ||
+    currentRoleUpper === 'ADMINISTRADOR'
+
+  // Rotas operacionais e cadastrais com bypass de visualização para não travar na inicialização:
+  // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
+  // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
+  const isDirectOperationalView =
+    permission === 'pcp.schedule.view' ||
+    permission === 'pcp.weekly_schedule.view' ||
+    permission === 'pcp.masterdata.view' ||
+    permission === 'pcp.lines.view'
+
+  // BYPASS IMEDIATO NO TOPO:
+  // 1) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
+  // 2) Bypass direto para Ficha Mestra / Centros (pcp.masterdata.view / pcp.lines.view)
+  // 3) Usuário com a permissão explícita já concedida via can(permission) ou escopo
+  if (isAdminUser) {
+    return <>{children}</>
+  }
+
+  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+    return <>{children}</>
+  }
+
+  if (
+    isDirectOperationalView &&
+    (pb.authStore.isValid || user || hasValidAuthStore || effectiveRole)
+  ) {
+    return <>{children}</>
+  }
+
+  // Se já possui a permissão no can(), renderiza imediatamente
+  if (can(permission) && (!lineId || hasLineScope(lineId))) {
+    return <>{children}</>
+  }
+
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
   const hasAvailableAuthContext = Boolean(user || hasValidAuthStore)
@@ -79,35 +118,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Rotas operacionais e cadastrais com bypass de visualização para não travar na inicialização:
-  // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
-  // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
-  // Permite renderização imediata enquanto o RBAC sincroniza em background
-  const isDirectOperationalView =
-    permission === 'pcp.schedule.view' ||
-    permission === 'pcp.weekly_schedule.view' ||
-    permission === 'pcp.masterdata.view' ||
-    permission === 'pcp.lines.view'
-
-  // Se for rota de visão operacional direta e houver sessão válida (authStore.isValid com token válido),
-  // renderiza imediatamente sem exigir que user ou effectiveRole do AuthContext já tenham resolvido.
-  // Isso resolve a corrida no cold start onde authStore.isValid é true mas user ainda é null.
-  if (
-    isDirectOperationalView &&
-    (pb.authStore.isValid || user || hasValidAuthStore || effectiveRole)
-  ) {
-    return <>{children}</>
-  }
-
   // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica preso no spinner.
   // Quando timedOut for true, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
   // Se a permissão resolver depois do timeout, o re-render com !isLoading && !isRetrying remove timedOut via useEffect.
   const hasAuthFailure = Boolean(authError || timedOut)
-
-  // Se for visualização cadastral de Centros e Ficha Mestra, não bloqueia por instabilidade/timeout, renderiza os filhos
-  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
-    return <>{children}</>
-  }
 
   // Se houver falha de autorização tratável/timeout, retorna a tela amigável
   if (hasAuthFailure) {
