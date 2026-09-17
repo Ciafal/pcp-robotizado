@@ -4,11 +4,13 @@ import { authService } from '@/services/pcp-auth'
 import pb from '@/lib/pocketbase/client'
 import { ShieldAlert, ArrowLeft, RefreshCw, Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useNavigate } from 'react-router-dom'
 
 interface PermissionGuardProps {
   permission?: string
   required?: string
+  isLoadingPermissions?: boolean
   children: React.ReactNode
   lineId?: string
 }
@@ -16,6 +18,7 @@ interface PermissionGuardProps {
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   permission: propPermission,
   required,
+  isLoadingPermissions,
   children,
   lineId,
 }) => {
@@ -201,21 +204,63 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     hasPerm = true
   }
 
-  // Spinner somente se realmente não tivermos sessão válida ou autorização prévia resolvida
-  // Para rotas de visualização operacional, não bloqueia com spinner caso haja indicação de usuário ou fallback ativo
+  // Skeleton de loading no padrão do módulo: enquanto estiver carregando permissões,
+  // nunca renderiza null/vazio nem spinner puro isolado
   const hasResolvedAccess = Boolean(user || hasValidAuthStore || isDirectOperationalView)
-  const showSpinner = (isLoading || isRetrying) && !timedOut && !hasResolvedAccess
+  const showLoadingSkeleton =
+    (isLoading || isRetrying || isLoadingPermissions) && !timedOut && !hasResolvedAccess
 
-  if (showSpinner) {
+  if (showLoadingSkeleton) {
     return (
-      <div className="p-12 min-h-[50vh] flex flex-col items-center justify-center space-y-4 bg-slate-50/50">
-        <div className="w-9 h-9 border-3 border-[#004C97] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-semibold text-slate-700">
-          Validando credenciais e escopos de acesso CIAFAL...
-        </p>
-        <p className="text-xs text-slate-500 font-mono">
-          Sincronizando permissões do Active Directory / RBAC
-        </p>
+      <div className="p-6 max-w-7xl mx-auto space-y-6 animate-pulse">
+        {/* Skeleton Top Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64 rounded-md bg-slate-200" />
+            <Skeleton className="h-4 w-96 rounded-md bg-slate-100" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28 rounded-md bg-slate-200" />
+            <Skeleton className="h-9 w-32 rounded-md bg-slate-200" />
+          </div>
+        </div>
+
+        {/* Skeleton KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+              <div className="flex justify-between items-center">
+                <Skeleton className="h-4 w-24 bg-slate-100" />
+                <Skeleton className="h-6 w-6 rounded-full bg-slate-200" />
+              </div>
+              <Skeleton className="h-8 w-16 bg-slate-200" />
+              <Skeleton className="h-3 w-32 bg-slate-100" />
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton Main Table / Grid */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+          <div className="flex justify-between items-center pb-2">
+            <Skeleton className="h-6 w-48 bg-slate-200" />
+            <Skeleton className="h-8 w-36 bg-slate-100" />
+          </div>
+          <div className="space-y-2.5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 py-2 border-b border-slate-100 last:border-0"
+              >
+                <Skeleton className="h-4 w-12 bg-slate-200" />
+                <Skeleton className="h-4 w-40 bg-slate-100" />
+                <Skeleton className="h-4 w-24 bg-slate-100" />
+                <Skeleton className="h-4 w-20 bg-slate-200" />
+                <Skeleton className="h-4 flex-1 bg-slate-50" />
+                <Skeleton className="h-6 w-16 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -231,17 +276,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return (
       <div className="min-h-[65vh] flex items-center justify-center p-6 bg-slate-50/80">
         <div className="max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center">
-          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200/80 shadow-xs">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200/80 shadow-xs">
             <ShieldAlert className="w-8 h-8" />
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 mb-2">
-            <Lock className="w-3 h-3" /> Acesso Negado (403 Forbidden)
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 mb-2">
+            <Lock className="w-3 h-3" /> Acesso Restrito
           </div>
 
-          <h2 className="text-xl font-black text-slate-900 tracking-tight mb-2">
-            Permissão Insuficiente para Visualização
-          </h2>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight mb-2">Acesso Restrito</h2>
 
           {!hasPerm ? (
             <p className="text-sm text-slate-600 mb-5 leading-relaxed">
@@ -260,9 +303,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
           <div className="bg-slate-50 p-3.5 rounded-xl text-left text-xs text-slate-700 mb-6 border border-slate-200 space-y-1.5">
             <div className="flex justify-between items-center py-1 border-b border-slate-200">
-              <span className="font-semibold text-slate-500">Permissão Exigida:</span>
-              <code className="text-rose-600 font-mono font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                {permission}
+              <span className="font-semibold text-slate-500">Permissão Requerida:</span>
+              <code className="text-amber-700 font-mono font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                {permission || 'Nenhuma permissão informada'}
               </code>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-slate-200">
@@ -278,25 +321,25 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
           <div className="flex flex-wrap gap-3 justify-center">
             <Button
               variant="default"
+              onClick={() => navigate('/pcp/sequenciamento')}
+              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Painel Principal
+            </Button>
+            <Button
+              variant="outline"
               onClick={handleRetry}
               disabled={isRetrying}
-              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
+              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
               Tentar novamente
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/pcp/sequenciamento')}
-              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
-            </Button>
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-400">
-            Caso necessite deste acesso, solicite a inclusão do escopo ao Administrador do PCP
-            CIAFAL.
+            Caso necessite deste acesso, solicite a inclusão da permissão ou escopo ao Administrador
+            do PCP CIAFAL.
           </div>
         </div>
       </div>

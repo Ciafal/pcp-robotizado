@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
 import { invalidateCompletenessCache } from '@/services/master-sheet-completeness'
-import { pcpAuditService } from '@/services/pcp-audit-service'
+import { pcpAuditService, computeDiff, FieldChange } from '@/services/pcp-audit-service'
 import {
   ProductionLine,
   LineMaster,
@@ -424,11 +424,60 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       return isNaN(n) ? null : n
     }
 
+    const parsedCapacity = sanitizeNumber(formData.nominalCapacity) ?? 0.1
+    const parsedEfficiency = sanitizeNumber(formData.efficiency) ?? 90
+
+    // Montar mapa de usuários para resolução de nomes em computeDiff
+    const usersMap: Record<string, string> = {}
+    users.forEach((u) => {
+      usersMap[u.id] = u.name ? `${u.name} (${u.role || 'PCP'})` : u.email
+    })
+
+    // Montar snapshot antes x depois
+    const beforeSnapshot: Record<string, any> = {
+      name: line.name || '',
+      code: line.code || '',
+      is_active: line.is_active !== false,
+      programming_type: (line.programming_type as ProgrammingType) || 'Laminação',
+      process: line.process || '',
+      sap_work_center: line.sap_work_center || '',
+      nominal_hourly_capacity:
+        activeMasterRecord?.nominal_hourly_capacity ??
+        line.nominal_capacity ??
+        line.current_rate ??
+        12,
+      capacity_unit: activeMasterRecord?.capacity_unit || line.capacity_unit || 't/h',
+      planned_efficiency_pct: activeMasterRecord?.planned_efficiency_pct ?? line.efficiency ?? 90,
+      primary_responsible_id:
+        line.manager_user_id || activeMasterRecord?.primary_responsible_id || '',
+      substitute_responsible_id: activeMasterRecord?.substitute_responsible_id || '',
+      pcp_approver_id: line.pcp_programmer_user_id || '',
+      line_approver_id:
+        approversList.find((a) => a.approval_type === 'LINE_MANAGER_APPROVAL')?.user_id || '',
+    }
+
+    const afterSnapshot: Record<string, any> = {
+      name: formData.name.trim(),
+      code: formData.code.trim().toUpperCase(),
+      is_active: formData.isActive,
+      programming_type: formData.programmingType,
+      process: formData.processName.trim(),
+      sap_work_center: formData.sapWorkCenter.trim(),
+      nominal_hourly_capacity: parsedCapacity,
+      capacity_unit: formData.capacityUnit,
+      planned_efficiency_pct: parsedEfficiency,
+      primary_responsible_id: formData.primaryManagerId || '',
+      substitute_responsible_id: formData.substituteManagerId || '',
+      pcp_approver_id: formData.pcpApproverId || '',
+      line_approver_id: formData.lineApproverId || '',
+    }
+
+    const calculatedChanges: FieldChange[] = computeDiff(beforeSnapshot, afterSnapshot, {
+      usersMap,
+    })
+
     try {
       // 1. Atualiza dados estritos do centro de produção com getOne de confirmação
-      const parsedCapacity = sanitizeNumber(formData.nominalCapacity) ?? 0.1
-      const parsedEfficiency = sanitizeNumber(formData.efficiency) ?? 90
-
       const lineUpdatePayload: Partial<ProductionLine> = {
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
@@ -584,38 +633,47 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       // 6. Invalida cache de completude da linha
       invalidateCompletenessCache(line.id)
 
-      // 7. Auditoria de edição cadastral (best-effort)
+      // 7. Auditoria de edição cadastral oficial via pcpAuditService.recordLog
+      if (calculatedChanges.length > 0) {
+        try {
+          await pcpAuditService.recordLog({
+            event_type: 'Alteração',
+            action: `Alteração cadastral do centro ${formData.code.trim().toUpperCase()}`,
+            module: 'Centros e Ficha Mestra',
+            screen: 'Editar Centro',
+            company: 'CIAFAL',
+            line: formData.code.trim().toUpperCase(),
+            center: formData.code.trim().toUpperCase(),
+            record_id: line.id,
+            entity: 'Centros e Ficha Mestra',
+            outcome: 'SUCCESS',
+            status: 'Concluída',
+            reason: cleanReason,
+            justification: `Parâmetros do centro ${formData.code.trim().toUpperCase()} atualizados via formulário Editar Centro.`,
+            changes: calculatedChanges,
+            details: {
+              before: beforeSnapshot,
+              after: afterSnapshot,
+            },
+          })
+        } catch (auditLogErr) {
+          console.warn('Falha ao gravar log oficial de auditoria antes/depois:', auditLogErr)
+        }
+      }
+
+      // Auditoria de versão de ficha mestra
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
           line_master_id: activeMasterRecord?.id,
           version: (activeMasterRecord?.version ?? 1) + 1,
           action: 'UPDATE',
-          changed_fields: [
-            'name',
-            'code',
-            'is_active',
-            'programming_type',
-            'process',
-            'sap_plant_code',
-            'nominal_capacity',
-          ],
+          changed_fields: calculatedChanges.map((c) => c.field),
           change_reason: cleanReason,
-          snapshot_data: {
-            name: formData.name,
-            code: formData.code,
-            is_active: formData.isActive,
-            programming_type: formData.programmingType,
-            process: formData.processName,
-            sap_plant_code: formData.sapPlantCode,
-            nominal_capacity: parsedCapacity,
-            efficiency: parsedEfficiency,
-            primaryManagerId: formData.primaryManagerId,
-            pcpApproverId: formData.pcpApproverId,
-          },
+          snapshot_data: afterSnapshot,
         })
       } catch (auditErr) {
-        console.warn('Falha ao gravar auditoria:', auditErr)
+        console.warn('Falha ao gravar auditoria de versão:', auditErr)
       }
 
       // Toast de sucesso apenas após confirmação do backend (texto exato)
@@ -629,7 +687,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     } catch (err: unknown) {
       console.error('Erro ao salvar alterações da linha:', err)
 
-      // Registrar a falha no serviço de auditoria existente (pcp_audit_logs) com status "Erro"
+      // Registrar a falha no serviço de auditoria existente (pcp_audit_logs) com status "Erro" e diff tentado
       try {
         const errorMessage =
           err instanceof Error
@@ -646,6 +704,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           center: formData.code.trim().toUpperCase(),
           recordId: line.id,
           errorMessage,
+          changesAttempted: calculatedChanges.length > 0 ? calculatedChanges : undefined,
           reason: 'Falha ao atualizar parâmetros cadastrais',
           justification: `Tentativa de salvar alterações do centro ${formData.code.trim().toUpperCase()} falhou.`,
         })

@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { pcpAuditService, PCPAuditLogRecord } from '@/services/pcp-audit-service'
+import {
+  pcpAuditService,
+  computeDiff,
+  FIELD_LABELS_PT_BR,
+  PCPAuditLogRecord,
+} from '@/services/pcp-audit-service'
 import pb from '@/lib/pocketbase/client'
 
 describe('PCP Robotizado - Suíte Oficial de Logs & Auditoria Transacional (12 Critérios de Aceite)', () => {
@@ -375,5 +380,63 @@ describe('PCP Robotizado - Suíte Oficial de Logs & Auditoria Transacional (12 C
     const insights = pcpAuditService.generateDeterministicAIInsights([])
     expect(insights.length).toBeGreaterThan(0)
     expect(insights[0].metric).toBe('Base de dados vazia')
+  })
+
+  // (13) computeDiff e FIELD_LABELS_PT_BR (Quadro Comparativo Antes x Depois)
+  it('(13) computeDiff detecta alterações, aplica rótulos em PT-BR e normaliza valores', () => {
+    const before = {
+      is_active: true,
+      nominal_hourly_capacity: 12,
+      capacity_unit: 't/h',
+      planned_efficiency_pct: 90,
+      programming_type: 'Laminação',
+      primary_responsible_id: 'usr_001',
+    }
+
+    const after = {
+      is_active: false,
+      nominal_hourly_capacity: 20,
+      capacity_unit: 'peça/h',
+      planned_efficiency_pct: 95,
+      programming_type: 'Conformação',
+      primary_responsible_id: 'usr_002',
+    }
+
+    const usersMap = {
+      usr_001: 'Carlos Silva (Gestor)',
+      usr_002: 'Mariana Costa (Gestor)',
+    }
+
+    const diff = computeDiff(before, after, { usersMap })
+
+    expect(diff.length).toBeGreaterThan(0)
+
+    const statusDiff = diff.find((d) => d.field === 'is_active')
+    expect(statusDiff).toBeDefined()
+    expect(statusDiff?.fieldNamePt).toBe('Status')
+    expect(statusDiff?.before).toBe('Ativo')
+    expect(statusDiff?.after).toBe('Inativo')
+
+    const capDiff = diff.find((d) => d.field === 'nominal_hourly_capacity')
+    expect(capDiff).toBeDefined()
+    expect(capDiff?.fieldNamePt).toBe('Capacidade Nominal Horária')
+    expect(capDiff?.before).toBe('12 t/h')
+    expect(capDiff?.after).toBe('20 peça/h')
+
+    const effDiff = diff.find((d) => d.field === 'planned_efficiency_pct')
+    expect(effDiff).toBeDefined()
+    expect(effDiff?.fieldNamePt).toBe('Eficiência Planejada OEE')
+    expect(effDiff?.before).toBe('90%')
+    expect(effDiff?.after).toBe('95%')
+
+    const respDiff = diff.find((d) => d.field === 'primary_responsible_id')
+    expect(respDiff).toBeDefined()
+    expect(respDiff?.fieldNamePt).toBe('Gestor Operacional Titular')
+    expect(respDiff?.before).toBe('Carlos Silva (Gestor)')
+    expect(respDiff?.after).toBe('Mariana Costa (Gestor)')
+
+    // Diff vazio = array vazio
+    const sameDiff = computeDiff(before, { ...before }, { usersMap })
+    expect(sameDiff).toEqual([])
   })
 })

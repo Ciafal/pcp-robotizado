@@ -41,6 +41,25 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(linePerms).toContain('pcp.carteira.view')
   })
 
+  it('should verify roles have masterdata and lines view and manage permissions', () => {
+    const roles = [
+      'PCP_ADMIN',
+      'ADMIN',
+      'ADMINISTRADOR',
+      'PCP_PROGRAMMER',
+      'PCP_PLANNER',
+      'AUDITOR',
+      'LINE_MANAGER',
+    ]
+    for (const r of roles) {
+      const perms = authService.getPermissionsForRole(r)
+      expect(perms).toContain('pcp.masterdata.view')
+      expect(perms).toContain('pcp.masterdata.edit')
+      expect(perms).toContain('pcp.lines.view')
+      expect(perms).toContain('pcp.lines.manage')
+    }
+  })
+
   it('should ensure authorized roles (PCP_ADMIN, PCP_PROGRAMMER, LINE_MANAGER) have pcp.schedule.view for WeeklyScheduleOperationalPage', () => {
     const rolesWithViewAccess = ['PCP_ADMIN', 'PCP_PROGRAMMER', 'LINE_MANAGER']
     for (const role of rolesWithViewAccess) {

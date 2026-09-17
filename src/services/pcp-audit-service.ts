@@ -45,6 +45,135 @@ export interface FieldChange {
   after: any
 }
 
+export const FIELD_LABELS_PT_BR: Record<string, string> = {
+  name: 'Nome do Centro',
+  code: 'Código do Centro',
+  is_active: 'Status',
+  status: 'Status',
+  nominal_hourly_capacity: 'Capacidade Nominal Horária',
+  nominal_capacity: 'Capacidade Nominal Horária',
+  capacity_unit: 'Unidade de Capacidade',
+  planned_efficiency_pct: 'Eficiência Planejada OEE',
+  efficiency: 'Eficiência Planejada OEE',
+  process: 'Processo Produtivo',
+  process_step: 'Processo Produtivo',
+  processName: 'Processo Produtivo',
+  programming_type: 'Tipo de Programação',
+  sap_plant_code: 'Centro SAP (Werk)',
+  sap_work_center: 'Centro de Trabalho SAP',
+  primary_responsible_id: 'Gestor Operacional Titular',
+  primaryManagerId: 'Gestor Operacional Titular',
+  substitute_responsible_id: 'Gestor Substituto',
+  substituteManagerId: 'Gestor Substituto',
+  pcp_approver_id: 'Aprovador PCP Homologador',
+  pcpApproverId: 'Aprovador PCP Homologador',
+  line_approver_id: 'Gestor da Linha Homologador',
+  lineApproverId: 'Gestor da Linha Homologador',
+  manager_user_id: 'Gestor Operacional Titular',
+  pcp_programmer_user_id: 'Aprovador PCP Homologador',
+}
+
+export interface ComputeDiffOptions {
+  usersMap?: Record<string, string>
+}
+
+/**
+ * Calcula a lista de alterações estruturadas antes x depois entre dois snapshots.
+ * Normaliza booleanos, unidades de capacidade, porcentagens e IDs de usuários/gestores.
+ * Retorna array vazio se não houver diferenças.
+ */
+export function computeDiff(
+  before: Record<string, any> | null | undefined,
+  after: Record<string, any> | null | undefined,
+  options?: ComputeDiffOptions,
+): FieldChange[] {
+  if (!before && !after) return []
+  const b = before || {}
+  const a = after || {}
+  const usersMap = options?.usersMap || {}
+
+  const allKeys = Array.from(new Set([...Object.keys(b), ...Object.keys(a)]))
+  const changes: FieldChange[] = []
+
+  const normalizeValue = (key: string, val: any, contextObj: Record<string, any>): string => {
+    if (val === null || val === undefined || val === '') return '—'
+
+    // 1. Booleanos -> "Ativo" / "Inativo"
+    if (typeof val === 'boolean' || key === 'is_active' || key === 'isActive' || key === 'status') {
+      if (typeof val === 'boolean') {
+        return val ? 'Ativo' : 'Inativo'
+      }
+      if (typeof val === 'string') {
+        const lower = val.trim().toLowerCase()
+        if (lower === 'true' || lower === 'ativo' || lower === 'active') return 'Ativo'
+        if (lower === 'false' || lower === 'inativo' || lower === 'inactive') return 'Inativo'
+      }
+    }
+
+    // 2. Capacidade -> ex: "20 peça/h" ou "12 t/h"
+    if (
+      key === 'nominal_hourly_capacity' ||
+      key === 'nominal_capacity' ||
+      key === 'nominalCapacity' ||
+      key === 'current_rate'
+    ) {
+      const num = Number(val)
+      if (!isNaN(num)) {
+        const unit = contextObj.capacity_unit || contextObj.capacityUnit || 't/h'
+        return `${num} ${unit}`
+      }
+    }
+
+    // 3. Eficiência -> com "%"
+    if (key === 'planned_efficiency_pct' || key === 'efficiency' || key === 'planned_efficiency') {
+      const num = Number(val)
+      if (!isNaN(num)) {
+        return `${num}%`
+      }
+    }
+
+    // 4. IDs de gestores e aprovadores -> resolvidos via usersMap
+    const isUserField =
+      key.includes('responsible_id') ||
+      key.includes('ManagerId') ||
+      key.includes('ApproverId') ||
+      key.includes('approver_id') ||
+      key === 'manager_user_id' ||
+      key === 'pcp_programmer_user_id'
+
+    if (isUserField && typeof val === 'string' && val.trim() !== '') {
+      if (usersMap[val]) {
+        return usersMap[val]
+      }
+    }
+
+    return String(val)
+  }
+
+  for (const key of allKeys) {
+    const rawBefore = b[key]
+    const rawAfter = a[key]
+
+    // Ignorar chaves puramente técnicas ou idênticas
+    if (key === 'id' || key === 'created' || key === 'updated') continue
+
+    const normBefore = normalizeValue(key, rawBefore, b)
+    const normAfter = normalizeValue(key, rawAfter, a)
+
+    if (normBefore !== normAfter) {
+      const fieldLabel = FIELD_LABELS_PT_BR[key] || key
+      changes.push({
+        field: key,
+        fieldNamePt: fieldLabel,
+        before: normBefore === '—' ? null : normBefore,
+        after: normAfter === '—' ? null : normAfter,
+      })
+    }
+  }
+
+  return changes
+}
+
 export interface TechnicalDetails {
   ip?: string
   userAgent?: string
