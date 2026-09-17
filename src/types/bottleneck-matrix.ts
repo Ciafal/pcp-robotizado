@@ -74,6 +74,13 @@ export interface LineBottleneckMatrixRecord {
   standard_furnace_temp_c?: number
   thermal_curve_type?: 'QUENTE' | 'FRIO' | 'MORNO'
 
+  // Integração SAP Grupo MRP (MARC-DISGR)
+  mrp_group_code?: string
+  mrp_group_description?: string
+  werks?: string
+  sap_param2_code?: string // 2º parâmetro SAP (estruturado no modelo, sem UI agora)
+  is_homologated?: boolean
+
   version: number
   status: 'VIGENTE' | 'EM_REVISAO' | 'SUPERSEDED' | 'RASCUNHO'
   reference_doc: string

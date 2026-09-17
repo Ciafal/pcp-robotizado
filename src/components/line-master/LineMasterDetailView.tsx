@@ -2866,7 +2866,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
       {/* NOVO GRUPO: MATRIZ DE GARGALOS DINÂMICA */}
       {mainGroup === 'BOTTLENECK_MATRIX' && (
-        <LineBottleneckMatrixPanel lineCode={line?.code || 'L1'} lineName={line?.name} />
+        <LineBottleneckMatrixPanel
+          lineCode={line?.code || 'L1'}
+          lineName={line?.name}
+          initialCompanyCode={line?.code?.includes('KS') ? 'KS-FERRADURA' : 'CIAFAL'}
+        />
       )}
 
       {/* 7. CONTEÚDO: GRUPO 5 - GOVERNANÇA & FONTES SAP */}

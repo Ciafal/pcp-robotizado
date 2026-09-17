@@ -71,6 +71,12 @@ export const FIELD_LABELS_PT_BR: Record<string, string> = {
   lineApproverId: 'Gestor da Linha Homologador',
   manager_user_id: 'Gestor Operacional Titular',
   pcp_programmer_user_id: 'Aprovador PCP Homologador',
+  mrp_group_code: 'Grupo MRP (MARC-DISGR)',
+  mrp_group_description: 'Descrição do Grupo MRP',
+  werks: 'Centro SAP (WERKS)',
+  reference_matrix_name: 'Matriz de Referência',
+  valid_from: 'Vigência Inicial',
+  valid_until: 'Vigência Final',
 }
 
 export interface ComputeDiffOptions {

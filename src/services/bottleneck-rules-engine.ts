@@ -571,9 +571,7 @@ export class BottleneckRulesEngine {
 export const bottleneckMatrixService = {
   async listMatrices(lineCode?: string): Promise<LineBottleneckMatrixRecord[]> {
     try {
-      const filter = lineCode
-        ? `line_code = "${lineCode}" && status = "VIGENTE"`
-        : 'status = "VIGENTE"'
+      const filter = lineCode ? `line_code = "${lineCode}"` : ''
       const records = await pb
         .collection('line_bottleneck_matrix')
         .getFullList<LineBottleneckMatrixRecord>({
@@ -585,6 +583,16 @@ export const bottleneckMatrixService = {
       console.warn('Erro ao carregar matrizes de gargalos do backend:', err)
       return []
     }
+  },
+
+  async updateMatrix(
+    id: string,
+    data: Partial<LineBottleneckMatrixRecord>,
+  ): Promise<LineBottleneckMatrixRecord> {
+    const updated = await pb
+      .collection('line_bottleneck_matrix')
+      .update<LineBottleneckMatrixRecord>(id, data)
+    return updated
   },
 
   async listConstraints(lineCode?: string): Promise<LineProcessConstraint[]> {

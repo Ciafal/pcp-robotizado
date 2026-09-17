@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T16:39:20.013Z",
+  "generatedAt": "2026-09-17T17:02:59.410Z",
   "collections": [
     {
       "name": "users",
@@ -15582,6 +15582,36 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "mrp_group_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mrp_group_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "werks",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_param2_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_homologated",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -21053,6 +21083,87 @@
         "CREATE UNIQUE INDEX idx_pcp_notif_code ON pcp_internal_notifications (notification_code)",
         "CREATE INDEX idx_pcp_notif_target ON pcp_internal_notifications (target_audience)",
         "CREATE INDEX idx_pcp_notif_read ON pcp_internal_notifications (is_read)"
+      ]
+    },
+    {
+      "name": "sap_mrp_groups",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "disgr",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "werks",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_source",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["SAP_RFC", "CACHE"]
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_sap_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_smg_werks_disgr ON sap_mrp_groups (werks, disgr)",
+        "CREATE INDEX idx_smg_disgr ON sap_mrp_groups (disgr)",
+        "CREATE INDEX idx_smg_werks ON sap_mrp_groups (werks)"
       ]
     }
   ]
