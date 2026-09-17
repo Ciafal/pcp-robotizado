@@ -48,7 +48,10 @@ export interface UpdateLineReferenceDocumentInput {
   line_id: string
   line_code?: string
   company_id?: string
-  interference_categories: SgqInterferenceCategory[]
+  interference_categories?: SgqInterferenceCategory[]
+  interpreted_rules?: any
+  status?: SgqDocumentStatus
+  active_revision_ref?: string
 }
 
 class LineReferenceDocumentsService {
@@ -146,26 +149,49 @@ class LineReferenceDocumentsService {
     }
   }
 
-  async updateCategories(input: UpdateLineReferenceDocumentInput): Promise<LineReferenceDocument> {
+  async update(input: UpdateLineReferenceDocumentInput): Promise<LineReferenceDocument> {
     const user = pb.authStore.record
     const existing = await pb.collection('line_reference_documents').getOne(input.id)
     const oldCategories: SgqInterferenceCategory[] = existing.interference_categories || []
 
+    const payload: Record<string, any> = {
+      updated_by_user_id: user?.id || '',
+    }
+    if (input.interference_categories !== undefined) {
+      payload.interference_categories = input.interference_categories
+    }
+    if (input.interpreted_rules !== undefined) {
+      payload.interpreted_rules = input.interpreted_rules
+    }
+    if (input.status !== undefined) {
+      payload.status = input.status
+    }
+    if (input.active_revision_ref !== undefined) {
+      payload.active_revision_ref = input.active_revision_ref
+    }
+
     try {
-      const record = await pb.collection('line_reference_documents').update(input.id, {
-        interference_categories: input.interference_categories,
-        updated_by_user_id: user?.id || '',
-      })
+      const record = await pb.collection('line_reference_documents').update(input.id, payload)
       const mapped = this.mapRecord(record)
 
       // Auditoria Antes x Depois
       const diff = computeDiff(
-        { interference_categories: oldCategories.sort().join(', ') },
-        { interference_categories: input.interference_categories.sort().join(', ') },
+        {
+          interference_categories: oldCategories.sort().join(', '),
+          has_interpreted_rules: Boolean(
+            existing.interpreted_rules && Object.keys(existing.interpreted_rules).length > 0,
+          ),
+        },
+        {
+          interference_categories: (mapped.interference_categories || []).sort().join(', '),
+          has_interpreted_rules: Boolean(
+            mapped.interpreted_rules && Object.keys(mapped.interpreted_rules).length > 0,
+          ),
+        },
       )
 
       await pcpAuditService.recordLog({
-        action: `Atualização de Interferência do Documento: ${mapped.document_code}`,
+        action: `Atualização de Documento de Referência: ${mapped.document_code}`,
         event_type: 'REFERENCE_DOCUMENT_UPDATE',
         module: 'Hierarquia das Linhas',
         screen: 'Documentos de Referência',
@@ -177,23 +203,66 @@ class LineReferenceDocumentsService {
         outcome: 'SUCCESS',
         changes: diff,
         details: {
-          old_categories: oldCategories,
-          new_categories: input.interference_categories,
+          categories: mapped.interference_categories,
         },
       })
 
       return mapped
     } catch (err: any) {
       await pcpAuditService.recordFailureAttempt({
-        operation: `Atualizar categorias do documento ${input.id}`,
+        operation: `Atualizar documento ${input.id}`,
         module: 'Hierarquia das Linhas',
         screen: 'Documentos de Referência',
         line: input.line_code || input.line_id,
         company: input.company_id || 'CIAFAL',
-        errorMessage: err?.message || 'Falha ao atualizar categorias do documento',
+        errorMessage: err?.message || 'Falha ao atualizar documento',
       })
       throw err
     }
+  }
+
+  async updateCategories(input: UpdateLineReferenceDocumentInput): Promise<LineReferenceDocument> {
+    return this.update(input)
+  }
+
+  async saveInterpretedRules(
+    docId: string,
+    rulesPayload: any,
+    context?: { line_code?: string; line_id?: string; company_id?: string },
+  ): Promise<LineReferenceDocument> {
+    const existing = await pb.collection('line_reference_documents').getOne(docId)
+    const user = pb.authStore.record
+
+    const record = await pb.collection('line_reference_documents').update(docId, {
+      interpreted_rules: rulesPayload,
+      updated_by_user_id: user?.id || '',
+    })
+
+    const mapped = this.mapRecord(record)
+
+    await pcpAuditService.recordLog({
+      action: `Processamento IA e Extração de Regras: ${mapped.document_code} (${mapped.revision})`,
+      event_type: 'AI_OPTIMIZATION_RUN',
+      module: 'Hierarquia das Linhas',
+      screen: 'Documentos de Referência',
+      company: context?.company_id || mapped.company_id || 'CIAFAL',
+      line: context?.line_code || context?.line_id || mapped.line_id,
+      record_id: docId,
+      entity: 'line_reference_documents',
+      status: 'Concluída',
+      outcome: 'SUCCESS',
+      changes: computeDiff(
+        { rules_count: (existing.interpreted_rules?.rules || []).length },
+        { rules_count: (rulesPayload?.rules || []).length },
+      ),
+      details: {
+        document_code: mapped.document_code,
+        revision: mapped.revision,
+        total_rules: (rulesPayload?.rules || []).length,
+      },
+    })
+
+    return mapped
   }
 
   async remove(

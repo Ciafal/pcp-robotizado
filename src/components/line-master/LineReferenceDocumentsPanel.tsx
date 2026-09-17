@@ -10,10 +10,16 @@ import {
   Search,
   Filter,
   RefreshCw,
-  Info,
-  Calendar,
-  Building2,
+  Sparkles,
   Layers,
+  Calendar,
+  AlertTriangle,
+  ToggleLeft,
+  ToggleRight,
+  Info,
+  Check,
+  ShieldCheck,
+  History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +68,9 @@ import {
   lineReferenceDocumentsService,
   LineReferenceDocument,
 } from '@/services/line-reference-documents-service'
+import { sgqAiExtractionEngine } from '@/services/sgq-ai-extraction-engine'
+import { StructuredDocumentRule, RuleStatus } from '@/types/sgq-rules'
+import { pcpAuditService, computeDiff } from '@/services/pcp-audit-service'
 
 interface LineReferenceDocumentsPanelProps {
   lineId: string
@@ -95,8 +104,12 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
   // Status da integração SGQ
   const [sgqStatus, setSgqStatus] = useState<SgqIntegrationStatus>({
     connected: false,
-    message: '',
+    state: 'NAO_CONFIGURADO',
+    title: 'Integração com SGQ aguardando configuração',
+    message: 'Integração com SGQ aguardando configuração',
+    sourceLabel: 'SGQ > Informação Documentada',
   })
+  const [isSyncingSgq, setIsSyncingSgq] = useState<boolean>(false)
 
   // Modal: Adicionar Documento
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false)
@@ -129,6 +142,12 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
   const [docToRemove, setDocToRemove] = useState<LineReferenceDocument | null>(null)
   const [isRemoving, setIsRemoving] = useState<boolean>(false)
 
+  // Modal: Ver / Gerenciar Regras Extraídas
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false)
+  const [selectedDocForRules, setSelectedDocForRules] = useState<LineReferenceDocument | null>(null)
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState<boolean>(false)
+  const [analyzingDocId, setAnalyzingDocId] = useState<string | null>(null)
+
   // Carregar dados
   const loadDocuments = useCallback(async () => {
     setLoading(true)
@@ -156,6 +175,29 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
   useEffect(() => {
     loadDocuments()
   }, [loadDocuments])
+
+  // Ação: Atualizar SGQ
+  const handleRefreshSgq = async () => {
+    setIsSyncingSgq(true)
+    try {
+      const updatedStatus = await sgqDocumentProvider.syncSgq()
+      setSgqStatus(updatedStatus)
+      await loadDocuments()
+
+      toast({
+        title: 'Sincronização com SGQ Concluída',
+        description: `Status: ${updatedStatus.title}`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Falha na sincronização',
+        description: err?.message || 'Erro ao sincronizar repositório SGQ.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSyncingSgq(false)
+    }
+  }
 
   // Busca no provedor SGQ
   const handleSearchSgq = async () => {
@@ -221,7 +263,7 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
 
     setIsSavingAdd(true)
     try {
-      await lineReferenceDocumentsService.create({
+      const createdDoc = await lineReferenceDocumentsService.create({
         line_id: lineId,
         company_id: companyId,
         line_code: lineCode,
@@ -231,18 +273,36 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
         revision: selectedDocToAdd.revision,
         document_type: selectedDocToAdd.documentType,
         responsible_area: selectedDocToAdd.responsibleArea,
-        validity_date: selectedDocToAdd.validityDate,
+        validity_date: selectedDocToAdd.validityDate || selectedDocToAdd.validityDateEnd,
         status: selectedDocToAdd.status,
-        source: 'SGQ',
+        source: selectedDocToAdd.isSimulatedHomologation
+          ? 'Fonte de homologação / dados simulados'
+          : 'SGQ',
         original_url: selectedDocToAdd.originalUrl,
         interference_categories: selectedCategoriesToAdd,
         active_revision_ref: selectedDocToAdd.activeRevisionRef,
       })
 
-      // Toast somente após confirmação do backend
+      // Auto-extração por IA imediata do documento vinculado
+      try {
+        const analysis = await sgqAiExtractionEngine.analyzeDocument(
+          createdDoc,
+          selectedDocToAdd.extractableContent,
+        )
+        if (analysis && analysis.rules.length > 0) {
+          await lineReferenceDocumentsService.saveInterpretedRules(createdDoc.id, analysis, {
+            line_code: lineCode,
+            line_id: lineId,
+            company_id: companyId,
+          })
+        }
+      } catch (aiErr) {
+        console.warn('Auto-análise IA inicial postergada:', aiErr)
+      }
+
       toast({
         title: 'Documento vinculado com sucesso',
-        description: `${selectedDocToAdd.code} vinculado à linha ${lineCode}.`,
+        description: `${selectedDocToAdd.code} vinculado e pronto para uso no PCP.`,
       })
 
       setIsAddModalOpen(false)
@@ -255,6 +315,115 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
       })
     } finally {
       setIsSavingAdd(false)
+    }
+  }
+
+  // Ação: Analisar Documento com IA
+  const handleAnalyzeWithAi = async (doc: LineReferenceDocument) => {
+    setAnalyzingDocId(doc.id)
+    setIsAnalyzingAi(true)
+    try {
+      // Obter conteúdo extraível via provider se disponível
+      const sgqDoc = await sgqDocumentProvider.getDocumentById(
+        doc.document_ref || doc.document_code,
+      )
+      const analysis = await sgqAiExtractionEngine.analyzeDocument(doc, sgqDoc?.extractableContent)
+
+      await lineReferenceDocumentsService.saveInterpretedRules(doc.id, analysis, {
+        line_code: lineCode,
+        line_id: lineId,
+        company_id: companyId,
+      })
+
+      toast({
+        title: 'Análise de Documento por IA Concluída',
+        description: `${analysis.rules.length} regra(s) estruturada(s) extraída(s) para ${doc.document_code}.`,
+      })
+
+      await loadDocuments()
+
+      // Se o modal de regras estiver aberto para este documento, atualiza-o
+      if (selectedDocForRules?.id === doc.id) {
+        setSelectedDocForRules({
+          ...doc,
+          interpreted_rules: analysis,
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Falha na análise por IA',
+        description: err?.message || 'Erro ao extrair regras estruturadas.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsAnalyzingAi(false)
+      setAnalyzingDocId(null)
+    }
+  }
+
+  // Ação: Validar Regra / Desativar Regra (controla apenas o uso pelo PCP, nunca o documento no SGQ)
+  const handleToggleRuleStatus = async (
+    doc: LineReferenceDocument,
+    targetRuleId: string,
+    targetStatus: RuleStatus,
+  ) => {
+    const existingPayload = doc.interpreted_rules || { rules: [] }
+    const updatedRules = (existingPayload.rules || []).map((r: StructuredDocumentRule) => {
+      if (r.rule_id === targetRuleId) {
+        return {
+          ...r,
+          status: targetStatus,
+          requires_human_review: false,
+          human_reviewed_at: new Date().toISOString(),
+          human_reviewer: 'PCP Supervisor',
+        }
+      }
+      return r
+    })
+
+    const newPayload = {
+      ...existingPayload,
+      rules: updatedRules,
+    }
+
+    try {
+      await lineReferenceDocumentsService.saveInterpretedRules(doc.id, newPayload, {
+        line_code: lineCode,
+        line_id: lineId,
+        company_id: companyId,
+      })
+
+      // Auditoria no PCP
+      await pcpAuditService.recordLog({
+        action: `${targetStatus === 'ATIVA' ? 'Validação' : 'Desativação'} de Regra Documental: ${targetRuleId}`,
+        event_type: 'RULE_ACTION',
+        module: 'Hierarquia das Linhas',
+        screen: 'Documentos de Referência',
+        company: companyId,
+        line: lineCode,
+        record_id: doc.id,
+        entity: 'line_reference_documents',
+        status: 'Concluída',
+        outcome: 'SUCCESS',
+        changes: computeDiff({ status: 'ANTERIOR' }, { status: targetStatus }),
+        details: { rule_id: targetRuleId, targetStatus },
+      })
+
+      toast({
+        title:
+          targetStatus === 'ATIVA' ? 'Regra Validada e Ativada' : 'Regra Desativada para o PCP',
+        description: `A regra ${targetRuleId} foi atualizada. O documento original no SGQ permanece inalterado.`,
+      })
+
+      const updatedDoc = { ...doc, interpreted_rules: newPayload }
+      setSelectedDocForRules(updatedDoc)
+      loadDocuments()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao alterar status da regra',
+        description: err?.message || 'Falha ao persistir status.',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -288,7 +457,6 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
         interference_categories: editCategories,
       })
 
-      // Toast somente após confirmação do backend
       toast({
         title: 'Vínculo atualizado',
         description: `Categorias de interferência de ${docToEdit.document_code} atualizadas com sucesso.`,
@@ -320,7 +488,6 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
         company_id: companyId,
       })
 
-      // Toast somente após confirmação do backend
       toast({
         title: 'Vínculo removido',
         description: `O vínculo do documento ${docToRemove.document_code} foi removido desta linha no PCP.`,
@@ -390,6 +557,29 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
     }
   }
 
+  const getRuleTypeBadge = (type: string) => {
+    switch (type) {
+      case 'OBRIGATORIA':
+        return <Badge className="bg-rose-600 text-white font-mono text-[10px]">OBRIGATÓRIA</Badge>
+      case 'PROIBICAO':
+        return <Badge className="bg-red-700 text-white font-mono text-[10px]">PROIBIÇÃO</Badge>
+      case 'LIMITE':
+        return <Badge className="bg-amber-500 text-white font-mono text-[10px]">LIMITE</Badge>
+      case 'PARAMETRO_TECNICO':
+        return <Badge className="bg-blue-600 text-white font-mono text-[10px]">PARÂMETRO</Badge>
+      case 'RECOMENDACAO':
+        return (
+          <Badge className="bg-indigo-500 text-white font-mono text-[10px]">RECOMENDAÇÃO</Badge>
+        )
+      default:
+        return (
+          <Badge variant="outline" className="text-[10px]">
+            INFORMATIVA
+          </Badge>
+        )
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -413,12 +603,13 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
           <Button
             variant="outline"
             size="sm"
-            onClick={loadDocuments}
-            disabled={loading}
+            onClick={handleRefreshSgq}
+            disabled={isSyncingSgq || loading}
             className="h-9 gap-1.5"
+            title="Sincronizar repositório SGQ"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Atualizar</span>
+            <RefreshCw className={`h-4 w-4 ${isSyncingSgq ? 'animate-spin' : ''}`} />
+            <span>Atualizar SGQ</span>
           </Button>
 
           <Can permission="pcp.masterdata.edit">
@@ -434,20 +625,56 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
         </div>
       </div>
 
-      {/* Banner de status da integração com o SGQ */}
-      {!sgqStatus.connected && (
-        <Card className="border-amber-200 bg-amber-50/70 text-amber-900">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-            <div className="space-y-1 text-sm">
-              <p className="font-semibold text-amber-950">
-                Integração SGQ Informação Documentada: Não Conectada
+      {/* Card de Status da Integração SGQ (Requisitos 4 e 5) */}
+      <Card
+        className={`border shadow-xs ${
+          sgqStatus.state === 'CONECTADO'
+            ? 'border-emerald-200 bg-emerald-50/50'
+            : sgqStatus.state === 'HOMOLOGACAO_SIMULADO'
+              ? 'border-blue-200 bg-blue-50/50'
+              : 'border-amber-200 bg-amber-50/70'
+        }`}
+      >
+        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            {sgqStatus.state === 'CONECTADO' ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+            ) : sgqStatus.state === 'HOMOLOGACAO_SIMULADO' ? (
+              <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            )}
+            <div className="space-y-0.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-foreground">{sgqStatus.title}</span>
+                <Badge variant="outline" className="text-[10px] font-semibold">
+                  {sgqStatus.sourceLabel}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                {sgqStatus.description || sgqStatus.message}
               </p>
-              <p className="text-amber-800 leading-relaxed">{sgqStatus.message}</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+            <div>
+              <span className="font-medium text-foreground">Última sincronização: </span>
+              <span>
+                {sgqStatus.lastSyncAt
+                  ? new Date(sgqStatus.lastSyncAt).toLocaleString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Pendente'}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabela de Documentos Vinculados */}
       <Card>
@@ -460,7 +687,7 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
               </CardTitle>
             </div>
             <span className="text-xs text-muted-foreground">
-              Fonte oficial: SGQ &gt; Informação Documentada
+              Fonte oficial: {sgqStatus.sourceLabel}
             </span>
           </div>
         </CardHeader>
@@ -468,7 +695,6 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
           {loading ? (
             <div className="p-6 space-y-4">
               <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
@@ -511,10 +737,10 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                       Status
                     </th>
                     <th scope="col" className="px-4 py-3">
-                      Interferência
+                      Interferência na Programação
                     </th>
                     <th scope="col" className="px-4 py-3">
-                      Vigência
+                      Regras IA Extraídas
                     </th>
                     <th scope="col" className="px-4 py-3">
                       Origem
@@ -525,146 +751,377 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {documents.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-muted/30 transition-colors">
-                      {/* Documento */}
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
-                            {doc.document_code}
-                          </span>
-                          <span className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                            {doc.title}
-                          </span>
-                          {doc.responsible_area && (
-                            <span className="text-[11px] text-muted-foreground/80 mt-0.5">
-                              Área: {doc.responsible_area}
+                  {documents.map((doc) => {
+                    const rulesList: StructuredDocumentRule[] = doc.interpreted_rules?.rules || []
+                    const activeRulesCount = rulesList.filter((r) => r.status === 'ATIVA').length
+
+                    return (
+                      <tr key={doc.id} className="hover:bg-muted/30 transition-colors">
+                        {/* Documento */}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                              {doc.document_code}
                             </span>
-                          )}
-                        </div>
-                      </td>
+                            <span className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                              {doc.title}
+                            </span>
+                            {doc.responsible_area && (
+                              <span className="text-[11px] text-muted-foreground/80 mt-0.5">
+                                Área: {doc.responsible_area}
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Revisão */}
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {doc.revision}
-                        </Badge>
-                      </td>
+                        {/* Revisão */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {doc.revision}
+                          </Badge>
+                        </td>
 
-                      {/* Status */}
-                      <td className="px-4 py-4 whitespace-nowrap">{getStatusBadge(doc.status)}</td>
+                        {/* Status */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {getStatusBadge(doc.status)}
+                        </td>
 
-                      {/* Interferência */}
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {doc.interference_categories.length > 0 ? (
-                            doc.interference_categories.map((cat) => {
-                              const color = SGQ_INTERFERENCE_CATEGORY_COLORS[cat] || {
-                                bg: 'bg-muted',
-                                text: 'text-foreground',
-                                border: 'border-border',
-                              }
-                              return (
-                                <span
-                                  key={cat}
-                                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${color.bg} ${color.text} ${color.border}`}
-                                >
-                                  {SGQ_INTERFERENCE_CATEGORY_LABELS[cat] || cat}
+                        {/* Interferência */}
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {doc.interference_categories.length > 0 ? (
+                              doc.interference_categories.map((cat) => {
+                                const color = SGQ_INTERFERENCE_CATEGORY_COLORS[cat] || {
+                                  bg: 'bg-muted',
+                                  text: 'text-foreground',
+                                  border: 'border-border',
+                                }
+                                return (
+                                  <span
+                                    key={cat}
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${color.bg} ${color.text} ${color.border}`}
+                                  >
+                                    {SGQ_INTERFERENCE_CATEGORY_LABELS[cat] || cat}
+                                  </span>
+                                )
+                              })
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">
+                                Sem categoria
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Regras IA */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {rulesList.length > 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedDocForRules(doc)
+                                  setIsRulesModalOpen(true)
+                                }}
+                                className="h-7 text-xs font-semibold gap-1 text-primary hover:bg-primary/10"
+                              >
+                                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                <span>{activeRulesCount} regra(s) ativa(s)</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAnalyzeWithAi(doc)}
+                                disabled={isAnalyzingAi && analyzingDocId === doc.id}
+                                className="h-7 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 gap-1"
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span>
+                                  {isAnalyzingAi && analyzingDocId === doc.id
+                                    ? 'Analisando...'
+                                    : 'Analisar com IA'}
                                 </span>
-                              )
-                            })
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">
-                              Sem categoria definida
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Vigência */}
-                      <td className="px-4 py-4 whitespace-nowrap text-xs text-muted-foreground">
-                        {doc.validity_date ? (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {doc.validity_date}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
+                        {/* Origem */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <Badge variant="secondary" className="text-[11px]">
+                            {doc.source || 'SGQ'}
+                          </Badge>
+                        </td>
 
-                      {/* Origem */}
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Badge variant="secondary" className="text-[11px]">
-                          {doc.source || 'SGQ'}
-                        </Badge>
-                      </td>
-
-                      {/* Ações */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {doc.original_url ? (
+                        {/* Ações */}
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Ação Analisar Documento com IA */}
                             <Button
                               variant="ghost"
                               size="sm"
-                              asChild
-                              className="h-8 w-8 p-0"
-                              title="Abrir no SGQ"
+                              onClick={() => handleAnalyzeWithAi(doc)}
+                              disabled={isAnalyzingAi && analyzingDocId === doc.id}
+                              className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                              title="Analisar Documento com IA"
                             >
-                              <a href={doc.original_url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                                <span className="sr-only">Abrir no SGQ</span>
-                              </a>
+                              <Sparkles
+                                className={`h-4 w-4 ${isAnalyzingAi && analyzingDocId === doc.id ? 'animate-spin' : ''}`}
+                              />
+                              <span className="sr-only">Analisar com IA</span>
                             </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled
-                              className="h-8 w-8 p-0 opacity-40"
-                              title="Link original indisponível"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              <span className="sr-only">Link indisponível</span>
-                            </Button>
-                          )}
 
-                          <Can permission="pcp.masterdata.edit">
+                            {/* Ver Regras Extraídas */}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleOpenEdit(doc)}
-                              className="h-8 w-8 p-0"
-                              title="Editar categorias de interferência"
+                              onClick={() => {
+                                setSelectedDocForRules(doc)
+                                setIsRulesModalOpen(true)
+                              }}
+                              className="h-8 w-8 p-0 text-slate-700 hover:bg-slate-100"
+                              title="Ver Regras Extraídas"
                             >
-                              <Edit2 className="h-4 w-4 text-foreground" />
-                              <span className="sr-only">Editar vínculo</span>
+                              <Layers className="h-4 w-4" />
+                              <span className="sr-only">Ver Regras</span>
                             </Button>
-                          </Can>
 
-                          <Can permission="pcp.masterdata.edit">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDocToRemove(doc)}
-                              className="h-8 w-8 p-0 hover:bg-rose-50 hover:text-rose-600"
-                              title="Remover vínculo com o PCP"
-                            >
-                              <Trash2 className="h-4 w-4 text-rose-500" />
-                              <span className="sr-only">Remover vínculo</span>
-                            </Button>
-                          </Can>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {/* Abrir Documento Original */}
+                            {doc.original_url ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                className="h-8 w-8 p-0"
+                                title="Abrir documento original"
+                              >
+                                <a
+                                  href={doc.original_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  <span className="sr-only">Abrir documento original</span>
+                                </a>
+                              </Button>
+                            ) : null}
+
+                            <Can permission="pcp.masterdata.edit">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEdit(doc)}
+                                className="h-8 w-8 p-0"
+                                title="Editar categorias de interferência"
+                              >
+                                <Edit2 className="h-4 w-4 text-foreground" />
+                                <span className="sr-only">Editar categorias</span>
+                              </Button>
+                            </Can>
+
+                            <Can permission="pcp.masterdata.edit">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDocToRemove(doc)}
+                                className="h-8 w-8 p-0 hover:bg-rose-50 hover:text-rose-600"
+                                title="Remover vínculo com o PCP"
+                              >
+                                <Trash2 className="h-4 w-4 text-rose-500" />
+                                <span className="sr-only">Remover vínculo</span>
+                              </Button>
+                            </Can>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal: Tabela de Regras Extraídas pelo Processamento de IA (Requisito 7) */}
+      <Dialog open={isRulesModalOpen} onOpenChange={setIsRulesModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Regras Extraídas do Documento — {selectedDocForRules?.document_code} (
+                {selectedDocForRules?.revision})
+              </DialogTitle>
+              {selectedDocForRules && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAnalyzeWithAi(selectedDocForRules)}
+                  disabled={isAnalyzingAi}
+                  className="h-8 text-xs gap-1"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isAnalyzingAi ? 'animate-spin' : ''}`} />
+                  Reanalisar com IA
+                </Button>
+              )}
+            </div>
+            <DialogDescription>
+              Regras industriais estruturadas que alimentam os motores da Montagem Semanal. A
+              ativação/desativação aqui controla apenas a utilização pelo PCP, sem alterar o
+              documento no SGQ.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-4">
+            {/* Guardrail aviso */}
+            <div className="p-3 bg-muted/30 rounded border text-xs text-muted-foreground flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Guardrail Absoluto:</strong> Apenas regras com documento, revisão e trecho
+                de origem comprovados interferem no motor do PCP. Recomendações nunca viram
+                obrigações automaticamente.
+              </span>
+            </div>
+
+            {/* Tabela Categoria | Tipo | Regra | Valor | Origem | Status */}
+            {!selectedDocForRules?.interpreted_rules?.rules ||
+            selectedDocForRules.interpreted_rules.rules.length === 0 ? (
+              <div className="p-8 text-center border border-dashed rounded text-xs text-muted-foreground">
+                Nenhuma regra estruturada extraída até o momento. Clique em "Reanalisar com IA" para
+                processar o conteúdo do documento.
+              </div>
+            ) : (
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-muted/40 uppercase font-semibold text-muted-foreground border-b">
+                    <tr>
+                      <th className="px-3 py-2.5">Categoria</th>
+                      <th className="px-3 py-2.5">Tipo</th>
+                      <th className="px-3 py-2.5">Regra & Restrição</th>
+                      <th className="px-3 py-2.5">Valor</th>
+                      <th className="px-3 py-2.5">Origem & Seção</th>
+                      <th className="px-3 py-2.5">Status</th>
+                      <th className="px-3 py-2.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(selectedDocForRules.interpreted_rules.rules as StructuredDocumentRule[]).map(
+                      (rule) => {
+                        const isActive = rule.status === 'ATIVA'
+                        const isNeedsReview = rule.status === 'REVISAO_NECESSARIA'
+
+                        return (
+                          <tr key={rule.rule_id} className="hover:bg-muted/20">
+                            <td className="px-3 py-2.5 font-medium whitespace-nowrap">
+                              <span className="font-semibold text-foreground">
+                                {SGQ_INTERFERENCE_CATEGORY_LABELS[rule.category] || rule.category}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              {getRuleTypeBadge(rule.rule_type)}
+                            </td>
+                            <td className="px-3 py-2.5 max-w-sm">
+                              <div className="space-y-0.5">
+                                <p className="font-medium text-foreground">
+                                  {rule.action_or_restriction}
+                                </p>
+                                {rule.condition && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Condição: {rule.condition}
+                                  </p>
+                                )}
+                                {rule.ai_interpretation && (
+                                  <p className="text-[10px] text-primary italic">
+                                    Interpretação IA: {rule.ai_interpretation}
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap font-mono">
+                              {rule.value !== undefined ? `${rule.value} ${rule.unit || ''}` : '—'}
+                            </td>
+                            <td className="px-3 py-2.5 max-w-xs">
+                              <div className="space-y-0.5">
+                                <span className="font-semibold text-[11px] text-foreground block">
+                                  {rule.page_or_section || 'Seção'}
+                                </span>
+                                <span
+                                  className="text-[10px] text-muted-foreground italic line-clamp-2"
+                                  title={rule.source_excerpt}
+                                >
+                                  "{rule.source_excerpt}"
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              {isNeedsReview ? (
+                                <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px]">
+                                  Revisão Necessária
+                                </Badge>
+                              ) : isActive ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                                  Ativa
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-slate-500 text-[10px]">
+                                  Desativada
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-right">
+                              {isActive ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleToggleRuleStatus(
+                                      selectedDocForRules,
+                                      rule.rule_id,
+                                      'DESATIVADA',
+                                    )
+                                  }
+                                  className="h-6 text-[10px] px-2 text-rose-700 hover:bg-rose-50"
+                                >
+                                  Desativar Regra
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleToggleRuleStatus(
+                                      selectedDocForRules,
+                                      rule.rule_id,
+                                      'ATIVA',
+                                    )
+                                  }
+                                  className="h-6 text-[10px] px-2 text-emerald-700 hover:bg-emerald-50"
+                                >
+                                  Validar Regra
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      },
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button size="sm" variant="outline" onClick={() => setIsRulesModalOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Adicionar Documento de Referência */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
@@ -686,21 +1143,19 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
               <div className="p-4 rounded-lg border border-amber-200 bg-amber-50/80 text-amber-900 space-y-2">
                 <div className="flex items-center gap-2 font-semibold text-sm text-amber-950">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
-                  Integração SGQ &gt; Informação Documentada Pendente
+                  {sgqStatus.title}
                 </div>
-                <p className="text-xs leading-relaxed text-amber-800">{sgqStatus.message}</p>
-                <div className="text-[11px] text-amber-700 font-medium">
-                  Status: 0 documentos externos disponíveis no momento. Nenhum card fictício ou
-                  simulado é gerado.
-                </div>
+                <p className="text-xs leading-relaxed text-amber-800">
+                  {sgqStatus.description || sgqStatus.message}
+                </p>
               </div>
             )}
 
-            {/* Filtros de busca no SGQ */}
+            {/* Filtros de busca no SGQ com todos os campos requisitados */}
             <div className="border rounded-lg p-4 bg-muted/20 space-y-3">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
                 <Filter className="h-3.5 w-3.5" />
-                Filtros de Consulta no SGQ
+                Filtros de Pesquisa no SGQ
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -753,6 +1208,15 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                   />
                 </div>
                 <div>
+                  <Label className="text-xs">Revisão</Label>
+                  <Input
+                    placeholder="Ex: Rev.04"
+                    value={searchFilters.revision}
+                    onChange={(e) => setSearchFilters((f) => ({ ...f, revision: e.target.value }))}
+                    className="h-8 text-xs mt-1"
+                  />
+                </div>
+                <div>
                   <Label className="text-xs">Status SGQ</Label>
                   <Select
                     value={searchFilters.status}
@@ -769,6 +1233,15 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                       <SelectItem value="SUBSTITUIDO">Substituído</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Palavra-chave</Label>
+                  <Input
+                    placeholder="Ex: setup, cadência, proibido"
+                    value={searchFilters.keyword}
+                    onChange={(e) => setSearchFilters((f) => ({ ...f, keyword: e.target.value }))}
+                    className="h-8 text-xs mt-1"
+                  />
                 </div>
               </div>
 
@@ -794,7 +1267,7 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                 <div className="p-6 border border-dashed rounded-lg text-center text-xs text-muted-foreground bg-muted/10">
                   {sgqStatus.connected
                     ? 'Nenhum documento encontrado com os filtros aplicados.'
-                    : 'Nenhum documento listado porque o serviço do SGQ ainda não foi conectado.'}
+                    : 'Nenhum documento listado porque o serviço do SGQ ainda não foi configurado.'}
                 </div>
               ) : (
                 <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
@@ -818,6 +1291,14 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
                             <span>Rev. {doc.revision}</span>
                             <span>{doc.responsibleArea || 'SGQ'}</span>
                             <span>{doc.status}</span>
+                            {doc.isSimulatedHomologation && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-blue-50 text-blue-700 border-blue-200"
+                              >
+                                Fonte de homologação / dados simulados
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
@@ -828,14 +1309,14 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
               )}
             </div>
 
-            {/* Categorias de Interferência na Programação */}
+            {/* Categorias de Interferência na Programação (Obrigatório ao menos 1) */}
             <div className="space-y-2 pt-2 border-t">
               <Label className="text-xs font-semibold text-foreground">
                 Interferência na Programação da Linha (mínimo 1 categoria) *
               </Label>
               <p className="text-xs text-muted-foreground">
-                Defina em quais aspectos de roteamento e planejamento este documento atua como
-                regra.
+                Selecione as dimensões do planejamento produtivo em que as regras deste documento
+                atuam.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 {ALL_INTERFERENCE_CATEGORIES.map((cat) => {
@@ -1005,4 +1486,5 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
     </div>
   )
 }
+
 export default LineReferenceDocumentsPanel

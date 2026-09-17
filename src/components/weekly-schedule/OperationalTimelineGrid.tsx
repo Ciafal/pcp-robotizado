@@ -21,6 +21,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import { SgqRuleIndicatorBadge } from '@/components/weekly-schedule/SgqRuleIndicatorBadge'
+import { ScheduleItemDocumentImpact } from '@/types/sgq-rules'
 
 interface OperationalTimelineGridProps {
   items: WeeklyScheduleItem[]
@@ -51,6 +53,7 @@ interface OperationalTimelineGridProps {
   onEditItem?: (item: WeeklyScheduleItem) => void
   onOpenAwaitingModal?: (item: WeeklyScheduleItem) => void
   onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
+  documentImpactsByItem?: Record<string, ScheduleItemDocumentImpact[]>
 }
 
 // Horários para a régua da linha do tempo: 06:00 até 22:00 (17 colunas de 1h)
@@ -134,6 +137,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   onAddItem,
   onOpenAwaitingModal,
   onOpenSetupDetail,
+  documentImpactsByItem = {},
 }) => {
   const isWeekPast = isWeekInPast(year, weekNumber)
   const isItemInPast = (item: WeeklyScheduleItem): boolean => {
@@ -974,6 +978,13 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                         <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
                                           {item.material_code}
                                         </span>
+
+                                        {documentImpactsByItem[item.id] && (
+                                          <SgqRuleIndicatorBadge
+                                            impacts={documentImpactsByItem[item.id]}
+                                            compact={true}
+                                          />
+                                        )}
 
                                         {item.tuning_unparametrized && (
                                           <span

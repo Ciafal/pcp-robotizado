@@ -16,13 +16,16 @@ describe('ETAPA 1: PCP + SGQ Integração de Documentos de Referência', () => {
 
   describe('1. Provedor SGQ (DefaultSgqDocumentProvider)', () => {
     it('retorna status de integração desconectada com mensagem informativa e sem travar a UI', async () => {
-      const provider = new DefaultSgqDocumentProvider()
+      const provider = new DefaultSgqDocumentProvider({
+        endpointUrl: '',
+        enableHomologationMock: false,
+      })
       const available = await provider.isAvailable()
       const status = await provider.getIntegrationStatus()
 
       expect(available).toBe(false)
       expect(status.connected).toBe(false)
-      expect(status.message).toContain('SGQ > Informação Documentada ainda não está conectada')
+      expect(status.message).toContain('Integração com SGQ aguardando configuração')
     })
 
     it('não gera mocks nem dados fictícios quando desconectado', async () => {
@@ -45,11 +48,11 @@ describe('ETAPA 1: PCP + SGQ Integração de Documentos de Referência', () => {
         'MP_UTILIZATION',
       ]
 
-      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.SEQUENCING).toBe('Sequenciamento')
-      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.SETUP).toBe('Setup & Matriz de Troca')
-      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.PRODUCTIVITY).toBe('Produtividade & Velocidade')
-      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.BOTTLENECK_MATRIX).toBe('Gargalos & Restrições')
-      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.MP_UTILIZATION).toBe('Utilização de Matéria-Prima')
+      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.SEQUENCING).toBe('Sequenciamento Produtivo')
+      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.SETUP).toBe('Setups e Acertos')
+      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.PRODUCTIVITY).toBe('Produtividade')
+      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.BOTTLENECK_MATRIX).toBe('Matriz de Gargalo')
+      expect(SGQ_INTERFERENCE_CATEGORY_LABELS.MP_UTILIZATION).toBe('Utilização da MP')
 
       categories.forEach((cat) => {
         expect(SGQ_INTERFERENCE_CATEGORY_LABELS[cat]).toBeDefined()

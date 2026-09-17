@@ -50,6 +50,14 @@ import { useControlTower } from '@/contexts/ControlTowerContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { lineMasterService } from '@/services/line-master'
 import { weeklyScheduleService } from '@/services/weekly-schedule-service'
+import {
+  lineReferenceDocumentsService,
+  LineReferenceDocument,
+} from '@/services/line-reference-documents-service'
+import { documentRulesEngine } from '@/services/document-rules-engine'
+import { DocumentValidationResult, ScheduleItemDocumentImpact } from '@/types/sgq-rules'
+import { PreApprovalDocumentValidationPanel } from '@/components/weekly-schedule/PreApprovalDocumentValidationPanel'
+import { pcpAuditService, computeDiff } from '@/services/pcp-audit-service'
 import { WeeklyScheduleEngine, RawMaterialEngineContext } from '@/services/weekly-schedule-engine'
 import {
   getCurrentPlantIsoWeek,
@@ -171,6 +179,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Itens da Programação Semanal
   const [items, setItems] = useState<WeeklyScheduleItem[]>([])
+
+  // Documentos de Referência do SGQ e Validação Documental Integrada
+  const [lineReferenceDocs, setLineReferenceDocs] = useState<LineReferenceDocument[]>([])
+  const [dismissedDocRecommendations, setDismissedDocRecommendations] = useState<string[]>([])
 
   // Rodada 3: Estado do Workflow (7 estados) e Versão
   const [currentWorkflowState, setCurrentWorkflowState] =
@@ -370,6 +382,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
         const overview = await lineMasterService.getLineOverview(lineObj.id)
         setCurrentLineOverview(overview)
+
+        // Carregar Documentos de Referência SGQ vinculados a esta linha
+        try {
+          const docs = await lineReferenceDocumentsService.getByLineId(lineObj.id)
+          setLineReferenceDocs(docs || [])
+        } catch (docErr) {
+          console.warn('Não foi possível carregar documentos de referência:', docErr)
+          setLineReferenceDocs([])
+        }
 
         const mats = await weeklyScheduleService.getOfficialMaterialsForLine(lineObj.id, overview)
         setOfficialMaterials(mats || [])
@@ -774,6 +795,57 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       rawMaterialContext,
     )
   }, [items, currentLineOverview, headerFilter, rawMaterialContext])
+
+  // Validação Documental SGQ Automática (Requisitos 8, 9, 10)
+  // Roda em todas as mutações e utiliza as regras estruturadas já persistidas em interpreted_rules
+  const documentValidationResult: DocumentValidationResult = useMemo(() => {
+    const rawResult = documentRulesEngine.validateDocumentRules(calculationResult.items, {
+      lineCode: selectedLineCode,
+      lineOverview: currentLineOverview,
+      lineDocs: lineReferenceDocs,
+      scheduleCode: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
+      versionNumber: currentVersion,
+      userEmail: auth?.user?.email || 'operador@ciafal.com.br',
+      userName: auth?.user?.name || 'Programador PCP',
+    })
+
+    // Filtrar recomendações já descartadas pelo usuário nesta sessão
+    const filteredRecs = rawResult.recommendations.filter(
+      (r) => !dismissedDocRecommendations.includes(r.rule_id),
+    )
+
+    return {
+      ...rawResult,
+      recommendations: filteredRecs,
+      recommendations_count: filteredRecs.length,
+    }
+  }, [
+    calculationResult.items,
+    selectedLineCode,
+    currentLineOverview,
+    lineReferenceDocs,
+    selectedYear,
+    selectedWeekNumber,
+    currentVersion,
+    auth?.user,
+    dismissedDocRecommendations,
+  ])
+
+  // Mapeamento de impactos por item para renderizar indicador "📄 Regra SGQ aplicada"
+  const documentImpactsByItem = useMemo(() => {
+    const map: Record<string, ScheduleItemDocumentImpact[]> = {}
+    for (const item of calculationResult.items) {
+      const impacts = documentRulesEngine.getItemImpacts(
+        item,
+        documentValidationResult,
+        lineReferenceDocs,
+      )
+      if (impacts.length > 0) {
+        map[item.id] = impacts
+      }
+    }
+    return map
+  }, [calculationResult.items, documentValidationResult, lineReferenceDocs])
 
   // Trava anti-reentrância: sincronização com Oficina de Cilindros executada como efeito colateral
   // apenas quando houver dados prontos (itens carregados e overview disponível), evitando reexecução em cascata durante useMemo
@@ -1984,19 +2056,72 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }
 
-  // Ação: Enviar para Aprovação formal do PCP
+  // Ação: Enviar para Aprovação formal do PCP com Validação Pré-Aprovação Documental (Requisitos 10 e 11)
   const [isSendingApproval, setIsSendingApproval] = useState<boolean>(false)
   const handleSendForApproval = async () => {
+    // GUARDRAIL ABSOLUTO DO ITEM 10: Restrição documental obrigatória não atendida NUNCA passa silenciosa
+    if (documentValidationResult.blocking_violations_count > 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Envio para Aprovação Bloqueado por Regra do SGQ',
+        description: `Existem ${documentValidationResult.blocking_violations_count} restrições obrigatórias ou proibições do SGQ violadas. Corrija-as no painel de validação antes de aprovar.`,
+      })
+
+      // Registrar auditoria da tentativa bloqueada
+      await pcpAuditService.recordFailureAttempt({
+        operation: 'Envio para Aprovação Semanal',
+        module: 'Montagem Semanal',
+        screen: 'Programação > Montagem Semanal',
+        line: selectedLineCode,
+        company: companyCode,
+        errorMessage: `Bloqueio Documental SGQ: ${documentValidationResult.mandatory_violations.map((v) => v.description).join('; ')}`,
+      })
+      return
+    }
+
     setIsSendingApproval(true)
     try {
+      // Cria snapshot imutável das regras documentais vigentes para esta versão (Requisito 11)
+      const rulesSnapshot = documentRulesEngine.createRulesSnapshot(documentValidationResult, {
+        lineCode: selectedLineCode,
+        lineOverview: currentLineOverview,
+        lineDocs: lineReferenceDocs,
+        scheduleCode: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
+        versionNumber: currentVersion,
+        userEmail: auth?.user?.email || 'sistema@ciafal.com.br',
+        userName: auth?.user?.name || 'PCP Robotizado',
+      })
+
       const res = await weeklyScheduleService.sendForApproval(
         headerFilter,
         calculatedItems,
         currentVersion,
       )
       setCurrentWorkflowState('AGUARDANDO_APROVACAO_PCP')
+
+      // Auditoria com snapshot das regras documentais aplicadas
+      await pcpAuditService.recordLog({
+        action: `Envio para Aprovação com Snapshot Documental: ${headerFilter.lineCode} W${headerFilter.weekNumber}`,
+        event_type: 'SCHEDULE_CHANGE',
+        module: 'Montagem Semanal',
+        screen: 'Programação > Montagem Semanal',
+        company: companyCode,
+        line: selectedLineCode,
+        record_id: res.versionTag,
+        entity: 'weekly_schedules',
+        status: 'Concluída',
+        outcome: 'SUCCESS',
+        changes: computeDiff({ status: 'DRAFT' }, { status: 'AGUARDANDO_APROVACAO_PCP' }),
+        details: {
+          snapshot_id: rulesSnapshot.snapshot_id,
+          documents_considered: rulesSnapshot.documents_considered,
+          rules_count: rulesSnapshot.rules_applied.length,
+        },
+      })
+
       toast({
         title: `Enviado para aprovação da versão ${res.versionTag} no dia ${res.approvalDateStr}.`,
+        description: `Snapshot com ${rulesSnapshot.documents_considered.length} documento(s) SGQ associado à versão.`,
       })
 
       const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
@@ -2698,13 +2823,42 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             size="sm"
             onClick={handleSendForApproval}
             disabled={isSendingApproval}
-            className="h-7 px-3 text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white shadow-xs inline-flex items-center justify-center"
+            className={`h-7 px-3 text-xs font-semibold text-white shadow-xs inline-flex items-center justify-center ${
+              documentValidationResult.blocking_violations_count > 0
+                ? 'bg-rose-600 hover:bg-rose-700'
+                : 'bg-[#004C97] hover:bg-[#003d7a]'
+            }`}
+            title={
+              documentValidationResult.blocking_violations_count > 0
+                ? 'Envio bloqueado por violação de regra obrigatória do SGQ'
+                : 'Submeter programação para aprovação formal'
+            }
           >
             <Send className="w-3 h-3 mr-1 shrink-0" />
             <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
           </Button>
         </div>
       </div>
+
+      {/* Painel Pré-Aprovação de Validação de Documentos de Referência (Requisito 10) */}
+      <PreApprovalDocumentValidationPanel
+        validationResult={documentValidationResult}
+        onApplyRecommendation={(ruleId) => {
+          const rec = documentValidationResult.recommendations.find((r) => r.rule_id === ruleId)
+          toast({
+            title: 'Recomendação do SGQ Aplicada',
+            description: rec?.description || 'Sugestão incorporada à programação.',
+          })
+          setDismissedDocRecommendations((prev) => [...prev, ruleId])
+        }}
+        onDismissRecommendation={(ruleId) => {
+          setDismissedDocRecommendations((prev) => [...prev, ruleId])
+          toast({
+            title: 'Programação Atual Mantida',
+            description: 'A sugestão do SGQ foi ignorada para esta rodada de planejamento.',
+          })
+        }}
+      />
 
       {/* Banner de Alerta MES em Chão de Fábrica (Requisito 14, 15) */}
       <MesAlertBanner
@@ -3441,6 +3595,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   weekNumber={selectedWeekNumber}
                   singleDayKey={selectedDayOfWeek}
                   targetDateStr={activeDayDateShort}
+                  documentImpactsByItem={documentImpactsByItem}
                   onSelectItem={(item) => setSelectedScheduleItem(item)}
                   onEditItem={handleOpenEditItem}
                   onMoveItem={(from, to, targetOverrides) =>
@@ -3609,6 +3764,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 selectedItemId={selectedScheduleItem?.id}
                 year={selectedYear}
                 weekNumber={selectedWeekNumber}
+                documentImpactsByItem={documentImpactsByItem}
                 onSelectItem={(item) => setSelectedScheduleItem(item)}
                 onEditItem={handleOpenEditItem}
                 onMoveItem={(from, to, targetOverrides) =>
