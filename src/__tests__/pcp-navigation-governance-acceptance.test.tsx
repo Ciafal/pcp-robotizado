@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -41,7 +42,7 @@ function renderSidebarWithAuth(
     setActiveScopeFilter: vi.fn(),
     can: (perm: string) => {
       // PCP_ADMIN tem acesso total
-      const role = authOverrides?.user?.role || 'PCP_ADMIN'
+      const role = String(authOverrides?.user?.role || 'PCP_ADMIN')
       if (role === 'PCP_ADMIN' || role === 'ADMIN' || role === 'ADMINISTRADOR') return true
       if (authOverrides?.permissionKeys) {
         return authOverrides.permissionKeys.has(perm) || authOverrides.permissionKeys.has('*')

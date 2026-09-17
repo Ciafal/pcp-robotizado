@@ -53,30 +53,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view'
 
-  // BYPASS IMEDIATO NO TOPO:
-  // 1) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
-  // 2) Bypass direto para Ficha Mestra / Centros (pcp.masterdata.view / pcp.lines.view)
-  // 3) Usuário com a permissão explícita já concedida via can(permission) ou escopo
-  if (isAdminUser) {
-    return <>{children}</>
-  }
-
-  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
-    return <>{children}</>
-  }
-
-  if (
-    isDirectOperationalView &&
-    (pb.authStore.isValid || user || hasValidAuthStore || effectiveRole)
-  ) {
-    return <>{children}</>
-  }
-
-  // Se já possui a permissão no can(), renderiza imediatamente
-  if (can(permission) && (!lineId || hasLineScope(lineId))) {
-    return <>{children}</>
-  }
-
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
   const hasAvailableAuthContext = Boolean(user || hasValidAuthStore)
@@ -100,6 +76,30 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
     return () => window.clearTimeout(timer)
   }, [isLoading, isRetrying, hasAvailableAuthContext])
+
+  // BYPASS IMEDIATO:
+  // 1) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
+  // 2) Bypass direto para Ficha Mestra / Centros (pcp.masterdata.view / pcp.lines.view)
+  // 3) Usuário com a permissão explícita já concedida via can(permission) ou escopo
+  if (isAdminUser) {
+    return <>{children}</>
+  }
+
+  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+    return <>{children}</>
+  }
+
+  if (
+    isDirectOperationalView &&
+    (pb.authStore.isValid || user || hasValidAuthStore || effectiveRole)
+  ) {
+    return <>{children}</>
+  }
+
+  // Se já possui a permissão no can(), renderiza imediatamente
+  if (can(permission) && (!lineId || hasLineScope(lineId))) {
+    return <>{children}</>
+  }
 
   const handleRetry = async () => {
     setIsRetrying(true)

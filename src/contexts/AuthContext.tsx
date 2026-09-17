@@ -11,7 +11,7 @@ import {
 } from '@/types/pcp-auth'
 import { useToast } from '@/hooks/use-toast'
 
-interface AuthContextType {
+export interface AuthContextType {
   user: UserProfile | null
   isAuthenticated: boolean
   isLoading: boolean
@@ -36,7 +36,7 @@ interface AuthContextType {
 // Flag de módulo: auto-login só UMA vez por sessão de página
 let hasAttemptedAutoLogin = false
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Inicialização síncrona inteligente a partir do cache local de permissões válido

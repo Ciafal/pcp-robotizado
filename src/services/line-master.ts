@@ -254,33 +254,54 @@ export const lineMasterService = {
       'process',
     ]
 
+    const numericFields = new Set<keyof ProductionLine>([
+      'target_rate',
+      'current_rate',
+      'efficiency',
+      'nominal_capacity',
+      'shifts_count',
+    ])
+
+    const sanitizeNumber = (val: unknown): number | null => {
+      if (val === '' || val === null || val === undefined) return null
+      const n = Number(val)
+      return isNaN(n) ? null : n
+    }
+
     const sanitizedPayload: Record<string, unknown> = {}
     for (const key of allowedKeys) {
       if (key in data && (data as Record<string, unknown>)[key] !== undefined) {
-        let val = (data as Record<string, unknown>)[key]
-        if (key === 'is_active') {
-          val = Boolean(val)
-        } else if (
-          key === 'current_rate' ||
-          key === 'target_rate' ||
-          key === 'nominal_capacity' ||
-          key === 'efficiency' ||
-          key === 'shifts_count'
-        ) {
-          if (val !== null && val !== undefined && val !== '') {
-            val = Number(val)
+        const rawVal = (data as Record<string, unknown>)[key]
+
+        if (numericFields.has(key)) {
+          const numVal = sanitizeNumber(rawVal)
+          if (numVal !== null) {
+            sanitizedPayload[key] = numVal
           }
+          // Quando nulo, OMITIR a chave do payload (nunca enviar "" e nunca enviar string)
+        } else if (key === 'is_active') {
+          sanitizedPayload[key] = Boolean(rawVal)
         } else if (
           key === 'name' ||
           key === 'code' ||
           key === 'sap_work_center' ||
           key === 'process'
         ) {
-          if (typeof val === 'string') {
-            val = val.trim()
+          if (typeof rawVal === 'string') {
+            const trimmed = rawVal.trim()
+            if (trimmed !== '') {
+              sanitizedPayload[key] = trimmed
+            } else if (key === 'sap_work_center') {
+              // Campos opcionais de texto vazios são omitidos
+            } else {
+              sanitizedPayload[key] = trimmed
+            }
+          } else if (rawVal !== null && rawVal !== undefined) {
+            sanitizedPayload[key] = rawVal
           }
+        } else if (rawVal !== null && rawVal !== undefined && rawVal !== '') {
+          sanitizedPayload[key] = rawVal
         }
-        sanitizedPayload[key] = val
       }
     }
 

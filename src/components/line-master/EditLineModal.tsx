@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { lineMasterService } from '@/services/line-master'
 import { invalidateCompletenessCache } from '@/services/master-sheet-completeness'
+import { pcpAuditService } from '@/services/pcp-audit-service'
 import {
   ProductionLine,
   LineMaster,
@@ -403,21 +404,17 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
     setSaving(true)
 
-    // Timeout de 20s para proteger a UI contra pendências indefinidas
-    let timeoutReached = false
-    const timeoutId = setTimeout(() => {
-      timeoutReached = true
-      setSaving(false)
-      toast({
-        variant: 'destructive',
-        title: 'Tempo de resposta excedido',
-        description:
-          'O salvamento demorou mais que o esperado. Nenhuma alteração foi descartada. Tente novamente.',
-      })
-    }, 20000)
+    const sanitizeNumber = (val: unknown): number | null => {
+      if (val === '' || val === null || val === undefined) return null
+      const n = Number(val)
+      return isNaN(n) ? null : n
+    }
 
     try {
       // 1. Atualiza dados estritos do centro de produção com getOne de confirmação
+      const parsedCapacity = sanitizeNumber(nominalCapacity) ?? 0.1
+      const parsedEfficiency = sanitizeNumber(efficiency) ?? 90
+
       const lineUpdatePayload: Partial<ProductionLine> = {
         name: name.trim(),
         code: code.trim().toUpperCase(),
@@ -425,10 +422,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         programming_type: programmingType,
         process: processName.trim(),
         sap_work_center: sapWorkCenter.trim() || undefined,
-        current_rate: Number(nominalCapacity) || 0.1,
-        nominal_capacity: Number(nominalCapacity) || 0.1,
+        current_rate: parsedCapacity,
+        nominal_capacity: parsedCapacity,
         capacity_unit: capacityUnit,
-        efficiency: Number(efficiency) || 90,
+        efficiency: parsedEfficiency,
         manager_user_id: primaryManagerId || undefined,
         pcp_programmer_user_id: pcpApproverId || undefined,
       }
@@ -454,9 +451,9 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         programming_type: programmingType,
         process_step: processName.trim() || 'Processo Industrial',
         sap_plant_code: sapPlantCode.trim(),
-        nominal_hourly_capacity: Number(nominalCapacity) || 0.1,
+        nominal_hourly_capacity: parsedCapacity,
         capacity_unit: capacityUnit as any,
-        planned_efficiency_pct: Number(efficiency) || 90,
+        planned_efficiency_pct: parsedEfficiency,
         primary_responsible_id: primaryManagerId || undefined,
         substitute_responsible_id: substituteManagerId || undefined,
         change_reason: cleanReason,
@@ -569,8 +566,8 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             programming_type: programmingType,
             process: processName,
             sap_plant_code: sapPlantCode,
-            nominal_capacity: nominalCapacity,
-            efficiency,
+            nominal_capacity: parsedCapacity,
+            efficiency: parsedEfficiency,
             primaryManagerId,
             pcpApproverId,
           },
@@ -579,29 +576,48 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Falha ao gravar auditoria:', auditErr)
       }
 
-      clearTimeout(timeoutId)
-      if (timeoutReached) return
-
       // Toast de sucesso apenas após confirmação do backend (texto exato)
       toast({
-        title: 'Alterações salvas com sucesso.',
+        title: '✓ Alterações do Centro salvas com sucesso.',
       })
 
       // onSuccess recarrega listagem e fecha modal
       onSuccess(updatedLine)
       onClose()
     } catch (err: unknown) {
-      clearTimeout(timeoutId)
-      if (timeoutReached) return
-
       console.error('Erro ao salvar alterações da linha:', err)
-      // Em erro, NÃO fechar o modal, manter formulário intacto e exibir mensagem prescrita
+
+      // Registrar a falha no serviço de auditoria existente (pcp_audit_logs) com status "Erro"
+      try {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String((err as any).message)
+              : 'Erro desconhecido ao salvar alterações do centro'
+
+        await pcpAuditService.recordFailureAttempt({
+          operation: `Salvar alterações do centro ${code.trim().toUpperCase()}`,
+          module: 'Centros e Ficha Mestra',
+          screen: 'Editar Centro',
+          line: code.trim().toUpperCase(),
+          center: code.trim().toUpperCase(),
+          recordId: line.id,
+          errorMessage,
+          reason: 'Falha ao atualizar parâmetros cadastrais',
+          justification: `Tentativa de salvar alterações do centro ${code.trim().toUpperCase()} falhou.`,
+        })
+      } catch (auditFailureErr) {
+        console.warn('Erro ao registrar auditoria de falha:', auditFailureErr)
+      }
+
+      // Em erro, manter o modal aberto com todos os valores digitados preservados e exibir mensagem amigável (sem stack trace bruta)
       toast({
         variant: 'destructive',
-        title: 'Não foi possível salvar as alterações. Verifique os dados e tente novamente.',
+        title: 'Não foi possível salvar as alterações',
+        description: 'Verifique os dados informados e tente novamente.',
       })
     } finally {
-      clearTimeout(timeoutId)
       setSaving(false)
     }
   }
