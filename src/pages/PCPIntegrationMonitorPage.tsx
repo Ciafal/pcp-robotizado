@@ -240,30 +240,30 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Header */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#004C97]" />
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">
-              MONITOR DE INTEGRAÇÕES & EVENTOS PONTA A PONTA
+    <div className="w-full space-y-5 pb-10">
+      {/* Top Header institucional */}
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#004C97] shrink-0" />
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+              Monitor de Eventos &amp; Integrações
             </h1>
-            <Badge className="bg-[#004C97] text-white font-bold text-xs ml-2">
-              Rastreabilidade Integral
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 font-semibold text-xs ml-1">
+              Rastreabilidade Ponta a Ponta
             </Badge>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 max-w-3xl leading-relaxed">
             Auditoria e acompanhamento em tempo real do tráfego de eventos: PCP → MES → CRM → TMS →
             SAP.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Button
             onClick={handleRunReconciliation}
             disabled={reconciling || !canReconcile}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-2"
+            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold gap-2 h-9"
           >
             <RotateCw className={`w-3.5 h-3.5 ${reconciling ? 'animate-spin' : ''}`} />
             {reconciling ? 'Reconciliando...' : 'Reconciliar Versões'}
@@ -273,62 +273,85 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
             onClick={loadData}
             variant="outline"
             size="sm"
-            className="border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 h-9"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-slate-500 font-bold uppercase">Eventos Totais</div>
-          <div className="text-xl font-black text-slate-900 mt-1">{kpis.eventsTodayCount}</div>
-          <div className="text-[10px] text-slate-400">no ambiente ativo</div>
-        </Card>
-
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-amber-600 font-bold uppercase">Pendentes / Fila</div>
-          <div className="text-xl font-black text-amber-700 mt-1">{kpis.pendingCount}</div>
-          <div className="text-[10px] text-slate-400">em transmissão</div>
-        </Card>
-
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-emerald-600 font-bold uppercase">Processados</div>
-          <div className="text-xl font-black text-emerald-700 mt-1">{kpis.processedCount}</div>
-          <div className="text-[10px] text-slate-400">confirmados</div>
-        </Card>
-
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-rose-600 font-bold uppercase">Falhas / Erros</div>
-          <div className="text-xl font-black text-rose-700 mt-1">{kpis.errorCount}</div>
-          <div className="text-[10px] text-slate-400">requer atenção</div>
-        </Card>
-
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-purple-600 font-bold uppercase">Retentativas</div>
-          <div className="text-xl font-black text-purple-700 mt-1">{kpis.retryCount}</div>
-          <div className="text-[10px] text-slate-400">política de retry</div>
-        </Card>
-
-        <Card className="bg-white border-slate-200 p-3 shadow-xs">
-          <div className="text-[10px] text-blue-600 font-bold uppercase">Tempo Médio</div>
-          <div className="text-xl font-black text-[#004C97] mt-1">
-            {kpis.avgProcessingTimeMs} ms
+      {/* KPI Cards Strip padronizado com mesma altura e escala tipográfica */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">
+            Eventos Totais
           </div>
-          <div className="text-[10px] text-slate-400">latência fim a fim</div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-slate-900 leading-none">
+            {kpis.eventsTodayCount}
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">no ambiente ativo</div>
+        </Card>
+
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-amber-700 font-semibold uppercase tracking-wider truncate">
+            Pendentes / Fila
+          </div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-amber-600 leading-none">
+            {kpis.pendingCount}
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">em transmissão</div>
+        </Card>
+
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-emerald-700 font-semibold uppercase tracking-wider truncate">
+            Processados
+          </div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-emerald-600 leading-none">
+            {kpis.processedCount}
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">confirmados</div>
+        </Card>
+
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-rose-700 font-semibold uppercase tracking-wider truncate">
+            Falhas / Erros
+          </div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-rose-600 leading-none">
+            {kpis.errorCount}
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">requer atenção</div>
+        </Card>
+
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-purple-700 font-semibold uppercase tracking-wider truncate">
+            Retentativas
+          </div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-purple-600 leading-none">
+            {kpis.retryCount}
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">política de retry</div>
+        </Card>
+
+        <Card className="bg-white border-slate-200 p-3.5 shadow-2xs flex flex-col justify-between h-[105px]">
+          <div className="text-[11px] text-[#004C97] font-semibold uppercase tracking-wider truncate">
+            Tempo Médio
+          </div>
+          <div className="text-[24px] sm:text-[26px] font-bold text-[#004C97] leading-none">
+            {kpis.avgProcessingTimeMs}{' '}
+            <span className="text-xs font-semibold text-slate-500 font-mono">ms</span>
+          </div>
+          <div className="text-[11px] text-slate-400 truncate">latência fim a fim</div>
         </Card>
       </div>
 
       {/* Tabela de Eventos com Filtros */}
-      <Card className="bg-white border-slate-200 shadow-xs">
-        <CardHeader className="pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-sm font-bold text-slate-900">
+      <Card className="bg-white border-slate-200 shadow-2xs overflow-hidden">
+        <CardHeader className="p-4 pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-[15px] sm:text-[16px] font-semibold text-slate-900 leading-tight">
               Trilha de Execução de Eventos Ponta a Ponta
             </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
+            <CardDescription className="text-xs text-slate-500 mt-0.5">
               Clique em qualquer registro para abrir a auditoria completa de horários e payloads.
             </CardDescription>
           </div>
@@ -340,12 +363,12 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
                 placeholder="Buscar event_id..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 pl-8 text-xs bg-slate-50"
+                className="h-8 pl-8 text-xs bg-slate-50 border-slate-200"
               />
             </div>
 
             <Select value={destFilter} onValueChange={setDestFilter}>
-              <SelectTrigger className="h-8 w-28 text-xs bg-slate-50">
+              <SelectTrigger className="h-8 w-32 text-xs bg-slate-50 border-slate-200">
                 <SelectValue placeholder="Destino" />
               </SelectTrigger>
               <SelectContent className="bg-white text-xs">
@@ -359,7 +382,7 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 w-32 text-xs bg-slate-50">
+              <SelectTrigger className="h-8 w-36 text-xs bg-slate-50 border-slate-200">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="bg-white text-xs">
@@ -375,25 +398,25 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow className="text-[11px] font-bold text-slate-600">
-                  <TableHead className="w-56">EVENT_ID ÚNICO</TableHead>
-                  <TableHead>ORIGEM</TableHead>
-                  <TableHead>DESTINO</TableHead>
-                  <TableHead>TIPO DO EVENTO</TableHead>
-                  <TableHead>VERSÃO</TableHead>
-                  <TableHead>STATUS</TableHead>
-                  <TableHead>TENTATIVAS</TableHead>
-                  <TableHead>DATA / HORA</TableHead>
-                  <TableHead className="text-right">AÇÕES</TableHead>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow className="text-[12px] font-semibold text-slate-700 h-10">
+                  <TableHead className="w-48 text-xs font-semibold">EVENT_ID ÚNICO</TableHead>
+                  <TableHead className="text-xs font-semibold">ORIGEM</TableHead>
+                  <TableHead className="text-xs font-semibold">DESTINO</TableHead>
+                  <TableHead className="text-xs font-semibold">TIPO DO EVENTO</TableHead>
+                  <TableHead className="text-xs font-semibold">VERSÃO</TableHead>
+                  <TableHead className="text-xs font-semibold">STATUS</TableHead>
+                  <TableHead className="text-xs font-semibold">TENTATIVAS</TableHead>
+                  <TableHead className="text-xs font-semibold">DATA / HORA</TableHead>
+                  <TableHead className="text-right text-xs font-semibold pr-4">AÇÕES</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="text-xs divide-y divide-slate-100">
                 {events.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-10 text-slate-400">
+                    <TableCell colSpan={9} className="text-center py-12 text-slate-400">
                       Nenhum evento registrado com os filtros ativos. Publique uma nova versão da
                       programação para disparar o ciclo.
                     </TableCell>
@@ -402,20 +425,20 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
                   events.map((evt) => (
                     <TableRow
                       key={evt.id || evt.event_id + evt.destino}
-                      className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                      className="hover:bg-blue-50/40 cursor-pointer transition-colors h-11"
                       onClick={() => {
                         setSelectedEvent(evt)
                         setIsDetailModalOpen(true)
                       }}
                     >
-                      <TableCell className="font-mono font-bold text-[#004C97] text-[11px]">
+                      <TableCell className="font-mono font-semibold text-[#004C97] text-[11px]">
                         {evt.event_id}
                       </TableCell>
-                      <TableCell className="font-semibold text-slate-700">{evt.origem}</TableCell>
+                      <TableCell className="font-medium text-slate-700">{evt.origem}</TableCell>
                       <TableCell>
                         <Badge
                           variant="secondary"
-                          className="font-bold text-[10px] bg-slate-100 text-slate-800"
+                          className="font-semibold text-[10px] bg-slate-100 text-slate-800"
                         >
                           {evt.destino}
                         </Badge>
@@ -426,7 +449,7 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className="font-mono text-[10px] border-blue-300 text-blue-700"
+                          className="font-mono text-[10px] border-blue-200 text-[#004C97]"
                         >
                           {evt.versao}
                         </Badge>
@@ -438,15 +461,15 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
                       <TableCell className="text-slate-500 text-[11px] font-mono">
                         {evt.criado_em ? new Date(evt.criado_em).toLocaleString('pt-BR') : '—'}
                       </TableCell>
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
+                      <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end gap-1.5">
                           {(evt.status === 'ERRO' || evt.status === 'INTERVENCAO_NECESSARIA') && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleRetry(evt)}
                               disabled={retryingId === evt.event_id}
-                              className="h-6 text-[10px] px-2 border-rose-300 text-rose-700 hover:bg-rose-50 font-bold gap-1"
+                              className="h-7 text-[11px] px-2.5 border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold gap-1"
                             >
                               <RotateCw
                                 className={`w-3 h-3 ${retryingId === evt.event_id ? 'animate-spin' : ''}`}
@@ -461,9 +484,9 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
                               setSelectedEvent(evt)
                               setIsDetailModalOpen(true)
                             }}
-                            className="h-6 text-[10px] px-2 text-[#004C97] hover:bg-blue-50"
+                            className="h-7 text-[11px] px-2.5 text-[#004C97] hover:bg-blue-50"
                           >
-                            <Eye className="w-3 h-3 mr-1" /> Detalhes
+                            <Eye className="w-3.5 h-3.5 mr-1" /> Detalhes
                           </Button>
                         </div>
                       </TableCell>
@@ -475,12 +498,11 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
       {/* Modal de Drill-down do Evento */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-2xl bg-white border-slate-200 text-slate-900">
+        <DialogContent className="w-full max-w-[700px] max-h-[90vh] overflow-y-auto bg-white border-slate-200 text-slate-900 p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-black text-slate-900">
+            <DialogTitle className="flex items-center gap-2 text-[18px] font-bold text-slate-900">
               <Activity className="w-5 h-5 text-[#004C97]" />
               Drill-down do Evento: {selectedEvent?.event_id}
             </DialogTitle>
@@ -617,9 +639,9 @@ export const PCPIntegrationMonitorPage: React.FC = () => {
 
       {/* Modal de Reconciliação Periódica Aprofundada (Requisito 1) */}
       <Dialog open={isReconcileModalOpen} onOpenChange={setIsReconcileModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white border-slate-200 text-slate-900">
+        <DialogContent className="w-full max-w-[800px] max-h-[85vh] overflow-y-auto bg-white border-slate-200 text-slate-900 p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-black text-slate-900">
+            <DialogTitle className="flex items-center gap-2 text-[18px] font-bold text-slate-900">
               <RotateCw className="w-5 h-5 text-[#004C97]" />
               Resultado da Reconciliação Periódica de Versões &amp; Ordens
             </DialogTitle>

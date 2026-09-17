@@ -307,37 +307,33 @@ export default function ReasonsAndGovernancePage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* HEADER PRINCIPAL */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-xs">
-              <HelpCircle className="w-6 h-6" />
+      {/* HEADER PRINCIPAL PADRONIZADO */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-2xs shrink-0">
+              <HelpCircle className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                  Motivos & Justificativas
-                </h1>
-                <Badge className="bg-[#004C97] text-white text-[10px] uppercase font-bold tracking-wider">
-                  Governança & IA
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Taxonomia padronizada de causas de reprogramação, correlação com módulos industriais
-                e IA auditável.
-              </p>
-            </div>
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+              Motivos &amp; Justificativas
+            </h1>
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-semibold">
+              Governança &amp; IA
+            </Badge>
           </div>
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 max-w-3xl leading-relaxed">
+            Taxonomia padronizada de causas de reprogramação, correlação com módulos industriais e
+            IA auditável.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={loadData}
             disabled={loading}
-            className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="h-9 text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar Dados
@@ -363,7 +359,7 @@ export default function ReasonsAndGovernancePage() {
                 })
                 setIsReasonModalOpen(true)
               }}
-              className="h-8 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-semibold flex items-center gap-1.5 shadow-xs"
+              className="h-9 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-semibold flex items-center gap-1.5 shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" /> Novo Motivo Padrão
             </Button>
@@ -371,42 +367,42 @@ export default function ReasonsAndGovernancePage() {
         </div>
       </div>
 
-      {/* ABAS DO MÓDULO */}
+      {/* ABAS DO MÓDULO COM QUEBRA CONTROLADA/DISTRIBUIÇÃO PROPORCIONAL SEM TRUNCAMENTO */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-slate-100 p-1 border border-slate-200 rounded-lg">
+        <TabsList className="bg-slate-100/90 p-1 border border-slate-200 rounded-lg flex flex-wrap h-auto gap-1 w-full justify-start">
           <TabsTrigger
             value="motivos-padrao"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs"
+            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs py-1.5 px-3 whitespace-nowrap"
           >
-            <Layers className="w-3.5 h-3.5 mr-1.5" />
+            <Layers className="w-3.5 h-3.5 mr-1.5 shrink-0" />
             1. Motivos Padrão ({reasons.length})
           </TabsTrigger>
           <TabsTrigger
             value="sugestoes-ia"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs"
+            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs py-1.5 px-3 whitespace-nowrap"
           >
-            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600 shrink-0" />
             2. Sugestões da IA ({clusters.filter((c) => c.status === 'PROPOSED').length})
           </TabsTrigger>
           <TabsTrigger
             value="historico-justificativas"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs"
+            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs py-1.5 px-3 whitespace-nowrap"
           >
-            <History className="w-3.5 h-3.5 mr-1.5" />
+            <History className="w-3.5 h-3.5 mr-1.5 shrink-0" />
             3. Histórico de Justificativas ({justifications.length})
           </TabsTrigger>
           <TabsTrigger
             value="analise-causas"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs"
+            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs py-1.5 px-3 whitespace-nowrap"
           >
-            <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
-            4. Análise de Causas & IEP
+            <BarChart3 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+            4. Análise de Causas &amp; IEP
           </TabsTrigger>
           <TabsTrigger
             value="risco-preditivo"
-            className="text-xs font-semibold opacity-75 data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs"
+            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs py-1.5 px-3 whitespace-nowrap"
           >
-            <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+            <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-slate-500 shrink-0" />
             5. Risco de Reprogramação (Fase Preditiva)
           </TabsTrigger>
         </TabsList>

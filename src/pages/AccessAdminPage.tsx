@@ -337,54 +337,65 @@ export default function AccessAdminPage() {
   })
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <UserCog className="w-6 h-6 text-cyan-400" />
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Governança de Perfis, Escopos e Acessos (RBAC)
-            </h1>
+    <div className="w-full space-y-5 pb-10">
+      {/* Header institucional limpo */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-2xs shrink-0">
+              <UserCog className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+                  Governança de Perfis, Escopos e Acessos (RBAC)
+                </h1>
+                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-semibold">
+                  Matriz Segregação de Funções
+                </Badge>
+              </div>
+              <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5 max-w-3xl leading-relaxed">
+                Gestão unificada em 3 níveis: Perfil Funcional &bull; Escopo por Linha/Processo
+                &bull; Exceções Granulares.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Gestão unificada em 3 níveis: Perfil Funcional &bull; Escopo por Linha/Processo &bull;
-            Exceções Granulares.
-          </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={loadAllData}
-          className="border-slate-700 bg-slate-900 text-slate-200 hover:text-white text-xs gap-1.5 h-8"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar Lista
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadAllData}
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 text-xs gap-1.5 h-9"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar Lista
+          </Button>
+        </div>
       </div>
 
       {/* Grid: Lista de Usuários AD (Esquerda) vs Configuração de Acesso (Direita) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Coluna 1: Usuários Corporativos do HUB (4 colunas) */}
         <div className="lg:col-span-4 space-y-3">
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-3 pb-2">
+          <Card className="bg-white border-slate-200 shadow-2xs">
+            <CardHeader className="p-3.5 pb-2.5 border-b border-slate-100">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-700">
                   Usuários do HUB CIAFAL
                 </CardTitle>
-                <Badge className="bg-cyan-950 text-cyan-300 border-cyan-800 text-[10px]">
+                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[11px] font-semibold">
                   {users.length} usuários
                 </Badge>
               </div>
               <div className="pt-2">
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                   <Input
                     placeholder="Buscar por nome, e-mail ou perfil..."
                     value={searchUser}
                     onChange={(e) => setSearchUser(e.target.value)}
-                    className="pl-8 bg-slate-900 border-slate-800 text-xs h-8 text-white placeholder:text-slate-500"
+                    className="pl-8 bg-slate-50 border-slate-200 text-xs h-8 text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -397,30 +408,30 @@ export default function AccessAdminPage() {
                   <button
                     key={u.id}
                     onClick={() => setSelectedUser(u)}
-                    className={`w-full text-left p-2.5 rounded-lg border transition-all text-xs flex flex-col gap-1 ${
+                    className={`w-full text-left p-2.5 rounded-lg border transition-all text-xs flex flex-col gap-0.5 ${
                       isSelected
-                        ? 'bg-cyan-950/80 border-cyan-700 text-white shadow-sm'
-                        : 'bg-slate-900/50 border-slate-800/80 hover:bg-slate-900 text-slate-300'
+                        ? 'bg-blue-50/80 border-[#004C97] text-slate-900 shadow-xs'
+                        : 'bg-white border-slate-100 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white text-xs truncate max-w-[170px]">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-semibold text-slate-900 text-xs truncate max-w-[170px]">
                         {u.name}
                       </span>
                       <Badge
                         variant="outline"
-                        className={`text-[9px] px-1.5 py-0 h-4 ${
+                        className={`text-[9px] px-1.5 py-0 h-4 font-semibold ${
                           u.role === 'PCP_ADMIN'
-                            ? 'border-purple-500 text-purple-300 bg-purple-950/40'
+                            ? 'border-purple-300 text-purple-700 bg-purple-50'
                             : u.role === 'PCP_PROGRAMMER'
-                              ? 'border-cyan-500 text-cyan-300 bg-cyan-950/40'
-                              : 'border-slate-700 text-slate-400 bg-slate-800'
+                              ? 'border-blue-300 text-[#004C97] bg-blue-50'
+                              : 'border-slate-200 text-slate-600 bg-slate-100'
                         }`}
                       >
                         {u.role}
                       </Badge>
                     </div>
-                    <span className="text-[11px] text-slate-400 truncate">{u.email}</span>
+                    <span className="text-[11px] text-slate-500 truncate">{u.email}</span>
                   </button>
                 )
               })}
@@ -433,28 +444,30 @@ export default function AccessAdminPage() {
           {selectedUser ? (
             <div className="space-y-4">
               {/* Nível 1: Perfil Corporativo (Role) */}
-              <Card className="bg-slate-950 border-slate-800 text-slate-100">
-                <CardHeader className="p-4 pb-3">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="p-4 pb-3 border-b border-slate-100">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#004C97] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                           Nível 1 &bull; Perfil Funcional
                         </span>
-                        <h2 className="text-base font-bold text-white">{selectedUser.name}</h2>
+                        <h2 className="text-[15px] sm:text-[16px] font-bold text-slate-900">
+                          {selectedUser.name}
+                        </h2>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">{selectedUser.email}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{selectedUser.email}</p>
                     </div>
 
                     {/* Seletor de Role */}
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs text-slate-400 whitespace-nowrap">
+                      <Label className="text-xs text-slate-600 font-semibold whitespace-nowrap">
                         Perfil PCP:
                       </Label>
                       <select
                         value={selectedUser.role}
                         onChange={(e) => handleRoleChange(selectedUser.id, e.target.value)}
-                        className="bg-slate-900 border border-cyan-700/80 rounded text-xs text-cyan-300 font-semibold px-3 py-1.5 outline-none focus:border-cyan-400"
+                        className="bg-white border border-[#004C97] rounded text-xs text-[#004C97] font-semibold px-3 py-1.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                       >
                         {roles.map((r) => (
                           <option key={r.code} value={r.code}>
@@ -465,8 +478,8 @@ export default function AccessAdminPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-4 pt-0 text-xs text-slate-400 border-t border-slate-900 mt-2">
-                  <p className="italic">
+                <CardContent className="p-4 py-3 text-xs text-slate-500 bg-slate-50/50">
+                  <p className="text-[11px]">
                     💡 Alterar o perfil modifica automaticamente a matriz base de permissões
                     herdadas do usuário.
                   </p>
@@ -474,14 +487,14 @@ export default function AccessAdminPage() {
               </Card>
 
               {/* Nível 2: Escopo de Acesso por Linha / Processo / Unidade */}
-              <Card className="bg-slate-950 border-slate-800 text-slate-100">
-                <CardHeader className="p-4 pb-3">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="p-4 pb-3 border-b border-slate-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-800">
-                        Nível 2 &bull; Escopo de Linhas & Processos
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        Nível 2 &bull; Escopo de Linhas &amp; Processos
                       </span>
-                      <CardTitle className="text-sm font-bold text-white mt-1">
+                      <CardTitle className="text-[14px] font-semibold text-slate-900 mt-1">
                         Abrangência Operacional Autorizada
                       </CardTitle>
                     </div>
@@ -489,16 +502,16 @@ export default function AccessAdminPage() {
                     <Button
                       size="sm"
                       onClick={() => setIsScopeModalOpen(true)}
-                      className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7 gap-1"
+                      className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-xs h-8 gap-1 px-3"
                     >
                       <Plus className="w-3.5 h-3.5" /> Adicionar Escopo
                     </Button>
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 pt-0 space-y-2 text-xs">
+                <CardContent className="p-4 space-y-2 text-xs">
                   {userScopes.length === 0 ? (
-                    <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-lg text-center text-slate-400">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-center text-slate-500">
                       Nenhum escopo explícito cadastrado. O usuário opera com escopo restrito ou
                       padrão.
                     </div>
@@ -507,23 +520,23 @@ export default function AccessAdminPage() {
                       {userScopes.map((scope) => (
                         <div
                           key={scope.id}
-                          className="flex items-center justify-between p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg"
+                          className="flex items-center justify-between p-2.5 bg-slate-50/70 border border-slate-200 rounded-lg"
                         >
                           <div className="flex items-center gap-3">
-                            <Layers className="w-4 h-4 text-amber-400" />
+                            <Layers className="w-4 h-4 text-amber-600" />
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-white text-xs">
+                                <span className="font-semibold text-slate-900 text-xs">
                                   {scope.target_code || scope.target_name || 'Escopo Geral'}
                                 </span>
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] border-amber-700 text-amber-300 bg-amber-950/40"
+                                  className="text-[10px] border-amber-300 text-amber-700 bg-amber-50"
                                 >
                                   {scope.scope_type}
                                 </Badge>
                               </div>
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-[11px] text-slate-500">
                                 {scope.target_name}
                               </span>
                             </div>
@@ -533,7 +546,7 @@ export default function AccessAdminPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteScope(scope.id)}
-                            className="text-slate-400 hover:text-rose-400 hover:bg-slate-800 h-7 w-7 p-0"
+                            className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 w-7 p-0"
                             title="Remover Escopo"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -546,14 +559,14 @@ export default function AccessAdminPage() {
               </Card>
 
               {/* Nível 3: Exceções de Permissão (GRANT / DENY) */}
-              <Card className="bg-slate-950 border-slate-800 text-slate-100">
-                <CardHeader className="p-4 pb-3">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="p-4 pb-3 border-b border-slate-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-950 px-2 py-0.5 rounded border border-purple-800">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
                         Nível 3 &bull; Exceções de Permissão Granular
                       </span>
-                      <CardTitle className="text-sm font-bold text-white mt-1">
+                      <CardTitle className="text-[14px] font-semibold text-slate-900 mt-1">
                         Sobrescrita Pontual (Conceder ou Negar)
                       </CardTitle>
                     </div>
@@ -561,16 +574,16 @@ export default function AccessAdminPage() {
                     <Button
                       size="sm"
                       onClick={() => setIsExceptionModalOpen(true)}
-                      className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-7 gap-1"
+                      className="bg-purple-700 hover:bg-purple-800 text-white font-semibold text-xs h-8 gap-1 px-3"
                     >
                       <Plus className="w-3.5 h-3.5" /> Nova Exceção
                     </Button>
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 pt-0 space-y-2 text-xs">
+                <CardContent className="p-4 space-y-2 text-xs">
                   {userExceptions.length === 0 ? (
-                    <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-lg text-center text-slate-400">
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-center text-slate-500">
                       Nenhuma exceção configurada. O usuário herda 100% das permissões da Role.
                     </div>
                   ) : (
@@ -582,26 +595,26 @@ export default function AccessAdminPage() {
                             key={exc.id}
                             className={`flex items-center justify-between p-2.5 rounded-lg border ${
                               isGrant
-                                ? 'bg-emerald-950/20 border-emerald-800/60 text-emerald-200'
-                                : 'bg-rose-950/20 border-rose-800/60 text-rose-200'
+                                ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900'
+                                : 'bg-rose-50/50 border-rose-200 text-rose-900'
                             }`}
                           >
                             <div>
                               <div className="flex items-center gap-2">
                                 <Badge
-                                  className={`text-[10px] uppercase font-bold ${
+                                  className={`text-[10px] uppercase font-semibold ${
                                     isGrant
-                                      ? 'bg-emerald-950 text-emerald-300 border-emerald-600'
-                                      : 'bg-rose-950 text-rose-300 border-rose-600'
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                      : 'bg-rose-100 text-rose-800 border-rose-300'
                                   }`}
                                 >
                                   {exc.type} (Sobrescrita)
                                 </Badge>
-                                <code className="font-mono text-xs text-white">
+                                <code className="font-mono text-xs text-slate-900 font-semibold">
                                   {exc.expand?.permission_id?.key || exc.permission_id}
                                 </code>
                               </div>
-                              <p className="text-[11px] text-slate-400 mt-1">
+                              <p className="text-[11px] text-slate-500 mt-0.5">
                                 Motivo: {exc.reason || 'Concessão administrativa'}
                               </p>
                             </div>
@@ -610,7 +623,7 @@ export default function AccessAdminPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteException(exc.id)}
-                              className="text-slate-400 hover:text-rose-400 hover:bg-slate-800 h-7 w-7 p-0"
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 w-7 p-0"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -623,7 +636,7 @@ export default function AccessAdminPage() {
               </Card>
             </div>
           ) : (
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-12 text-center text-slate-400">
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 shadow-2xs">
               Selecione um usuário na lista ao lado para configurar seus perfis e acessos.
             </div>
           )}
@@ -632,24 +645,24 @@ export default function AccessAdminPage() {
 
       {/* Modal: Adicionar Escopo */}
       <Dialog open={isScopeModalOpen} onOpenChange={setIsScopeModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-md">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md p-6">
           <DialogHeader>
-            <DialogTitle className="text-white text-base flex items-center gap-2">
-              <Layers className="w-4 h-4 text-amber-400" />
+            <DialogTitle className="text-slate-900 text-[18px] font-bold flex items-center gap-2">
+              <Layers className="w-4 h-4 text-amber-600" />
               Adicionar Escopo para {selectedUser?.name}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
+            <DialogDescription className="text-xs text-slate-500">
               Defina a linha, processo ou abrangência global deste usuário.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Tipo de Escopo</Label>
+              <Label className="text-slate-700 text-xs font-semibold">Tipo de Escopo</Label>
               <select
                 value={newScopeType}
                 onChange={(e) => setNewScopeType(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 outline-none focus:ring-1 focus:ring-[#004C97]"
               >
                 <option value="PRODUCTION_LINE">
                   Linha de Produção Específica (PRODUCTION_LINE)
@@ -661,11 +674,13 @@ export default function AccessAdminPage() {
 
             {newScopeType === 'PRODUCTION_LINE' && (
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-xs">Selecione a Linha Industrial</Label>
+                <Label className="text-slate-700 text-xs font-semibold">
+                  Selecione a Linha Industrial
+                </Label>
                 <select
                   value={newScopeLineId}
                   onChange={(e) => setNewScopeLineId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 outline-none focus:ring-1 focus:ring-[#004C97]"
                 >
                   <option value="">Selecione uma linha...</option>
                   {lines.map((l) => (
@@ -678,19 +693,19 @@ export default function AccessAdminPage() {
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 justify-end pt-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsScopeModalOpen(false)}
-              className="border-slate-700 bg-slate-900 text-slate-300"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50 text-xs"
             >
               Cancelar
             </Button>
             <Button
               size="sm"
               onClick={handleAddScope}
-              className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-xs px-4"
             >
               Vincular Escopo
             </Button>
@@ -700,24 +715,24 @@ export default function AccessAdminPage() {
 
       {/* Modal: Adicionar Exceção */}
       <Dialog open={isExceptionModalOpen} onOpenChange={setIsExceptionModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-md">
+        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-md p-6">
           <DialogHeader>
-            <DialogTitle className="text-white text-base flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-purple-400" />
+            <DialogTitle className="text-slate-900 text-[18px] font-bold flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-purple-600" />
               Adicionar Exceção de Permissão
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
+            <DialogDescription className="text-xs text-slate-500">
               Conceda ou revogue uma permissão específica independentemente do perfil.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Permissão do Catálogo</Label>
+              <Label className="text-slate-700 text-xs font-semibold">Permissão do Catálogo</Label>
               <select
                 value={newExceptionPermKey}
                 onChange={(e) => setNewExceptionPermKey(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 outline-none focus:ring-1 focus:ring-[#004C97]"
               >
                 <option value="">Selecione uma permissão granular...</option>
                 {permissions.map((p) => (
@@ -729,16 +744,16 @@ export default function AccessAdminPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Tipo de Sobrescrita</Label>
+              <Label className="text-slate-700 text-xs font-semibold">Tipo de Sobrescrita</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setNewExceptionType('GRANT')}
-                  className={`text-xs h-8 ${
+                  className={`text-xs h-9 ${
                     newExceptionType === 'GRANT'
-                      ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-semibold'
+                      : 'border-slate-200 bg-white text-slate-600'
                   }`}
                 >
                   GRANT (Conceder Acesso)
@@ -747,10 +762,10 @@ export default function AccessAdminPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setNewExceptionType('DENY')}
-                  className={`text-xs h-8 ${
+                  className={`text-xs h-9 ${
                     newExceptionType === 'DENY'
-                      ? 'bg-rose-950 border-rose-500 text-rose-300'
-                      : 'border-slate-800 bg-slate-900 text-slate-400'
+                      ? 'bg-rose-50 border-rose-500 text-rose-800 font-semibold'
+                      : 'border-slate-200 bg-white text-slate-600'
                   }`}
                 >
                   DENY (Negar Acesso)
@@ -759,22 +774,24 @@ export default function AccessAdminPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Justificativa da Exceção</Label>
+              <Label className="text-slate-700 text-xs font-semibold">
+                Justificativa da Exceção
+              </Label>
               <Input
                 placeholder="Ex: Habilitado para projeto piloto da Linha 1..."
                 value={newExceptionReason}
                 onChange={(e) => setNewExceptionReason(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white text-xs"
+                className="bg-white border-slate-300 text-slate-900 text-xs h-9"
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 justify-end pt-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsExceptionModalOpen(false)}
-              className="border-slate-700 bg-slate-900 text-slate-300"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50 text-xs"
             >
               Cancelar
             </Button>
@@ -782,7 +799,7 @@ export default function AccessAdminPage() {
               size="sm"
               onClick={handleAddException}
               disabled={!newExceptionPermKey}
-              className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-xs px-4"
             >
               Aplicar Exceção
             </Button>

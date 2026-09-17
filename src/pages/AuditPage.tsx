@@ -285,23 +285,23 @@ export default function AuditPage() {
 
   return (
     <div className="space-y-5 pb-16">
-      {/* CABEÇALHO PRINCIPAL DA PÁGINA (SEM FIXED/STICKY) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-xs">
-              <History className="w-6 h-6" />
+      {/* CABEÇALHO PRINCIPAL DA PÁGINA (SEM FIXED/STICKY) PADRONIZADO */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-2xs shrink-0">
+              <History className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                  Logs & Auditoria Transacional
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+                  Logs &amp; Auditoria Transacional
                 </h1>
-                <Badge className="bg-[#004C97] text-white text-[10px] uppercase font-bold tracking-wider">
+                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-semibold">
                   Trilha Oficial Imutável
                 </Badge>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5 max-w-3xl leading-relaxed">
                 Rastreabilidade ponta a ponta: QUEM → FEZ O QUÊ → ONDE → QUANDO → POR QUÊ → ORIGEM →
                 STATUS.
               </p>
@@ -309,13 +309,13 @@ export default function AuditPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchAuditData(page)}
             disabled={loading}
-            className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="h-9 text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -325,7 +325,7 @@ export default function AuditPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+            className="h-9 text-xs border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             Exportar CSV
@@ -335,93 +335,108 @@ export default function AuditPage() {
             variant="outline"
             size="sm"
             onClick={handleExportPDF}
-            className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+            className="h-9 text-xs border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
           >
             <FileText className="w-3.5 h-3.5 text-rose-600" />
-            Imprimir / PDF Formal
+            Imprimir / PDF
           </Button>
         </div>
       </div>
 
-      {/* CARDS DE RESUMO NO TOPO (RESPEITAM OS FILTROS APLICADOS) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2.5">
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+      {/* 10 KPIS ORGANIZADOS EM 2 LINHAS EQUILIBRADAS (5 POR LINHA EM DESKTOP) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        {/* Linha 1: Total Eventos, Criações, Alterações, Reprogramações, Erros/Falhas */}
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block truncate">
             Total Eventos
           </span>
-          <span className="text-lg font-black text-slate-900 mt-1 block">{kpis.totalEvents}</span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-slate-900 leading-none">
+            {kpis.totalEvents}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">no período</span>
         </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider block truncate">
             Criações
           </span>
-          <span className="text-lg font-black text-emerald-700 mt-1 block">
+          <span className="text-[24px] sm:text-[26px] font-bold text-emerald-600 leading-none">
             {kpis.creationsCount}
           </span>
+          <span className="text-[10px] text-slate-400 truncate">novos registros</span>
         </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider block truncate">
             Alterações
           </span>
-          <span className="text-lg font-black text-blue-700 mt-1 block">
+          <span className="text-[24px] sm:text-[26px] font-bold text-blue-600 leading-none">
             {kpis.alterationsCount}
           </span>
+          <span className="text-[10px] text-slate-400 truncate">modificações</span>
         </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
-            Exclusões/Inat.
-          </span>
-          <span className="text-lg font-black text-rose-700 mt-1 block">
-            {kpis.deletionsInactivationsCount}
-          </span>
-        </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider block truncate">
             Reprogramações
           </span>
-          <span className="text-lg font-black text-purple-700 mt-1 block">
+          <span className="text-[24px] sm:text-[26px] font-bold text-purple-600 leading-none">
             {kpis.reprogrammingCount}
           </span>
+          <span className="text-[10px] text-slate-400 truncate">alterações de plano</span>
         </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-            Automações
-          </span>
-          <span className="text-lg font-black text-slate-800 mt-1 block">
-            {kpis.automaticEventsCount}
-          </span>
-        </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-[#004C97] uppercase tracking-wider block">
-            SAP / Integr.
-          </span>
-          <span className="text-lg font-black text-[#004C97] mt-1 block">
-            {kpis.sapIntegrationsCount}
-          </span>
-        </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-            Eventos IA
-          </span>
-          <span className="text-lg font-black text-indigo-700 mt-1 block">
-            {kpis.iaEventsCount}
-          </span>
-        </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-teal-600 uppercase tracking-wider block">
-            Usuários Ativos
-          </span>
-          <span className="text-lg font-black text-teal-700 mt-1 block">
-            {kpis.activeUsersCount}
-          </span>
-        </Card>
-        <Card className="border-slate-200 shadow-2xs p-2.5 bg-white">
-          <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider block truncate">
             Erros / Falhas
           </span>
-          <span className="text-lg font-black text-red-700 mt-1 block">
+          <span className="text-[24px] sm:text-[26px] font-bold text-rose-600 leading-none">
             {kpis.errorsFailuresCount}
           </span>
+          <span className="text-[10px] text-slate-400 truncate">intervenções</span>
+        </Card>
+
+        {/* Linha 2: Exclusões/Inat., Automações, SAP / Integr., Eventos IA, Usuários Ativos */}
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block truncate">
+            Exclusões / Inat.
+          </span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-slate-700 leading-none">
+            {kpis.deletionsInactivationsCount}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">inativações</span>
+        </Card>
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block truncate">
+            Automações
+          </span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-slate-800 leading-none">
+            {kpis.automaticEventsCount}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">jobs e regras</span>
+        </Card>
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-[#004C97] uppercase tracking-wider block truncate">
+            SAP / Integração
+          </span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-[#004C97] leading-none">
+            {kpis.sapIntegrationsCount}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">comunicações</span>
+        </Card>
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider block truncate">
+            Eventos IA
+          </span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-indigo-600 leading-none">
+            {kpis.iaEventsCount}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">modelos auditáveis</span>
+        </Card>
+        <Card className="border-slate-200 shadow-2xs p-3 bg-white flex flex-col justify-between h-[96px]">
+          <span className="text-[11px] font-semibold text-teal-700 uppercase tracking-wider block truncate">
+            Usuários Ativos
+          </span>
+          <span className="text-[24px] sm:text-[26px] font-bold text-teal-600 leading-none">
+            {kpis.activeUsersCount}
+          </span>
+          <span className="text-[10px] text-slate-400 truncate">operadores logados</span>
         </Card>
       </div>
 
@@ -492,43 +507,44 @@ export default function AuditPage() {
             </CardHeader>
 
             {filtersExpanded && (
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-4 space-y-3.5">
+                {/* Linha 1: Data Inicial, Data Final, Empresa, Linha, Módulo, Tipo Evento */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   {/* Data Inicial */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Data Inicial
                     </label>
                     <Input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="h-8 text-xs mt-1"
+                      className="h-9 text-xs bg-slate-50/50 border-slate-200"
                     />
                   </div>
 
                   {/* Data Final */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Data Final
                     </label>
                     <Input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="h-8 text-xs mt-1"
+                      className="h-9 text-xs bg-slate-50/50 border-slate-200"
                     />
                   </div>
 
                   {/* Empresa */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Empresa
                     </label>
                     <select
                       value={selectedCompany}
                       onChange={(e) => setSelectedCompany(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todas as Empresas</option>
                       <option value="CIAFAL">CIAFAL Matriz (01)</option>
@@ -537,29 +553,33 @@ export default function AuditPage() {
                   </div>
 
                   {/* Linha Produtiva */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">Linha</label>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
+                      Linha
+                    </label>
                     <select
                       value={selectedLine}
                       onChange={(e) => setSelectedLine(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todas as Linhas</option>
                       <option value="L1">L1 - Laminação Pesada</option>
                       <option value="L2">L2 - Laminação Média</option>
                       <option value="L3">L3 - Perfis Leves</option>
-                      <option value="CORTE">Corte & Dobra</option>
+                      <option value="CORTE">Corte &amp; Dobra</option>
                       <option value="TRAT">Tratamento Térmico</option>
                     </select>
                   </div>
 
                   {/* Módulo */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">Módulo</label>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
+                      Módulo
+                    </label>
                     <select
                       value={selectedModule}
                       onChange={(e) => setSelectedModule(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todos os Módulos</option>
                       <option value="Programação">Programação</option>
@@ -570,20 +590,20 @@ export default function AuditPage() {
                       <option value="Centros e Ficha Mestra">Centros e Ficha Mestra</option>
                       <option value="Hierarquia das Linhas">Hierarquia das Linhas</option>
                       <option value="Sequenciamento">Sequenciamento</option>
-                      <option value="Integrações & Governança">Integrações & Governança</option>
+                      <option value="Integrações & Governança">Integrações &amp; Governança</option>
                       <option value="Reunião PCP">Reunião PCP</option>
                     </select>
                   </div>
 
                   {/* Tipo de Evento */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Tipo de Evento
                     </label>
                     <select
                       value={selectedEventType}
                       onChange={(e) => setSelectedEventType(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todos os Tipos</option>
                       <option value="Criação">Criação</option>
@@ -603,16 +623,17 @@ export default function AuditPage() {
                   </div>
                 </div>
 
+                {/* Linha 2: Motivo, Origem, Status, Usuário */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
                   {/* Motivo Padronizado */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Motivo (Governança)
                     </label>
                     <select
                       value={selectedReason}
                       onChange={(e) => setSelectedReason(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todos os Motivos ({changeReasons.length})</option>
                       {changeReasons.map((r) => (
@@ -624,12 +645,14 @@ export default function AuditPage() {
                   </div>
 
                   {/* Origem */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">Origem</label>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
+                      Origem
+                    </label>
                     <select
                       value={selectedSource}
                       onChange={(e) => setSelectedSource(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todas as Origens</option>
                       <option value="Usuário">Usuário</option>
@@ -645,12 +668,14 @@ export default function AuditPage() {
                   </div>
 
                   {/* Status */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">Status</label>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
+                      Status
+                    </label>
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todos os Status</option>
                       <option value="Concluída">Concluída</option>
@@ -662,14 +687,14 @@ export default function AuditPage() {
                   </div>
 
                   {/* Usuário */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight block">
                       Usuário
                     </label>
                     <select
                       value={selectedUser}
                       onChange={(e) => setSelectedUser(e.target.value)}
-                      className="w-full h-8 text-xs bg-white border border-slate-300 rounded-md px-2 mt-1 outline-none"
+                      className="w-full h-9 text-xs bg-white border border-slate-200 rounded-md px-2.5 outline-none focus:ring-1 focus:ring-[#004C97]"
                     >
                       <option value="ALL">Todos os Usuários</option>
                       <option value="admin">Administrador Geral</option>
@@ -680,24 +705,24 @@ export default function AuditPage() {
                   </div>
                 </div>
 
-                {/* Busca Livre & Botões de Ação */}
-                <div className="flex flex-col md:flex-row items-center gap-3 pt-2">
+                {/* Linha 3: Busca Livre + Aplicar Destacado + Limpar Secundário */}
+                <div className="flex flex-col md:flex-row items-center gap-2.5 pt-1.5">
                   <div className="relative flex-1 w-full">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                     <Input
                       placeholder="Busca livre: código de material, ordem, usuário, motivo, ID do registro, conteúdo alterado..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && fetchAuditData(1)}
-                      className="pl-8 h-8 text-xs bg-slate-50/50"
+                      className="pl-9 h-9 text-xs bg-slate-50/50 border-slate-200 w-full"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                     <Button
                       size="sm"
                       onClick={() => fetchAuditData(1)}
-                      className="h-8 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-semibold"
+                      className="h-9 px-4 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-semibold"
                     >
                       Aplicar Filtros
                     </Button>
@@ -705,9 +730,9 @@ export default function AuditPage() {
                       variant="outline"
                       size="sm"
                       onClick={handleClearFilters}
-                      className="h-8 text-xs border-slate-300 text-slate-600"
+                      className="h-9 px-3.5 text-xs border-slate-200 text-slate-600 hover:bg-slate-50"
                     >
-                      Limpar Filtros
+                      Limpar
                     </Button>
                   </div>
                 </div>

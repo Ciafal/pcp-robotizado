@@ -61,7 +61,7 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
   const updateStatus = lastUpdated ? formatUpdateTimestamp(lastUpdated) : null
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-3 mb-4">
+    <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-2.5 mb-4">
       {/* Breadcrumb e Rastreabilidade de Sistema */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
         <nav
@@ -111,24 +111,26 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
       </div>
 
       {/* Título Principal e Ações de Topo */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="space-y-1">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 min-w-0">
+        <div className="space-y-0.5 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-snug">
               {screenTitle}
             </h1>
             {badge && (
-              <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-xs font-bold">
+              <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-xs font-semibold">
                 {badge}
               </Badge>
             )}
           </div>
           {subtitle && (
-            <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">{subtitle}</p>
+            <p className="text-xs sm:text-[13px] text-slate-600 max-w-3xl leading-relaxed">
+              {subtitle}
+            </p>
           )}
         </div>
 
-        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+        {actions && <div className="flex items-center gap-2 shrink-0 flex-wrap">{actions}</div>}
       </div>
     </div>
   )
@@ -290,17 +292,19 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
   const isPositive = typeof variationPct === 'number' && variationPct >= 0
 
   return (
-    <Card className="bg-white border-slate-200 shadow-2xs hover:shadow-xs transition-shadow p-4 flex flex-col justify-between">
+    <Card className="bg-white border-slate-200 shadow-2xs hover:shadow-xs transition-shadow p-3.5 sm:p-4 flex flex-col justify-between h-full min-h-[105px]">
       {/* Topo do Card: Título + Tooltip/Ícone + Status */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5">
-          {Icon && <Icon className="w-4 h-4 text-[#004C97]" />}
-          <span className="text-xs font-bold text-slate-700 tracking-tight uppercase">{title}</span>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {Icon && <Icon className="w-4 h-4 text-[#004C97] shrink-0" />}
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-700 tracking-tight uppercase truncate">
+            {title}
+          </span>
           {infoTooltip && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+                  <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent className="bg-slate-900 text-white text-xs max-w-xs">
                   {infoTooltip}
@@ -312,49 +316,51 @@ export const CiafalKPICard: React.FC<CiafalKPICardProps> = ({
         <CiafalStatus status={status} size="sm" />
       </div>
 
-      {/* Meio: Valor de Destaque com Unidade Clara */}
+      {/* Meio: Valor de Destaque com Unidade Clara (24–28px font) */}
       <div className="flex items-baseline gap-1.5 my-1">
-        <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+        <span className="text-[24px] sm:text-[26px] font-bold text-slate-900 tracking-tight leading-none">
           {formattedVal}
         </span>
-        {unit && <span className="text-xs font-bold text-slate-500 font-mono">{unit}</span>}
+        {unit && <span className="text-xs font-semibold text-slate-500 font-mono">{unit}</span>}
       </div>
 
       {/* Base: Meta + Variação + Atualização */}
-      <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
-        <div className="flex items-center gap-2">
-          {target !== undefined && (
-            <span>
-              {targetLabel}{' '}
-              <strong className="text-slate-800">
-                {typeof target === 'number' ? formatAbntNumber(target, decimals) : target} {unit}
-              </strong>
-            </span>
-          )}
+      {(target !== undefined || variationPct !== undefined || updatedAt) && (
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
+          <div className="flex items-center gap-2">
+            {target !== undefined && (
+              <span>
+                {targetLabel}{' '}
+                <strong className="text-slate-800">
+                  {typeof target === 'number' ? formatAbntNumber(target, decimals) : target} {unit}
+                </strong>
+              </span>
+            )}
 
-          {variationPct !== undefined && (
-            <span
-              className={`flex items-center font-bold font-mono ${
-                isPositive ? 'text-emerald-700' : 'text-rose-700'
-              }`}
-            >
-              {isPositive ? (
-                <ArrowUpRight className="w-3 h-3" />
-              ) : (
-                <ArrowDownRight className="w-3 h-3" />
-              )}
-              {isPositive ? '+' : ''}
-              {formatAbntNumber(variationPct, 1)} %{variationLabel && ` (${variationLabel})`}
+            {variationPct !== undefined && (
+              <span
+                className={`flex items-center font-bold font-mono ${
+                  isPositive ? 'text-emerald-700' : 'text-rose-700'
+                }`}
+              >
+                {isPositive ? (
+                  <ArrowUpRight className="w-3 h-3" />
+                ) : (
+                  <ArrowDownRight className="w-3 h-3" />
+                )}
+                {isPositive ? '+' : ''}
+                {formatAbntNumber(variationPct, 1)} %{variationLabel && ` (${variationLabel})`}
+              </span>
+            )}
+          </div>
+
+          {updatedAt && (
+            <span className="font-mono text-[10px] text-slate-400">
+              {formatUpdateTimestamp(updatedAt).label}
             </span>
           )}
         </div>
-
-        {updatedAt && (
-          <span className="font-mono text-[10px] text-slate-400">
-            {formatUpdateTimestamp(updatedAt).label}
-          </span>
-        )}
-      </div>
+      )}
     </Card>
   )
 }

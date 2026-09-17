@@ -1028,15 +1028,17 @@ export const PCPSidebar: React.FC = () => {
   const location = useLocation()
 
   // Estado de expansão dos grupos colapsáveis:
-  // Conforme Requisito Parte 1: TODOS os grupos iniciam contraídos ao entrar no PCP Robotizado
-  // e após reload voltam todos contraídos (estado em memória, sem persistência).
-  // Estado de expansão dos grupos colapsáveis:
-  // "INTEGRAÇÕES & GOVERNANÇA" inicia EXPANDIDO por padrão para garantir descobertura imediata de Logs & Auditoria.
-  // Regra geral: expande automaticamente qualquer grupo que contenha a rota ativa quando a navegação mudar.
+  // (a) Grupo "INTEGRAÇÕES & GOVERNANÇA" EXPANDIDO POR PADRÃO (false no collapsedGroups)
+  // (b) Auto-expandir qualquer grupo que contenha a rota ativa
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     officialNavGroups.forEach((g) => {
-      initial[g.groupTitle] = g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' ? false : true
+      // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão
+      if (g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA') {
+        initial[g.groupTitle] = false
+      } else {
+        initial[g.groupTitle] = true
+      }
     })
     return initial
   })
@@ -1048,20 +1050,22 @@ export const PCPSidebar: React.FC = () => {
     }))
   }
 
-  // Expandir automaticamente qualquer grupo que contenha a rota ativa ao navegar
+  // Auto-expandir o grupo do menu que contém a rota ativa (e garantir INTEGRAÇÕES & GOVERNANÇA expandido)
   useEffect(() => {
     officialNavGroups.forEach((group) => {
       const hasActiveItem = group.items.some((item) => {
-        if (item.href === location.pathname) return true
-        if (item.href.includes('?')) {
-          return location.pathname + location.search === item.href
-        }
-        return location.pathname.startsWith(item.href) && item.href !== '/pcp'
+        const itemCleanHref = item.href.split('?')[0]
+        if (location.pathname === item.href || location.pathname === itemCleanHref) return true
+        if (itemCleanHref !== '/pcp' && location.pathname.startsWith(itemCleanHref)) return true
+        return false
       })
       if (hasActiveItem) {
-        setCollapsedGroups((prev) =>
-          prev[group.groupTitle] ? { ...prev, [group.groupTitle]: false } : prev,
-        )
+        setCollapsedGroups((prev) => {
+          if (prev[group.groupTitle]) {
+            return { ...prev, [group.groupTitle]: false }
+          }
+          return prev
+        })
       }
     })
   }, [location.pathname, location.search])

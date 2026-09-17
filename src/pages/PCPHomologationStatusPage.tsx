@@ -133,42 +133,40 @@ export const PCPHomologationStatusPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-5 pb-12">
-      {/* Cabeçalho */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#004C97] text-white flex items-center justify-center shadow-sm">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                Status de Homologação PCP Robotizado
-              </h1>
-              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
-                MATRIZ DE GO-LIVE
-              </Badge>
-              <Badge
-                variant="outline"
-                className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[10px]"
-              >
-                AMBIENTE: HOMOLOGAÇÃO
-              </Badge>
+    <div className="w-full space-y-5 pb-10">
+      {/* Cabeçalho Institucional Padronizado */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-8 h-8 rounded-lg bg-[#004C97] text-white flex items-center justify-center shadow-2xs shrink-0">
+              <Layers className="w-4 h-4" />
             </div>
-            <p className="text-xs text-slate-500">
-              Painel transparente de prontidão dos módulos para transição de Cargas QAS para
-              RFCs/APIs de Produção.
-            </p>
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+              Status de Homologação
+            </h1>
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-semibold">
+              Matriz de Go-Live
+            </Badge>
+            <Badge
+              variant="outline"
+              className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[11px] font-medium"
+            >
+              Ambiente: Homologação
+            </Badge>
           </div>
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 max-w-3xl leading-relaxed">
+            Painel transparente de prontidão dos módulos para transição de Cargas QAS para RFCs/APIs
+            de Produção.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Button
             size="sm"
             variant="outline"
             onClick={() => refreshData(true)}
             disabled={loading}
-            className="text-xs h-9 border-slate-300 gap-1.5 text-slate-700 hover:bg-slate-50"
+            className="text-xs h-9 border-slate-200 gap-1.5 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Atualizando...' : 'Recarregar Status'}
@@ -187,12 +185,12 @@ export const PCPHomologationStatusPage: React.FC = () => {
       </div>
 
       {/* Diretriz de Transição Transparente */}
-      <div className="p-4 bg-blue-50/80 rounded-xl border border-blue-200 text-blue-950 space-y-1.5 text-xs">
-        <div className="flex items-center gap-2 font-bold text-sm text-[#004C97]">
-          <ShieldCheck className="w-4 h-4 text-[#004C97]" /> Diretriz de Arquitetura para Go-Live
-          SAP:
+      <div className="p-3.5 sm:p-4 bg-blue-50/60 rounded-xl border border-blue-200 text-blue-950 space-y-1 text-xs">
+        <div className="flex items-center gap-2 font-semibold text-xs sm:text-sm text-[#004C97]">
+          <ShieldCheck className="w-4 h-4 text-[#004C97] shrink-0" /> Diretriz de Arquitetura para
+          Go-Live SAP:
         </div>
-        <p className="text-slate-700 leading-relaxed">
+        <p className="text-slate-700 leading-relaxed text-xs">
           O PCP Robotizado foi desenhado sobre a{' '}
           <strong>Camada de Dados Central (PCP Data Layer)</strong>. Quando os conectores SAP RFC
           (ZSD28C, MB52, BAPI) e MES/AOM forem liberados em produção, basta substituir os
@@ -207,12 +205,14 @@ export const PCPHomologationStatusPage: React.FC = () => {
         {modules.map((mod, idx) => (
           <Card
             key={idx}
-            className="bg-white border-slate-200 shadow-xs hover:border-blue-200 transition-colors"
+            className="bg-white border-slate-200 shadow-2xs hover:border-blue-200 transition-colors"
           >
-            <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
-              <div className="space-y-1 md:max-w-md">
-                <div className="flex items-center gap-2">
-                  <strong className="text-sm font-bold text-slate-900">{mod.moduleName}</strong>
+            <CardContent className="p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="space-y-1 md:max-w-md min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <strong className="text-[13px] sm:text-sm font-semibold text-slate-900">
+                    {mod.moduleName}
+                  </strong>
                   <Badge
                     variant="outline"
                     className="text-[9px] uppercase font-mono text-slate-500"
@@ -223,18 +223,22 @@ export const PCPHomologationStatusPage: React.FC = () => {
                 <p className="text-slate-600 text-[11px] leading-relaxed">{mod.notes}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 md:max-w-lg text-[11px]">
-                <div className="p-2 bg-slate-50 rounded border border-slate-100">
-                  <span className="text-[9px] uppercase text-slate-400 font-bold block">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 flex-1 md:max-w-lg text-[11px]">
+                <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-[9px] uppercase text-slate-400 font-semibold block">
                     Fonte Atual (QAS)
                   </span>
-                  <span className="text-slate-800 font-medium">{mod.currentSource}</span>
+                  <span className="text-slate-800 font-medium text-[11px]">
+                    {mod.currentSource}
+                  </span>
                 </div>
-                <div className="p-2 bg-blue-50/50 rounded border border-blue-100">
-                  <span className="text-[9px] uppercase text-[#004C97] font-bold block">
+                <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100">
+                  <span className="text-[9px] uppercase text-[#004C97] font-semibold block">
                     Destino Go-Live (PRD)
                   </span>
-                  <span className="text-slate-800 font-medium">{mod.targetGoLiveSource}</span>
+                  <span className="text-slate-800 font-medium text-[11px]">
+                    {mod.targetGoLiveSource}
+                  </span>
                 </div>
               </div>
 

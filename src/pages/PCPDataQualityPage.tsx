@@ -156,42 +156,40 @@ export const PCPDataQualityPage: React.FC = () => {
       : 0
 
   return (
-    <div className="space-y-5 pb-12">
-      {/* Topo / Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#004C97] text-white flex items-center justify-center shadow-sm">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                Qualidade dos Dados PCP
-              </h1>
-              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
-                AUDITORIA & CONFIABILIDADE
-              </Badge>
-              <Badge
-                variant="outline"
-                className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[10px]"
-              >
-                AMBIENTE: HOMOLOGAÇÃO QAS
-              </Badge>
+    <div className="w-full space-y-5 pb-10">
+      {/* Topo / Header Institucional Padronizado */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-8 h-8 rounded-lg bg-[#004C97] text-white flex items-center justify-center shadow-2xs shrink-0">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <p className="text-xs text-slate-500">
-              Monitoramento determinístico da acurácia, integridade cadastral e linhagem da carteira
-              ZSD28C.
-            </p>
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+              Qualidade dos Dados PCP
+            </h1>
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-semibold">
+              Auditoria &amp; Confiabilidade
+            </Badge>
+            <Badge
+              variant="outline"
+              className="text-emerald-700 bg-emerald-50 border-emerald-300 text-[11px] font-medium"
+            >
+              Ambiente: Homologação QAS
+            </Badge>
           </div>
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 max-w-3xl leading-relaxed">
+            Monitoramento determinístico da acurácia, integridade cadastral e linhagem da carteira
+            ZSD28C.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Button
             size="sm"
             variant="outline"
             onClick={() => refreshData(true)}
             disabled={loading}
-            className="text-xs h-9 border-slate-300 gap-1.5 text-slate-700 hover:bg-slate-50"
+            className="text-xs h-9 border-slate-200 gap-1.5 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Auditando...' : 'Reauditar Dados'}
@@ -211,77 +209,78 @@ export const PCPDataQualityPage: React.FC = () => {
 
       {/* Card Principal de Score Global */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-1 bg-gradient-to-br from-[#004C97] to-[#002f60] text-white shadow-md border-0">
-          <CardContent className="p-5 flex flex-col justify-between h-full space-y-4">
-            <div>
-              <span className="text-xs uppercase tracking-wider text-blue-200 font-bold block">
+        <Card className="md:col-span-1 bg-white border-slate-200 shadow-2xs p-4 sm:p-5 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] sm:text-xs uppercase tracking-wider text-slate-500 font-semibold block">
                 Índice Global de Qualidade
               </span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-4xl font-black">
-                  {totalOrders > 0 ? `${globalScore}%` : 'Sem Carga'}
-                </span>
-                {totalOrders > 0 && (
-                  <Badge className="bg-emerald-500 text-white text-[10px] font-bold">
-                    {globalScore >= 95 ? 'NÍVEL ELEVADO' : 'ACEITÁVEL'}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-blue-100 mt-2">
-                Score ponderado calculado a partir de {metrics.length} dimensões de integridade de
-                dados.
-              </p>
+              {totalOrders > 0 && (
+                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
+                  {globalScore >= 95 ? 'NÍVEL ELEVADO' : 'ACEITÁVEL'}
+                </Badge>
+              )}
             </div>
-
-            <div className="pt-3 border-t border-blue-400/30 text-[11px] text-blue-200 flex items-center justify-between">
-              <span>
-                Carga Ativa: <strong>{currentUpload?.upload_code || 'N/A'}</strong>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-[28px] sm:text-[30px] font-bold text-slate-900 leading-none">
+                {totalOrders > 0 ? `${globalScore}%` : 'Sem Carga'}
               </span>
-              <span>{totalOrders} ordens</span>
             </div>
-          </CardContent>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Score ponderado calculado a partir de {metrics.length} dimensões de integridade de
+              dados.
+            </p>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span>
+              Carga Ativa:{' '}
+              <strong className="text-slate-800">{currentUpload?.upload_code || 'N/A'}</strong>
+            </span>
+            <span className="font-semibold text-slate-700">{totalOrders} ordens</span>
+          </div>
         </Card>
 
-        <Card className="md:col-span-2 bg-white border-slate-200 shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-slate-100">
-            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+        <Card className="md:col-span-2 bg-white border-slate-200 shadow-2xs">
+          <CardHeader className="p-4 pb-2.5 border-b border-slate-100">
+            <CardTitle className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#004C97]" />
               Linhagem e Rastreabilidade da Fonte
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">
                 Origem Canônica
               </span>
-              <strong className="text-slate-800 font-mono">SAP SD / ZSD28C</strong>
+              <strong className="text-slate-800 font-mono text-[11px]">SAP SD / ZSD28C</strong>
             </div>
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 min-w-0">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">
                 Arquivo Importado
               </span>
               <strong
-                className="text-slate-800 font-mono truncate block"
+                className="text-slate-800 font-mono truncate block text-[11px]"
                 title={currentUpload?.filename}
               >
                 {currentUpload?.filename || 'Nenhum'}
               </strong>
             </div>
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">
                 Idade dos Dados
               </span>
-              <strong className="text-slate-800">
+              <strong className="text-slate-800 text-[11px]">
                 {currentUpload?.created
                   ? new Date(currentUpload.created).toLocaleString('pt-BR')
                   : 'Aguardando Carga'}
               </strong>
             </div>
-            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+            <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 min-w-0">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">
                 Responsável
               </span>
-              <strong className="text-slate-800 truncate block">
+              <strong className="text-slate-800 truncate block text-[11px]">
                 {currentUpload?.user_name || 'Operador QAS'}
               </strong>
             </div>
@@ -294,23 +293,23 @@ export const PCPDataQualityPage: React.FC = () => {
         {metrics.map((m) => (
           <Card
             key={m.id}
-            className="bg-white border-slate-200 shadow-xs flex flex-col justify-between"
+            className="bg-white border-slate-200 shadow-2xs flex flex-col justify-between"
           >
             <CardHeader className="p-4 pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-xs font-bold text-slate-900 leading-snug">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <CardTitle className="text-[13px] font-semibold text-slate-900 leading-snug truncate">
                   {m.title}
                 </CardTitle>
                 <Badge
-                  className={`text-[9px] font-bold ${
+                  className={`text-[10px] font-semibold shrink-0 ${
                     m.status === 'EXCELENTE'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                       : m.status === 'BOM'
-                        ? 'bg-blue-100 text-blue-800 border-blue-200'
-                        : 'bg-amber-100 text-amber-800 border-amber-200'
+                        ? 'bg-blue-50 text-blue-800 border-blue-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-300'
                   }`}
                 >
-                  {m.scorePct}%
+                  {m.scorePct} %
                 </Badge>
               </div>
             </CardHeader>

@@ -196,39 +196,39 @@ export const PCPIntegrationsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Header */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#004C97]" />
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">
-              CONECTORES & INTEGRAÇÕES PCP CIAFAL
+    <div className="w-full space-y-5 pb-10">
+      {/* Top Header institucional padronizado */}
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#004C97] shrink-0" />
+            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-tight">
+              Conectores & Integrações PCP
             </h1>
-            <Badge className="bg-blue-100 text-[#004C97] hover:bg-blue-200 font-bold ml-2">
+            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 font-semibold text-xs ml-1">
               Arquitetura Multi-Conector
             </Badge>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 max-w-3xl leading-relaxed">
             Gestão operacional dos canais de propagação de programação e retorno de status (SAP ECC,
             MES, CRM 360º, TMS, WMS).
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Button
             variant="outline"
             onClick={() => navigate('/pcp/integracoes/monitor')}
-            className="border-[#004C97] text-[#004C97] hover:bg-blue-50 text-xs font-semibold gap-2"
+            className="border-[#004C97] text-[#004C97] hover:bg-blue-50 text-xs font-semibold gap-2 h-9"
           >
             <Activity className="w-4 h-4" /> Monitor de Eventos Ponta a Ponta
             <ArrowRight className="w-3.5 h-3.5" />
           </Button>
           <Button
             onClick={loadConnectors}
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-slate-600 hover:text-slate-900"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 h-9"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -236,7 +236,7 @@ export const PCPIntegrationsPage: React.FC = () => {
       </div>
 
       {/* Grid de Conectores Reais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {connectors.map((conn) => {
           const isConnected = conn.status === 'CONECTADO'
           const isTesting = testingCode === conn.system_code
@@ -244,19 +244,21 @@ export const PCPIntegrationsPage: React.FC = () => {
           return (
             <Card
               key={conn.system_code}
-              className="bg-white border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+              className="bg-white border-slate-200 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between"
             >
-              <CardHeader className="pb-3 border-b border-slate-100">
+              <CardHeader className="p-4 pb-3 border-b border-slate-100">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-slate-900 text-sm">{conn.system_code}</h3>
+                      <h3 className="font-semibold text-slate-900 text-sm truncate">
+                        {conn.system_code}
+                      </h3>
                       <Badge
                         variant="outline"
                         className={
                           isConnected
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold text-[10px]'
-                            : 'bg-rose-50 text-rose-700 border-rose-300 font-bold text-[10px]'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold text-[10px]'
+                            : 'bg-rose-50 text-rose-700 border-rose-300 font-semibold text-[10px]'
                         }
                       >
                         <span
@@ -267,13 +269,15 @@ export const PCPIntegrationsPage: React.FC = () => {
                         {conn.status}
                       </Badge>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">{conn.system_name}</p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
+                      {conn.system_name}
+                    </p>
                   </div>
-                  {getInterfaceBadge(conn.interface_type)}
+                  <div className="shrink-0">{getInterfaceBadge(conn.interface_type)}</div>
                 </div>
               </CardHeader>
 
-              <CardContent className="py-4 space-y-3 text-xs flex-1">
+              <CardContent className="p-4 py-3 space-y-2.5 text-xs flex-1">
                 <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-2 bg-slate-50 p-2 rounded border border-slate-100">
                   {conn.description}
                 </p>
@@ -282,7 +286,7 @@ export const PCPIntegrationsPage: React.FC = () => {
                   <div className="flex justify-between items-center text-slate-600">
                     <span className="text-slate-400">Endpoint / Destino:</span>
                     <span
-                      className="font-mono text-slate-800 text-[11px] max-w-[180px] truncate"
+                      className="font-mono text-slate-800 text-[11px] max-w-[170px] truncate"
                       title={conn.endpoint}
                     >
                       {conn.endpoint}
@@ -337,23 +341,23 @@ export const PCPIntegrationsPage: React.FC = () => {
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 pb-4 px-6 border-t border-slate-100 flex items-center justify-between gap-2">
+              <CardFooter className="pt-2 pb-3 px-4 border-t border-slate-100 flex items-center justify-between gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleTestConnection(conn.system_code)}
                   disabled={isTesting}
-                  className="w-1/2 text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className="w-1/2 text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isTesting ? 'animate-spin' : ''}`} />
                   {isTesting ? 'Testando...' : 'Testar Conexão'}
                 </Button>
 
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => handleOpenEdit(conn)}
-                  className="w-1/2 text-xs h-8 text-[#004C97] hover:bg-blue-50"
+                  className="w-1/2 text-xs h-8 border-blue-200 text-[#004C97] hover:bg-blue-50"
                 >
                   <Settings className="w-3.5 h-3.5 mr-1.5" /> Configurar
                 </Button>
@@ -365,9 +369,9 @@ export const PCPIntegrationsPage: React.FC = () => {
 
       {/* Modal de Configuração do Conector */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-md bg-white border-slate-200 text-slate-900">
+        <DialogContent className="w-full max-w-[560px] bg-white border-slate-200 text-slate-900 p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+            <DialogTitle className="flex items-center gap-2 text-[18px] font-bold text-slate-900">
               <Settings className="w-5 h-5 text-[#004C97]" />
               Parâmetros do Conector: {selectedConnector?.system_code}
             </DialogTitle>
@@ -485,12 +489,12 @@ export const PCPIntegrationsPage: React.FC = () => {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 justify-end pt-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsEditModalOpen(false)}
-              className="text-xs"
+              className="text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               Cancelar
             </Button>
@@ -498,7 +502,7 @@ export const PCPIntegrationsPage: React.FC = () => {
               size="sm"
               onClick={handleSaveConfig}
               disabled={saving}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold"
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold px-4"
             >
               {saving ? 'Salvando...' : 'Salvar Conector'}
             </Button>

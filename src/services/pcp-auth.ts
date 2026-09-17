@@ -96,10 +96,12 @@ export const authService = {
         'pcp.masterdata.edit',
         'pcp.integrations.view',
         'pcp.integrations.manage',
+        'pcp.integrations.reconcile',
         'pcp.audit.view',
         'pcp.rules.view',
         'pcp.rules.edit',
         'pcp.security.manage',
+        'pcp.admin.manage',
         'pcp.approval.view',
         'pcp.approval.decide',
         'pcp.masterplan.overview',
@@ -132,6 +134,28 @@ export const authService = {
         'pcp.carteira.reconcile',
       ]
     }
+    if (roleUpper === 'AUDITOR' || roleUpper === 'COMPLIANCE') {
+      return [
+        'pcp.audit.view',
+        'pcp.integrations.view',
+        'pcp.schedule.view',
+        'pcp.masterdata.view',
+        'pcp.quality.view',
+        'pcp.carteira.view',
+      ]
+    }
+    if (roleUpper === 'EXECUTIVE_VIEWER' || roleUpper === 'EXECUTIVE') {
+      return [
+        'pcp.executive.view',
+        'pcp.schedule.view',
+        'pcp.audit.view',
+        'pcp.integrations.view',
+        'pcp.masterplan.overview',
+        'pcp.inventory.overview',
+        'pcp.quality.view',
+        'pcp.carteira.view',
+      ]
+    }
     if (roleUpper === 'PCP_PROGRAMMER') {
       return [
         'pcp.schedule.view',
@@ -151,6 +175,7 @@ export const authService = {
         'pcp.mp_opt.simulate',
         'pcp.masterdata.view',
         'pcp.integrations.view',
+        'pcp.audit.view',
         'pcp.rules.view',
         'pcp.quality.view',
         'pcp.meeting.view',
@@ -169,6 +194,7 @@ export const authService = {
         'pcp.inventory.overview',
         'pcp.mp_opt.view',
         'pcp.rules.view',
+        'pcp.audit.view',
         'pcp.meeting.view',
         'pcp.communication.view',
         'pcp.carteira.view',
