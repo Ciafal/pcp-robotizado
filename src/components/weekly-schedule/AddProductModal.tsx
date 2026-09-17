@@ -71,6 +71,9 @@ import {
   ENFORNAMENTO_OPTIONS,
   EnfornamentoProductivityMatch,
 } from '@/services/enfornamento-laminacao-engine'
+import { sapMrpService } from '@/services/sap-mrp-service'
+import { bottleneckMatrixService } from '@/services/bottleneck-rules-engine'
+import { MatrixResolutionResult } from '@/types/sap-mrp'
 
 interface AddProductModalProps {
   isOpen: boolean
@@ -129,6 +132,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   )
   const [loadingStockCarteira, setLoadingStockCarteira] = useState<boolean>(false)
   const [isExistingScheduleModalOpen, setIsExistingScheduleModalOpen] = useState<boolean>(false)
+
+  // Resolução Automática da Matriz de Gargalos por Planejador MRP (MARC-DISPO)
+  const [matrixResolution, setMatrixResolution] = useState<MatrixResolutionResult | null>(null)
+  const [loadingMatrixRes, setLoadingMatrixRes] = useState<boolean>(false)
 
   // PARTE 4: ENFORNAMENTO (SOMENTE LAMINAÇÃO)
   const isLaminacao = useMemo(() => {
@@ -270,6 +277,38 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       setStockCarteiraData(null)
     }
   }, [selectedMaterial?.material_code, plannedTonsNum])
+
+  // Resolução Automática da Matriz de Gargalos vinculada ao MARC-DISPO (Itens 9, 10, 11)
+  useEffect(() => {
+    if (selectedMaterial) {
+      setLoadingMatrixRes(true)
+      const matWerks = selectedMaterial.werks || '1001'
+      const dispoCode = selectedMaterial.marc_dispo || selectedMaterial.mrp_controller_code || ''
+
+      bottleneckMatrixService
+        .listMatrices(lineCode)
+        .then((matrices) => {
+          const res = sapMrpService.resolveMatrixByMrpController(matrices, {
+            werks: matWerks,
+            line_code: lineCode,
+            mrp_controller_code: dispoCode,
+            material_code: selectedMaterial.material_code,
+            material_description: selectedMaterial.material_name,
+            company_code: 'CIAFAL',
+          })
+          setMatrixResolution(res)
+        })
+        .catch((err) => {
+          console.warn('Erro ao resolver matriz de gargalos:', err)
+          setMatrixResolution(null)
+        })
+        .finally(() => {
+          setLoadingMatrixRes(false)
+        })
+    } else {
+      setMatrixResolution(null)
+    }
+  }, [selectedMaterial, lineCode])
 
   // PARTE 3: Motor Bidirecional de Matéria-Prima
   const currentYield = Number(yieldPctInput) || 97.5
@@ -647,6 +686,102 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Resolução de Matriz de Gargalos por Planejador MRP (MARC-DISPO) - Itens 9, 10, 11 */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5 uppercase text-[11px]">
+                    <ShieldCheck className="w-4 h-4 text-[#004C97]" />
+                    Matriz de Gargalos Associada (MARC-DISPO &bull; Planejador MRP)
+                  </span>
+                  {matrixResolution && (
+                    <Badge
+                      className={`text-[10px] font-bold ${
+                        matrixResolution.status === 'VALID'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : matrixResolution.status === 'NO_MRP_CONTROLLER'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}
+                    >
+                      {matrixResolution.status === 'VALID'
+                        ? 'Matriz Válida Homologada'
+                        : matrixResolution.status === 'NO_MRP_CONTROLLER'
+                          ? 'Inconsistência de Dados Mestres'
+                          : 'Matriz Não Homologada / Não Configurada'}
+                    </Badge>
+                  )}
+                </div>
+
+                {matrixResolution?.status === 'VALID' && matrixResolution.matched_matrix && (
+                  <div className="p-2 bg-emerald-50/60 border border-emerald-200 rounded text-emerald-950 flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold block">
+                        Matriz:{' '}
+                        <strong>
+                          {matrixResolution.matched_matrix.matrix_name ||
+                            matrixResolution.matched_matrix.gauge_dimension}
+                        </strong>{' '}
+                        (Rev.{matrixResolution.matched_matrix.version || 1})
+                      </span>
+                      <span className="text-[11px] text-emerald-800">
+                        Planejador MRP SAP:{' '}
+                        <strong>
+                          {matrixResolution.details?.mrp_controller_code}
+                          {matrixResolution.details?.mrp_controller_description
+                            ? ` — ${matrixResolution.details.mrp_controller_description}`
+                            : ''}
+                        </strong>{' '}
+                        &bull; WERKS {matrixResolution.details?.werks || '1001'} &bull; Gargalo:{' '}
+                        {matrixResolution.matched_matrix.primary_bottleneck_stage} (
+                        {matrixResolution.matched_matrix.primary_bottleneck_rate_th ||
+                          matrixResolution.matched_matrix.continuous_mill_capacity_th ||
+                          24.8}{' '}
+                        t/h)
+                      </span>
+                    </div>
+                    <Badge className="bg-emerald-600 text-white text-[10px] shrink-0 font-bold">
+                      Vigente
+                    </Badge>
+                  </div>
+                )}
+
+                {matrixResolution?.status === 'NO_MRP_CONTROLLER' && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-300 rounded text-rose-950 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block font-bold">
+                        Material sem Planejador MRP definido no SAP.
+                      </strong>
+                      <p className="text-[11px] text-rose-800 mt-0.5">
+                        O material {selectedMaterial.material_code} está sem o campo MARC-DISPO
+                        preenchido no SAP. O PCP não cria classificações fictícias. Inconsistência
+                        registrada para saneamento cadastral.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {matrixResolution?.status === 'NOT_FOUND' && (
+                  <div className="p-2.5 bg-amber-50 border border-amber-300 rounded text-amber-950 flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-bold">
+                          Matriz de Gargalos não configurada
+                        </strong>
+                        <p className="text-[11px] text-amber-800 mt-0.5">
+                          Material: {selectedMaterial.material_code} &bull; Centro SAP: WERKS{' '}
+                          {matrixResolution.details?.werks || '1001'} &bull; Planejador MRP:{' '}
+                          {matrixResolution.details?.mrp_controller_code || 'Não Definido'} &bull;
+                          Linha: {lineCode}. Nenhuma matriz de gargalos vigente e homologada foi
+                          encontrada.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Guia de Legenda Visual Atualizada */}

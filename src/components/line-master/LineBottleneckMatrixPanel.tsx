@@ -2,31 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   Activity,
   AlertTriangle,
-  CheckCircle2,
   ChevronRight,
   Database,
-  Flame,
   Layers,
-  Maximize2,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
-  TrendingUp,
   Workflow,
   Zap,
-  Info,
   Clock,
-  FileSpreadsheet,
-  ArrowRight,
-  Filter,
   Save,
   Search,
   Check,
   Building2,
   AlertCircle,
-  HelpCircle,
+  Plus,
   Sliders,
-  CheckCircle,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,8 +34,10 @@ import {
 } from '@/types/bottleneck-matrix'
 import { BottleneckRulesEngine, bottleneckMatrixService } from '@/services/bottleneck-rules-engine'
 import { sapMrpService } from '@/services/sap-mrp-service'
-import { SapMrpGroupItem } from '@/types/sap-mrp'
-import { pcpAuditService, computeDiff, FIELD_LABELS_PT_BR } from '@/services/pcp-audit-service'
+import { SapMrpControllerItem } from '@/types/sap-mrp'
+import { pcpAuditService, computeDiff } from '@/services/pcp-audit-service'
+import { CreateReferenceMatrixModal } from './CreateReferenceMatrixModal'
+import { GenerateMatricesByMrpControllerModal } from './GenerateMatricesByMrpControllerModal'
 
 interface LineBottleneckMatrixPanelProps {
   lineCode: string
@@ -57,7 +51,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
   initialCompanyCode = 'CIAFAL',
 }) => {
   const { toast } = useToast()
-  const { user, can } = useAuth()
+  const { user } = useAuth()
 
   const [matrices, setMatrices] = useState<LineBottleneckMatrixRecord[]>([])
   const [constraints, setConstraints] = useState<LineProcessConstraint[]>([])
@@ -70,14 +64,14 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     sapMrpService.mapCompanyToWerks(initialCompanyCode),
   )
 
-  // Estado do Cache SAP MARC-DISGR
-  const [mrpGroups, setMrpGroups] = useState<SapMrpGroupItem[]>([])
-  const [mrpSearchTerm, setMrpSearchTerm] = useState('')
-  const [isMrpDropdownOpen, setIsMrpDropdownOpen] = useState(false)
-  const [selectedMrpCode, setSelectedMrpCode] = useState<string>('')
-  const [selectedMrpDesc, setSelectedMrpDesc] = useState<string>('')
+  // Estado do Cache SAP MARC-DISPO (Planejador MRP)
+  const [mrpControllers, setMrpControllers] = useState<SapMrpControllerItem[]>([])
+  const [controllerSearchTerm, setControllerSearchTerm] = useState('')
+  const [isControllerDropdownOpen, setIsControllerDropdownOpen] = useState(false)
+  const [selectedControllerCode, setSelectedControllerCode] = useState<string>('')
+  const [selectedControllerDesc, setSelectedControllerDesc] = useState<string>('')
 
-  // Estado de Sincronização SAP
+  // Estado de Sincronização SAP RFC
   const [lastSyncDate, setLastSyncDate] = useState<string | null>(null)
   const [isSyncingSap, setIsSyncingSap] = useState(false)
   const [sapOfflineMessage, setSapOfflineMessage] = useState<string | null>(null)
@@ -85,6 +79,10 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
 
   // Validação de Conflito de Vigência e Ausência
   const [conflictWarning, setConflictWarning] = useState<string | null>(null)
+
+  // Modais de Criação e Geração
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false)
 
   // Parâmetros de Simulação Rápida na Matriz
   const [simSection, setSimSection] = useState<number>(130)
@@ -97,11 +95,11 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     loadData()
   }, [lineCode])
 
-  // Atualiza WERKS e Grupos MRP quando a Empresa mudar
+  // Atualiza WERKS e Planejadores MRP quando a Empresa mudar
   useEffect(() => {
     const werks = sapMrpService.mapCompanyToWerks(selectedCompany)
     setCurrentWerks(werks)
-    loadMrpGroups(werks)
+    loadMrpControllers(werks)
   }, [selectedCompany])
 
   const loadData = async () => {
@@ -117,29 +115,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
       if (mList.length > 0) {
         const firstM = mList[0]
         setSelectedMatrixId(firstM.id)
-        setSimSection(firstM.billet_section_mm || 130)
-        setSimLength(firstM.billet_length_m || 6.0)
-        setSimWeight(firstM.billet_weight_kg || 795)
-        setSimPasses(firstM.passes_count || 6)
-        setSimVeins(firstM.veins_count || 1)
-
-        // Carrega valores persistidos na matriz
-        if (firstM.mrp_group_code) {
-          setSelectedMrpCode(firstM.mrp_group_code)
-          setSelectedMrpDesc(firstM.mrp_group_description || '')
-        } else {
-          setSelectedMrpCode('')
-          setSelectedMrpDesc('')
-        }
-
-        if (firstM.werks) {
-          setCurrentWerks(firstM.werks)
-          // Mapeia de volta a empresa se aplicável
-          if (firstM.werks === '2001') setSelectedCompany('KS-FERRADURA')
-          else if (firstM.werks === '2101') setSelectedCompany('KS-CIAFAL')
-          else if (firstM.werks === '3001') setSelectedCompany('SIDERCENTRO')
-          else setSelectedCompany('CIAFAL')
-        }
+        applyMatrixToView(firstM)
       }
     } catch (e) {
       console.error(e)
@@ -148,66 +124,95 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     }
   }
 
-  // Carrega grupos MRP do cache filtrado por WERKS
-  const loadMrpGroups = async (werks: string) => {
-    const [groups, lastSync] = await Promise.all([
-      sapMrpService.listMrpGroupsByWerks(werks),
-      sapMrpService.getLastSyncDate(werks),
+  // Carrega Planejadores MRP do cache filtrado por WERKS
+  const loadMrpControllers = async (werks: string) => {
+    const [controllers, lastSync] = await Promise.all([
+      sapMrpService.listMrpControllersByWerks(werks),
+      sapMrpService.getLastControllersSyncDate(werks),
     ])
-    setMrpGroups(groups)
+    setMrpControllers(controllers)
     setLastSyncDate(lastSync)
 
-    // Se a matriz ativa tiver mrp_group_code, reconcilia a descrição
+    // Se a matriz ativa tiver mrp_controller_code, sincroniza a descrição da fonte
     const activeM = matrices.find((m) => m.id === selectedMatrixId)
-    if (activeM && activeM.mrp_group_code) {
-      const match = groups.find((g) => g.disgr === activeM.mrp_group_code)
+    if (activeM && activeM.mrp_controller_code) {
+      const match = controllers.find((c) => c.dispo === activeM.mrp_controller_code)
       if (match) {
-        setSelectedMrpDesc(match.description || '')
+        setSelectedControllerDesc(match.description || '')
       }
     }
+  }
+
+  // Aplica todos os dados da matriz selecionada à tela conforme Item 5
+  const applyMatrixToView = (m: LineBottleneckMatrixRecord) => {
+    setSimSection(m.billet_section_mm || 130)
+    setSimLength(m.billet_length_m || 6.0)
+    setSimWeight(m.billet_weight_kg || 795)
+    setSimPasses(m.passes_count || 6)
+    setSimVeins(m.veins_count || 1)
+
+    // Planejador MRP (MARC-DISPO)
+    setSelectedControllerCode(m.mrp_controller_code || '')
+    setSelectedControllerDesc(m.mrp_controller_description || '')
+
+    // WERKS e Empresa
+    if (m.werks) {
+      setCurrentWerks(m.werks)
+      const comp = m.company_code || sapMrpService.mapWerksToCompany(m.werks)
+      setSelectedCompany(comp)
+    } else if (m.company_code) {
+      setSelectedCompany(m.company_code)
+      setCurrentWerks(sapMrpService.mapCompanyToWerks(m.company_code))
+    }
+    setConflictWarning(null)
   }
 
   const selectedMatrix = matrices.find((m) => m.id === selectedMatrixId) || matrices[0]
 
-  // Quando o usuário muda a matriz no select superior
+  // Quando o usuário muda a matriz no dropdown superior (Item 5)
   const handleMatrixChange = (mid: string) => {
     setSelectedMatrixId(mid)
     const targetM = matrices.find((m) => m.id === mid)
     if (targetM) {
-      setSimSection(targetM.billet_section_mm || 130)
-      setSimLength(targetM.billet_length_m || 6.0)
-      setSimWeight(targetM.billet_weight_kg || 795)
-      setSimPasses(targetM.passes_count || 6)
-      setSimVeins(targetM.veins_count || 1)
-
-      // Carrega estado persistido
-      setSelectedMrpCode(targetM.mrp_group_code || '')
-      setSelectedMrpDesc(targetM.mrp_group_description || '')
-      if (targetM.werks) {
-        setCurrentWerks(targetM.werks)
-        if (targetM.werks === '2001') setSelectedCompany('KS-FERRADURA')
-        else if (targetM.werks === '2101') setSelectedCompany('KS-CIAFAL')
-        else if (targetM.werks === '3001') setSelectedCompany('SIDERCENTRO')
-        else setSelectedCompany('CIAFAL')
-      }
-      setConflictWarning(null)
+      applyMatrixToView(targetM)
     }
   }
 
-  // Sincronização / Atualização com SAP RFC com tratamento gracioso de falha
+  // Sincronização de Planejadores MRP com SAP RFC (Item 13 e 14)
   const handleSyncSap = async (simulateFailure = false) => {
     setIsSyncingSap(true)
     setSapOfflineMessage(null)
     try {
-      const res = await sapMrpService.syncMrpGroups({
+      const res = await sapMrpService.syncMrpControllers({
         werks: currentWerks,
         simulateOffline: simulateFailure,
       })
-      await loadMrpGroups(currentWerks)
+      await loadMrpControllers(currentWerks)
       setSapOfflineMessage(null)
+
+      // Auditoria da sincronização SAP
+      await pcpAuditService.recordLog({
+        action: 'Sincronização de Planejadores MRP (MARC-DISPO) via SAP RFC',
+        event_type: 'ALTERAÇÃO',
+        status: 'Concluída',
+        outcome: 'SUCCESS',
+        module: 'Matriz de Gargalos Dinâmica',
+        screen: 'Centros & Ficha Mestra',
+        company: selectedCompany,
+        line: lineCode,
+        center: lineName,
+        resource: 'sap_mrp_controllers',
+        source: 'SAP RFC / T024D',
+        details: {
+          werks: res.werks_filtered,
+          records_synced: res.records_synced,
+          last_sync: res.last_sync,
+        },
+      })
+
       toast({
-        title: 'Sincronização SAP Concluída',
-        description: `${res.records_synced} Grupos MRP sincronizados para WERKS ${res.werks_filtered}.`,
+        title: 'Dados SAP atualizados com sucesso.',
+        description: `Última sincronização: ${formatSyncDateDisplay(res.last_sync)} (${res.records_synced} Planejadores MRP).`,
       })
     } catch (err: any) {
       const msg =
@@ -223,17 +228,17 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     }
   }
 
-  // Filtragem dos grupos MRP pesquisáveis (apenas da planta WERKS selecionada)
-  const filteredMrpGroups = useMemo(() => {
-    const term = mrpSearchTerm.trim().toLowerCase()
-    return mrpGroups.filter((g) => {
+  // Filtragem dos Planejadores MRP pesquisáveis (da planta WERKS atual)
+  const filteredControllers = useMemo(() => {
+    const term = controllerSearchTerm.trim().toLowerCase()
+    return mrpControllers.filter((c) => {
       if (!term) return true
-      const display = sapMrpService.formatMrpDisplay(g).toLowerCase()
-      return display.includes(term) || g.disgr.toLowerCase().includes(term)
+      const display = sapMrpService.formatMrpControllerDisplay(c).toLowerCase()
+      return display.includes(term) || c.dispo.toLowerCase().includes(term)
     })
-  }, [mrpGroups, mrpSearchTerm])
+  }, [mrpControllers, controllerSearchTerm])
 
-  // Salvar Associação do Grupo MRP com a Matriz de Referência
+  // Salvar Associação do Planejador MRP com a Matriz de Referência
   const handleSaveAssociation = async () => {
     if (!selectedMatrixId) {
       toast({
@@ -248,53 +253,61 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     setConflictWarning(null)
 
     const beforeState = {
-      mrp_group_code: selectedMatrix?.mrp_group_code || '',
-      mrp_group_description: selectedMatrix?.mrp_group_description || '',
+      mrp_controller_code: selectedMatrix?.mrp_controller_code || '',
+      mrp_controller_description: selectedMatrix?.mrp_controller_description || '',
       werks: selectedMatrix?.werks || '',
-      reference_matrix_name: `${selectedMatrix?.gauge_dimension} • ${selectedMatrix?.steel_grade}`,
+      company_code: selectedMatrix?.company_code || '',
+      reference_matrix_name:
+        selectedMatrix?.matrix_name ||
+        `${selectedMatrix?.gauge_dimension} • ${selectedMatrix?.steel_grade}`,
       status: selectedMatrix?.status || 'VIGENTE',
     }
 
     const afterState = {
-      mrp_group_code: selectedMrpCode,
-      mrp_group_description: selectedMrpDesc,
+      mrp_controller_code: selectedControllerCode,
+      mrp_controller_description: selectedControllerDesc,
       werks: currentWerks,
-      reference_matrix_name: `${selectedMatrix?.gauge_dimension} • ${selectedMatrix?.steel_grade}`,
+      company_code: selectedCompany,
+      reference_matrix_name:
+        selectedMatrix?.matrix_name ||
+        `${selectedMatrix?.gauge_dimension} • ${selectedMatrix?.steel_grade}`,
       status: selectedMatrix?.status || 'VIGENTE',
     }
 
     try {
-      // 1. Validação de conflito de vigência com outras matrizes ativas
-      if (selectedMrpCode) {
+      // Validação de conflito de vigência com outras matrizes ativas (Item 8 e 15)
+      if (selectedControllerCode) {
         const potentialConflicts = matrices.filter(
           (m) =>
             m.id !== selectedMatrixId &&
             m.status === 'VIGENTE' &&
-            m.mrp_group_code === selectedMrpCode &&
+            m.mrp_controller_code === selectedControllerCode &&
             (m.werks === currentWerks || !m.werks),
         )
 
         if (potentialConflicts.length > 0) {
-          const warnMsg = `Existe mais de uma Matriz de Referência válida para estes parâmetros (Grupo MRP ${selectedMrpCode} na planta ${currentWerks}). Revise a configuração.`
+          const warnMsg = `Existe mais de uma Matriz de Referência válida para este Planejador MRP (${selectedControllerCode} na planta ${currentWerks}). Revise a configuração.`
           setConflictWarning(warnMsg)
         }
       }
 
-      // 2. Persistência real no PocketBase
+      // Persistência real no PocketBase
       const updated = await bottleneckMatrixService.updateMatrix(selectedMatrixId, {
-        mrp_group_code: selectedMrpCode,
-        mrp_group_description: selectedMrpDesc,
+        mrp_controller_code: selectedControllerCode,
+        mrp_controller_description: selectedControllerDesc,
         werks: currentWerks,
+        company_code: selectedCompany,
+        mrp_controllers_json: selectedControllerCode ? [selectedControllerCode] : [],
       })
 
-      // Atualiza lista local de matrizes
+      // Atualiza lista local
       setMatrices((prev) => prev.map((m) => (m.id === selectedMatrixId ? { ...m, ...updated } : m)))
 
-      // 3. Auditoria oficial com computeDiff e FIELD_LABELS_PT_BR
+      // Trilha de auditoria oficial (Item 15)
       const diffChanges = computeDiff(beforeState, afterState)
       if (diffChanges.length > 0) {
         await pcpAuditService.recordLog({
-          action: 'Atualização de Matriz de Referência — Associação Grupo MRP (MARC-DISGR)',
+          action: 'Atualização de Matriz de Referência — Associação Planejador MRP (MARC-DISPO)',
           event_type: 'ALTERAÇÃO',
           status: 'Concluída',
           outcome: 'SUCCESS',
@@ -305,26 +318,26 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
           center: lineName,
           resource: 'line_bottleneck_matrix',
           resource_id: selectedMatrixId,
-          source: 'SAP RFC / MARC-DISGR',
+          source: 'SAP RFC / MARC-DISPO',
           changes: diffChanges,
           details: {
             matrix_id: selectedMatrixId,
-            mrp_group_code_before: beforeState.mrp_group_code,
-            mrp_group_code_after: afterState.mrp_group_code,
+            mrp_controller_code_before: beforeState.mrp_controller_code,
+            mrp_controller_code_after: afterState.mrp_controller_code,
             werks: currentWerks,
-            origin_source: 'SAP RFC / MARC-DISGR',
+            origin_source: 'SAP RFC / MARC-DISPO',
           },
         })
       }
 
       toast({
         title: 'Associação Salva com Sucesso',
-        description: `Matriz vinculada ao Grupo MRP ${selectedMrpCode || 'Nenhum'} (WERKS ${currentWerks}). Trilha de auditoria registrada.`,
+        description: `Matriz vinculada ao Planejador MRP ${selectedControllerCode || 'Nenhum'} (WERKS ${currentWerks}). Trilha de auditoria registrada.`,
       })
     } catch (err: any) {
       console.error('Erro ao salvar associação da matriz:', err)
       await pcpAuditService.recordFailureAttempt({
-        operation: 'Salvar Associação Grupo MRP na Matriz de Referência',
+        operation: 'Salvar Associação Planejador MRP na Matriz de Referência',
         module: 'Matriz de Gargalos Dinâmica',
         screen: 'Centros & Ficha Mestra',
         company: selectedCompany,
@@ -355,7 +368,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
       matrix_ref: selectedMatrix,
     })
 
-  // Formatação de data/hora amigável
+  // Formatação de data/hora amigável (Item 13: "DD/MM/AAAA HH:mm")
   const formatSyncDateDisplay = (isoDate?: string | null) => {
     if (!isoDate) return 'Não sincronizado'
     try {
@@ -369,9 +382,21 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
     }
   }
 
+  // Callback de criação de matriz com sucesso
+  const handleMatrixCreated = (newM: LineBottleneckMatrixRecord) => {
+    setMatrices((prev) => [newM, ...prev])
+    setSelectedMatrixId(newM.id)
+    applyMatrixToView(newM)
+  }
+
+  // Callback de geração de matrizes
+  const handleMatricesGenerated = async (count: number) => {
+    await loadData()
+  }
+
   return (
     <div className="space-y-4">
-      {/* 1. PAINEL DE CRITÉRIOS DA MATRIZ DE REFERÊNCIA & GRUPO MRP (FRENTE 6) */}
+      {/* 1. PAINEL DE CRITÉRIOS DA MATRIZ DE REFERÊNCIA & PLANEJADOR MRP (MARC-DISPO) */}
       <Card className="bg-white border-slate-200 shadow-xs overflow-hidden">
         <div className="h-1 bg-[#004C97] w-full" />
         <CardHeader className="p-4 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-100">
@@ -386,69 +411,98 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
                     {selectedMatrix?.status || 'VIGENTE'} Rev.{selectedMatrix?.version || 1}
                   </Badge>
-                  {selectedMatrix?.is_homologated !== false && (
+                  {selectedMatrix?.is_homologated !== false ? (
                     <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-semibold">
                       HOMOLOGADA
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">
+                      NÃO HOMOLOGADA (Rascunho)
                     </Badge>
                   )}
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500">
-                  Parâmetros de referência para governança de gargalos, capacidade de laminação e
-                  seleção automática SAP.
+                  Parâmetros de referência vinculados ao Planejador MRP SAP (MARC-DISPO / T024D)
+                  para governança de gargalos e capacidade.
                 </CardDescription>
               </div>
             </div>
           </div>
 
-          {/* Seletor da Matriz e Ação de Atualização */}
-          <div className="flex items-center gap-2">
+          {/* Seletor Superior da Matriz com Informações Completas (Item 5) + Ações de Criação e Geração (Itens 6 e 7) */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-500 font-medium">Matriz:</span>
             <select
               value={selectedMatrixId}
               onChange={(e) => handleMatrixChange(e.target.value)}
               aria-label="Matriz de Referência Técnica"
-              className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none"
+              className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none max-w-[340px]"
             >
               {matrices.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.gauge_dimension} • {m.steel_grade} ({m.product_family})
+                  {sapMrpService.formatMatrixDropdownItem(m)}
                 </option>
               ))}
             </select>
+
             <Button
               size="sm"
               variant="outline"
               onClick={loadData}
               disabled={loading}
               className="h-8 text-xs border-slate-200 text-slate-700"
+              title="Recarregar matrizes e restrições"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />{' '}
               Atualizar
             </Button>
+
+            {/* Botão + Nova Matriz de Referência (Item 6) */}
+            <Button
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" /> + Nova Matriz
+            </Button>
+
+            {/* Ação "Gerar Matrizes por Planejador MRP" (Item 7) */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsGenerateModalOpen(true)}
+              className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Gerar por Planejador
+            </Button>
           </div>
         </CardHeader>
 
-        {/* Critérios Completos da Matriz de Referência Selecionada (Matriz, Grupo MRP, Vigência, Status) */}
+        {/* Critérios da Matriz de Referência Atualizada (Item 1, 3, 4 e 5) */}
         <CardContent className="p-4 bg-slate-50/70 border-b border-slate-200">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Critério 1: Matriz (Nome & Família) */}
+            {/* 1. Matriz Selecionada (Nome / Família) */}
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
               <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
                 1. Matriz Selecionada
               </span>
-              <div className="font-bold text-slate-900 text-xs">
-                {selectedMatrix?.gauge_dimension || 'Bitola'} •{' '}
-                {selectedMatrix?.steel_grade || 'Aço'}
+              <div
+                className="font-bold text-slate-900 text-xs truncate"
+                title={selectedMatrix?.matrix_name}
+              >
+                {selectedMatrix?.matrix_name ||
+                  `${selectedMatrix?.gauge_dimension || 'Bitola'} • ${selectedMatrix?.steel_grade || 'Aço'}`}
               </div>
               <div className="text-[11px] text-slate-500 font-medium">
                 Família:{' '}
                 <strong className="text-slate-700">
                   {selectedMatrix?.product_family || 'Geral'}
-                </strong>
+                </strong>{' '}
+                • Rev.{selectedMatrix?.version || 1}
               </div>
             </div>
 
-            {/* Critério 2: Empresa & WERKS SAP */}
+            {/* 2. Empresa & WERKS SAP */}
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
@@ -473,13 +527,13 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               </select>
             </div>
 
-            {/* Critério 3: Grupo MRP (MARC-DISGR) — Select Pesquisável */}
+            {/* 3. PLANEJADOR MRP / SAP MARC-DISPO (Substitui Grupo MRP conforme Item 1) */}
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5 relative">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
-                  3. Grupo MRP (MARC-DISGR)
+                  3. Planejador MRP / SAP MARC-DISPO
                 </span>
-                {selectedMrpCode ? (
+                {selectedControllerCode ? (
                   <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[9px] font-mono">
                     Associado
                   </Badge>
@@ -490,37 +544,37 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 )}
               </div>
 
-              {/* Botão de Trigger / Dropdown Pesquisável */}
+              {/* Dropdown Pesquisável Integrado ao SAP (sem digitação livre, Item 1) */}
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsMrpDropdownOpen(!isMrpDropdownOpen)}
+                  onClick={() => setIsControllerDropdownOpen(!isControllerDropdownOpen)}
                   className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-xs text-left font-bold text-slate-800 flex items-center justify-between transition-colors"
                 >
                   <span className="truncate">
-                    {selectedMrpCode
-                      ? sapMrpService.formatMrpDisplay({
-                          disgr: selectedMrpCode,
-                          description: selectedMrpDesc,
+                    {selectedControllerCode
+                      ? sapMrpService.formatMrpControllerDisplay({
+                          dispo: selectedControllerCode,
+                          description: selectedControllerDesc,
                           werks: currentWerks,
                         })
-                      : 'Selecionar Grupo MRP do Cache...'}
+                      : 'Selecionar Planejador MRP do SAP...'}
                   </span>
                   <ChevronRight
                     className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                      isMrpDropdownOpen ? 'rotate-90' : ''
+                      isControllerDropdownOpen ? 'rotate-90' : ''
                     }`}
                   />
                 </button>
 
-                {isMrpDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[280px]">
+                {isControllerDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[300px]">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                       <Input
-                        placeholder="Pesquisar código ou descrição..."
-                        value={mrpSearchTerm}
-                        onChange={(e) => setMrpSearchTerm(e.target.value)}
+                        placeholder="Pesquisar código DISPO ou descrição..."
+                        value={controllerSearchTerm}
+                        onChange={(e) => setControllerSearchTerm(e.target.value)}
                         className="pl-8 h-7 text-xs bg-slate-50 border-slate-300 text-slate-900"
                         autoFocus
                       />
@@ -529,32 +583,34 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
                       <div
                         onClick={() => {
-                          setSelectedMrpCode('')
-                          setSelectedMrpDesc('')
-                          setIsMrpDropdownOpen(false)
+                          setSelectedControllerCode('')
+                          setSelectedControllerDesc('')
+                          setIsControllerDropdownOpen(false)
                         }}
                         className="p-1.5 hover:bg-slate-100 rounded cursor-pointer text-slate-500 font-medium flex items-center justify-between"
                       >
                         <span>— Nenhum (Remover Associação) —</span>
-                        {!selectedMrpCode && <Check className="w-3.5 h-3.5 text-[#004C97]" />}
+                        {!selectedControllerCode && (
+                          <Check className="w-3.5 h-3.5 text-[#004C97]" />
+                        )}
                       </div>
 
-                      {filteredMrpGroups.length === 0 ? (
+                      {filteredControllers.length === 0 ? (
                         <div className="p-3 text-center text-slate-400 text-[11px]">
-                          {mrpGroups.length === 0
-                            ? `Nenhum Grupo MRP no cache para WERKS ${currentWerks}. Clique em 'Atualizar SAP'.`
+                          {mrpControllers.length === 0
+                            ? `Nenhum Planejador MRP no cache para WERKS ${currentWerks}. Clique em 'Atualizar SAP'.`
                             : 'Nenhum resultado para a pesquisa.'}
                         </div>
                       ) : (
-                        filteredMrpGroups.map((g) => {
-                          const isSelected = selectedMrpCode === g.disgr
+                        filteredControllers.map((c) => {
+                          const isSelected = selectedControllerCode === c.dispo
                           return (
                             <div
-                              key={`${g.werks}-${g.disgr}`}
+                              key={`${c.werks}-${c.dispo}`}
                               onClick={() => {
-                                setSelectedMrpCode(g.disgr)
-                                setSelectedMrpDesc(g.description || '')
-                                setIsMrpDropdownOpen(false)
+                                setSelectedControllerCode(c.dispo)
+                                setSelectedControllerDesc(c.description || '')
+                                setIsControllerDropdownOpen(false)
                               }}
                               className={`p-2 hover:bg-blue-50/80 rounded cursor-pointer flex items-center justify-between transition-colors ${
                                 isSelected
@@ -564,10 +620,11 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                             >
                               <div>
                                 <span className="block font-mono text-xs">
-                                  {sapMrpService.formatMrpDisplay(g)}
+                                  {sapMrpService.formatMrpControllerDisplay(c)}
                                 </span>
                                 <span className="text-[10px] text-slate-400">
-                                  Origem: {g.origin_source || 'SAP_RFC'} • WERKS {g.werks}
+                                  Origem: {c.origin_source || 'SAP_RFC'} &bull; WERKS {c.werks}{' '}
+                                  &bull; {c.materials_count || 0} materiais
                                 </span>
                               </div>
                               {isSelected && <Check className="w-4 h-4 text-[#004C97]" />}
@@ -581,7 +638,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               </div>
             </div>
 
-            {/* Critério 4: Vigência Técnica & Status */}
+            {/* 4. Vigência Técnica & Status */}
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
               <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
                 4. Vigência & Status
@@ -599,15 +656,23 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 font-medium">
-                Status Operacional:{' '}
-                <strong className="text-slate-800">{selectedMatrix?.status || 'VIGENTE'}</strong>
+                Status:{' '}
+                <strong className="text-slate-800">{selectedMatrix?.status || 'VIGENTE'}</strong>{' '}
+                &bull;{' '}
+                <span
+                  className={
+                    selectedMatrix?.is_homologated !== false ? 'text-blue-700' : 'text-amber-700'
+                  }
+                >
+                  {selectedMatrix?.is_homologated !== false ? 'Homologada' : 'Não Homologada'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Linha de Sincronização SAP, Persistência e Avisos de Conflito */}
+          {/* Linha de Sincronização SAP, Persistência e Avisos de Conflito (Itens 13 e 15) */}
           <div className="mt-3 pt-3 border-t border-slate-200/80 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
-            {/* Indicador de Cache / Sincronização */}
+            {/* Indicador de Cache / Sincronização (Item 13) */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-slate-500 font-medium flex items-center gap-1">
                 <Database className="w-3.5 h-3.5 text-[#004C97]" />
@@ -635,13 +700,13 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 onClick={() => handleSyncSap(false)}
                 disabled={isSyncingSap}
                 className="h-8 text-xs border-slate-300 text-[#004C97] hover:bg-blue-50 font-semibold"
-                title="Forçar reconsulta dos Grupos MRP no SAP ECC via RFC"
+                title="Sincronizar Planejadores MRP no SAP ECC via RFC"
               >
                 <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isSyncingSap ? 'animate-spin' : ''}`} />
                 Atualizar SAP
               </Button>
 
-              {/* Botão de Teste / Diagnóstico de Indisponibilidade Graciosa */}
+              {/* Botão de Diagnóstico de Indisponibilidade Graciosa */}
               <Button
                 size="sm"
                 variant="ghost"
@@ -703,8 +768,8 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 Responsável / Aprovador
               </span>
               <span className="font-semibold text-slate-800">
-                {selectedMatrix?.responsible_name || 'Eng. Rodolfo Castro'} •{' '}
-                {selectedMatrix?.approver_name || 'Ger. Fabrício Menezes'}
+                {selectedMatrix?.responsible_name || 'PCP Robotizado'} &bull;{' '}
+                {selectedMatrix?.approver_name || 'Eng. Fabrício Menezes'}
               </span>
             </div>
             <div>
@@ -712,14 +777,14 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 Origem do Parâmetro
               </span>
               <span className="font-semibold text-slate-800">
-                MARC-DISGR (SAP ECC / WERKS {currentWerks})
+                MARC-DISPO (SAP T024D / WERKS {currentWerks})
               </span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 2. CARDS DE RESUMO EXECUTIVO TOC / DBR */}
+      {/* 2. CARDS DE RESUMO EXECUTIVO TOC / DBR (Preservados do modelo) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Gargalo Primário (DRUM) */}
         <Card className="bg-white border-l-4 border-l-rose-500 border-slate-200 shadow-xs">
@@ -819,7 +884,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                 Risco Starvation:{' '}
                 <strong className="text-slate-800">{dynamicCalc.starvation_risk}</strong>
               </span>{' '}
-              •
+              &bull;
               <span>
                 Risco Blocking:{' '}
                 <strong className="text-slate-800">{dynamicCalc.blocking_risk}</strong>
@@ -925,7 +990,7 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
                       <div className="space-y-0.5">
                         {(st.limiting_factors || []).map((f, i) => (
                           <div key={i} className="flex items-center gap-1">
-                            <span className="text-slate-400">•</span>
+                            <span className="text-slate-400">&bull;</span>
                             <span>{f}</span>
                           </div>
                         ))}
@@ -1029,6 +1094,36 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal 1: + Nova Matriz de Referência (Item 6) */}
+      {isCreateModalOpen && (
+        <CreateReferenceMatrixModal
+          open={isCreateModalOpen}
+          onOpenChange={setIsCreateModalOpen}
+          lineCode={lineCode}
+          lineName={lineName}
+          currentWerks={currentWerks}
+          currentCompany={selectedCompany}
+          availableControllers={mrpControllers}
+          existingMatrices={matrices}
+          onSuccess={handleMatrixCreated}
+        />
+      )}
+
+      {/* Modal 2: Gerar Matrizes por Planejador MRP (Item 7 e 8) */}
+      {isGenerateModalOpen && (
+        <GenerateMatricesByMrpControllerModal
+          open={isGenerateModalOpen}
+          onOpenChange={setIsGenerateModalOpen}
+          lineCode={lineCode}
+          currentCompany={selectedCompany}
+          currentWerks={currentWerks}
+          availableControllers={mrpControllers}
+          existingMatrices={matrices}
+          onSuccess={handleMatricesGenerated}
+          onOpenMatrix={(mid) => handleMatrixChange(mid)}
+        />
+      )}
     </div>
   )
 }

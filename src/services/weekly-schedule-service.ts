@@ -407,6 +407,7 @@ export const weeklyScheduleService = {
     }
 
     // Fallback de catálogo oficial homologado CIAFAL se a linha tiver poucos dados cadastrados
+    // Cada material conta com seu MARC-DISPO (Planejador MRP) e MARC-DISGR correspondente da fonte SAP
     const officialCatalog: OfficialMaterialOption[] = [
       {
         material_code: 'TQ-50x50x2.0',
@@ -417,6 +418,11 @@ export const weeklyScheduleService = {
         steel_grade: 'SAE 1020',
         productivity_th: 11.8,
         default_order_type: 'MTS',
+        marc_dispo: 'P01',
+        mrp_controller_code: 'P01',
+        mrp_controller_description: 'Planejamento Laminação L1',
+        werks: '1001',
+        marc_disgr: 'G01',
       },
       {
         material_code: 'TR-80x40x2.5',
@@ -427,6 +433,11 @@ export const weeklyScheduleService = {
         steel_grade: 'SAE 1020',
         productivity_th: 10.2,
         default_order_type: 'MTS',
+        marc_dispo: 'P01',
+        mrp_controller_code: 'P01',
+        mrp_controller_description: 'Planejamento Laminação L1',
+        werks: '1001',
+        marc_disgr: 'G01',
       },
       {
         material_code: 'TQ-100x100x8.0',
@@ -437,6 +448,11 @@ export const weeklyScheduleService = {
         steel_grade: 'ASTM A36',
         productivity_th: 8.5,
         default_order_type: 'MTO',
+        marc_dispo: 'P03',
+        mrp_controller_code: 'P03',
+        mrp_controller_description: 'Planejamento Perfis Leves e Cantoneiras',
+        werks: '1001',
+        marc_disgr: 'G02',
       },
       {
         material_code: 'TQ-GALV-40x40',
@@ -447,6 +463,11 @@ export const weeklyScheduleService = {
         steel_grade: 'Galvanizado Z275',
         productivity_th: 13.0,
         default_order_type: 'MTS',
+        marc_dispo: 'P02',
+        mrp_controller_code: 'P02',
+        mrp_controller_description: 'Planejamento Trefilação e Acabamento',
+        werks: '1001',
+        marc_disgr: 'G03',
       },
       {
         material_code: 'PU-150x50x4.75',
@@ -457,6 +478,11 @@ export const weeklyScheduleService = {
         steel_grade: 'ASTM A36',
         productivity_th: 16.5,
         default_order_type: 'MTS',
+        marc_dispo: 'P01',
+        mrp_controller_code: 'P01',
+        mrp_controller_description: 'Planejamento Laminação L1',
+        werks: '1001',
+        marc_disgr: 'G01',
       },
       {
         material_code: 'PU-FINO-1.20',
@@ -467,6 +493,11 @@ export const weeklyScheduleService = {
         steel_grade: 'SAE 1010',
         productivity_th: 15.0,
         default_order_type: 'MTO',
+        marc_dispo: '', // Vazio deliberado no SAP para teste de inconsistência Item 11
+        mrp_controller_code: '',
+        mrp_controller_description: '',
+        werks: '1001',
+        marc_disgr: 'G01',
       },
     ]
 

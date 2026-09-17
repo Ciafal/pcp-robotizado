@@ -579,6 +579,13 @@ export interface OfficialMaterialOption {
   sap_stock_coverage_max_days?: number
   sap_cycle_time_tolerance_pct?: number
   is_sap_integrated?: boolean
+  // MARC-DISPO (Planejador MRP SAP) e MARC-DISGR (Grupo MRP)
+  marc_dispo?: string
+  mrp_controller_code?: string
+  mrp_controller_description?: string
+  marc_disgr?: string
+  mrp_group_code?: string
+  werks?: string
 }
 
 export const DAYS_OF_WEEK: {

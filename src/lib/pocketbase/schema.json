@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T18:15:22.635Z",
+  "generatedAt": "2026-09-17T19:01:21.653Z",
   "collections": [
     {
       "name": "users",
@@ -15612,6 +15612,36 @@
           "type": "bool",
           "required": false,
           "system": false
+        },
+        {
+          "name": "mrp_controller_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mrp_controller_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mrp_controllers_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "matrix_name",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -21300,6 +21330,93 @@
         "CREATE INDEX idx_lrd_line_docref ON line_reference_documents (line_id, document_ref)",
         "CREATE INDEX idx_lrd_doc_code ON line_reference_documents (document_code)",
         "CREATE INDEX idx_lrd_status ON line_reference_documents (status)"
+      ]
+    },
+    {
+      "name": "sap_mrp_controllers",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "dispo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "werks",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "materials_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin_source",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["SAP_RFC", "CACHE"]
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_sap_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_smc_werks_dispo ON sap_mrp_controllers (werks, dispo)",
+        "CREATE INDEX idx_smc_dispo ON sap_mrp_controllers (dispo)",
+        "CREATE INDEX idx_smc_werks ON sap_mrp_controllers (werks)"
       ]
     }
   ]

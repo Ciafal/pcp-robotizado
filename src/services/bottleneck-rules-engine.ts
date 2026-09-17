@@ -585,6 +585,15 @@ export const bottleneckMatrixService = {
     }
   },
 
+  async createMatrix(
+    data: Partial<LineBottleneckMatrixRecord>,
+  ): Promise<LineBottleneckMatrixRecord> {
+    const created = await pb
+      .collection('line_bottleneck_matrix')
+      .create<LineBottleneckMatrixRecord>(data)
+    return created
+  },
+
   async updateMatrix(
     id: string,
     data: Partial<LineBottleneckMatrixRecord>,
