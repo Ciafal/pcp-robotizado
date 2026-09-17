@@ -48,9 +48,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentRoleUpper === 'ADMINISTRADOR'
 
   // Rotas operacionais e cadastrais com bypass de visualização para não travar na inicialização:
+  // - Cockpit Operacional PCP (pcp.cockpit.view)
   // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
   // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
   const isDirectOperationalView =
+    permission === 'pcp.cockpit.view' ||
     permission === 'pcp.schedule.view' ||
     permission === 'pcp.weekly_schedule.view' ||
     permission === 'pcp.masterdata.view' ||
@@ -185,6 +187,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     // Para visualização cadastral de linhas, ficha mestre, programação semanal/montagem e sequenciamento:
     // concede acesso caso o usuário esteja autenticado com sessão válida (mesmo padrão resiliente da Ficha Mestra v0.0.134)
     if (
+      permission === 'pcp.cockpit.view' ||
       permission === 'pcp.lines.manage' ||
       permission === 'pcp.masterdata.edit' ||
       permission === 'pcp.masterdata.view' ||

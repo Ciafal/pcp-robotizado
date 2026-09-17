@@ -53,6 +53,7 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     ]
     for (const r of roles) {
       const perms = authService.getPermissionsForRole(r)
+      expect(perms).toContain('pcp.cockpit.view')
       expect(perms).toContain('pcp.masterdata.view')
       expect(perms).toContain('pcp.masterdata.edit')
       expect(perms).toContain('pcp.lines.view')

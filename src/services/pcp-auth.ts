@@ -80,6 +80,7 @@ export const authService = {
     const roleUpper = (role || '').toUpperCase()
     if (roleUpper === 'PCP_ADMIN' || roleUpper === 'ADMIN' || roleUpper === 'ADMINISTRADOR') {
       return [
+        'pcp.cockpit.view',
         'pcp.schedule.view',
         'pcp.schedule.create',
         'pcp.schedule.edit',
@@ -141,6 +142,7 @@ export const authService = {
     }
     if (roleUpper === 'AUDITOR' || roleUpper === 'COMPLIANCE') {
       return [
+        'pcp.cockpit.view',
         'pcp.audit.view',
         'pcp.integrations.view',
         'pcp.integration.view',
@@ -155,6 +157,7 @@ export const authService = {
     }
     if (roleUpper === 'EXECUTIVE_VIEWER' || roleUpper === 'EXECUTIVE') {
       return [
+        'pcp.cockpit.view',
         'pcp.executive.view',
         'pcp.schedule.view',
         'pcp.audit.view',
@@ -168,6 +171,7 @@ export const authService = {
     }
     if (roleUpper === 'PCP_PROGRAMMER') {
       return [
+        'pcp.cockpit.view',
         'pcp.schedule.view',
         'pcp.schedule.create',
         'pcp.schedule.edit',
@@ -203,6 +207,7 @@ export const authService = {
     }
     if (roleUpper === 'PCP_PLANNER') {
       return [
+        'pcp.cockpit.view',
         'pcp.schedule.view',
         'pcp.approval.view',
         'pcp.masterplan.view',
@@ -224,6 +229,7 @@ export const authService = {
     }
     if (roleUpper === 'LINE_MANAGER') {
       return [
+        'pcp.cockpit.view',
         'pcp.schedule.view',
         'pcp.weekly_schedule.view',
         'pcp.weekly_schedule.approve',
@@ -240,9 +246,9 @@ export const authService = {
       ]
     }
     if (roleUpper === 'OPERATOR' || roleUpper === 'PRODUCTION_VIEWER') {
-      return ['pcp.schedule.view', 'pcp.quality.view', 'pcp.carteira.view']
+      return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.quality.view', 'pcp.carteira.view']
     }
-    return ['pcp.schedule.view', 'pcp.carteira.view']
+    return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.carteira.view']
   },
 
   /**

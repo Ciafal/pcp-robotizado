@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
@@ -15,6 +15,12 @@ const ModuleFallback = () => (
     <p className="text-xs font-mono text-slate-400">Carregando módulo...</p>
   </div>
 )
+
+// Componente de redirecionamento preservando search params (ex: ?token=..., ?v=...)
+const RootRedirect: React.FC = () => {
+  const location = useLocation()
+  return <Navigate to={`/pcp-robotizado${location.search}${location.hash}`} replace />
+}
 
 // Lazy load dos componentes e layouts
 const Index = lazy(() => import('@/pages/Index'))
@@ -497,10 +503,17 @@ export const App: React.FC = () => {
                       element={<Navigate to="/pcp/cockpit-executivo" replace />}
                     />
                     {/* Cockpit de Chão de Fábrica & Landing Raiz */}
-                    <Route path="/" element={<Index />} />
+                    <Route path="/" element={<RootRedirect />} />
                     <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
                     <Route path="/pcp/cockpit" element={<Index />} />
-                    <Route path="/pcp-robotizado" element={<Navigate to="/" replace />} />
+                    <Route
+                      path="/pcp-robotizado"
+                      element={
+                        <PermissionGuard permission="pcp.cockpit.view">
+                          <Index />
+                        </PermissionGuard>
+                      }
+                    />
                     <Route
                       path="/pcp-robotizado/cockpit"
                       element={<Navigate to="/pcp/cockpit" replace />}

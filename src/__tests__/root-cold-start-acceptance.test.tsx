@@ -67,6 +67,8 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route path="/pcp-robotizado" element={<Index />} />
+                <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
             </Routes>
           </ControlTowerProvider>
@@ -103,6 +105,8 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route path="/pcp-robotizado" element={<Index />} />
+                <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
             </Routes>
           </ControlTowerProvider>
@@ -130,6 +134,8 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route path="/pcp-robotizado" element={<Index />} />
+                <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
             </Routes>
           </ControlTowerProvider>
@@ -139,5 +145,41 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
 
     // Cockpit é renderizado sem travar
     expect(screen.getByText(/Cockpit Operacional PCP/i)).toBeDefined()
+  })
+
+  it('redirecionamento da raiz "/" para "/pcp-robotizado" preserva parâmetros de query (?token=...&v=...)', async () => {
+    const { useLocation, Navigate: Nav } = await import('react-router-dom')
+
+    const LocationDisplay = () => {
+      const location = useLocation()
+      return <div data-testid="location-display">{location.pathname + location.search}</div>
+    }
+
+    const TestRootRedirect = () => {
+      const location = useLocation()
+      return <Nav to={`/pcp-robotizado${location.search}${location.hash}`} replace />
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/?token=jwt-secret-xyz&v=0.0.179']}>
+        <Routes>
+          <Route path="/" element={<TestRootRedirect />} />
+          <Route
+            path="/pcp-robotizado"
+            element={
+              <div>
+                <LocationDisplay />
+                <span>Cockpit Oficial PCP Robotizado</span>
+              </div>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Cockpit Oficial PCP Robotizado')).toBeDefined()
+    expect(screen.getByTestId('location-display').textContent).toBe(
+      '/pcp-robotizado?token=jwt-secret-xyz&v=0.0.179',
+    )
   })
 })
