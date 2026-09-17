@@ -399,176 +399,245 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
       {/* 1. PAINEL DE CRITÉRIOS DA MATRIZ DE REFERÊNCIA & PLANEJADOR MRP (MARC-DISPO) */}
       <Card className="bg-white border-slate-200 shadow-xs overflow-hidden">
         <div className="h-1 bg-[#004C97] w-full" />
-        <CardHeader className="p-4 pb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-100">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[#004C97]/10 text-[#004C97]">
-                <Activity className="w-5 h-5" />
+        {/* CABEÇALHO REESTRUTURADO EM 3 ÁREAS (Área 1: Título+descrição, Área 2: Badges compactos, Área 3: Seletor + Ações) */}
+        <CardHeader className="p-4 pb-3 border-b border-slate-100">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+            {/* Bloco Título + Badges em linha flexível */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3 min-w-0">
+              {/* Área 1: Título + Descrição */}
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-[#004C97]/10 text-[#004C97] shrink-0 mt-0.5">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight leading-snug whitespace-normal break-words">
+                    Matriz de Gargalos Dinâmica — {lineCode}
+                  </h1>
+                  <p className="text-[13px] md:text-sm text-slate-500 leading-snug mt-0.5">
+                    Parâmetros técnicos de capacidade, restrições e gargalos vinculados ao
+                    Planejador MRP SAP.
+                  </p>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  Matriz de Gargalos Dinâmica — {lineCode}
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
-                    {selectedMatrix?.status || 'VIGENTE'} Rev.{selectedMatrix?.version || 1}
-                  </Badge>
-                  {selectedMatrix?.is_homologated !== false ? (
-                    <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-semibold">
-                      HOMOLOGADA
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">
-                      NÃO HOMOLOGADA (Rascunho)
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500">
-                  Parâmetros de referência vinculados ao Planejador MRP SAP (MARC-DISPO / T024D)
-                  para governança de gargalos e capacidade.
-                </CardDescription>
-              </div>
-            </div>
-          </div>
 
-          {/* Seletor Superior da Matriz com Informações Completas (Item 5) + Ações de Criação e Geração (Itens 6 e 7) */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-slate-500 font-medium">Matriz:</span>
-            <select
-              value={selectedMatrixId}
-              onChange={(e) => handleMatrixChange(e.target.value)}
-              aria-label="Matriz de Referência Técnica"
-              className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none max-w-[340px]"
-            >
-              {matrices.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {sapMrpService.formatMatrixDropdownItem(m)}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={loadData}
-              disabled={loading}
-              className="h-8 text-xs border-slate-200 text-slate-700"
-              title="Recarregar matrizes e restrições"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />{' '}
-              Atualizar
-            </Button>
-
-            {/* Botão + Nova Matriz de Referência (Item 6) */}
-            <Button
-              size="sm"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1 shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" /> + Nova Matriz
-            </Button>
-
-            {/* Ação "Gerar Matrizes por Planejador MRP" (Item 7) */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsGenerateModalOpen(true)}
-              className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Gerar por Planejador
-            </Button>
-          </div>
-        </CardHeader>
-
-        {/* Critérios da Matriz de Referência Atualizada (Item 1, 3, 4 e 5) */}
-        <CardContent className="p-4 bg-slate-50/70 border-b border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* 1. Matriz Selecionada (Nome / Família) */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
-                1. Matriz Selecionada
-              </span>
-              <div
-                className="font-bold text-slate-900 text-xs truncate"
-                title={selectedMatrix?.matrix_name}
-              >
-                {selectedMatrix?.matrix_name ||
-                  `${selectedMatrix?.gauge_dimension || 'Bitola'} • ${selectedMatrix?.steel_grade || 'Aço'}`}
-              </div>
-              <div className="text-[11px] text-slate-500 font-medium">
-                Família:{' '}
-                <strong className="text-slate-700">
-                  {selectedMatrix?.product_family || 'Geral'}
-                </strong>{' '}
-                • Rev.{selectedMatrix?.version || 1}
-              </div>
-            </div>
-
-            {/* 2. Empresa & WERKS SAP */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
-                  2. Empresa & WERKS SAP
-                </span>
+              {/* Área 2: Badges de status compactos */}
+              <div className="flex items-center gap-1.5 shrink-0 self-start md:self-center pl-0 md:pl-2">
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold px-2 py-0.5 whitespace-nowrap">
+                  {selectedMatrix?.status || 'VIGENTE'}
+                </Badge>
                 <Badge
                   variant="outline"
-                  className="font-mono text-[10px] text-[#004C97] border-blue-200"
+                  className="border-slate-300 text-slate-700 bg-slate-50 font-mono text-[11px] font-bold px-2 py-0.5 whitespace-nowrap"
                 >
-                  WERKS {currentWerks}
+                  Rev.{selectedMatrix?.version || 1}
                 </Badge>
-              </div>
-              <select
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 font-semibold focus:ring-1 focus:ring-[#004C97] outline-none"
-              >
-                <option value="CIAFAL">CIAFAL (WERKS 1001 — CFPL)</option>
-                <option value="KS-FERRADURA">KS - Ferradura (WERKS 2001)</option>
-                <option value="KS-CIAFAL">KS - Ciafal (WERKS 2101)</option>
-                <option value="SIDERCENTRO">Sidercentro (WERKS 3001)</option>
-              </select>
-            </div>
-
-            {/* 3. PLANEJADOR MRP / SAP MARC-DISPO (Substitui Grupo MRP conforme Item 1) */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5 relative">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
-                  3. Planejador MRP / SAP MARC-DISPO
-                </span>
-                {selectedControllerCode ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[9px] font-mono">
-                    Associado
+                {selectedMatrix?.is_homologated !== false ? (
+                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[11px] font-semibold px-2 py-0.5 whitespace-nowrap">
+                    HOMOLOGADA
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-amber-700 border-amber-300 text-[9px]">
-                    Não Definido
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[11px] font-semibold px-2 py-0.5 whitespace-nowrap">
+                    NÃO HOMOLOGADA
                   </Badge>
                 )}
               </div>
+            </div>
 
-              {/* Dropdown Pesquisável Integrado ao SAP (sem digitação livre, Item 1) */}
-              <div className="relative">
+            {/* Área 3: Seletor de Matriz + Ações */}
+            <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500 font-semibold shrink-0">Matriz:</span>
+                <select
+                  value={selectedMatrixId}
+                  onChange={(e) => handleMatrixChange(e.target.value)}
+                  aria-label="Matriz de Referência Técnica"
+                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-[#004C97] focus:ring-1 focus:ring-[#004C97] outline-none min-w-[240px] md:min-w-[280px] max-w-[420px] h-8 truncate"
+                >
+                  {matrices.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {sapMrpService.formatMatrixDropdownItem(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={loadData}
+                  disabled={loading}
+                  className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold"
+                  title="Recarregar matrizes e restrições"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </Button>
+
+                {/* Botão Gerar Matrizes por Planejador MRP */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsGenerateModalOpen(true)}
+                  className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-blue-50 font-semibold gap-1 whitespace-nowrap"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Gerar por Planejador
+                </Button>
+
+                {/* Botão + Nova Matriz */}
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-bold gap-1 shadow-xs whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" /> + Nova Matriz
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        {/* CARDS DE RESUMO (GRID RESPONSIVO 4 -> 2 -> 1, sem textos cortados nem sobrepostos) */}
+        <CardContent className="p-4 bg-slate-50/70 border-b border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {/* Card 1: MATRIZ SELECIONADA */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <div>
+                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5">
+                  1. Matriz Selecionada
+                </span>
+                <div
+                  className="font-bold text-slate-900 text-sm leading-snug break-words"
+                  title={selectedMatrix?.matrix_name || 'Matriz de Referência'}
+                >
+                  {selectedMatrix?.matrix_name ||
+                    (selectedMatrix?.gauge_dimension && selectedMatrix?.steel_grade
+                      ? `${selectedMatrix.gauge_dimension} • ${selectedMatrix.steel_grade}`
+                      : 'Matriz de Referência')}
+                </div>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Revisão:</span>
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs font-bold text-slate-700 bg-slate-50 border-slate-300"
+                >
+                  Rev.{selectedMatrix?.version || 1}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Card 2: EMPRESA & WERKS SAP */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider">
+                    2. Empresa & WERKS SAP
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-xs text-[#004C97] border-blue-200 bg-blue-50/50 font-bold px-1.5 py-0"
+                  >
+                    WERKS: {currentWerks}
+                  </Badge>
+                </div>
+                <div className="mt-1">
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-800 font-bold focus:ring-1 focus:ring-[#004C97] outline-none"
+                  >
+                    <option value="CIAFAL">CIAFAL (WERKS 1001 — CFPL)</option>
+                    <option value="KS-FERRADURA">KS - Ferradura (WERKS 2001)</option>
+                    <option value="KS-CIAFAL">KS - Ciafal (WERKS 2101)</option>
+                    <option value="SIDERCENTRO">Sidercentro (WERKS 3001)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+                <span>Planta:</span>
+                <strong className="text-slate-700 font-semibold">{selectedCompany}</strong>
+              </div>
+            </div>
+
+            {/* Card 3: PLANEJADOR MRP / SAP MARC-DISPO */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between relative">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider whitespace-nowrap">
+                    3. Planejador MRP / SAP MARC-DISPO
+                  </span>
+                  {selectedControllerCode ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-mono px-1.5 py-0">
+                      Associado
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-700 border-amber-300 text-[10px] px-1.5 py-0"
+                    >
+                      Não Definido
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="mt-1 text-xs space-y-1">
+                  {selectedControllerCode ? (
+                    <>
+                      <div className="text-xs text-slate-800 leading-snug">
+                        <span className="text-slate-500 font-medium">Código: </span>
+                        <strong className="font-mono text-slate-900 font-bold">
+                          {selectedControllerCode}
+                        </strong>
+                      </div>
+                      <div
+                        className="text-xs text-slate-800 leading-snug truncate"
+                        title={selectedControllerDesc || 'Sem descrição'}
+                      >
+                        <span className="text-slate-500 font-medium">Descrição: </span>
+                        <span className="font-semibold text-slate-700">
+                          {selectedControllerDesc || 'Planejador Cadastrado'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        <span>Origem: </span>
+                        <strong className="text-[#004C97]">SAP MARC-DISPO</strong>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-0.5">
+                      <span className="text-xs text-amber-700 font-semibold block">
+                        Não definido
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Origem: SAP MARC-DISPO
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dropdown / Botão Selecionar Planejador */}
+              <div className="mt-2.5 pt-2 border-t border-slate-100 relative">
                 <button
                   type="button"
                   onClick={() => setIsControllerDropdownOpen(!isControllerDropdownOpen)}
-                  className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-xs text-left font-bold text-slate-800 flex items-center justify-between transition-colors"
+                  className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded px-2 py-1 text-xs text-left font-semibold text-slate-800 flex items-center justify-between transition-colors"
                 >
                   <span className="truncate">
                     {selectedControllerCode
-                      ? sapMrpService.formatMrpControllerDisplay({
-                          dispo: selectedControllerCode,
-                          description: selectedControllerDesc,
-                          werks: currentWerks,
-                        })
-                      : 'Selecionar Planejador MRP do SAP...'}
+                      ? `Alterar: ${selectedControllerCode}`
+                      : 'Selecionar Planejador...'}
                   </span>
                   <ChevronRight
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${
                       isControllerDropdownOpen ? 'rotate-90' : ''
                     }`}
                   />
                 </button>
 
                 {isControllerDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[300px]">
+                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2 space-y-2 min-w-[280px]">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                       <Input
@@ -638,34 +707,43 @@ export const LineBottleneckMatrixPanel: React.FC<LineBottleneckMatrixPanelProps>
               </div>
             </div>
 
-            {/* 4. Vigência Técnica & Status */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1">
-              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">
-                4. Vigência & Status
-              </span>
-              <div className="font-semibold text-emerald-700 text-xs flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                <span>
-                  {selectedMatrix?.valid_from
-                    ? new Date(selectedMatrix.valid_from).toLocaleDateString('pt-BR')
-                    : '01/01/2026'}{' '}
-                  até{' '}
-                  {selectedMatrix?.valid_until
-                    ? new Date(selectedMatrix.valid_until).toLocaleDateString('pt-BR')
-                    : '31/12/2026'}
+            {/* Card 4: VIGÊNCIA & STATUS */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+              <div>
+                <span className="text-slate-400 block text-xs uppercase font-bold tracking-wider mb-1.5">
+                  4. Vigência & Status
                 </span>
+                <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5 mt-1">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="font-mono text-xs text-slate-900">
+                    {selectedMatrix?.valid_from
+                      ? new Date(selectedMatrix.valid_from).toLocaleDateString('pt-BR')
+                      : '01/01/2026'}{' '}
+                    a{' '}
+                    {selectedMatrix?.valid_until
+                      ? new Date(selectedMatrix.valid_until).toLocaleDateString('pt-BR')
+                      : '31/12/2026'}
+                  </span>
+                </div>
               </div>
-              <div className="text-[11px] text-slate-500 font-medium">
-                Status:{' '}
-                <strong className="text-slate-800">{selectedMatrix?.status || 'VIGENTE'}</strong>{' '}
-                &bull;{' '}
-                <span
-                  className={
-                    selectedMatrix?.is_homologated !== false ? 'text-blue-700' : 'text-amber-700'
-                  }
-                >
-                  {selectedMatrix?.is_homologated !== false ? 'Homologada' : 'Não Homologada'}
-                </span>
+
+              <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Status:</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold px-1.5 py-0">
+                    {selectedMatrix?.status || 'VIGENTE'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Homologação:</span>
+                  <span
+                    className={`font-semibold text-xs ${
+                      selectedMatrix?.is_homologated !== false ? 'text-[#004C97]' : 'text-amber-700'
+                    }`}
+                  >
+                    {selectedMatrix?.is_homologated !== false ? 'HOMOLOGADA' : 'NÃO HOMOLOGADA'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

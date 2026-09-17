@@ -57,11 +57,6 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
   const [version, setVersion] = useState<number>(1)
   const [isHomologated, setIsHomologated] = useState<boolean>(true)
 
-  // Bitola e Aço
-  const [gaugeDimension, setGaugeDimension] = useState('130x130')
-  const [steelGrade, setSteelGrade] = useState('SAE 1020')
-  const [productFamily, setProductFamily] = useState('Geral')
-
   // Filtro de pesquisa no seletor de Planejadores MRP
   const [searchTerm, setSearchTerm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -169,9 +164,6 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
         status: status,
         version: version,
         is_homologated: isHomologated,
-        gauge_dimension: gaugeDimension,
-        steel_grade: steelGrade,
-        product_family: productFamily,
         // Valores default seguros de capacidades
         furnace_capacity_th: 32,
         roughing_capacity_th: 29.5,
@@ -440,37 +432,6 @@ export const CreateReferenceMatrixModal: React.FC<CreateReferenceMatrixModalProp
                 value={version}
                 onChange={(e) => setVersion(Number(e.target.value) || 1)}
                 className="text-xs h-8 bg-slate-50 border-slate-300 font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Dados Técnicos Básicos (Bitola, Aço, Família) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">Bitola / Seção de Referência</Label>
-              <Input
-                value={gaugeDimension}
-                onChange={(e) => setGaugeDimension(e.target.value)}
-                placeholder="Ex: 130x130 mm"
-                className="text-xs h-8 bg-slate-50 border-slate-300"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">Grau do Aço</Label>
-              <Input
-                value={steelGrade}
-                onChange={(e) => setSteelGrade(e.target.value)}
-                placeholder="Ex: SAE 1020"
-                className="text-xs h-8 bg-slate-50 border-slate-300"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600">Família de Produto</Label>
-              <Input
-                value={productFamily}
-                onChange={(e) => setProductFamily(e.target.value)}
-                placeholder="Ex: QUAD_130"
-                className="text-xs h-8 bg-slate-50 border-slate-300"
               />
             </div>
           </div>

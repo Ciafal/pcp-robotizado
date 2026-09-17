@@ -94,7 +94,7 @@ describe('CORREÇÃO IMEDIATA — PLANEJADOR MRP (MARC-DISPO) no Módulo PCP Rob
 
   // TESTE OBRIGATÓRIO 24: Criar Matriz, salvar, fechar, reabrir — persistência de Empresa, WERKS, Linha, Planejador, código, descrição, vigência, status
   describe('Teste Obrigatório (24): Persistência de Matriz de Referência por Planejador MRP', () => {
-    it('deve estruturar os campos de persistência de Empresa, WERKS, Linha, Planejador MRP e vigência', () => {
+    it('deve estruturar os campos de persistência de Empresa, WERKS, Linha, Planejador MRP e vigência sem dependência de Bitola, Grau do Aço ou Família', () => {
       const matrixPayload: Partial<LineBottleneckMatrixRecord> = {
         id: 'LBM-2026-DISPO-01',
         matrix_name: 'Matriz L1 — Quadrados Pesados',
@@ -122,6 +122,11 @@ describe('CORREÇÃO IMEDIATA — PLANEJADOR MRP (MARC-DISPO) no Módulo PCP Rob
       expect(matrixPayload.mrp_controllers_json).toContain('P03')
       expect(matrixPayload.valid_from).toBe('2026-01-01 00:00:00.000Z')
       expect(matrixPayload.status).toBe('VIGENTE')
+
+      // Verificação da remoção dos 3 campos: o payload não depende deles
+      expect(matrixPayload.gauge_dimension).toBeUndefined()
+      expect(matrixPayload.steel_grade).toBeUndefined()
+      expect(matrixPayload.product_family).toBeUndefined()
     })
 
     it('deve calcular trilha de auditoria oficial com rótulos em Português (Item 15)', () => {
