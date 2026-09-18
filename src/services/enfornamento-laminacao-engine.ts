@@ -126,16 +126,19 @@ export class EnfornamentoLaminacaoEngine {
       console.warn('Erro ao consultar line_bottleneck_matrix:', err)
     }
 
-    // 2. Busca na Ficha Mestra local (line_productivity_rates)
+    // 2. Busca na Ficha Mestra local (line_productivity_rates — somente registros ATIVOS)
     if (lineOverview?.productivity && lineOverview.productivity.length > 0) {
       const prod = lineOverview.productivity.find(
         (p) =>
-          p.material_product_code.toUpperCase() === cleanMat ||
-          (p.dimension_spec && cleanGauge && p.dimension_spec.toUpperCase().includes(cleanGauge)),
+          p.active !== false &&
+          (p.material_product_code.toUpperCase() === cleanMat ||
+            (p.dimension_spec &&
+              cleanGauge &&
+              p.dimension_spec.toUpperCase().includes(cleanGauge))),
       )
       if (prod) {
         const nominalOrPlanned =
-          Number(prod.planned_productivity) || Number(prod.nominal_productivity) || 0
+          Number(prod.nominal_productivity) || Number(prod.planned_productivity) || 0
         if (nominalOrPlanned > 0) {
           const adjusted = Math.round(nominalOrPlanned * multiplier * 10) / 10
           return {

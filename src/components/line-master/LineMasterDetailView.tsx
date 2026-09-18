@@ -70,7 +70,9 @@ import {
   SapIntegrationDefinition,
   MasterSheetCompletenessResult,
   MasterSheetNavigationTarget,
+  LineProductivityRate,
 } from '@/types/line-master'
+import pb from '@/lib/pocketbase/client'
 import { OFFICIAL_MP_TYPES_CATALOG, OFFICIAL_MP_TYPES } from '@/services/mp-programming-engine'
 import { ENFORNAMENTO_OPTIONS, EnfornamentoType } from '@/services/enfornamento-laminacao-engine'
 import { UserProfile } from '@/types/pcp-auth'
@@ -520,7 +522,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setProdMaterialCode(item.material_product_code || '')
     setProdMaterialName(item.material_product_name || '')
     setProdRawMaterialType(item.raw_material_type || 'TARUGO_130X130')
-    setProdEnfornamentoType(item.enfornamento_type || 'NORMAL')
+    setProdEnfornamentoType((item.enfornamento_type as EnfornamentoType) || 'NORMAL')
     setProdUnit(item.productivity_unit || 't/h')
     setProdNominal(item.nominal_productivity ?? (line.nominal_capacity || 12.0))
     setProdValidFrom(item.valid_from ? item.valid_from.substring(0, 10) : '')
@@ -609,9 +611,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       const isEditing = Boolean(editingProductivity?.id)
       const targetId = editingProductivity?.id
 
-      // Prod. Nominal preservada do registro existente se for edição, ou da fonte padrão se for novo
+      // Prod. Nominal preservada do registro existente se for edição, ou da fonte padrão da linha
       const existingNominal = isEditing
-        ? (editingProductivity?.nominal_productivity ?? (line.nominal_capacity || 12.0))
+        ? (editingProductivity?.nominal_productivity ??
+          (line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0)))
         : line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0)
 
       const existingEfficiency = isEditing
@@ -636,7 +639,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         active: prodActive,
       })
 
-      // Auditoria completa em pcp_audit_logs
+      // Auditoria completa em pcp_audit_logs (CRIAÇÃO ou EDIÇÃO) com antes e depois
       const currentUser = pb.authStore.record || pb.authStore.model
       const operationType = isEditing ? 'EDIÇÃO' : 'CRIAÇÃO'
       const auditAction = isEditing ? 'LINE_PRODUCTIVITY_UPDATE' : 'LINE_PRODUCTIVITY_CREATE'
@@ -668,12 +671,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         status: prodActive ? 'Ativo' : 'Inativo',
       }
 
-      // Detalhes descritivos para conformidade com a auditoria
+      // Detalhes descritivos por campo alterado conforme exigência de auditoria
       const diffDescriptions: string[] = []
       if (isEditing && beforeValues) {
         if (beforeValues.status !== afterValues.status) {
           diffDescriptions.push(
-            `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status} — Usuário: ${(currentUser as any)?.name || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`,
+            `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status}`,
           )
         }
         if (beforeValues.material_code !== afterValues.material_code) {
@@ -733,16 +736,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           details: {
             line_id: line.id,
             line_code: line.code,
+            center: line.name || line.code,
             operation_type: operationType,
             product_family_id: prodFamilyId,
+            family: productFamilies.find((f) => f.id === prodFamilyId)?.name || prodFamilyId,
             material_product_code: prodMaterialCode.trim().toUpperCase(),
+            material: prodMaterialCode.trim().toUpperCase(),
+            material_product_name: prodMaterialName.trim(),
             raw_material_type: prodRawMaterialType,
             enfornamento_type: prodEnfornamentoType,
             productivity_unit: prodUnit,
+            unit: prodUnit,
             valid_from: prodValidFrom,
             valid_until: prodValidUntil || null,
+            vigencia: `${prodValidFrom} a ${prodValidUntil || 'indeterminada'}`,
             status: prodActive ? 'Ativo' : 'Inativo',
             user: (currentUser as any)?.name || 'Usuário PCP',
+            date_time: new Date().toISOString(),
             timestamp: new Date().toISOString(),
             before_values: beforeValues,
             after_values: afterValues,
@@ -752,7 +762,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       } catch (auditErr) {
         console.warn('Falha na auditoria de produtividade:', auditErr)
       }
-
       // Feedback visual e fechamento do popup após confirmação do backend
       toast({
         title: isEditing ? 'Alterações salvas' : 'Produtividade salva',

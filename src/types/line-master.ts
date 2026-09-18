@@ -347,20 +347,18 @@ export interface LineProductivityRate {
   enfornamento_type?: string
   productivity_unit: 't/h' | 'peça/h' | 'm/h'
   nominal_productivity: number
-  planned_productivity: number
+  planned_productivity?: number
   expected_efficiency_pct?: number
   source_mode: SourceMode
   sap_integration_id?: string
   valid_from?: string
   valid_until?: string
-  source_mode?: 'MANUAL' | 'SAP'
   active?: boolean
-  sap_integration_id?: string
   created?: string
   updated?: string
   expand?: {
     product_family_id?: ProductFamily
-    sap_integration_id?: SapIntegrationCatalog
+    sap_integration_id?: SapIntegrationDefinition
   }
 }
 // 9. Prioridades de Matéria-Prima (line_raw_material_priorities)
