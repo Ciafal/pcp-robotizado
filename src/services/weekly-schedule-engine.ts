@@ -1312,8 +1312,8 @@ export const WeeklyScheduleEngine = {
     } else {
       // Nível 2: DE (bitola/dimensão) -> PARA (bitola/dimensão)
       const gaugeMatch = setupMatrix.find((s) => {
-        const fromG = (s.from_gauge || (s as any).from_dimension || '').trim().toUpperCase()
-        const toG = (s.to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
+        const fromG = ((s as any).from_gauge || (s as any).from_dimension || '').trim().toUpperCase()
+        const toG = ((s as any).to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
         if (!fromG || !toG) return false
         const matchesPrev = fromG === prevDim || fromG === prevMat
         const matchesCur = toG === curDim || toG === curMat
@@ -1353,7 +1353,7 @@ export const WeeklyScheduleEngine = {
           // Nível 4: Regra genérica cadastrada explicitamente (changeover_type === 'GENERICO' ou from/to '*' / coringa)
           const genericMatch = setupMatrix.find((s) => {
             const isGenericType =
-              (s as any).changeover_type === 'GENERICO' || s.setup_category === 'GENERIC'
+              (s as any).changeover_type === 'GENERICO' || (s.setup_category as string) === 'GENERIC'
             const fromWildcard =
               !s.from_product_code || s.from_product_code === '*' || s.from_product_code === 'TODOS'
             const toWildcard =

@@ -786,15 +786,149 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
   }, [eligibleLines, selectedLineCode])
 
-  // Recalculo Automático Determinístico sempre que os itens, Ficha Mestre ou Contexto de MP mudarem
+  // Determina se o estado atual é APROVADA ou HISTÓRICO/BLOQUEADO (Requisito b de Governança)
+  const isScheduleApproved = useMemo(() => {
+    return (
+      currentWorkflowState === 'APROVADO' ||
+      currentWorkflowState === 'APROVADO_PCP' ||
+      currentWorkflowState === 'PUBLICADO'
+    )
+  }, [currentWorkflowState])
+
+  const isScheduleHistoricalLocked = useMemo(() => {
+    return (
+      isWeekInPast(selectedYear, selectedWeekNumber) ||
+      currentWorkflowState === 'EXECUTANDO' ||
+      currentWorkflowState === 'REALIZADO' ||
+      currentWorkflowState === 'ANALISADO'
+    )
+  }, [selectedYear, selectedWeekNumber, currentWorkflowState])
+
+  // Recálculo Reativo em RASCUNHO / Congelado em APROVADA ou HISTÓRICO
+  // Em RASCUNHO: recálculo automático determinístico reativo.
+  // Em APROVADA ou HISTÓRICO/BLOQUEADO: recálculo automático suspenso (preserva snapshot salvo nos itens).
   const calculationResult = useMemo(() => {
+    // Se o estado for APROVADA ou HISTÓRICO/BLOQUEADO e os itens já tiverem horários preenchidos,
+    // o recálculo automático fica suspenso e preserva o snapshot original.
+    if (isScheduleApproved || isScheduleHistoricalLocked) {
+      // Computa os indicadores sobre a lista fixa sem recalcular horários
+      const computed = WeeklyScheduleEngine.computeScheduleIndicators(
+        items,
+        currentLineOverview,
+        headerFilter,
+      )
+      return {
+        items,
+        indicators: computed.indicators,
+        summary: computed.summary,
+        validations: computed.validations,
+        totalTons: computed.totalTons,
+        totalHours: computed.totalHours,
+      }
+    }
+
     return WeeklyScheduleEngine.recalculateWeeklyTimeline(
       items,
       currentLineOverview,
       headerFilter,
       rawMaterialContext,
     )
-  }, [items, currentLineOverview, headerFilter, rawMaterialContext])
+  }, [
+    items,
+    currentLineOverview,
+    headerFilter,
+    rawMaterialContext,
+    isScheduleApproved,
+    isScheduleHistoricalLocked,
+  ])
+
+  // Verificação de divergência da Ficha Mestra para programação APROVADA (Requisito b)
+  const masterSheetDiscrepancy = useMemo(() => {
+    if (!isScheduleApproved || isScheduleHistoricalLocked || items.length === 0) {
+      return { hasDiscrepancy: false, simulatedResult: null }
+    }
+
+    // Simula o recálculo com a Ficha Mestra vigente
+    const sim = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      items,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+
+    // Compara se houve qualquer divergência em setup_duration_minutes, horários ou regras
+    const hasDiscrepancy = items.some((item, idx) => {
+      const simItem = sim.items[idx]
+      if (!simItem) return true
+      return (
+        item.setup_duration_minutes !== simItem.setup_duration_minutes ||
+        item.setup_rule_code !== simItem.setup_rule_code ||
+        item.setup_start !== simItem.setup_start ||
+        item.setup_end !== simItem.setup_end ||
+        item.start_datetime !== simItem.start_datetime ||
+        item.end_datetime !== simItem.end_datetime ||
+        item.tuning_duration_minutes !== simItem.tuning_duration_minutes ||
+        item.tuning_rule_code !== simItem.tuning_rule_code
+      )
+    })
+
+    return { hasDiscrepancy, simulatedResult: sim }
+  }, [
+    items,
+    currentLineOverview,
+    headerFilter,
+    rawMaterialContext,
+    isScheduleApproved,
+    isScheduleHistoricalLocked,
+  ])
+
+  // Ação manual de recálculo com registro em auditoria quando houver divergência
+  const handleRecalculateApprovedSchedule = async () => {
+    if (!masterSheetDiscrepancy.simulatedResult) return
+    const recalculated = masterSheetDiscrepancy.simulatedResult
+    setItems(recalculated.items)
+
+    try {
+      const { pcpAuditService } = await import('@/services/pcp-audit-service')
+      await pcpAuditService.recordLog({
+        action: `Recálculo da Programação Aprovada com Ficha Mestra Vigente`,
+        event_type: 'Alteração',
+        module: 'Programação',
+        screen: 'Montagem Semanal',
+        company: headerFilter.companyCode || 'CIAFAL',
+        line: headerFilter.lineCode,
+        record_id: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
+        source: 'Usuário',
+        status: 'Concluída',
+        reason: 'Atualização de parâmetros alterados na Ficha Mestra após aprovação',
+        justification:
+          'Recálculo manual autorizado de programação aprovada para absorver novas regras vigentes',
+        schedule_version: `V${String(currentVersion).padStart(2, '0')}`,
+        changes: [
+          {
+            field: 'recalculation',
+            fieldNamePt: 'Recálculo Ficha Mestra',
+            before: 'Snapshot aprovado prévio',
+            after: 'Regras vigentes recalculadas',
+          },
+        ],
+      })
+    } catch (audErr) {
+      console.warn('Falha ao auditar recálculo de programação aprovada:', audErr)
+    }
+
+    try {
+      await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+    } catch (saveErr) {
+      console.warn('Falha ao persistir programação recalculada:', saveErr)
+    }
+
+    toast({
+      title: 'Programação Recalculada',
+      description:
+        'A programação absorveu as alterações mais recentes da Ficha Mestra e o evento foi auditado.',
+    })
+  }
 
   // Validação Documental SGQ Automática (Requisitos 8, 9, 10)
   // Roda em todas as mutações e utiliza as regras estruturadas já persistidas em interpreted_rules
@@ -1822,14 +1956,73 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       id: `temp-${Date.now()}`,
       sequence_order: items.length + 1,
     }
-    setItems((prev) => {
-      const copy = [...prev]
-      copy.splice(index + 1, 0, duplicated)
-      return copy
+    const copy = [...items]
+    copy.splice(index + 1, 0, duplicated)
+    const resequenced = copy.map((it, idx) => ({ ...it, sequence_order: idx + 1 }))
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      resequenced,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
+      console.warn('Falha ao persistir item duplicado:', err)
     })
+
     toast({
       title: 'Item Duplicado',
-      description: `Lote de ${target.material_code} duplicado na sequência.`,
+      description: `Lote de ${target.material_code} duplicado na sequência e cadeia recalculada.`,
+    })
+  }
+
+  // Divisão de lote de produção com reordenação e recálculo da cadeia completa
+  const handleSplitLot = (item: WeeklyScheduleItem) => {
+    if (!isLineActive) {
+      toast({
+        variant: 'destructive',
+        title: 'Operação Não Permitida',
+        description: 'Esta linha está inativa para novas programações.',
+      })
+      return
+    }
+    const index = items.findIndex((it) => it.id === item.id)
+    if (index === -1) return
+
+    const originalQty = item.planned_quantity_tons || 100
+    const halfQty = Math.round((originalQty / 2) * 10) / 10
+    const remainderQty = Math.round((originalQty - halfQty) * 10) / 10
+
+    const part1: WeeklyScheduleItem = {
+      ...item,
+      planned_quantity_tons: halfQty,
+    }
+    const part2: WeeklyScheduleItem = {
+      ...item,
+      id: `split-${Date.now()}`,
+      planned_quantity_tons: remainderQty,
+      sequence_order: item.sequence_order + 1,
+    }
+
+    const copy = [...items]
+    copy.splice(index, 1, part1, part2)
+    const resequenced = copy.map((it, idx) => ({ ...it, sequence_order: idx + 1 }))
+    const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+      resequenced,
+      currentLineOverview,
+      headerFilter,
+      rawMaterialContext,
+    )
+    setItems(recalculated.items)
+
+    weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
+      console.warn('Falha ao persistir lote dividido:', err)
+    })
+
+    toast({
+      title: 'Lote Dividido com Sucesso',
+      description: `Item ${item.material_code} dividido em 2 lotes (${halfQty} t e ${remainderQty} t). Cadeia recalculada.`,
     })
   }
 
@@ -2564,6 +2757,32 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           <span className="text-[10.5px] font-medium text-amber-800">
             Alterações de sequência e edição de lotes estão desabilitadas para semanas passadas.
           </span>
+        </div>
+      )}
+
+      {/* Banner de Programação Aprovada com Divergência da Ficha Mestra (Requisito b de Governança) */}
+      {isScheduleApproved && !isCurrentWeekHistorical && masterSheetDiscrepancy.hasDiscrepancy && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-3 text-amber-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="font-bold text-xs text-amber-900">
+                Os parâmetros da Ficha Mestra foram alterados após a aprovação desta programação.
+              </p>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                O snapshot salvo aprovado permanece preservado. Deseja recalcular a programação para
+                refletir as novas regras da Ficha Mestra?
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleRecalculateApprovedSchedule}
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 flex items-center gap-1.5 shadow-xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Recalcular programação
+          </Button>
         </div>
       )}
 
@@ -3347,13 +3566,10 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!selectedScheduleItem}
+                disabled={!selectedScheduleItem || isCurrentWeekHistorical || isScheduleApproved}
                 onClick={() => {
                   if (selectedScheduleItem) {
-                    toast({
-                      title: 'Dividir Quantidade',
-                      description: `Item ${selectedScheduleItem.material_code} preparado para divisão de lote de produção.`,
-                    })
+                    handleSplitLot(selectedScheduleItem)
                   }
                 }}
                 className="h-7 px-2 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100"

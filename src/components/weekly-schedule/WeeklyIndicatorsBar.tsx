@@ -80,10 +80,10 @@ export const WeeklyIndicatorsBar: React.FC<WeeklyIndicatorsBarProps> = ({
         </span>
       </Card>
 
-      {/* 4. Horas de Setup / Troca */}
+      {/* 4. Horas de Setup / Troca Mecânica */}
       <Card className="bg-white border-slate-200 p-2.5 shadow-sm flex flex-col justify-between">
         <div className="flex items-center justify-between text-slate-500 text-[10px] uppercase font-bold tracking-wider">
-          <span>Horas Setup</span>
+          <span>Tempo Setup</span>
           <Activity className="w-3.5 h-3.5 text-amber-500" />
         </div>
         <div className="mt-1">
@@ -93,7 +93,24 @@ export const WeeklyIndicatorsBar: React.FC<WeeklyIndicatorsBarProps> = ({
           <span className="text-[10px] font-bold text-slate-500 ml-1">h</span>
         </div>
         <span className="text-[9px] text-amber-700 font-medium truncate mt-0.5">
-          Matriz de Trocas
+          Matriz de Setup DE→PARA
+        </span>
+      </Card>
+
+      {/* 4.1 Horas de Acerto de Bitola Segregado */}
+      <Card className="bg-white border-slate-200 p-2.5 shadow-sm flex flex-col justify-between">
+        <div className="flex items-center justify-between text-slate-500 text-[10px] uppercase font-bold tracking-wider">
+          <span>Tempo Acerto</span>
+          <Activity className="w-3.5 h-3.5 text-blue-500" />
+        </div>
+        <div className="mt-1">
+          <span className="text-base font-black font-mono text-blue-900">
+            {(indicators.tuningHours || 0).toLocaleString('pt-BR')}
+          </span>
+          <span className="text-[10px] font-bold text-slate-500 ml-1">h</span>
+        </div>
+        <span className="text-[9px] text-blue-700 font-medium truncate mt-0.5">
+          Ficha Mestra → Acertos
         </span>
       </Card>
 

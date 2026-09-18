@@ -26,30 +26,33 @@ export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
   lineCode = 'L1',
   onOpenSetupDrilldown,
 }) => {
-  // Valores da especificação
-  const capDisponivel =
-    indicators.availableCapacityHours > 0 ? indicators.availableCapacityHours : 148.0
-  const progProdHours =
-    indicators.programmedProductiveHours > 0 ? indicators.programmedProductiveHours : 102.45
-  const progPct = (capDisponivel > 0 ? (progProdHours / capDisponivel) * 100 : 69.2)
-    .toFixed(1)
-    .replace('.', ',')
-  const setupHours = indicators.setupHours > 0 ? indicators.setupHours : 18.6
-  const setupPct = (capDisponivel > 0 ? (setupHours / capDisponivel) * 100 : 12.6)
-    .toFixed(1)
-    .replace('.', ',')
-  const paradasHours = indicators.stoppedHours > 0 ? indicators.stoppedHours : 16.75
-  const paradasPct = (capDisponivel > 0 ? (paradasHours / capDisponivel) * 100 : 11.3)
-    .toFixed(1)
-    .replace('.', ',')
-  const horasLivres = indicators.freeHours > 0 ? indicators.freeHours : 10.2
-  const livresPct = (capDisponivel > 0 ? (horasLivres / capDisponivel) * 100 : 6.9)
-    .toFixed(1)
-    .replace('.', ',')
-  const quantProg =
-    indicators.programmedQuantityTons > 0 ? indicators.programmedQuantityTons : 1248.3
-  const itensProg = indicators.programmedProductsCount > 0 ? indicators.programmedProductsCount : 18
-  const alertasCriticos = indicators.criticalAlertsCount > 0 ? indicators.criticalAlertsCount : 3
+  // Valores reais segregados (sem fallbacks hardcoded enganosos quando a programação tiver valores legítimos)
+  const capDisponivel = indicators.availableCapacityHours ?? 0
+  const progProdHours = indicators.programmedProductiveHours ?? 0
+  const progPct =
+    capDisponivel > 0 ? ((progProdHours / capDisponivel) * 100).toFixed(1).replace('.', ',') : '0,0'
+
+  // Segregação: Setup (Troca Mecânica) e Acerto
+  const setupHours = indicators.setupHours ?? 0
+  const setupPct =
+    capDisponivel > 0 ? ((setupHours / capDisponivel) * 100).toFixed(1).replace('.', ',') : '0,0'
+  const tuningHours = indicators.tuningHours ?? 0
+  const tuningPct =
+    capDisponivel > 0 ? ((tuningHours / capDisponivel) * 100).toFixed(1).replace('.', ',') : '0,0'
+
+  const paradasHours = indicators.stoppedHours ?? 0
+  const paradasPct =
+    capDisponivel > 0 ? ((paradasHours / capDisponivel) * 100).toFixed(1).replace('.', ',') : '0,0'
+
+  const horasLivres =
+    indicators.freeHours ??
+    Math.max(0, capDisponivel - (progProdHours + setupHours + tuningHours + paradasHours))
+  const livresPct =
+    capDisponivel > 0 ? ((horasLivres / capDisponivel) * 100).toFixed(1).replace('.', ',') : '0,0'
+
+  const quantProg = indicators.programmedQuantityTons ?? 0
+  const itensProg = indicators.programmedProductsCount ?? 0
+  const alertasCriticos = indicators.criticalAlertsCount ?? 0
 
   return (
     <div className="w-full bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto no-scrollbar py-1.5 px-2">
@@ -89,15 +92,15 @@ export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
           </div>
         </div>
 
-        {/* 3. Setup / Troca (com Drilldown e Troca x Acerto) */}
+        {/* 3. Tempo Setup (Troca Mecânica DE→PARA) */}
         <div
           className="flex-1 px-3 flex flex-col justify-center min-w-[130px] cursor-pointer hover:bg-blue-50/50 transition-colors group"
           onClick={onOpenSetupDrilldown}
-          title="Clique para ver Drill-down de Setups e SMED"
+          title="Tempo planejado consumido por Trocas Mecânicas / Setup DE→PARA"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-[#004C97] uppercase tracking-tight truncate group-hover:underline">
-              Setup / Troca
+              Tempo Setup
             </span>
             <span className="text-[9px] text-[#004C97] font-semibold">
               {indicators.setupsCount ? `${indicators.setupsCount} un` : ''}
@@ -113,6 +116,31 @@ export const OperationalKpiStrip: React.FC<OperationalKpiStripProps> = ({
             <span className="text-[10px] font-bold text-slate-500">h</span>
             <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1 py-0.2 rounded">
               {setupPct}%
+            </span>
+          </div>
+        </div>
+
+        {/* 3.1 Tempo Acerto de Bitola (Segregado de Setup) */}
+        <div
+          className="flex-1 px-3 flex flex-col justify-center min-w-[125px] cursor-pointer hover:bg-blue-50/50 transition-colors group"
+          onClick={onOpenSetupDrilldown}
+          title="Tempo planejado consumido por Acertos de Bitola"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-tight truncate group-hover:underline">
+              Tempo Acerto
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-sm font-black font-mono text-blue-700">
+              {tuningHours.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span className="text-[10px] font-bold text-slate-500">h</span>
+            <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
+              {tuningPct}%
             </span>
           </div>
         </div>

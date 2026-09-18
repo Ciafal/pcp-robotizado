@@ -424,30 +424,35 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
     return `${bgClass} ${ringClass}`
   }
 
-  // Converte horário string (ex: '08:30') em percentual ou pixels na timeline das 06:00 às 22:00 (16 horas)
-  const calculateTimelinePosition = (startStr: string, endStr: string) => {
+  // Converte horário string (ex: '08:30' ou ISO '2026-09-16 15:03') em percentual na timeline das 06:00 às 22:00 (16 horas)
+  const calculateTimelinePosition = (
+    startStr: string,
+    endStr: string,
+    options?: { minWidth?: number },
+  ) => {
     // Escala: 06:00 = 0h, 22:00 = 16h
     const parseHour = (s: string) => {
+      if (!s) return 6
       const timePart = s.includes(' ') ? s.split(' ')[1] : s
       const [h, m] = timePart.split(':').map(Number)
-      return (h || 6) + (m || 0) / 60
+      return (isNaN(h) ? 6 : h) + (isNaN(m) ? 0 : m) / 60
     }
 
-    const startH = Math.max(6, Math.min(22, parseHour(startStr || '06:00')))
-    const endH = Math.max(startH + 0.5, Math.min(22, parseHour(endStr || '08:00')))
+    const startH = parseHour(startStr || '06:00')
+    const endH = parseHour(endStr || '08:00')
 
     const totalTimelineHours = 16
     const clampedStart = Math.max(6, Math.min(22, startH))
-    const clampedEnd = Math.max(clampedStart + 0.25, Math.min(22, endH))
+    const clampedEnd = Math.max(clampedStart, Math.min(22, endH))
     const leftPct = ((clampedStart - 6) / totalTimelineHours) * 100
-    // O item ocupará a largura proporcional real baseada na duração em horas (preserva proporcionalidade exata)
-    const widthPct = ((clampedEnd - clampedStart) / totalTimelineHours) * 100
+    // O item ocupará a largura proporcional real baseada na duração em horas
+    const rawWidthPct = Math.max(0, ((clampedEnd - clampedStart) / totalTimelineHours) * 100)
 
-    // Largura mínima confortável proporcional para permitir exibição clara das informações sem truncamento
-    const minWidthPct = 14
+    const minWidthPct = options?.minWidth !== undefined ? options.minWidth : 3.5
+    const finalWidthPct = Math.max(rawWidthPct, minWidthPct)
     return {
-      leftPct: Math.max(0, Math.min(100 - minWidthPct, leftPct)),
-      widthPct: Math.min(100 - leftPct, Math.max(minWidthPct, widthPct)),
+      leftPct: Math.max(0, Math.min(100 - Math.min(100, finalWidthPct), leftPct)),
+      widthPct: Math.min(100 - leftPct, finalWidthPct),
       durationHours: Number((clampedEnd - clampedStart).toFixed(2)),
     }
   }
@@ -688,12 +693,6 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                             item.status === 'AGUARDANDO_OBSERVACOES' ||
                             item.awaiting_observations?.is_awaiting
                           const isCoolingViolated = item.cooling_validation?.hasViolation
-                          // O setup encadeado ocorre no primeiro segmento do item
-                          const hasSetupBefore =
-                            !isStop &&
-                            item.setup_duration_minutes > 0 &&
-                            (!isMultiDaySegment || segmentPartIndex === 0)
-
                           const startStr = segmentStartStr
                           const endStr = segmentEndStr
                           const timelinePos = calculateTimelinePosition(startStr, endStr)
@@ -816,131 +815,328 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 {/* Linhas verticais de fundo a cada hora */}
                                 <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
 
-                                {/* BLOCO DE SETUP EXPLÍCITO (TROCA E ACERTO SEPARADOS) */}
-                                {hasSetupBefore && (
-                                  <div
-                                    style={{
-                                      left: `${Math.max(0, timelinePos.leftPct - 9.0)}%`,
-                                      width: '8.8%',
-                                    }}
-                                    className="absolute h-7 flex items-center gap-1 z-20"
-                                  >
-                                    {/* Bloco Troca (planned_change_minutes) */}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                          }}
-                                          className="h-7 flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 border border-slate-400 rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs"
-                                        >
-                                          <span className="truncate">
-                                            🔧 {item.setup_breakdown?.planned_change_minutes || 0}m
-                                          </span>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="bg-slate-900 text-white text-xs p-2.5 max-w-xs"
-                                      >
-                                        <div className="font-bold text-slate-100 flex items-center gap-1 mb-1">
-                                          🔧 Troca Mecânica / Setup DE→PARA
-                                        </div>
-                                        <p className="text-[11px] text-slate-300">
-                                          Tempo planejado:{' '}
-                                          <strong className="text-white">
-                                            {item.setup_breakdown?.planned_change_minutes || 0} min
-                                          </strong>
-                                        </p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">
-                                          Responsável:{' '}
-                                          {item.setup_breakdown?.responsible_area ===
-                                          'OFICINA_CILINDROS'
-                                            ? 'Oficina de Cilindros'
-                                            : 'Produção'}
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
+                                {/* BLOCOS SEPARADOS E CONTÍGUOS: SETUP (TROCA) E ACERTO COM POSICIONAMENTO PROPORCIONAL REAL */}
+                                {(() => {
+                                  if (isStop) return null
 
-                                    {/* Bloco Acerto (planned_tuning_minutes) */}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                          }}
-                                          className={`h-7 flex-1 border rounded-sm flex items-center justify-center px-1 text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-xs ${
-                                            item.tuning_unparametrized
-                                              ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-400 animate-pulse'
-                                              : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
-                                          }`}
-                                        >
-                                          <span className="truncate">
-                                            {item.tuning_unparametrized
-                                              ? '⚠️ N/P'
-                                              : `⚙ ${item.setup_breakdown?.planned_tuning_minutes || 0}m`}
-                                          </span>
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="bg-slate-900 text-white text-xs p-2.5 max-w-sm"
-                                      >
-                                        <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1">
-                                          <span
-                                            className={`font-bold flex items-center gap-1 ${
-                                              item.tuning_unparametrized
-                                                ? 'text-amber-400'
-                                                : 'text-blue-300'
-                                            }`}
+                                  // Setup (Troca Mecânica DE→PARA)
+                                  const setupMin =
+                                    item.setup_breakdown?.planned_change_minutes ??
+                                    item.setup_duration_minutes ??
+                                    0
+                                  const sStartStr = item.setup_start
+                                    ? item.setup_start.includes(' ')
+                                      ? item.setup_start.split(' ')[1].slice(0, 5)
+                                      : item.setup_start.slice(0, 5)
+                                    : ''
+                                  const sEndStr = item.setup_end
+                                    ? item.setup_end.includes(' ')
+                                      ? item.setup_end.split(' ')[1].slice(0, 5)
+                                      : item.setup_end.slice(0, 5)
+                                    : ''
+                                  const hasSetupBlock =
+                                    setupMin > 0 &&
+                                    item.setup_start &&
+                                    item.setup_end &&
+                                    (!isMultiDaySegment || segmentPartIndex === 0)
+                                  const setupPos = hasSetupBlock
+                                    ? calculateTimelinePosition(sStartStr, sEndStr, { minWidth: 3 })
+                                    : null
+
+                                  // Acerto de Bitola
+                                  const tuningMin =
+                                    item.tuning_duration_minutes ??
+                                    item.setup_breakdown?.planned_tuning_minutes ??
+                                    0
+                                  const tStartStr = item.tuning_start
+                                    ? item.tuning_start.includes(' ')
+                                      ? item.tuning_start.split(' ')[1].slice(0, 5)
+                                      : item.tuning_start.slice(0, 5)
+                                    : ''
+                                  const tEndStr = item.tuning_end
+                                    ? item.tuning_end.includes(' ')
+                                      ? item.tuning_end.split(' ')[1].slice(0, 5)
+                                      : item.tuning_end.slice(0, 5)
+                                    : ''
+                                  const hasTuningBlock =
+                                    tuningMin > 0 &&
+                                    item.tuning_start &&
+                                    item.tuning_end &&
+                                    (!isMultiDaySegment || segmentPartIndex === 0)
+                                  const tuningPos = hasTuningBlock
+                                    ? calculateTimelinePosition(tStartStr, tEndStr, {
+                                        minWidth: 2.8,
+                                      })
+                                    : null
+
+                                  const prevMat =
+                                    item.setup_breakdown?.from_material_code || 'Produto anterior'
+                                  const curMat =
+                                    item.setup_breakdown?.to_material_code || item.material_code
+                                  const isUnparam = !!(
+                                    item.setup_breakdown?.is_missing_standard_param ||
+                                    item.setup_reason?.includes('Setup não parametrizado') ||
+                                    item.setup_source === 'SEM_REGRA_PARAMETRIZADA'
+                                  )
+
+                                  return (
+                                    <>
+                                      {/* 1. Bloco de Setup / Troca de Bitola Proporcional */}
+                                      {hasSetupBlock && setupPos && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div
+                                              style={{
+                                                left: `${setupPos.leftPct}%`,
+                                                width: `${setupPos.widthPct}%`,
+                                              }}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                              }}
+                                              className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
+                                                isUnparam
+                                                  ? 'bg-amber-200 text-amber-950 border-amber-500 animate-pulse'
+                                                  : 'bg-slate-200 hover:bg-slate-300 text-slate-900 border-slate-400'
+                                              }`}
+                                            >
+                                              <span className="truncate">
+                                                {isUnparam ? '⚠' : '🔧'} {setupMin} min
+                                              </span>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent
+                                            side="top"
+                                            className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
                                           >
-                                            ⚙ ACERTO DE BITOLA
-                                          </span>
-                                          <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
-                                            {item.tuning_unparametrized
-                                              ? 'Alerta'
-                                              : `${item.setup_breakdown?.planned_tuning_minutes || 0} min`}
-                                          </span>
-                                        </div>
-                                        {item.tuning_unparametrized ? (
-                                          <div className="text-amber-300 text-[11px] space-y-1">
-                                            <p className="font-bold flex items-center gap-1">
-                                              ⚠️ Acerto não parametrizado
-                                            </p>
-                                            <p className="text-[10px] text-slate-300">
-                                              Não há regra de acerto vigente para a bitola{' '}
-                                              <strong>{item.material_code}</strong>
-                                              {item.sample_type
-                                                ? ` (${item.sample_type})`
-                                                : ''} na
-                                              Ficha Mestre Expandida.
-                                            </p>
-                                          </div>
-                                        ) : (
-                                          <div className="text-[11px] text-slate-300">
-                                            <p>
-                                              Tempo de Acerto:{' '}
-                                              <strong className="text-white">
-                                                {item.setup_breakdown?.planned_tuning_minutes || 0}{' '}
-                                                min
-                                              </strong>
-                                            </p>
-                                            {item.sample_type && (
-                                              <p className="text-[10px] text-slate-400 mt-0.5">
-                                                Tipo de Amostra:{' '}
+                                            <div className="font-black text-amber-400 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                              <span>SETUP / TROCA DE BITOLA</span>
+                                              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                {setupMin} min
+                                              </span>
+                                            </div>
+                                            <div className="space-y-1 text-[11px] text-slate-300">
+                                              <p>
+                                                <span className="text-slate-400">De:</span>{' '}
+                                                <strong className="text-white">{prevMat}</strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Para:</span>{' '}
+                                                <strong className="text-white">{curMat}</strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Início:</span>{' '}
+                                                <strong className="text-amber-300 font-mono">
+                                                  {sStartStr}
+                                                </strong>
+                                                {' • '}
+                                                <span className="text-slate-400">Fim:</span>{' '}
+                                                <strong className="text-amber-300 font-mono">
+                                                  {sEndStr}
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Duração:</span>{' '}
+                                                <strong className="text-white">
+                                                  {setupMin} min
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">
+                                                  Regra aplicada:
+                                                </span>{' '}
+                                                <strong className="text-slate-200 font-mono">
+                                                  {item.setup_rule_code ||
+                                                    item.setup_breakdown?.change_type ||
+                                                    'Matriz DE→PARA'}
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Fonte:</span>{' '}
                                                 <span className="text-slate-200">
-                                                  {item.sample_type}
+                                                  {item.setup_source ||
+                                                    'Ficha Mestra → Matriz de Setup DE→PARA'}
                                                 </span>
                                               </p>
-                                            )}
-                                          </div>
-                                        )}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </div>
-                                )}
+                                              <p>
+                                                <span className="text-slate-400">Responsável:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.setup_breakdown?.responsible_area ===
+                                                  'OFICINA_CILINDROS'
+                                                    ? 'Oficina de Cilindros'
+                                                    : 'Produção'}
+                                                </span>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Centro:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.company_code || 'CIAFAL Matriz'}
+                                                </span>
+                                                {' • '}
+                                                <span className="text-slate-400">Linha:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.line_code ||
+                                                    lineOverview?.line?.code ||
+                                                    'L1'}
+                                                </span>
+                                              </p>
+
+                                              {isUnparam && (
+                                                <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
+                                                  <p className="font-bold text-[11px] text-amber-300">
+                                                    Setup não parametrizado na Ficha Mestra para
+                                                    esta transição DE→PARA.
+                                                  </p>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      const lineTarget =
+                                                        item.line_code ||
+                                                        lineOverview?.line?.code ||
+                                                        'L1'
+                                                      window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
+                                                    }}
+                                                    className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
+                                                  >
+                                                    Consultar Ficha Mestra &rarr;
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
+
+                                      {/* 2. Bloco de Acerto de Bitola Proporcional */}
+                                      {hasTuningBlock && tuningPos && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div
+                                              style={{
+                                                left: `${tuningPos.leftPct}%`,
+                                                width: `${tuningPos.widthPct}%`,
+                                              }}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (onOpenSetupDetail) onOpenSetupDetail(item)
+                                              }}
+                                              className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
+                                                item.tuning_unparametrized
+                                                  ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
+                                                  : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
+                                              }`}
+                                            >
+                                              <span className="truncate">
+                                                {item.tuning_unparametrized
+                                                  ? '⚠️ N/P'
+                                                  : `⚙ ${tuningMin} min`}
+                                              </span>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent
+                                            side="top"
+                                            className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
+                                          >
+                                            <div className="font-black text-blue-300 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                              <span>ACERTO DE BITOLA</span>
+                                              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                {tuningMin} min
+                                              </span>
+                                            </div>
+                                            <div className="space-y-1 text-[11px] text-slate-300">
+                                              <p>
+                                                <span className="text-slate-400">Referência:</span>{' '}
+                                                <strong className="text-white">
+                                                  {curMat}{' '}
+                                                  {item.dimensions ? `(${item.dimensions})` : ''}
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Início:</span>{' '}
+                                                <strong className="text-blue-300 font-mono">
+                                                  {tStartStr}
+                                                </strong>
+                                                {' • '}
+                                                <span className="text-slate-400">Fim:</span>{' '}
+                                                <strong className="text-blue-300 font-mono">
+                                                  {tEndStr}
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Duração:</span>{' '}
+                                                <strong className="text-white">
+                                                  {tuningMin} min
+                                                </strong>
+                                              </p>
+                                              <p>
+                                                <span className="text-slate-400">Fonte:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.tuning_source || 'Ficha Mestra → Acertos'}
+                                                </span>
+                                              </p>
+                                              {item.tuning_rule_code && (
+                                                <p>
+                                                  <span className="text-slate-400">Regra:</span>{' '}
+                                                  <span className="text-slate-200 font-mono">
+                                                    {item.tuning_rule_code}
+                                                  </span>
+                                                </p>
+                                              )}
+                                              <p>
+                                                <span className="text-slate-400">Centro:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.company_code || 'CIAFAL Matriz'}
+                                                </span>
+                                                {' • '}
+                                                <span className="text-slate-400">Linha:</span>{' '}
+                                                <span className="text-slate-200">
+                                                  {item.line_code ||
+                                                    lineOverview?.line?.code ||
+                                                    'L1'}
+                                                </span>
+                                              </p>
+
+                                              {item.sample_type && (
+                                                <p>
+                                                  <span className="text-slate-400">
+                                                    Tipo de Amostra:
+                                                  </span>{' '}
+                                                  <span className="text-slate-200">
+                                                    {item.sample_type}
+                                                  </span>
+                                                </p>
+                                              )}
+
+                                              {item.tuning_unparametrized && (
+                                                <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
+                                                  <p className="font-bold text-[11px] text-amber-300">
+                                                    Acerto não parametrizado na Ficha Mestra para
+                                                    esta bitola.
+                                                  </p>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      const lineTarget =
+                                                        item.line_code ||
+                                                        lineOverview?.line?.code ||
+                                                        'L1'
+                                                      window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
+                                                    }}
+                                                    className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
+                                                  >
+                                                    Consultar Ficha Mestra &rarr;
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                    </>
+                                  )
+                                })()}
 
                                 {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
                                 <Tooltip>
