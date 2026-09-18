@@ -403,6 +403,7 @@ export const lineMasterService = {
       rulePacks,
       auditLogs,
       idealSequences,
+      gaugeMinRestrictions,
     ] = await Promise.all([
       pb
         .collection('line_masters')
@@ -557,6 +558,13 @@ export const lineMasterService = {
           sort: 'family_order,subsequence_order',
         })
         .catch(() => []),
+      pb
+        .collection('line_gauge_min_restrictions')
+        .getFullList<import('@/types/line-gauge-restriction').LineGaugeMinRestriction>({
+          filter: `line_code = '${line.code}' || line_id = '${lineId}'`,
+          sort: 'created',
+        })
+        .catch(() => []),
     ])
 
     // Adaptar os logs de pcp_audit_logs para a interface LineAuditVersion mantendo retrocompatibilidade visual
@@ -699,6 +707,7 @@ export const lineMasterService = {
       completeness: 0,
       readyForScheduling: false,
       idealSequences,
+      gaugeMinRestrictions,
     }
 
     const completenessRes = calculateCompletenessFromOverview(partialOverview)

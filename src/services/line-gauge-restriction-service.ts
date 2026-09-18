@@ -85,7 +85,9 @@ export const lineGaugeRestrictionService = {
    * Obtém uma restrição por ID com verificação de persistência
    */
   async getById(id: string): Promise<LineGaugeMinRestriction> {
-    const rec = await pb.collection('line_gauge_min_restrictions').getOne<LineGaugeMinRestriction>(id)
+    const rec = await pb
+      .collection('line_gauge_min_restrictions')
+      .getOne<LineGaugeMinRestriction>(id)
     return {
       ...rec,
       status: (rec.status as 'ATIVA' | 'INATIVA') || 'ATIVA',
@@ -290,7 +292,9 @@ export const lineGaugeRestrictionService = {
 
     const confirmed = await this.getById(id)
     if (confirmed.status !== status) {
-      throw new Error(`Falha ao alternar status da restrição: esperado ${status}, obtido ${confirmed.status}.`)
+      throw new Error(
+        `Falha ao alternar status da restrição: esperado ${status}, obtido ${confirmed.status}.`,
+      )
     }
 
     // Auditoria de Ativação / Inativação

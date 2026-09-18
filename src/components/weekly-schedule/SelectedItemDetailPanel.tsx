@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { WeeklyScheduleItem } from '@/types/weekly-schedule'
+import { GaugeMinRestrictionEvaluation } from '@/types/line-gauge-restriction'
+import { GaugeRestrictionsPanel } from './GaugeRestrictionsPanel'
 
 interface SelectedItemDetailPanelProps {
   item: WeeklyScheduleItem | null
@@ -26,6 +28,7 @@ interface SelectedItemDetailPanelProps {
   sequenceScore?: number
   onAiAnalyze?: () => void
   onOpenSetupDetail?: (item: WeeklyScheduleItem) => void
+  gaugeRestrictionEvaluation?: GaugeMinRestrictionEvaluation | null
 }
 
 export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = ({
@@ -36,6 +39,7 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
   sequenceScore = 72,
   onAiAnalyze,
   onOpenSetupDetail,
+  gaugeRestrictionEvaluation,
 }) => {
   if (!item) {
     return (
@@ -269,6 +273,13 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                   </span>
                 )}
               </div>
+
+              {/* RESTRIÇÕES DA BITOLA (Atendimento de Lote Mínimo de Horas/Dias/Quantidade) */}
+              {gaugeRestrictionEvaluation && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <GaugeRestrictionsPanel evaluation={gaugeRestrictionEvaluation} />
+                </div>
+              )}
 
               {/* SEQUÊNCIA IDEAL DE BITOLAS (Requisito 8) */}
               <div className="mt-1 pt-1 border-t border-slate-200 space-y-1">

@@ -794,6 +794,7 @@ export interface LineOverviewData {
   completeness: number
   readyForScheduling: boolean
   idealSequences?: import('@/types/weekly-schedule').IdealGaugeSequenceItem[]
+  gaugeMinRestrictions?: import('@/types/line-gauge-restriction').LineGaugeMinRestriction[]
 }
 
 export interface LineConfigurationAlert {

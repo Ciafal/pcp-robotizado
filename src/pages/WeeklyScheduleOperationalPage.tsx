@@ -93,6 +93,10 @@ import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
 import { SelectedItemDetailPanel } from '@/components/weekly-schedule/SelectedItemDetailPanel'
+import { GaugeMinRestrictionAlertModal } from '@/components/weekly-schedule/GaugeMinRestrictionAlertModal'
+import { GaugeRestrictionsPanel } from '@/components/weekly-schedule/GaugeRestrictionsPanel'
+import { gaugeRestrictionEvaluationService } from '@/services/gauge-restriction-evaluation'
+import { GaugeMinRestrictionEvaluation } from '@/types/line-gauge-restriction'
 import { BottomOperationalPanels } from '@/components/weekly-schedule/BottomOperationalPanels'
 import {
   WeeklyScheduleGrid,
@@ -324,6 +328,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     lineCode: '',
     lineName: '',
     reason: '',
+  })
+
+  // Estado do Modal de Alerta de Restrições Mínimas de Bitola (Requisito 3)
+  const [gaugeRestrictionAlert, setGaugeRestrictionAlert] = useState<{
+    isOpen: boolean
+    evaluation: GaugeMinRestrictionEvaluation | null
+  }>({
+    isOpen: false,
+    evaluation: null,
   })
 
   // Período Calculado da Semana ISO
@@ -1683,7 +1696,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo)
+    // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo e Restrições Mínimas de Bitola)
     const validation = WeeklyScheduleEngine.validateSequenceDrop({
       items,
       fromIndex,
@@ -1693,6 +1706,33 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
 
     if (!validation.allowed) {
+      // Se o bloqueio for por Restrição Mínima de Bitola, abre o Modal Detalhado oficial (Requisito 3)
+      if (validation.gaugeRestrictionEvaluation) {
+        setGaugeRestrictionAlert({
+          isOpen: true,
+          evaluation: validation.gaugeRestrictionEvaluation,
+        })
+
+        // Auditoria imediata do alerta no pcp_audit_logs
+        gaugeRestrictionEvaluationService
+          .evaluateAndAudit({
+            company: headerFilter.companyCode,
+            lineCode: selectedLineCode,
+            centerCode: selectedLineCode,
+            currentGauge: validation.gaugeRestrictionEvaluation.currentGauge,
+            nextGauge: validation.gaugeRestrictionEvaluation.nextGauge,
+            items,
+            shifts: currentLineOverview?.shifts,
+            activeRestrictions: currentLineOverview?.gaugeMinRestrictions?.filter(
+              (r) => r.status === 'ATIVA',
+            ),
+            user: auth?.user
+              ? { id: auth.user.id, name: auth.user.name, email: auth.user.email }
+              : undefined,
+          })
+          .catch((err) => console.warn('Erro ao auditar restrição mínima:', err))
+      }
+
       toast({
         variant: 'destructive',
         title: 'Movimentação Bloqueada',

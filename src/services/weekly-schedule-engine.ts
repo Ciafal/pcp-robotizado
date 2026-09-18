@@ -26,6 +26,12 @@ import {
 } from '@/types/line-master'
 import { InventoryItem } from '@/types/inventory-projection'
 import { MpProgrammingEngine } from './mp-programming-engine'
+import {
+  gaugeRestrictionEvaluationService,
+  extractContinuousGaugeBlock,
+  calculateContinuousGaugeMetrics,
+} from './gauge-restriction-evaluation'
+import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
 
 /**
  * Utilitário determinístico de manipulação e cálculo de datas/horas
@@ -284,12 +290,14 @@ export const WeeklyScheduleEngine = {
     toIndex: number
     lineOverview: LineOverviewData | null
     lineCode?: string
+    activeGaugeRestrictions?: LineGaugeMinRestriction[]
   }): {
     allowed: boolean
     blockingReason?: string
     warnings: string[]
     infoMessages: string[]
     setupEstimatedMinutes?: number
+    gaugeRestrictionEvaluation?: import('@/types/line-gauge-restriction').GaugeMinRestrictionEvaluation
   } {
     const { items, fromIndex, toIndex, lineOverview, lineCode } = params
     if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
@@ -385,6 +393,49 @@ export const WeeklyScheduleEngine = {
             blockingReason: `Família [${moved.family_code || 'Geral'}] está bloqueada para esta linha conforme Ficha Mestra.`,
             warnings,
             infoMessages,
+          }
+        }
+      }
+
+      // 6. Validação de Restrições Mínimas de Programação por Bitola (Lógica E)
+      // Se houver troca efetiva de bitola com a movimentação, verificar se a bitola que foi encerrada atende a todas as restrições mínimas
+      const restrictions =
+        params.activeGaugeRestrictions ||
+        lineOverview?.gaugeMinRestrictions?.filter((r) => r.status === 'ATIVA') ||
+        []
+
+      if (restrictions.length > 0) {
+        const movedGauge = (moved.dimensions || moved.material_code || '').trim().toUpperCase()
+        const prevGauge = (prevItem?.dimensions || prevItem?.material_code || '')
+          .trim()
+          .toUpperCase()
+
+        // Se o item anterior tem bitola diferente da nova posição OU se mudou a vizinhança provocando corte prematuro de lote
+        if (prevGauge && prevGauge !== movedGauge) {
+          // Avalia se o bloco contínuo da bitola anterior (prevGauge) na sequência simulada atende as restrições
+          const evaluation = gaugeRestrictionEvaluationService.evaluate({
+            lineCode: lineCode || 'L1',
+            currentGauge: prevGauge,
+            nextGauge: movedGauge,
+            items: simulated,
+            shifts: lineOverview?.shifts,
+            activeRestrictions: restrictions,
+          })
+
+          if (!evaluation.allSatisfied) {
+            const pendingDetails = evaluation.evaluations
+              .filter((e) => !e.isSatisfied)
+              .map((e) => `${e.restrictionType}: ${e.deficitFormatted}`)
+              .join(' | ')
+
+            return {
+              allowed: false,
+              blockingReason: `ATENÇÃO — Restrições mínimas de programação por bitola não atendidas. Bitola ${prevGauge}: ${pendingDetails}. ${evaluation.pendingAlertMessage}`,
+              warnings,
+              infoMessages,
+              setupEstimatedMinutes: estSetupMin,
+              gaugeRestrictionEvaluation: evaluation,
+            }
           }
         }
       }

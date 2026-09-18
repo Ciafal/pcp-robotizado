@@ -76,7 +76,8 @@ migrate(
         restriction_type: 'Horas',
         min_value: 8,
         unit_of_measure: 'h',
-        rule_description: 'Manter no mínimo 8 horas consecutivas de produção da mesma bitola antes de permitir troca.',
+        rule_description:
+          'Manter no mínimo 8 horas consecutivas de produção da mesma bitola antes de permitir troca.',
         status: 'ATIVA',
         created_by_name: 'PCP Robotizado',
         has_scheduling_history: false,

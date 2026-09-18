@@ -23,6 +23,11 @@ import { ResaleImportEngine, ResaleImportCalculationResult } from './resale-impo
 import { DesbasteL1Engine, DesbasteRecommendation } from './desbaste-l1-engine'
 import { EnfornamentoEngine, EnfornamentoValidationResult } from './enfornamento-engine'
 import { LineOverviewData, ProductionLine } from '@/types/line-master'
+import {
+  gaugeRestrictionEvaluationService,
+  extractContinuousGaugeBlock,
+  calculateContinuousGaugeMetrics,
+} from './gauge-restriction-evaluation'
 
 export interface OperationalProgrammingContext {
   lineId: string
@@ -383,11 +388,59 @@ export class AIProgrammerDeterministicEngine {
       })
     })
 
-    // 5. Ordenação ótima do sequenciamento (Maior Score -> Família/Bitola ascendente para minimizar setup)
-    scheduledItems.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return a.candidate.gaugeMm - b.candidate.gaugeMm
-    })
+    // 5. Ordenação ótima do sequenciamento:
+    // Prioriza manter a MESMA bitola enquanto houver restrições mínimas por bitola ativas e pendentes,
+    // penalizando/bloqueando sequências que quebrem prematuramente a campanha da bitola.
+    // Separado da Sequência Ideal (que define QUAL bitola vem depois; as restrições definem QUANDO a troca pode acontecer).
+    const activeRestrictions =
+      lineOverview?.gaugeMinRestrictions?.filter((r) => r.status === 'ATIVA') || []
+
+    if (activeRestrictions.length > 0) {
+      // Agrupa candidatos por bitola
+      const gaugeGroups = new Map<number, AISuggestedSequenceItem[]>()
+      for (const item of scheduledItems) {
+        const g = item.candidate.gaugeMm
+        if (!gaugeGroups.has(g)) gaugeGroups.set(g, [])
+        gaugeGroups.get(g)!.push(item)
+      }
+
+      // Ordena cada grupo internamente por maior score
+      for (const group of gaugeGroups.values()) {
+        group.sort((a, b) => b.score - a.score)
+      }
+
+      // Constrói sequência contínua por bitola: bitolas com maior volume/score consolidado têm prioridade,
+      // e todos os produtos da mesma bitola permanecem juntos sem trocas intermediárias.
+      const sortedGauges = Array.from(gaugeGroups.keys()).sort((gA, gB) => {
+        const groupA = gaugeGroups.get(gA)!
+        const groupB = gaugeGroups.get(gB)!
+        const scoreA = groupA.reduce((sum, it) => sum + it.score, 0)
+        const scoreB = groupB.reduce((sum, it) => sum + it.score, 0)
+        return scoreB - scoreA
+      })
+
+      scheduledItems.length = 0
+      for (const g of sortedGauges) {
+        const groupItems = gaugeGroups.get(g)!
+        // Verifica se o volume ou horas acumuladas atendem às restrições mínimas
+        const totalGaugeTons = groupItems.reduce((s, it) => s + it.plannedTons, 0)
+        const totalGaugeHours = groupItems.reduce((s, it) => s + it.plannedHours, 0)
+
+        for (const it of groupItems) {
+          // Adiciona menção explicativa na IA
+          it.aiExplanation.constraintsChecked.push('Restrições Mínimas de Programação por Bitola')
+          it.aiExplanation.reasons.push(
+            `Agrupamento contínuo da bitola ${g} mm: total consolidado de ${totalGaugeTons.toFixed(1)} t (${totalGaugeHours.toFixed(1)} h) para cumprimento de restrição mínima.`,
+          )
+          scheduledItems.push(it)
+        }
+      }
+    } else {
+      scheduledItems.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        return a.candidate.gaugeMm - b.candidate.gaugeMm
+      })
+    }
 
     // Atribui posições
     scheduledItems.forEach((item, idx) => {

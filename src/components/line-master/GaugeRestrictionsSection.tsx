@@ -59,7 +59,16 @@ const RESTRICTION_TYPES: { label: string; value: RestrictionType; defaultUnit: s
 ]
 
 // Unidades produtivas cadastradas no sistema/Centro/Ficha Mestra
-const QUANTITY_UNITS = ['t', 'kg', 'peças', 'metros', 'unidades', 'barras', 'tarugos', 'palanquilhas']
+const QUANTITY_UNITS = [
+  't',
+  'kg',
+  'peças',
+  'metros',
+  'unidades',
+  'barras',
+  'tarugos',
+  'palanquilhas',
+]
 
 interface GaugeRestrictionsSectionProps {
   lineCode: string
@@ -122,7 +131,10 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
     setEditingItem(item)
     setFormType(item.restriction_type || 'Horas')
     setFormMinValue(String(item.min_value ?? ''))
-    setFormUnit(item.unit_of_measure || (item.restriction_type === 'Horas' ? 'h' : item.restriction_type === 'Dias' ? 'dia' : 't'))
+    setFormUnit(
+      item.unit_of_measure ||
+        (item.restriction_type === 'Horas' ? 'h' : item.restriction_type === 'Dias' ? 'dia' : 't'),
+    )
     setFormRule(item.rule_description || '')
     setFormStatus(item.status || 'ATIVA')
     setValidationError(null)
@@ -280,12 +292,17 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
               <Layers className="w-4 h-4 text-[#004C97]" />
               RESTRIÇÕES MÍNIMAS DE PROGRAMAÇÃO POR BITOLA
             </h4>
-            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-blue-50 text-[#004C97] border-blue-200">
-              {restrictions.length} {restrictions.length === 1 ? 'restrição cadastrada' : 'restrições cadastradas'}
+            <Badge
+              variant="outline"
+              className="text-[10px] font-mono font-bold bg-blue-50 text-[#004C97] border-blue-200"
+            >
+              {restrictions.length}{' '}
+              {restrictions.length === 1 ? 'restrição cadastrada' : 'restrições cadastradas'}
             </Badge>
           </div>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Cadastre as condições mínimas que deverão ser atendidas antes da troca de bitola neste Centro.
+            Cadastre as condições mínimas que deverão ser atendidas antes da troca de bitola neste
+            Centro.
           </p>
         </div>
 
@@ -303,13 +320,18 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
 
       {/* Listagem em formato de tabela compacta / identidade CIAFAL */}
       {isLoading ? (
-        <div className="p-6 text-center text-xs text-slate-500">Carregando restrições mínimas...</div>
+        <div className="p-6 text-center text-xs text-slate-500">
+          Carregando restrições mínimas...
+        </div>
       ) : restrictions.length === 0 ? (
         <div className="p-4 bg-slate-50 rounded border border-dashed border-slate-200 text-center space-y-1.5">
           <Info className="w-5 h-5 text-slate-400 mx-auto" />
-          <p className="text-xs font-semibold text-slate-700">Nenhuma restrição mínima cadastrada para este Centro.</p>
+          <p className="text-xs font-semibold text-slate-700">
+            Nenhuma restrição mínima cadastrada para este Centro.
+          </p>
           <p className="text-[11px] text-slate-500">
-            Clique em <strong>+ Criar Restrição Mínima</strong> para cadastrar limites de horas, dias ou quantidade antes da troca de bitola.
+            Clique em <strong>+ Criar Restrição Mínima</strong> para cadastrar limites de horas,
+            dias ou quantidade antes da troca de bitola.
           </p>
         </div>
       ) : (
@@ -345,9 +367,7 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                     <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
                       {item.min_value}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-600">
-                      {item.unit_of_measure}
-                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-600">{item.unit_of_measure}</td>
                     <td className="py-2.5 px-3 text-[11px] max-w-xs break-words">
                       {item.rule_description}
                     </td>
@@ -374,7 +394,10 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="text-xs min-w-[160px] bg-white">
+                          <DropdownMenuContent
+                            align="end"
+                            className="text-xs min-w-[160px] bg-white"
+                          >
                             <DropdownMenuItem
                               onClick={() => handleOpenEditModal(item)}
                               className="gap-2 cursor-pointer font-medium text-slate-700"
@@ -410,7 +433,8 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                                 }}
                                 className="gap-2 cursor-pointer font-medium text-emerald-600 hover:text-emerald-700"
                               >
-                                <Power className="w-3.5 h-3.5 text-emerald-500" /> Reativar Restrição
+                                <Power className="w-3.5 h-3.5 text-emerald-500" /> Reativar
+                                Restrição
                               </DropdownMenuItem>
                             )}
 
@@ -553,7 +577,9 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                   size="sm"
                   onClick={() => setFormStatus('ATIVA')}
                   className={`h-7 text-xs flex-1 ${
-                    formStatus === 'ATIVA' ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold' : ''
+                    formStatus === 'ATIVA'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold'
+                      : ''
                   }`}
                 >
                   ● Ativa
@@ -564,7 +590,9 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
                   size="sm"
                   onClick={() => setFormStatus('INATIVA')}
                   className={`h-7 text-xs flex-1 ${
-                    formStatus === 'INATIVA' ? 'bg-slate-600 hover:bg-slate-700 text-white font-bold' : ''
+                    formStatus === 'INATIVA'
+                      ? 'bg-slate-600 hover:bg-slate-700 text-white font-bold'
+                      : ''
                   }`}
                 >
                   ○ Inativa
@@ -598,7 +626,10 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
       </Dialog>
 
       {/* Diálogo de Confirmação para Inativação */}
-      <AlertDialog open={Boolean(inactivateTarget)} onOpenChange={(open) => !open && setInactivateTarget(null)}>
+      <AlertDialog
+        open={Boolean(inactivateTarget)}
+        onOpenChange={(open) => !open && setInactivateTarget(null)}
+      >
         <AlertDialogContent className="bg-white border-slate-200 max-w-md">
           <AlertDialogHeader>
             <div className="flex items-center gap-2 text-amber-600">
@@ -608,7 +639,8 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
-              A restrição deixará de ser considerada nas novas programações, mas será preservada para histórico e auditoria.
+              A restrição deixará de ser considerada nas novas programações, mas será preservada
+              para histórico e auditoria.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 pt-2">
@@ -627,7 +659,10 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
       </AlertDialog>
 
       {/* Diálogo de Confirmação para Exclusão */}
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent className="bg-white border-slate-200 max-w-md">
           <AlertDialogHeader>
             <div className="flex items-center gap-2 text-rose-600">
@@ -637,8 +672,9 @@ export const GaugeRestrictionsSection: React.FC<GaugeRestrictionsSectionProps> =
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
-              Esta ação removerá permanentemente a restrição cadastrada ({deleteTarget?.min_value} {deleteTarget?.unit_of_measure}).
-              Se houver histórico de utilização em programações, a exclusão será bloqueada.
+              Esta ação removerá permanentemente a restrição cadastrada ({deleteTarget?.min_value}{' '}
+              {deleteTarget?.unit_of_measure}). Se houver histórico de utilização em programações, a
+              exclusão será bloqueada.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 pt-2">

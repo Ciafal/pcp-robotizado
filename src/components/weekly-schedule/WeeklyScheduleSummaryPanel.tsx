@@ -18,17 +18,22 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { WeeklyScheduleSummary } from '@/types/weekly-schedule'
 
+import { GaugeRestrictionsPanel } from './GaugeRestrictionsPanel'
+import { GaugeMinRestrictionEvaluation } from '@/types/line-gauge-restriction'
+
 interface WeeklyScheduleSummaryPanelProps {
   summary: WeeklyScheduleSummary
   lineCode: string
   periodDisplay: string
   onRefresh?: () => void
+  gaugeRestrictionEvaluation?: GaugeMinRestrictionEvaluation | null
 }
 
 export function WeeklyScheduleSummaryPanel({
   summary,
   lineCode,
   periodDisplay,
+  gaugeRestrictionEvaluation,
 }: WeeklyScheduleSummaryPanelProps) {
   const [activeTab, setActiveTab] = useState<
     'TARUGOS' | 'COMPRAS_SAP' | 'CAPACIDADE' | 'PRODUCAO' | 'CARTEIRA'
@@ -94,6 +99,13 @@ export function WeeklyScheduleSummaryPanel({
       </CardHeader>
 
       <CardContent className="p-4 text-xs">
+        {/* Bloco de Restrições Mínimas de Bitola se existir avaliação */}
+        {gaugeRestrictionEvaluation && gaugeRestrictionEvaluation.activeRestrictionsCount > 0 && (
+          <div className="mb-4">
+            <GaugeRestrictionsPanel evaluation={gaugeRestrictionEvaluation} />
+          </div>
+        )}
+
         {/* ABA 1: TARUGOS (VISÃO AGRUPADA POR AÇO E SEÇÃO) */}
         {activeTab === 'TARUGOS' && (
           <div className="space-y-4">

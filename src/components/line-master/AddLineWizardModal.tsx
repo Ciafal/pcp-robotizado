@@ -640,7 +640,8 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       }
 
       // 9. Gravar Auditoria
-      await lineMasterService.recordAuditVersion({        line_id: createdLine.id,
+      await lineMasterService.recordAuditVersion({
+        line_id: createdLine.id,
         line_master_id: createdMaster.id,
         version: 1,
         action: 'CREATE',
