@@ -260,6 +260,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         materialCode: selectedMaterial.material_code,
         gaugeDimension: selectedMaterial.dimension_spec,
         enfornamentoType,
+        targetDate: new Date(),
       }).then((match) => {
         setProductivityMatch(match)
       })

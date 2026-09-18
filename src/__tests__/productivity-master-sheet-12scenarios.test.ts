@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import { EnfornamentoLaminacaoEngine } from '@/services/enfornamento-laminacao-engine'
 import { lineMasterService } from '@/services/line-master'
 import { LineOverviewData, LineProductivityRate } from '@/types/line-master'
 import pb from '@/lib/pocketbase/client'
 
 describe('Suíte de Aceite — 12 Cenários Obrigatórios de Produtividade na Ficha Mestre Expandida', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
   const baseOverview: LineOverviewData = {
     line: {
       id: 'line_l1',
@@ -250,25 +254,55 @@ describe('Suíte de Aceite — 12 Cenários Obrigatórios de Produtividade na Fi
   describe('T8 — Editar Ativo -> Inativo reflete no registro e na tabela', () => {
     it('permite alternar status de Ativo para Inativo preservando dados do registro', async () => {
       const prodId = 'prod_toggle_status'
-      const mockInactivated: LineProductivityRate = {
+      const mockExisting: LineProductivityRate = {
         id: prodId,
         line_id: 'line_l1',
         material_product_code: 'BARRA-1/2',
+        material_product_name: 'Barra Redonda 1/2',
+        raw_material_type: 'TARUGO_130X130',
+        enfornamento_type: 'NORMAL',
+        productivity_unit: 't/h',
+        valid_from: '2026-01-01',
+        valid_until: null,
+        active: true,
+      } as any
+
+      const mockInactivated: LineProductivityRate = {
+        ...mockExisting,
         active: false,
       } as any
 
+      vi.spyOn(pb.collection('line_productivity_rates'), 'getOne').mockResolvedValueOnce(
+        mockExisting as any,
+      )
       vi.spyOn(pb.collection('line_productivity_rates'), 'update').mockResolvedValueOnce(
         mockInactivated as any,
       )
+      const auditSpy = vi
+        .spyOn(pb.collection('pcp_audit_logs'), 'create')
+        .mockResolvedValueOnce({} as any)
 
       const result = await lineMasterService.setProductivityActive(prodId, false)
       expect(result.active).toBe(false)
+      expect(auditSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DEACTIVATE_LINE_PRODUCTIVITY',
+          resource: 'line_productivity_rates',
+          resource_id: prodId,
+          details: expect.objectContaining({
+            operation_type: 'EDIÇÃO',
+            status: 'Inativo',
+            before_values: expect.objectContaining({ active: true, status: 'Ativo' }),
+            after_values: expect.objectContaining({ active: false, status: 'Inativo' }),
+          }),
+        }),
+      )
     })
   })
 
   // T9: Registro Inativo permanece visível para histórico mas não é usado em novas programações
   describe('T9 — Registro Inativo não é usado em novas programações do PCP Robotizado', () => {
-    it('ignora registros com active=false no motor de resolução de produtividade', () => {
+    it('ignora registros com active=false no motor de resolução de produtividade (WeeklyScheduleEngine)', () => {
       const overviewWithInactiveProd: LineOverviewData = {
         ...baseOverview,
         productivity: [
@@ -298,6 +332,36 @@ describe('Suíte de Aceite — 12 Cenários Obrigatórios de Produtividade na Fi
       // Não deve pegar o P1 inativo de 18 t/h; cai no fallback da linha (12 t/h)
       expect(res.level).not.toBe('P1')
       expect(res.rateTh).not.toBe(18.0)
+    })
+
+    it('ignora registros com active=false e vigência expirada no motor EnfornamentoLaminacaoEngine', async () => {
+      vi.spyOn(pb.collection('line_bottleneck_matrix'), 'getFullList').mockResolvedValueOnce([])
+
+      const overviewWithInactiveAndExpired: LineOverviewData = {
+        ...baseOverview,
+        productivity: [
+          {
+            id: 'prod_inativa_enf',
+            line_id: 'line_l1',
+            material_product_code: 'BARRA-1/2',
+            nominal_productivity: 20.0,
+            valid_from: '2026-01-01',
+            valid_until: '2026-04-01',
+            active: false, // INATIVO
+          } as any,
+        ],
+      }
+
+      const match = await EnfornamentoLaminacaoEngine.resolveActiveProductivity({
+        lineCode: 'L1',
+        lineOverview: overviewWithInactiveAndExpired,
+        materialCode: 'BARRA-1/2',
+        enfornamentoType: 'NORMAL',
+        targetDate: '2026-05-15',
+      })
+
+      // Deve ignorar o registro inativo e retornar capacidade nominal da Ficha Mestre como fallback ou null
+      expect(match?.source).not.toBe('PRODUCTIVITY_RATES')
     })
   })
 
@@ -335,59 +399,75 @@ describe('Suíte de Aceite — 12 Cenários Obrigatórios de Produtividade na Fi
 
   // T11: Logs possuem antes/depois da edição
   describe('T11 — Logs de Auditoria possuem antes/depois da edição', () => {
-    it('registra evento de auditoria com detalhes de antes, depois e campos alterados', async () => {
+    it('garante que saveProductivity gera registro em pcp_audit_logs com antes e depois completo', async () => {
+      const existingId = 'prod_audit_test_id'
+      const previous = {
+        id: existingId,
+        line_id: 'line_l1',
+        product_family_id: 'fam_tubos',
+        material_product_code: 'TQ-50x50',
+        material_product_name: 'Tubo 50x50 Antigo',
+        raw_material_type: 'TARUGO_130X130',
+        enfornamento_type: 'NORMAL',
+        productivity_unit: 't/h',
+        valid_from: '2026-01-01',
+        valid_until: null,
+        active: true,
+      } as any
+
+      const updated = {
+        ...previous,
+        material_product_name: 'Tubo 50x50 Novo',
+        raw_material_type: 'TARUGO_150X150',
+        enfornamento_type: 'QUENTE',
+        active: false,
+      }
+
+      vi.spyOn(pb.collection('line_productivity_rates'), 'getOne').mockResolvedValueOnce(previous)
+      vi.spyOn(pb.collection('line_productivity_rates'), 'update').mockResolvedValueOnce(updated)
       const auditCreateSpy = vi
         .spyOn(pb.collection('pcp_audit_logs'), 'create')
-        .mockResolvedValueOnce({ id: 'audit_log_1' } as any)
+        .mockResolvedValueOnce({ id: 'audit_ok' } as any)
 
-      const beforeValues = {
-        family: 'fam_perfis',
-        material_code: 'PERFIL-U',
-        material_name: 'Perfil U',
-        raw_material_type: 'TARUGO_130X130',
-        enfornamento_type: 'NORMAL',
-        unit: 't/h',
+      await lineMasterService.saveProductivity({
+        id: existingId,
+        line_id: 'line_l1',
+        product_family_id: 'fam_tubos',
+        material_product_code: 'TQ-50x50',
+        material_product_name: 'Tubo 50x50 Novo',
+        raw_material_type: 'TARUGO_150X150',
+        enfornamento_type: 'QUENTE',
+        productivity_unit: 't/h',
         valid_from: '2026-01-01',
-        valid_until: null,
-        status: 'Ativo',
-      }
-
-      const afterValues = {
-        family: 'fam_perfis',
-        material_code: 'PERFIL-U',
-        material_name: 'Perfil U',
-        raw_material_type: 'TARUGO_130X130',
-        enfornamento_type: 'NORMAL',
-        unit: 't/h',
-        valid_from: '2026-01-01',
-        valid_until: null,
-        status: 'Inativo',
-      }
-
-      await pb.collection('pcp_audit_logs').create({
-        event_type: 'SCHEDULE_ACTION',
-        action: 'LINE_PRODUCTIVITY_UPDATE',
-        resource: 'line_productivity_rates',
-        resource_id: 'prod_123',
-        status: 'Inativo',
-        details: {
-          line_code: 'L1',
-          operation_type: 'EDIÇÃO',
-          before_values: beforeValues,
-          after_values: afterValues,
-          diff_descriptions: ['Campo alterado: Status — Antes: Ativo — Depois: Inativo'],
-        },
-      } as any)
+        active: false,
+      })
 
       expect(auditCreateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'LINE_PRODUCTIVITY_UPDATE',
+          action: 'UPDATE_LINE_PRODUCTIVITY',
+          resource: 'line_productivity_rates',
+          resource_id: existingId,
           details: expect.objectContaining({
             operation_type: 'EDIÇÃO',
-            before_values: expect.objectContaining({ status: 'Ativo' }),
-            after_values: expect.objectContaining({ status: 'Inativo' }),
+            before_values: expect.objectContaining({
+              material_product_name: 'Tubo 50x50 Antigo',
+              raw_material_type: 'TARUGO_130X130',
+              enfornamento_type: 'NORMAL',
+              active: true,
+              status: 'Ativo',
+            }),
+            after_values: expect.objectContaining({
+              material_product_name: 'Tubo 50x50 Novo',
+              raw_material_type: 'TARUGO_150X150',
+              enfornamento_type: 'QUENTE',
+              active: false,
+              status: 'Inativo',
+            }),
             diff_descriptions: expect.arrayContaining([
-              'Campo alterado: Status — Antes: Ativo — Depois: Inativo',
+              expect.stringContaining('Descrição'),
+              expect.stringContaining('Tipo de MP'),
+              expect.stringContaining('Tipo de Enfornamento'),
+              expect.stringContaining('Status'),
             ]),
           }),
         }),

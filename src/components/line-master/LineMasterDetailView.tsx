@@ -676,14 +676,19 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       // Detalhes descritivos por campo alterado conforme exigência de auditoria
       const diffDescriptions: string[] = []
       if (isEditing && beforeValues) {
-        if (beforeValues.status !== afterValues.status) {
+        if (beforeValues.family !== afterValues.family) {
           diffDescriptions.push(
-            `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status}`,
+            `Campo alterado: Família — Antes: ${beforeValues.family || '-'} — Depois: ${afterValues.family || '-'}`,
           )
         }
         if (beforeValues.material_code !== afterValues.material_code) {
           diffDescriptions.push(
             `Campo alterado: Material — Antes: ${beforeValues.material_code} — Depois: ${afterValues.material_code}`,
+          )
+        }
+        if (beforeValues.material_name !== afterValues.material_name) {
+          diffDescriptions.push(
+            `Campo alterado: Descrição — Antes: ${beforeValues.material_name} — Depois: ${afterValues.material_name}`,
           )
         }
         if (beforeValues.raw_material_type !== afterValues.raw_material_type) {
@@ -707,6 +712,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         ) {
           diffDescriptions.push(
             `Campo alterado: Vigência — Antes: ${beforeValues.valid_from || ''} até ${beforeValues.valid_until || 'indeterminada'} — Depois: ${afterValues.valid_from} até ${afterValues.valid_until || 'indeterminada'}`,
+          )
+        }
+        if (beforeValues.status !== afterValues.status) {
+          diffDescriptions.push(
+            `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status}`,
           )
         }
       }

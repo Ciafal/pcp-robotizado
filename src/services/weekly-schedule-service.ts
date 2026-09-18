@@ -352,20 +352,22 @@ export const weeklyScheduleService = {
     const overview = lineOverview || (await lineMasterService.getLineOverview(lineId))
     const list: OfficialMaterialOption[] = []
 
-    // 1. Materiais cadastrados na Ficha Mestre com taxas de produtividade
+    // 1. Materiais cadastrados na Ficha Mestre com taxas de produtividade (somente registros ATIVOS para nova programação)
     if (overview.productivity && overview.productivity.length > 0) {
-      overview.productivity.forEach((p) => {
-        list.push({
-          material_code: p.material_product_code,
-          material_name: p.material_product_name || p.material_product_code,
-          family_code: p.expand?.product_family_id?.code || 'GERAL',
-          family_name: p.expand?.product_family_id?.name || 'Geral',
-          dimension_spec: p.dimension_spec || '50x50 mm #2.00',
-          steel_grade: 'SAE 1020',
-          productivity_th: p.planned_productivity || p.nominal_productivity || 12.0,
-          default_order_type: 'MTS',
+      overview.productivity
+        .filter((p) => p.active !== false)
+        .forEach((p) => {
+          list.push({
+            material_code: p.material_product_code,
+            material_name: p.material_product_name || p.material_product_code,
+            family_code: p.expand?.product_family_id?.code || 'GERAL',
+            family_name: p.expand?.product_family_id?.name || 'Geral',
+            dimension_spec: p.dimension_spec || '50x50 mm #2.00',
+            steel_grade: 'SAE 1020',
+            productivity_th: p.planned_productivity || p.nominal_productivity || 12.0,
+            default_order_type: 'MTS',
+          })
         })
-      })
     }
 
     // 2. Materiais cadastrados em prioridades de matéria-prima ou produtos da linha

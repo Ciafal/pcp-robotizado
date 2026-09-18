@@ -74,12 +74,24 @@ export class EnfornamentoLaminacaoEngine {
     materialCode: string
     gaugeDimension?: string
     enfornamentoType: EnfornamentoType
+    targetDate?: Date | string
   }): Promise<EnfornamentoProductivityMatch | null> {
-    const { lineCode, lineOverview, materialCode, gaugeDimension = '', enfornamentoType } = params
+    const {
+      lineCode,
+      lineOverview,
+      materialCode,
+      gaugeDimension = '',
+      enfornamentoType,
+      targetDate,
+    } = params
     const cleanLine = lineCode.trim().toUpperCase()
     const cleanMat = (materialCode || '').trim().toUpperCase()
     const cleanGauge = (gaugeDimension || '').trim().toUpperCase()
     const multiplier = this.getEnfornamentoMultiplier(enfornamentoType)
+
+    const targetDateStr = targetDate
+      ? (targetDate instanceof Date ? targetDate.toISOString() : String(targetDate)).slice(0, 10)
+      : null
 
     // 1. Tenta buscar na line_bottleneck_matrix (se houver curva térmica combinada)
     try {
@@ -88,8 +100,14 @@ export class EnfornamentoLaminacaoEngine {
       })
 
       if (records && records.length > 0) {
-        // Encontra registro que case com a bitola ou material
+        // Encontra registro que case com a bitola ou material e vigência
         const matched = records.find((r: any) => {
+          if (targetDateStr) {
+            const fromStr = r.valid_from ? String(r.valid_from).slice(0, 10) : ''
+            const untilStr = r.valid_until ? String(r.valid_until).slice(0, 10) : ''
+            if (fromStr && fromStr > targetDateStr) return false
+            if (untilStr && untilStr < targetDateStr) return false
+          }
           const rGauge = (r.gauge_dimension || '').toUpperCase()
           const rMat = (r.material_code || '').toUpperCase()
           const rCurve = (r.thermal_curve_type || '').toUpperCase()
@@ -126,15 +144,23 @@ export class EnfornamentoLaminacaoEngine {
       console.warn('Erro ao consultar line_bottleneck_matrix:', err)
     }
 
-    // 2. Busca na Ficha Mestra local (line_productivity_rates — somente registros ATIVOS)
+    // 2. Busca na Ficha Mestra local (line_productivity_rates — somente registros ATIVOS e VIGENTES)
     if (lineOverview?.productivity && lineOverview.productivity.length > 0) {
-      const prod = lineOverview.productivity.find(
+      const activeAndValidList = lineOverview.productivity.filter((p) => {
+        if (p.active === false) return false
+        if (targetDateStr) {
+          const fromStr = p.valid_from ? String(p.valid_from).slice(0, 10) : ''
+          const untilStr = p.valid_until ? String(p.valid_until).slice(0, 10) : ''
+          if (fromStr && fromStr > targetDateStr) return false
+          if (untilStr && untilStr < targetDateStr) return false
+        }
+        return true
+      })
+
+      const prod = activeAndValidList.find(
         (p) =>
-          p.active !== false &&
-          (p.material_product_code.toUpperCase() === cleanMat ||
-            (p.dimension_spec &&
-              cleanGauge &&
-              p.dimension_spec.toUpperCase().includes(cleanGauge))),
+          p.material_product_code.toUpperCase() === cleanMat ||
+          (p.dimension_spec && cleanGauge && p.dimension_spec.toUpperCase().includes(cleanGauge)),
       )
       if (prod) {
         const nominalOrPlanned =

@@ -1148,19 +1148,29 @@ export const lineMasterService = {
     const auditAction = data.id ? 'UPDATE_LINE_PRODUCTIVITY' : 'CREATE_LINE_PRODUCTIVITY'
     const changedFields: string[] = []
     if (previousRecord) {
-      if (previousRecord.active !== saved.active) {
+      if (previousRecord.product_family_id !== saved.product_family_id) {
         changedFields.push(
-          `Status — Antes: ${previousRecord.active ? 'Ativo' : 'Inativo'} — Depois: ${saved.active ? 'Ativo' : 'Inativo'}`,
+          `Família — Antes: ${previousRecord.product_family_id || '-'} — Depois: ${saved.product_family_id || '-'}`,
+        )
+      }
+      if (previousRecord.material_product_code !== saved.material_product_code) {
+        changedFields.push(
+          `Material — Antes: ${previousRecord.material_product_code || '-'} — Depois: ${saved.material_product_code || '-'}`,
+        )
+      }
+      if (previousRecord.material_product_name !== saved.material_product_name) {
+        changedFields.push(
+          `Descrição — Antes: ${previousRecord.material_product_name || '-'} — Depois: ${saved.material_product_name || '-'}`,
         )
       }
       if (previousRecord.raw_material_type !== saved.raw_material_type) {
         changedFields.push(
-          `Tipo MP — Antes: ${previousRecord.raw_material_type || '-'} — Depois: ${saved.raw_material_type || '-'}`,
+          `Tipo de MP — Antes: ${previousRecord.raw_material_type || '-'} — Depois: ${saved.raw_material_type || '-'}`,
         )
       }
       if (previousRecord.enfornamento_type !== saved.enfornamento_type) {
         changedFields.push(
-          `Tipo Enfornamento — Antes: ${previousRecord.enfornamento_type || '-'} — Depois: ${saved.enfornamento_type || '-'}`,
+          `Tipo de Enfornamento — Antes: ${previousRecord.enfornamento_type || '-'} — Depois: ${saved.enfornamento_type || '-'}`,
         )
       }
       if (previousRecord.productivity_unit !== saved.productivity_unit) {
@@ -1173,17 +1183,45 @@ export const lineMasterService = {
         previousRecord.valid_until !== saved.valid_until
       ) {
         changedFields.push(
-          `Vigência — Antes: ${previousRecord.valid_from} até ${previousRecord.valid_until || 'indeterminada'} — Depois: ${saved.valid_from} até ${saved.valid_until || 'indeterminada'}`,
+          `Vigência — Antes: ${previousRecord.valid_from || ''} até ${previousRecord.valid_until || 'indeterminada'} — Depois: ${saved.valid_from || ''} até ${saved.valid_until || 'indeterminada'}`,
         )
       }
-      if (previousRecord.material_product_name !== saved.material_product_name) {
+      if (previousRecord.active !== saved.active) {
         changedFields.push(
-          `Descrição Material — Antes: ${previousRecord.material_product_name} — Depois: ${saved.material_product_name}`,
+          `Status — Antes: ${previousRecord.active ? 'Ativo' : 'Inativo'} — Depois: ${saved.active ? 'Ativo' : 'Inativo'}`,
         )
       }
     }
 
     try {
+      const beforeValues = previousRecord
+        ? {
+            product_family_id: previousRecord.product_family_id || null,
+            material_product_code: previousRecord.material_product_code,
+            material_product_name: previousRecord.material_product_name,
+            raw_material_type: previousRecord.raw_material_type,
+            enfornamento_type: previousRecord.enfornamento_type,
+            productivity_unit: previousRecord.productivity_unit,
+            valid_from: previousRecord.valid_from,
+            valid_until: previousRecord.valid_until || null,
+            active: previousRecord.active,
+            status: previousRecord.active ? 'Ativo' : 'Inativo',
+          }
+        : null
+
+      const afterValues = {
+        product_family_id: saved.product_family_id || null,
+        material_product_code: saved.material_product_code,
+        material_product_name: saved.material_product_name,
+        raw_material_type: saved.raw_material_type,
+        enfornamento_type: saved.enfornamento_type,
+        productivity_unit: saved.productivity_unit,
+        valid_from: saved.valid_from,
+        valid_until: saved.valid_until || null,
+        active: saved.active,
+        status: saved.active ? 'Ativo' : 'Inativo',
+      }
+
       await pb.collection('pcp_audit_logs').create({
         user_id: currentUser?.id || null,
         user_email: currentUser?.email || '',
@@ -1210,30 +1248,13 @@ export const lineMasterService = {
           status: saved.active ? 'Ativo' : 'Inativo',
           active: saved.active,
           nominal_productivity: saved.nominal_productivity ?? null,
-          previous_value: previousRecord
-            ? {
-                material_product_code: previousRecord.material_product_code,
-                material_product_name: previousRecord.material_product_name,
-                raw_material_type: previousRecord.raw_material_type,
-                enfornamento_type: previousRecord.enfornamento_type,
-                productivity_unit: previousRecord.productivity_unit,
-                valid_from: previousRecord.valid_from,
-                valid_until: previousRecord.valid_until || null,
-                active: previousRecord.active,
-                status: previousRecord.active ? 'Ativo' : 'Inativo',
-              }
-            : null,
-          new_value: {
-            material_product_code: saved.material_product_code,
-            material_product_name: saved.material_product_name,
-            raw_material_type: saved.raw_material_type,
-            enfornamento_type: saved.enfornamento_type,
-            productivity_unit: saved.productivity_unit,
-            valid_from: saved.valid_from,
-            valid_until: saved.valid_until || null,
-            active: saved.active,
-            status: saved.active ? 'Ativo' : 'Inativo',
-          },
+          user: currentUser?.name || currentUser?.email || 'Usuário PCP',
+          timestamp: new Date().toISOString(),
+          before_values: beforeValues,
+          after_values: afterValues,
+          previous_value: beforeValues,
+          new_value: afterValues,
+          diff_descriptions: changedFields,
           changed_summary:
             changedFields.length > 0
               ? changedFields.join(' | ')
@@ -1241,7 +1262,6 @@ export const lineMasterService = {
                 ? 'Edição sem alteração de valores'
                 : 'Criação de taxa de produtividade',
           action: auditAction,
-          timestamp: new Date().toISOString(),
         },
       })
     } catch (auditErr) {
@@ -1450,6 +1470,36 @@ export const lineMasterService = {
     const currentUser = pb.authStore.record
     const auditAction = active ? 'ACTIVATE_LINE_PRODUCTIVITY' : 'DEACTIVATE_LINE_PRODUCTIVITY'
     try {
+      const beforeValues = previousRecord
+        ? {
+            product_family_id: previousRecord.product_family_id || null,
+            material_product_code: previousRecord.material_product_code,
+            material_product_name: previousRecord.material_product_name,
+            raw_material_type: previousRecord.raw_material_type,
+            enfornamento_type: previousRecord.enfornamento_type,
+            productivity_unit: previousRecord.productivity_unit,
+            valid_from: previousRecord.valid_from,
+            valid_until: previousRecord.valid_until || null,
+            active: previousRecord.active,
+            status: previousRecord.active ? 'Ativo' : 'Inativo',
+          }
+        : null
+
+      const afterValues = {
+        product_family_id: updated.product_family_id || null,
+        material_product_code: updated.material_product_code,
+        material_product_name: updated.material_product_name,
+        raw_material_type: updated.raw_material_type,
+        enfornamento_type: updated.enfornamento_type,
+        productivity_unit: updated.productivity_unit,
+        valid_from: updated.valid_from,
+        valid_until: updated.valid_until || null,
+        active: updated.active,
+        status: updated.active ? 'Ativo' : 'Inativo',
+      }
+
+      const diffMsg = `Campo alterado: Status — Antes: ${previousRecord?.active ? 'Ativo' : 'Inativo'} — Depois: ${updated.active ? 'Ativo' : 'Inativo'}`
+
       await pb.collection('pcp_audit_logs').create({
         user_id: currentUser?.id || null,
         user_email: currentUser?.email || '',
@@ -1475,19 +1525,15 @@ export const lineMasterService = {
           valid_until: updated.valid_until || null,
           status: updated.active ? 'Ativo' : 'Inativo',
           active: updated.active,
-          previous_value: previousRecord
-            ? {
-                active: previousRecord.active,
-                status: previousRecord.active ? 'Ativo' : 'Inativo',
-              }
-            : null,
-          new_value: {
-            active: updated.active,
-            status: updated.active ? 'Ativo' : 'Inativo',
-          },
-          changed_summary: `Campo alterado: Status — Antes: ${previousRecord?.active ? 'Ativo' : 'Inativo'} — Depois: ${updated.active ? 'Ativo' : 'Inativo'} — Usuário: ${currentUser?.name || currentUser?.email || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`,
-          action: auditAction,
+          user: currentUser?.name || currentUser?.email || 'Usuário PCP',
           timestamp: new Date().toISOString(),
+          before_values: beforeValues,
+          after_values: afterValues,
+          previous_value: beforeValues,
+          new_value: afterValues,
+          diff_descriptions: [diffMsg],
+          changed_summary: `${diffMsg} — Usuário: ${currentUser?.name || currentUser?.email || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`,
+          action: auditAction,
         },
       })
     } catch (auditErr) {
