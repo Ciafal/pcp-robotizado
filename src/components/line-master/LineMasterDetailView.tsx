@@ -612,11 +612,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       // Prod. Nominal preservada do registro existente se for edição, ou da fonte padrão se for novo
       const existingNominal = isEditing
         ? (editingProductivity?.nominal_productivity ?? (line.nominal_capacity || 12.0))
-        : (line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0))
+        : line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0)
 
       const existingEfficiency = isEditing
         ? (editingProductivity?.expected_efficiency_pct ?? (line.efficiency || 90))
-        : (line.efficiency || 90)
+        : line.efficiency || 90
 
       const saved = await lineMasterService.saveProductivity({
         id: targetId,
@@ -641,17 +641,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       const operationType = isEditing ? 'EDIÇÃO' : 'CRIAÇÃO'
       const auditAction = isEditing ? 'LINE_PRODUCTIVITY_UPDATE' : 'LINE_PRODUCTIVITY_CREATE'
 
-      const beforeValues = isEditing && editingProductivity ? {
-        family: editingProductivity.product_family_id || '',
-        material_code: editingProductivity.material_product_code,
-        material_name: editingProductivity.material_product_name,
-        raw_material_type: editingProductivity.raw_material_type,
-        enfornamento_type: editingProductivity.enfornamento_type,
-        unit: editingProductivity.productivity_unit,
-        valid_from: editingProductivity.valid_from,
-        valid_until: editingProductivity.valid_until,
-        status: editingProductivity.active !== false ? 'Ativo' : 'Inativo',
-      } : null
+      const beforeValues =
+        isEditing && editingProductivity
+          ? {
+              family: editingProductivity.product_family_id || '',
+              material_code: editingProductivity.material_product_code,
+              material_name: editingProductivity.material_product_name,
+              raw_material_type: editingProductivity.raw_material_type,
+              enfornamento_type: editingProductivity.enfornamento_type,
+              unit: editingProductivity.productivity_unit,
+              valid_from: editingProductivity.valid_from,
+              valid_until: editingProductivity.valid_until,
+              status: editingProductivity.active !== false ? 'Ativo' : 'Inativo',
+            }
+          : null
 
       const afterValues = {
         family: prodFamilyId,
@@ -669,22 +672,37 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       const diffDescriptions: string[] = []
       if (isEditing && beforeValues) {
         if (beforeValues.status !== afterValues.status) {
-          diffDescriptions.push(`Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status} — Usuário: ${(currentUser as any)?.name || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`)
+          diffDescriptions.push(
+            `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status} — Usuário: ${(currentUser as any)?.name || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`,
+          )
         }
         if (beforeValues.material_code !== afterValues.material_code) {
-          diffDescriptions.push(`Campo alterado: Material — Antes: ${beforeValues.material_code} — Depois: ${afterValues.material_code}`)
+          diffDescriptions.push(
+            `Campo alterado: Material — Antes: ${beforeValues.material_code} — Depois: ${afterValues.material_code}`,
+          )
         }
         if (beforeValues.raw_material_type !== afterValues.raw_material_type) {
-          diffDescriptions.push(`Campo alterado: Tipo MP — Antes: ${beforeValues.raw_material_type} — Depois: ${afterValues.raw_material_type}`)
+          diffDescriptions.push(
+            `Campo alterado: Tipo MP — Antes: ${beforeValues.raw_material_type} — Depois: ${afterValues.raw_material_type}`,
+          )
         }
         if (beforeValues.enfornamento_type !== afterValues.enfornamento_type) {
-          diffDescriptions.push(`Campo alterado: Enfornamento — Antes: ${beforeValues.enfornamento_type} — Depois: ${afterValues.enfornamento_type}`)
+          diffDescriptions.push(
+            `Campo alterado: Enfornamento — Antes: ${beforeValues.enfornamento_type} — Depois: ${afterValues.enfornamento_type}`,
+          )
         }
         if (beforeValues.unit !== afterValues.unit) {
-          diffDescriptions.push(`Campo alterado: Unidade — Antes: ${beforeValues.unit} — Depois: ${afterValues.unit}`)
+          diffDescriptions.push(
+            `Campo alterado: Unidade — Antes: ${beforeValues.unit} — Depois: ${afterValues.unit}`,
+          )
         }
-        if (beforeValues.valid_from !== afterValues.valid_from || beforeValues.valid_until !== afterValues.valid_until) {
-          diffDescriptions.push(`Campo alterado: Vigência — Antes: ${beforeValues.valid_from || ''} até ${beforeValues.valid_until || 'indeterminada'} — Depois: ${afterValues.valid_from} até ${afterValues.valid_until || 'indeterminada'}`)
+        if (
+          beforeValues.valid_from !== afterValues.valid_from ||
+          beforeValues.valid_until !== afterValues.valid_until
+        ) {
+          diffDescriptions.push(
+            `Campo alterado: Vigência — Antes: ${beforeValues.valid_from || ''} até ${beforeValues.valid_until || 'indeterminada'} — Depois: ${afterValues.valid_from} até ${afterValues.valid_until || 'indeterminada'}`,
+          )
         }
       }
 
@@ -2438,7 +2456,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => setIsProdModalOpen(true)}
+                  onClick={handleOpenAddProductivity}
                   className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Cadastrar Produtividade
@@ -2455,13 +2473,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5">Enfornamento</th>
                         <th className="p-2.5">Unidade</th>
                         <th className="p-2.5">Prod. Nominal</th>
-                        <th className="p-2.5">Prod. Planejada</th>
                         <th className="p-2.5">Eficiência</th>
                         <th className="p-2.5">Vigência</th>
+                        <th className="p-2.5 text-center">Status</th>
+                        <th className="p-2.5 text-right">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {productivity.map((p) => {
+                        const isItemActive = p.active !== false
                         const vigenciaLabel = p.valid_from
                           ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
                               p.valid_until
@@ -2489,16 +2509,34 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               {p.productivity_unit}
                             </td>
                             <td className="p-2.5 font-mono font-bold text-slate-900">
-                              {p.nominal_productivity}
-                            </td>
-                            <td className="p-2.5 font-mono text-slate-700">
-                              {p.planned_productivity}
+                              {p.nominal_productivity ?? '-'}
                             </td>
                             <td className="p-2.5 font-mono text-emerald-600 font-bold">
-                              {p.expected_efficiency_pct}%
+                              {p.expected_efficiency_pct ? `${p.expected_efficiency_pct}%` : '—'}
                             </td>
                             <td className="p-2.5 text-slate-500 font-mono text-[11px]">
                               {vigenciaLabel}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              {isItemActive ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                                  Ativo
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px]">
+                                  Inativo
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditProductivity(p)}
+                                className="h-6 px-2 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50"
+                              >
+                                Editar
+                              </Button>
                             </td>
                           </tr>
                         )
@@ -3087,54 +3125,86 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           <DialogHeader>
             <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-[#004C97]" />
-              Cadastrar / Editar Produtividade
+              {editingProductivity ? 'Editar Produtividade' : 'Cadastrar Produtividade'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">
-                  Código do Produto / Material *
-                </Label>
-                <Input
-                  placeholder="Ex: TQ-50x50x2.0"
-                  value={prodMaterialCode}
-                  onChange={(e) => setProdMaterialCode(e.target.value)}
-                  className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus-visible:ring-[#004C97]"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Família de Produtos</Label>
-                <select
-                  value={prodFamilyId}
-                  onChange={(e) => setProdFamilyId(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
-                >
-                  <option value="">Selecione a família...</option>
-                  {productFamilies.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.code} - {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* 1. FAMÍLIA DE PRODUTOS * (primeiro campo obrigatório) */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-700 font-medium">1. Família de Produtos *</Label>
+              <select
+                value={prodFamilyId}
+                onChange={(e) => {
+                  const newFamId = e.target.value
+                  setProdFamilyId(newFamId)
+                  // Ao mudar família, limpa material se não for edição mantendo código
+                  if (!editingProductivity) {
+                    setProdMaterialCode('')
+                    setProdMaterialName('')
+                  }
+                }}
+                className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
+              >
+                <option value="">Selecione a família...</option>
+                {productFamilies.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.code} - {f.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
+            {/* 2. CÓDIGO DO PRODUTO / MATERIAL * (habilita somente após selecionar a Família) */}
             <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-medium">Descrição do Material *</Label>
+              <Label className="text-xs text-slate-700 font-medium">
+                2. Código do Produto / Material *
+              </Label>
+              {!prodFamilyId ? (
+                <div className="p-2.5 rounded bg-slate-50 border border-dashed border-slate-300 text-slate-500 text-xs italic text-center">
+                  Selecione primeiro a Família de Produtos para liberar a busca de materiais
+                  compatíveis do SAP.
+                </div>
+              ) : (
+                <MaterialSelector
+                  value={prodMaterialCode}
+                  lineId={line.id}
+                  familyFilter={
+                    productFamilies.find((f) => f.id === prodFamilyId)?.code ||
+                    productFamilies.find((f) => f.id === prodFamilyId)?.name ||
+                    prodFamilyId
+                  }
+                  onChange={(code, mat) => {
+                    setProdMaterialCode(code)
+                    if (mat && mat.name) {
+                      setProdMaterialName(mat.name)
+                    }
+                  }}
+                  placeholder="Pesquise por código SAP ou descrição oficial..."
+                />
+              )}
+            </div>
+
+            {/* 3. DESCRIÇÃO DO MATERIAL * (preenchimento automático pelo SAP, editável se necessário) */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-700 font-medium">
+                3. Descrição do Material *
+              </Label>
               <Input
-                placeholder="Ex: Tubo Quadrado 50x50x2.00mm SAE 1012"
+                placeholder="Preenchimento automático via seleção do catálogo SAP"
                 value={prodMaterialName}
                 onChange={(e) => setProdMaterialName(e.target.value)}
+                disabled={!prodFamilyId}
                 className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
               />
             </div>
 
-            {/* Campos novos: Tipo de Matéria-Prima & Tipo de Enfornamento */}
+            {/* 4. TIPO DE MATÉRIA-PRIMA & 5. TIPO DE ENFORNAMENTO */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Tipo de Matéria-Prima</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  4. Tipo de Matéria-Prima
+                </Label>
                 <select
                   value={prodRawMaterialType}
                   onChange={(e) => setProdRawMaterialType(e.target.value)}
@@ -3149,7 +3219,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Tipo de Enfornamento</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  5. Tipo de Enfornamento
+                </Label>
                 <select
                   value={prodEnfornamentoType}
                   onChange={(e) => setProdEnfornamentoType(e.target.value as EnfornamentoType)}
@@ -3164,45 +3236,26 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Unidade de Medida</Label>
-                <select
-                  value={prodUnit}
-                  onChange={(e) => setProdUnit(e.target.value as any)}
-                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
-                >
-                  <option value="t/h">t/h (Toneladas/h)</option>
-                  <option value="peça/h">peça/h</option>
-                  <option value="m/h">m/h</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Prod. Nominal</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={prodNominal}
-                  onChange={(e) => setProdNominal(Number(e.target.value))}
-                  className="bg-white border-slate-300 text-slate-900 font-mono font-bold focus-visible:ring-[#004C97]"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Prod. Planejada</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={prodPlanned}
-                  onChange={(e) => setProdPlanned(Number(e.target.value))}
-                  className="bg-white border-slate-300 text-slate-900 font-mono focus-visible:ring-[#004C97]"
-                />
-              </div>
+            {/* 6. UNIDADE DE MEDIDA * */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-700 font-medium">6. Unidade de Medida *</Label>
+              <select
+                value={prodUnit}
+                onChange={(e) => setProdUnit(e.target.value as any)}
+                className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
+              >
+                <option value="t/h">t/h (Toneladas/h)</option>
+                <option value="peça/h">peça/h</option>
+                <option value="m/h">m/h</option>
+              </select>
             </div>
 
-            {/* Vigência da Produtividade */}
+            {/* 7. VIGÊNCIA INICIAL * & 8. VIGÊNCIA FINAL (opcional) */}
             <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-200">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Vigência Inicial (De)</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  7. Vigência Inicial (De) *
+                </Label>
                 <Input
                   type="date"
                   value={prodValidFrom}
@@ -3212,7 +3265,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-slate-700 font-medium">
-                  Vigência Final (Até - Opcional)
+                  8. Vigência Final (Até - Opcional)
                 </Label>
                 <Input
                   type="date"
@@ -3223,12 +3276,50 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 />
               </div>
             </div>
+
+            {/* 9. STATUS * (Ativo / Inativo) */}
+            <div className="space-y-1 pt-1 border-t border-slate-200">
+              <Label className="text-xs text-slate-700 font-medium">9. Status *</Label>
+              <div className="flex items-center gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                  <input
+                    type="radio"
+                    name="prodActiveStatus"
+                    checked={prodActive === true}
+                    onChange={() => setProdActive(true)}
+                    className="text-[#004C97] focus:ring-[#004C97]"
+                  />
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Ativo
+                  </span>
+                  <span className="text-slate-500 text-[11px] font-normal">
+                    (Utilizado pelo PCP Robotizado em novos cálculos e programações)
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                  <input
+                    type="radio"
+                    name="prodActiveStatus"
+                    checked={prodActive === false}
+                    onChange={() => setProdActive(false)}
+                    className="text-[#004C97] focus:ring-[#004C97]"
+                  />
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                    Inativo
+                  </span>
+                  <span className="text-slate-500 text-[11px] font-normal">
+                    (Preservado para histórico/auditoria; excluído de novas programações)
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 border-t border-slate-200 pt-3">
             <Button
               variant="outline"
               size="sm"
+              disabled={isSavingProd}
               onClick={() => setIsProdModalOpen(false)}
               className="border-slate-300 text-slate-700 hover:bg-slate-50"
             >
@@ -3236,10 +3327,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Button>
             <Button
               size="sm"
+              disabled={isSavingProd}
               onClick={handleSaveProductivity}
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs shadow-xs"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs shadow-xs disabled:opacity-50"
             >
-              Homologar Produtividade
+              {isSavingProd ? (
+                <>Salvando...</>
+              ) : editingProductivity ? (
+                'Salvar Alterações'
+              ) : (
+                'Salvar Produtividade'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

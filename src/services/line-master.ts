@@ -1195,7 +1195,9 @@ export const lineMasterService = {
   },
 
   async setProductivityActive(id: string, active: boolean): Promise<LineProductivityRate> {
-    const previousRecord = await pb.collection('line_productivity_rates').getOne<LineProductivityRate>(id)
+    const previousRecord = await pb
+      .collection('line_productivity_rates')
+      .getOne<LineProductivityRate>(id)
     if (previousRecord?.line_id) {
       invalidateCompletenessCache(previousRecord.line_id)
     }

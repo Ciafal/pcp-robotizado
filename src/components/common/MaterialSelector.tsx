@@ -19,6 +19,8 @@ export interface MaterialOption {
   code: string
   name: string
   family?: string
+  familyId?: string
+  familyCode?: string
   dimension?: string
   steelGrade?: string
 }
@@ -30,6 +32,7 @@ export interface MaterialSelectorProps {
   disabled?: boolean
   className?: string
   lineId?: string
+  familyFilter?: string
 }
 
 export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
@@ -39,6 +42,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
   disabled = false,
   className,
   lineId,
+  familyFilter,
 }) => {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -64,6 +68,8 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
           code: m.material_code,
           name: m.material_name || m.material_code,
           family: m.family_name || m.family_code || undefined,
+          familyCode: m.family_code || undefined,
+          familyId: m.family_code || undefined,
           dimension: m.dimension_spec || undefined,
           steelGrade: m.steel_grade || undefined,
         }))
@@ -85,6 +91,26 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
     }
   }, [lineId])
 
+  // Materiais filtrados por família quando informada
+  const materialsByFamily = useMemo(() => {
+    if (!familyFilter) return materials
+    const fClean = familyFilter.trim().toLowerCase()
+    const matches = materials.filter((m) => {
+      const fc = (m.familyCode || '').toLowerCase()
+      const fn = (m.family || '').toLowerCase()
+      const fid = (m.familyId || '').toLowerCase()
+      return (
+        fc === fClean ||
+        fn === fClean ||
+        fid === fClean ||
+        fn.includes(fClean) ||
+        fClean.includes(fn)
+      )
+    })
+    // Se a família filtrada tiver itens compatíveis, exibe eles preferencialmente
+    return matches.length > 0 ? matches : materials
+  }, [materials, familyFilter])
+
   const selectedMaterial = useMemo(() => {
     if (!value) return null
     return (
@@ -97,8 +123,8 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
 
   const filteredMaterials = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return materials
-    return materials.filter(
+    if (!q) return materialsByFamily
+    return materialsByFamily.filter(
       (m) =>
         m.code.toLowerCase().includes(q) ||
         m.name.toLowerCase().includes(q) ||
@@ -106,7 +132,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
         (m.dimension && m.dimension.toLowerCase().includes(q)) ||
         (m.steelGrade && m.steelGrade.toLowerCase().includes(q)),
     )
-  }, [materials, searchQuery])
+  }, [materialsByFamily, searchQuery])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
