@@ -449,7 +449,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [prodRawMaterialType, setProdRawMaterialType] = useState<string>('TARUGO_130X130')
   const [prodEnfornamentoType, setProdEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
   const [prodUnit, setProdUnit] = useState<'t/h' | 'peça/h' | 'm/h'>('t/h')
-  const [prodNominal, setProdNominal] = useState<number>(12.0)
   const [prodFamilyId, setProdFamilyId] = useState('')
   const [prodValidFrom, setProdValidFrom] = useState('')
   const [prodValidUntil, setProdValidUntil] = useState('')
@@ -514,7 +513,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setProdRawMaterialType('TARUGO_130X130')
     setProdEnfornamentoType('NORMAL')
     setProdUnit('t/h')
-    setProdNominal(line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0))
     setProdValidFrom(new Date().toISOString().slice(0, 10))
     setProdValidUntil('')
     setProdActive(true)
@@ -529,7 +527,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setProdRawMaterialType(item.raw_material_type || 'TARUGO_130X130')
     setProdEnfornamentoType((item.enfornamento_type as EnfornamentoType) || 'NORMAL')
     setProdUnit(item.productivity_unit || 't/h')
-    setProdNominal(item.nominal_productivity ?? (line.nominal_capacity || 12.0))
     setProdValidFrom(item.valid_from ? item.valid_from.substring(0, 10) : '')
     setProdValidUntil(item.valid_until ? item.valid_until.substring(0, 10) : '')
     setProdActive(item.active !== false)
@@ -2459,8 +2456,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     Tabela de Produtividade & Cadência de Materiais
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
-                    Cadência nominal e planejada por produto, família e dimensão (Unidades: t/h,
-                    peça/h, m/h).
+                    Cadência e produtividade por produto, família e dimensão (Unidades: t/h, peça/h,
+                    m/h).
                   </CardDescription>
                 </div>
                 <Button
@@ -2474,83 +2471,99 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
               <CardContent className="p-4 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
-                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
+                  <table className="w-full text-left text-xs text-slate-700 min-w-[860px]">
+                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold tracking-wider">
                       <tr>
-                        <th className="p-2.5">Material</th>
-                        <th className="p-2.5">Matéria-Prima</th>
-                        <th className="p-2.5">Enfornamento</th>
-                        <th className="p-2.5">Unidade</th>
-                        <th className="p-2.5">Prod. Nominal</th>
-                        <th className="p-2.5">Eficiência</th>
-                        <th className="p-2.5">Vigência</th>
-                        <th className="p-2.5 text-center">Status</th>
-                        <th className="p-2.5 text-right">Ações</th>
+                        <th className="p-2.5 whitespace-nowrap">Material</th>
+                        <th className="p-2.5 whitespace-nowrap">Matéria-Prima</th>
+                        <th className="p-2.5 whitespace-nowrap">Enfornamento</th>
+                        <th className="p-2.5 whitespace-nowrap text-center">Unidade</th>
+                        <th className="p-2.5 whitespace-nowrap text-right">Prod. Nominal</th>
+                        <th className="p-2.5 whitespace-nowrap text-right">Eficiência</th>
+                        <th className="p-2.5 whitespace-nowrap">Vigência</th>
+                        <th className="p-2.5 whitespace-nowrap text-center">Status</th>
+                        <th className="p-2.5 whitespace-nowrap text-right">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {productivity.map((p) => {
-                        const isItemActive = p.active !== false
-                        const vigenciaLabel = p.valid_from
-                          ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
-                              p.valid_until
-                                ? `a ${new Date(p.valid_until).toLocaleDateString('pt-BR')}`
-                                : 'em diante'
-                            }`
-                          : 'Indeterminada'
-                        return (
-                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-2.5">
-                              <span className="font-mono font-bold text-slate-900 block">
-                                {p.material_product_code}
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                {p.material_product_name}
-                              </span>
-                            </td>
-                            <td className="p-2.5 font-mono text-xs text-amber-700 font-semibold">
-                              {p.raw_material_type || '-'}
-                            </td>
-                            <td className="p-2.5 font-mono text-xs text-[#004C97] font-semibold">
-                              {p.enfornamento_type || '-'}
-                            </td>
-                            <td className="p-2.5 font-bold text-[#004C97]">
-                              {p.productivity_unit}
-                            </td>
-                            <td className="p-2.5 font-mono font-bold text-slate-900">
-                              {p.nominal_productivity ?? '-'}
-                            </td>
-                            <td className="p-2.5 font-mono text-emerald-600 font-bold">
-                              {p.expected_efficiency_pct ? `${p.expected_efficiency_pct}%` : '—'}
-                            </td>
-                            <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                              {vigenciaLabel}
-                            </td>
-                            <td className="p-2.5 text-center">
-                              {isItemActive ? (
-                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                                  Ativo
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px]">
-                                  Inativo
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="p-2.5 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEditProductivity(p)}
-                                className="h-6 px-2 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50"
-                              >
-                                Editar
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>{' '}
+                      {productivity.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="p-6 text-center text-slate-400 italic text-xs">
+                            Nenhuma produtividade cadastrada para esta linha. Clique em "Cadastrar
+                            Produtividade" para adicionar.
+                          </td>
+                        </tr>
+                      ) : (
+                        productivity.map((p) => {
+                          const isItemActive = p.active !== false
+                          const vigenciaLabel = p.valid_from
+                            ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
+                                p.valid_until
+                                  ? `a ${new Date(p.valid_until).toLocaleDateString('pt-BR')}`
+                                  : 'em diante'
+                              }`
+                            : 'Indeterminada'
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="p-2.5">
+                                <span className="font-mono font-bold text-slate-900 block">
+                                  {p.material_product_code}
+                                </span>
+                                <span
+                                  className="text-[11px] text-slate-500 block truncate max-w-xs"
+                                  title={p.material_product_name}
+                                >
+                                  {p.material_product_name}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-mono text-xs text-amber-800 font-medium whitespace-nowrap">
+                                {p.raw_material_type || '-'}
+                              </td>
+                              <td className="p-2.5 font-mono text-xs text-[#004C97] font-medium whitespace-nowrap">
+                                {p.enfornamento_type || '-'}
+                              </td>
+                              <td className="p-2.5 font-bold text-[#004C97] text-center whitespace-nowrap">
+                                {p.productivity_unit}
+                              </td>
+                              <td className="p-2.5 font-mono font-bold text-slate-900 text-right whitespace-nowrap">
+                                {p.nominal_productivity != null
+                                  ? Number(p.nominal_productivity).toFixed(1)
+                                  : '-'}
+                              </td>
+                              <td className="p-2.5 font-mono text-emerald-600 font-bold text-right whitespace-nowrap">
+                                {p.expected_efficiency_pct != null
+                                  ? `${p.expected_efficiency_pct}%`
+                                  : '—'}
+                              </td>
+                              <td className="p-2.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                                {vigenciaLabel}
+                              </td>
+                              <td className="p-2.5 text-center whitespace-nowrap">
+                                {isItemActive ? (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
+                                    Ativo
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-slate-100 text-slate-600 border-slate-300 text-[10px] font-semibold">
+                                    Inativo
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-right whitespace-nowrap">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditProductivity(p)}
+                                  className="h-7 px-2.5 text-xs font-semibold text-[#004C97] hover:bg-blue-50 border border-transparent hover:border-blue-200"
+                                >
+                                  Editar
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
                   </table>
                 </div>
               </CardContent>

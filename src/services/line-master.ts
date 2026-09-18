@@ -1122,12 +1122,133 @@ export const lineMasterService = {
       active: isActive,
       source_mode: data.source_mode || 'MANUAL', // Gravado sempre como MANUAL transparentemente
     }
+
+    let previousRecord: LineProductivityRate | null = null
     if (data.id) {
-      return await pb
+      try {
+        previousRecord = await pb
+          .collection('line_productivity_rates')
+          .getOne<LineProductivityRate>(data.id)
+      } catch {
+        previousRecord = null
+      }
+    }
+
+    let saved: LineProductivityRate
+    if (data.id) {
+      saved = await pb
         .collection('line_productivity_rates')
         .update<LineProductivityRate>(data.id, payload)
+    } else {
+      saved = await pb.collection('line_productivity_rates').create<LineProductivityRate>(payload)
     }
-    return await pb.collection('line_productivity_rates').create<LineProductivityRate>(payload)
+
+    // Auditoria oficial em pcp_audit_logs
+    const currentUser = pb.authStore.record
+    const auditAction = data.id ? 'UPDATE_LINE_PRODUCTIVITY' : 'CREATE_LINE_PRODUCTIVITY'
+    const changedFields: string[] = []
+    if (previousRecord) {
+      if (previousRecord.active !== saved.active) {
+        changedFields.push(
+          `Status — Antes: ${previousRecord.active ? 'Ativo' : 'Inativo'} — Depois: ${saved.active ? 'Ativo' : 'Inativo'}`,
+        )
+      }
+      if (previousRecord.raw_material_type !== saved.raw_material_type) {
+        changedFields.push(
+          `Tipo MP — Antes: ${previousRecord.raw_material_type || '-'} — Depois: ${saved.raw_material_type || '-'}`,
+        )
+      }
+      if (previousRecord.enfornamento_type !== saved.enfornamento_type) {
+        changedFields.push(
+          `Tipo Enfornamento — Antes: ${previousRecord.enfornamento_type || '-'} — Depois: ${saved.enfornamento_type || '-'}`,
+        )
+      }
+      if (previousRecord.productivity_unit !== saved.productivity_unit) {
+        changedFields.push(
+          `Unidade — Antes: ${previousRecord.productivity_unit || '-'} — Depois: ${saved.productivity_unit || '-'}`,
+        )
+      }
+      if (
+        previousRecord.valid_from !== saved.valid_from ||
+        previousRecord.valid_until !== saved.valid_until
+      ) {
+        changedFields.push(
+          `Vigência — Antes: ${previousRecord.valid_from} até ${previousRecord.valid_until || 'indeterminada'} — Depois: ${saved.valid_from} até ${saved.valid_until || 'indeterminada'}`,
+        )
+      }
+      if (previousRecord.material_product_name !== saved.material_product_name) {
+        changedFields.push(
+          `Descrição Material — Antes: ${previousRecord.material_product_name} — Depois: ${saved.material_product_name}`,
+        )
+      }
+    }
+
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_productivity_rates',
+        resource_id: saved.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: saved.line_id,
+          operation_type: data.id ? 'EDIÇÃO' : 'CRIAÇÃO',
+          product_family_id: saved.product_family_id,
+          material_product_code: saved.material_product_code,
+          material_product_name: saved.material_product_name,
+          raw_material_type: saved.raw_material_type,
+          enfornamento_type: saved.enfornamento_type,
+          productivity_unit: saved.productivity_unit,
+          valid_from: saved.valid_from,
+          valid_until: saved.valid_until || null,
+          status: saved.active ? 'Ativo' : 'Inativo',
+          active: saved.active,
+          nominal_productivity: saved.nominal_productivity ?? null,
+          previous_value: previousRecord
+            ? {
+                material_product_code: previousRecord.material_product_code,
+                material_product_name: previousRecord.material_product_name,
+                raw_material_type: previousRecord.raw_material_type,
+                enfornamento_type: previousRecord.enfornamento_type,
+                productivity_unit: previousRecord.productivity_unit,
+                valid_from: previousRecord.valid_from,
+                valid_until: previousRecord.valid_until || null,
+                active: previousRecord.active,
+                status: previousRecord.active ? 'Ativo' : 'Inativo',
+              }
+            : null,
+          new_value: {
+            material_product_code: saved.material_product_code,
+            material_product_name: saved.material_product_name,
+            raw_material_type: saved.raw_material_type,
+            enfornamento_type: saved.enfornamento_type,
+            productivity_unit: saved.productivity_unit,
+            valid_from: saved.valid_from,
+            valid_until: saved.valid_until || null,
+            active: saved.active,
+            status: saved.active ? 'Ativo' : 'Inativo',
+          },
+          changed_summary:
+            changedFields.length > 0
+              ? changedFields.join(' | ')
+              : data.id
+                ? 'Edição sem alteração de valores'
+                : 'Criação de taxa de produtividade',
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria de produtividade em pcp_audit_logs:', auditErr)
+    }
+
+    return saved
   },
 
   async deleteProductivity(id: string): Promise<boolean> {
@@ -1324,6 +1445,53 @@ export const lineMasterService = {
 
     if (updated.line_id) {
       invalidateCompletenessCache(updated.line_id)
+    }
+
+    const currentUser = pb.authStore.record
+    const auditAction = active ? 'ACTIVATE_LINE_PRODUCTIVITY' : 'DEACTIVATE_LINE_PRODUCTIVITY'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_productivity_rates',
+        resource_id: updated.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: updated.line_id,
+          operation_type: 'EDIÇÃO',
+          product_family_id: updated.product_family_id,
+          material_product_code: updated.material_product_code,
+          material_product_name: updated.material_product_name,
+          raw_material_type: updated.raw_material_type,
+          enfornamento_type: updated.enfornamento_type,
+          productivity_unit: updated.productivity_unit,
+          valid_from: updated.valid_from,
+          valid_until: updated.valid_until || null,
+          status: updated.active ? 'Ativo' : 'Inativo',
+          active: updated.active,
+          previous_value: previousRecord
+            ? {
+                active: previousRecord.active,
+                status: previousRecord.active ? 'Ativo' : 'Inativo',
+              }
+            : null,
+          new_value: {
+            active: updated.active,
+            status: updated.active ? 'Ativo' : 'Inativo',
+          },
+          changed_summary: `Campo alterado: Status — Antes: ${previousRecord?.active ? 'Ativo' : 'Inativo'} — Depois: ${updated.active ? 'Ativo' : 'Inativo'} — Usuário: ${currentUser?.name || currentUser?.email || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`,
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria em pcp_audit_logs:', auditErr)
     }
 
     return updated

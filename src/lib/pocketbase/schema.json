@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T18:42:14.997Z",
+  "generatedAt": "2026-09-18T18:53:25.279Z",
   "collections": [
     {
       "name": "users",
@@ -2930,7 +2930,7 @@
         {
           "name": "nominal_productivity",
           "type": "number",
-          "required": true,
+          "required": false,
           "system": false
         },
         {
