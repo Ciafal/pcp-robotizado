@@ -2221,18 +2221,63 @@ export const WeeklyScheduleEngine = {
       }
 
       // 4. Linha do Tempo Temporal Encadeada (Cadeia Temporal Obrigatória):
-      // setupStart = fim do produto anterior (chainBaseDate)
-      // setupEnd = setupStart + setupDurationMinutes
-      // productionStart = setupEnd (bloqueio estrito: nenhum produto inicia antes do fim do setup)
-      // productionEnd = productionStart + prodHours
-      // item.start_datetime = productionStart; item.end_datetime = productionEnd; previousEndDateTime = productionEnd
-      // DateTime contínuo atravessa dias sem reiniciar à meia-noite (ex: 16/09 23:00 + 180 min -> setup 16/09 23:00 -> 17/09 02:00; prod >= 17/09 02:00)
-      const setupMin = setupResult.setupDurationMinutes || 0
+      // Fim do produto anterior -> Setup (Troca) -> Acerto -> Início da Próxima Produção
+      // setupStart = chainBaseDate (fim do produto anterior)
+      // setupEnd = setupStart + setupDurationMinutes (só troca mecânica)
+      // tuningStart = setupEnd
+      // tuningEnd = tuningStart + tuningDurationMinutes
+      // productionStart = tuningEnd (bloqueio estrito: próximo produto só inicia após setup + acerto)
+      // productionEnd = productionStart + prodMinutes
+      // DateTime contínuo atravessa dias sem reiniciar à meia-noite
+      const changeMin = setupResult.setupDurationMinutes || 0
+      const tuningMin = setupResult.tuningDurationMinutes || 0
       const prodMinutes = prodHours * 60
+      const nowIso = new Date().toISOString()
 
-      const setupStart = new Date(chainBaseDate)
-      const setupEnd = new Date(setupStart.getTime() + setupMin * 60 * 1000)
-      const productionStart = new Date(setupEnd)
+      let currentCursor = new Date(chainBaseDate)
+
+      if (changeMin > 0) {
+        const sStart = new Date(currentCursor)
+        const sEnd = new Date(sStart.getTime() + changeMin * 60 * 1000)
+        item.setup_start = formatIsoDateTime(sStart)
+        item.setup_end = formatIsoDateTime(sEnd)
+        item.setup_rule_code = setupResult.setupRuleCode
+        item.setup_rule_id = setupResult.setupRuleId
+        item.setup_source = setupResult.setupSource
+        currentCursor = sEnd
+      } else {
+        item.setup_start = undefined
+        item.setup_end = undefined
+        item.setup_rule_code = undefined
+        item.setup_rule_id = undefined
+        item.setup_source = undefined
+      }
+
+      if (tuningMin > 0) {
+        const tStart = new Date(currentCursor)
+        const tEnd = new Date(tStart.getTime() + tuningMin * 60 * 1000)
+        item.tuning_start = formatIsoDateTime(tStart)
+        item.tuning_end = formatIsoDateTime(tEnd)
+        item.tuning_duration_minutes = tuningMin
+        item.tuning_rule_code = setupResult.tuningRuleCode
+        item.tuning_rule_id = setupResult.tuningRuleId
+        item.tuning_source = setupResult.tuningSource
+        currentCursor = tEnd
+      } else {
+        item.tuning_start = undefined
+        item.tuning_end = undefined
+        item.tuning_duration_minutes = 0
+        item.tuning_rule_code = undefined
+        item.tuning_rule_id = undefined
+        item.tuning_source = undefined
+      }
+
+      item.calculated_at = nowIso
+      item.calculated_by = headerFilter.companyCode
+        ? `PCP-${headerFilter.companyCode}`
+        : 'PCP-ENGINE'
+
+      const productionStart = new Date(currentCursor)
       const productionEnd = new Date(productionStart.getTime() + prodMinutes * 60 * 1000)
 
       item.start_datetime = formatIsoDateTime(productionStart)
