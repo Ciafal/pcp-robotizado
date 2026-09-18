@@ -1305,58 +1305,39 @@ export const WeeklyScheduleEngine = {
         s.to_product_code.trim().toUpperCase() === curMat,
     )
 
-    if (exactMaterialMatch) {
-      changeMin = Number(exactMaterialMatch.setup_duration_minutes) || 0
-      setupRuleId = exactMaterialMatch.id
-      setupRuleCode = exactMaterialMatch.setup_code || 'SETUP-ESPECIFICO'
-      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
-      setupReason = exactMaterialMatch.setup_description || `Setup DE→PARA [${prevMat} → ${curMat}]`
-      isSpecificMatch = true
-    } else {
-      // Nível 2: DE (bitola/dimensão) -> PARA (bitola/dimensão)
-      const gaugeMatch = setupMatrix.find((s) => {
-        const fromG = ((s as any).from_gauge || (s as any).from_dimension || '')
-          .trim()
-          .toUpperCase()
-        const toG = ((s as any).to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
-        if (!fromG || !toG) return false
-        const matchesPrev = fromG === prevDim || fromG === prevMat
-        const matchesCur = toG === curDim || toG === curMat
-        return matchesPrev && matchesCur
-      })
-
-      if (gaugeMatch) {
-        changeMin = Number(gaugeMatch.setup_duration_minutes) || 0
-        setupRuleId = gaugeMatch.id
-        setupRuleCode = gaugeMatch.setup_code || 'SETUP-BITOLA'
-        setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
-        setupReason =
-          gaugeMatch.setup_description ||
-          `Setup Bitola [${prevDim || prevMat} → ${curDim || curMat}]`
-        isSpecificMatch = true
-      } else {
-        // Nível 3: DE (família) -> PARA (família)
-        const familyMatch = setupMatrix.find((s) => {
-          const fromF = (s.expand?.from_family_id?.code || (s as any).from_family_code || '')
+    // Nível 2: DE (bitola/dimensão) -> PARA (bitola/dimensão)
+    const gaugeMatch = !exactMaterialMatch
+      ? setupMatrix.find((s) => {
+          const fromG = ((s as any).from_gauge || (s as any).from_dimension || '')
             .trim()
             .toUpperCase()
-          const toF = (s.expand?.to_family_id?.code || (s as any).to_family_code || '')
-            .trim()
-            .toUpperCase()
-          if (!fromF || !toF) return false
-          return fromF === prevFam && toF === curFam
+          const toG = ((s as any).to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
+          if (!fromG || !toG) return false
+          const matchesPrev = fromG === prevDim || fromG === prevMat
+          const matchesCur = toG === curDim || toG === curMat
+          return matchesPrev && matchesCur
         })
+      : undefined
 
-        if (familyMatch) {
-          changeMin = Number(familyMatch.setup_duration_minutes) || 0
-          setupRuleId = familyMatch.id
-          setupRuleCode = familyMatch.setup_code || 'SETUP-FAMILIA'
-          setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
-          setupReason = familyMatch.setup_description || `Setup Família [${prevFam} → ${curFam}]`
-          isSpecificMatch = true
-        } else {
-          // Nível 4: Regra genérica cadastrada explicitamente (changeover_type === 'GENERICO' ou from/to '*' / coringa)
-          const genericMatch = setupMatrix.find((s) => {
+    // Nível 3: DE (família) -> PARA (família)
+    const familyMatch =
+      !exactMaterialMatch && !gaugeMatch
+        ? setupMatrix.find((s) => {
+            const fromF = (s.expand?.from_family_id?.code || (s as any).from_family_code || '')
+              .trim()
+              .toUpperCase()
+            const toF = (s.expand?.to_family_id?.code || (s as any).to_family_code || '')
+              .trim()
+              .toUpperCase()
+            if (!fromF || !toF) return false
+            return fromF === prevFam && toF === curFam
+          })
+        : undefined
+
+    // Nível 4: Regra genérica cadastrada explicitamente (changeover_type === 'GENERICO' ou from/to '*' / coringa)
+    const genericMatch =
+      !exactMaterialMatch && !gaugeMatch && !familyMatch
+        ? setupMatrix.find((s) => {
             const isGenericType =
               (s as any).changeover_type === 'GENERICO' ||
               (s.setup_category as string) === 'GENERIC'
@@ -1366,24 +1347,43 @@ export const WeeklyScheduleEngine = {
               !s.to_product_code || s.to_product_code === '*' || s.to_product_code === 'TODOS'
             return isGenericType || (fromWildcard && toWildcard)
           })
+        : undefined
 
-          if (genericMatch) {
-            changeMin = Number(genericMatch.setup_duration_minutes) || 0
-            setupRuleId = genericMatch.id
-            setupRuleCode =
-              genericMatch.setup_code || (genericMatch as any).rule_code || 'SETUP-GENERICO'
-            setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA (Regra Genérica)'
-            setupReason = genericMatch.setup_description || 'Setup com Regra Genérica Parametrizada'
-          } else {
-            // Caso D: Transição necessária sem regra na Ficha Mestra
-            // REGRA ABSOLUTA: NÃO inventar tempo (nunca fallback 35 min ou 15 min)!
-            changeMin = 0
-            isSetupUnparametrized = true
-            setupWarning = 'Setup não parametrizado na Ficha Mestra para esta transição DE→PARA.'
-            setupReason = `⚠️ Setup não parametrizado na Ficha Mestra para a transição [${prevMat} → ${curMat}]`
-          }
-        }
-      }
+    if (exactMaterialMatch) {
+      changeMin = Number(exactMaterialMatch.setup_duration_minutes) || 0
+      setupRuleId = exactMaterialMatch.id
+      setupRuleCode = exactMaterialMatch.setup_code || 'SETUP-ESPECIFICO'
+      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+      setupReason = exactMaterialMatch.setup_description || `Setup DE→PARA [${prevMat} → ${curMat}]`
+      isSpecificMatch = true
+    } else if (gaugeMatch) {
+      changeMin = Number(gaugeMatch.setup_duration_minutes) || 0
+      setupRuleId = gaugeMatch.id
+      setupRuleCode = gaugeMatch.setup_code || 'SETUP-BITOLA'
+      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+      setupReason =
+        gaugeMatch.setup_description || `Setup Bitola [${prevDim || prevMat} → ${curDim || curMat}]`
+      isSpecificMatch = true
+    } else if (familyMatch) {
+      changeMin = Number(familyMatch.setup_duration_minutes) || 0
+      setupRuleId = familyMatch.id
+      setupRuleCode = familyMatch.setup_code || 'SETUP-FAMILIA'
+      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+      setupReason = familyMatch.setup_description || `Setup Família [${prevFam} → ${curFam}]`
+      isSpecificMatch = true
+    } else if (genericMatch) {
+      changeMin = Number(genericMatch.setup_duration_minutes) || 0
+      setupRuleId = genericMatch.id
+      setupRuleCode = genericMatch.setup_code || (genericMatch as any).rule_code || 'SETUP-GENERICO'
+      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA (Regra Genérica)'
+      setupReason = genericMatch.setup_description || 'Setup com Regra Genérica Parametrizada'
+    } else {
+      // Caso D: Transição necessária sem regra na Ficha Mestra
+      // REGRA ABSOLUTA: NÃO inventar tempo (nunca fallback 35 min ou 15 min)!
+      changeMin = 0
+      isSetupUnparametrized = true
+      setupWarning = 'Setup não parametrizado na Ficha Mestra para esta transição DE→PARA.'
+      setupReason = `⚠️ Setup não parametrizado na Ficha Mestra para a transição [${prevMat} → ${curMat}]`
     }
 
     // =========================================================================
@@ -1476,8 +1476,7 @@ export const WeeklyScheduleEngine = {
         Boolean(sampleTypeToMatch)
       ) {
         isTuningUnparametrized = true
-        const sCode =
-          setupRuleCode || (resolvedSetup ? resolvedSetup.setup_code : 'STP')
+        const sCode = setupRuleCode || (resolvedSetup ? resolvedSetup.setup_code : 'STP')
         tuningWarning = `Setup sem Tempo de Acerto cadastrado. Linha: ${lineCode}, material anterior: ${prevItem.material_code || 'N/A'}, material seguinte: ${currentMaterialCode}, Código do Setup: ${sCode}, duração: ${changeMin} min.`
       }
     }
@@ -3064,6 +3063,50 @@ export const WeeklyScheduleEngine = {
    * Avalia a governança de exceções de um item na programação
    * (Desvio de sequência ideal, desvio de ciclo padrão SAP, cobertura projetada de estoque)
    */
+  /**
+   * Helper unificado para cálculo da transição entre dois itens de programação
+   * (Troca física + Acerto + SMED + Alertas)
+   */
+  calculateTransitionSetupAndTuning(
+    prevItem: WeeklyScheduleItem | null,
+    nextItem: WeeklyScheduleItem,
+    lineOverview: LineOverviewData | null,
+    options?: {
+      targetDate?: Date | string
+      sampleType?: string
+      requiresAdjustment?: boolean
+      currentDimensions?: string
+    },
+  ) {
+    const lineCode = lineOverview?.line?.code || nextItem.line_code || 'L1'
+    const setupResult = this.calculateSetup(
+      prevItem,
+      nextItem.material_code,
+      nextItem.family_code,
+      lineOverview,
+      lineCode,
+      {
+        targetDate: options?.targetDate || nextItem.start_datetime || (nextItem as any).target_date,
+        sampleType: options?.sampleType || nextItem.sample_type,
+        requiresAdjustment: options?.requiresAdjustment,
+        currentDimensions: options?.currentDimensions || nextItem.dimensions,
+      },
+    )
+
+    return {
+      change_duration_minutes: setupResult.setupDurationMinutes,
+      tuning_duration_minutes: setupResult.tuningDurationMinutes,
+      setup_duration_minutes: setupResult.setupDurationMinutes,
+      tuning_warning: setupResult.tuningWarning,
+      setup_warning: setupResult.setupWarning,
+      is_tuning_unparametrized: setupResult.isTuningUnparametrized,
+      is_setup_unparametrized: setupResult.isSetupUnparametrized,
+      setup_rule_code: setupResult.setupRuleCode,
+      tuning_rule_code: setupResult.tuningRuleCode,
+      breakdown: setupResult.breakdown,
+    }
+  },
+
   analyzeItemGovernance(params: {
     item: WeeklyScheduleItem
     prevItem?: WeeklyScheduleItem | null
@@ -3174,3 +3217,8 @@ export const WeeklyScheduleEngine = {
     }
   },
 }
+
+/**
+ * Alias canônico para compatibilidade com importações de motor de programação
+ */
+export const WeeklyScheduleMotor = WeeklyScheduleEngine

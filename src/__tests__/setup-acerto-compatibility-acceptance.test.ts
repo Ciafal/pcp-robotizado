@@ -7,7 +7,7 @@ import {
 } from '@/types/line-master'
 import { SetupAcertoCompatibilityEngine } from '@/services/setup-acerto-compatibility-engine'
 import { lineMasterService } from '@/services/line-master'
-import { pb } from '@/lib/pocketbase/client'
+import pb from '@/lib/pocketbase/client'
 import { WeeklyScheduleMotor } from '@/services/weekly-schedule-engine'
 
 describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15)', () => {
@@ -204,6 +204,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 'stp_inactive',
         line_id: 'line_l1',
         setup_code: 'STP_OLD',
+        setup_description: 'Transição Antiga',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'OLD_A',
         to_product_code: 'OLD_B',
         setup_duration_minutes: 60,
@@ -237,6 +239,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         line_id: 'line_l1',
         setup_code: 'STP_PU_TQ',
         setup_description: 'Perfis U Dobrados → Tubos Quadrados Estruturais',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'PU-DOBRADO',
         to_product_code: 'TQ-ESTRUTURAL',
         setup_duration_minutes: 120,
@@ -273,6 +276,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         line_id: 'line_l1',
         setup_code: 'STP_PU_TQ',
         setup_description: 'Perfis U Dobrados → Tubos Quadrados Estruturais',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'PU-DOBRADO',
         to_product_code: 'TQ-ESTRUTURAL',
         setup_duration_minutes: 120,
@@ -320,6 +324,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 'stp_pu_tq',
         line_id: 'line_l1',
         setup_code: 'STP_PU_TQ',
+        setup_description: 'PU -> TQ',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'PU-DOBRADO',
         to_product_code: 'TQ-ESTRUTURAL',
         setup_duration_minutes: 120,
@@ -366,6 +372,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: `stp_${i}`,
         line_id: 'line_l1',
         setup_code: `STP_${i}`,
+        setup_description: `Transição ${i}`,
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: `FROM_${i}`,
         to_product_code: `TARGET_${i}`,
         setup_duration_minutes: 60,
@@ -433,6 +441,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 's1',
         line_id: 'line_l1',
         setup_code: 'S1',
+        setup_description: 'A -> B',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'A',
         to_product_code: 'B',
         setup_duration_minutes: 60,
@@ -444,6 +454,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 's2',
         line_id: 'line_l1',
         setup_code: 'S2',
+        setup_description: 'B -> C',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'B',
         to_product_code: 'C',
         setup_duration_minutes: 60,
@@ -455,6 +467,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 's3_inactive',
         line_id: 'line_l1',
         setup_code: 'S3',
+        setup_description: 'C -> D',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'C',
         to_product_code: 'D',
         setup_duration_minutes: 60,
@@ -514,6 +528,8 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
         id: 'stp_indep',
         line_id: 'line_l1',
         setup_code: 'STP_PU_TQ',
+        setup_description: 'PU-100 -> TQ-50',
+        setup_category: 'DIMENSION_CHANGE',
         from_product_code: 'PU-100',
         to_product_code: 'TQ-50',
         setup_duration_minutes: 120,

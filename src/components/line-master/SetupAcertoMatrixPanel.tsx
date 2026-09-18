@@ -62,7 +62,7 @@ export interface SetupAcertoMatrixPanelProps {
   lineId: string
   lineCode?: string
   lineName?: string
-  initialTab?: 'SETUP' | 'ACERTO'
+  initialTab?: 'SETUP' | 'ACERTO' | 'COMPATIBILITY'
   onRefresh?: () => void
   onOpenLineMaster?: () => void
 }
