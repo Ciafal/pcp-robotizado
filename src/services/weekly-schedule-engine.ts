@@ -1167,10 +1167,20 @@ export const WeeklyScheduleEngine = {
       targetDate?: Date | string
       sampleType?: string
       requiresAdjustment?: boolean
+      currentDimensions?: string
     },
   ): {
     setupDurationMinutes: number
     setupReason: string
+    isSetupUnparametrized?: boolean
+    setupWarning?: string
+    setupRuleId?: string
+    setupRuleCode?: string
+    setupSource?: string
+    tuningDurationMinutes: number
+    tuningRuleId?: string
+    tuningRuleCode?: string
+    tuningSource?: string
     isTuningUnparametrized?: boolean
     tuningWarning?: string
     breakdown: {
@@ -1195,11 +1205,13 @@ export const WeeklyScheduleEngine = {
     const isBottleneck = lineCode === 'L1' || lineCode.includes('L1')
     const bottleneckCap = isBottleneck ? 24.8 : 20.0
 
+    // Caso A0: Início ou sem item anterior de produção
     if (!prevItem || prevItem.item_type !== 'PRODUCTION') {
       return {
         setupDurationMinutes: 0,
-        setupReason: 'Início de lote ou primeiro item do turno (sem setup prévio)',
-        isTuningUnparametrized: false,
+        setupReason: 'Início de lote ou primeiro item da programação (sem troca anterior)',
+        isSetupUnparametrized: false,
+        tuningDurationMinutes: 0,
         breakdown: {
           planned_change_minutes: 0,
           planned_tuning_minutes: 0,
@@ -1219,11 +1231,21 @@ export const WeeklyScheduleEngine = {
       }
     }
 
-    if (prevItem.material_code.toUpperCase() === currentMaterialCode.toUpperCase()) {
+    const prevMat = (prevItem.material_code || '').trim().toUpperCase()
+    const curMat = (currentMaterialCode || '').trim().toUpperCase()
+    const prevDim = (prevItem.dimensions || '').trim().toUpperCase()
+    const curDim = (options?.currentDimensions || '').trim().toUpperCase()
+    const prevFam = (prevItem.family_code || '').trim().toUpperCase()
+    const curFam = (currentFamilyCode || '').trim().toUpperCase()
+
+    // Caso C: Mesmo material e mesma bitola/dimensão -> sem necessidade de troca (0 min, NENHUM bloco de setup)
+    const isExactSame = prevMat === curMat && (!prevDim || !curDim || prevDim === curDim)
+    if (isExactSame) {
       return {
         setupDurationMinutes: 0,
-        setupReason: 'Mesmo material (continuidade de campanha sem troca física)',
-        isTuningUnparametrized: false,
+        setupReason: 'Mesmo material e bitola (continuidade de campanha sem troca física)',
+        isSetupUnparametrized: false,
+        tuningDurationMinutes: 0,
         breakdown: {
           planned_change_minutes: 0,
           planned_tuning_minutes: 0,
@@ -1243,119 +1265,188 @@ export const WeeklyScheduleEngine = {
       }
     }
 
-    let changeMin = 20
-    let tuningMin = 0
-    let reason = ''
-    let isMissingParam = false
-    let isTuningUnparametrized = false
-    let tuningWarning: string | undefined = undefined
-
-    const prevFam = prevItem.family_code || 'TQ_LEVES'
-    const curFam = currentFamilyCode || 'TR_LEVES'
-    const isFamilyChange = prevFam !== curFam
-
-    // 1. Busca tempo de TROCA (Setup DE->PARA) na Matriz de Setup
-    const exactMatch = lineOverview?.setupMatrix?.find(
-      (s) =>
-        s.active &&
-        s.from_product_code &&
-        s.to_product_code &&
-        s.from_product_code.toUpperCase() === prevItem.material_code.toUpperCase() &&
-        s.to_product_code.toUpperCase() === currentMaterialCode.toUpperCase(),
-    )
-
-    if (exactMatch) {
-      changeMin = exactMatch.setup_duration_minutes || 20
-      reason = `${exactMatch.setup_description || 'Troca Ficha Mestre'}`
-    } else {
-      const familyMatch = lineOverview?.setupMatrix?.find(
-        (s) =>
-          s.active &&
-          s.expand?.from_family_id?.code === prevFam &&
-          s.expand?.to_family_id?.code === curFam,
-      )
-      if (familyMatch) {
-        changeMin = familyMatch.setup_duration_minutes || (isFamilyChange ? 35 : 15)
-        reason = `${familyMatch.setup_description || 'Troca de Família'}`
-      } else {
-        if (isFamilyChange) {
-          changeMin = 35
-          reason = `Troca de Família [${prevFam} → ${curFam}]`
-        } else {
-          changeMin = 15
-          reason = `Troca de Bitola [${prevItem.material_code} → ${currentMaterialCode}]`
-        }
-        isMissingParam = !lineOverview?.setupMatrix || lineOverview.setupMatrix.length === 0
-      }
-    }
-
-    // 2. Consulta regras de ACERTO ativas por vigência (valid_from <= data <= valid_until)
-    // Se options.targetDate estiver preenchido, usa-o, senão data atual
+    // Data alvo para vigência
     const targetDateStr = options?.targetDate
       ? typeof options.targetDate === 'string'
         ? options.targetDate.slice(0, 10)
         : options.targetDate.toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10)
 
-    const adjustmentRules = lineOverview?.adjustmentRules || []
+    // =========================================================================
+    // 1. RESOLUÇÃO DA REGRA DE SETUP POR HIERARQUIA:
+    // Empresa -> Linha -> Centro -> DE (código/bitola/família) -> PARA -> regra específica DE->PARA -> regra genérica (só se cadastrada)
+    // Somente registros ATIVOS e válidos para a data da programação.
+    // =========================================================================
+    const setupMatrix = (lineOverview?.setupMatrix || []).filter((s) => {
+      if (s.active === false) return false
+      const fromOk = !s.valid_from || s.valid_from.slice(0, 10) <= targetDateStr
+      const untilOk = !s.valid_until || s.valid_until.slice(0, 10) >= targetDateStr
+      return fromOk && untilOk
+    })
+
+    let changeMin = 0
+    let setupRuleId: string | undefined = undefined
+    let setupRuleCode: string | undefined = undefined
+    let setupSource: string | undefined = undefined
+    let isSetupUnparametrized = false
+    let setupWarning: string | undefined = undefined
+    let setupReason = ''
+    let isSpecificMatch = false
+
+    // Nível 1: DE (código exato de material) -> PARA (código exato de material)
+    const exactMaterialMatch = setupMatrix.find(
+      (s) =>
+        s.from_product_code &&
+        s.to_product_code &&
+        s.from_product_code.trim().toUpperCase() === prevMat &&
+        s.to_product_code.trim().toUpperCase() === curMat,
+    )
+
+    if (exactMaterialMatch) {
+      changeMin = Number(exactMaterialMatch.setup_duration_minutes) || 0
+      setupRuleId = exactMaterialMatch.id
+      setupRuleCode = exactMaterialMatch.setup_code || 'SETUP-ESPECIFICO'
+      setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+      setupReason = exactMaterialMatch.setup_description || `Setup DE→PARA [${prevMat} → ${curMat}]`
+      isSpecificMatch = true
+    } else {
+      // Nível 2: DE (bitola/dimensão) -> PARA (bitola/dimensão)
+      const gaugeMatch = setupMatrix.find((s) => {
+        const fromG = (s.from_gauge || (s as any).from_dimension || '').trim().toUpperCase()
+        const toG = (s.to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
+        if (!fromG || !toG) return false
+        const matchesPrev = fromG === prevDim || fromG === prevMat
+        const matchesCur = toG === curDim || toG === curMat
+        return matchesPrev && matchesCur
+      })
+
+      if (gaugeMatch) {
+        changeMin = Number(gaugeMatch.setup_duration_minutes) || 0
+        setupRuleId = gaugeMatch.id
+        setupRuleCode = gaugeMatch.setup_code || 'SETUP-BITOLA'
+        setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+        setupReason =
+          gaugeMatch.setup_description ||
+          `Setup Bitola [${prevDim || prevMat} → ${curDim || curMat}]`
+        isSpecificMatch = true
+      } else {
+        // Nível 3: DE (família) -> PARA (família)
+        const familyMatch = setupMatrix.find((s) => {
+          const fromF = (s.expand?.from_family_id?.code || (s as any).from_family_code || '')
+            .trim()
+            .toUpperCase()
+          const toF = (s.expand?.to_family_id?.code || (s as any).to_family_code || '')
+            .trim()
+            .toUpperCase()
+          if (!fromF || !toF) return false
+          return fromF === prevFam && toF === curFam
+        })
+
+        if (familyMatch) {
+          changeMin = Number(familyMatch.setup_duration_minutes) || 0
+          setupRuleId = familyMatch.id
+          setupRuleCode = familyMatch.setup_code || 'SETUP-FAMILIA'
+          setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA'
+          setupReason = familyMatch.setup_description || `Setup Família [${prevFam} → ${curFam}]`
+          isSpecificMatch = true
+        } else {
+          // Nível 4: Regra genérica cadastrada explicitamente (changeover_type === 'GENERICO' ou from/to '*' / coringa)
+          const genericMatch = setupMatrix.find((s) => {
+            const isGenericType =
+              (s as any).changeover_type === 'GENERICO' || s.setup_category === 'GENERIC'
+            const fromWildcard =
+              !s.from_product_code || s.from_product_code === '*' || s.from_product_code === 'TODOS'
+            const toWildcard =
+              !s.to_product_code || s.to_product_code === '*' || s.to_product_code === 'TODOS'
+            return isGenericType || (fromWildcard && toWildcard)
+          })
+
+          if (genericMatch) {
+            changeMin = Number(genericMatch.setup_duration_minutes) || 0
+            setupRuleId = genericMatch.id
+            setupRuleCode =
+              genericMatch.setup_code || (genericMatch as any).rule_code || 'SETUP-GENERICO'
+            setupSource = 'Ficha Mestra → Matriz de Setup DE→PARA (Regra Genérica)'
+            setupReason = genericMatch.setup_description || 'Setup com Regra Genérica Parametrizada'
+          } else {
+            // Caso D: Transição necessária sem regra na Ficha Mestra
+            // REGRA ABSOLUTA: NÃO inventar tempo (nunca fallback 35 min ou 15 min)!
+            changeMin = 0
+            isSetupUnparametrized = true
+            setupWarning = 'Setup não parametrizado na Ficha Mestra para esta transição DE→PARA.'
+            setupReason = `⚠️ Setup não parametrizado na Ficha Mestra para a transição [${prevMat} → ${curMat}]`
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 2. RESOLUÇÃO DE ACERTO (adjustment_time_rules):
+    // Inserir bloco APENAS se existir regra ativa com duração > 0;
+    // sem regra aplicável -> NENHUM bloco de acerto (nunca cards "0 min").
+    // =========================================================================
+    const adjustmentRules = (lineOverview?.adjustmentRules || []).filter((rule) => {
+      if (rule.active === false) return false
+      const fromOk = !rule.valid_from || rule.valid_from.slice(0, 10) <= targetDateStr
+      const untilOk = !rule.valid_until || rule.valid_until.slice(0, 10) >= targetDateStr
+      return fromOk && untilOk
+    })
+
     const sampleTypeToMatch = (options?.sampleType || '').trim().toUpperCase()
 
-    // Regra aplicável: ativo !== false && bitola bate && (sampleType vazio ou bate) && vigência bate
-    // Em caso de múltiplas regras que cobrem o período, priorizar a mais específica por valid_from mais recente (<= targetDateStr)
+    // Regra de acerto aplicável por material/bitola/dimensão
     const matchingAdjustmentRules = adjustmentRules.filter((rule) => {
-      if (rule.active === false) return false
-      const bitolaMatches =
-        (rule.material_code || '').trim().toUpperCase() === currentMaterialCode.trim().toUpperCase()
-      if (!bitolaMatches) return false
+      const mat = (rule.material_code || '').trim().toUpperCase()
+      const gaugeTarget = ((rule as any).gauge_target || (rule as any).dimension || '')
+        .trim()
+        .toUpperCase()
+      const matMatches =
+        mat === curMat || (gaugeTarget && (gaugeTarget === curDim || gaugeTarget === curMat))
+      if (!matMatches) return false
 
       if (sampleTypeToMatch && rule.sample_type) {
         if (rule.sample_type.trim().toUpperCase() !== sampleTypeToMatch) {
           return false
         }
       }
-
-      const fromOk = !rule.valid_from || rule.valid_from.slice(0, 10) <= targetDateStr
-      const untilOk = !rule.valid_until || rule.valid_until.slice(0, 10) >= targetDateStr
-      return fromOk && untilOk
+      return true
     })
 
-    const applicableAdjustmentRule =
-      matchingAdjustmentRules.length > 1
+    let applicableAdjustmentRule =
+      matchingAdjustmentRules.length > 0
         ? matchingAdjustmentRules.sort((a, b) => {
             const fromA = a.valid_from ? a.valid_from.slice(0, 10) : '1970-01-01'
             const fromB = b.valid_from ? b.valid_from.slice(0, 10) : '1970-01-01'
             return fromB.localeCompare(fromA)
           })[0]
-        : matchingAdjustmentRules[0]
+        : undefined
+
+    let tuningMin = 0
+    let tuningRuleId: string | undefined = undefined
+    let tuningRuleCode: string | undefined = undefined
+    let tuningSource: string | undefined = undefined
+    let isTuningUnparametrized = false
+    let tuningWarning: string | undefined = undefined
 
     if (applicableAdjustmentRule) {
-      tuningMin = Number(applicableAdjustmentRule.duration_minutes) || 0
-      isTuningUnparametrized = false
-      reason = `${reason} (Troca: ${changeMin} min + Acerto Vigente [${applicableAdjustmentRule.sample_type}]: ${tuningMin} min = ${changeMin + tuningMin} min)`
+      const dur =
+        Number(
+          applicableAdjustmentRule.duration_minutes ||
+            (applicableAdjustmentRule as any).adjustment_duration_minutes,
+        ) || 0
+      if (dur > 0) {
+        tuningMin = dur
+        tuningRuleId = applicableAdjustmentRule.id
+        tuningRuleCode =
+          (applicableAdjustmentRule as any).rule_code ||
+          `ACERTO-${applicableAdjustmentRule.sample_type || 'PADRAO'}`
+        tuningSource = 'Ficha Mestra → Acertos'
+      }
     } else {
-      // Se não houver regra aplicável na Ficha Mestre
-      // Verifica se o processo ou item exige acerto (sampleType preenchido ou requiresAdjustment = true ou laminação)
-      const requiresAdjustment =
-        options?.requiresAdjustment !== false &&
-        (Boolean(sampleTypeToMatch) ||
-          options?.requiresAdjustment === true ||
-          (adjustmentRules.length > 0 &&
-            adjustmentRules.some(
-              (r) =>
-                (r.material_code || '').trim().toUpperCase() ===
-                currentMaterialCode.trim().toUpperCase(),
-            )))
-
-      if (requiresAdjustment) {
-        // Flag de acerto não parametrizado ativo - NÃO assumir 0 min silenciosamente
+      // Se options.requiresAdjustment === true ou sampleType preenchido explicitamente e não há regra cadastrada
+      if (options?.requiresAdjustment === true || Boolean(sampleTypeToMatch)) {
         isTuningUnparametrized = true
-        tuningMin = 0
-        tuningWarning = `Acerto não parametrizado para a bitola ${currentMaterialCode}${sampleTypeToMatch ? ` e tipo de amostra ${sampleTypeToMatch}` : ''} na data ${targetDateStr}.`
-        reason = `${reason} (Troca: ${changeMin} min + ⚠️ Acerto não parametrizado = ${changeMin} min)`
-      } else {
-        // Sem exigência de acerto para este item/processo
-        tuningMin = 0
-        reason = `${reason} (Troca: ${changeMin} min)`
+        tuningWarning = `Acerto não parametrizado na Ficha Mestra para a bitola ${currentMaterialCode}${sampleTypeToMatch ? ` e tipo de amostra ${sampleTypeToMatch}` : ''}.`
       }
     }
 
@@ -1363,8 +1454,17 @@ export const WeeklyScheduleEngine = {
     const potentialLostTons = Number(((totalMinutes / 60) * bottleneckCap).toFixed(1))
 
     return {
-      setupDurationMinutes: totalMinutes,
-      setupReason: reason,
+      setupDurationMinutes: changeMin,
+      setupReason,
+      isSetupUnparametrized,
+      setupWarning,
+      setupRuleId,
+      setupRuleCode,
+      setupSource,
+      tuningDurationMinutes: tuningMin,
+      tuningRuleId,
+      tuningRuleCode,
+      tuningSource,
       isTuningUnparametrized,
       tuningWarning,
       breakdown: {
@@ -1375,9 +1475,13 @@ export const WeeklyScheduleEngine = {
         to_material_code: currentMaterialCode,
         from_family_code: prevFam,
         to_family_code: curFam,
-        change_type: isFamilyChange ? 'TROCA_FAMILIA_COMPLETA' : 'TROCA_BITOLA',
-        responsible_area: isFamilyChange ? 'OFICINA_CILINDROS' : 'PRODUCAO',
-        is_missing_standard_param: isMissingParam || isTuningUnparametrized,
+        change_type: isSpecificMatch
+          ? 'ESPECIFICO_FICHA_MESTRA'
+          : prevFam !== curFam
+            ? 'TROCA_FAMILIA'
+            : 'TROCA_BITOLA',
+        responsible_area: prevFam !== curFam ? 'OFICINA_CILINDROS' : 'PRODUCAO',
+        is_missing_standard_param: isSetupUnparametrized || isTuningUnparametrized,
         cylinder_set_code: `CJ-${lineCode}-${curFam.replace('_', '-')}`,
         cylinder_set_name: `Jogo de Cilindros ${curFam}`,
         is_bottleneck_resource: isBottleneck,

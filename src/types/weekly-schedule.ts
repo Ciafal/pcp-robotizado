@@ -100,6 +100,20 @@ export interface WeeklyScheduleItem {
   stop_code?: string
   stop_description?: string
   stop_duration_minutes?: number
+  // Blocos temporais próprios na escala contínua do Gantt
+  setup_start?: string
+  setup_end?: string
+  setup_rule_code?: string
+  setup_rule_id?: string
+  setup_source?: string
+  tuning_start?: string
+  tuning_end?: string
+  tuning_duration_minutes?: number
+  tuning_rule_code?: string
+  tuning_rule_id?: string
+  tuning_source?: string
+  calculated_at?: string
+  calculated_by?: string
   // Estrutura explícita de Setup (Troca + Acerto + SMED + Oficina)
   setup_breakdown?: {
     from_material_code?: string
