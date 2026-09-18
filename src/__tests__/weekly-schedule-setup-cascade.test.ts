@@ -6,7 +6,9 @@
 import { describe, it, expect } from 'vitest'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 import { WeeklyScheduleItem, WeeklyHeaderFilter } from '@/types/weekly-schedule'
-import { LineOverviewData, ShiftDefinition } from '@/types/line-master'
+import { LineOverviewData, ProductionShift } from '@/types/line-master'
+
+type ShiftDefinition = ProductionShift
 
 describe('Suíte de Testes — Recálculo em Cascata e Governança da Programação Semanal (11 Testes)', () => {
   const dummyShifts: ShiftDefinition[] = [
@@ -49,6 +51,16 @@ describe('Suíte de Testes — Recálculo em Cascata e Governança da Programaç
   ]
 
   const dummyLineOverview: LineOverviewData = {
+    line: {
+      id: 'L1',
+      code: 'L1',
+      name: 'Linha de Conformação L1',
+      unit_code: 'LAM-01',
+      nominal_hourly_capacity: 12.0,
+      active: true,
+      created: '',
+      updated: '',
+    } as any,
     master: {
       id: 'L1',
       code: 'L1',
@@ -142,7 +154,15 @@ describe('Suíte de Testes — Recálculo em Cascata e Governança da Programaç
     shifts: dummyShifts,
     scheduledStops: [],
     blockedProducts: [],
-  }
+    hierarchy: {} as any,
+    managers: [],
+    approvers: [],
+    crews: [],
+    workCenters: [],
+    speedLossRules: [],
+    scrapLossRules: [],
+    changeoverMatrix: [],
+  } as unknown as LineOverviewData
 
   const dummyFilter: WeeklyHeaderFilter = {
     companyCode: 'CIAFAL',

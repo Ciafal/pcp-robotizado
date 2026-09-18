@@ -108,6 +108,8 @@ export interface RawMaterialEngineContext {
 }
 
 export const WeeklyScheduleEngine = {
+  CANONICAL_WARNING_SETUP: 'Setup não parametrizado na Ficha Mestra para esta transição DE→PARA.',
+
   /**
    * Validação pontual de resfriamento entre conclusão anterior e início programado
    */
@@ -1312,7 +1314,9 @@ export const WeeklyScheduleEngine = {
     } else {
       // Nível 2: DE (bitola/dimensão) -> PARA (bitola/dimensão)
       const gaugeMatch = setupMatrix.find((s) => {
-        const fromG = ((s as any).from_gauge || (s as any).from_dimension || '').trim().toUpperCase()
+        const fromG = ((s as any).from_gauge || (s as any).from_dimension || '')
+          .trim()
+          .toUpperCase()
         const toG = ((s as any).to_gauge || (s as any).to_dimension || '').trim().toUpperCase()
         if (!fromG || !toG) return false
         const matchesPrev = fromG === prevDim || fromG === prevMat
@@ -1353,7 +1357,8 @@ export const WeeklyScheduleEngine = {
           // Nível 4: Regra genérica cadastrada explicitamente (changeover_type === 'GENERICO' ou from/to '*' / coringa)
           const genericMatch = setupMatrix.find((s) => {
             const isGenericType =
-              (s as any).changeover_type === 'GENERICO' || (s.setup_category as string) === 'GENERIC'
+              (s as any).changeover_type === 'GENERICO' ||
+              (s.setup_category as string) === 'GENERIC'
             const fromWildcard =
               !s.from_product_code || s.from_product_code === '*' || s.from_product_code === 'TODOS'
             const toWildcard =
@@ -2839,6 +2844,190 @@ export const WeeklyScheduleEngine = {
       indicators,
       summary,
       validations,
+    }
+  },
+
+  /**
+   * Computa indicadores e sumário sobre uma lista de itens já fixada (ex: programação aprovada ou congelada),
+   * preservando rigorosamente os horários, durações e setups existentes nos itens sem mutar a linha do tempo.
+   */
+  computeScheduleIndicators(
+    items: WeeklyScheduleItem[],
+    lineOverview: LineOverviewData | null,
+    headerFilter: WeeklyHeaderFilter,
+  ): {
+    indicators: WeeklyIndicators
+    summary: WeeklyScheduleSummary
+    validations: ValidationResult[]
+    totalTons: number
+    totalHours: number
+  } {
+    const shifts = lineOverview?.shifts && lineOverview.shifts.length > 0 ? lineOverview.shifts : []
+    const activeItems = items.filter((it) => it.status !== 'CANCELLED')
+    const activeShiftsCount = shifts.length || 3
+    const hoursPerShift =
+      shifts.length > 0
+        ? shifts.reduce((acc, s) => acc + (s.duration_hours || 8), 0) / shifts.length
+        : 8
+    const operatingDaysCount = 6
+    const calendarHours = 7 * 24
+    const nominalAvailableHours = operatingDaysCount * activeShiftsCount * hoursPerShift
+
+    const programmedQuantityTons = activeItems.reduce(
+      (sum, it) => sum + (it.planned_quantity_tons || 0),
+      0,
+    )
+    const programmedProductiveHours = activeItems.reduce(
+      (sum, it) => sum + (it.production_hours || 0),
+      0,
+    )
+    const setupHours = activeItems.reduce(
+      (sum, it) => sum + (it.setup_duration_minutes || 0) / 60,
+      0,
+    )
+    const stoppedHours = activeItems.reduce(
+      (sum, it) => sum + (it.stop_duration_minutes || 0) / 60,
+      0,
+    )
+
+    const setupItems = activeItems.filter((it) => (it.setup_duration_minutes || 0) > 0)
+    let totalChangeMin = 0
+    let totalTuningMin = 0
+    let totalSetupMin = 0
+
+    setupItems.forEach((it) => {
+      if (it.setup_breakdown) {
+        totalChangeMin += it.setup_breakdown.planned_change_minutes || 0
+        totalTuningMin += it.setup_breakdown.planned_tuning_minutes || 0
+        totalSetupMin += it.setup_breakdown.planned_total_minutes || it.setup_duration_minutes || 0
+      } else {
+        totalSetupMin += it.setup_duration_minutes || 0
+      }
+    })
+
+    const totalSetupHours = Number((totalSetupMin / 60).toFixed(1))
+    const totalTuningHours = Number((totalTuningMin / 60).toFixed(1))
+
+    const stopItems = activeItems.filter((it) => it.item_type === 'SCHEDULED_STOP')
+    const maintenanceMin = stopItems
+      .filter(
+        (it) =>
+          it.stop_code?.toUpperCase().includes('MANUT') ||
+          it.stop_description?.toLowerCase().includes('manuten') ||
+          it.pcp_notes?.toLowerCase().includes('manuten'),
+      )
+      .reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
+
+    const coolingMin = stopItems
+      .filter(
+        (it) =>
+          it.stop_code?.toUpperCase().includes('RESF') ||
+          it.stop_description?.toLowerCase().includes('resfria') ||
+          it.pcp_notes?.toLowerCase().includes('resfria'),
+      )
+      .reduce((acc, it) => acc + (it.stop_duration_minutes || 0), 0)
+
+    const maintenanceHours = Number((maintenanceMin / 60).toFixed(1))
+    const coolingHoursTotal = Number((coolingMin / 60).toFixed(1))
+
+    const totalCommittedHours = programmedProductiveHours + totalSetupHours + stoppedHours
+    const freeHours = Math.max(0, nominalAvailableHours - totalCommittedHours)
+    const utilizationPct =
+      nominalAvailableHours > 0
+        ? Math.min(150, Number(((totalCommittedHours / nominalAvailableHours) * 100).toFixed(1)))
+        : 0
+
+    const setupsCount = setupItems.length
+    const avgSetupMinutes = setupsCount > 0 ? Math.round(totalSetupMin / setupsCount) : 0
+    const capacityLossTons = Number(((totalSetupMin / 60) * 24.8).toFixed(1))
+
+    const byFamily: Record<string, number> = {}
+    const byMaterial: Record<string, number> = {}
+    const byTurno: Record<string, number> = {}
+    const byDay: Record<string, number> = {}
+
+    activeItems.forEach((it) => {
+      if (it.item_type === 'PRODUCTION') {
+        const fam = it.family_code || 'GERAL'
+        byFamily[fam] = (byFamily[fam] || 0) + it.planned_quantity_tons
+
+        const mat = it.material_code || 'OUTROS'
+        byMaterial[mat] = (byMaterial[mat] || 0) + it.planned_quantity_tons
+
+        const tur = it.shift_name || it.shift_code
+        byTurno[tur] = (byTurno[tur] || 0) + it.planned_quantity_tons
+
+        const d = it.day_of_week
+        byDay[d] = (byDay[d] || 0) + it.planned_quantity_tons
+      }
+    })
+
+    const indicators: WeeklyIndicators = {
+      availableCapacityHours: Number(nominalAvailableHours.toFixed(1)),
+      programmedQuantityTons: Number(programmedQuantityTons.toFixed(1)),
+      programmedProductiveHours: Number(programmedProductiveHours.toFixed(1)),
+      setupHours: Number(totalSetupHours.toFixed(1)),
+      tuningHours: Number(totalTuningHours.toFixed(1)),
+      stoppedHours: Number(stoppedHours.toFixed(1)),
+      maintenanceHours: Number(maintenanceHours.toFixed(1)),
+      coolingHours: Number(coolingHoursTotal.toFixed(1)),
+      freeHours: Number(freeHours.toFixed(1)),
+      utilizationPct,
+      setupsCount,
+      avgSetupMinutes,
+      capacityLossTons,
+      programmedProductsCount: activeItems.filter((it) => it.item_type === 'PRODUCTION').length,
+      rawMaterialRequiredTons: 0,
+      rawMaterialAvailableTons: 0,
+      rawMaterialBalanceTons: 0,
+      rawMaterialGreenCount: 0,
+      rawMaterialYellowCount: 0,
+      rawMaterialRedCount: 0,
+      criticalAlertsCount: 0,
+      sequenceScore: 100,
+      sequenceScoreLabel: 'OTIMIZADA',
+    }
+
+    const summary: WeeklyScheduleSummary = {
+      capacity: {
+        calendarHours,
+        availableHours: Number(nominalAvailableHours.toFixed(1)),
+        productionHours: Number(programmedProductiveHours.toFixed(1)),
+        setupHours: Number(totalSetupHours.toFixed(1)),
+        tuningHours: Number(totalTuningHours.toFixed(1)),
+        stoppedHours: Number(stoppedHours.toFixed(1)),
+        maintenanceHours: Number(maintenanceHours.toFixed(1)),
+        coolingHours: Number(coolingHoursTotal.toFixed(1)),
+        freeHours: Number(freeHours.toFixed(1)),
+        utilizationPct,
+        setupsCount,
+        avgSetupMinutes,
+        capacityLossTons,
+      },
+      production: {
+        totalTons: Number(programmedQuantityTons.toFixed(1)),
+        byFamily,
+        byMaterial,
+        byTurno,
+        byDay,
+      },
+      rawMaterials: [],
+      billetRequirements: [],
+      sapPurchaseOrders: [],
+      dualCommitments: [],
+      backlog: {
+        totalTons: null,
+        scheduledTons: Number(programmedQuantityTons.toFixed(1)),
+        remainingTons: null,
+      },
+    }
+
+    return {
+      indicators,
+      summary,
+      validations: [],
+      totalTons: Number(programmedQuantityTons.toFixed(1)),
+      totalHours: Number(totalCommittedHours.toFixed(1)),
     }
   },
 

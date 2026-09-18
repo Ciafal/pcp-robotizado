@@ -183,6 +183,14 @@ export interface WeeklyScheduleItem {
   raw_material_yield_pct?: number
   raw_material_planned_tons?: number
   raw_material_available_tons?: number | null
+  raw_material_rows?: Array<{
+    id: string
+    mpType: string
+    materialCode: string
+    yieldPct: number
+    quantityTons: number
+    availableTons?: number | null
+  }>
   enfornamento_type?: 'FRIO' | 'QUENTE' | 'INTERCALADO' | 'TAPETE' | 'NORMAL'
   sample_type?: 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'TARUGO' | string
   tuning_unparametrized?: boolean

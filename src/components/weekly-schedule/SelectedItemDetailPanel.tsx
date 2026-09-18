@@ -71,7 +71,18 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
   const plannedTons = item.planned_quantity_tons || 70.0
   const prodRate = item.productivity_rate_th || 5.82
   const prodHours = item.production_hours || 3.25
-  const setupMin = item.setup_duration_minutes || 5
+  const setupMin = item.setup_duration_minutes ?? 0
+
+  // Acerto e Troca calculados estritamente pelo motor (sem heurística/fallback inventado)
+  const changeMinutes =
+    item.setup_breakdown?.planned_change_minutes ?? item.setup_duration_minutes ?? 0
+  const tuningMinutes = item.tuning_duration_minutes ?? item.setup_breakdown?.planned_tuning_minutes
+  const hasSetup =
+    (item.setup_duration_minutes ?? 0) > 0 ||
+    (item.setup_breakdown?.planned_change_minutes ?? 0) > 0
+  const isTuningUnparametrized =
+    item.tuning_unparametrized ||
+    (hasSetup && (tuningMinutes === undefined || tuningMinutes === null))
 
   const scoreLabel =
     sequenceScore >= 85 ? 'Otimizada' : sequenceScore >= 60 ? 'Melhorável' : 'Crítica'
@@ -141,7 +152,7 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
               <span>Produção</span>
               <Clock className="w-3 h-3 text-slate-400" />
             </div>
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-2 rounded-md border border-slate-200 text-[11px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 bg-slate-50 p-2 rounded-md border border-slate-200 text-[11px]">
               <div>
                 <span className="text-[10px] text-slate-500 block">Quantidade:</span>
                 <span className="font-mono font-bold text-slate-900">
@@ -170,15 +181,43 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                 </span>
                 <span className="font-mono font-bold text-[#004C97]">
                   {item.setup_breakdown
-                    ? `${item.setup_breakdown.planned_change_minutes}m + ${item.setup_breakdown.planned_tuning_minutes}m`
+                    ? `${item.setup_breakdown.planned_change_minutes} min`
                     : `${setupMin} min`}
                 </span>
+              </div>
+              <div
+                className="cursor-pointer hover:bg-blue-100/60 p-0.5 rounded transition-colors"
+                onClick={() => onOpenSetupDetail && onOpenSetupDetail(item)}
+                title={
+                  isTuningUnparametrized
+                    ? 'Acerto não parametrizado na Ficha Mestra'
+                    : 'Acerto Previsto'
+                }
+              >
+                <span className="text-[10px] text-slate-500 block underline flex items-center gap-0.5">
+                  Acerto Previsto:
+                </span>
+                {isTuningUnparametrized ? (
+                  <span
+                    className="font-mono font-bold text-amber-700 flex items-center gap-1"
+                    title="Acerto não parametrizado na Ficha Mestra"
+                  >
+                    <span>--</span>
+                    <span className="text-[9px] font-sans font-normal text-amber-600 bg-amber-50 border border-amber-200 px-1 rounded">
+                      não param.
+                    </span>
+                  </span>
+                ) : (
+                  <span className="font-mono font-bold text-indigo-700">
+                    {`${tuningMinutes ?? 0} min`}
+                  </span>
+                )}
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">Início Previsto:</span>
                 <span className="font-mono font-bold text-[#004C97]">{startHour}</span>
               </div>
-              <div>
+              <div className="col-span-2 sm:col-span-1">
                 <span className="text-[10px] text-slate-500 block">Fim Previsto:</span>
                 <span className="font-mono font-bold text-slate-800">{endHour}</span>
               </div>
@@ -216,7 +255,19 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
               </div>
               <div className="flex justify-between pt-1 border-t border-slate-200">
                 <span className="text-slate-500">Troca Prevista:</span>
-                <span className="font-mono font-bold text-amber-800">10 min</span>
+                <span className="font-mono font-bold text-amber-800">{changeMinutes} min</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Acerto Previsto:</span>
+                {isTuningUnparametrized ? (
+                  <span className="font-mono font-bold text-amber-700 text-[10px]">
+                    -- (não param.)
+                  </span>
+                ) : (
+                  <span className="font-mono font-bold text-indigo-700">
+                    {tuningMinutes ?? 0} min
+                  </span>
+                )}
               </div>
 
               {/* SEQUÊNCIA IDEAL DE BITOLAS (Requisito 8) */}

@@ -51,8 +51,17 @@ import {
   FileCheck,
   ShieldCheck,
   ChevronRight,
+  Trash2,
 } from 'lucide-react'
 import { DAYS_OF_WEEK, WeeklyScheduleItem, OfficialMaterialOption } from '@/types/weekly-schedule'
+
+export interface RawMaterialRowItem {
+  id: string
+  mpType: string
+  materialCode: string
+  yieldPct: number
+  quantityTons: number
+}
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 import {
@@ -149,12 +158,17 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     null,
   )
 
-  // PARTE 3: MATÉRIA-PRIMA PROGRAMADA
+  // PARTE 4 (antiga 3): MATÉRIA-PRIMA PROGRAMADA (MULTI-MP)
   const [mpOptions, setMpOptions] = useState<OfficialMpOption[]>([])
-  const [selectedMpType, setSelectedMpType] = useState<string>('TARUGO 130x130')
-  const [selectedMpMaterialCode, setSelectedMpMaterialCode] = useState<string>('')
-  const [yieldPctInput, setYieldPctInput] = useState<string>('97.5')
-  const [mpQuantityInput, setMpQuantityInput] = useState<string>('102.56')
+  const [rawMaterialRows, setRawMaterialRows] = useState<RawMaterialRowItem[]>([
+    {
+      id: 'mp-row-1',
+      mpType: 'TARUGO 130x130',
+      materialCode: '',
+      yieldPct: 97.5,
+      quantityTons: 102.56,
+    },
+  ])
   const [mpDirectionLock, setMpDirectionLock] = useState<'PROD_TO_MP' | 'MP_TO_PROD'>('PROD_TO_MP')
 
   // Sincroniza dias/turnos quando props mudarem
@@ -170,10 +184,32 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     if (isOpen) {
       MpProgrammingEngine.fetchOfficialMpOptions(lineCode, lineOverview).then((opts) => {
         setMpOptions(opts)
-        if (opts.length > 0 && !selectedMpMaterialCode) {
-          setSelectedMpMaterialCode(opts[0].code)
-          setSelectedMpType(opts[0].mpType)
-          setYieldPctInput(opts[0].defaultYieldPct.toString())
+        if (opts.length > 0) {
+          setRawMaterialRows((prev) => {
+            if (prev.length === 0) {
+              return [
+                {
+                  id: 'mp-row-1',
+                  mpType: opts[0].mpType,
+                  materialCode: opts[0].code,
+                  yieldPct: opts[0].defaultYieldPct,
+                  quantityTons: 102.56,
+                },
+              ]
+            }
+            // Preserva a MP já informada se houver código; senão inicializa com a padrão
+            return prev.map((row, idx) => {
+              if (idx === 0 && !row.materialCode) {
+                return {
+                  ...row,
+                  materialCode: opts[0].code,
+                  mpType: opts[0].mpType,
+                  yieldPct: opts[0].defaultYieldPct,
+                }
+              }
+              return row
+            })
+          })
         }
       })
     }
@@ -310,42 +346,124 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
   }, [selectedMaterial, lineCode])
 
-  // PARTE 3: Motor Bidirecional de Matéria-Prima
-  const currentYield = Number(yieldPctInput) || 97.5
-
-  // Sincroniza Quantidade de MP a partir da Produção Boa (Cálculo Direto)
+  // Multi-MP: Sincroniza Quantidade de MP a partir da Produção Boa (Cálculo Direto)
+  // Quando em PROD_TO_MP, a 1ª MP (ou proporcional) recebe o cálculo direto da produção
   useEffect(() => {
     if (mpDirectionLock === 'PROD_TO_MP') {
       const goodProd = calculationResult?.quantityTons ?? (Number(quantityInput) || 0)
       if (goodProd > 0) {
-        const calculatedMp = MpProgrammingEngine.calculateMpFromProduction(goodProd, currentYield)
-        setMpQuantityInput(calculatedMp.toFixed(2))
+        setRawMaterialRows((prev) =>
+          prev.map((r, idx) => {
+            // Se houver apenas 1 linha ou for a linha principal, calcula 100% da necessidade
+            // Se houver múltiplas linhas, preserva o rendimento de cada linha
+            const calculatedMp = MpProgrammingEngine.calculateMpFromProduction(
+              goodProd / (prev.length > 1 ? prev.length : 1),
+              r.yieldPct || 97.5,
+            )
+            return {
+              ...r,
+              quantityTons: Number(calculatedMp.toFixed(2)),
+            }
+          }),
+        )
       }
     }
-  }, [calculationResult?.quantityTons, quantityInput, currentYield, mpDirectionLock])
+  }, [calculationResult?.quantityTons, quantityInput, mpDirectionLock])
 
-  // Manipulador de alteração direta da Quantidade de MP (Cálculo Inverso)
-  const handleMpQuantityChange = (valStr: string) => {
-    setMpDirectionLock('MP_TO_PROD')
-    setMpQuantityInput(valStr)
-    const valNum = Number(valStr) || 0
-    if (valNum > 0 && currentYield > 0) {
-      const inverseGoodProd = MpProgrammingEngine.calculateProductionFromMp(valNum, currentYield)
-      setQuantityInput(inverseGoodProd.toFixed(2))
+  // Ações de Linha de MP (Adicionar / Remover / Alterar)
+  const handleAddMpRow = () => {
+    const defaultOpt = mpOptions[0]
+    const newRow: RawMaterialRowItem = {
+      id: `mp-row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      mpType: defaultOpt?.mpType || 'TARUGO 130x130',
+      materialCode: defaultOpt?.code || '',
+      yieldPct: defaultOpt?.defaultYieldPct || 97.5,
+      quantityTons: 0,
     }
+    setRawMaterialRows((prev) => [...prev, newRow])
   }
 
-  // Material de MP atualmente selecionado
-  const currentMpRecord = useMemo(() => {
-    return mpOptions.find((o) => o.code === selectedMpMaterialCode) || mpOptions[0] || null
-  }, [mpOptions, selectedMpMaterialCode])
+  const handleRemoveMpRow = (rowId: string) => {
+    setRawMaterialRows((prev) => {
+      if (prev.length <= 1) return prev // Mantém no mínimo 1 linha
+      return prev.filter((r) => r.id !== rowId)
+    })
+  }
 
-  // Saldo de MP pós-programação
+  const handleUpdateMpRow = (rowId: string, field: keyof RawMaterialRowItem, value: any) => {
+    setRawMaterialRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r
+        const updated = { ...r, [field]: value }
+
+        if (field === 'materialCode') {
+          const opt = mpOptions.find((o) => o.code === value)
+          if (opt) {
+            updated.mpType = opt.mpType
+            updated.yieldPct = opt.defaultYieldPct
+          }
+        }
+
+        // Se alterou quantidade da MP manualmente (Cálculo Inverso)
+        if (field === 'quantityTons') {
+          setMpDirectionLock('MP_TO_PROD')
+          const qty = Number(value) || 0
+          if (qty > 0 && updated.yieldPct > 0) {
+            // Recalcula produção estimada baseada na soma das MPs
+            setTimeout(() => {
+              setRawMaterialRows((latest) => {
+                const totalProdEstimated = latest.reduce((acc, curr) => {
+                  const y = curr.yieldPct > 0 ? curr.yieldPct : 97.5
+                  return acc + curr.quantityTons * (y / 100)
+                }, 0)
+                if (totalProdEstimated > 0) {
+                  setQuantityInput(totalProdEstimated.toFixed(2))
+                }
+                return latest
+              })
+            }, 0)
+          }
+        }
+
+        return updated
+      }),
+    )
+  }
+
+  // Totais consolidados de MP
+  const totalMpQuantity = useMemo(() => {
+    return Number(
+      rawMaterialRows.reduce((acc, r) => acc + (Number(r.quantityTons) || 0), 0).toFixed(2),
+    )
+  }, [rawMaterialRows])
+
+  const weightedYieldPct = useMemo(() => {
+    if (totalMpQuantity <= 0) return rawMaterialRows[0]?.yieldPct || 97.5
+    const weighted = rawMaterialRows.reduce(
+      (acc, r) => acc + (Number(r.yieldPct) || 97.5) * (Number(r.quantityTons) || 0),
+      0,
+    )
+    return Number((weighted / totalMpQuantity).toFixed(2))
+  }, [rawMaterialRows, totalMpQuantity])
+
+  // Registro principal da 1ª MP para retrocompatibilidade
+  const primaryMpRow = rawMaterialRows[0] || {
+    id: 'mp-1',
+    mpType: 'TARUGO 130x130',
+    materialCode: '',
+    yieldPct: 97.5,
+    quantityTons: 0,
+  }
+
+  const currentMpRecord = useMemo(() => {
+    return mpOptions.find((o) => o.code === primaryMpRow.materialCode) || mpOptions[0] || null
+  }, [mpOptions, primaryMpRow.materialCode])
+
+  // Saldo de MP pós-programação (consolidado)
   const mpPostBalanceResult = useMemo(() => {
-    const needed = Number(mpQuantityInput) || 0
     const available = currentMpRecord?.stockAvailableTons ?? null
-    return MpProgrammingEngine.calculateMpPostBalance(available, needed)
-  }, [currentMpRecord, mpQuantityInput])
+    return MpProgrammingEngine.calculateMpPostBalance(available, totalMpQuantity)
+  }, [currentMpRecord, totalMpQuantity])
 
   // 5. Validação de Conflito e Sobreposição de Horários
   const overlapValidation = useMemo(() => {
@@ -493,11 +611,22 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       cobertura_depois_dias: stockCarteiraData?.coverage?.postCoverageDays ?? null,
       situacao_cobertura: stockCarteiraData?.coverage?.situationText || 'Indisponível para cálculo',
 
-      raw_material_type: selectedMpType,
-      raw_material_material_code: selectedMpMaterialCode,
-      raw_material_planned_tons: Number(mpQuantityInput) || 0,
-      raw_material_yield_pct: currentYield,
+      raw_material_type: primaryMpRow.mpType,
+      raw_material_material_code: primaryMpRow.materialCode,
+      raw_material_planned_tons: totalMpQuantity,
+      raw_material_yield_pct: weightedYieldPct,
       raw_material_available_tons: currentMpRecord?.stockAvailableTons ?? null,
+      raw_material_rows: rawMaterialRows.map((r) => {
+        const opt = mpOptions.find((o) => o.code === r.materialCode)
+        return {
+          id: r.id,
+          mpType: r.mpType,
+          materialCode: r.materialCode,
+          yieldPct: r.yieldPct,
+          quantityTons: r.quantityTons,
+          availableTons: opt?.stockAvailableTons ?? null,
+        }
+      }),
 
       enfornamento_type: isLaminacao ? enfornamentoType : undefined,
       productivity_applied_source:
@@ -511,6 +640,15 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     setQuantityInput('100')
     setStartTimeInput('06:00')
     setEndTimeInput('14:20')
+    setRawMaterialRows([
+      {
+        id: 'mp-row-1',
+        mpType: mpOptions[0]?.mpType || 'TARUGO 130x130',
+        materialCode: mpOptions[0]?.code || '',
+        yieldPct: mpOptions[0]?.defaultYieldPct || 97.5,
+        quantityTons: 102.56,
+      },
+    ])
     setProductionOrder('')
     setSalesOrderMto('')
     setCustomerName('')
@@ -543,12 +681,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
-          {/* ETAPA 1: SELEÇÃO EM CASCATA: FAMÍLIA -> PRODUTO */}
+          {/* ETAPA 1: FAMÍLIA E PRODUTO SAP */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
                 <Layers className="w-4 h-4 text-[#004C97]" />
-                1. Família de Produto * (Ficha Mestre Linha {lineCode})
+                1. Família e Produto SAP * (Ficha Mestre Linha {lineCode})
               </label>
               <span className="text-[11px] text-slate-500 font-mono">
                 {homologatedFamilies.length} família(s) homologada(s)
@@ -578,7 +716,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
                   <Package className="w-4 h-4 text-[#004C97]" />
-                  2. Produto / Material Oficial SAP *
+                  Produto / Material Oficial SAP *
                 </label>
                 {selectedFamilyCode ? (
                   <span className="text-[10px] text-slate-500 font-mono">
@@ -666,14 +804,14 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* PARTE 2: BLOCO ESTOQUE & CARTEIRA & PROGRAMADO (EXIBIDO IMEDIATAMENTE APÓS SELECIONAR PRODUTO) */}
+          {/* ETAPA 2: ESTOQUE & CARTEIRA & PROGRAMADO — MATERIAL [PRODUTO] */}
           {selectedMaterial && (
             <div className="bg-white border-2 border-[#004C97]/30 rounded-xl p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <div className="flex items-center gap-2">
                   <Database className="w-4 h-4 text-[#004C97]" />
                   <span className="font-bold text-xs uppercase tracking-wide text-slate-900">
-                    ESTOQUE & CARTEIRA & PROGRAMADO — MATERIAL {selectedMaterial.material_code}
+                    2. ESTOQUE & CARTEIRA & PROGRAMADO — MATERIAL {selectedMaterial.material_code}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1042,207 +1180,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           )}
 
-          {/* PARTE 4: TIPO DE ENFORNAMENTO (SOMENTE PARA LAMINAÇÃO L1 / L2) */}
-          {isLaminacao && selectedMaterial && (
-            <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5 uppercase tracking-wider">
-                  <Flame className="w-4 h-4 text-amber-700" />
-                  Tipo de Enfornamento (Exclusivo Laminação {lineCode}) *
-                </label>
-                <span className="text-[10px] font-mono text-amber-800">
-                  Regime Térmico Forno de Reaquecimento
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {ENFORNAMENTO_OPTIONS.map((opt) => {
-                  const isChosen = enfornamentoType === opt.code
-                  return (
-                    <button
-                      key={opt.code}
-                      type="button"
-                      onClick={() => setEnfornamentoType(opt.code)}
-                      className={`p-2 rounded-lg border text-left transition-all ${
-                        isChosen
-                          ? 'bg-amber-100 border-amber-600 ring-2 ring-amber-500/20 font-bold text-amber-950 shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-amber-50/50'
-                      }`}
-                    >
-                      <div className="text-xs flex items-center justify-between">
-                        <span>{opt.label}</span>
-                        {isChosen && <CheckCircle2 className="w-3.5 h-3.5 text-amber-700" />}
-                      </div>
-                      <p className="text-[9px] text-slate-500 mt-1 line-clamp-1">
-                        {opt.description}
-                      </p>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {productivityMatch && (
-                <div className="text-[11px] text-amber-900 bg-white/80 p-2 rounded border border-amber-200 flex items-center justify-between">
-                  <span>
-                    Produtividade ativa aplicada:{' '}
-                    <strong className="font-mono">{productivityMatch.productivityTh} t/h</strong> (
-                    {productivityMatch.notes})
-                  </span>
-                  <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-800">
-                    Fonte: {productivityMatch.source}
-                  </Badge>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* PARTE 3: SEÇÃO MATÉRIA-PRIMA PROGRAMADA */}
-          {selectedMaterial && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
-                  <Boxes className="w-4 h-4 text-[#004C97]" />
-                  Matéria-Prima Programada
-                </label>
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono">
-                    Cálculo Direto / Inverso
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                {/* 1. Tipo de MP */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Tipo de MP *
-                  </label>
-                  <Select value={selectedMpType} onValueChange={setSelectedMpType}>
-                    <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OFFICIAL_MP_TYPES.map((t) => (
-                        <SelectItem key={t} value={t} className="text-xs">
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 2. Material MP */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Material MP (SAP/Ficha Mestre) *
-                  </label>
-                  <Select
-                    value={selectedMpMaterialCode}
-                    onValueChange={(code) => {
-                      setSelectedMpMaterialCode(code)
-                      const found = mpOptions.find((o) => o.code === code)
-                      if (found) {
-                        setSelectedMpType(found.mpType)
-                        setYieldPctInput(found.defaultYieldPct.toString())
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mpOptions.map((o) => (
-                        <SelectItem key={o.code} value={o.code} className="text-xs">
-                          <div className="flex flex-col">
-                            <span className="font-bold">{o.code}</span>
-                            <span className="text-[10px] text-slate-500">
-                              {o.description} ({o.supplierName || 'Padrão'})
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 3. Rendimento Metálico Previsto (%) */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Rendimento Previsto (%) *
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="50"
-                      max="100"
-                      value={yieldPctInput}
-                      onChange={(e) => {
-                        setYieldPctInput(e.target.value)
-                        setMpDirectionLock('PROD_TO_MP')
-                      }}
-                      className="font-mono text-xs bg-white border-slate-300 h-9 pr-8"
-                    />
-                    <span className="absolute right-2.5 top-2 font-bold text-xs text-slate-500">
-                      %
-                    </span>
-                  </div>
-                </div>
-
-                {/* 4. Quantidade MP */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Quantidade MP Necessária (t) *
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={mpQuantityInput}
-                      onChange={(e) => handleMpQuantityChange(e.target.value)}
-                      className="font-mono text-xs font-bold text-[#004C97] bg-white border-blue-300 h-9 pr-8"
-                    />
-                    <span className="absolute right-2.5 top-2 font-bold text-xs text-[#004C97]">
-                      t
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Saldo de MP pós-programação e Alerta de Déficit */}
-              <div className="pt-2 border-t border-slate-200">
-                {mpPostBalanceResult.hasDeficit ? (
-                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg flex items-start gap-2.5 text-xs text-rose-900">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">{mpPostBalanceResult.warningMessage}</span>
-                      <p className="text-[10px] text-rose-700 mt-0.5">
-                        O PCP pode prosseguir com a programação caso haja recebimento de MP previsto
-                        ou autorização de liderança.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-600 flex items-center justify-between bg-white p-2.5 rounded border border-slate-200">
-                    <span>
-                      Saldo MP pós-programação:{' '}
-                      <strong className="text-slate-900 font-mono">
-                        {mpPostBalanceResult.balanceTons !== null
-                          ? `${mpPostBalanceResult.balanceTons.toFixed(2)} t`
-                          : 'Dado de saldo MP aguardando integração SAP/WMS'}
-                      </strong>
-                    </span>
-                    <span className="text-[10px] text-slate-500 italic">
-                      Fórmula: MP Necessária = Produção Boa (
-                      {calculationResult?.quantityTons || quantityInput} t) ÷ {currentYield}% ={' '}
-                      {mpQuantityInput} t
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+          {/* ETAPA 3: PRODUTO PROGRAMADO (MOTOR TEMPORAL BIDIRECIONAL QUANTIDADE VS HORÁRIO) */}
           {/* ALERTA DE CADÊNCIA AUSENTE (REQUISITO 29) */}
           {selectedMaterial && (materialCadence === null || materialCadence <= 0) && (
             <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-2.5 shadow-xs">
@@ -1288,13 +1226,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           )}
 
-          {/* ETAPA 2: MOTOR TEMPORAL BIDIRECIONAL (QUANTIDADE VS HORÁRIO) */}
           {selectedMaterial && materialCadence !== null && materialCadence > 0 && (
             <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
-                  <Calculator className="w-4 h-4 text-[#004C97]" />
-                  3. Programar por *
+                  <Calculator className="w-4 h-4 text-[#004C97]" />3 - Produto programado
                 </label>
                 <div className="inline-flex rounded-lg border border-blue-300 bg-white p-0.5 shadow-xs">
                   <button
@@ -1486,10 +1422,202 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           )}
 
-          {/* ETAPA 3: DIA, TURNO E METADADOS */}
+          {/* ETAPA 4: MATÉRIA-PRIMA PROGRAMADA (MULTI-MP) */}
+          {selectedMaterial && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Boxes className="w-4 h-4 text-[#004C97]" />
+                    4. Matéria-Prima Programada
+                  </label>
+                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono">
+                    {rawMaterialRows.length} MP(s)
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-mono hidden sm:inline-flex">
+                    Cálculo Direto / Inverso
+                  </Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddMpRow}
+                    className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-bold h-8 flex items-center gap-1 px-3 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />+ Adicionar MP
+                  </Button>
+                </div>
+              </div>
+
+              {/* LISTA MULTI-MP */}
+              <div className="space-y-3">
+                {rawMaterialRows.map((row, index) => {
+                  return (
+                    <div
+                      key={row.id}
+                      className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                        <span className="text-[11px] font-bold text-[#004C97] font-mono">
+                          MP #{index + 1}
+                        </span>
+                        {rawMaterialRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMpRow(row.id)}
+                            className="text-[11px] text-rose-600 hover:text-rose-800 hover:underline flex items-center gap-1 font-medium"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remover
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        {/* 1. Tipo de MP */}
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Tipo de MP *
+                          </label>
+                          <Select
+                            value={row.mpType}
+                            onValueChange={(val) => handleUpdateMpRow(row.id, 'mpType', val)}
+                          >
+                            <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OFFICIAL_MP_TYPES.map((t) => (
+                                <SelectItem key={t} value={t} className="text-xs">
+                                  {t}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* 2. Material MP */}
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Material MP (SAP/Ficha Mestre) *
+                          </label>
+                          <Select
+                            value={row.materialCode}
+                            onValueChange={(code) =>
+                              handleUpdateMpRow(row.id, 'materialCode', code)
+                            }
+                          >
+                            <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
+                              <SelectValue placeholder="Selecione MP..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {mpOptions.map((o) => (
+                                <SelectItem key={o.code} value={o.code} className="text-xs">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold">{o.code}</span>
+                                    <span className="text-[10px] text-slate-500">
+                                      {o.description} ({o.supplierName || 'Padrão'})
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* 3. Rendimento Metálico Previsto (%) */}
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Rendimento Previsto (%) *
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="50"
+                              max="100"
+                              value={row.yieldPct}
+                              onChange={(e) => {
+                                handleUpdateMpRow(row.id, 'yieldPct', Number(e.target.value) || 0)
+                                setMpDirectionLock('PROD_TO_MP')
+                              }}
+                              className="font-mono text-xs bg-white border-slate-300 h-9 pr-8"
+                            />
+                            <span className="absolute right-2.5 top-2 font-bold text-xs text-slate-500">
+                              %
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 4. Quantidade MP */}
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Quantidade MP Necessária (t) *
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={row.quantityTons}
+                              onChange={(e) =>
+                                handleUpdateMpRow(row.id, 'quantityTons', e.target.value)
+                              }
+                              className="font-mono text-xs font-bold text-[#004C97] bg-white border-blue-300 h-9 pr-8"
+                            />
+                            <span className="absolute right-2.5 top-2 font-bold text-xs text-[#004C97]">
+                              t
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Saldo de MP pós-programação e Alerta de Déficit */}
+              <div className="pt-2 border-t border-slate-200">
+                {mpPostBalanceResult.hasDeficit ? (
+                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg flex items-start gap-2.5 text-xs text-rose-900">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">{mpPostBalanceResult.warningMessage}</span>
+                      <p className="text-[10px] text-rose-700 mt-0.5">
+                        O PCP pode prosseguir com a programação caso haja recebimento de MP previsto
+                        ou autorização de liderança.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 bg-white p-2.5 rounded border border-slate-200">
+                    <span>
+                      Saldo MP pós-programação:{' '}
+                      <strong className="text-slate-900 font-mono">
+                        {mpPostBalanceResult.balanceTons !== null
+                          ? `${mpPostBalanceResult.balanceTons.toFixed(2)} t`
+                          : 'Dado de saldo MP aguardando integração SAP/WMS'}
+                      </strong>
+                    </span>
+                    <span className="text-[10px] text-slate-500 italic">
+                      Total MP:{' '}
+                      <strong className="text-[#004C97] font-mono">{totalMpQuantity} t</strong> •
+                      Rendimento Ponderado:{' '}
+                      <strong className="font-mono">{weightedYieldPct}%</strong>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ETAPA 5: DIA, TURNO E METADADOS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Dia da Semana</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                5. Dia da Semana *
+              </label>
               <Select value={selectedDay} onValueChange={(v: any) => setSelectedDay(v)}>
                 <SelectTrigger className="text-xs bg-slate-50 border-slate-300 h-9">
                   <SelectValue />
@@ -1506,7 +1634,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Turno de Produção
+                Turno de Produção *
               </label>
               <Select value={selectedShift} onValueChange={setSelectedShift}>
                 <SelectTrigger className="text-xs bg-slate-50 border-slate-300 h-9">
@@ -1524,11 +1652,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* CLASSIFICAÇÃO MTS / MTO & CAMPOS COMPLEMENTARES */}
+          {/* ETAPA 6: CLASSIFICAÇÃO MTS / MTO & CAMPOS COMPLEMENTARES */}
           <div className="border-t border-slate-200 pt-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">
-                5. Classificação da Demanda *
+                6. Classificação da Demanda *
               </span>
               <div className="flex items-center gap-1.5">
                 {(['MTS', 'MTO', 'INDUSTRIALIZACAO'] as const).map((type) => (
@@ -1584,7 +1712,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <div>
               <label className="text-[11px] text-slate-600 block mb-0.5">
-                6. Observações do PCP / Instrução Operacional
+                7. Observações do PCP / Instrução Operacional
               </label>
               <Textarea
                 placeholder="Ex: Respeitar resfriamento prévio de tarugo; prioridade comercial contratual..."
@@ -1595,7 +1723,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
             </div>
           </div>
 
-          {/* PARTE 5: RESUMO DE IMPACTO ANTES DE SALVAR (OBRIGATÓRIO) */}
+          {/* PARTE 8: RESUMO DE IMPACTO ANTES DE SALVAR (OBRIGATÓRIO) */}
           {selectedMaterial && calculationResult && calculationResult.isValid && (
             <div className="bg-slate-900 text-white rounded-xl p-4 shadow-lg space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-700">
@@ -1658,7 +1786,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 <div>
                   <span className="text-slate-400 block text-[10px]">MP Necessária / Disp.:</span>
                   <span className="font-bold text-white">
-                    {mpQuantityInput} t /{' '}
+                    {totalMpQuantity} t /{' '}
                     {currentMpRecord?.stockAvailableTons !== null &&
                     currentMpRecord?.stockAvailableTons !== undefined
                       ? `${currentMpRecord.stockAvailableTons} t`
@@ -1668,7 +1796,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
                 <div>
                   <span className="text-slate-400 block text-[10px]">Rendimento Metálico:</span>
-                  <span className="font-bold text-white">{currentYield}%</span>
+                  <span className="font-bold text-white">{weightedYieldPct}%</span>
                 </div>
 
                 <div>
