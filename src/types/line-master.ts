@@ -353,16 +353,16 @@ export interface LineProductivityRate {
   sap_integration_id?: string
   valid_from?: string
   valid_until?: string
-  notes?: string
-  active: boolean
+  source_mode?: 'MANUAL' | 'SAP'
+  active?: boolean
+  sap_integration_id?: string
   created?: string
   updated?: string
   expand?: {
     product_family_id?: ProductFamily
-    sap_integration_id?: SapIntegrationDefinition
+    sap_integration_id?: SapIntegrationCatalog
   }
 }
-
 // 9. Prioridades de Matéria-Prima (line_raw_material_priorities)
 export interface LineRawMaterialPriority {
   id: string

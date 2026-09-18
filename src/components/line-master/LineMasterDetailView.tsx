@@ -436,16 +436,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [isScheduledStopModalOpen, setIsScheduledStopModalOpen] = useState(false)
 
   // Estados dos formulários de modais
+  const [editingProductivity, setEditingProductivity] = useState<LineProductivityRate | null>(null)
   const [prodMaterialCode, setProdMaterialCode] = useState('')
   const [prodMaterialName, setProdMaterialName] = useState('')
   const [prodRawMaterialType, setProdRawMaterialType] = useState<string>('TARUGO_130X130')
   const [prodEnfornamentoType, setProdEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
   const [prodUnit, setProdUnit] = useState<'t/h' | 'peça/h' | 'm/h'>('t/h')
   const [prodNominal, setProdNominal] = useState<number>(12.0)
-  const [prodPlanned, setProdPlanned] = useState<number>(11.5)
   const [prodFamilyId, setProdFamilyId] = useState('')
   const [prodValidFrom, setProdValidFrom] = useState('')
   const [prodValidUntil, setProdValidUntil] = useState('')
+  const [prodActive, setProdActive] = useState<boolean>(true)
+  const [isSavingProd, setIsSavingProd] = useState<boolean>(false)
 
   const [rawCode, setRawCode] = useState('')
   const [rawDesc, setRawDesc] = useState('')
@@ -497,40 +499,127 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [isSubmittingScheduledStop, setIsSubmittingScheduledStop] = useState(false)
   const [stopToDeactivate, setStopToDeactivate] = useState<StandardScheduledStop | null>(null)
 
+  const handleOpenAddProductivity = () => {
+    setEditingProductivity(null)
+    setProdFamilyId('')
+    setProdMaterialCode('')
+    setProdMaterialName('')
+    setProdRawMaterialType('TARUGO_130X130')
+    setProdEnfornamentoType('NORMAL')
+    setProdUnit('t/h')
+    setProdNominal(line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0))
+    setProdValidFrom(new Date().toISOString().slice(0, 10))
+    setProdValidUntil('')
+    setProdActive(true)
+    setIsProdModalOpen(true)
+  }
+
+  const handleOpenEditProductivity = (item: LineProductivityRate) => {
+    setEditingProductivity(item)
+    setProdFamilyId(item.product_family_id || '')
+    setProdMaterialCode(item.material_product_code || '')
+    setProdMaterialName(item.material_product_name || '')
+    setProdRawMaterialType(item.raw_material_type || 'TARUGO_130X130')
+    setProdEnfornamentoType(item.enfornamento_type || 'NORMAL')
+    setProdUnit(item.productivity_unit || 't/h')
+    setProdNominal(item.nominal_productivity ?? (line.nominal_capacity || 12.0))
+    setProdValidFrom(item.valid_from ? item.valid_from.substring(0, 10) : '')
+    setProdValidUntil(item.valid_until ? item.valid_until.substring(0, 10) : '')
+    setProdActive(item.active !== false)
+    setIsProdModalOpen(true)
+  }
+
   const handleSaveProductivity = async () => {
-    if (!prodMaterialCode || !prodMaterialName) {
+    if (isSavingProd) return
+
+    // Validações obrigatórias
+    if (!prodFamilyId) {
+      toast({
+        variant: 'destructive',
+        title: 'Campo obrigatório',
+        description: 'Selecione a Família de Produtos.',
+      })
+      return
+    }
+
+    if (!prodMaterialCode.trim() || !prodMaterialName.trim()) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Informe código e descrição do produto.',
+        description: 'Informe o código e a descrição do produto/material.',
       })
       return
     }
 
-    // Bloqueio de duplicidade antes de salvar:
-    // mesma Linha + Produto/Família + Tipo de Matéria-Prima + Tipo de Enfornamento com sobreposição de vigência
-    const isDuplicate = await lineMasterService.checkProductivityDuplicate({
-      lineId: line.id,
-      materialProductCode: prodMaterialCode.trim().toUpperCase(),
-      productFamilyId: prodFamilyId || undefined,
-      rawMaterialType: prodRawMaterialType,
-      enfornamentoType: prodEnfornamentoType,
-      validFrom: prodValidFrom || undefined,
-      validUntil: prodValidUntil || undefined,
-    })
-
-    if (isDuplicate) {
+    if (!prodUnit) {
       toast({
         variant: 'destructive',
-        title: 'Cadastro duplicado',
-        description:
-          'Já existe uma produtividade cadastrada para este Material, Tipo de Matéria-Prima e Tipo de Enfornamento no período informado.',
+        title: 'Campo obrigatório',
+        description: 'Selecione a Unidade de Medida.',
       })
       return
+    }
+
+    if (!prodValidFrom) {
+      toast({
+        variant: 'destructive',
+        title: 'Campo obrigatório',
+        description: 'Informe a Vigência Inicial (De).',
+      })
+      return
+    }
+
+    if (prodValidUntil && prodValidFrom && prodValidUntil < prodValidFrom) {
+      toast({
+        variant: 'destructive',
+        title: 'Vigência inválida',
+        description: 'A Vigência Final não pode ser anterior à Vigência Inicial.',
+      })
+      return
+    }
+
+    setIsSavingProd(true)
+
+    // Bloqueio de duplicidade antes de salvar (apenas quando ativo)
+    if (prodActive) {
+      const isDuplicate = await lineMasterService.checkProductivityDuplicate({
+        lineId: line.id,
+        materialProductCode: prodMaterialCode.trim().toUpperCase(),
+        productFamilyId: prodFamilyId || undefined,
+        rawMaterialType: prodRawMaterialType,
+        enfornamentoType: prodEnfornamentoType,
+        validFrom: prodValidFrom || undefined,
+        validUntil: prodValidUntil || undefined,
+        excludeId: editingProductivity?.id,
+      })
+
+      if (isDuplicate) {
+        setIsSavingProd(false)
+        toast({
+          variant: 'destructive',
+          title: 'Cadastro duplicado',
+          description:
+            'Já existe uma produtividade ativa cadastrada para este Material, Tipo de Matéria-Prima e Tipo de Enfornamento no período informado.',
+        })
+        return
+      }
     }
 
     try {
-      await lineMasterService.saveProductivity({
+      const isEditing = Boolean(editingProductivity?.id)
+      const targetId = editingProductivity?.id
+
+      // Prod. Nominal preservada do registro existente se for edição, ou da fonte padrão se for novo
+      const existingNominal = isEditing
+        ? (editingProductivity?.nominal_productivity ?? (line.nominal_capacity || 12.0))
+        : (line.nominal_capacity || (master?.nominal_hourly_capacity ?? 12.0))
+
+      const existingEfficiency = isEditing
+        ? (editingProductivity?.expected_efficiency_pct ?? (line.efficiency || 90))
+        : (line.efficiency || 90)
+
+      const saved = await lineMasterService.saveProductivity({
+        id: targetId,
         line_id: line.id,
         line_master_id: master?.id,
         product_family_id: prodFamilyId || undefined,
@@ -539,44 +628,131 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         raw_material_type: prodRawMaterialType,
         enfornamento_type: prodEnfornamentoType,
         productivity_unit: prodUnit,
-        nominal_productivity: Number(prodNominal),
-        planned_productivity: Number(prodPlanned),
-        expected_efficiency_pct: Math.round((Number(prodPlanned) / Number(prodNominal)) * 100),
+        nominal_productivity: Number(existingNominal),
+        expected_efficiency_pct: Number(existingEfficiency),
         valid_from: prodValidFrom || undefined,
         valid_until: prodValidUntil || undefined,
         source_mode: 'MANUAL',
-        active: true,
+        active: prodActive,
       })
 
-      // Auditoria na coleção pcp_audit_logs
+      // Auditoria completa em pcp_audit_logs
+      const currentUser = pb.authStore.record || pb.authStore.model
+      const operationType = isEditing ? 'EDIÇÃO' : 'CRIAÇÃO'
+      const auditAction = isEditing ? 'LINE_PRODUCTIVITY_UPDATE' : 'LINE_PRODUCTIVITY_CREATE'
+
+      const beforeValues = isEditing && editingProductivity ? {
+        family: editingProductivity.product_family_id || '',
+        material_code: editingProductivity.material_product_code,
+        material_name: editingProductivity.material_product_name,
+        raw_material_type: editingProductivity.raw_material_type,
+        enfornamento_type: editingProductivity.enfornamento_type,
+        unit: editingProductivity.productivity_unit,
+        valid_from: editingProductivity.valid_from,
+        valid_until: editingProductivity.valid_until,
+        status: editingProductivity.active !== false ? 'Ativo' : 'Inativo',
+      } : null
+
+      const afterValues = {
+        family: prodFamilyId,
+        material_code: prodMaterialCode.trim().toUpperCase(),
+        material_name: prodMaterialName.trim(),
+        raw_material_type: prodRawMaterialType,
+        enfornamento_type: prodEnfornamentoType,
+        unit: prodUnit,
+        valid_from: prodValidFrom,
+        valid_until: prodValidUntil || null,
+        status: prodActive ? 'Ativo' : 'Inativo',
+      }
+
+      // Detalhes descritivos para conformidade com a auditoria
+      const diffDescriptions: string[] = []
+      if (isEditing && beforeValues) {
+        if (beforeValues.status !== afterValues.status) {
+          diffDescriptions.push(`Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status} — Usuário: ${(currentUser as any)?.name || 'Usuário PCP'} — Data/Hora: ${new Date().toISOString()}`)
+        }
+        if (beforeValues.material_code !== afterValues.material_code) {
+          diffDescriptions.push(`Campo alterado: Material — Antes: ${beforeValues.material_code} — Depois: ${afterValues.material_code}`)
+        }
+        if (beforeValues.raw_material_type !== afterValues.raw_material_type) {
+          diffDescriptions.push(`Campo alterado: Tipo MP — Antes: ${beforeValues.raw_material_type} — Depois: ${afterValues.raw_material_type}`)
+        }
+        if (beforeValues.enfornamento_type !== afterValues.enfornamento_type) {
+          diffDescriptions.push(`Campo alterado: Enfornamento — Antes: ${beforeValues.enfornamento_type} — Depois: ${afterValues.enfornamento_type}`)
+        }
+        if (beforeValues.unit !== afterValues.unit) {
+          diffDescriptions.push(`Campo alterado: Unidade — Antes: ${beforeValues.unit} — Depois: ${afterValues.unit}`)
+        }
+        if (beforeValues.valid_from !== afterValues.valid_from || beforeValues.valid_until !== afterValues.valid_until) {
+          diffDescriptions.push(`Campo alterado: Vigência — Antes: ${beforeValues.valid_from || ''} até ${beforeValues.valid_until || 'indeterminada'} — Depois: ${afterValues.valid_from} até ${afterValues.valid_until || 'indeterminada'}`)
+        }
+      }
+
       try {
-        await lineMasterService.recordAuditVersion({
-          line_id: line.id,
-          line_master_id: master?.id,
-          version: master?.version ?? 1,
-          action: 'UPDATE',
-          changed_fields: ['productivity', 'raw_material_type', 'enfornamento_type'],
-          change_reason: `Produtividade cadastrada: ${prodMaterialCode.trim().toUpperCase()} (${prodNominal} ${prodUnit}) MP: ${prodRawMaterialType} Enfornamento: ${prodEnfornamentoType}`,
-          snapshot_data: {
-            material_code: prodMaterialCode.trim().toUpperCase(),
+        await pb.collection('pcp_audit_logs').create({
+          user_id: currentUser?.id || null,
+          user_email: (currentUser as any)?.email || '',
+          user_name: (currentUser as any)?.name || (currentUser as any)?.email || 'Usuário PCP',
+          user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+          event_type: 'SCHEDULE_ACTION',
+          action: auditAction,
+          resource: 'line_productivity_rates',
+          resource_id: saved.id,
+          permission_required: 'pcp.lines.manage',
+          scope: 'PRODUCTION_LINE',
+          outcome: 'SUCCESS',
+          company: 'CIAFAL',
+          line: line.code,
+          center: line.name || line.code,
+          module: 'Centros e Ficha Mestra',
+          screen: 'Ficha Mestre Expandida > Produtividade',
+          entity: 'line_productivity_rates',
+          record_id: saved.id,
+          status: prodActive ? 'Ativo' : 'Inativo',
+          reason: isEditing
+            ? `Edição de produtividade do material ${prodMaterialCode.trim().toUpperCase()}`
+            : `Cadastro de produtividade do material ${prodMaterialCode.trim().toUpperCase()}`,
+          details: {
+            line_id: line.id,
+            line_code: line.code,
+            operation_type: operationType,
+            product_family_id: prodFamilyId,
+            material_product_code: prodMaterialCode.trim().toUpperCase(),
             raw_material_type: prodRawMaterialType,
             enfornamento_type: prodEnfornamentoType,
-            nominal_productivity: Number(prodNominal),
-            planned_productivity: Number(prodPlanned),
+            productivity_unit: prodUnit,
+            valid_from: prodValidFrom,
+            valid_until: prodValidUntil || null,
+            status: prodActive ? 'Ativo' : 'Inativo',
+            user: (currentUser as any)?.name || 'Usuário PCP',
+            timestamp: new Date().toISOString(),
+            before_values: beforeValues,
+            after_values: afterValues,
+            diff_descriptions: diffDescriptions,
           },
         })
       } catch (auditErr) {
         console.warn('Falha na auditoria de produtividade:', auditErr)
       }
 
+      // Feedback visual e fechamento do popup após confirmação do backend
       toast({
-        title: 'Produtividade Cadastrada',
-        description: `${prodMaterialCode} (${prodNominal} ${prodUnit}) homologada.`,
+        title: isEditing ? 'Alterações salvas' : 'Produtividade salva',
+        description: isEditing
+          ? 'Alterações da produtividade salvas com sucesso.'
+          : 'Produtividade salva com sucesso.',
       })
       setIsProdModalOpen(false)
+      setEditingProductivity(null)
       onRefresh()
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message })
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível salvar as alterações',
+        description: 'Não foi possível salvar as alterações. Nenhuma modificação foi aplicada.',
+      })
+    } finally {
+      setIsSavingProd(false)
     }
   }
 

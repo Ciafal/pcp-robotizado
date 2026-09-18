@@ -479,7 +479,7 @@ export const lineMasterService = {
       pb
         .collection('line_productivity_rates')
         .getFullList<LineProductivityRate>({
-          filter: `line_id = '${lineId}' && active = true`,
+          filter: `line_id = '${lineId}'`,
           sort: 'material_product_code',
           expand: 'product_family_id,sap_integration_id',
         })
@@ -615,14 +615,15 @@ export const lineMasterService = {
       })
     }
 
-    if (productivity.length === 0) {
+    const activeProductivity = productivity.filter((p) => p.active !== false)
+    if (activeProductivity.length === 0) {
       alerts.push({
         id: 'alt_no_prod',
         level: 'WARNING',
         category: 'CAPACITY',
         title: 'Produtividade Não Cadastrada',
         description:
-          'Sem taxas de cadência (t/h, peça/h), o cálculo de capacidade horária é apenas estimativo.',
+          'Sem taxas de cadência (t/h, peça/h) ativas, o cálculo de capacidade horária é apenas estimativo.',
         resolutionAction: 'Cadastrar Produtividade Manual ou SAP',
       })
     }
@@ -932,6 +933,8 @@ export const lineMasterService = {
     enfornamentoType?: string
     validFrom?: string
     validUntil?: string | null
+    valid_from?: string
+    valid_until?: string | null
     excludeId?: string
   }): Promise<boolean> {
     const {
@@ -942,8 +945,13 @@ export const lineMasterService = {
       enfornamentoType,
       validFrom,
       validUntil,
+      valid_from,
+      valid_until,
       excludeId,
     } = params
+
+    const effValidFrom = validFrom || valid_from
+    const effValidUntil = validUntil !== undefined ? validUntil : valid_until
 
     try {
       const records = await pb
@@ -979,8 +987,8 @@ export const lineMasterService = {
       return this.checkProductivityOverlap(
         {
           id: excludeId,
-          valid_from: validFrom,
-          valid_until: validUntil,
+          valid_from: effValidFrom,
+          valid_until: effValidUntil,
         },
         matchingKeyRecords,
       )
@@ -992,9 +1000,11 @@ export const lineMasterService = {
 
   async saveProductivity(data: Partial<LineProductivityRate>): Promise<LineProductivityRate> {
     invalidateCompletenessCache(data.line_id)
+    const isActive = data.active !== undefined ? Boolean(data.active) : true
     const payload: Partial<LineProductivityRate> = {
       ...data,
-      source_mode: 'MANUAL', // Gravado sempre como MANUAL transparentemente
+      active: isActive,
+      source_mode: data.source_mode || 'MANUAL', // Gravado sempre como MANUAL transparentemente
     }
     if (data.id) {
       return await pb
@@ -1182,6 +1192,23 @@ export const lineMasterService = {
     }
 
     return saved
+  },
+
+  async setProductivityActive(id: string, active: boolean): Promise<LineProductivityRate> {
+    const previousRecord = await pb.collection('line_productivity_rates').getOne<LineProductivityRate>(id)
+    if (previousRecord?.line_id) {
+      invalidateCompletenessCache(previousRecord.line_id)
+    }
+
+    const updated = await pb
+      .collection('line_productivity_rates')
+      .update<LineProductivityRate>(id, { active })
+
+    if (updated.line_id) {
+      invalidateCompletenessCache(updated.line_id)
+    }
+
+    return updated
   },
 
   async setBlockedProductActive(
