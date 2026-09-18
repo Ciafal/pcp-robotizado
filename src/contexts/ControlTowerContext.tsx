@@ -435,6 +435,122 @@ export const ControlTowerProvider: React.FC<{
             )
             return [...syncedOrders, ...preservedNonWeekly]
           })
+
+          // BLOCO C: Gera Ocorrências de "Risco de Matéria-Prima" para itens com déficit ou risco
+          const rawMaterialAlerts: OperationalAlert[] = []
+          records.forEach((rec: any, idx: number) => {
+            const status = rec.raw_material_status
+            const deficit = Number(rec.raw_material_deficit_tons) || 0
+            const plannedProd = Number(rec.planned_quantity_tons) || 0
+            const requiredMp =
+              rec.raw_material_summary?.totalRequiredTons ||
+              (rec.raw_material_yield_pct > 0
+                ? Math.round((plannedProd / (rec.raw_material_yield_pct / 100)) * 100) / 100
+                : plannedProd)
+            const progMp = Number(rec.raw_material_planned_tons) || 0
+
+            if (
+              status === 'MP_NAO_PROGRAMADA' ||
+              status === 'SALDO_NEGATIVO_RISCO_RUPTURA' ||
+              status === 'MP_PARCIALMENTE_ATENDIDA' ||
+              status === 'AGUARDANDO_ENTRADA' ||
+              status === 'EXCESSO' ||
+              deficit > 0.01
+            ) {
+              const classification =
+                status === 'MP_NAO_PROGRAMADA'
+                  ? 'NAO_PROGRAMADA'
+                  : status === 'SALDO_NEGATIVO_RISCO_RUPTURA'
+                    ? 'SALDO_INSUFICIENTE'
+                    : status === 'EXCESSO'
+                      ? 'EXCESSO'
+                      : status === 'AGUARDANDO_ENTRADA'
+                        ? 'AGUARDANDO_RECEBIMENTO'
+                        : deficit > 0
+                          ? 'PARCIALMENTE_ATENDIDA'
+                          : 'MP_ATENDIDA'
+
+              const criticality =
+                status === 'MP_NAO_PROGRAMADA' || status === 'SALDO_NEGATIVO_RISCO_RUPTURA'
+                  ? 'CRITICA'
+                  : deficit > 20
+                    ? 'ALTA'
+                    : 'MEDIA'
+
+              const severity =
+                criticality === 'CRITICA' ? 'CRITICAL' : criticality === 'ALTA' ? 'WARNING' : 'INFO'
+
+              rawMaterialAlerts.push({
+                id: `al-mp-${rec.id || idx}-${Date.now()}`,
+                code: `AL-MP-${idx + 1}`,
+                companyCode: rec.company_code || 'CIAFAL',
+                plantCode: rec.plant_code || 'DIV',
+                processCode: rec.line_code || 'L1',
+                orderNumber: rec.production_order || `OP-${rec.line_code || 'L1'}-${idx + 1}`,
+                severity,
+                category: 'MATERIAIS',
+                title: `${rec.company_code || 'CIAFAL'} > ${rec.line_code || 'L1'} — ⚠ Risco de Matéria-Prima (${classification})`,
+                cause:
+                  status === 'MP_NAO_PROGRAMADA'
+                    ? 'Produto programado no PCP sem nenhuma alocação de matéria-prima.'
+                    : status === 'SALDO_NEGATIVO_RISCO_RUPTURA'
+                      ? 'Saldo projetado negativo de matéria-prima na data planejada de produção.'
+                      : status === 'EXCESSO'
+                        ? 'Quantidade de matéria-prima alocada acima da necessidade líquida calculada.'
+                        : `Alocação de MP insuficiente para a ordem. Déficit de ${deficit.toFixed(2)} t.`,
+                impact:
+                  criticality === 'CRITICA'
+                    ? 'Parada iminente da linha de produção ou reprogramação de campanha.'
+                    : 'Risco de atraso no cumprimento da carteira ou dependência de recebimento.',
+                whoIsAffected: `Operação Linha ${rec.line_code || 'L1'}, PCP Mestre e Pedido ${rec.sales_order_mto || rec.production_order || 'Geral'}`,
+                whenImpact: `Planejado para ${rec.day_of_week || 'Semana corrente'} (${rec.start_datetime || 'Hoje'})`,
+                alternatives: [
+                  'Alocar tarugos de outros lotes disponíveis no pátio',
+                  'Confirmar data de faturamento e entrega com fornecedor',
+                  'Inverter sequência com produto que tenha MP liberada',
+                ],
+                aiConfidencePct: 96,
+                timestamp: new Date().toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+                acknowledged: false,
+                rawMaterialRiskData: {
+                  companyCode: rec.company_code || 'CIAFAL',
+                  plantCode: rec.plant_code || 'DIV',
+                  lineCode: rec.line_code || 'L1',
+                  productionDateStr: rec.start_datetime || rec.day_of_week || 'Hoje',
+                  productCode: rec.material_code || 'PROD',
+                  productDescription: rec.material_description,
+                  productionTons: plannedProd,
+                  rawMaterialCode: rec.raw_material_material_code || 'MP-PADRAO',
+                  rawMaterialType: rec.raw_material_type || 'TARUGO',
+                  requiredMpTons: requiredMp,
+                  programmedMpTons: progMp,
+                  currentStockTons: rec.raw_material_available_tons ?? null,
+                  supplierReceiptsTons: null,
+                  pcpUpstreamTons: 0,
+                  pcpCommittedOtherTons: 0,
+                  projectedBalanceTons:
+                    rec.raw_material_available_tons !== null &&
+                    rec.raw_material_available_tons !== undefined
+                      ? rec.raw_material_available_tons - progMp
+                      : null,
+                  deficitTons: deficit,
+                  classification,
+                  criticality,
+                },
+              })
+            }
+          })
+
+          if (rawMaterialAlerts.length > 0) {
+            setAlerts((prev) => {
+              // Evita duplicar alertas da mesma ordem de MP
+              const filtered = prev.filter((a) => !a.id.startsWith('al-mp-'))
+              return [...rawMaterialAlerts, ...filtered]
+            })
+          }
         }
       } catch (err) {
         console.warn('Sincronização de weekly_schedules com Torre de Controle:', err)

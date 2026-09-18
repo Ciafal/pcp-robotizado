@@ -575,6 +575,36 @@ export interface OperationalAlert {
   aiConfidencePct?: number
   timestamp: string
   acknowledged: boolean
+  // Metadados enriquecidos para ocorrência de Risco de Matéria-Prima
+  rawMaterialRiskData?: {
+    companyCode: string
+    plantCode: string
+    lineCode: string
+    productionDateStr: string
+    productCode: string
+    productDescription?: string
+    productionTons: number
+    rawMaterialCode: string
+    rawMaterialType?: string
+    requiredMpTons: number
+    programmedMpTons: number
+    currentStockTons: number | null
+    supplierReceiptsTons: number | null
+    pcpUpstreamTons: number
+    pcpCommittedOtherTons: number
+    projectedBalanceTons: number | null
+    deficitTons: number
+    nextEntryDate?: string
+    classification:
+      | 'MP_ATENDIDA'
+      | 'PARCIALMENTE_ATENDIDA'
+      | 'NAO_PROGRAMADA'
+      | 'SALDO_INSUFICIENTE'
+      | 'EXCESSO'
+      | 'AGUARDANDO_RECEBIMENTO'
+      | 'AGUARDANDO_PRODUCAO_INTERNA'
+    criticality: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAIXA'
+  }
 }
 
 export interface ImpactPropagationNode {

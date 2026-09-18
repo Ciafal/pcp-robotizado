@@ -25,6 +25,7 @@ import {
   StandardScheduledStop,
 } from '@/types/line-master'
 import { InventoryItem } from '@/types/inventory-projection'
+import { MpProgrammingEngine } from './mp-programming-engine'
 
 /**
  * Utilitário determinístico de manipulação e cálculo de datas/horas
@@ -1515,9 +1516,11 @@ export const WeeklyScheduleEngine = {
       lineOverview,
     )
 
-    // 1. Necessidade Líquida = Qtd Programada / (Rendimento / 100)
+    // 1. Necessidade Líquida = Qtd Programada / (Rendimento / 100) (Fórmula canônica)
     const netRawMaterialTons =
-      spec.yieldPct > 0 ? Number((plannedTons / (spec.yieldPct / 100)).toFixed(2)) : plannedTons
+      spec.yieldPct > 0
+        ? MpProgrammingEngine.calculateCanonicalMpRequired(plannedTons, spec.yieldPct)
+        : plannedTons
 
     // Número estimado de tarugos = (Necessidade em kg) / (Peso do tarugo em kg)
     const netRawMaterialKg = netRawMaterialTons * 1000

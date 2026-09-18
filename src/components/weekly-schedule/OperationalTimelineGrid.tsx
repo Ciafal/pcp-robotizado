@@ -1171,6 +1171,71 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                           </span>
                                         )}
 
+                                        {/* BLOCO C: Badge de Matéria-Prima com Tooltip Informativo */}
+                                        {!isStop &&
+                                          (() => {
+                                            const mpStatus = item.raw_material_status
+                                            const requiredTons =
+                                              item.raw_material_summary?.totalRequiredTons ??
+                                              (item.raw_material_yield_pct &&
+                                              item.raw_material_yield_pct > 0
+                                                ? Math.round(
+                                                    (item.planned_quantity_tons /
+                                                      (item.raw_material_yield_pct / 100)) *
+                                                      100,
+                                                  ) / 100
+                                                : item.planned_quantity_tons)
+                                            const programmedTons =
+                                              item.raw_material_summary?.totalProgrammedMpTons ??
+                                              item.raw_material_planned_tons ??
+                                              0
+                                            const deficitTons =
+                                              item.raw_material_deficit_tons ??
+                                              Math.max(
+                                                0,
+                                                Math.round((requiredTons - programmedTons) * 100) /
+                                                  100,
+                                              )
+
+                                            if (
+                                              mpStatus === 'MP_NAO_PROGRAMADA' ||
+                                              (programmedTons <= 0 && requiredTons > 0)
+                                            ) {
+                                              return (
+                                                <span
+                                                  className="text-[9px] bg-rose-600 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap animate-pulse"
+                                                  title={`⚠ Falta MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                >
+                                                  ⚠ Falta MP
+                                                </span>
+                                              )
+                                            }
+                                            if (
+                                              mpStatus === 'MP_PARCIALMENTE_ATENDIDA' ||
+                                              deficitTons > 0.01
+                                            ) {
+                                              return (
+                                                <span
+                                                  className="text-[9px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
+                                                  title={`⚠ MP Pendente — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                >
+                                                  ⚠ MP Pendente
+                                                </span>
+                                              )
+                                            }
+                                            if (mpStatus === 'SALDO_NEGATIVO_RISCO_RUPTURA') {
+                                              return (
+                                                <span
+                                                  className="text-[9px] bg-rose-700 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
+                                                  title={`⚠ Risco de Ruptura MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                >
+                                                  ⚠ Risco MP
+                                                </span>
+                                              )
+                                            }
+                                            return null
+                                          })()}
+
                                         <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
                                           {item.material_code}
                                         </span>
@@ -1344,6 +1409,64 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                           {item.setup_breakdown?.responsible_area || 'Produção'})
                                         </div>
                                       )}
+                                      {/* BLOCO C: Detalhes de MP no Tooltip do item */}
+                                      <div className="col-span-2 text-slate-300 bg-slate-900/90 p-2 rounded mt-1 border border-slate-800 space-y-1">
+                                        <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-800 pb-1">
+                                          <span>📦 Matéria-Prima Programada:</span>
+                                          <span className="font-mono text-[10px]">
+                                            {item.raw_material_status_label ||
+                                              item.raw_material_status ||
+                                              'OK'}
+                                          </span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-[10px]">
+                                          <div>
+                                            <span className="text-slate-400 block">
+                                              Necessário:
+                                            </span>
+                                            <strong className="text-white font-mono">
+                                              {(
+                                                item.raw_material_summary?.totalRequiredTons ??
+                                                (item.raw_material_yield_pct &&
+                                                item.raw_material_yield_pct > 0
+                                                  ? Math.round(
+                                                      (item.planned_quantity_tons /
+                                                        (item.raw_material_yield_pct / 100)) *
+                                                        100,
+                                                    ) / 100
+                                                  : item.planned_quantity_tons)
+                                              ).toFixed(2)}{' '}
+                                              t
+                                            </strong>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 block">
+                                              Programado:
+                                            </span>
+                                            <strong className="text-white font-mono">
+                                              {(
+                                                item.raw_material_summary?.totalProgrammedMpTons ??
+                                                item.raw_material_planned_tons ??
+                                                0
+                                              ).toFixed(2)}{' '}
+                                              t
+                                            </strong>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 block">Déficit:</span>
+                                            <strong
+                                              className={`font-mono ${
+                                                (item.raw_material_deficit_tons || 0) > 0
+                                                  ? 'text-rose-400'
+                                                  : 'text-emerald-400'
+                                              }`}
+                                            >
+                                              {(item.raw_material_deficit_tons ?? 0).toFixed(2)} t
+                                            </strong>
+                                          </div>
+                                        </div>
+                                      </div>
+
                                       {item.pcp_notes && (
                                         <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
                                           📝 <span className="text-slate-400">Obs:</span>{' '}

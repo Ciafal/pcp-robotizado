@@ -80,6 +80,111 @@ export const AlertCenter: React.FC = () => {
                   <strong className="text-slate-900">Horizonte:</strong> {al.whenImpact}
                 </div>
 
+                {/* BLOCO C: Metadados Enriquecidos de Risco de Matéria-Prima */}
+                {al.rawMaterialRiskData && (
+                  <div className="mt-2 p-2.5 rounded bg-slate-900 text-slate-200 border border-slate-800 text-[10px] space-y-1 font-sans">
+                    <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-700 pb-1">
+                      <span>Detalhes Risco de MP:</span>
+                      <span className="font-mono">{al.rawMaterialRiskData.classification}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                      <div>
+                        <span className="text-slate-400">Empresa/Planta:</span>{' '}
+                        <strong>
+                          {al.rawMaterialRiskData.companyCode} / {al.rawMaterialRiskData.plantCode}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Linha:</span>{' '}
+                        <strong className="text-amber-300 font-mono">
+                          {al.rawMaterialRiskData.lineCode}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Data Produção:</span>{' '}
+                        <strong className="font-mono">
+                          {al.rawMaterialRiskData.productionDateStr}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Produto:</span>{' '}
+                        <strong className="font-mono">{al.rawMaterialRiskData.productCode}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Qtd Produção:</span>{' '}
+                        <strong className="font-mono text-emerald-400">
+                          {al.rawMaterialRiskData.productionTons} t
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">MP / Tipo:</span>{' '}
+                        <strong className="font-mono">
+                          {al.rawMaterialRiskData.rawMaterialCode}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Necessária:</span>{' '}
+                        <strong className="font-mono text-blue-300">
+                          {al.rawMaterialRiskData.requiredMpTons} t
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Programada:</span>{' '}
+                        <strong className="font-mono text-white">
+                          {al.rawMaterialRiskData.programmedMpTons} t
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Estoque SAP:</span>{' '}
+                        <strong className="font-mono">
+                          {al.rawMaterialRiskData.currentStockTons !== null
+                            ? `${al.rawMaterialRiskData.currentStockTons} t`
+                            : 'N/D'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Entradas / PCP:</span>{' '}
+                        <strong className="font-mono">
+                          {al.rawMaterialRiskData.supplierReceiptsTons !== null
+                            ? `${al.rawMaterialRiskData.supplierReceiptsTons} t`
+                            : 'N/D'}{' '}
+                          /{' '}
+                          {al.rawMaterialRiskData.pcpUpstreamTons > 0
+                            ? `${al.rawMaterialRiskData.pcpUpstreamTons} t`
+                            : '0 t'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Saldo Projetado:</span>{' '}
+                        <strong
+                          className={`font-mono ${
+                            al.rawMaterialRiskData.projectedBalanceTons !== null &&
+                            al.rawMaterialRiskData.projectedBalanceTons < 0
+                              ? 'text-rose-400 font-bold'
+                              : 'text-emerald-300'
+                          }`}
+                        >
+                          {al.rawMaterialRiskData.projectedBalanceTons !== null
+                            ? `${al.rawMaterialRiskData.projectedBalanceTons} t`
+                            : 'N/D'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Déficit:</span>{' '}
+                        <strong
+                          className={`font-mono ${
+                            al.rawMaterialRiskData.deficitTons > 0
+                              ? 'text-rose-400 font-bold'
+                              : 'text-slate-300'
+                          }`}
+                        >
+                          {al.rawMaterialRiskData.deficitTons} t
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {al.aiConfidencePct && (
                   <div className="text-[#004C97] font-mono text-[10px] pt-1 font-semibold">
                     Confiança da Projeção IA: <strong>{al.aiConfidencePct}%</strong>

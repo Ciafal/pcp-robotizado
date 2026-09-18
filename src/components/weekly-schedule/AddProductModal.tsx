@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { DAYS_OF_WEEK, WeeklyScheduleItem, OfficialMaterialOption } from '@/types/weekly-schedule'
+import { pcpAuditService } from '@/services/pcp-audit-service'
 
 export interface RawMaterialRowItem {
   id: string
@@ -346,38 +348,49 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
   }, [selectedMaterial, lineCode])
 
-  // Multi-MP: Sincroniza Quantidade de MP a partir da Produção Boa (Cálculo Direto)
-  // Quando em PROD_TO_MP, a 1ª MP (ou proporcional) recebe o cálculo direto da produção
+  // Produção planejada atual numérica
+  const plannedGoodProduction = useMemo(() => {
+    return calculationResult?.quantityTons ?? (Number(quantityInput) || 0)
+  }, [calculationResult?.quantityTons, quantityInput])
+
+  // Rendimento efetivo principal para cálculo da necessidade única
+  const effectiveYieldPct = useMemo(() => {
+    const r1 = rawMaterialRows[0]
+    return r1 && Number(r1.yieldPct) > 0 ? Number(r1.yieldPct) : 90
+  }, [rawMaterialRows])
+
+  // Multi-MP: Sincroniza Quantidade de MP a partir da Produção Boa (Cálculo Direto canônico)
+  // Quando em PROD_TO_MP e há apenas 1 linha de MP, ela recebe 100% da necessidade calculada
+  // Se houver múltiplas linhas de MP, não sobrescreve as repartições manuais do usuário automaticamente
   useEffect(() => {
     if (mpDirectionLock === 'PROD_TO_MP') {
-      const goodProd = calculationResult?.quantityTons ?? (Number(quantityInput) || 0)
+      const goodProd = plannedGoodProduction
       if (goodProd > 0) {
-        setRawMaterialRows((prev) =>
-          prev.map((r, idx) => {
-            // Se houver apenas 1 linha ou for a linha principal, calcula 100% da necessidade
-            // Se houver múltiplas linhas, preserva o rendimento de cada linha
-            const calculatedMp = MpProgrammingEngine.calculateMpFromProduction(
-              goodProd / (prev.length > 1 ? prev.length : 1),
-              r.yieldPct || 97.5,
-            )
-            return {
-              ...r,
-              quantityTons: Number(calculatedMp.toFixed(2)),
-            }
-          }),
-        )
+        setRawMaterialRows((prev) => {
+          if (prev.length <= 1) {
+            const y = prev[0]?.yieldPct || 90
+            const calculatedMp = MpProgrammingEngine.calculateCanonicalMpRequired(goodProd, y)
+            return [
+              {
+                ...prev[0],
+                quantityTons: calculatedMp,
+              },
+            ]
+          }
+          return prev
+        })
       }
     }
-  }, [calculationResult?.quantityTons, quantityInput, mpDirectionLock])
+  }, [plannedGoodProduction, mpDirectionLock])
 
   // Ações de Linha de MP (Adicionar / Remover / Alterar)
+  // REGRA BLOCO B: "+ Adicionar MP" cria linha LIMPA (sem copiar material anterior)
   const handleAddMpRow = () => {
-    const defaultOpt = mpOptions[0]
     const newRow: RawMaterialRowItem = {
       id: `mp-row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      mpType: defaultOpt?.mpType || 'TARUGO 130x130',
-      materialCode: defaultOpt?.code || '',
-      yieldPct: defaultOpt?.defaultYieldPct || 97.5,
+      mpType: 'TARUGO 130x130',
+      materialCode: '', // LIMPO! Não copia material anterior
+      yieldPct: 90,
       quantityTons: 0,
     }
     setRawMaterialRows((prev) => [...prev, newRow])
@@ -404,25 +417,20 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           }
         }
 
+        // Se alterou rendimento da linha 1 ou única e está em PROD_TO_MP, recalcula MP imediatamente
+        if (field === 'yieldPct' && prev.length === 1 && mpDirectionLock === 'PROD_TO_MP') {
+          const newYield = Number(value) || 0
+          if (newYield > 0 && plannedGoodProduction > 0) {
+            updated.quantityTons = MpProgrammingEngine.calculateCanonicalMpRequired(
+              plannedGoodProduction,
+              newYield,
+            )
+          }
+        }
+
         // Se alterou quantidade da MP manualmente (Cálculo Inverso)
         if (field === 'quantityTons') {
           setMpDirectionLock('MP_TO_PROD')
-          const qty = Number(value) || 0
-          if (qty > 0 && updated.yieldPct > 0) {
-            // Recalcula produção estimada baseada na soma das MPs
-            setTimeout(() => {
-              setRawMaterialRows((latest) => {
-                const totalProdEstimated = latest.reduce((acc, curr) => {
-                  const y = curr.yieldPct > 0 ? curr.yieldPct : 97.5
-                  return acc + curr.quantityTons * (y / 100)
-                }, 0)
-                if (totalProdEstimated > 0) {
-                  setQuantityInput(totalProdEstimated.toFixed(2))
-                }
-                return latest
-              })
-            }, 0)
-          }
         }
 
         return updated
@@ -438,9 +446,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   }, [rawMaterialRows])
 
   const weightedYieldPct = useMemo(() => {
-    if (totalMpQuantity <= 0) return rawMaterialRows[0]?.yieldPct || 97.5
+    if (totalMpQuantity <= 0) return rawMaterialRows[0]?.yieldPct || 90
     const weighted = rawMaterialRows.reduce(
-      (acc, r) => acc + (Number(r.yieldPct) || 97.5) * (Number(r.quantityTons) || 0),
+      (acc, r) => acc + (Number(r.yieldPct) || 90) * (Number(r.quantityTons) || 0),
       0,
     )
     return Number((weighted / totalMpQuantity).toFixed(2))
@@ -451,7 +459,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     id: 'mp-1',
     mpType: 'TARUGO 130x130',
     materialCode: '',
-    yieldPct: 97.5,
+    yieldPct: 90,
     quantityTons: 0,
   }
 
@@ -459,11 +467,44 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     return mpOptions.find((o) => o.code === primaryMpRow.materialCode) || mpOptions[0] || null
   }, [mpOptions, primaryMpRow.materialCode])
 
-  // Saldo de MP pós-programação (consolidado)
-  const mpPostBalanceResult = useMemo(() => {
-    const available = currentMpRecord?.stockAvailableTons ?? null
-    return MpProgrammingEngine.calculateMpPostBalance(available, totalMpQuantity)
-  }, [currentMpRecord, totalMpQuantity])
+  // Dicionários para o motor de disponibilidade por MP individual
+  const pcpCommittedOtherByMp = useMemo(() => {
+    const map: Record<string, number> = {}
+    existingItems.forEach((it) => {
+      if (it.raw_material_rows) {
+        it.raw_material_rows.forEach((r) => {
+          const k = (r.materialCode || '').toUpperCase().trim()
+          if (k) {
+            map[k] = (map[k] || 0) + (Number(r.quantityTons) || 0)
+          }
+        })
+      } else if (it.raw_material_material_code) {
+        const k = it.raw_material_material_code.toUpperCase().trim()
+        map[k] = (map[k] || 0) + (Number(it.raw_material_planned_tons) || 0)
+      }
+    })
+    return map
+  }, [existingItems])
+
+  // AVALIAÇÃO DE CONTROLE EM TEMPO REAL DE MATÉRIA-PRIMA (BLOCO A + B)
+  const mpControlEvaluation = useMemo(() => {
+    return MpProgrammingEngine.evaluateScheduleMpControl({
+      plannedProductionTons: plannedGoodProduction,
+      yieldPct: effectiveYieldPct,
+      rawMaterialRows: rawMaterialRows.map((r) => ({
+        id: r.id,
+        mpType: r.mpType,
+        materialCode: r.materialCode,
+        yieldPct: Number(r.yieldPct) || 90,
+        quantityTons: Number(r.quantityTons) || 0,
+      })),
+      productionDate: new Date(),
+      realStockByMp: {}, // Sem integração direta SAP na sessão: PROIBIDO inventar
+      supplierReceiptsByMp: {},
+      upstreamByMp: {},
+      pcpCommittedOtherByMp,
+    })
+  }, [plannedGoodProduction, effectiveYieldPct, rawMaterialRows, pcpCommittedOtherByMp])
 
   // 5. Validação de Conflito e Sobreposição de Horários
   const overlapValidation = useMemo(() => {
@@ -574,6 +615,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       targetCrewName,
     )
 
+    // BLOCO B: Status do MP persistido no item salvo (não só toast — alertas NÃO podem desaparecer após salvar)
+    const evaluatedStatus = mpControlEvaluation.status
+    const evaluatedStatusLabel = mpControlEvaluation.statusLabel
+    const deficitTons =
+      mpControlEvaluation.differenceTons < 0 ? Math.abs(mpControlEvaluation.differenceTons) : 0
+
     onAdd({
       material_code: selectedMaterial.material_code,
       material_description: selectedMaterial.material_name,
@@ -616,15 +663,36 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       raw_material_planned_tons: totalMpQuantity,
       raw_material_yield_pct: weightedYieldPct,
       raw_material_available_tons: currentMpRecord?.stockAvailableTons ?? null,
+      raw_material_status: evaluatedStatus,
+      raw_material_status_label: evaluatedStatusLabel,
+      raw_material_deficit_tons: deficitTons,
+      raw_material_summary: {
+        plannedProductionTons: mpControlEvaluation.plannedProductionTons,
+        totalRequiredTons: mpControlEvaluation.totalRequiredTons,
+        totalProgrammedMpTons: mpControlEvaluation.totalProgrammedMpTons,
+        differenceTons: mpControlEvaluation.differenceTons,
+        fulfillmentPct: mpControlEvaluation.fulfillmentPct,
+        status: evaluatedStatus,
+        statusLabel: evaluatedStatusLabel,
+        alertMessage: mpControlEvaluation.alertMessage,
+        isExcessBlocked: mpControlEvaluation.isExcessBlocked,
+      },
       raw_material_rows: rawMaterialRows.map((r) => {
-        const opt = mpOptions.find((o) => o.code === r.materialCode)
+        const rowEval = mpControlEvaluation.rowsAvailability.find((row) => row.id === r.id)
         return {
           id: r.id,
           mpType: r.mpType,
           materialCode: r.materialCode,
           yieldPct: r.yieldPct,
           quantityTons: r.quantityTons,
-          availableTons: opt?.stockAvailableTons ?? null,
+          availableTons: rowEval?.totalStockTons ?? null,
+          totalStockTons: rowEval?.totalStockTons ?? null,
+          pcpProgrammedStockTons: rowEval?.pcpProgrammedStockTons ?? 0,
+          supplierReceiptsTons: rowEval?.supplierReceiptsTons ?? 0,
+          pcpUpstreamPlannedTons: rowEval?.pcpUpstreamPlannedTons ?? 0,
+          finalBalanceTons: rowEval?.finalBalanceTons ?? null,
+          status: rowEval?.status,
+          statusLabel: rowEval?.statusLabel,
         }
       }),
 
@@ -633,6 +701,54 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         isLaminacao && productivityMatch ? productivityMatch.notes : undefined,
       query_timestamp: stockCarteiraData?.calculationTimestamp || new Date().toISOString(),
     })
+
+    // BLOCO C: Rastreabilidade de cada cálculo via pcpAuditService
+    try {
+      pcpAuditService
+        .recordLog({
+          action: 'Cálculo e Alocação de Matéria-Prima Programada',
+          event_type: 'Cálculo',
+          status: evaluatedStatus === 'ATENDIDO' ? 'Sucesso' : 'Alerta',
+          module: 'Programação Semanal',
+          screen: 'AddProductModal',
+          company: 'CIAFAL',
+          line: lineCode,
+          center: 'Produção',
+          entity: 'RAW_MATERIAL_PROGRAMMING',
+          reason: evaluatedStatusLabel,
+          justification: `Cálculo MP: Produção ${calculationResult.quantityTons} t / Rendimento ${effectiveYieldPct}% = Necessidade ${mpControlEvaluation.totalRequiredTons} t. Programado: ${totalMpQuantity} t. Status: ${evaluatedStatusLabel}.`,
+          details: {
+            productCode: selectedMaterial.material_code,
+            plannedQuantityTons: calculationResult.quantityTons,
+            yieldPct: effectiveYieldPct,
+            requiredMpTons: mpControlEvaluation.totalRequiredTons,
+            totalProgrammedMpTons: totalMpQuantity,
+            differenceTons: mpControlEvaluation.differenceTons,
+            fulfillmentPct: mpControlEvaluation.fulfillmentPct,
+            status: evaluatedStatus,
+            statusLabel: evaluatedStatusLabel,
+            alertMessage: mpControlEvaluation.alertMessage,
+            rawMaterialRows: rawMaterialRows.map((r) => {
+              const rowEval = mpControlEvaluation.rowsAvailability.find((row) => row.id === r.id)
+              return {
+                mpType: r.mpType,
+                materialCode: r.materialCode,
+                quantityTons: r.quantityTons,
+                yieldPct: r.yieldPct,
+                totalStockDisplay: rowEval?.totalStockDisplay,
+                finalBalanceDisplay: rowEval?.finalBalanceDisplay,
+                statusLabel: rowEval?.statusLabel,
+              }
+            }),
+            dataSource: 'Cálculo Canônico PCP Robotizado + Regras de Disponibilidade',
+          },
+        })
+        .catch((err) => {
+          console.warn('Registro de auditoria de MP:', err)
+        })
+    } catch {
+      // Ignora erro assíncrono de auditoria para não travar UX
+    }
 
     // Reset de estado
     setSelectedFamilyCode('')
@@ -1451,18 +1567,153 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
+              {/* RESUMO DE CONTROLE EM TEMPO REAL (BLOCO B) */}
+              <div
+                className={`p-3 rounded-lg border text-xs space-y-2 transition-all ${
+                  mpControlEvaluation.color === 'RED'
+                    ? mpControlEvaluation.isExcessBlocked
+                      ? 'bg-rose-50 border-rose-300 text-rose-950'
+                      : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                    : mpControlEvaluation.color === 'YELLOW'
+                      ? 'bg-amber-50 border-amber-300 text-amber-950'
+                      : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-1.5 border-b border-black/10">
+                  <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px]">
+                    <ShieldCheck className="w-4 h-4" />
+                    Resumo de Controle de Matéria-Prima
+                  </div>
+                  <Badge
+                    className={`text-[10px] font-bold font-mono ${
+                      mpControlEvaluation.color === 'RED'
+                        ? 'bg-rose-600 text-white'
+                        : mpControlEvaluation.color === 'YELLOW'
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    {mpControlEvaluation.statusLabel}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-[11px]">
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">Produção Programada:</span>
+                    <strong className="font-mono text-slate-900">
+                      {mpControlEvaluation.plannedProductionTons.toFixed(2)} t
+                    </strong>
+                  </div>
+
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">Necessidade Total:</span>
+                    <strong className="font-mono text-[#004C97]">
+                      {mpControlEvaluation.totalRequiredTons.toFixed(2)} t
+                    </strong>
+                    <span className="text-[9px] text-slate-400 block">
+                      ({mpControlEvaluation.yieldPct}% rend.)
+                    </span>
+                  </div>
+
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">MP Programada (Σ):</span>
+                    <strong className="font-mono text-slate-900">
+                      {mpControlEvaluation.totalProgrammedMpTons.toFixed(2)} t
+                    </strong>
+                  </div>
+
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">Diferença:</span>
+                    <strong
+                      className={`font-mono ${
+                        mpControlEvaluation.differenceTons > 0.01
+                          ? 'text-rose-600'
+                          : mpControlEvaluation.differenceTons < -0.01
+                            ? 'text-amber-700'
+                            : 'text-emerald-700'
+                      }`}
+                    >
+                      {mpControlEvaluation.differenceTons > 0 ? '+' : ''}
+                      {mpControlEvaluation.differenceTons.toFixed(2)} t
+                    </strong>
+                  </div>
+
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">Atendimento %:</span>
+                    <strong className="font-mono text-slate-900">
+                      {mpControlEvaluation.fulfillmentPct.toFixed(1)}%
+                    </strong>
+                  </div>
+
+                  <div className="bg-white/70 p-1.5 rounded border border-black/5">
+                    <span className="text-[10px] text-slate-500 block">Status:</span>
+                    <strong className="text-[10px] uppercase font-bold truncate block">
+                      {mpControlEvaluation.status}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Mensagem e Alertas em Tempo Real */}
+                {mpControlEvaluation.alertMessage && (
+                  <div
+                    className={`p-2 rounded text-xs flex items-start gap-2 font-medium ${
+                      mpControlEvaluation.isExcessBlocked
+                        ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                        : mpControlEvaluation.color === 'RED'
+                          ? 'bg-rose-100/70 text-rose-950 border border-rose-200'
+                          : 'bg-amber-100 text-amber-950 border border-amber-300'
+                    }`}
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block">{mpControlEvaluation.alertMessage}</strong>
+                      {mpControlEvaluation.isExcessBlocked && (
+                        <p className="text-[10px] text-rose-700 mt-0.5">
+                          Ação bloqueada: Ajuste a quantidade das MPs programadas para não exceder a
+                          necessidade líquida.
+                        </p>
+                      )}
+                      {!mpControlEvaluation.isExcessBlocked &&
+                        mpControlEvaluation.color !== 'GREEN' && (
+                          <p className="text-[10px] text-slate-600 mt-0.5">
+                            O PCP permite salvar esta programação com advertência de auditoria.
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* LISTA MULTI-MP */}
               <div className="space-y-3">
                 {rawMaterialRows.map((row, index) => {
+                  const rowEval = mpControlEvaluation.rowsAvailability.find((r) => r.id === row.id)
+                  const selectedMpOpt = mpOptions.find((o) => o.code === row.materialCode)
+
                   return (
                     <div
                       key={row.id}
-                      className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-2"
+                      className="p-3 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-3"
                     >
-                      <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                        <span className="text-[11px] font-bold text-[#004C97] font-mono">
-                          MP #{index + 1}
-                        </span>
+                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-[#004C97] font-mono">
+                            MP #{index + 1}
+                          </span>
+                          {rowEval && (
+                            <Badge
+                              className={`text-[9px] font-bold font-mono ${
+                                rowEval.statusTrafficLight === 'GREEN'
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : rowEval.statusTrafficLight === 'YELLOW'
+                                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                    : 'bg-rose-100 text-rose-800 border-rose-300'
+                              }`}
+                            >
+                              {rowEval.statusLabel}
+                            </Badge>
+                          )}
+                        </div>
                         {rawMaterialRows.length > 1 && (
                           <button
                             type="button"
@@ -1498,7 +1749,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                           </Select>
                         </div>
 
-                        {/* 2. Material MP */}
+                        {/* 2. Material MP (BLOCO B: reformatado linha 1 código destaque, linha 2 descrição menor ellipsis + tooltip) */}
                         <div>
                           <label className="text-[11px] font-bold text-slate-700 block mb-1">
                             Material MP (SAP/Ficha Mestre) *
@@ -1510,17 +1761,50 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                             }
                           >
                             <SelectTrigger className="text-xs bg-white border-slate-300 h-9 font-medium">
-                              <SelectValue placeholder="Selecione MP..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {mpOptions.map((o) => (
-                                <SelectItem key={o.code} value={o.code} className="text-xs">
-                                  <div className="flex flex-col">
-                                    <span className="font-bold">{o.code}</span>
-                                    <span className="text-[10px] text-slate-500">
-                                      {o.description} ({o.supplierName || 'Padrão'})
+                              <SelectValue placeholder="Selecione MP...">
+                                {selectedMpOpt ? (
+                                  <div className="flex flex-col text-left truncate leading-tight">
+                                    <span className="font-bold text-slate-900 text-xs font-mono">
+                                      {selectedMpOpt.code}
+                                    </span>
+                                    <span
+                                      className="text-[10px] text-slate-500 truncate"
+                                      title={selectedMpOpt.description}
+                                    >
+                                      {selectedMpOpt.description}
                                     </span>
                                   </div>
+                                ) : (
+                                  'Selecione MP...'
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="max-w-md">
+                              {mpOptions.map((o) => (
+                                <SelectItem key={o.code} value={o.code} className="text-xs py-1.5">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex flex-col text-left max-w-[280px]">
+                                        <span className="font-black text-slate-900 text-xs font-mono">
+                                          {o.code}
+                                        </span>
+                                        <span className="text-[10px] text-slate-600 truncate">
+                                          {o.description} ({o.supplierName || 'Padrão'})
+                                        </span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="right"
+                                      className="bg-slate-900 text-white text-xs p-2 max-w-xs"
+                                    >
+                                      <p className="font-bold text-amber-300">{o.code}</p>
+                                      <p>{o.description}</p>
+                                      <p className="text-[10px] text-slate-400 mt-1">
+                                        Fornecedor: {o.supplierName || 'Padrão'} • Rendimento:{' '}
+                                        {o.defaultYieldPct}%
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1541,7 +1825,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                               value={row.yieldPct}
                               onChange={(e) => {
                                 handleUpdateMpRow(row.id, 'yieldPct', Number(e.target.value) || 0)
-                                setMpDirectionLock('PROD_TO_MP')
                               }}
                               className="font-mono text-xs bg-white border-slate-300 h-9 pr-8"
                             />
@@ -1554,7 +1837,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                         {/* 4. Quantidade MP */}
                         <div>
                           <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                            Quantidade MP Necessária (t) *
+                            Quantidade MP Programada (t) *
                           </label>
                           <div className="relative">
                             <Input
@@ -1572,42 +1855,90 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                           </div>
                         </div>
                       </div>
+
+                      {/* BLOCO INDIVIDUAL: DISPONIBILIDADE DA MP (BLOCO B - por linha individual) */}
+                      <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-xs">
+                        <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
+                          <span>
+                            Disponibilidade da MP ({row.materialCode || 'Material não selecionado'})
+                          </span>
+                          <span className="font-mono">
+                            Status:{' '}
+                            <strong
+                              className={
+                                rowEval?.statusTrafficLight === 'RED'
+                                  ? 'text-rose-600'
+                                  : rowEval?.statusTrafficLight === 'YELLOW'
+                                    ? 'text-amber-600'
+                                    : 'text-emerald-700'
+                              }
+                            >
+                              {rowEval?.statusLabel || 'PENDENTE'}
+                            </strong>
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">
+                          <div>
+                            <span className="text-slate-500 block">Estoque Total:</span>
+                            <strong className="text-slate-800 font-mono">
+                              {rowEval?.totalStockDisplay ||
+                                MpProgrammingEngine.WAITING_SAP_WMS_MSG}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 block">Estoque Programado PCP:</span>
+                            <strong className="text-slate-800 font-mono">
+                              {rowEval?.pcpProgrammedStockTons.toFixed(2)} t
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 block">Entradas Fornecedor:</span>
+                            <strong className="text-slate-800 font-mono">
+                              {rowEval?.supplierReceiptsDisplay ||
+                                MpProgrammingEngine.WAITING_SAP_WMS_MSG}
+                            </strong>
+                            {rowEval?.supplierReceiptsDate && (
+                              <span className="text-slate-400 block text-[9px]">
+                                ({rowEval.supplierReceiptsDate})
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <span className="text-slate-500 block">Produção PCP Prevista:</span>
+                            <strong className="text-slate-800 font-mono">
+                              {rowEval?.pcpUpstreamPlannedTons.toFixed(2)} t
+                            </strong>
+                            {rowEval?.pcpUpstreamPlannedDate && (
+                              <span className="text-slate-400 block text-[9px]">
+                                ({rowEval.pcpUpstreamPlannedDate})
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="bg-white p-1 rounded border border-slate-200">
+                            <span className="text-slate-500 block">Saldo Final:</span>
+                            <strong
+                              className={`font-mono text-xs ${
+                                rowEval?.finalBalanceTons !== null &&
+                                rowEval?.finalBalanceTons !== undefined &&
+                                rowEval.finalBalanceTons < 0
+                                  ? 'text-rose-600'
+                                  : 'text-emerald-700'
+                              }`}
+                            >
+                              {rowEval?.finalBalanceDisplay ||
+                                MpProgrammingEngine.WAITING_SAP_WMS_MSG}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )
                 })}
-              </div>
-
-              {/* Saldo de MP pós-programação e Alerta de Déficit */}
-              <div className="pt-2 border-t border-slate-200">
-                {mpPostBalanceResult.hasDeficit ? (
-                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg flex items-start gap-2.5 text-xs text-rose-900">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">{mpPostBalanceResult.warningMessage}</span>
-                      <p className="text-[10px] text-rose-700 mt-0.5">
-                        O PCP pode prosseguir com a programação caso haja recebimento de MP previsto
-                        ou autorização de liderança.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2 bg-white p-2.5 rounded border border-slate-200">
-                    <span>
-                      Saldo MP pós-programação:{' '}
-                      <strong className="text-slate-900 font-mono">
-                        {mpPostBalanceResult.balanceTons !== null
-                          ? `${mpPostBalanceResult.balanceTons.toFixed(2)} t`
-                          : 'Dado de saldo MP aguardando integração SAP/WMS'}
-                      </strong>
-                    </span>
-                    <span className="text-[10px] text-slate-500 italic">
-                      Total MP:{' '}
-                      <strong className="text-[#004C97] font-mono">{totalMpQuantity} t</strong> •
-                      Rendimento Ponderado:{' '}
-                      <strong className="font-mono">{weightedYieldPct}%</strong>
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -1829,9 +2160,19 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               !selectedMaterial ||
               !calculationResult ||
               !calculationResult.isValid ||
-              overlapValidation.hasConflict
+              overlapValidation.hasConflict ||
+              mpControlEvaluation.isExcessBlocked
             }
-            className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold flex items-center gap-1.5 shadow"
+            title={
+              mpControlEvaluation.isExcessBlocked
+                ? 'Quantidade de matéria-prima programada acima da necessidade calculada. Reduza a quantidade das MPs para salvar.'
+                : undefined
+            }
+            className={`${
+              mpControlEvaluation.isExcessBlocked
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                : 'bg-[#004C97] hover:bg-[#003d7a] text-white shadow'
+            } text-xs font-semibold flex items-center gap-1.5`}
           >
             <Plus className="w-4 h-4" />
             Adicionar à Programação &rarr;

@@ -10,6 +10,14 @@ import {
 
 export type RawMaterialTrafficLight = 'GREEN' | 'YELLOW' | 'RED'
 
+export type RawMaterialProgrammedStatus =
+  | 'ATENDIDO' // verde
+  | 'MP_PARCIALMENTE_ATENDIDA' // amarelo
+  | 'AGUARDANDO_ENTRADA' // amarelo
+  | 'MP_NAO_PROGRAMADA' // vermelho
+  | 'SALDO_NEGATIVO_RISCO_RUPTURA' // vermelho
+  | 'EXCESSO' // vermelho bloqueante
+
 export interface RawMaterialItemCalculation {
   steelGrade: string
   billetType: string
@@ -183,6 +191,20 @@ export interface WeeklyScheduleItem {
   raw_material_yield_pct?: number
   raw_material_planned_tons?: number
   raw_material_available_tons?: number | null
+  raw_material_status?: RawMaterialProgrammedStatus
+  raw_material_status_label?: string
+  raw_material_deficit_tons?: number
+  raw_material_summary?: {
+    plannedProductionTons: number
+    totalRequiredTons: number
+    totalProgrammedMpTons: number
+    differenceTons: number
+    fulfillmentPct: number
+    status: RawMaterialProgrammedStatus
+    statusLabel: string
+    alertMessage?: string
+    isExcessBlocked?: boolean
+  }
   raw_material_rows?: Array<{
     id: string
     mpType: string
@@ -190,6 +212,14 @@ export interface WeeklyScheduleItem {
     yieldPct: number
     quantityTons: number
     availableTons?: number | null
+    // Disponibilidade por linha de MP
+    totalStockTons?: number | null
+    pcpProgrammedStockTons?: number
+    supplierReceiptsTons?: number
+    pcpUpstreamPlannedTons?: number
+    finalBalanceTons?: number | null
+    status?: string
+    statusLabel?: string
   }>
   enfornamento_type?: 'FRIO' | 'QUENTE' | 'INTERCALADO' | 'TAPETE' | 'NORMAL'
   sample_type?: 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'TARUGO' | string
