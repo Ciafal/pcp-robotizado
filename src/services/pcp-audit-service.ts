@@ -86,6 +86,17 @@ export const FIELD_LABELS_PT_BR: Record<string, string> = {
   document_code: 'Código do Documento',
   revision: 'Revisão',
   title: 'Título do Documento',
+  family_order: 'Ordem da Família',
+  family_name: 'Família',
+  family_code: 'Código da Família',
+  subsequence_order: 'Subsequência',
+  gauge_dimension: 'Bitola / Dimensão SAP',
+  material_code: 'Material SAP',
+  material_description: 'Descrição do Material',
+  cycle_time_avg_min: 'Ciclo Médio SAP (min)',
+  cycle_time_tolerance_pct: 'Tolerância de Ciclo (%)',
+  stock_coverage_max_days: 'Cobertura Máxima (dias)',
+  homologation_status: 'Status de Homologação',
 }
 
 export interface ComputeDiffOptions {

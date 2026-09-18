@@ -229,8 +229,8 @@ export const MasterSheetCompletenessModal: React.FC<MasterSheetCompletenessModal
           }
 
           toast({
-            title: 'Sequenciamento Produtivo',
-            description: `Navegando para o Sequenciamento e Bitolas da linha ${completeness.lineCode}.`,
+            title: 'Sequência Ideal',
+            description: `Navegando para a Sequência Ideal da linha ${completeness.lineCode}.`,
           })
         } else if (pendId === 'mat_priorities') {
           // Prioridade de Matéria-Prima

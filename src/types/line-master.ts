@@ -793,6 +793,7 @@ export interface LineOverviewData {
   alerts: LineConfigurationAlert[]
   completeness: number
   readyForScheduling: boolean
+  idealSequences?: import('@/types/weekly-schedule').IdealGaugeSequenceItem[]
 }
 
 export interface LineConfigurationAlert {

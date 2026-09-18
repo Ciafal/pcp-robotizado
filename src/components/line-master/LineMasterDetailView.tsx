@@ -55,6 +55,7 @@ import { lineMasterService } from '@/services/line-master'
 import { LineBottleneckMatrixPanel } from '@/components/line-master/LineBottleneckMatrixPanel'
 import { LineShiftsAndCrewsPanel } from '@/components/line-master/LineShiftsAndCrewsPanel'
 import { SetupAcertoMatrixPanel } from '@/components/line-master/SetupAcertoMatrixPanel'
+import { LineIdealSequencePanel } from '@/components/line-master/LineIdealSequencePanel'
 import { LineReferenceDocumentsPanel } from '@/components/line-master/LineReferenceDocumentsPanel'
 import { lineReferenceDocumentsService } from '@/services/line-reference-documents-service'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
@@ -2193,11 +2194,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               onClick={() => setMasterSubTab('IDEAL_GAUGE_SEQUENCE')}
               className={`text-xs h-7 gap-1 font-bold ${
                 masterSubTab === 'IDEAL_GAUGE_SEQUENCE'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-amber-800 hover:bg-amber-50'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
               }`}
             >
-              <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal de Bitolas & Tolerâncias
+              <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal
             </Button>
           </div>
 
@@ -2782,148 +2783,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               />
             </div>
           )}
-          {/* Sub-aba: Sequência Ideal de Bitolas */}
+          {/* Sub-aba: Sequência Ideal */}
           {masterSubTab === 'IDEAL_GAUGE_SEQUENCE' && (
-            <Card
-              id="section-ideal-gauge-sequence"
-              data-target-id="sequencing-process"
-              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
-            >
-              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <ArrowDownUp className="w-4 h-4 text-amber-600" />
-                    Sequência Ideal de Bitolas, Tempo de Ciclo SAP & Cobertura Máxima
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    Encadeamento metalúrgico ótimo por família/subsequência, ciclo de máquina
-                    oficial SAP/MRP e tolerância parametrizada.
-                  </CardDescription>
-                </div>
-                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-mono font-bold">
-                  Matriz Metalúrgica CIAFAL
-                </Badge>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-2">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
-                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
-                      <tr>
-                        <th className="p-2.5">Ordem Família</th>
-                        <th className="p-2.5">Família</th>
-                        <th className="p-2.5">Subsequência</th>
-                        <th className="p-2.5">Bitola / Dimensão</th>
-                        <th className="p-2.5">Material SAP</th>
-                        <th className="p-2.5">Ciclo Médio SAP</th>
-                        <th className="p-2.5">Tolerância Ciclo</th>
-                        <th className="p-2.5">Cobertura Máx.</th>
-                        <th className="p-2.5">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {[
-                        {
-                          famOrder: 1,
-                          famName: 'Tubo Quadrado',
-                          subSeq: 1,
-                          gauge: '40x40 mm #1.50',
-                          matCode: 'TQ-GALV-40x40',
-                          matDesc: 'TUBO PRE-GALV Z275 40X40X1,50MM',
-                          cycleMin: 36,
-                          tolPct: 10,
-                          maxCovDays: 30,
-                        },
-                        {
-                          famOrder: 1,
-                          famName: 'Tubo Quadrado',
-                          subSeq: 2,
-                          gauge: '50x50 mm #2.00',
-                          matCode: 'TQ-50x50x2.0',
-                          matDesc: 'TUBO QUADRADO ASTM A500 50X50X2,00MM',
-                          cycleMin: 42,
-                          tolPct: 10,
-                          maxCovDays: 30,
-                        },
-                        {
-                          famOrder: 1,
-                          famName: 'Tubo Quadrado',
-                          subSeq: 3,
-                          gauge: '100x100 mm #8.00',
-                          matCode: 'TQ-100x100x8.0',
-                          matDesc: 'TUBO QUADRADO ASTM A36 100X100X8,00MM',
-                          cycleMin: 68,
-                          tolPct: 12,
-                          maxCovDays: 20,
-                        },
-                        {
-                          famOrder: 2,
-                          famName: 'Tubo Retangular',
-                          subSeq: 1,
-                          gauge: '80x40 mm #2.50',
-                          matCode: 'TR-80x40x2.5',
-                          matDesc: 'TUBO RETANGULAR ASTM A500 80X40X2,50MM',
-                          cycleMin: 55,
-                          tolPct: 10,
-                          maxCovDays: 30,
-                        },
-                        {
-                          famOrder: 3,
-                          famName: 'Perfil U',
-                          subSeq: 1,
-                          gauge: '100x40 mm #1.20',
-                          matCode: 'PU-FINO-1.20',
-                          matDesc: 'PERFIL U SIMPLES NBR 6355 100X40X1,20MM',
-                          cycleMin: 50,
-                          tolPct: 10,
-                          maxCovDays: 25,
-                        },
-                        {
-                          famOrder: 3,
-                          famName: 'Perfil U',
-                          subSeq: 2,
-                          gauge: '150x50 mm #4.75',
-                          matCode: 'PU-150x50x4.75',
-                          matDesc: 'PERFIL U ENRIJECIDO NBR 6355 150X50X4,75MM',
-                          cycleMin: 48,
-                          tolPct: 10,
-                          maxCovDays: 35,
-                        },
-                      ].map((seq, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-2.5 font-mono font-bold text-amber-700">
-                            #{seq.famOrder}
-                          </td>
-                          <td className="p-2.5 font-bold text-slate-900">{seq.famName}</td>
-                          <td className="p-2.5 font-mono text-[#004C97] font-semibold">
-                            Sub. {seq.subSeq}
-                          </td>
-                          <td className="p-2.5 font-mono text-slate-700">{seq.gauge}</td>
-                          <td className="p-2.5 font-mono text-slate-900">
-                            <span className="block font-bold">{seq.matCode}</span>
-                            <span className="text-[10px] text-slate-500 font-sans">
-                              {seq.matDesc}
-                            </span>
-                          </td>
-                          <td className="p-2.5 font-mono font-bold text-emerald-600">
-                            {seq.cycleMin} min
-                          </td>
-                          <td className="p-2.5 font-mono text-slate-600">±{seq.tolPct}%</td>
-                          <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                            {seq.maxCovDays} dias
-                          </td>
-                          <td className="p-2.5">
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                              HOMOLOGADA
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <LineIdealSequencePanel
+              line={line}
+              productFamilies={productFamilies}
+              onRefreshParent={onRefresh}
+            />
           )}
         </div>
       )}

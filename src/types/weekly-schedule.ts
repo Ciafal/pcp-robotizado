@@ -530,18 +530,25 @@ export interface HardBlockModalData {
 
 export interface IdealGaugeSequenceItem {
   id: string
+  line_id?: string
   line_code: string
   family_order: number
-  family_code: string
+  family_id?: string
+  family_code?: string
   family_name: string
   subsequence_order: number
   gauge_dimension: string
   material_code: string
-  material_description: string
+  material_description?: string
   cycle_time_avg_min: number // Tempo médio de ciclo SAP/MRP (minutos)
   cycle_time_tolerance_pct: number // Tolerância configurável (%) ex: 10%
   stock_coverage_max_days: number // Cobertura máxima parametrizada em dias (ex: 30 dias)
   is_active: boolean
+  homologation_status?: 'HOMOLOGADA' | 'NAO_HOMOLOGADA'
+  notes?: string
+  sap_work_center?: string
+  created?: string
+  updated?: string
 }
 
 export interface GaugeSequenceDeviationAnalysis {

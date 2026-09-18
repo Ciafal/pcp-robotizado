@@ -402,6 +402,7 @@ export const lineMasterService = {
       constraints,
       rulePacks,
       auditLogs,
+      idealSequences,
     ] = await Promise.all([
       pb
         .collection('line_masters')
@@ -549,6 +550,13 @@ export const lineMasterService = {
           expand: 'user_id',
         })
         .catch(() => []),
+      pb
+        .collection('line_ideal_sequences')
+        .getFullList<import('@/types/weekly-schedule').IdealGaugeSequenceItem>({
+          filter: `line_code = '${line.code}' || line_id = '${lineId}'`,
+          sort: 'family_order,subsequence_order',
+        })
+        .catch(() => []),
     ])
 
     // Adaptar os logs de pcp_audit_logs para a interface LineAuditVersion mantendo retrocompatibilidade visual
@@ -690,6 +698,7 @@ export const lineMasterService = {
       alerts,
       completeness: 0,
       readyForScheduling: false,
+      idealSequences,
     }
 
     const completenessRes = calculateCompletenessFromOverview(partialOverview)
