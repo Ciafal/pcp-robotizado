@@ -242,22 +242,24 @@ export class SequencingOrchestrator {
       let alert_type: BufferAlert['alert_type'] = 'BALANCED'
       let message = `Pulmão em operação normal (${e.current_buffer_stock} ${e.buffer_unit || 't'}).`
 
+      const relationName = `${e.origin_line_code} → ${e.target_line_code}`
+
       if (e.current_buffer_stock < e.buffer_min_tons) {
         severity = 'WARNING'
         alert_type = 'BELOW_MIN'
-        message = `Estoque do buffer (${e.current_buffer_stock} t) abaixo do mínimo exigido (${e.buffer_min_tons} t). Risco de esvaziamento à jusante.`
+        message = `ALERTA: Buffer ${relationName} abaixo do mínimo.`
       } else if (e.current_buffer_stock > e.buffer_max_tons) {
         severity = 'CRITICAL'
         alert_type = 'ABOVE_MAX'
-        message = `Estoque do buffer (${e.current_buffer_stock} t) acima do limite físico (${e.buffer_max_tons} t). Risco de saturação e parada na linha ${e.origin_line_code}.`
+        message = `ALERTA: Buffer ${relationName} acima da capacidade máxima (Risco de Saturação).`
       } else if (e.projected_buffer_stock && e.projected_buffer_stock < e.buffer_min_tons * 0.8) {
         severity = 'WARNING'
         alert_type = 'DEPLETION_RISK'
-        message = `Projeção de esvaziamento iminente nas próximas 2h (${e.projected_buffer_stock} t).`
+        message = `ATENÇÃO: Buffer ${relationName} próximo da capacidade mínima (Risco de Esvaziamento).`
       } else if (e.projected_buffer_stock && e.projected_buffer_stock > e.buffer_max_tons * 0.95) {
         severity = 'WARNING'
         alert_type = 'SATURATION_RISK'
-        message = `Projeção de sobrecarga iminente no pulmão (${e.projected_buffer_stock} t).`
+        message = `ATENÇÃO: Buffer ${relationName} próximo da capacidade máxima.`
       }
 
       return {

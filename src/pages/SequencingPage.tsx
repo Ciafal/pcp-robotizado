@@ -53,6 +53,7 @@ import { productionNetworkService, ProductionLineEntity } from '@/services/produ
 import { CapacityAnalysisWaterfall } from '@/components/control-tower/CapacityAnalysisWaterfall'
 import { DoubleApprovalPanel } from '@/components/control-tower/DoubleApprovalPanel'
 import { ProductionRouteModal } from '@/components/line-master/ProductionRouteModal'
+import { LineBuffersManagementPanel } from '@/components/line-master/LineBuffersManagementPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
@@ -1049,78 +1050,8 @@ export const SequencingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* ABA 3: BUFFERS E PULMÕES PRODUTIVOS */}
-      {activeTab === 'BUFFERS' && (
-        <div className="space-y-4">
-          <Card className="bg-white border-slate-200 shadow-xs">
-            <CardHeader className="p-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Box className="w-4 h-4 text-[#004C97]" />
-                Monitoramento Fino de Buffers Físicos, Operacionais e de Segurança
-              </CardTitle>
-              <p className="text-xs text-slate-500">
-                Detecção determinística de risco de saturação upstream e esvaziamento downstream.
-              </p>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {bufferAlerts.map((b, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-xl border space-y-2 text-xs ${
-                      b.severity === 'CRITICAL'
-                        ? 'bg-rose-50 border-rose-200'
-                        : b.severity === 'WARNING'
-                          ? 'bg-amber-50 border-amber-200'
-                          : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between font-mono">
-                      <span className="font-bold text-slate-900">
-                        {b.origin_line_code} ➔ {b.target_line_code}
-                      </span>
-                      <Badge
-                        className={`text-[9px] font-mono ${
-                          b.severity === 'CRITICAL'
-                            ? 'bg-rose-100 text-rose-800 border-rose-300'
-                            : b.severity === 'WARNING'
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        }`}
-                      >
-                        {b.alert_type}
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] p-2 bg-white rounded border border-slate-200">
-                      <div>
-                        <span className="text-slate-500 block">Mínimo</span>
-                        <span className="text-slate-900 font-bold">{b.min_stock} t</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">Atual</span>
-                        <span
-                          className={`font-bold ${
-                            b.severity === 'NORMAL' ? 'text-emerald-700' : 'text-amber-700'
-                          }`}
-                        >
-                          {b.current_stock} t
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">Máximo</span>
-                        <span className="text-slate-900 font-bold">{b.max_stock} t</span>
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] text-slate-700">{b.message}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* ABA 3: BUFFERS E PULMÕES PRODUTIVOS (Painel Parametrizável, Gerenciável e Dinâmico) */}
+      {activeTab === 'BUFFERS' && <LineBuffersManagementPanel />}
 
       {/* ABA 4: APROVAÇÕES DUPLAS (PCP + GESTOR) */}
       {activeTab === 'APROVACOES' && <DoubleApprovalPanel />}

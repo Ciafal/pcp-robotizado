@@ -443,6 +443,36 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
       return
     }
 
+    // Impacto de edição de rota sobre buffers cadastrados
+    try {
+      const { LineBuffersService } = await import('@/services/line-buffers-service')
+      const existingBuffers = await LineBuffersService.listBuffers({
+        route_code: code.trim().toUpperCase(),
+      })
+      if (existingBuffers.length > 0) {
+        const impact = LineBuffersService.checkRouteEditImpact(
+          code.trim().toUpperCase(),
+          routeEdges.map((e) => ({
+            origin_line_code: e.origin_line_code,
+            target_line_code: e.target_line_code,
+          })),
+          existingBuffers,
+        )
+        if (impact.hasImpact && impact.alertMessage) {
+          const impactedList = impact.impactedBuffers
+            .map((b) => `${b.center_code} ➔ ${b.related_center_code}`)
+            .join(', ')
+          toast({
+            title: impact.alertMessage,
+            description: `Registros impactados: ${impactedList}. Revise a parametrização em Buffers & Pulmões.`,
+            variant: 'destructive',
+          })
+        }
+      }
+    } catch (checkImpactErr) {
+      console.warn('Verificação de impacto de buffers na rota:', checkImpactErr)
+    }
+
     setIsSaving(true)
     try {
       const saved = await sequencingRoutesService.saveCompleteRoute({
