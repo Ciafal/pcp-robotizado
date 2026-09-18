@@ -173,6 +173,9 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   const [maxBatchSize, setMaxBatchSize] = useState<number>(500)
   const [shiftHours, setShiftHours] = useState<number>(8)
 
+  // Restrições Mínimas de Programação por Bitola para o novo Centro
+  const [pendingRestrictions, setPendingRestrictions] = useState<LineGaugeMinRestriction[]>([])
+
   if (!open) return null
 
   const validateStep = (step: number): boolean => {
@@ -609,9 +612,35 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
       }
 
+      // 8.1. Persistir Restrições Mínimas configuradas no Wizard
+      if (pendingRestrictions.length > 0) {
+        for (const rest of pendingRestrictions) {
+          try {
+            await lineGaugeRestrictionService.create(
+              {
+                line_id: createdLine.id,
+                line_code: createdLine.code,
+                restriction_type: rest.restriction_type,
+                min_value: rest.min_value,
+                unit_of_measure: rest.unit_of_measure,
+                rule_description: rest.rule_description,
+                status: rest.status,
+                created_by_name: 'PCP Robotizado (Wizard)',
+              },
+              {
+                lineName: createdLine.name,
+                companyCode: selectedCompanyObj?.code || 'CIAFAL',
+                centerCode: createdLine.code,
+              },
+            )
+          } catch (rErr) {
+            console.warn('Erro ao salvar restrição mínima configurada no Wizard:', rErr)
+          }
+        }
+      }
+
       // 9. Gravar Auditoria
-      await lineMasterService.recordAuditVersion({
-        line_id: createdLine.id,
+      await lineMasterService.recordAuditVersion({        line_id: createdLine.id,
         line_master_id: createdMaster.id,
         version: 1,
         action: 'CREATE',
@@ -1352,6 +1381,52 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     className="bg-slate-900 border-slate-700 text-white font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Seção Nova: Restrições Mínimas de Programação por Bitola (1:N) */}
+              <div className="pt-2">
+                <GaugeRestrictionsSection
+                  lineCode={code || 'NOVO_CENTRO'}
+                  restrictions={pendingRestrictions}
+                  onAddRestriction={async (dto) => {
+                    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                    const newItem: LineGaugeMinRestriction = {
+                      id: tempId,
+                      line_code: (code || 'NOVO_CENTRO').toUpperCase(),
+                      restriction_type: dto.restriction_type,
+                      min_value: dto.min_value,
+                      unit_of_measure: dto.unit_of_measure,
+                      rule_description: dto.rule_description,
+                      status: dto.status || 'ATIVA',
+                      has_scheduling_history: false,
+                    }
+                    setPendingRestrictions((prev) => [...prev, newItem])
+                  }}
+                  onUpdateRestriction={async (id, dto) => {
+                    setPendingRestrictions((prev) =>
+                      prev.map((item) =>
+                        item.id === id
+                          ? {
+                              ...item,
+                              restriction_type: dto.restriction_type || item.restriction_type,
+                              min_value: dto.min_value ?? item.min_value,
+                              unit_of_measure: dto.unit_of_measure || item.unit_of_measure,
+                              rule_description: dto.rule_description || item.rule_description,
+                              status: dto.status || item.status,
+                            }
+                          : item,
+                      ),
+                    )
+                  }}
+                  onToggleStatus={async (id, newStatus) => {
+                    setPendingRestrictions((prev) =>
+                      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item)),
+                    )
+                  }}
+                  onDeleteRestriction={async (id) => {
+                    setPendingRestrictions((prev) => prev.filter((item) => item.id !== id))
+                  }}
+                />
               </div>
             </div>
           )}

@@ -36,6 +36,9 @@ import {
 import { UserProfile } from '@/types/pcp-auth'
 import { Building2, AlertTriangle, ShieldAlert, CheckCircle2, Sliders, Users } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
+import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
+import { lineGaugeRestrictionService } from '@/services/line-gauge-restriction-service'
+import { GaugeRestrictionsSection } from '@/components/line-master/GaugeRestrictionsSection'
 
 export interface EditLineModalProps {
   open: boolean
@@ -92,6 +95,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [managerAssignments, setManagerAssignments] = useState<LineManagerAssignment[]>([])
   const [approversList, setApproversList] = useState<LineApproverMatrix[]>([])
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+
+  // Restrições Mínimas de Programação por Bitola (1:N)
+  const [gaugeRestrictions, setGaugeRestrictions] = useState<LineGaugeMinRestriction[]>([])
+  const [loadingRestrictions, setLoadingRestrictions] = useState<boolean>(false)
 
   // Deactivation confirmation modal & blocker states
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false)
@@ -294,6 +301,17 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           const lm = overview.approvers.find((a) => a.approval_type === 'LINE_MANAGER_APPROVAL')
           if (pcp?.user_id) resolvedPcpApp = pcp.user_id
           if (lm?.user_id) resolvedLineApp = lm.user_id
+        }
+
+        // Carregar Restrições Mínimas por Bitola do Centro
+        setLoadingRestrictions(true)
+        try {
+          const loadedRes = await lineGaugeRestrictionService.listByLine(line.code)
+          setGaugeRestrictions(loadedRes)
+        } catch (rErr) {
+          console.warn('Erro ao carregar restrições mínimas por bitola:', rErr)
+        } finally {
+          setLoadingRestrictions(false)
         }
 
         setFormData((prev) => ({
@@ -1000,6 +1018,49 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Bloco: RESTRIÇÕES MÍNIMAS DE PROGRAMAÇÃO POR BITOLA (1:N) */}
+            <GaugeRestrictionsSection
+              lineCode={formData.code || line.code}
+              lineId={line.id}
+              restrictions={gaugeRestrictions}
+              isLoading={loadingRestrictions}
+              onAddRestriction={async (dto) => {
+                const created = await lineGaugeRestrictionService.create(
+                  { ...dto, line_id: line.id, line_code: formData.code || line.code },
+                  {
+                    lineName: formData.name || line.name,
+                    centerCode: formData.code || line.code,
+                  },
+                )
+                setGaugeRestrictions((prev) => [...prev, created])
+              }}
+              onUpdateRestriction={async (id, dto) => {
+                const updated = await lineGaugeRestrictionService.update(id, dto, {
+                  lineName: formData.name || line.name,
+                  centerCode: formData.code || line.code,
+                })
+                setGaugeRestrictions((prev) =>
+                  prev.map((item) => (item.id === id ? updated : item)),
+                )
+              }}
+              onToggleStatus={async (id, newStatus) => {
+                const updated = await lineGaugeRestrictionService.toggleStatus(id, newStatus, {
+                  lineName: formData.name || line.name,
+                  centerCode: formData.code || line.code,
+                })
+                setGaugeRestrictions((prev) =>
+                  prev.map((item) => (item.id === id ? updated : item)),
+                )
+              }}
+              onDeleteRestriction={async (id) => {
+                await lineGaugeRestrictionService.delete(id, {
+                  lineName: formData.name || line.name,
+                  centerCode: formData.code || line.code,
+                })
+                setGaugeRestrictions((prev) => prev.filter((item) => item.id !== id))
+              }}
+            />
 
             {/* Bloco 3: Gestores e Aprovadores */}
             <div className="p-4 bg-white rounded-lg border border-slate-200 space-y-3 shadow-xs">
