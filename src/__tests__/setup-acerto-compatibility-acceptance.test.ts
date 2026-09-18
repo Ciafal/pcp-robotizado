@@ -67,6 +67,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
       sample_type: 'PLACA' as any,
       duration_minutes: 25,
       valid_from: '2025-01-01',
+      valid_until: '2025-12-31',
       active: true,
     })
 
@@ -107,6 +108,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
       sample_type: 'LINGOTE' as any,
       duration_minutes: 35,
       valid_from: '2025-01-01',
+      valid_until: '2025-12-31',
       active: true,
     })
 
@@ -182,6 +184,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
       setup_category: 'DIMENSION_CHANGE',
       source_mode: 'MANUAL',
       valid_from: '2025-01-01',
+      valid_until: '2025-12-31',
       active: true,
     })
 
@@ -637,6 +640,7 @@ describe('Suíte de Aceite Completa: Setup + Acertos + Compatibilidade (T1 - T15
       setup_duration_minutes: 45,
       source_mode: 'MANUAL',
       valid_from: '2025-01-01',
+      valid_until: '2025-12-31',
       active: true,
     })
 

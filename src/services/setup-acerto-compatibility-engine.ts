@@ -39,6 +39,26 @@ export class SetupAcertoCompatibilityEngine {
     // Conjunto de IDs de acertos que foram associados a pelo menos um setup ativo
     const linkedAcertoIds = new Set<string>()
 
+    // Função auxiliar para calcular vigência com base na data de referência
+    const getVigencyStatus = (
+      validFrom?: string,
+      validUntil?: string,
+    ): 'Vigente' | 'Futuro' | 'Vencido' | 'Vigência incompleta' => {
+      if (
+        !validUntil ||
+        String(validUntil).trim() === '' ||
+        !validFrom ||
+        String(validFrom).trim() === ''
+      ) {
+        return 'Vigência incompleta'
+      }
+      const fromStr = String(validFrom).slice(0, 10)
+      const untilStr = String(validUntil).slice(0, 10)
+      if (refDateStr < fromStr) return 'Futuro'
+      if (refDateStr > untilStr) return 'Vencido'
+      return 'Vigente'
+    }
+
     const items: SetupAcertoComparisonItem[] = lineSetups.map((setup) => {
       const isSetupActive = setup.active !== false
       const toProduct = (setup.to_product_code || '').trim().toUpperCase()
@@ -46,6 +66,7 @@ export class SetupAcertoCompatibilityEngine {
         .trim()
         .toUpperCase()
       const targetLabel = toProduct || toFamilyCode || 'Qualquer / Geral'
+      const setupVigencyStatus = getVigencyStatus(setup.valid_from, setup.valid_until)
 
       // Setup inativo -> SETUP_INATIVO (não participa de novas programações nem pendência obrigatória)
       if (!isSetupActive) {
@@ -63,11 +84,16 @@ export class SetupAcertoCompatibilityEngine {
           setupValidFrom: setup.valid_from,
           setupValidUntil: setup.valid_until,
           matchingAcertos: [],
-          compatibility: 'INACTIVE_SETUP',
+          compatibility: 'SETUP_INACTIVE',
           compatibilityLabel: 'SETUP INATIVO',
           isPending: false,
+          setupVigencyStatus,
         }
       }
+
+      // Se o próprio Setup ativo está com vigência incompleta (sem Data Fim)
+      const isSetupVigencyIncomplete = !setup.valid_until || String(setup.valid_until).trim() === ''
+      const isSetupExpired = setupVigencyStatus === 'Vencido'
 
       // Procurar acertos correspondentes pelo vínculo estruturado:
       // 1. Vínculo direto de ID (setup.default_adjustment_id ou acerto.setup_id)
@@ -109,6 +135,84 @@ export class SetupAcertoCompatibilityEngine {
         return false
       })
 
+      // 1. Se o próprio Setup ativo está vencido
+      if (isSetupExpired) {
+        const primeAcerto = matchingAcertos[0]
+        return {
+          setupId: setup.id,
+          setupCode: setup.setup_code || `STP-${setup.id}`,
+          setupDescription: setup.setup_description || 'Transição de Setup',
+          fromCode: setup.from_product_code || 'Qualquer',
+          toCode: setup.to_product_code || 'Qualquer',
+          fromFamily: setup.expand?.from_family_id?.name || setup.expand?.from_family_id?.code,
+          toFamily: setup.expand?.to_family_id?.name || setup.expand?.to_family_id?.code,
+          targetMaterialOrFamily: targetLabel,
+          setupDurationMinutes: setup.setup_duration_minutes || 0,
+          setupStatus: 'ACTIVE',
+          setupValidFrom: setup.valid_from,
+          setupValidUntil: setup.valid_until,
+          associatedAcertoId: primeAcerto?.id,
+          associatedAcerto: primeAcerto,
+          matchingAcertos,
+          sampleType: primeAcerto?.sample_type,
+          acertoDurationMinutes: primeAcerto?.duration_minutes,
+          acertoValidFrom: primeAcerto?.valid_from,
+          acertoValidUntil: primeAcerto?.valid_until,
+          acertoStatus: primeAcerto
+            ? primeAcerto.active !== false
+              ? 'ACTIVE'
+              : 'INACTIVE'
+            : undefined,
+          compatibility: 'SETUP_EXPIRED',
+          compatibilityLabel: 'SETUP VENCIDO',
+          isPending: true,
+          inconsistencyReason: `Vigência do Setup expirada em ${setup.valid_until ? setup.valid_until.slice(0, 10) : 'N/A'}.`,
+          setupVigencyStatus,
+          acertoVigencyStatus: primeAcerto
+            ? getVigencyStatus(primeAcerto.valid_from, primeAcerto.valid_until)
+            : undefined,
+        }
+      }
+
+      // 2. Se o próprio Setup está com Vigência Incompleta (legado sem Data Fim)
+      if (isSetupVigencyIncomplete) {
+        const primeAcerto = matchingAcertos[0]
+        return {
+          setupId: setup.id,
+          setupCode: setup.setup_code || `STP-${setup.id}`,
+          setupDescription: setup.setup_description || 'Transição de Setup',
+          fromCode: setup.from_product_code || 'Qualquer',
+          toCode: setup.to_product_code || 'Qualquer',
+          fromFamily: setup.expand?.from_family_id?.name || setup.expand?.from_family_id?.code,
+          toFamily: setup.expand?.to_family_id?.name || setup.expand?.to_family_id?.code,
+          targetMaterialOrFamily: targetLabel,
+          setupDurationMinutes: setup.setup_duration_minutes || 0,
+          setupStatus: 'ACTIVE',
+          setupValidFrom: setup.valid_from,
+          setupValidUntil: setup.valid_until,
+          associatedAcertoId: primeAcerto?.id,
+          associatedAcerto: primeAcerto,
+          matchingAcertos,
+          sampleType: primeAcerto?.sample_type,
+          acertoDurationMinutes: primeAcerto?.duration_minutes,
+          acertoValidFrom: primeAcerto?.valid_from,
+          acertoValidUntil: primeAcerto?.valid_until,
+          acertoStatus: primeAcerto
+            ? primeAcerto.active !== false
+              ? 'ACTIVE'
+              : 'INACTIVE'
+            : undefined,
+          compatibility: 'INCOMPLETE_VIGENCY',
+          compatibilityLabel: 'VIGÊNCIA INCOMPLETA',
+          isPending: true,
+          inconsistencyReason: 'Setup sem Data Fim preenchida (pendência de parametrização).',
+          setupVigencyStatus,
+          acertoVigencyStatus: primeAcerto
+            ? getVigencyStatus(primeAcerto.valid_from, primeAcerto.valid_until)
+            : undefined,
+        }
+      }
+
       // Se nenhum acerto encontrado
       if (matchingAcertos.length === 0) {
         return {
@@ -129,6 +233,7 @@ export class SetupAcertoCompatibilityEngine {
           compatibilityLabel: 'SEM ACERTO',
           isPending: true,
           inconsistencyReason: `Nenhum tempo de acerto correspondente ao material/família de destino (${targetLabel}).`,
+          setupVigencyStatus,
         }
       }
 
@@ -138,6 +243,7 @@ export class SetupAcertoCompatibilityEngine {
       if (activeMatching.length === 0) {
         // Existem acertos mas todos inativos
         const primeAcerto = matchingAcertos[0]
+        const acertoVigency = getVigencyStatus(primeAcerto.valid_from, primeAcerto.valid_until)
         return {
           setupId: setup.id,
           setupCode: setup.setup_code || `STP-${setup.id}`,
@@ -163,10 +269,48 @@ export class SetupAcertoCompatibilityEngine {
           compatibilityLabel: 'ACERTO INATIVO',
           isPending: true,
           inconsistencyReason: 'Existe tempo de acerto vinculado, porém ele está inativo.',
+          setupVigencyStatus,
+          acertoVigencyStatus: acertoVigency,
         }
       }
 
-      // Verificar vigência dos ativos
+      // Verificar se algum acerto ativo tem vigência incompleta
+      const incompleteAcerto = activeMatching.find(
+        (a) => !a.valid_until || String(a.valid_until).trim() === '',
+      )
+      if (incompleteAcerto) {
+        return {
+          setupId: setup.id,
+          setupCode: setup.setup_code || `STP-${setup.id}`,
+          setupDescription: setup.setup_description || 'Transição de Setup',
+          fromCode: setup.from_product_code || 'Qualquer',
+          toCode: setup.to_product_code || 'Qualquer',
+          fromFamily: setup.expand?.from_family_id?.name || setup.expand?.from_family_id?.code,
+          toFamily: setup.expand?.to_family_id?.name || setup.expand?.to_family_id?.code,
+          targetMaterialOrFamily: targetLabel,
+          setupDurationMinutes: setup.setup_duration_minutes || 0,
+          setupStatus: 'ACTIVE',
+          setupValidFrom: setup.valid_from,
+          setupValidUntil: setup.valid_until,
+          associatedAcertoId: incompleteAcerto.id,
+          associatedAcerto: incompleteAcerto,
+          matchingAcertos,
+          sampleType: incompleteAcerto.sample_type,
+          acertoDurationMinutes: incompleteAcerto.duration_minutes,
+          acertoValidFrom: incompleteAcerto.valid_from,
+          acertoValidUntil: incompleteAcerto.valid_until,
+          acertoStatus: 'ACTIVE',
+          compatibility: 'INCOMPLETE_VIGENCY',
+          compatibilityLabel: 'VIGÊNCIA INCOMPLETA',
+          isPending: true,
+          inconsistencyReason:
+            'Tempo de Acerto sem Data Fim preenchida (pendência de parametrização).',
+          setupVigencyStatus,
+          acertoVigencyStatus: 'Vigência incompleta',
+        }
+      }
+
+      // Verificar vigência dos ativos (data atual dentro da vigência)
       const validActiveMatching = activeMatching.filter((a) => {
         const fromOk = !a.valid_from || a.valid_from.slice(0, 10) <= refDateStr
         const untilOk = !a.valid_until || a.valid_until.slice(0, 10) >= refDateStr
@@ -176,6 +320,7 @@ export class SetupAcertoCompatibilityEngine {
       if (validActiveMatching.length === 0) {
         // Todos estão vencidos para a data de referência
         const primeAcerto = activeMatching[0]
+        const acertoVigency = getVigencyStatus(primeAcerto.valid_from, primeAcerto.valid_until)
         return {
           setupId: setup.id,
           setupCode: setup.setup_code || `STP-${setup.id}`,
@@ -200,12 +345,19 @@ export class SetupAcertoCompatibilityEngine {
           compatibility: 'EXPIRED_ACERTO',
           compatibilityLabel: 'ACERTO VENCIDO',
           isPending: true,
-          inconsistencyReason: `Vigência do acerto expirada (válido até ${primeAcerto.valid_until || 'N/A'}).`,
+          inconsistencyReason: `Vigência do acerto expirada (válido até ${primeAcerto.valid_until ? primeAcerto.valid_until.slice(0, 10) : 'N/A'}).`,
+          setupVigencyStatus,
+          acertoVigencyStatus: acertoVigency,
         }
       }
 
-      // Verificação de inconsistência (ex.: duração zero ou erro de linha)
+      // Verificação de inconsistência (ex.: duração zero ou parâmetros inválidos)
       const selectedAcerto = validActiveMatching[0]
+      const selectedAcertoVigency = getVigencyStatus(
+        selectedAcerto.valid_from,
+        selectedAcerto.valid_until,
+      )
+
       if (selectedAcerto.duration_minutes <= 0) {
         return {
           setupId: setup.id,
@@ -232,10 +384,13 @@ export class SetupAcertoCompatibilityEngine {
           compatibilityLabel: 'INCONSISTENTE',
           isPending: true,
           inconsistencyReason: 'Tempo de acerto com duração igual a zero ou parâmetros inválidos.',
+          setupVigencyStatus,
+          acertoVigencyStatus: selectedAcertoVigency,
         }
       }
 
       // Tudo OK: COMPATÍVEL
+      // Setup ativo, dentro da vigência, com acerto ativo correspondente e dentro da vigência
       validActiveMatching.forEach((a) => linkedAcertoIds.add(a.id))
 
       return {
@@ -262,6 +417,8 @@ export class SetupAcertoCompatibilityEngine {
         compatibility: 'COMPATIBLE',
         compatibilityLabel: 'COMPATÍVEL',
         isPending: false,
+        setupVigencyStatus,
+        acertoVigencyStatus: selectedAcertoVigency,
       }
     })
 
@@ -272,6 +429,10 @@ export class SetupAcertoCompatibilityEngine {
     const compatibleSetupsCount = compatibleItems.length
     const setupsWithoutAcertoCount = items.filter(
       (it) => it.setupStatus === 'ACTIVE' && it.compatibility === 'MISSING_ACERTO',
+    ).length
+
+    const incompleteVigencyCount = items.filter(
+      (it) => it.setupStatus === 'ACTIVE' && it.compatibility === 'INCOMPLETE_VIGENCY',
     ).length
 
     // Acertos órfãos (ativos que não vinculam a nenhum setup cadastrado)
@@ -310,6 +471,7 @@ export class SetupAcertoCompatibilityEngine {
       compatibleSetupsCount,
       setupsWithoutAcertoCount,
       orphanAcertosCount,
+      incompleteVigencyCount,
       compatibilityRatePct,
       overallStatus,
       overallStatusLabel,

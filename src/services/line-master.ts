@@ -1331,6 +1331,20 @@ export const lineMasterService = {
 
   async saveSetupMatrix(data: Partial<LineSetupMatrix>): Promise<LineSetupMatrix> {
     invalidateCompletenessCache(data.line_id)
+
+    // Regra Corretiva: Data Início e Data Fim obrigatórias, Data Fim >= Data Início
+    if (!data.valid_from || String(data.valid_from).trim() === '') {
+      throw new Error('A data de início de vigência é obrigatória.')
+    }
+    if (!data.valid_until || String(data.valid_until).trim() === '') {
+      throw new Error('Informe a Data Fim da vigência deste Setup.')
+    }
+    const setupFromStr = String(data.valid_from).slice(0, 10)
+    const setupUntilStr = String(data.valid_until).slice(0, 10)
+    if (setupUntilStr < setupFromStr) {
+      throw new Error('A Data Fim não pode ser anterior à Data Início.')
+    }
+
     // 1. Validação de obrigatoriedade e duração
     if (data.from_product_code && data.to_product_code) {
       if (
@@ -1590,16 +1604,27 @@ export const lineMasterService = {
       throw new Error('O tipo de amostra é obrigatório.')
     }
 
+    // Regra Corretiva: Data Início e Data Fim obrigatórias, Data Fim >= Data Início
+    if (!data.valid_from || String(data.valid_from).trim() === '') {
+      throw new Error('A data de início de vigência é obrigatória.')
+    }
+    if (!data.valid_until || String(data.valid_until).trim() === '') {
+      throw new Error('Informe a Data Fim da vigência deste Tempo de Acerto.')
+    }
+    const acertoFromStr = String(data.valid_from).slice(0, 10)
+    const acertoUntilStr = String(data.valid_until).slice(0, 10)
+    if (acertoUntilStr < acertoFromStr) {
+      throw new Error('A Data Fim não pode ser anterior à Data Início.')
+    }
+
     // 2. Validação de duplicidade ativa e sobreposição de vigência: (Linha + Material + Tipo de Amostra + período sobreposto)
     const lineId = data.line_id
     const matCode = data.material_code.trim().toUpperCase()
     const sampleType = data.sample_type
     const isActive = data.active !== false
 
-    const validFromStr = data.valid_from
-      ? String(data.valid_from).slice(0, 10)
-      : new Date().toISOString().slice(0, 10)
-    const validUntilStr = data.valid_until ? String(data.valid_until).slice(0, 10) : ''
+    const validFromStr = acertoFromStr
+    const validUntilStr = acertoUntilStr
 
     if (lineId && isActive) {
       try {

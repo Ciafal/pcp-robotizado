@@ -2167,41 +2167,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <div className="inline-flex items-center rounded-md p-0.5 bg-slate-200 border border-slate-300">
               <Button
                 size="sm"
-                variant={masterSubTab === 'SETUP_MATRIX' ? 'default' : 'ghost'}
+                variant={
+                  masterSubTab === 'SETUP_MATRIX' ||
+                  masterSubTab === 'ACERTOS' ||
+                  masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+                    ? 'default'
+                    : 'ghost'
+                }
                 onClick={() => setMasterSubTab('SETUP_MATRIX')}
-                className={`text-xs h-7 gap-1 font-bold rounded-r-none ${
-                  masterSubTab === 'SETUP_MATRIX'
-                    ? 'bg-[#004C97] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                }`}
-              >
-                <Wrench className="w-3.5 h-3.5" /> Matriz de Setup DE→PARA ({setupMatrix.length})
-              </Button>
-              <span className="text-slate-400 px-1 font-normal">|</span>
-              <Button
-                size="sm"
-                variant={masterSubTab === 'ACERTOS' ? 'default' : 'ghost'}
-                onClick={() => setMasterSubTab('ACERTOS')}
-                className={`text-xs h-7 gap-1 font-bold rounded-none ${
-                  masterSubTab === 'ACERTOS'
-                    ? 'bg-[#004C97] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                }`}
-              >
-                <Settings2 className="w-3.5 h-3.5" /> Acertos ({activeAdjustmentRulesCount})
-              </Button>
-              <span className="text-slate-400 px-1 font-normal">|</span>
-              <Button
-                size="sm"
-                variant={masterSubTab === 'SETUP_ACERTO_COMPATIBILITY' ? 'default' : 'ghost'}
-                onClick={() => setMasterSubTab('SETUP_ACERTO_COMPATIBILITY')}
-                className={`text-xs h-7 gap-1 font-bold rounded-l-none ${
+                className={`text-xs h-7 gap-1 font-bold ${
+                  masterSubTab === 'SETUP_MATRIX' ||
+                  masterSubTab === 'ACERTOS' ||
                   masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
                     ? 'bg-[#004C97] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> [ Setup × Acerto ]
+                <Sliders className="w-3.5 h-3.5" /> Matriz Setup & Acerto
               </Button>
             </div>
 
@@ -2777,46 +2759,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
 
-          {/* Sub-aba: Matriz de Setup DE→PARA */}
-          {masterSubTab === 'SETUP_MATRIX' && (
+          {/* Sub-aba: Matriz Operacional de Setup & Acerto (Estrutura única compartilhada) */}
+          {(masterSubTab === 'SETUP_MATRIX' ||
+            masterSubTab === 'ACERTOS' ||
+            masterSubTab === 'SETUP_ACERTO_COMPATIBILITY') && (
             <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
               <SetupAcertoMatrixPanel
                 lineId={line.id}
                 lineCode={line.code}
                 lineName={line.name}
-                initialTab="SETUP"
-                onRefresh={() => {
-                  loadAdjustmentRulesCount()
-                  onRefresh()
-                }}
-              />
-            </div>
-          )}
-
-          {/* Sub-aba: Acertos */}
-          {masterSubTab === 'ACERTOS' && (
-            <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
-              <SetupAcertoMatrixPanel
-                lineId={line.id}
-                lineCode={line.code}
-                lineName={line.name}
-                initialTab="ACERTO"
-                onRefresh={() => {
-                  loadAdjustmentRulesCount()
-                  onRefresh()
-                }}
-              />
-            </div>
-          )}
-
-          {/* Sub-aba: Compatibilidade Setup × Acerto */}
-          {masterSubTab === 'SETUP_ACERTO_COMPATIBILITY' && (
-            <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
-              <SetupAcertoMatrixPanel
-                lineId={line.id}
-                lineCode={line.code}
-                lineName={line.name}
-                initialTab="COMPATIBILITY"
+                initialTab={
+                  masterSubTab === 'ACERTOS'
+                    ? 'ACERTO'
+                    : masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+                      ? 'COMPATIBILITY'
+                      : 'SETUP'
+                }
                 onRefresh={() => {
                   loadAdjustmentRulesCount()
                   onRefresh()

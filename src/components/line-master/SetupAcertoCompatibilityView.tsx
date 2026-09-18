@@ -132,44 +132,59 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
     onlyPendencies,
   ])
 
-  // Renderizador do badge de situação de compatibilidade
+  // Renderizador do badge de situação de compatibilidade (padronizado com os 8 status do requisito)
   const renderStatusBadge = (status: SetupAcertoCompatibilityStatus) => {
     switch (status) {
       case 'COMPATIBLE':
         return (
-          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100 flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
             COMPATÍVEL
           </Badge>
         )
       case 'MISSING_ACERTO':
         return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100 flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+          <Badge className="bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
             <XCircle className="w-3 h-3 text-rose-600" />
             SEM ACERTO
           </Badge>
         )
       case 'INACTIVE_ACERTO':
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100 flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
             <AlertTriangle className="w-3 h-3 text-amber-600" />
             ACERTO INATIVO
           </Badge>
         )
+      case 'SETUP_EXPIRED':
+        return (
+          <Badge className="bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+            <Clock className="w-3 h-3 text-rose-600" />
+            SETUP VENCIDO
+          </Badge>
+        )
       case 'EXPIRED_ACERTO':
         return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-100 flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+          <Badge className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
             <Clock className="w-3 h-3 text-orange-600" />
             ACERTO VENCIDO
           </Badge>
         )
+      case 'INCOMPLETE_VIGENCY':
+        return (
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+            <AlertTriangle className="w-3 h-3 text-amber-600" />
+            VIGÊNCIA INCOMPLETA
+          </Badge>
+        )
       case 'INCONSISTENT':
         return (
-          <Badge className="bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-100 flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
+          <Badge className="bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-100 inline-flex items-center gap-1 font-semibold text-[11px] py-0.5 px-2">
             <ShieldAlert className="w-3 h-3 text-purple-600" />
             INCONSISTENTE
           </Badge>
         )
+      case 'SETUP_INACTIVE':
       case 'INACTIVE_SETUP':
       default:
         return (
@@ -197,107 +212,125 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
 
   return (
     <div className="space-y-4">
-      {/* 1. INDICADOR GERAL + CARDS DE RESUMO (Compactos) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* 1. INDICADOR GERAL + CARDS DE RESUMO (Grid responsivo: até 3 por linha em desktop para leitura folgada) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {/* Card 1: SETUPS ATIVOS */}
         <Card className="bg-white border-slate-200 shadow-xs">
-          <CardContent className="p-3">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                 Setups Ativos
               </span>
-              <Layers className="w-4 h-4 text-slate-400" />
+              <div className="p-1 rounded bg-slate-100 text-slate-600">
+                <Layers className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-slate-900">
+            <div className="mt-2 text-2xl font-extrabold font-mono text-slate-900">
               {totalActiveSetups}
             </div>
-            <span className="text-[10px] text-slate-400">Total cadastrado ativo</span>
+            <p className="text-[11px] text-slate-500 mt-0.5">Total de transições ativas na linha</p>
           </CardContent>
         </Card>
 
         {/* Card 2: ACERTOS ATIVOS */}
         <Card className="bg-white border-slate-200 shadow-xs">
-          <CardContent className="p-3">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                 Acertos Ativos
               </span>
-              <Clock className="w-4 h-4 text-slate-400" />
+              <div className="p-1 rounded bg-slate-100 text-slate-600">
+                <Clock className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-slate-900">
+            <div className="mt-2 text-2xl font-extrabold font-mono text-slate-900">
               {totalActiveAcertos}
             </div>
-            <span className="text-[10px] text-slate-400">Amostras ativas vigentes</span>
+            <p className="text-[11px] text-slate-500 mt-0.5">Amostras técnicas vigentes</p>
           </CardContent>
         </Card>
 
         {/* Card 3: SETUPS COMPATÍVEIS */}
-        <Card className="bg-white border-emerald-200 bg-emerald-50/20 shadow-xs">
-          <CardContent className="p-3">
+        <Card className="bg-emerald-50/30 border-emerald-200 shadow-xs">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-emerald-700 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">
                 Compatíveis
               </span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <div className="p-1 rounded bg-emerald-100 text-emerald-700">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-emerald-700">
+            <div className="mt-2 text-2xl font-extrabold font-mono text-emerald-700">
               {compatibleSetupsCount}
             </div>
-            <span className="text-[10px] text-emerald-600 font-medium">Com acerto ativo</span>
+            <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
+              Setup e Acerto ativos e vigentes
+            </p>
           </CardContent>
         </Card>
 
         {/* Card 4: SETUPS SEM ACERTO */}
         <Card
-          className={`border-slate-200 shadow-xs ${
-            setupsWithoutAcertoCount > 0 ? 'bg-rose-50/40 border-rose-200' : 'bg-white'
+          className={`shadow-xs ${
+            setupsWithoutAcertoCount > 0
+              ? 'bg-rose-50/40 border-rose-300'
+              : 'bg-white border-slate-200'
           }`}
         >
-          <CardContent className="p-3">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
               <span
-                className={`text-[11px] font-medium uppercase tracking-wider ${
-                  setupsWithoutAcertoCount > 0 ? 'text-rose-700 font-semibold' : 'text-slate-500'
+                className={`text-xs uppercase tracking-wide ${
+                  setupsWithoutAcertoCount > 0
+                    ? 'text-rose-800 font-bold'
+                    : 'text-slate-600 font-semibold'
                 }`}
               >
                 Sem Acerto
               </span>
-              <XCircle
-                className={`w-4 h-4 ${
-                  setupsWithoutAcertoCount > 0 ? 'text-rose-600' : 'text-slate-400'
+              <div
+                className={`p-1 rounded ${
+                  setupsWithoutAcertoCount > 0
+                    ? 'bg-rose-100 text-rose-700'
+                    : 'bg-slate-100 text-slate-400'
                 }`}
-              />
+              >
+                <XCircle className="w-4 h-4" />
+              </div>
             </div>
             <div
-              className={`mt-1 text-2xl font-bold font-mono ${
+              className={`mt-2 text-2xl font-extrabold font-mono ${
                 setupsWithoutAcertoCount > 0 ? 'text-rose-700' : 'text-slate-900'
               }`}
             >
               {setupsWithoutAcertoCount}
             </div>
-            <span
-              className={`text-[10px] ${
-                setupsWithoutAcertoCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'
+            <p
+              className={`text-[11px] mt-0.5 ${
+                setupsWithoutAcertoCount > 0 ? 'text-rose-700 font-medium' : 'text-slate-500'
               }`}
             >
-              Pendência de cadastro
-            </span>
+              Pendência de parametrização
+            </p>
           </CardContent>
         </Card>
 
         {/* Card 5: ACERTOS SEM VÍNCULO */}
         <Card className="bg-white border-slate-200 shadow-xs">
-          <CardContent className="p-3">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
                 Acertos Órfãos
               </span>
-              <AlertTriangle className="w-4 h-4 text-slate-400" />
+              <div className="p-1 rounded bg-slate-100 text-slate-500">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-slate-700">
+            <div className="mt-2 text-2xl font-extrabold font-mono text-slate-800">
               {orphanAcertosCount}
             </div>
-            <span className="text-[10px] text-slate-400">Sem setup correspondente</span>
+            <p className="text-[11px] text-slate-500 mt-0.5">Sem setup correspondente cadastrado</p>
           </CardContent>
         </Card>
 
@@ -311,13 +344,13 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                 : 'bg-rose-50/40 border-rose-300'
           }`}
         >
-          <CardContent className="p-3">
+          <CardContent className="p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-700 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate-800 uppercase tracking-wide">
                 Taxa de Cobertura
               </span>
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
+                className={`w-3 h-3 rounded-full ${
                   overallStatus === 'GREEN'
                     ? 'bg-emerald-500'
                     : overallStatus === 'YELLOW'
@@ -327,7 +360,7 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
               />
             </div>
             <div
-              className={`mt-1 text-2xl font-black font-mono ${
+              className={`mt-2 text-2xl font-black font-mono ${
                 overallStatus === 'GREEN'
                   ? 'text-emerald-700'
                   : overallStatus === 'YELLOW'
@@ -337,9 +370,7 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
             >
               {compatibilityRatePct}%
             </div>
-            <span className="text-[10px] font-semibold tracking-tight text-slate-600">
-              {overallStatusLabel}
-            </span>
+            <p className="text-[11px] font-semibold text-slate-700 mt-0.5">{overallStatusLabel}</p>
           </CardContent>
         </Card>
       </div>
@@ -416,41 +447,43 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
       {/* 2. BARRA DE FILTROS E BUSCA */}
       <Card className="bg-white border-slate-200 shadow-xs">
         <CardContent className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {/* Busca textual */}
-            <div className="relative md:col-span-2">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+            {/* Busca textual: ocupa a maior largura */}
+            <div className="relative flex-1 min-w-[280px]">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
               <Input
                 type="text"
                 placeholder="Buscar por código de setup, descrição, material DE ou PARA..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                className="h-8 text-xs pl-8 bg-white border-slate-200"
+                className="h-8 text-xs pl-8 bg-white border-slate-300 w-full"
               />
             </div>
 
             {/* Filtro Situação de Compatibilidade */}
-            <div>
+            <div className="w-full sm:w-64 shrink-0">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-300">
                   <SelectValue placeholder="Situação de Compatibilidade" />
                 </SelectTrigger>
                 <SelectContent className="bg-white z-50 text-xs">
                   <SelectItem value="ALL">Todas as Situações</SelectItem>
                   <SelectItem value="COMPATIBLE">Compatível (OK)</SelectItem>
-                  <SelectItem value="MISSING_ACERTO">Sem Acerto (Pendência)</SelectItem>
+                  <SelectItem value="MISSING_ACERTO">Sem Acerto</SelectItem>
                   <SelectItem value="INACTIVE_ACERTO">Acerto Inativo</SelectItem>
+                  <SelectItem value="SETUP_EXPIRED">Setup Vencido</SelectItem>
                   <SelectItem value="EXPIRED_ACERTO">Acerto Vencido</SelectItem>
+                  <SelectItem value="INCOMPLETE_VIGENCY">Vigência Incompleta</SelectItem>
                   <SelectItem value="INCONSISTENT">Inconsistente</SelectItem>
-                  <SelectItem value="INACTIVE_SETUP">Setup Inativo</SelectItem>
+                  <SelectItem value="SETUP_INACTIVE">Setup Inativo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Filtro Status Setup */}
-            <div>
+            <div className="w-full sm:w-48 shrink-0">
               <Select value={setupStatusFilter} onValueChange={setSetupStatusFilter}>
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-300">
                   <SelectValue placeholder="Status do Setup" />
                 </SelectTrigger>
                 <SelectContent className="bg-white z-50 text-xs">
@@ -482,28 +515,27 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
         </CardHeader>
 
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[1200px]">
             <TableHeader className="bg-slate-50 border-b border-slate-200">
               <TableRow className="hover:bg-slate-50 text-xs font-semibold text-slate-700">
                 <TableHead className="w-28">Cód. Setup</TableHead>
-                <TableHead className="min-w-[130px]">DE</TableHead>
-                <TableHead className="min-w-[130px]">PARA</TableHead>
+                <TableHead className="w-32">DE</TableHead>
+                <TableHead className="w-32">PARA</TableHead>
                 <TableHead className="text-right w-24">Setup (min)</TableHead>
-                <TableHead className="w-20 text-center">Status Setup</TableHead>
-                <TableHead className="min-w-[140px]">Material/Família Destino</TableHead>
-                <TableHead className="min-w-[150px]">Acerto Associado</TableHead>
-                <TableHead className="w-24 text-center">Tipo Amostra</TableHead>
+                <TableHead className="w-24 text-center">Status Setup</TableHead>
+                <TableHead className="w-36">Material/Família Destino</TableHead>
+                <TableHead className="w-36">Acerto</TableHead>
+                <TableHead className="w-28 text-center">Tipo Amostra</TableHead>
                 <TableHead className="text-right w-24">Acerto (min)</TableHead>
-                <TableHead className="w-24 text-center">Vigência Acerto</TableHead>
-                <TableHead className="w-20 text-center">Status Acerto</TableHead>
-                <TableHead className="w-32 text-center">Compatibilidade</TableHead>
-                <TableHead className="w-36 text-center">Ações</TableHead>
+                <TableHead className="w-24 text-center">Status Acerto</TableHead>
+                <TableHead className="w-32 text-center">Vigência</TableHead>
+                <TableHead className="w-36 text-center">Compatibilidade</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-xs text-slate-500">
+                  <TableCell colSpan={12} className="text-center py-8 text-xs text-slate-500">
                     <RefreshCw className="w-4 h-4 animate-spin text-[#004C97] mx-auto mb-2" />
                     Calculando compatibilidade Setup × Acerto...
                   </TableCell>
@@ -511,7 +543,7 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
               ) : filteredItems.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={13}
+                    colSpan={12}
                     className="text-center py-8 text-xs text-slate-500 bg-slate-50/40"
                   >
                     {onlyPendencies
@@ -530,10 +562,23 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                       : 'hover:bg-blue-50/40'
 
                   return (
-                    <TableRow key={item.setupId} className={`text-xs transition-colors ${rowBg}`}>
+                    <TableRow
+                      key={item.setupId}
+                      onClick={() => {
+                        const realSetup = setupList.find((s) => s.id === item.setupId)
+                        if (realSetup && onOpenEditSetup) onOpenEditSetup(realSetup)
+                      }}
+                      title="Clique na linha para ver/editar o Setup (ou use botões de atalho)"
+                      className={`text-xs transition-colors cursor-pointer group ${rowBg}`}
+                    >
                       {/* Código Setup */}
                       <TableCell className="font-mono font-semibold text-slate-800 py-2.5">
-                        <span title={item.setupDescription}>{item.setupCode}</span>
+                        <span
+                          title={item.setupDescription}
+                          className="group-hover:text-[#004C97] transition-colors"
+                        >
+                          {item.setupCode}
+                        </span>
                       </TableCell>
 
                       {/* DE */}
@@ -566,16 +611,16 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                         </Badge>
                       </TableCell>
 
-                      {/* Status Setup */}
+                      {/* Status Setup: Ativo / Inativo */}
                       <TableCell className="text-center py-2.5">
                         {isSetupActive ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-normal text-[10px] py-0 px-1.5">
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-normal text-[10px] py-0 px-2">
                             Ativo
                           </Badge>
                         ) : (
                           <Badge
                             variant="outline"
-                            className="bg-slate-100 text-slate-500 border-slate-300 font-normal text-[10px] py-0 px-1.5"
+                            className="bg-slate-100 text-slate-500 border-slate-300 font-normal text-[10px] py-0 px-2"
                           >
                             Inativo
                           </Badge>
@@ -589,7 +634,7 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                         </span>
                       </TableCell>
 
-                      {/* Acerto Associado */}
+                      {/* Acerto */}
                       <TableCell className="py-2.5">
                         {item.associatedAcerto ? (
                           <div className="flex flex-col">
@@ -603,7 +648,22 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic text-[11px]">- Nenhum -</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 italic text-[11px]">- Nenhum -</span>
+                            {onOpenNewAcertoForSetup && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onOpenNewAcertoForSetup(item)
+                                }}
+                                className="h-5 px-1.5 text-[10px] bg-[#004C97] hover:bg-[#003870] text-white"
+                              >
+                                + Acerto
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </TableCell>
 
@@ -635,31 +695,17 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                         )}
                       </TableCell>
 
-                      {/* Vigência Acerto */}
-                      <TableCell className="text-center font-mono text-[11px] text-slate-600 py-2.5">
-                        {item.acertoValidFrom ? (
-                          <span>
-                            {item.acertoValidFrom.slice(0, 10)}
-                            {item.acertoValidUntil
-                              ? ` → ${item.acertoValidUntil.slice(0, 10)}`
-                              : ''}
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </TableCell>
-
-                      {/* Status Acerto */}
+                      {/* Status Acerto: Ativo / Inativo */}
                       <TableCell className="text-center py-2.5">
                         {item.acertoStatus ? (
                           item.acertoStatus === 'ACTIVE' ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-normal text-[10px] py-0 px-1.5">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-normal text-[10px] py-0 px-2">
                               Ativo
                             </Badge>
                           ) : (
                             <Badge
                               variant="outline"
-                              className="bg-slate-100 text-slate-500 border-slate-300 font-normal text-[10px] py-0 px-1.5"
+                              className="bg-slate-100 text-slate-500 border-slate-300 font-normal text-[10px] py-0 px-2"
                             >
                               Inativo
                             </Badge>
@@ -669,52 +715,42 @@ export const SetupAcertoCompatibilityView: React.FC<SetupAcertoCompatibilityView
                         )}
                       </TableCell>
 
+                      {/* Vigência (Vigente / Futuro / Vencido / Vigência incompleta) */}
+                      <TableCell className="text-center py-2.5">
+                        {item.setupVigencyStatus === 'Vigência incompleta' ||
+                        item.acertoVigencyStatus === 'Vigência incompleta' ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-300 font-normal text-[10px] py-0 px-1.5"
+                          >
+                            Vigência incompleta
+                          </Badge>
+                        ) : item.setupVigencyStatus === 'Vencido' ||
+                          item.acertoVigencyStatus === 'Vencido' ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-rose-50 text-rose-700 border-rose-200 font-normal text-[10px] py-0 px-1.5"
+                          >
+                            Vencido
+                          </Badge>
+                        ) : item.setupVigencyStatus === 'Futuro' ||
+                          item.acertoVigencyStatus === 'Futuro' ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-blue-700 border-blue-200 font-normal text-[10px] py-0 px-1.5"
+                          >
+                            Futuro
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-normal text-[10px] py-0 px-1.5">
+                            Vigente
+                          </Badge>
+                        )}
+                      </TableCell>
+
                       {/* Situação de Compatibilidade */}
                       <TableCell className="text-center py-2.5">
                         {renderStatusBadge(item.compatibility)}
-                      </TableCell>
-
-                      {/* Ações */}
-                      <TableCell className="text-center py-2.5">
-                        <div className="inline-flex items-center gap-1">
-                          {item.compatibility === 'MISSING_ACERTO' && onOpenNewAcertoForSetup ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => onOpenNewAcertoForSetup(item)}
-                              className="h-6 px-2 text-[11px] bg-[#004C97] hover:bg-[#003870] text-white font-medium flex items-center gap-1 shadow-xs"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Cadastrar Acerto
-                            </Button>
-                          ) : item.associatedAcerto && onOpenEditAcerto ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onOpenEditAcerto(item.associatedAcerto!)}
-                              className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-50 font-medium"
-                            >
-                              Editar Acerto
-                            </Button>
-                          ) : null}
-
-                          {onOpenEditSetup && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const realSetup = setupList.find((s) => s.id === item.setupId)
-                                if (realSetup) onOpenEditSetup(realSetup)
-                              }}
-                              className="h-6 px-1.5 text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                              title="Editar Setup"
-                            >
-                              Setup
-                            </Button>
-                          )}
-                        </div>
                       </TableCell>
                     </TableRow>
                   )

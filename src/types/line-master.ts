@@ -489,14 +489,18 @@ export interface LineAdjustmentTimeRule {
   }
 }
 
-// Situações de compatibilidade Setup × Acerto
+// Situações de compatibilidade Setup × Acerto padronizadas conforme regra de negócio:
+// COMPATÍVEL, SEM ACERTO, ACERTO INATIVO, SETUP INATIVO, SETUP VENCIDO, ACERTO VENCIDO, VIGÊNCIA INCOMPLETA, INCONSISTENTE
 export type SetupAcertoCompatibilityStatus =
   | 'COMPATIBLE'
   | 'MISSING_ACERTO'
   | 'INACTIVE_ACERTO'
-  | 'EXPIRED_ACERTO'
-  | 'INCONSISTENT'
+  | 'SETUP_INACTIVE'
   | 'INACTIVE_SETUP'
+  | 'SETUP_EXPIRED'
+  | 'EXPIRED_ACERTO'
+  | 'INCOMPLETE_VIGENCY'
+  | 'INCONSISTENT'
 
 export interface SetupAcertoComparisonItem {
   setupId: string
@@ -523,6 +527,8 @@ export interface SetupAcertoComparisonItem {
   compatibilityLabel: string
   inconsistencyReason?: string
   isPending: boolean
+  setupVigencyStatus?: 'Vigente' | 'Futuro' | 'Vencido' | 'Vigência incompleta'
+  acertoVigencyStatus?: 'Vigente' | 'Futuro' | 'Vencido' | 'Vigência incompleta'
 }
 
 export interface SetupAcertoCompatibilitySummary {
@@ -531,6 +537,7 @@ export interface SetupAcertoCompatibilitySummary {
   compatibleSetupsCount: number
   setupsWithoutAcertoCount: number
   orphanAcertosCount: number
+  incompleteVigencyCount: number
   compatibilityRatePct: number
   overallStatus: 'GREEN' | 'YELLOW' | 'RED'
   overallStatusLabel: string
