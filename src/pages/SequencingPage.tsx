@@ -694,15 +694,17 @@ export const SequencingPage: React.FC = () => {
                         {/* Metadados e Rodapé de Ações */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
                           <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-500">
-                            <div>
-                              Produto:{' '}
-                              <strong className="text-slate-800">
-                                {r.product_code || 'Geral'}
-                              </strong>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-500">Linhas na Rota:</span>
+                              <strong className="text-slate-800">{r.nodes?.length || 0}</strong>
                             </div>
-                            <div>
-                              Família:{' '}
-                              <strong className="text-slate-800">{r.family_code || 'Todas'}</strong>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-500">Ligações N:N:</span>
+                              <strong className="text-slate-800">{r.edges?.length || 0}</strong>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-500">Versão:</span>
+                              <strong className="text-[#004C97]">V{r.version}</strong>
                             </div>
                           </div>
 

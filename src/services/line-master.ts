@@ -42,6 +42,7 @@ import {
   ProductFamily,
   StandardScheduledStop,
 } from '@/types/line-master'
+import { ProductionRoute } from '@/types/sequencing-orchestration'
 
 export const lineMasterService = {
   // ==========================================
@@ -851,6 +852,112 @@ export const lineMasterService = {
     }
 
     return created
+  },
+
+  /**
+   * Valida dependências ativas antes de permitir a remoção do vínculo Centro ↔ Linha.
+   * Verifica se o centro participa de:
+   * 1. Rotas produtivas aprovadas ou em homologação (production_routes com status APPROVED ou PENDING_APPROVAL)
+   * 2. Programação ativa / oficial / em execução (pcp_schedules ou weekly_schedules)
+   * 3. Regras de gargalo ativas (line_bottleneck_matrix)
+   */
+  async checkCenterActiveDependencies(
+    centerId: string,
+    centerCode?: string,
+  ): Promise<{
+    hasActiveDependencies: boolean
+    blockingReasons: Array<{
+      type: 'ROUTE' | 'SCHEDULE' | 'BOTTLENECK'
+      title: string
+      details: string
+    }>
+  }> {
+    const blockingReasons: Array<{
+      type: 'ROUTE' | 'SCHEDULE' | 'BOTTLENECK'
+      title: string
+      details: string
+    }> = []
+
+    try {
+      // 1. Verificar nós de rotas produtivas associadas ao centro
+      const filterConds: string[] = [`line_id = '${centerId}'`]
+      if (centerCode) {
+        filterConds.push(`line_code = '${centerCode}'`)
+      }
+      const routeNodes = await pb
+        .collection('production_route_nodes')
+        .getFullList({
+          filter: filterConds.join(' || '),
+        })
+        .catch(() => [])
+
+      if (routeNodes.length > 0) {
+        const routeIds = Array.from(new Set(routeNodes.map((n: any) => n.route_id).filter(Boolean)))
+        for (const rId of routeIds) {
+          try {
+            const route = await pb.collection('production_routes').getOne<ProductionRoute>(rId)
+            if (route && (route.status === 'APPROVED' || route.status === 'PENDING_APPROVAL')) {
+              blockingReasons.push({
+                type: 'ROUTE',
+                title: `Rota Produtiva ${route.status === 'APPROVED' ? 'Aprovada' : 'em Homologação'}: ${route.code}`,
+                details: `O centro participa da Rota Produtiva "${route.metadata?.name || route.description || route.code}" (Status: ${route.status}, Versão ${route.version}).`,
+              })
+            }
+          } catch {
+            // Ignorar erro pontual de leitura da rota
+          }
+        }
+      }
+
+      // 2. Verificar programações ativas / em execução (pcp_schedules ou weekly_schedules)
+      try {
+        const scheduleFilter = centerCode
+          ? `(line_id = '${centerId}' || line_code = '${centerCode}') && (status = 'ACTIVE' || status = 'IN_PROGRESS' || status = 'PUBLISHED' || status = 'APPROVED')`
+          : `line_id = '${centerId}' && (status = 'ACTIVE' || status = 'IN_PROGRESS' || status = 'PUBLISHED' || status = 'APPROVED')`
+        const activeSchedules = await pb
+          .collection('pcp_schedules')
+          .getFullList({ filter: scheduleFilter })
+          .catch(() => [])
+
+        for (const sched of activeSchedules as any[]) {
+          blockingReasons.push({
+            type: 'SCHEDULE',
+            title: `Programação Oficial Ativa: ${sched.schedule_code || sched.id}`,
+            details: `O centro possui programação industrial ativa/em execução (Status: ${sched.status}).`,
+          })
+        }
+      } catch {
+        // Ignorar se a coleção não existir no momento
+      }
+
+      // 3. Verificar regras de gargalo ativas
+      try {
+        const bottleneckFilter = centerCode
+          ? `(line_id = '${centerId}' || line_code = '${centerCode}') && active = true`
+          : `line_id = '${centerId}' && active = true`
+        const bottlenecks = await pb
+          .collection('line_bottleneck_matrix')
+          .getFullList({ filter: bottleneckFilter })
+          .catch(() => [])
+
+        for (const b of bottlenecks as any[]) {
+          blockingReasons.push({
+            type: 'BOTTLENECK',
+            title: `Regra de Gargalo Ativa: ${b.bottleneck_name || b.id}`,
+            details: `O centro está classificado como gargalo operacional ativo na matriz industrial.`,
+          })
+        }
+      } catch {
+        // Ignorar se a coleção não existir
+      }
+    } catch (err) {
+      console.warn('Erro ao validar dependências ativas do centro:', err)
+    }
+
+    return {
+      hasActiveDependencies: blockingReasons.length > 0,
+      blockingReasons,
+    }
   },
 
   async removeCenterFromLineSequence(dependencyId: string): Promise<void> {

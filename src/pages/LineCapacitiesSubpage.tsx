@@ -16,6 +16,7 @@ import {
   Activity,
   Sliders,
   ShieldCheck,
+  ShieldAlert,
   Edit,
   Info,
 } from 'lucide-react'
@@ -130,6 +131,28 @@ export default function LineCapacitiesSubpage() {
     centerIndex: number
     centerName: string
     centerCode: string
+  } | null>(null)
+
+  // Diálogo shadcn de remoção de centro do card principal
+  const [centerToRemove, setCenterToRemove] = useState<{
+    lineId: string
+    centerIndex: number
+    centerId: string
+    centerCode: string
+    centerName: string
+    dependencyId?: string
+  } | null>(null)
+  const [isRemovingCenter, setIsRemovingCenter] = useState(false)
+
+  // Modal de bloqueio quando centro possui dependências ativas
+  const [blockingDependencies, setBlockingDependencies] = useState<{
+    centerCode: string
+    centerName: string
+    reasons: Array<{
+      type: 'ROUTE' | 'SCHEDULE' | 'BOTTLENECK'
+      title: string
+      details: string
+    }>
   } | null>(null)
 
   // Modal: Adicionar Centro à Linha
@@ -637,9 +660,29 @@ export default function LineCapacitiesSubpage() {
     })
   }
 
-  const handleEditRemoveCenterClick = (centerIndex: number) => {
+  const handleEditRemoveCenterClick = async (centerIndex: number) => {
     if (!editingLineStruct) return
     const target = editingLineStruct.centers[centerIndex]
+    if (!target) return
+
+    // Validação prévia de dependências ativas
+    try {
+      const depCheck = await lineMasterService.checkCenterActiveDependencies(
+        target.centerId,
+        target.centerCode,
+      )
+      if (depCheck.hasActiveDependencies) {
+        setBlockingDependencies({
+          centerCode: target.centerCode,
+          centerName: target.centerName,
+          reasons: depCheck.blockingReasons,
+        })
+        return
+      }
+    } catch (err) {
+      console.warn('Erro ao verificar dependências ativas do centro:', err)
+    }
+
     setRemoveConfirmItem({
       lineId: editingLineStruct.id,
       centerIndex,
@@ -892,45 +935,117 @@ export default function LineCapacitiesSubpage() {
     )
   }
 
-  // Remover vínculo do card com diálogo de confirmação
-  const handleRemoveCenterCard = async (lineId: string, centerIndex: number) => {
+  // Iniciar solicitação de remoção de centro do card principal: checar dependências ativas primeiro
+  const handleRequestRemoveCenterCard = async (lineId: string, centerIndex: number) => {
     const lineStruct = hierarchyLines.find((l) => l.id === lineId)
     if (!lineStruct) return
     const targetCenter = lineStruct.centers[centerIndex]
     if (!targetCenter) return
 
-    const confirmRemoval = window.confirm(
-      `Remover este Centro da Linha? O cadastro e a Ficha Mestra do Centro serão preservados.`,
-    )
-    if (!confirmRemoval) return
-
+    // Validação prévia de dependências ativas
     try {
-      if (targetCenter.dependencyId) {
-        await lineMasterService.removeCenterFromLineSequence(targetCenter.dependencyId)
+      const depCheck = await lineMasterService.checkCenterActiveDependencies(
+        targetCenter.centerId,
+        targetCenter.centerCode,
+      )
+      if (depCheck.hasActiveDependencies) {
+        setBlockingDependencies({
+          centerCode: targetCenter.centerCode,
+          centerName: targetCenter.centerName,
+          reasons: depCheck.blockingReasons,
+        })
+        return
       }
+    } catch (err) {
+      console.warn('Erro ao verificar dependências ativas do centro:', err)
+    }
+
+    // Se não há dependências bloqueantes, abre o Dialog shadcn de confirmação
+    setCenterToRemove({
+      lineId,
+      centerIndex,
+      centerId: targetCenter.centerId,
+      centerCode: targetCenter.centerCode,
+      centerName: targetCenter.centerName,
+      dependencyId: targetCenter.dependencyId,
+    })
+  }
+
+  // Executar remoção de centro após confirmação no Dialog shadcn
+  const handleExecuteRemoveCenter = async () => {
+    if (!centerToRemove) return
+    const { lineId, centerIndex, centerId, centerCode, dependencyId } = centerToRemove
+
+    setIsRemovingCenter(true)
+    try {
+      // Resolver dependencyId: se targetCenter.dependencyId veio nulo, buscar registro real em line_sequencing_dependencies
+      let effDepId = dependencyId
+      if (!effDepId) {
+        const matchingDeps = await pb
+          .collection('line_sequencing_dependencies')
+          .getFullList<LineSequencingDependency>({
+            filter: `line_id = '${lineId}' && (next_line_id = '${centerId}' || line_id = '${centerId}')`,
+          })
+          .catch(() => [])
+
+        if (matchingDeps.length > 0) {
+          effDepId = matchingDeps[0].id
+        }
+      }
+
+      // Persistência real: remove estritamente o vínculo intermediário
+      if (effDepId) {
+        await lineMasterService.removeCenterFromLineSequence(effDepId)
+      }
+
+      // Recalcular sequência dos centros restantes com saltos de 10: (idx + 1) * 10
+      // e atualizar o estado local imediatamente
+      const currentLine = hierarchyLines.find((l) => l.id === lineId)
+      const remainingCenters = (currentLine?.centers || [])
+        .filter((_, idx) => idx !== centerIndex)
+        .map((c, idx) => ({
+          ...c,
+          sequenceOrder: (idx + 1) * 10,
+        }))
 
       setHierarchyLines((prev) =>
         prev.map((l) => {
           if (l.id !== lineId) return l
-          const newCenters = l.centers.filter((_, idx) => idx !== centerIndex)
-          const renumbered = newCenters.map((c, idx) => ({
-            ...c,
-            sequenceOrder: (idx + 1) * 10,
-          }))
-          return { ...l, centers: renumbered }
+          return { ...l, centers: remainingCenters }
         }),
       )
 
+      // Atualizar no banco a numeração de sequência dos centros remanescentes se tinham dependências
+      for (let i = 0; i < remainingCenters.length; i++) {
+        const item = remainingCenters[i]
+        const newOrder = (i + 1) * 10
+        if (item.dependencyId) {
+          try {
+            await lineMasterService.updateSequencingDependencyOrder(item.dependencyId, newOrder)
+          } catch {
+            // Não bloqueia
+          }
+        }
+      }
+
+      // Sincronizar com o banco (loadData)
+      await loadData()
+
+      // Toast com descrição exata: "Centro removido da hierarquia com sucesso."
       toast({
-        title: 'Vínculo Removido',
-        description: `O centro ${targetCenter.centerCode} foi desvinculado da linha ${lineStruct.code}. O cadastro e a Ficha Mestra do centro foram preservados.`,
+        title: 'Sucesso',
+        description: 'Centro removido da hierarquia com sucesso.',
       })
+
+      setCenterToRemove(null)
     } catch (err: any) {
       toast({
         title: 'Erro ao remover vínculo',
-        description: err.message || 'Falha ao desvincular centro.',
+        description: err.message || 'Falha ao desvincular centro da hierarquia.',
         variant: 'destructive',
       })
+    } finally {
+      setIsRemovingCenter(false)
     }
   }
 
@@ -1311,9 +1426,9 @@ export default function LineCapacitiesSubpage() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => handleRemoveCenterCard(lineStruct.id, idx)}
+                                onClick={() => handleRequestRemoveCenterCard(lineStruct.id, idx)}
                                 className="h-7 w-7 text-rose-600 hover:bg-rose-50"
-                                title="Remover vínculo sem excluir centro"
+                                title="Remover da Hierarquia"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </Button>
@@ -1712,14 +1827,15 @@ export default function LineCapacitiesSubpage() {
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold text-slate-900 flex items-center gap-2 text-rose-600">
-              <AlertTriangle className="w-4 h-4" /> Confirmar Desvinculação de Centro
+              <AlertTriangle className="w-4 h-4" /> Remover centro da hierarquia?
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
-              Remover este Centro da Linha? O cadastro e a Ficha Mestra do Centro serão preservados.
-              <br />
+              O centro{' '}
               <strong className="text-slate-800">
                 {removeConfirmItem?.centerCode} — {removeConfirmItem?.centerName}
-              </strong>
+              </strong>{' '}
+              será removido apenas desta Linha Produtiva. O cadastro mestre do Centro não será
+              excluído.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 pt-2">
@@ -1737,7 +1853,108 @@ export default function LineCapacitiesSubpage() {
               onClick={handleConfirmRemoveCenter}
               className="text-xs h-8 font-bold"
             >
-              Confirmar Remoção
+              Remover da Hierarquia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo shadcn de remoção de centro do card principal (A1) */}
+      <Dialog
+        open={Boolean(centerToRemove)}
+        onOpenChange={(open) => !open && !isRemovingCenter && setCenterToRemove(null)}
+      >
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              Remover centro da hierarquia?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
+              O centro{' '}
+              <strong className="text-slate-800">
+                {centerToRemove?.centerCode} — {centerToRemove?.centerName}
+              </strong>{' '}
+              será removido apenas desta Linha Produtiva. O cadastro mestre do Centro não será
+              excluído.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isRemovingCenter}
+              onClick={() => setCenterToRemove(null)}
+              className="text-xs h-8"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={isRemovingCenter}
+              onClick={handleExecuteRemoveCenter}
+              className="text-xs h-8 font-bold gap-1.5"
+            >
+              {isRemovingCenter ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Removendo...
+                </>
+              ) : (
+                'Remover da Hierarquia'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de bloqueio quando centro possui dependências ativas (A4) */}
+      <Dialog
+        open={Boolean(blockingDependencies)}
+        onOpenChange={(open) => !open && setBlockingDependencies(null)}
+      >
+        <DialogContent className="max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-rose-700 flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-rose-600" />
+              Centro possui dependências ativas.
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 pt-1 leading-relaxed">
+              Não é possível remover o vínculo do centro{' '}
+              <strong className="text-slate-800">
+                {blockingDependencies?.centerCode} — {blockingDependencies?.centerName}
+              </strong>{' '}
+              porque ele está associado a estruturas industriais ativas que impedem a desvinculação.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 max-h-60 overflow-y-auto">
+            {blockingDependencies?.reasons.map((reason, idx) => (
+              <div
+                key={idx}
+                className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1"
+              >
+                <div className="font-bold text-rose-800 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                  {reason.title}
+                </div>
+                <p className="text-[11px] text-rose-700 leading-relaxed">{reason.details}</p>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="pt-2 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setBlockingDependencies(null)}
+              className="text-xs h-8"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

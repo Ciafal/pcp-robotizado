@@ -74,8 +74,6 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [productCode, setProductCode] = useState('')
-  const [familyCode, setFamilyCode] = useState('')
   const [isVersionBump, setIsVersionBump] = useState(false)
 
   // Bloco 2: Linhas Produtivas da Rota
@@ -208,8 +206,6 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
       setCode(routeToEdit.code)
       setName(routeToEdit.metadata?.name || routeToEdit.description || '')
       setDescription(routeToEdit.description || '')
-      setProductCode(routeToEdit.product_code || '')
-      setFamilyCode(routeToEdit.family_code || '')
       setIsVersionBump(routeToEdit.status === 'APPROVED')
 
       // Carregar nós existentes se houver
@@ -261,8 +257,6 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
       setCode('')
       setName('')
       setDescription('')
-      setProductCode('')
-      setFamilyCode('')
       setRouteLines([])
       setRouteEdges([])
       setIsNNMode(false)
@@ -456,8 +450,6 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
         code: code.trim().toUpperCase(),
         name: name.trim(),
         description: description.trim(),
-        product_code: productCode.trim().toUpperCase(),
-        family_code: familyCode.trim().toUpperCase(),
         isNewVersion: isVersionBump,
         nodes: routeLines.map((l, idx) => ({
           line_id: l.lineId,
@@ -600,29 +592,6 @@ export const ProductionRouteModal: React.FC<ProductionRouteModalProps> = ({
                   onChange={(e) => setDescription(e.target.value)}
                   className="bg-white border-slate-300 text-slate-900 text-xs focus-visible:ring-[#004C97]"
                 />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block text-slate-700 mb-1 font-mono font-medium">
-                    Produto Vinculado
-                  </label>
-                  <Input
-                    placeholder="Ex: TUB_50X50"
-                    value={productCode}
-                    onChange={(e) => setProductCode(e.target.value)}
-                    className="bg-white border-slate-300 text-slate-900 uppercase font-mono text-xs focus-visible:ring-[#004C97]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 mb-1 font-mono font-medium">Família</label>
-                  <Input
-                    placeholder="Ex: TUB_QUAD"
-                    value={familyCode}
-                    onChange={(e) => setFamilyCode(e.target.value)}
-                    className="bg-white border-slate-300 text-slate-900 uppercase font-mono text-xs focus-visible:ring-[#004C97]"
-                  />
-                </div>
               </div>
             </div>
 
