@@ -59,6 +59,7 @@ import {
   LineDoubleApprovalItem,
 } from '@/types/control-tower'
 import { useToast } from '@/hooks/use-toast'
+import { evaluateScheduleItemsGaugeRestrictions } from '@/services/gauge-restriction-evaluation'
 
 export interface SimulationDragDiff {
   orderId: string

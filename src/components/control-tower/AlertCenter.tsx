@@ -1,6 +1,6 @@
 import React from 'react'
 import { useControlTower } from '@/contexts/ControlTowerContext'
-import { Bell, AlertOctagon, AlertTriangle, Info, CheckCircle2, X } from 'lucide-react'
+import { Bell, AlertOctagon, AlertTriangle, Info, CheckCircle2, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -79,6 +79,96 @@ export const AlertCenter: React.FC = () => {
                 <div>
                   <strong className="text-slate-900">Horizonte:</strong> {al.whenImpact}
                 </div>
+
+                {/* BLOCO: Metadados Enriquecidos de Restrição Mínima de Bitola */}
+                {al.gaugeRestrictionData && (
+                  <div className="mt-2 p-2.5 rounded bg-slate-900 text-slate-200 border border-slate-800 text-[10px] space-y-2 font-sans">
+                    <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-700 pb-1">
+                      <span className="flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        Restrições de Bitola ({al.gaugeRestrictionData.gaugeMm})
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-300">
+                        {al.gaugeRestrictionData.satisfiedCount}/
+                        {al.gaugeRestrictionData.totalRestrictions} atendidas (
+                        {al.gaugeRestrictionData.pendingCount} pendente(s))
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-300">
+                      <div>
+                        <span className="text-slate-400">Linha:</span>{' '}
+                        <strong className="text-amber-300 font-mono">
+                          {al.gaugeRestrictionData.lineCode}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Centro:</span>{' '}
+                        <strong className="font-mono text-white">
+                          {al.gaugeRestrictionData.workCenter}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Bitola:</span>{' '}
+                        <strong className="font-mono text-cyan-300">
+                          {al.gaugeRestrictionData.gaugeMm}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Status Geral:</span>{' '}
+                        <strong
+                          className={
+                            al.gaugeRestrictionData.pendingCount === 0
+                              ? 'text-emerald-400'
+                              : 'text-rose-400'
+                          }
+                        >
+                          {al.gaugeRestrictionData.pendingCount === 0
+                            ? 'Conforme'
+                            : 'Violação Mínima'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1 border-t border-slate-800">
+                      <div className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">
+                        Detalhamento por Regra:
+                      </div>
+                      {al.gaugeRestrictionData.pendingDetails.map((det, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-1.5 rounded border text-[10px] flex items-start justify-between gap-2 ${
+                            det.satisfied
+                              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-200'
+                              : 'bg-rose-950/40 border-rose-800 text-rose-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 font-semibold">
+                            {det.satisfied ? (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                            ) : (
+                              <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                            )}
+                            <span>{det.type}</span>
+                            <span className="text-[9px] font-normal opacity-90">
+                              ({det.satisfied ? '✓ Atendida' : '✕ Não Atendida'})
+                            </span>
+                          </div>
+                          <div className="text-right font-mono text-[9px] whitespace-nowrap">
+                            <span>
+                              {det.currentStr} / mínimo {det.minStr}
+                            </span>
+                            {det.deficitStr && !det.satisfied && (
+                              <span className="block text-rose-300 font-bold">
+                                Déficit: {det.deficitStr}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* BLOCO C: Metadados Enriquecidos de Risco de Matéria-Prima */}
                 {al.rawMaterialRiskData && (

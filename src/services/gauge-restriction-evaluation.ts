@@ -377,48 +377,196 @@ export const gaugeRestrictionEvaluationService = {
    * Avalia e registra em auditoria oficial caso resulte em bloqueio ou pendência.
    */
   async evaluateAndAudit(context: EvaluateGaugeContext): Promise<GaugeMinRestrictionEvaluation> {
-    const result = this.evaluate(context)
-
-    // Se NÃO atendida, registra auditoria oficial em pcp_audit_logs
-    if (!result.allSatisfied) {
-      try {
-        await pcpAuditService.recordLog({
-          action: `Restrição Mínima por Bitola Não Atendida na Linha ${context.lineCode} (${result.pendingCount} pendência(s))`,
-          event_type: 'Alerta Operacional',
-          module: 'Programação',
-          screen: 'Montagem Semanal',
-          company: context.company || 'CIAFAL',
-          line: context.lineCode,
-          center: context.centerCode || context.lineCode,
-          record_id: context.currentGauge,
-          entity: 'line_gauge_min_restrictions',
-          source: 'Sistema',
-          status: 'Bloqueio / Alerta',
-          outcome: 'WARN',
-          reason: 'Troca de bitola com restrição mínima não atingida',
-          justification: `A bitola ${context.currentGauge} possui restrições pendentes antes da troca: ${result.pendingAlertMessage}`,
-          details: {
-            line_code: context.lineCode,
-            current_gauge: context.currentGauge,
-            next_gauge: context.nextGauge,
-            active_count: result.activeRestrictionsCount,
-            satisfied_count: result.satisfiedCount,
-            pending_count: result.pendingCount,
-            evaluations: result.evaluations.map((e) => ({
-              type: e.restrictionType,
-              req: e.requiredValue,
-              cur: e.currentValue,
-              uom: e.unitOfMeasure,
-              satisfied: e.isSatisfied,
-              deficitFormatted: e.deficitFormatted,
-            })),
-          },
-        })
-      } catch (audErr) {
-        console.warn('Falha ao auditar alerta de restrição mínima de bitola:', audErr)
-      }
-    }
-
-    return result
+    return evaluateAndAuditGaugeRestrictions(context)
   },
+}
+
+/**
+ * Avalia restrições mínimas por bitola para uma linha específica sobre itens de programação.
+ * Identifica cada bloco contínuo por bitola e avalia contra as restrições ativas da linha.
+ */
+export async function evaluateSingleLineGaugeRestrictions(params: {
+  lineCode: string
+  centerCode?: string
+  company?: string
+  items: WeeklyScheduleItem[]
+  shifts?: ProductionShift[]
+  activeRestrictions?: LineGaugeMinRestriction[]
+}): Promise<GaugeMinRestrictionEvaluation[]> {
+  const { lineCode, centerCode = lineCode, company = 'CIAFAL', items, shifts } = params
+
+  const restrictions =
+    params.activeRestrictions ||
+    (await gaugeRestrictionEvaluationService.loadActiveRestrictions(lineCode))
+
+  if (!restrictions || restrictions.length === 0) {
+    return []
+  }
+
+  // Ordena itens pela sequência
+  const orderedItems = [...items]
+    .filter((it) => (it.line_code ? it.line_code === lineCode : true))
+    .sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0))
+
+  if (orderedItems.length === 0) {
+    return []
+  }
+
+  // Divide em blocos contínuos da mesma bitola preservando continuidade entre dias
+  const blocks: Array<{ gauge: string; items: WeeklyScheduleItem[]; nextGauge?: string }> = []
+  let currentBlock: WeeklyScheduleItem[] = []
+  let currentGauge = ''
+
+  for (let i = 0; i < orderedItems.length; i++) {
+    const it = orderedItems[i]
+    if (it.item_type !== 'PRODUCTION') continue
+    const g = extractGaugeFromItem(it)
+    if (!g) continue
+
+    if (!currentGauge) {
+      currentGauge = g
+      currentBlock.push(it)
+    } else if (g === currentGauge) {
+      currentBlock.push(it)
+    } else {
+      blocks.push({
+        gauge: currentGauge,
+        items: currentBlock,
+        nextGauge: g,
+      })
+      currentGauge = g
+      currentBlock = [it]
+    }
+  }
+
+  if (currentBlock.length > 0 && currentGauge) {
+    blocks.push({
+      gauge: currentGauge,
+      items: currentBlock,
+      nextGauge: undefined,
+    })
+  }
+
+  const results: GaugeMinRestrictionEvaluation[] = []
+  for (const blk of blocks) {
+    const evalRes = gaugeRestrictionEvaluationService.evaluate({
+      company,
+      lineCode,
+      centerCode,
+      currentGauge: blk.gauge,
+      nextGauge: blk.nextGauge,
+      items: orderedItems,
+      shifts,
+      activeRestrictions: restrictions,
+    })
+    results.push(evalRes)
+  }
+
+  return results
+}
+
+/**
+ * Avalia itens de programação (possivelmente multilinhas ou com filtro de período da Torre de Controle)
+ * agrupando por linha/centro e retornando todas as avaliações com conformidade (isCompliant: allSatisfied).
+ */
+export async function evaluateScheduleItemsGaugeRestrictions(params: {
+  items: WeeklyScheduleItem[]
+  lineCode?: string
+  shifts?: ProductionShift[]
+  activeRestrictions?: LineGaugeMinRestriction[]
+}): Promise<Array<GaugeMinRestrictionEvaluation & { isCompliant: boolean }>> {
+  const { items, lineCode, shifts, activeRestrictions } = params
+  if (!items || items.length === 0) return []
+
+  const lineMap = new Map<string, WeeklyScheduleItem[]>()
+  for (const it of items) {
+    const l = it.line_code || lineCode || 'L1'
+    if (!lineMap.has(l)) {
+      lineMap.set(l, [])
+    }
+    lineMap.get(l)!.push(it)
+  }
+
+  const allEvals: Array<GaugeMinRestrictionEvaluation & { isCompliant: boolean }> = []
+
+  for (const [lCode, lItems] of lineMap.entries()) {
+    const evals = await evaluateSingleLineGaugeRestrictions({
+      lineCode: lCode,
+      centerCode: lCode,
+      items: lItems,
+      shifts,
+      activeRestrictions,
+    })
+    for (const e of evals) {
+      allEvals.push({
+        ...e,
+        isCompliant: e.allSatisfied,
+      })
+    }
+  }
+
+  return allEvals
+}
+
+/**
+ * Avalia e audita diretamente em pcp_audit_logs quando !isCompliant.
+ * Atende à Lacuna 2 da Ficha Mestra com chamada DIRETA a pcpAuditService.logAudit({...}).
+ */
+export async function evaluateAndAuditGaugeRestrictions(
+  context: EvaluateGaugeContext & { targetItem?: WeeklyScheduleItem },
+): Promise<GaugeMinRestrictionEvaluation> {
+  const result = gaugeRestrictionEvaluationService.evaluate(context)
+
+  if (!result.allSatisfied) {
+    const firstViolatedItem =
+      context.targetItem ||
+      context.items.find(
+        (it) => it.item_type === 'PRODUCTION' && extractGaugeFromItem(it) === result.currentGauge,
+      ) ||
+      context.items[0]
+
+    const pendingList = result.evaluations
+      .filter((e) => !e.isSatisfied)
+      .map((e) => ({
+        restriction_type: e.restrictionType,
+        current_value: e.currentValue,
+        min_value: e.requiredValue,
+        deficit: e.deficitValue,
+        unit: e.unitOfMeasure,
+        deficitFormatted: e.deficitFormatted,
+      }))
+
+    const pendingDetailsStr = pendingList
+      .map((p) => `${p.restriction_type}: ${p.deficitFormatted}`)
+      .join(' | ')
+
+    const message = `Bloqueio de sequenciamento: bitola ${result.currentGauge} na Linha ${context.lineCode} possui restrição mínima não atendida (${result.pendingCount} pendente(s): ${pendingDetailsStr}).`
+
+    try {
+      await pcpAuditService.logAudit({
+        action_category: 'VALIDACAO_PROGRAMACAO',
+        action_name: 'BLOQUEIO_RESTRICAO_MINIMA_BITOLA',
+        entity_type: 'weekly_schedules',
+        entity_id: firstViolatedItem?.id || `ws-${result.currentGauge}`,
+        company_code: firstViolatedItem?.company_code || context.company || 'CIAFAL',
+        plant_code: firstViolatedItem?.plant_code || 'DIV',
+        line_code: context.lineCode,
+        work_center: context.centerCode || context.lineCode,
+        gauge_mm: result.currentGauge,
+        validation_result: 'BLOQUEADO',
+        severity: 'ALTA',
+        details: {
+          totalRestrictions: result.activeRestrictionsCount,
+          satisfiedCount: result.satisfiedCount,
+          pendingCount: result.pendingCount,
+          pendingRestrictions: pendingList,
+          message,
+        },
+      })
+    } catch (audErr) {
+      console.warn('Falha de rede/gravação na auditoria de bloqueio de bitola:', audErr)
+    }
+  }
+
+  return result
 }

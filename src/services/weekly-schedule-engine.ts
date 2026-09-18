@@ -284,6 +284,10 @@ export const WeeklyScheduleEngine = {
     return { allowed: true }
   },
 
+  /**
+   * Valida a inserção / movimentação de item na sequência garantindo avaliação completa
+   * do estado HIPOTÉTICO, bloqueando violação de restrições mínimas por bitola em TODOS os caminhos.
+   */
   validateSequenceDrop(params: {
     items: WeeklyScheduleItem[]
     fromIndex: number
@@ -294,6 +298,7 @@ export const WeeklyScheduleEngine = {
   }): {
     allowed: boolean
     blockingReason?: string
+    reason?: string
     warnings: string[]
     infoMessages: string[]
     setupEstimatedMinutes?: number
@@ -398,7 +403,8 @@ export const WeeklyScheduleEngine = {
       }
 
       // 6. Validação de Restrições Mínimas de Programação por Bitola (Lógica E)
-      // Se houver troca efetiva de bitola com a movimentação, verificar se a bitola que foi encerrada atende a todas as restrições mínimas
+      // Avalia o estado HIPOTÉTICO completo: drops entre blocos distintos e casos em que a bitola de destino é igual
+      // mas o lote resultante viola o mínimo (ex.: quebra de bloco prévio ou lote incompleto)
       const restrictions =
         params.activeGaugeRestrictions ||
         lineOverview?.gaugeMinRestrictions?.filter((r) => r.status === 'ATIVA') ||
@@ -410,13 +416,23 @@ export const WeeklyScheduleEngine = {
           .trim()
           .toUpperCase()
 
-        // Se o item anterior tem bitola diferente da nova posição OU se mudou a vizinhança provocando corte prematuro de lote
-        if (prevGauge && prevGauge !== movedGauge) {
-          // Avalia se o bloco contínuo da bitola anterior (prevGauge) na sequência simulada atende as restrições
+        // Identifica as bitolas impactadas pela movimentação na sequência hipotética simulada
+        const gaugesToEvaluate = new Set<string>()
+        if (movedGauge) gaugesToEvaluate.add(movedGauge)
+        if (prevGauge) gaugesToEvaluate.add(prevGauge)
+
+        // Item vizinho original anterior que pode ter sofrido corte prematuro de lote
+        const origNeighbor = fromIndex > 0 ? items[fromIndex - 1] : null
+        const origNeighborGauge = (origNeighbor?.dimensions || origNeighbor?.material_code || '')
+          .trim()
+          .toUpperCase()
+        if (origNeighborGauge) gaugesToEvaluate.add(origNeighborGauge)
+
+        for (const gauge of gaugesToEvaluate) {
           const evaluation = gaugeRestrictionEvaluationService.evaluate({
             lineCode: lineCode || 'L1',
-            currentGauge: prevGauge,
-            nextGauge: movedGauge,
+            currentGauge: gauge,
+            nextGauge: movedGauge !== gauge ? movedGauge : undefined,
             items: simulated,
             shifts: lineOverview?.shifts,
             activeRestrictions: restrictions,
@@ -430,7 +446,8 @@ export const WeeklyScheduleEngine = {
 
             return {
               allowed: false,
-              blockingReason: `ATENÇÃO — Restrições mínimas de programação por bitola não atendidas. Bitola ${prevGauge}: ${pendingDetails}. ${evaluation.pendingAlertMessage}`,
+              blockingReason: `ATENÇÃO — Restrições mínimas de programação por bitola não atendidas. Bitola ${gauge}: ${pendingDetails}. ${evaluation.pendingAlertMessage}`,
+              reason: 'RESTRIÇÃO_MINIMA_BITOLA_VIOLADA',
               warnings,
               infoMessages,
               setupEstimatedMinutes: estSetupMin,
@@ -447,6 +464,47 @@ export const WeeklyScheduleEngine = {
       infoMessages,
       setupEstimatedMinutes: estSetupMin,
     }
+  },
+
+  /**
+   * Versão assíncrona que aguarda a auditoria formal em pcp_audit_logs antes de retornar o bloqueio
+   */
+  async validateSequenceDropWithAudit(params: {
+    items: WeeklyScheduleItem[]
+    fromIndex: number
+    toIndex: number
+    lineOverview: LineOverviewData | null
+    lineCode?: string
+    activeGaugeRestrictions?: LineGaugeMinRestriction[]
+  }): Promise<{
+    allowed: boolean
+    blockingReason?: string
+    reason?: string
+    warnings: string[]
+    infoMessages: string[]
+    setupEstimatedMinutes?: number
+    gaugeRestrictionEvaluation?: import('@/types/line-gauge-restriction').GaugeMinRestrictionEvaluation
+  }> {
+    const res = this.validateSequenceDrop(params)
+    if (!res.allowed && res.gaugeRestrictionEvaluation) {
+      try {
+        await evaluateAndAuditGaugeRestrictions({
+          lineCode: params.lineCode || 'L1',
+          centerCode: params.lineCode || 'L1',
+          currentGauge: res.gaugeRestrictionEvaluation.currentGauge,
+          nextGauge: res.gaugeRestrictionEvaluation.nextGauge,
+          items: params.items,
+          shifts: params.lineOverview?.shifts,
+          activeRestrictions:
+            params.activeGaugeRestrictions ||
+            params.lineOverview?.gaugeMinRestrictions?.filter((r) => r.status === 'ATIVA'),
+          targetItem: params.items[params.fromIndex],
+        })
+      } catch (audErr) {
+        console.warn('Aviso ao persistir auditoria de bloqueio:', audErr)
+      }
+    }
+    return res
   },
 
   formatShiftDisplay(shiftName?: string, shiftCode?: string, crewName?: string): string {

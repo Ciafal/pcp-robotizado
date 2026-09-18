@@ -407,6 +407,66 @@ class PCPAuditService {
    * NÃO confundir tentativa com conclusão: se salvar falha e nada foi persistido, registrar
    * separadamente "Tentativa de alteração com falha" com status Erro.
    */
+  /**
+   * Método especializado para auditoria estruturada de validação/bloqueio de programação
+   */
+  async logAudit(params: {
+    action_category: string
+    action_name: string
+    entity_type: string
+    entity_id: string
+    company_code?: string
+    plant_code?: string
+    line_code?: string
+    work_center?: string
+    gauge_mm?: string
+    validation_result?: string
+    severity?: string
+    details?: Record<string, any>
+  }): Promise<PCPAuditLogRecord> {
+    const user = pb.authStore.record
+    const details = params.details || {}
+    const correlationId = `CORR-AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+
+    return this.recordLog({
+      action: `${params.action_name}: ${details.message || params.action_category}`,
+      event_type: 'SCHEDULE_ACTION',
+      module: 'Programação',
+      screen: 'Sequenciamento Operacional',
+      company: params.company_code || 'CIAFAL',
+      line: params.line_code || '',
+      center: params.work_center || params.line_code || '',
+      record_id: params.entity_id || params.gauge_mm || '',
+      resource: params.entity_type,
+      resource_id: params.entity_id,
+      entity: params.entity_type,
+      status: params.validation_result || 'BLOQUEADO',
+      outcome: params.validation_result === 'BLOQUEADO' ? 'FAILED' : 'SUCCESS',
+      reason: params.action_name,
+      justification: details.message || `Validação ${params.action_category} executada`,
+      correlation_id: correlationId,
+      details: {
+        action_category: params.action_category,
+        action_name: params.action_name,
+        entity_type: params.entity_type,
+        entity_id: params.entity_id,
+        company_code: params.company_code,
+        plant_code: params.plant_code,
+        line_code: params.line_code,
+        work_center: params.work_center,
+        gauge_mm: params.gauge_mm,
+        validation_result: params.validation_result,
+        severity: params.severity,
+        ...details,
+      },
+      technical_details: {
+        correlationId,
+        validationSeverity: params.severity,
+        validationResult: params.validation_result,
+      },
+    })
+  }
+
   async recordFailureAttempt(params: {
     operation: string
     module: string

@@ -1696,8 +1696,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo e Restrições Mínimas de Bitola)
-    const validation = WeeklyScheduleEngine.validateSequenceDrop({
+    // Validação Pré-Drop Soberana (Ficha Mestra, Bloqueios, Restrições de Processo e Restrições Mínimas de Bitola) com Auditoria
+    const validation = await WeeklyScheduleEngine.validateSequenceDropWithAudit({
       items,
       fromIndex,
       toIndex,
@@ -1712,25 +1712,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           isOpen: true,
           evaluation: validation.gaugeRestrictionEvaluation,
         })
-
-        // Auditoria imediata do alerta no pcp_audit_logs
-        gaugeRestrictionEvaluationService
-          .evaluateAndAudit({
-            company: headerFilter.companyCode,
-            lineCode: selectedLineCode,
-            centerCode: selectedLineCode,
-            currentGauge: validation.gaugeRestrictionEvaluation.currentGauge,
-            nextGauge: validation.gaugeRestrictionEvaluation.nextGauge,
-            items,
-            shifts: currentLineOverview?.shifts,
-            activeRestrictions: currentLineOverview?.gaugeMinRestrictions?.filter(
-              (r) => r.status === 'ATIVA',
-            ),
-            user: auth?.user
-              ? { id: auth.user.id, name: auth.user.name, email: auth.user.email }
-              : undefined,
-          })
-          .catch((err) => console.warn('Erro ao auditar restrição mínima:', err))
       }
 
       toast({

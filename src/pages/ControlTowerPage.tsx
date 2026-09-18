@@ -526,6 +526,21 @@ export const ControlTowerPage: React.FC = () => {
                     >
                       <div className="font-bold text-amber-900">{al.title}</div>
                       <div className="text-slate-600 text-[10px]">{al.cause}</div>
+                      {al.gaugeRestrictionData && (
+                        <div className="mt-1 pt-1 border-t border-amber-200 text-[9px] text-amber-800 space-y-0.5 font-sans">
+                          {al.gaugeRestrictionData.pendingDetails.map((det, dIdx) => (
+                            <div key={dIdx} className="flex items-center justify-between">
+                              <span className="flex items-center gap-1 font-semibold">
+                                {det.satisfied ? '✓' : '✕'} {det.type}:
+                              </span>
+                              <span>
+                                {det.currentStr} / min {det.minStr}{' '}
+                                {det.deficitStr ? `(${det.deficitStr})` : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -633,6 +648,21 @@ export const ControlTowerPage: React.FC = () => {
                     Ver no Sequenciamento <ArrowRight className="w-3 h-3 ml-1" />
                   </Button>
                 </div>
+                {al.gaugeRestrictionData && (
+                  <div className="mt-1 pt-1 border-t border-slate-200 text-[10px] text-slate-600">
+                    <div className="font-semibold text-rose-700">
+                      {al.gaugeRestrictionData.pendingCount} pendência(s) em{' '}
+                      {al.gaugeRestrictionData.gaugeMm}:
+                    </div>
+                    {al.gaugeRestrictionData.pendingDetails
+                      .filter((d) => !d.satisfied)
+                      .map((det, dIdx) => (
+                        <div key={dIdx} className="text-[9px] text-slate-700 font-mono">
+                          ✕ {det.type}: {det.currentStr} / mín. {det.minStr} — {det.deficitStr}
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>

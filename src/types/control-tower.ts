@@ -565,7 +565,14 @@ export interface OperationalAlert {
   processCode: string
   orderNumber?: string
   severity: SeverityType
-  category: 'PARADA' | 'BUFFER' | 'PEDIDO' | 'SETUP' | 'MATERIAIS' | 'IA_PROJECAO'
+  category:
+    | 'PARADA'
+    | 'BUFFER'
+    | 'PEDIDO'
+    | 'SETUP'
+    | 'MATERIAIS'
+    | 'IA_PROJECAO'
+    | 'RESTRIÇÃO_BITOLA'
   title: string
   cause: string
   impact: string
@@ -575,6 +582,21 @@ export interface OperationalAlert {
   aiConfidencePct?: number
   timestamp: string
   acknowledged: boolean
+  gaugeRestrictionData?: {
+    lineCode: string
+    workCenter: string
+    gaugeMm: string
+    totalRestrictions: number
+    satisfiedCount: number
+    pendingCount: number
+    pendingDetails: Array<{
+      type: string
+      currentStr: string
+      minStr: string
+      deficitStr: string
+      satisfied: boolean
+    }>
+  }
   // Metadados enriquecidos para ocorrência de Risco de Matéria-Prima
   rawMaterialRiskData?: {
     companyCode: string
