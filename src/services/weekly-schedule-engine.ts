@@ -1390,6 +1390,7 @@ export const WeeklyScheduleEngine = {
     // 2. RESOLUÇÃO DE ACERTO (adjustment_time_rules):
     // Inserir bloco APENAS se existir regra ativa com duração > 0;
     // sem regra aplicável -> NENHUM bloco de acerto (nunca cards "0 min").
+    // REGRA CENTRAL: Se a transição exige Setup, verificar obrigatoriamente se existe Acerto ativo e vigente.
     // =========================================================================
     const adjustmentRules = (lineOverview?.adjustmentRules || []).filter((rule) => {
       if (rule.active === false) return false
@@ -1400,14 +1401,30 @@ export const WeeklyScheduleEngine = {
 
     const sampleTypeToMatch = (options?.sampleType || '').trim().toUpperCase()
 
-    // Regra de acerto aplicável por material/bitola/dimensão
+    const resolvedSetup = exactMaterialMatch || gaugeMatch || familyMatch || genericMatch
+
+    // Regra de acerto aplicável por material/bitola/dimensão ou família de destino
     const matchingAdjustmentRules = adjustmentRules.filter((rule) => {
+      // Vínculo explícito de setup
+      if (resolvedSetup && (resolvedSetup as any).default_adjustment_id === rule.id) {
+        return true
+      }
+      if (rule.setup_id && resolvedSetup && rule.setup_id === resolvedSetup.id) {
+        return true
+      }
+
       const mat = (rule.material_code || '').trim().toUpperCase()
+      const famCode = (rule.family_code || '').trim().toUpperCase()
       const gaugeTarget = ((rule as any).gauge_target || (rule as any).dimension || '')
         .trim()
         .toUpperCase()
+
       const matMatches =
-        mat === curMat || (gaugeTarget && (gaugeTarget === curDim || gaugeTarget === curMat))
+        mat === curMat ||
+        (curMat && mat && (mat.includes(curMat) || curMat.includes(mat))) ||
+        (gaugeTarget && (gaugeTarget === curDim || gaugeTarget === curMat)) ||
+        (curFam && (famCode === curFam || mat === curFam))
+
       if (!matMatches) return false
 
       if (sampleTypeToMatch && rule.sample_type) {
@@ -1449,10 +1466,19 @@ export const WeeklyScheduleEngine = {
         tuningSource = 'Ficha Mestra → Acertos'
       }
     } else {
-      // Se options.requiresAdjustment === true ou sampleType preenchido explicitamente e não há regra cadastrada
-      if (options?.requiresAdjustment === true || Boolean(sampleTypeToMatch)) {
+      // Validação PCP: Se a transição exigiu um Setup (troca com duração > 0 ou regra identificada)
+      // mas não há tempo de acerto correspondente ativo e vigente, gerar alerta exato:
+      // "Setup sem Tempo de Acerto cadastrado." com detalhes da linha, materiais e setup
+      if (
+        changeMin > 0 ||
+        resolvedSetup ||
+        options?.requiresAdjustment === true ||
+        Boolean(sampleTypeToMatch)
+      ) {
         isTuningUnparametrized = true
-        tuningWarning = `Acerto não parametrizado na Ficha Mestra para a bitola ${currentMaterialCode}${sampleTypeToMatch ? ` e tipo de amostra ${sampleTypeToMatch}` : ''}.`
+        const sCode =
+          setupRuleCode || (resolvedSetup ? resolvedSetup.setup_code : 'STP')
+        tuningWarning = `Setup sem Tempo de Acerto cadastrado. Linha: ${lineCode}, material anterior: ${prevItem.material_code || 'N/A'}, material seguinte: ${currentMaterialCode}, Código do Setup: ${sCode}, duração: ${changeMin} min.`
       }
     }
 

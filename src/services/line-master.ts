@@ -1389,10 +1389,73 @@ export const lineMasterService = {
       }
     }
 
+    let previousRecord: LineSetupMatrix | null = null
     if (data.id) {
-      return await pb.collection('line_setup_matrix').update<LineSetupMatrix>(data.id, data)
+      try {
+        previousRecord = await pb.collection('line_setup_matrix').getOne<LineSetupMatrix>(data.id)
+      } catch {
+        previousRecord = null
+      }
     }
-    return await pb.collection('line_setup_matrix').create<LineSetupMatrix>(data)
+
+    let savedRecord: LineSetupMatrix
+    if (data.id) {
+      savedRecord = await pb.collection('line_setup_matrix').update<LineSetupMatrix>(data.id, data)
+    } else {
+      savedRecord = await pb.collection('line_setup_matrix').create<LineSetupMatrix>(data)
+    }
+
+    // Auditoria oficial em pcp_audit_logs para Setup
+    const currentUser = pb.authStore.record
+    const auditAction = data.id ? 'UPDATE_SETUP_MATRIX' : 'CREATE_SETUP_MATRIX'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_setup_matrix',
+        resource_id: savedRecord.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: savedRecord.line_id,
+          setup_code: savedRecord.setup_code,
+          setup_description: savedRecord.setup_description || '',
+          from_product_code: savedRecord.from_product_code,
+          to_product_code: savedRecord.to_product_code,
+          setup_duration_minutes: savedRecord.setup_duration_minutes,
+          active: savedRecord.active,
+          valid_from: savedRecord.valid_from,
+          valid_until: savedRecord.valid_until,
+          previous_value: previousRecord
+            ? {
+                setup_code: previousRecord.setup_code,
+                setup_duration_minutes: previousRecord.setup_duration_minutes,
+                active: previousRecord.active,
+                from_product_code: previousRecord.from_product_code,
+                to_product_code: previousRecord.to_product_code,
+              }
+            : null,
+          new_value: {
+            setup_code: savedRecord.setup_code,
+            setup_duration_minutes: savedRecord.setup_duration_minutes,
+            active: savedRecord.active,
+            from_product_code: savedRecord.from_product_code,
+            to_product_code: savedRecord.to_product_code,
+          },
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria de setup em pcp_audit_logs:', auditErr)
+    }
+
+    return savedRecord
   },
 
   async setSetupMatrixActive(
@@ -1400,11 +1463,58 @@ export const lineMasterService = {
     active: boolean,
     validUntil?: string,
   ): Promise<LineSetupMatrix> {
+    let previousRecord: LineSetupMatrix | null = null
+    try {
+      previousRecord = await pb.collection('line_setup_matrix').getOne<LineSetupMatrix>(id)
+      if (previousRecord?.line_id) {
+        invalidateCompletenessCache(previousRecord.line_id)
+      }
+    } catch {
+      previousRecord = null
+    }
+
     const payload: Partial<LineSetupMatrix> = { active }
     if (validUntil !== undefined) {
       payload.valid_until = validUntil
     }
-    return await pb.collection('line_setup_matrix').update<LineSetupMatrix>(id, payload)
+    const updated = await pb.collection('line_setup_matrix').update<LineSetupMatrix>(id, payload)
+
+    if (updated.line_id) {
+      invalidateCompletenessCache(updated.line_id)
+    }
+
+    // Auditoria oficial de ativação/inativação de Setup
+    const currentUser = pb.authStore.record
+    const auditAction = active ? 'ACTIVATE_SETUP_MATRIX' : 'DEACTIVATE_SETUP_MATRIX'
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: currentUser?.email || '',
+        user_name: currentUser?.name || currentUser?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_setup_matrix',
+        resource_id: updated.id,
+        permission_required: 'pcp.lines.manage',
+        scope: 'PRODUCTION_LINE',
+        outcome: 'SUCCESS',
+        details: {
+          line_id: updated.line_id,
+          setup_code: updated.setup_code,
+          setup_description: updated.setup_description,
+          active: updated.active,
+          previous_value: previousRecord ? { active: previousRecord.active } : null,
+          new_value: { active: updated.active },
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch (auditErr) {
+      console.warn('Falha ao registrar auditoria de ativação de setup em pcp_audit_logs:', auditErr)
+    }
+
+    return updated
   },
 
   async deleteSetupMatrix(id: string): Promise<boolean> {

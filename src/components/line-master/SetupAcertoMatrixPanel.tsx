@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
+  AlertTriangle,
   Calendar,
   Check,
+  CheckCircle2,
   Clock,
   Edit2,
   Filter,
@@ -51,7 +53,10 @@ import {
   LineSetupMatrix,
   SAMPLE_TYPE_LABELS,
   SampleType,
+  SetupAcertoComparisonItem,
 } from '@/types/line-master'
+import { SetupAcertoCompatibilityView } from './SetupAcertoCompatibilityView'
+import { SetupAcertoCompatibilityEngine } from '@/services/setup-acerto-compatibility-engine'
 
 export interface SetupAcertoMatrixPanelProps {
   lineId: string
@@ -70,7 +75,13 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
   onRefresh,
   onOpenLineMaster,
 }) => {
-  const [activeTab, setActiveTab] = useState<'SETUP' | 'ACERTO'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'SETUP' | 'ACERTO' | 'COMPATIBILITY'>(
+    (initialTab as any) === 'COMPATIBILITY' || (initialTab as any) === 'SETUP_ACERTO_COMPATIBILITY'
+      ? 'COMPATIBILITY'
+      : initialTab === 'SETUP'
+        ? 'SETUP'
+        : 'ACERTO',
+  )
   const [loading, setLoading] = useState(false)
   const [setupList, setSetupList] = useState<LineSetupMatrix[]>([])
   const [acertoList, setAcertoList] = useState<LineAdjustmentTimeRule[]>([])
@@ -83,6 +94,12 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
   const [savingSetup, setSavingSetup] = useState(false)
   const [setupModalError, setSetupModalError] = useState<string | null>(null)
   const [editingSetupId, setEditingSetupId] = useState<string | null>(null)
+  const [setupCreatedAlert, setSetupCreatedAlert] = useState<{
+    show: boolean
+    hasCompatibleAcerto: boolean
+    message: string
+    setupItem?: LineSetupMatrix
+  } | null>(null)
   const [setupForm, setSetupForm] = useState({
     fromProductCode: '',
     fromProductDescription: '',
@@ -92,6 +109,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
     validFrom: new Date().toISOString().slice(0, 10),
     validUntil: '',
     setupCategory: 'DIMENSION_CHANGE',
+    active: true,
   })
 
   // Modal de Encerramento/Edição de Vigência de Setup
@@ -106,6 +124,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
   const [acertoStatusConfirm, setAcertoStatusConfirm] = useState<{
     item: LineAdjustmentTimeRule
     action: 'INATIVAR' | 'ATIVAR'
+    impactedSetups?: LineSetupMatrix[]
   } | null>(null)
   const [acertoForm, setAcertoForm] = useState({
     materialCode: '',
@@ -180,6 +199,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
       validFrom: new Date().toISOString().slice(0, 10),
       validUntil: '',
       setupCategory: 'DIMENSION_CHANGE',
+      active: true,
     })
     setSetupModalError(null)
     setIsSetupModalOpen(true)
@@ -198,6 +218,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         : new Date().toISOString().slice(0, 10),
       validUntil: item.valid_until ? item.valid_until.slice(0, 10) : '',
       setupCategory: (item.setup_category as any) || 'DIMENSION_CHANGE',
+      active: item.active !== false,
     })
     setSetupModalError(null)
     setIsSetupModalOpen(true)
@@ -234,7 +255,7 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
 
     setSavingSetup(true)
     try {
-      await lineMasterService.saveSetupMatrix({
+      const savedSetup = await lineMasterService.saveSetupMatrix({
         id: editingSetupId || undefined,
         line_id: lineId,
         from_product_code: setupForm.fromProductCode.trim().toUpperCase(),
@@ -246,14 +267,47 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         source_mode: 'MANUAL',
         valid_from: setupForm.validFrom,
         valid_until: setupForm.validUntil || undefined,
-        active: true,
+        active: setupForm.active,
       })
 
       setIsSetupModalOpen(false)
-      setFeedback({
-        type: 'success',
-        message: 'Transição de setup cadastrada com sucesso.',
-      })
+
+      // Se for novo setup ativo, avaliar se já existe acerto compatível
+      if (!editingSetupId && setupForm.active) {
+        const toProduct = setupForm.toProductCode.trim().toUpperCase()
+        const hasCompatible = acertoList.some(
+          (a) =>
+            a.active !== false &&
+            a.material_code &&
+            (a.material_code.toUpperCase() === toProduct ||
+              toProduct.includes(a.material_code.toUpperCase()) ||
+              a.material_code.toUpperCase().includes(toProduct)),
+        )
+
+        if (hasCompatible) {
+          setFeedback({
+            type: 'success',
+            message: 'Setup cadastrado com sucesso. Foi identificado tempo de acerto compatível.',
+          })
+        } else {
+          // Alerta obrigatório
+          setSetupCreatedAlert({
+            show: true,
+            hasCompatibleAcerto: false,
+            message:
+              'Setup cadastrado, porém não existe Tempo de Acerto compatível. Cadastre o acerto antes da utilização deste Setup na programação.',
+            setupItem: savedSetup,
+          })
+        }
+      } else {
+        setFeedback({
+          type: 'success',
+          message: editingSetupId
+            ? 'Transição de setup atualizada com sucesso.'
+            : 'Transição de setup cadastrada com sucesso.',
+        })
+      }
+
       await loadData()
       if (onRefresh) onRefresh()
     } catch (err: any) {
@@ -405,10 +459,46 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
 
   const handleRequestToggleAcertoActive = (item: LineAdjustmentTimeRule) => {
     const isActive = item.active !== false
+    let impacted: LineSetupMatrix[] = []
+    if (isActive) {
+      impacted = SetupAcertoCompatibilityEngine.getImpactedSetupsOnAcertoDeactivation({
+        lineId,
+        acertoIdToDeactivate: item.id,
+        setupList,
+        acertoList,
+      })
+    }
     setAcertoStatusConfirm({
       item,
       action: isActive ? 'INATIVAR' : 'ATIVAR',
+      impactedSetups: impacted,
     })
+  }
+
+  const handleOpenNewAcertoForSetup = (
+    setupOrItem: LineSetupMatrix | SetupAcertoComparisonItem,
+  ) => {
+    const targetMat =
+      (setupOrItem as SetupAcertoComparisonItem).toCode ||
+      (setupOrItem as LineSetupMatrix).to_product_code ||
+      ''
+    const targetDesc =
+      (setupOrItem as SetupAcertoComparisonItem).setupDescription ||
+      (setupOrItem as LineSetupMatrix).setup_description ||
+      ''
+
+    setEditingAcertoId(null)
+    setAcertoForm({
+      materialCode: targetMat,
+      materialDescription: targetDesc,
+      sampleType: 'MEDIA',
+      durationMinutes: '20',
+      validFrom: new Date().toISOString().slice(0, 10),
+      validUntil: '',
+      active: true,
+    })
+    setAcertoModalError(null)
+    setIsAcertoModalOpen(true)
   }
 
   const handleConfirmToggleAcertoStatus = async () => {
@@ -566,32 +656,35 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
           </Alert>
         )}
 
-        {/* Abas Principais: Matriz de Setup | Matriz de Acerto */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as 'SETUP' | 'ACERTO')}
-          className="w-full"
-        >
+        {/* Abas Principais: Matriz de Setup | Matriz de Acerto | Compatibilidade Setup × Acerto */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-            <TabsList className="bg-slate-100 p-1 border border-slate-200">
+            <TabsList className="bg-slate-100 p-1 border border-slate-200 flex-wrap">
               <TabsTrigger
                 value="SETUP"
-                className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-sm font-medium px-4 h-8"
+                className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-sm font-medium px-3.5 h-8"
               >
                 <Layers className="w-3.5 h-3.5 mr-1.5" />
                 Matriz de Setup ({setupList.length})
               </TabsTrigger>
               <TabsTrigger
                 value="ACERTO"
-                className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-sm font-medium px-4 h-8"
+                className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-sm font-medium px-3.5 h-8"
               >
                 <Clock className="w-3.5 h-3.5 mr-1.5" />
                 Matriz de Acerto ({acertoList.length})
               </TabsTrigger>
+              <TabsTrigger
+                value="COMPATIBILITY"
+                className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-sm font-medium px-3.5 h-8 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                Compatibilidade Setup × Acerto
+              </TabsTrigger>
             </TabsList>
 
             <div className="flex items-center gap-2">
-              {activeTab === 'SETUP' ? (
+              {activeTab === 'SETUP' && (
                 <Button
                   type="button"
                   size="sm"
@@ -601,7 +694,8 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   Adicionar Transição de Setup
                 </Button>
-              ) : (
+              )}
+              {activeTab === 'ACERTO' && (
                 <Button
                   type="button"
                   size="sm"
@@ -610,6 +704,27 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />+ Cadastrar Acerto
                 </Button>
+              )}
+              {activeTab === 'COMPATIBILITY' && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenNewSetupModal}
+                    className="h-8 text-xs bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />+ Setup
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenNewAcertoModal}
+                    className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-medium shadow-sm"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />+ Acerto
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -940,6 +1055,24 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
               </Table>
             </div>
           </TabsContent>
+
+          {/* ========================================== */}
+          {/* TAB 3: COMPATIBILIDADE SETUP × ACERTO      */}
+          {/* ========================================== */}
+          <TabsContent value="COMPATIBILITY" className="pt-4 focus-visible:outline-none">
+            <SetupAcertoCompatibilityView
+              lineId={lineId}
+              lineCode={lineCode}
+              lineName={lineName}
+              setupList={setupList}
+              acertoList={acertoList}
+              loading={loading}
+              onRefresh={loadData}
+              onOpenNewAcertoForSetup={handleOpenNewAcertoForSetup}
+              onOpenEditAcerto={handleOpenEditAcertoModal}
+              onOpenEditSetup={handleOpenEditSetupModal}
+            />
+          </TabsContent>
         </Tabs>
       </CardContent>
 
@@ -1087,6 +1220,29 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                   </Select>
                 </div>
               </div>
+
+              {/* Status do Setup */}
+              <div className="pt-1">
+                <Label className="text-xs font-medium text-slate-700">
+                  Status do Setup <span className="text-rose-500">*</span>
+                </Label>
+                <Select
+                  value={setupForm.active ? 'ACTIVE' : 'INACTIVE'}
+                  onValueChange={(val) => setSetupForm({ ...setupForm, active: val === 'ACTIVE' })}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-xs bg-white border-slate-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white z-50">
+                    <SelectItem value="ACTIVE">
+                      Ativo (participa da programação e exige acerto)
+                    </SelectItem>
+                    <SelectItem value="INACTIVE">
+                      Inativo (histórico, não gera pendência)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1185,6 +1341,9 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
                       <SelectItem value="MEDIA">Média</SelectItem>
                       <SelectItem value="GRANDE">Grande</SelectItem>
                       <SelectItem value="TARUGO">Tarugo</SelectItem>
+                      <SelectItem value="PLACA">Placa</SelectItem>
+                      <SelectItem value="PALANQUILHA">Palanquilha</SelectItem>
+                      <SelectItem value="LINGOTE">Lingote</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1353,9 +1512,12 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
         open={!!acertoStatusConfirm}
         onOpenChange={(open) => !open && setAcertoStatusConfirm(null)}
       >
-        <DialogContent className="sm:max-w-md bg-white border-slate-200">
+        <DialogContent className="sm:max-w-lg bg-white border-slate-200">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-slate-900">
+            <DialogTitle className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <AlertTriangle
+                className={`w-4 h-4 ${acertoStatusConfirm?.action === 'INATIVAR' ? 'text-rose-600' : 'text-emerald-600'}`}
+              />
               {acertoStatusConfirm?.action === 'INATIVAR'
                 ? 'Inativar Regra de Acerto'
                 : 'Reativar Regra de Acerto'}
@@ -1363,10 +1525,39 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
             <DialogDescription className="text-xs text-slate-500">
               Tem certeza que deseja {acertoStatusConfirm?.action.toLowerCase()} a regra de acerto
               para o material <strong>{acertoStatusConfirm?.item.material_code}</strong> (
-              {acertoStatusConfirm?.item.sample_type}) com duração de{' '}
-              {acertoStatusConfirm?.item.duration_minutes} min?
+              {SAMPLE_TYPE_LABELS[acertoStatusConfirm?.item.sample_type as any] ||
+                acertoStatusConfirm?.item.sample_type}
+              ) com duração de {acertoStatusConfirm?.item.duration_minutes} min?
             </DialogDescription>
           </DialogHeader>
+
+          {/* ALERTA PRÉVIO SE INATIVAÇÃO DEIXAR SETUP SEM ACERTO */}
+          {acertoStatusConfirm?.action === 'INATIVAR' &&
+            acertoStatusConfirm.impactedSetups &&
+            acertoStatusConfirm.impactedSetups.length > 0 && (
+              <div className="py-2">
+                <Alert className="bg-rose-50 border-rose-300 text-rose-900 p-3">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  <AlertTitle className="text-xs font-bold text-rose-800">
+                    Impacto em Setups Ativos
+                  </AlertTitle>
+                  <AlertDescription className="text-xs space-y-2 mt-1">
+                    {acertoStatusConfirm.impactedSetups.map((st) => (
+                      <p key={st.id} className="font-medium">
+                        ATENÇÃO: a inativação deste acerto deixará o Setup [
+                        {st.setup_code || st.setup_description || st.id}] sem tempo de acerto ativo
+                        correspondente.
+                      </p>
+                    ))}
+                    <p className="text-[11px] text-rose-700">
+                      O motor de compatibilidade e o PCP Robotizado apontarão pendência
+                      imediatamente após a confirmação.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
           <DialogFooter className="gap-2 pt-2">
             <Button
               type="button"
@@ -1388,6 +1579,75 @@ export const SetupAcertoMatrixPanel: React.FC<SetupAcertoMatrixPanelProps> = ({
               }`}
             >
               Confirmar {acertoStatusConfirm?.action === 'INATIVAR' ? 'Inativação' : 'Ativação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================================================== */}
+      {/* MODAL 5: ALERTA DE NOVO SETUP SEM ACERTO             */}
+      {/* ==================================================== */}
+      <Dialog
+        open={!!setupCreatedAlert?.show}
+        onOpenChange={(open) => !open && setSetupCreatedAlert(null)}
+      >
+        <DialogContent className="sm:max-w-md bg-white border-amber-300 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              Tempo de Acerto Não Encontrado
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-700 pt-2 font-medium leading-relaxed">
+              {setupCreatedAlert?.message}
+            </DialogDescription>
+          </DialogHeader>
+
+          {setupCreatedAlert?.setupItem && (
+            <div className="bg-amber-50 p-3 rounded border border-amber-200 text-xs space-y-1">
+              <div>
+                <span className="font-semibold text-slate-700">Setup:</span>{' '}
+                <span className="font-mono">{setupCreatedAlert.setupItem.setup_code}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-700">DE → PARA:</span>{' '}
+                <span className="font-mono">
+                  {setupCreatedAlert.setupItem.from_product_code} →{' '}
+                  {setupCreatedAlert.setupItem.to_product_code}
+                </span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-700">Duração:</span>{' '}
+                <span className="font-mono">
+                  {setupCreatedAlert.setupItem.setup_duration_minutes} min
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSetupCreatedAlert(null)}
+              className="h-8 text-xs border-slate-300 text-slate-700"
+            >
+              Fechar (Resolver Depois)
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                const item = setupCreatedAlert?.setupItem
+                setSetupCreatedAlert(null)
+                if (item) {
+                  handleOpenNewAcertoForSetup(item)
+                }
+              }}
+              className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Cadastrar Acerto Agora
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -211,6 +211,73 @@ export function calculateCompletenessFromOverview(
       navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'ACERTOS' },
     },
     {
+      id: 'proc_setup_acerto_compatibility',
+      blockKey: 'PROCESS',
+      label: 'Compatibilidade Setup × Acerto',
+      fulfilled: (() => {
+        const activeSetups = setupMatrix.filter((s) => s.active !== false)
+        if (activeSetups.length === 0) return true
+        const activeAcertos = adjustmentRules.filter((a) => a.active !== false)
+        if (activeAcertos.length === 0) return false
+        // Cada setup ativo deve ter pelo menos um acerto ativo correspondente
+        const unfulfilled = activeSetups.filter((s) => {
+          const toProduct = (s.to_product_code || '').trim().toUpperCase()
+          const toFamCode = (s.expand?.to_family_id?.code || (s as any).to_family_code || '')
+            .trim()
+            .toUpperCase()
+          return !activeAcertos.some((a) => {
+            if ((s as any).default_adjustment_id && (s as any).default_adjustment_id === a.id)
+              return true
+            if (a.setup_id && a.setup_id === s.id) return true
+            const aMat = (a.material_code || '').trim().toUpperCase()
+            const aFam = (a.family_code || '').trim().toUpperCase()
+            if (
+              toProduct &&
+              aMat &&
+              (toProduct === aMat || aMat.includes(toProduct) || toProduct.includes(aMat))
+            )
+              return true
+            if (toFamCode && (aFam === toFamCode || aMat === toFamCode)) return true
+            if (s.to_family_id && a.family_id && s.to_family_id === a.family_id) return true
+            return false
+          })
+        })
+        return unfulfilled.length === 0
+      })(),
+      applicable: setupMatrix.filter((s) => s.active !== false).length > 0,
+      valueDescription: (() => {
+        const activeSetups = setupMatrix.filter((s) => s.active !== false)
+        const activeAcertos = adjustmentRules.filter((a) => a.active !== false)
+        const missingCount = activeSetups.filter((s) => {
+          const toProduct = (s.to_product_code || '').trim().toUpperCase()
+          const toFamCode = (s.expand?.to_family_id?.code || (s as any).to_family_code || '')
+            .trim()
+            .toUpperCase()
+          return !activeAcertos.some((a) => {
+            if ((s as any).default_adjustment_id && (s as any).default_adjustment_id === a.id)
+              return true
+            if (a.setup_id && a.setup_id === s.id) return true
+            const aMat = (a.material_code || '').trim().toUpperCase()
+            const aFam = (a.family_code || '').trim().toUpperCase()
+            if (
+              toProduct &&
+              aMat &&
+              (toProduct === aMat || aMat.includes(toProduct) || toProduct.includes(aMat))
+            )
+              return true
+            if (toFamCode && (aFam === toFamCode || aMat === toFamCode)) return true
+            if (s.to_family_id && a.family_id && s.to_family_id === a.family_id) return true
+            return false
+          })
+        }).length
+        return missingCount === 0
+          ? '100% Compatível (todos os setups com acerto correspondente)'
+          : `Pendência: ${missingCount} setup(s) ativo(s) sem Tempo de Acerto correspondente`
+      })(),
+      missingMessage: 'Existem setups ativos sem Tempo de Acerto correspondente cadastrado.',
+      navigationTarget: { mainGroup: 'MASTERDATA', masterSubTab: 'SETUP_ACERTO_COMPATIBILITY' },
+    },
+    {
       id: 'proc_sequencing',
       blockKey: 'PROCESS',
       label: 'Sequenciamento Produtivo (Fluxo/Dependências)',

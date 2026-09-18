@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T14:32:12.087Z",
+  "generatedAt": "2026-09-18T14:46:18.368Z",
   "collections": [
     {
       "name": "users",
@@ -3399,6 +3399,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "default_adjustment_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "adjustment_time_rules"
         }
       ],
       "indexes": ["CREATE INDEX idx_lsm_line ON line_setup_matrix (line_id, active)"]
@@ -18766,7 +18773,15 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["PEQUENA", "MEDIA", "GRANDE", "TARUGO"]
+          "selectValues": [
+            "PEQUENA",
+            "MEDIA",
+            "GRANDE",
+            "TARUGO",
+            "PLACA",
+            "PALANQUILHA",
+            "LINGOTE"
+          ]
         },
         {
           "name": "duration_minutes",
@@ -18811,6 +18826,26 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "family_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "product_families"
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "setup_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "line_setup_matrix"
         }
       ],
       "indexes": [

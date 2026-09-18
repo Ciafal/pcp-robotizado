@@ -188,7 +188,10 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             element = document.getElementById(initialNavigationTarget.anchorId)
           }
           if (!element) {
-            if (initialNavigationTarget.masterSubTab === 'SETUP_MATRIX') {
+            if (
+              initialNavigationTarget.masterSubTab === 'SETUP_MATRIX' ||
+              initialNavigationTarget.masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+            ) {
               element =
                 document.getElementById('section-setup-matrix') ||
                 document.getElementById('target-add-setup-transition-btn')
@@ -301,6 +304,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'BLOCKED'
     | 'SETUP_MATRIX'
     | 'ACERTOS'
+    | 'SETUP_ACERTO_COMPATIBILITY'
     | 'IDEAL_GAUGE_SEQUENCE'
   >('CAPACITY')
 
@@ -2178,13 +2182,26 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 size="sm"
                 variant={masterSubTab === 'ACERTOS' ? 'default' : 'ghost'}
                 onClick={() => setMasterSubTab('ACERTOS')}
-                className={`text-xs h-7 gap-1 font-bold rounded-l-none ${
+                className={`text-xs h-7 gap-1 font-bold rounded-none ${
                   masterSubTab === 'ACERTOS'
                     ? 'bg-[#004C97] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
               >
                 <Settings2 className="w-3.5 h-3.5" /> Acertos ({activeAdjustmentRulesCount})
+              </Button>
+              <span className="text-slate-400 px-1 font-normal">|</span>
+              <Button
+                size="sm"
+                variant={masterSubTab === 'SETUP_ACERTO_COMPATIBILITY' ? 'default' : 'ghost'}
+                onClick={() => setMasterSubTab('SETUP_ACERTO_COMPATIBILITY')}
+                className={`text-xs h-7 gap-1 font-bold rounded-l-none ${
+                  masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+                    ? 'bg-[#004C97] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> [ Setup × Acerto ]
               </Button>
             </div>
 
@@ -2760,83 +2777,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </Card>
           )}
 
-          {/* Sub-aba: Matriz de Setup */}
+          {/* Sub-aba: Matriz de Setup DE→PARA */}
           {masterSubTab === 'SETUP_MATRIX' && (
-            <Card
-              id="section-setup-matrix"
-              data-target-id="setup-matrix"
-              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
-            >
-              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Wrench className="w-4 h-4 text-[#004C97]" />
-                    Matriz de Setup DE→PARA & Troca de Ferramental
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    Tempos de transição padrão entre famílias de produtos e calibração de bitola.
-                  </CardDescription>
-                </div>
-                <Button
-                  id="target-add-setup-transition-btn"
-                  size="sm"
-                  onClick={() => setIsSetupMatrixModalOpen(true)}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Transição de Setup
-                </Button>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-2">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
-                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
-                      <tr>
-                        <th className="p-2.5">Código Setup</th>
-                        <th className="p-2.5">Descrição</th>
-                        <th className="p-2.5">Categoria</th>
-                        <th className="p-2.5">Transição (De → Para)</th>
-                        <th className="p-2.5">Duração Padrão</th>
-                        <th className="p-2.5">Fonte</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {setupMatrix.map((sm) => (
-                        <tr key={sm.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-2.5 font-mono font-bold text-[#004C97]">
-                            {sm.setup_code}
-                          </td>
-                          <td className="p-2.5 text-slate-800">{sm.setup_description}</td>
-                          <td className="p-2.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
-                            >
-                              {sm.setup_category}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-600">
-                            {sm.expand?.from_family_id?.name || 'Qualquer'} →{' '}
-                            {sm.expand?.to_family_id?.name || 'Qualquer'}
-                          </td>
-                          <td className="p-2.5 font-mono font-bold text-amber-700">
-                            {sm.setup_duration_minutes} min
-                          </td>
-                          <td className="p-2.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
-                            >
-                              {sm.source_mode}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
+              <SetupAcertoMatrixPanel
+                lineId={line.id}
+                lineCode={line.code}
+                lineName={line.name}
+                initialTab="SETUP"
+                onRefresh={() => {
+                  loadAdjustmentRulesCount()
+                  onRefresh()
+                }}
+              />
+            </div>
           )}
 
           {/* Sub-aba: Acertos */}
@@ -2847,6 +2801,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 lineCode={line.code}
                 lineName={line.name}
                 initialTab="ACERTO"
+                onRefresh={() => {
+                  loadAdjustmentRulesCount()
+                  onRefresh()
+                }}
+              />
+            </div>
+          )}
+
+          {/* Sub-aba: Compatibilidade Setup × Acerto */}
+          {masterSubTab === 'SETUP_ACERTO_COMPATIBILITY' && (
+            <div className="rounded-lg bg-white border border-slate-200 p-3 shadow-sm">
+              <SetupAcertoMatrixPanel
+                lineId={line.id}
+                lineCode={line.code}
+                lineName={line.name}
+                initialTab="COMPATIBILITY"
                 onRefresh={() => {
                   loadAdjustmentRulesCount()
                   onRefresh()

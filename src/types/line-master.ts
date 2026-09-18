@@ -19,13 +19,23 @@ export type SourceMode = 'MANUAL' | 'SAP'
 export type SapStatus = 'CONECTADO' | 'ERRO' | 'NAO_TESTADO' | 'INDISPONIVEL'
 
 // Tipos de Amostra para Matriz de Acerto
-export type SampleType = 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'TARUGO'
+export type SampleType =
+  | 'PEQUENA'
+  | 'MEDIA'
+  | 'GRANDE'
+  | 'TARUGO'
+  | 'PLACA'
+  | 'PALANQUILHA'
+  | 'LINGOTE'
 
 export const SAMPLE_TYPE_LABELS: Record<SampleType, string> = {
   PEQUENA: 'Pequena',
   MEDIA: 'Média',
   GRANDE: 'Grande',
   TARUGO: 'Tarugo',
+  PLACA: 'Placa',
+  PALANQUILHA: 'Palanquilha',
+  LINGOTE: 'Lingote',
 }
 
 export type ProgrammingType =
@@ -466,12 +476,66 @@ export interface LineAdjustmentTimeRule {
   valid_from: string
   valid_until?: string
   active: boolean
+  family_id?: string
+  family_code?: string
+  setup_id?: string
   metadata?: Record<string, unknown>
   created?: string
   updated?: string
   expand?: {
     line_id?: ProductionLine
+    family_id?: ProductFamily
+    setup_id?: LineSetupMatrix
   }
+}
+
+// Situações de compatibilidade Setup × Acerto
+export type SetupAcertoCompatibilityStatus =
+  | 'COMPATIBLE'
+  | 'MISSING_ACERTO'
+  | 'INACTIVE_ACERTO'
+  | 'EXPIRED_ACERTO'
+  | 'INCONSISTENT'
+  | 'INACTIVE_SETUP'
+
+export interface SetupAcertoComparisonItem {
+  setupId: string
+  setupCode: string
+  setupDescription: string
+  fromCode: string
+  toCode: string
+  fromFamily?: string
+  toFamily?: string
+  targetMaterialOrFamily: string
+  setupDurationMinutes: number
+  setupStatus: 'ACTIVE' | 'INACTIVE'
+  setupValidFrom?: string
+  setupValidUntil?: string
+  associatedAcertoId?: string
+  associatedAcerto?: LineAdjustmentTimeRule
+  matchingAcertos: LineAdjustmentTimeRule[]
+  sampleType?: SampleType | string
+  acertoDurationMinutes?: number
+  acertoValidFrom?: string
+  acertoValidUntil?: string
+  acertoStatus?: 'ACTIVE' | 'INACTIVE'
+  compatibility: SetupAcertoCompatibilityStatus
+  compatibilityLabel: string
+  inconsistencyReason?: string
+  isPending: boolean
+}
+
+export interface SetupAcertoCompatibilitySummary {
+  totalActiveSetups: number
+  totalActiveAcertos: number
+  compatibleSetupsCount: number
+  setupsWithoutAcertoCount: number
+  orphanAcertosCount: number
+  compatibilityRatePct: number
+  overallStatus: 'GREEN' | 'YELLOW' | 'RED'
+  overallStatusLabel: string
+  overallStatusDesc: string
+  items: SetupAcertoComparisonItem[]
 }
 
 // 12. Demais entidades existentes preservadas
@@ -768,6 +832,7 @@ export interface CompletenessItem {
       | 'BLOCKED'
       | 'SETUP_MATRIX'
       | 'ACERTOS'
+      | 'SETUP_ACERTO_COMPATIBILITY'
       | 'IDEAL_GAUGE_SEQUENCE'
     anchorId?: string
   }
