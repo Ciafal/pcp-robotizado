@@ -609,7 +609,7 @@ const navSections: NavSectionItem[] = [
 
 export const PCPNavbar: React.FC = () => {
   return (
-    <header className="min-h-14 border-b border-slate-200 bg-white px-3 sm:px-4 md:px-6 py-2 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 shadow-xs shrink-0 w-full max-w-full z-30">
+    <header className="min-h-14 border-b border-slate-200 bg-white px-3 sm:px-4 md:px-6 py-2 flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 shadow-xs shrink-0 w-full max-w-full relative z-30">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <Link to="/pcp/sequenciamento" className="flex items-center gap-2 sm:gap-3 min-w-0">
           <img

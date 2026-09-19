@@ -37,7 +37,7 @@ export const OrderDrawer: React.FC = () => {
     selectedOrder.productionType === 'MTO' || selectedOrder.customerName !== 'Mercado Geral'
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white border-l border-slate-200 text-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="absolute inset-y-0 right-0 z-40 w-full max-w-lg bg-white border-l border-slate-200 text-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-slate-50">
         <div>

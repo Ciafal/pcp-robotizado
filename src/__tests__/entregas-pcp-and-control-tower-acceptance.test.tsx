@@ -62,18 +62,31 @@ describe('Entrega 1: Responsividade e Truncamento da Torre de Controle', () => {
     expect(lineSelect).toBeInTheDocument()
     expect(lineSelect).toHaveClass('min-w-0')
     expect(lineSelect).toHaveClass('truncate')
-    expect(lineSelect).toHaveClass('sm:max-w-[260px]')
+    expect(lineSelect).toHaveClass('md:max-w-[260px]')
 
     // O container pai imediato do select de Linha também deve ter min-w-0
     const lineWrapper = lineSelect.parentElement
     expect(lineWrapper).toBeInTheDocument()
     expect(lineWrapper).toHaveClass('min-w-0')
 
+    // Empresa e Planta também devem ter min-w-0 e flexibilidade sem shrink-0 rígido
+    const companySelect = screen.getByLabelText('Filtro de Empresa')
+    const plantSelect = screen.getByLabelText('Filtro de Planta')
+    expect(companySelect).toHaveClass('min-w-0')
+    expect(companySelect).toHaveClass('truncate')
+    expect(plantSelect).toHaveClass('min-w-0')
+    expect(plantSelect).toHaveClass('truncate')
+    expect(companySelect.parentElement).toHaveClass('min-w-0')
+    expect(plantSelect.parentElement).toHaveClass('min-w-0')
+
     // Container geral dos filtros deve ter flex-wrap e min-w-0
     const filterBox = lineWrapper?.parentElement
     expect(filterBox).toBeInTheDocument()
     expect(filterBox).toHaveClass('min-w-0')
     expect(filterBox).toHaveClass('flex-wrap')
+
+    // Garantir ausência do banner duplicado no ControlTowerHeader
+    expect(screen.queryByText('⚠ AMBIENTE DE HOMOLOGAÇÃO')).not.toBeInTheDocument()
 
     // Garantir que nenhum dos wrappers tem overflow-x hidden mascarando problema
     expect(filterBox?.className).not.toContain('overflow-x-hidden')

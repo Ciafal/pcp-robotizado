@@ -94,12 +94,14 @@ describe('Layout & PCPNavbar — Arquitetura Vertical e Cabeçalho Sem Truncamen
     expect(header).toBeInTheDocument()
     expect(header).not.toHaveClass('fixed')
     expect(header).toHaveClass('shrink-0')
+    expect(header).toHaveClass('z-30')
 
     // 3. O container intermediário de conteúdo (Sidebar + Main) deve ter flex-1 e min-h-0 (não calc restritivo)
     const contentContainer = container.querySelector('div.flex-1.flex.w-full')
     expect(contentContainer).toBeInTheDocument()
     expect(contentContainer).toHaveClass('flex-1')
     expect(contentContainer).toHaveClass('min-h-0')
+    expect(contentContainer).toHaveClass('z-10')
     // Não deve usar calc() mágico que causava corte horizontal
     expect(contentContainer?.className).not.toMatch(/h-\[calc\(/)
 
@@ -135,5 +137,27 @@ describe('Layout & PCPNavbar — Arquitetura Vertical e Cabeçalho Sem Truncamen
     expect(sidebar).toHaveClass('w-[230px]')
     expect(sidebar).toHaveClass('min-w-[230px]')
     expect(sidebar).toHaveClass('max-w-[230px]')
+  })
+
+  it('Garante ausência de duplicação do banner de homologação: badge único oficial no navbar', () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/cockpit']}>
+        <AuthProvider>
+          <ControlTowerProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/pcp/cockpit" element={<div>Cockpit</div>} />
+              </Route>
+            </Routes>
+          </ControlTowerProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    // O badge oficial de ambiente no navbar está presente
+    expect(screen.getByText(/AMBIENTE:/i)).toBeInTheDocument()
+
+    // O banner antigo duplicado '⚠ AMBIENTE DE HOMOLOGAÇÃO' não deve existir
+    expect(screen.queryByText('⚠ AMBIENTE DE HOMOLOGAÇÃO')).not.toBeInTheDocument()
   })
 })

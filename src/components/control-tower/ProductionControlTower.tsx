@@ -254,7 +254,7 @@ const ControlTowerInner: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-[#004C97] selection:text-white">
+    <div className="flex flex-col min-h-full relative bg-slate-50 text-slate-900 selection:bg-[#004C97] selection:text-white">
       {/* Cabeçalho Oficial da Torre de Controle */}
       <ControlTowerHeader isFullscreen={isFullscreen} toggleFullscreen={toggleFullscreen} />
 

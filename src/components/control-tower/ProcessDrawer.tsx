@@ -31,7 +31,7 @@ export const ProcessDrawer: React.FC = () => {
   if (!selectedProcess) return null
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-slate-950 border-l border-slate-800 text-slate-100 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="absolute inset-y-0 right-0 z-40 w-full max-w-xl bg-slate-950 border-l border-slate-800 text-slate-100 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       {/* Drawer Header */}
       <div className="p-4 border-b border-slate-800 flex items-start justify-between gap-3 bg-slate-900/60">
         <div>

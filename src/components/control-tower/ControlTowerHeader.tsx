@@ -94,30 +94,8 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
 
   return (
     <div className="flex flex-col gap-3 pb-3 border-b border-slate-200 bg-white p-4 rounded-xl shadow-2xs">
-      {/* 1. Banner Compacto de Homologação (Clean e Corporativo) */}
-      <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-xs shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-          <span className="font-bold tracking-wide">⚠ AMBIENTE DE HOMOLOGAÇÃO</span>
-          <span className="text-amber-300 hidden sm:inline">•</span>
-          <span className="text-amber-700 hidden sm:inline">
-            8 cenários ativos • ZPP003 mock • Sem impacto produtivo real
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsHomologationOpen(true)}
-            className="h-6 px-2 text-xs text-amber-900 hover:text-amber-950 hover:bg-amber-100 font-bold"
-          >
-            [Executar Cenários]
-          </Button>
-        </div>
-      </div>
-
-      {/* 2. Cabeçalho Principal Clean */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      {/* 1. Cabeçalho Principal Clean */}
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 min-w-0 max-w-full">
         <div>
           {/* Breadcrumb funcional */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
@@ -193,17 +171,17 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
           </div>
         </div>
 
-        {/* 3. Ações Globais Principais */}
+        {/* 2. Ações Globais Principais */}
         <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Seletor Rápido de Empresa/Planta/Linha */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center bg-slate-50 border border-slate-300 rounded-md p-0.5 text-xs min-w-0 max-w-full">
+          <div className="flex flex-wrap sm:flex-nowrap items-center bg-slate-50 border border-slate-300 rounded-md p-0.5 text-xs min-w-0 max-w-full flex-1 sm:flex-initial">
             {/* Empresa */}
-            <div className="min-w-0 shrink-0">
+            <div className="min-w-0 flex-1 sm:flex-initial">
               <select
                 value={filters.companyCode}
                 onChange={(e) => setCompanyScope(e.target.value)}
                 aria-label="Filtro de Empresa"
-                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 max-w-[150px] truncate"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 w-full sm:w-auto sm:max-w-[130px] md:max-w-[150px] truncate"
               >
                 {companies.map((c) => (
                   <option key={c.code} value={c.code} className="bg-white text-slate-900">
@@ -214,12 +192,12 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
             </div>
 
             {/* Planta */}
-            <div className="min-w-0 shrink-0">
+            <div className="min-w-0 flex-1 sm:flex-initial">
               <select
                 value={filters.plantCode}
                 onChange={(e) => setPlantScope(e.target.value)}
                 aria-label="Filtro de Planta"
-                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 max-w-[160px] truncate"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 w-full sm:w-auto sm:max-w-[140px] md:max-w-[160px] truncate"
               >
                 <option value="ALL" className="bg-white text-slate-900">
                   Todas as Plantas
@@ -242,7 +220,7 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
                   availableLines.find((l) => l.code === filters.lineCode)?.name ||
                   (filters.lineCode === 'ALL' ? 'Todas as Linhas' : filters.lineCode)
                 }
-                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer font-medium min-w-0 w-full sm:w-auto sm:max-w-[260px] truncate"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer font-medium min-w-0 w-full sm:w-auto sm:max-w-[220px] md:max-w-[260px] truncate"
               >
                 <option value="ALL" className="bg-white text-slate-900">
                   Todas as Linhas
@@ -256,100 +234,115 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refreshData}
-            disabled={isSyncing}
-            className="h-8 gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Atualizar</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSimulatorModalOpen(true)}
-            className="h-8 gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-          >
-            <Layers className="w-3.5 h-3.5 text-[#004C97]" />
-            <span>Simular</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => setIsAIPanelOpen(true)}
-            className="h-8 gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white shadow-2xs font-semibold"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Analisar com IA</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsAlertCenterOpen(true)}
-            className="h-8 relative border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-2.5"
-          >
-            <Bell className="w-4 h-4 text-amber-600" />
-            {unreadAlertsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse">
-                {unreadAlertsCount}
-              </span>
-            )}
-          </Button>
-
-          {/* Menu ⋮ com Ações Secundárias */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-56 bg-white border-slate-200 text-slate-800"
+          {/* Botões de Ação com colapso progressivo (ícone em viewports menores, texto em >=2xl) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshData}
+              disabled={isSyncing}
+              title="Atualizar dados"
+              className="h-8 px-2.5 sm:px-3 gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shrink-0"
             >
-              <DropdownMenuLabel className="text-xs text-slate-400 font-mono">
-                Ações Avançadas
-              </DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => setIsVersionModalOpen(true)}
-                className="text-xs cursor-pointer focus:bg-slate-100"
-              >
-                <Clock className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
-                Histórico de Versões
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setIsHomologationOpen(true)}
-                className="text-xs cursor-pointer focus:bg-slate-100"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-amber-600" />
-                Painel de Homologação
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setIsRuleInspectorOpen(true)}
-                className="text-xs cursor-pointer focus:bg-slate-100"
-              >
-                <GitBranch className="w-3.5 h-3.5 mr-2 text-emerald-600" />
-                Herança de Regras Ativa
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-slate-200" />
-              <div className="px-2 py-1.5 text-[11px] text-slate-500 font-mono">
-                Perfil:{' '}
-                <span className="text-slate-800 font-semibold">
-                  {user?.name || user?.email || 'Lucas Ferreira (PCP)'}
+              <RotateCcw className={`w-3.5 h-3.5 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden 2xl:inline">Atualizar</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSimulatorModalOpen(true)}
+              title="Simular Cenário"
+              className="h-8 px-2.5 sm:px-3 gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shrink-0"
+            >
+              <Layers className="w-3.5 h-3.5 text-[#004C97] shrink-0" />
+              <span className="hidden 2xl:inline">Simular</span>
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => setIsAIPanelOpen(true)}
+              title="Analisar com IA"
+              className="h-8 px-2.5 sm:px-3 gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white shadow-2xs font-semibold shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xl:inline">Analisar com IA</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAlertCenterOpen(true)}
+              title="Central de Alertas"
+              className="h-8 relative border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-2.5 shrink-0"
+            >
+              <Bell className="w-4 h-4 text-amber-600 shrink-0" />
+              {unreadAlertsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse">
+                  {unreadAlertsCount}
                 </span>
-                <br />
-                Escopo: {isGlobal ? 'Global' : scopes?.[0]?.target_code || 'Restrito'}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              )}
+            </Button>
+
+            {/* Menu ⋮ com Ações Secundárias */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Mais opções"
+                  className="h-8 w-8 p-0 border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shrink-0"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 bg-white border-slate-200 text-slate-800"
+              >
+                <DropdownMenuLabel className="text-xs text-slate-400 font-mono">
+                  Ações Avançadas
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => setIsSimulatorModalOpen(true)}
+                  className="text-xs cursor-pointer focus:bg-slate-100 2xl:hidden"
+                >
+                  <Layers className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
+                  Simular Cenário
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsVersionModalOpen(true)}
+                  className="text-xs cursor-pointer focus:bg-slate-100"
+                >
+                  <Clock className="w-3.5 h-3.5 mr-2 text-[#004C97]" />
+                  Histórico de Versões
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsHomologationOpen(true)}
+                  className="text-xs cursor-pointer focus:bg-slate-100"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-amber-600" />
+                  Painel de Homologação
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsRuleInspectorOpen(true)}
+                  className="text-xs cursor-pointer focus:bg-slate-100"
+                >
+                  <GitBranch className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                  Herança de Regras Ativa
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-slate-200" />
+                <div className="px-2 py-1.5 text-[11px] text-slate-500 font-mono">
+                  Perfil:{' '}
+                  <span className="text-slate-800 font-semibold">
+                    {user?.name || user?.email || 'Lucas Ferreira (PCP)'}
+                  </span>
+                  <br />
+                  Escopo: {isGlobal ? 'Global' : scopes?.[0]?.target_code || 'Restrito'}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
