@@ -986,14 +986,16 @@ export const CiafalFilterBar: React.FC<CiafalFilterBarProps> = ({
 }) => {
   return (
     <div
-      className={`bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 ${className}`}
+      className={`bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 min-w-0 max-w-full ${className}`}
     >
-      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">{children}</div>
+      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 max-w-full [&>*]:min-w-0 [&>*]:max-w-full">
+        {children}
+      </div>
 
       {(totalCount !== undefined || onClear) && (
-        <div className="flex items-center gap-2.5 shrink-0 text-xs">
+        <div className="flex items-center gap-2.5 shrink-0 text-xs min-w-0">
           {totalCount !== undefined && (
-            <span className="text-slate-500 font-mono text-[11px]">
+            <span className="text-slate-500 font-mono text-[11px] shrink-0 whitespace-nowrap">
               {filteredCount !== undefined ? `${filteredCount} de ` : ''}
               <strong>{totalCount}</strong> registro(s)
             </span>
@@ -1003,7 +1005,7 @@ export const CiafalFilterBar: React.FC<CiafalFilterBarProps> = ({
               size="sm"
               variant="ghost"
               onClick={onClear}
-              className="h-7 text-xs text-slate-600 hover:text-slate-900"
+              className="h-7 text-xs text-slate-600 hover:text-slate-900 shrink-0 whitespace-nowrap"
             >
               Limpar filtros
             </Button>

@@ -35,14 +35,14 @@ export const GlobalFilters: React.FC = () => {
   return (
     <div className="bg-slate-950 border-b border-slate-850 p-3 space-y-2.5 text-xs text-slate-300">
       {/* Top Filter Bar: Period, Selectors and Search */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 min-w-0 max-w-full">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Período */}
-          <div className="inline-flex bg-slate-900 border border-slate-800 rounded-md p-0.5 text-[11px]">
+          <div className="inline-flex flex-wrap sm:flex-nowrap bg-slate-900 border border-slate-800 rounded-md p-0.5 text-[11px] min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => handlePeriodChange('HOJE')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === 'HOJE'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -53,7 +53,7 @@ export const GlobalFilters: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePeriodChange('AMANHA')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === 'AMANHA'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -64,7 +64,7 @@ export const GlobalFilters: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePeriodChange('SEMANA')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === 'SEMANA'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -75,7 +75,7 @@ export const GlobalFilters: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePeriodChange('7_DIAS')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === '7_DIAS'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -86,7 +86,7 @@ export const GlobalFilters: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePeriodChange('15_DIAS')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === '15_DIAS'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -97,7 +97,7 @@ export const GlobalFilters: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePeriodChange('MES')}
-              className={`px-2 py-1 rounded font-medium ${
+              className={`px-2 py-1 rounded font-medium shrink-0 whitespace-nowrap ${
                 filters.period === 'MES'
                   ? 'bg-[#004C97] text-white'
                   : 'text-slate-400 hover:text-white'
@@ -108,34 +108,40 @@ export const GlobalFilters: React.FC = () => {
           </div>
 
           {/* Seletor de Linha */}
-          <select
-            value={filters.lineCode}
-            onChange={(e) => handleLineChange(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-md text-slate-200 px-2.5 py-1 text-xs outline-none focus:border-[#004C97]"
-          >
-            <option value="ALL">Todas as Linhas</option>
-            <option value="L1">L1 - Laminação & Conformação</option>
-            <option value="ENF_L1">ENF_L1 - Enfornamento</option>
-            <option value="ACAB_L1">ACAB_L1 - Acabamento L1</option>
-            <option value="L2">L2 - Perfis & Estruturais</option>
-            <option value="ACAB_L2">ACAB_L2 - Acabamento L2</option>
-            <option value="ENDIR">ENDIR - Endireitadeira</option>
-            <option value="RETRAB">RETRAB - Retrabalho</option>
-          </select>
+          <div className="min-w-0 max-w-full sm:max-w-[240px]">
+            <select
+              value={filters.lineCode}
+              onChange={(e) => handleLineChange(e.target.value)}
+              aria-label="Filtro de Linha Global"
+              className="bg-slate-900 border border-slate-800 rounded-md text-slate-200 px-2.5 py-1 text-xs outline-none focus:border-[#004C97] min-w-0 w-full truncate"
+            >
+              <option value="ALL">Todas as Linhas</option>
+              <option value="L1">L1 - Laminação & Conformação</option>
+              <option value="ENF_L1">ENF_L1 - Enfornamento</option>
+              <option value="ACAB_L1">ACAB_L1 - Acabamento L1</option>
+              <option value="L2">L2 - Perfis & Estruturais</option>
+              <option value="ACAB_L2">ACAB_L2 - Acabamento L2</option>
+              <option value="ENDIR">ENDIR - Endireitadeira</option>
+              <option value="RETRAB">RETRAB - Retrabalho</option>
+            </select>
+          </div>
 
           {/* Seletor de Família */}
-          <select
-            value={filters.familyCode}
-            onChange={(e) => handleFamilyChange(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-md text-slate-200 px-2.5 py-1 text-xs outline-none focus:border-[#004C97]"
-          >
-            <option value="ALL">Todas as Famílias</option>
-            <option value="TUB_QUAD">Tubos Quadrados</option>
-            <option value="TUB_RET">Tubos Retangulares</option>
-            <option value="TUB_RED">Tubos Redondos</option>
-            <option value="PERF_U">Perfis U</option>
-            <option value="BAR_CHATA">Barras Chatas</option>
-          </select>
+          <div className="min-w-0 max-w-full sm:max-w-[200px]">
+            <select
+              value={filters.familyCode}
+              onChange={(e) => handleFamilyChange(e.target.value)}
+              aria-label="Filtro de Família Global"
+              className="bg-slate-900 border border-slate-800 rounded-md text-slate-200 px-2.5 py-1 text-xs outline-none focus:border-[#004C97] min-w-0 w-full truncate"
+            >
+              <option value="ALL">Todas as Famílias</option>
+              <option value="TUB_QUAD">Tubos Quadrados</option>
+              <option value="TUB_RET">Tubos Retangulares</option>
+              <option value="TUB_RED">Tubos Redondos</option>
+              <option value="PERF_U">Perfis U</option>
+              <option value="BAR_CHATA">Barras Chatas</option>
+            </select>
+          </div>
         </div>
 
         {/* Busca por OP / Material / Cliente */}

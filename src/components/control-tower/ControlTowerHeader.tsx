@@ -143,48 +143,50 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
           <p className="text-xs text-slate-600 mt-0.5 max-w-2xl">{subtitle}</p>
 
           {/* Linha de Contexto Hierárquico, Conectores e Sincronização */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600 mt-2">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 font-mono text-[#004C97] font-semibold">
-              <Building2 className="w-3.5 h-3.5 text-[#004C97]" />
-              <span>{scopeBreadcrumb}</span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600 mt-2 min-w-0 max-w-full">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 font-mono text-[#004C97] font-semibold min-w-0 max-w-full">
+              <Building2 className="w-3.5 h-3.5 text-[#004C97] shrink-0" />
+              <span className="truncate">{scopeBreadcrumb}</span>
             </div>
 
             {/* Painel de Saúde das Integrações (Requisito 10: SAP 🟢 MES 🟢 CRM 🟢 TMS 🟡 WMS 🟢) */}
             <Link
               to="/pcp/integracoes/monitor"
-              className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 font-mono text-[11px] text-slate-700 transition-colors shadow-2xs"
+              className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 font-mono text-[11px] text-slate-700 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
               title="Clique para abrir o Monitor de Integrações Ponta a Ponta"
             >
-              <span className="font-bold text-slate-500">Integrações:</span>
-              <span className="flex items-center gap-1">
+              <span className="font-bold text-slate-500 shrink-0 whitespace-nowrap">
+                Integrações:
+              </span>
+              <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 SAP <span className="text-emerald-600 font-black">🟢</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 MES <span className="text-emerald-600 font-black">🟢</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 CRM <span className="text-emerald-600 font-black">🟢</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 TMS <span className="text-amber-600 font-black">🟡</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                 WMS <span className="text-emerald-600 font-black">🟢</span>
               </span>
             </Link>
 
-            <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-mono">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-mono shrink-0 whitespace-nowrap">
+              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>Última sinc. SAP: {lastSyncTime}</span>
             </div>
 
             {/* Indicador de Herança de Regras */}
             <button
               onClick={() => setIsRuleInspectorOpen(true)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors shrink-0 whitespace-nowrap"
               title="Clique para ver a resolução de herança de regras"
             >
-              <GitBranch className="w-3 h-3 text-[#004C97]" />
+              <GitBranch className="w-3 h-3 text-[#004C97] shrink-0" />
               <span>Setup Máx: {effectiveRules.maxSetupDurationMinutes} min</span>
               <span className="text-[#004C97] text-[10px] ml-0.5 font-bold">(Herança)</span>
             </button>
@@ -192,53 +194,60 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
         </div>
 
         {/* 3. Ações Globais Principais */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Seletor Rápido de Empresa/Planta/Linha */}
-          <div className="flex items-center bg-slate-50 border border-slate-300 rounded-md p-0.5 text-xs">
+          <div className="flex flex-wrap sm:flex-nowrap items-center bg-slate-50 border border-slate-300 rounded-md p-0.5 text-xs min-w-0 max-w-full">
             {/* Empresa */}
-            <select
-              value={filters.companyCode}
-              onChange={(e) => setCompanyScope(e.target.value)}
-              className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium"
-            >
-              {companies.map((c) => (
-                <option key={c.code} value={c.code} className="bg-white text-slate-900">
-                  {c.code} ({c.name})
-                </option>
-              ))}
-            </select>
+            <div className="min-w-0 shrink-0">
+              <select
+                value={filters.companyCode}
+                onChange={(e) => setCompanyScope(e.target.value)}
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0"
+              >
+                {companies.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-white text-slate-900">
+                    {c.code} ({c.name})
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Planta */}
-            <select
-              value={filters.plantCode}
-              onChange={(e) => setPlantScope(e.target.value)}
-              className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium"
-            >
-              <option value="ALL" className="bg-white text-slate-900">
-                Todas as Plantas
-              </option>
-              {availablePlants.map((p) => (
-                <option key={p.code} value={p.code} className="bg-white text-slate-900">
-                  {p.name}
+            <div className="min-w-0 shrink-0">
+              <select
+                value={filters.plantCode}
+                onChange={(e) => setPlantScope(e.target.value)}
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0"
+              >
+                <option value="ALL" className="bg-white text-slate-900">
+                  Todas as Plantas
                 </option>
-              ))}
-            </select>
+                {availablePlants.map((p) => (
+                  <option key={p.code} value={p.code} className="bg-white text-slate-900">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Linha */}
-            <select
-              value={filters.lineCode}
-              onChange={(e) => setLineScope(e.target.value)}
-              className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer font-medium"
-            >
-              <option value="ALL" className="bg-white text-slate-900">
-                Todas as Linhas
-              </option>
-              {availableLines.map((l) => (
-                <option key={l.code} value={l.code} className="bg-white text-slate-900">
-                  {l.code} - {l.name}
+            <div className="min-w-0 flex-1 sm:flex-initial">
+              <select
+                value={filters.lineCode}
+                onChange={(e) => setLineScope(e.target.value)}
+                aria-label="Filtro de Linha"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer font-medium min-w-0 w-full sm:w-auto sm:max-w-[260px] truncate"
+              >
+                <option value="ALL" className="bg-white text-slate-900">
+                  Todas as Linhas
                 </option>
-              ))}
-            </select>
+                {availableLines.map((l) => (
+                  <option key={l.code} value={l.code} className="bg-white text-slate-900">
+                    {l.code} - {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <Button
