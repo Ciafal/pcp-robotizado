@@ -67,8 +67,8 @@ export const CIAFAL_SYSTEM_ACRONYMS = {
  */
 export function formatAbntNumber(
   value: number | string | null | undefined,
-  decimals: number = 1,
-  fallback = '0',
+  decimals: number = 2,
+  fallback = '0,00',
 ): string {
   if (value === null || value === undefined || value === '') return fallback
   const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))

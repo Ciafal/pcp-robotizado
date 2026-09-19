@@ -23,62 +23,73 @@ export const UserPermissionSummary: React.FC = () => {
   const allowedCategories = Array.from(new Set(permissions.map((p) => p.category)))
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-slate-100 shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Info do Usuário */}
-        <div className="flex items-start gap-3">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-slate-100 shadow-sm w-full max-w-full overflow-hidden">
+      {/* Grid responsivo em 4 blocos bem balanceados sem estourar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+        {/* Bloco 1: Avatar, Nome, Perfil e Escopo */}
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-lg bg-cyan-950 border border-cyan-800 flex items-center justify-center text-cyan-400 font-bold text-base shrink-0">
             {user.name.charAt(0)}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-sm">{user.name}</span>
-              <Badge className="bg-cyan-600 text-white hover:bg-cyan-500 text-[10px] px-2 py-0.5">
+          <div className="min-w-0">
+            <div className="font-bold text-white text-sm truncate" title={user.name}>
+              {user.name}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              <Badge className="bg-cyan-600 text-white hover:bg-cyan-500 text-[10px] px-2 py-0.5 shrink-0">
                 {user.role}
               </Badge>
               {isGlobal ? (
                 <Badge
                   variant="outline"
-                  className="border-emerald-500 text-emerald-400 bg-emerald-950/30 text-[10px]"
+                  className="border-emerald-500 text-emerald-400 bg-emerald-950/30 text-[10px] shrink-0"
                 >
                   Escopo Global
                 </Badge>
               ) : (
                 <Badge
                   variant="outline"
-                  className="border-amber-500 text-amber-400 bg-amber-950/30 text-[10px]"
+                  className="border-amber-500 text-amber-400 bg-amber-950/30 text-[10px] shrink-0"
                 >
                   Escopo Restrito ({scopes.length} Linhas)
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-              <span className="flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5 text-cyan-400" /> {user.email}
-              </span>
-              <span>•</span>
-              <span className="text-slate-300 font-medium">
-                {user.role_details?.description || 'Perfil Funcional PCP'}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Resumo de Acesso Rápido */}
-        <div className="flex items-center gap-3 self-end md:self-center">
-          <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
-            <KeyRound className="w-4 h-4 text-emerald-400" />
-            <div>
-              <span className="text-slate-400 text-[10px] block">Ações Liberadas</span>
-              <span className="font-bold text-emerald-400">{permissions.length} permissões</span>
-            </div>
+        {/* Bloco 2: E-mail e Descrição Funcional */}
+        <div className="min-w-0 text-xs text-slate-400 space-y-0.5">
+          <div className="flex items-center gap-1 text-slate-300 truncate" title={user.email}>
+            <UserCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="truncate">{user.email}</span>
           </div>
+          <div
+            className="text-slate-400 text-[11px] truncate"
+            title={user.role_details?.description || 'Perfil Funcional PCP'}
+          >
+            {user.role_details?.description || 'Perfil Funcional PCP'}
+          </div>
+        </div>
 
+        {/* Bloco 3: Quantidade de Permissões / Ações Liberadas */}
+        <div className="flex items-center gap-2.5 bg-slate-950/60 border border-slate-800 px-3 py-2 rounded-lg text-xs w-fit sm:w-auto">
+          <KeyRound className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="min-w-0">
+            <span className="text-slate-400 text-[10px] block leading-none">Ações Liberadas</span>
+            <span className="font-bold text-emerald-400 text-xs sm:text-sm">
+              {permissions.length} permissões
+            </span>
+          </div>
+        </div>
+
+        {/* Bloco 4: Ações / Botão Ver Detalhes */}
+        <div className="flex justify-start lg:justify-end">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="border-slate-700 bg-slate-800/80 text-slate-200 hover:text-white hover:bg-slate-700 h-8 gap-1.5 text-xs"
+            className="border-slate-700 bg-slate-800/80 text-slate-200 hover:text-white hover:bg-slate-700 h-8 gap-1.5 text-xs w-full sm:w-auto"
           >
             {isExpanded ? (
               <>

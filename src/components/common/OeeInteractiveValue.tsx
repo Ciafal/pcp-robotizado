@@ -35,6 +35,21 @@ export const OeeInteractiveValue: React.FC<OeeInteractiveValueProps> = ({
 }) => {
   const { openDrilldown } = useOeeDrilldown()
 
+  const formattedValue = React.useMemo(() => {
+    if (typeof value === 'number') {
+      let n = value
+      if (n > 0 && n < 1.0) {
+        n = n * 100
+      }
+      const numStr = n.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+      return `${numStr} ${suffix}`.trim()
+    }
+    return `${value}${suffix}`
+  }, [value, suffix])
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     openDrilldown(context)
@@ -83,9 +98,7 @@ export const OeeInteractiveValue: React.FC<OeeInteractiveValueProps> = ({
       )}
     >
       {label && <span className="font-sans text-xs font-normal text-slate-400">{label}</span>}
-      <span>
-        {typeof value === 'number' ? `${value.toFixed(1)}${suffix}` : `${value}${suffix}`}
-      </span>
+      <span>{formattedValue}</span>
       {showIcon && (
         <span className="inline-flex items-center opacity-70 group-hover:opacity-100 text-sky-400 transition-opacity">
           {iconType === 'info' && <Info className="w-3 h-3" />}

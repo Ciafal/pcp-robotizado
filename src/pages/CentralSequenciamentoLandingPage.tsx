@@ -390,7 +390,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
           assertivenessPct = line.efficiency ? Number(line.efficiency.toFixed(1)) : 92.4
         }
       } else {
-        assertivenessPct = line.efficiency ? Number(line.efficiency.toFixed(1)) : 91.0
+        assertivenessPct = line.efficiency ? Number(line.efficiency.toFixed(2)) : 91.0
       }
 
       // 7. Retrabalho / Refugo: se indisponível no período -> placeholder oficial

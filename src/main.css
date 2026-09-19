@@ -133,6 +133,39 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Prevenção rigorosa de overflow-x no html, body e root */
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Grid padronizado de cards responsivos (minmax 260px) */
+  .pcp-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    width: 100%;
+  }
+
+  /* Utilitário para contenção horizontal rígida */
+  .contain-horizontal {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
 }
 
 @layer utilities {

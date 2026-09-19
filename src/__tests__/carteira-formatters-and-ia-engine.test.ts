@@ -6,6 +6,8 @@ import {
   formatDatePTBR,
   formatDateTimePTBR,
   formatDateExtensoPTBR,
+  formatCurrencyPTBR,
+  parseNumberPTBR,
   parseDateSafe,
 } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
@@ -20,16 +22,23 @@ describe('Formatadores Centralizados pt-BR', () => {
     expect(formatNumberPTBR(180.5)).toBe('180,50')
     expect(formatNumberPTBR(66.3)).toBe('66,30')
     expect(formatNumberPTBR(12540.75)).toBe('12.540,75')
+    expect(formatNumberPTBR(1250.5)).toBe('1.250,50')
+    expect(formatNumberPTBR(15350.75)).toBe('15.350,75')
   })
 
-  it('formata quantidades com unidade "t" ou "kg" correta', () => {
+  it('formata quantidades com unidade "t" ou "kg" correta conforme Casos Obrigatórios', () => {
     expect(formatQuantity(6.84, 't')).toBe('6,84 t')
+    expect(formatQuantity(1250.5, 't')).toBe('1.250,50 t')
+    expect(formatQuantity(15350.75, 'kg')).toBe('15.350,75 kg')
     expect(formatQuantity(12540.75, 'kg')).toBe('12.540,75 kg')
     expect(formatQuantity('180.5', 'Ton')).toBe('180,50 t')
     expect(formatQuantity(66.3, 'tons')).toBe('66,30 t')
   })
 
-  it('formata percentuais no padrão brasileiro', () => {
+  it('formata percentuais no padrão brasileiro com 2 casas obrigatórias e suporte a frações', () => {
+    expect(formatPercentagePTBR(91)).toBe('91,00 %')
+    expect(formatPercentagePTBR(85.5)).toBe('85,50 %')
+    expect(formatPercentagePTBR(0.91)).toBe('91,00 %')
     expect(formatPercentagePTBR(2)).toBe('2,00 %')
     expect(formatPercentagePTBR(5.5)).toBe('5,50 %')
     expect(formatPercentagePTBR(90)).toBe('90,00 %')
@@ -42,14 +51,27 @@ describe('Formatadores Centralizados pt-BR', () => {
     expect(formatDatePTBR(dt)).toBe('19/09/2026')
   })
 
-  it('formata data e hora no padrão brasileiro', () => {
+  it('formata data e hora no padrão brasileiro de 24h sem AM/PM', () => {
     const dt = new Date(2026, 8, 19, 10, 27, 26)
     expect(formatDateTimePTBR(dt, true)).toBe('19/09/2026 10:27:26')
     expect(formatDateTimePTBR(dt, false)).toBe('19/09/2026 10:27')
+    expect(formatDateTimePTBR('2026-09-19T15:03:00')).toBe('19/09/2026 15:03')
   })
 
   it('formata datas por extenso em português', () => {
     expect(formatDateExtensoPTBR('2026-09-19')).toBe('19 de setembro de 2026')
+  })
+
+  it('valida casos monetários obrigatórios e parsing de input com vírgula', () => {
+    // 15250.5 -> R$ 15.250,50
+    const currencyStr = formatCurrencyPTBR(15250.5)
+    // normalizar espaços não separáveis que o Intl pode usar
+    expect(currencyStr.replace(/\u00a0/g, ' ')).toBe('R$ 15.250,50')
+
+    // Input "10,50" aceito, interpretado como 10.5 e formatado de volta
+    const parsed = parseNumberPTBR('10,50')
+    expect(parsed).toBe(10.5)
+    expect(formatNumberPTBR(parsed)).toBe('10,50')
   })
 })
 

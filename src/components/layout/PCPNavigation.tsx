@@ -603,31 +603,31 @@ const navSections: NavSectionItem[] = [
 
 export const PCPNavbar: React.FC = () => {
   return (
-    <header className="h-16 border-b border-slate-200 bg-white px-4 md:px-6 flex items-center justify-between shadow-xs">
-      <div className="flex items-center gap-3">
-        <Link to="/pcp/sequenciamento" className="flex items-center gap-3">
+    <header className="min-h-14 sm:h-16 border-b border-slate-200 bg-white px-3 sm:px-4 md:px-6 flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0 w-full max-w-full">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <Link to="/pcp/sequenciamento" className="flex items-center gap-2 sm:gap-3 min-w-0">
           <img
             src={logoCiafalBlue}
             alt="CIAFAL Wilson Santos"
-            className="h-8 w-auto object-contain"
+            className="h-7 sm:h-8 w-auto object-contain shrink-0"
           />
-          <div className="border-l border-slate-200 pl-3 hidden sm:block">
+          <div className="border-l border-slate-200 pl-2 sm:pl-3 min-w-0 hidden sm:block">
             <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-slate-900 text-sm">
+              <span className="font-bold tracking-tight text-slate-900 text-sm truncate">
                 HUB INDUSTRIAL
               </span>
-              <span className="text-white font-extrabold text-[10px] bg-[#004C97] px-2 py-0.5 rounded shadow-sm border border-blue-600/30">
+              <span className="text-white font-extrabold text-[10px] bg-[#004C97] px-2 py-0.5 rounded shadow-sm border border-blue-600/30 whitespace-nowrap">
                 PCP ROBOTIZADO
               </span>
             </div>
-            <div className="text-[10px] text-slate-500 font-mono">
+            <div className="text-[10px] text-slate-500 font-mono truncate">
               CIAFAL &bull; Divinópolis &bull; Contagem
             </div>
           </div>
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <EnvironmentSelectorBadge />
         <ADSimulatorSwitcher />
       </div>

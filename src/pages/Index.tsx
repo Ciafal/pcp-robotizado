@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/services/pcp-auth'
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
+import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 import { mockProductionLines, mockOperationalAlerts } from '@/data/control-tower-mock'
 import { Can } from '@/components/auth/Can'
 import { UserPermissionSummary } from '@/components/auth/UserPermissionSummary'
@@ -533,30 +534,33 @@ export default function Index() {
       {/* Bloco de Identidade e Permissões do Usuário Autenticado */}
       <UserPermissionSummary />
 
-      {/* Header do Cockpit em Fundo Claro Corporativo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Cockpit Operacional PCP
-            </h1>
-            <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-bold">
-              CIAFAL &bull; Homologado
-            </Badge>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
+      {/* Header do Cockpit em Fundo Claro Corporativo com Estrutura Responsiva em 3 Áreas */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm w-full max-w-full">
+        {/* Área Esquerda: Título e Descrição */}
+        <div className="lg:col-span-5 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
+            Cockpit Operacional PCP
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
             Monitoramento de linhas industriais, cadência, buffer térmico e orquestração de
             sequenciamentos.
           </p>
         </div>
 
-        {/* Ações Rápidas Controladas por RBAC */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Área Central: Empresa • Ambiente */}
+        <div className="lg:col-span-3 flex lg:justify-center">
+          <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-xs font-bold py-1 px-3">
+            CIAFAL &bull; Homologação
+          </Badge>
+        </div>
+
+        {/* Área Direita: Ações Rápidas Controladas por RBAC */}
+        <div className="lg:col-span-4 flex flex-wrap items-center justify-start lg:justify-end gap-2">
           {/* Ação 0: Cockpit Executivo com IA */}
           <Can permission="pcp.executive.view">
             <Button
               size="sm"
-              className="bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-sm text-xs font-bold"
+              className="h-8 bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-sm text-xs font-bold px-3"
               asChild
             >
               <Link to="/pcp/cockpit-executivo">
@@ -574,7 +578,7 @@ export default function Index() {
             <Button
               size="sm"
               variant="outline"
-              className="border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold"
+              className="h-8 border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold px-3"
               asChild
             >
               <Link to="/pcp/sequenciamento/programacao">
@@ -592,7 +596,7 @@ export default function Index() {
             <Button
               variant="outline"
               size="sm"
-              className="border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold"
+              className="h-8 border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 gap-1.5 text-xs font-semibold px-3"
               asChild
             >
               <Link to="/pcp/sequenciamento/cenarios">
@@ -607,7 +611,7 @@ export default function Index() {
             size="sm"
             onClick={loadData}
             disabled={loading}
-            className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-2 h-8"
+            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100"
             title="Atualizar dados"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -615,27 +619,27 @@ export default function Index() {
         </div>
       </div>
 
-      {/* KPI Cards (Scoped) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+      {/* KPI Cards (Scoped) em Grid Responsivo Padronizado */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 w-full">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm min-w-0">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-500 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium truncate">
               Linhas no Seu Escopo
             </CardDescription>
             <CardTitle className="text-2xl font-black text-[#004C97] flex items-center justify-between">
-              {metrics.total}{' '}
+              <span>{metrics.total}</span>
               <span className="text-xs font-normal text-slate-400">/ {lines.length} Totais</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            {metrics.running} operando normalmente
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+            <span className="truncate">{metrics.running} operando normalmente</span>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-sky-300 transition-colors">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-sky-300 transition-colors min-w-0">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-500 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium truncate">
               Eficiência Média OEE
             </CardDescription>
             <CardTitle className="text-2xl font-black text-emerald-600">
@@ -646,42 +650,42 @@ export default function Index() {
               />
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-              Meta corporativa: 85%
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 flex items-center justify-between gap-1">
+            <span className="flex items-center gap-1 truncate">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              Meta: 85,00 %
             </span>
             <OeeInteractiveValue
               value="Detalhar"
               suffix=""
               context={{ lineCode: 'L1', period: 'DAY' }}
               iconType="chevron"
-              className="text-[10px] text-sky-600 font-normal hover:underline"
+              className="text-[10px] text-sky-600 font-normal hover:underline shrink-0"
             />
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm min-w-0">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-500 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium truncate">
               Taxa de Produção Global
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-slate-900">
-              {metrics.totalCurrentRate}{' '}
-              <span className="text-xs font-mono font-normal text-[#004C97]">t/h</span>{' '}
-              <span className="text-xs font-normal text-slate-400">
-                (meta: {metrics.totalTargetRate} t/h)
+            <CardTitle className="text-2xl font-black text-slate-900 flex items-baseline gap-1 truncate">
+              <span>{formatNumberPTBR(metrics.totalCurrentRate, 2)}</span>
+              <span className="text-xs font-mono font-normal text-[#004C97]">t/h</span>
+              <span className="text-xs font-normal text-slate-400 truncate">
+                (meta: {formatNumberPTBR(metrics.totalTargetRate, 2)} t/h)
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0 text-[11px] text-slate-500">
+          <CardContent className="p-4 pt-0 text-[11px] text-slate-500 truncate">
             Taxa atual vs. Capacidade programada
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-amber-300 transition-colors">
+        <Card className="bg-white border-slate-200 text-slate-900 shadow-sm hover:border-amber-300 transition-colors min-w-0">
           <CardHeader className="p-4 pb-2">
-            <CardDescription className="text-[11px] text-slate-500 font-medium">
+            <CardDescription className="text-[11px] text-slate-500 font-medium truncate">
               Alertas Ativos no Escopo
             </CardDescription>
             <CardTitle className="text-2xl font-black text-amber-600 flex items-baseline justify-between">
@@ -698,7 +702,7 @@ export default function Index() {
                 {totalAlertasAtivosConsolidado.subtextoDiscriminado}
               </span>
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[10px] text-slate-400 truncate">
               * Cobertura programada NÃO aumenta o contador de críticos
             </div>
           </CardContent>

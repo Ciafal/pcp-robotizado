@@ -468,7 +468,7 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Ocupação Fabril</div>
-                      <div className="text-sky-400 font-bold text-sm">91.0%</div>
+                      <div className="text-sky-400 font-bold text-sm">91,00 %</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-500">Capacidade Perdida</div>

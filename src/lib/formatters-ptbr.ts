@@ -59,13 +59,36 @@ export function formatQuantity(
   }
   if (isNaN(raw as number)) return fallback
 
-  // Normalização estrita da unidade
+  // Normalização estrita da unidade ABNT/SI
   let normalizedUnit = unidade.trim()
   if (/^tons?$|^toneladas?$|^ton\.?$/i.test(normalizedUnit)) normalizedUnit = 't'
   if (/^kgs?$|^quilos?$|^quilogramas?$/i.test(normalizedUnit)) normalizedUnit = 'kg'
+  if (/^grams?$|^gramas?$|^gr?$/i.test(normalizedUnit)) normalizedUnit = 'g'
+  if (/^hrs?$|^horas?$|^hours?$/i.test(normalizedUnit)) normalizedUnit = 'h'
+  if (/^mins?$|^minutos?$|^minutes?$/i.test(normalizedUnit)) normalizedUnit = 'min'
+  if (/^segs?$|^segundos?$|^seconds?$/i.test(normalizedUnit)) normalizedUnit = 's'
+  if (/^metros?$|^mts?$/i.test(normalizedUnit)) normalizedUnit = 'm'
+  if (/^centimetros?$|^cms?$/i.test(normalizedUnit)) normalizedUnit = 'cm'
+  if (/^milimetros?$|^mms?$/i.test(normalizedUnit)) normalizedUnit = 'mm'
+  if (/^litros?$|^lts?$/i.test(normalizedUnit)) normalizedUnit = 'L'
+  if (/^graus?$|^celsius?$|^°\s*c$/i.test(normalizedUnit)) normalizedUnit = '°C'
+  if (/^porcento$|^percent$/i.test(normalizedUnit)) normalizedUnit = '%'
 
-  // Decimais padrão: 2 para toneladas (0,00 t), 2 para kg
-  const dec = casasDecimais !== undefined ? casasDecimais : normalizedUnit === 't' ? 2 : 2
+  // Decimais padrão: 2 para toneladas (125,50 t), 2 para kg (15.350,75 kg), 2 para h (7,50 h)
+  const dec =
+    casasDecimais !== undefined
+      ? casasDecimais
+      : normalizedUnit === 't' ||
+          normalizedUnit === 'kg' ||
+          normalizedUnit === 'h' ||
+          normalizedUnit === 't/h'
+        ? 2
+        : normalizedUnit === 'mm' ||
+            normalizedUnit === 'm' ||
+            normalizedUnit === 'min' ||
+            normalizedUnit === 's'
+          ? 0
+          : 2
   const numStr = formatNumberPTBR(raw, dec)
 
   return `${numStr} ${normalizedUnit}`
@@ -82,10 +105,55 @@ export function formatPercentagePTBR(
   fallback: string = '0,00 %',
 ): string {
   if (valor === null || valor === undefined || valor === '') return fallback
+  let num = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(',', '.'))
+  if (isNaN(num)) return fallback
+
+  // Se o valor interno estiver entre 0 e 1 (ex: 0.91 ou 0.855), converter para percentual (0.91 -> 91, 0.855 -> 85.5)
+  // Nota: Não converte se for exatamente 0 ou 1, a menos que especificado (ou se for fração)
+  // Em regras industriais, OEE e eficiências < 1.0 (ex: 0.91) representam 91.00%
+  // Se for > 0 e < 1.0, multiplicar por 100.
+  if (num > 0 && num < 1.0) {
+    num = num * 100
+  }
+
+  return `${formatNumberPTBR(num, casasDecimais)} %`
+}
+
+/**
+ * Formata moeda no padrão brasileiro: R$ 15.250,50
+ */
+export function formatCurrencyPTBR(
+  valor: number | string | null | undefined,
+  fallback: string = 'R$ 0,00',
+): string {
+  if (valor === null || valor === undefined || valor === '') return fallback
   const num = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(',', '.'))
   if (isNaN(num)) return fallback
 
-  return `${formatNumberPTBR(num, casasDecimais)} %`
+  return num.toLocaleString(PTBR_LOCALE, {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+/**
+ * Converte input digitado pelo usuário (com vírgula ou ponto decimal) em número puro para cálculos e envio à API.
+ * Ex: "10,50" -> 10.5
+ * Ex: "1.250,50" -> 1250.5
+ */
+export function parseNumberPTBR(input: string | number | null | undefined): number | null {
+  if (input === null || input === undefined) return null
+  if (typeof input === 'number') return isNaN(input) ? null : input
+
+  const str = String(input).trim()
+  if (!str) return null
+
+  // Remove pontos de milhar e substitui vírgula por ponto
+  const normalized = str.replace(/\./g, '').replace(',', '.')
+  const num = parseFloat(normalized)
+  return isNaN(num) ? null : num
 }
 
 /**

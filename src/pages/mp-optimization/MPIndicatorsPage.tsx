@@ -92,7 +92,7 @@ export const MPIndicatorsPage: React.FC = () => {
 
         <Card className="border-slate-200 bg-white shadow-xs p-3">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-            Ton. Reaplicadas
+            Toneladas Reaplicadas (t)
           </span>
           <div className="text-lg font-black text-emerald-700 mt-1">38.6 t</div>
           <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">ZPP86</span>

@@ -251,7 +251,7 @@ export const DraftsConsultationModal: React.FC<DraftsConsultationModalProps> = (
                   <th className="p-2.5">Status</th>
                   <th className="p-2.5">Usuário Responsável</th>
                   <th className="p-2.5">Data/Hora de Salvamento</th>
-                  <th className="p-2.5">Itens / Tons</th>
+                  <th className="p-2.5">Itens / Toneladas (t)</th>
                   <th className="p-2.5 text-right">Ações</th>
                 </tr>
               </thead>

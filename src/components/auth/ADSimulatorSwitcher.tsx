@@ -98,16 +98,16 @@ export const ADSimulatorSwitcher: React.FC = () => {
         isOpen={isRouteModalOpen}
         onClose={() => setIsRouteModalOpen(false)}
       />
-      <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs shadow-sm">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-slate-900 border border-slate-700 px-2 sm:px-3 py-1 rounded-lg text-xs shadow-sm max-w-full">
         {/* Botão para abrir o Route Integrity Suite */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setIsRouteModalOpen(true)}
-          className="border-cyan-800/80 bg-cyan-950/40 text-cyan-300 hover:text-white hover:bg-cyan-900/60 text-xs h-8 gap-1.5 shadow-sm"
+          className="border-cyan-800/80 bg-cyan-950/40 text-cyan-300 hover:text-white hover:bg-cyan-900/60 text-xs h-7 sm:h-8 px-2 sm:px-2.5 gap-1.5 shadow-sm"
           title="Executar a Suite de Integridade de Rotas do PCP (ROUTE INTEGRITY SUITE)"
         >
-          <Compass className="w-3.5 h-3.5 text-cyan-400" />
+          <Compass className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
           <span className="text-[11px] font-medium whitespace-nowrap">Route Suite</span>
         </Button>
 
@@ -116,17 +116,17 @@ export const ADSimulatorSwitcher: React.FC = () => {
           variant="outline"
           size="sm"
           onClick={() => setIsTestModalOpen(true)}
-          className="border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 text-xs h-8 gap-1.5 shadow-sm"
+          className="border-slate-800 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 text-xs h-7 sm:h-8 px-2 sm:px-2.5 gap-1.5 shadow-sm"
           title="Executar os 30 Casos de Teste Automatizados (RBAC, Ficha Mestre e Central)"
         >
-          <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span className="text-[11px] font-medium whitespace-nowrap">30 Testes</span>
         </Button>
-        <div className="h-4 w-px bg-slate-700 hidden sm:block" />
+        <div className="h-4 w-px bg-slate-700 hidden md:block" />
 
-        <div className="flex items-center gap-1.5 text-amber-400 font-medium">
-          <Shield className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">AD Mock:</span>
+        <div className="hidden md:flex items-center gap-1 text-amber-400 font-medium">
+          <Shield className="w-3.5 h-3.5 shrink-0" />
+          <span className="text-[11px]">AD Mock:</span>
         </div>
 
         <DropdownMenu>
@@ -135,29 +135,29 @@ export const ADSimulatorSwitcher: React.FC = () => {
               variant="ghost"
               size="sm"
               disabled={isLoading || isSwitching}
-              className="h-7 px-2 text-slate-200 hover:text-white hover:bg-slate-800 text-xs font-normal border border-slate-700"
+              className="h-7 px-2 text-slate-200 hover:text-white hover:bg-slate-800 text-xs font-normal border border-slate-700 max-w-[200px]"
             >
               {isSwitching ? (
-                <RefreshCw className="w-3 h-3 animate-spin mr-1 text-cyan-400" />
+                <RefreshCw className="w-3 h-3 animate-spin mr-1 text-cyan-400 shrink-0" />
               ) : (
-                <UserCheck className="w-3 h-3 mr-1.5 text-cyan-400" />
+                <UserCheck className="w-3 h-3 mr-1 text-cyan-400 shrink-0" />
               )}
-              <span className="font-semibold text-white mr-1.5 max-w-[140px] truncate">
+              <span className="font-semibold text-white mr-1 max-w-[90px] sm:max-w-[120px] truncate">
                 {user?.name?.split(' ')[0] || user?.email}
               </span>
               <Badge
                 variant="outline"
-                className="text-[10px] px-1 py-0 h-4 border-cyan-500 text-cyan-300 bg-cyan-950/40 mr-1"
+                className="text-[9px] px-1 py-0 h-4 border-cyan-500 text-cyan-300 bg-cyan-950/40 mr-0.5 shrink-0"
               >
                 {currentRole}
               </Badge>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
             align="end"
-            className="w-80 bg-slate-900 border-slate-700 text-slate-100 p-1"
+            className="w-80 bg-slate-900 border-slate-700 text-slate-100 p-1 max-w-[95vw]"
           >
             <DropdownMenuLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 py-1.5">
               Alternar Perfil AD Corporativo (Teste RBAC)
