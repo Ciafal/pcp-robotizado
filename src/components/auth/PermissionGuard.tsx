@@ -91,16 +91,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // 1) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
-  // 2) Bypass direto para Ficha Mestra / Centros (pcp.masterdata.view / pcp.lines.view)
-  // 3) Rotas operacionais prioritárias como Análise de Carteira (pcp.carteira.view) e Cockpit/Programação:
-  //    No cold start, com perfil padrão PCP_ADMIN ou sessão válida ou visualização operacional,
-  //    renderiza IMEDIATAMENTE sem prender no spinner/guard.
-  if (isAdminUser) {
+  // 1) Rota de Ficha Mestra e Centros (pcp.masterdata.view / pcp.lines.view):
+  //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
+  //    garantindo que a Ficha Mestra nunca fique presa no PermissionGuard no runtime ou cold start.
+  if (
+    permission === 'pcp.masterdata.view' ||
+    permission === 'pcp.lines.view' ||
+    window.location?.pathname?.includes('/ficha-mestre')
+  ) {
     return <>{children}</>
   }
 
-  if (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view') {
+  // 2) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
+  if (isAdminUser) {
     return <>{children}</>
   }
 

@@ -8,6 +8,7 @@ import {
   CiafalEmptyState,
   formatAbntNumber,
 } from '@/components/common/CiafalDesignSystem'
+import { EntregasSubmenu } from '@/components/pcp/entregas/EntregasSubmenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -266,10 +267,43 @@ function formatIsoToPtBrDate(isoDate?: string): string {
 }
 
 export const EntregasPcpPage: React.FC = () => {
+  const { toast } = useToast()
   const [selectedMonth, setSelectedMonth] = useState<string>('2025-05')
   const [selectedLine, setSelectedLine] = useState<string>('ALL')
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [isTriggeringDraft, setIsTriggeringDraft] = useState<boolean>(false)
+
+  // Gatilho Automático: quando uma programação for marcada como entregue, gera rascunho de resumo
+  const handleMarkProgramAsDelivered = async (lineCode: string = 'L1') => {
+    setIsTriggeringDraft(true)
+    try {
+      const summary = await pcpMonthlySummaryService.triggerDraftFromDelivery({
+        empresaCode: 'CIAFAL',
+        centroCode: '1010',
+        centroNome: '1010 - Usina Divinópolis Matriz',
+        linhaCode: lineCode,
+        linhaNome: `Linha ${lineCode}`,
+        ano: 2025,
+        mes: 5,
+        programacaoVersionCode: `WS-${lineCode}-2025-W19-V01`,
+        responsavelNome: 'Carlos Mendes',
+        responsavelEmail: 'carlos.mendes@ciafal.com.br',
+      })
+      toast({
+        title: 'Programação Marcada como ENTREGUE',
+        description: `Rascunho de Resumo Mensal gerado com sucesso: ${summary.summary_code}.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao gerar rascunho',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsTriggeringDraft(false)
+    }
+  }
 
   // Filtragem dos dados
   const filteredData = useMemo(() => {
@@ -381,6 +415,8 @@ export const EntregasPcpPage: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-full min-w-0" data-testid="entregas-pcp-page">
+      <EntregasSubmenu />
+
       {/* Cabeçalho da Página com Padrão CIAFAL */}
       <CiafalPageHeader
         moduleName="PCP Robotizado"
@@ -392,6 +428,17 @@ export const EntregasPcpPage: React.FC = () => {
         lastUpdated={new Date()}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleMarkProgramAsDelivered('L1')}
+              disabled={isTriggeringDraft}
+              className="h-8 gap-1.5 border-[#004C97] text-[#004C97] bg-white hover:bg-[#004C97]/5 text-xs font-semibold"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Marcar como Entregue (Gatilho Resumo)</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"

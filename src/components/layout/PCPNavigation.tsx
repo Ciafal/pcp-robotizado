@@ -151,6 +151,39 @@ const navSections: NavSectionItem[] = [
         href: '/pcp/entregas',
         icon: PackageCheck,
         permission: 'pcp.schedule.view',
+        subItems: [
+          {
+            title: 'Visão Geral',
+            href: '/pcp/entregas',
+            icon: LayoutDashboard,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Resumo Mensal',
+            href: '/pcp/entregas/resumo-mensal',
+            icon: FileSpreadsheet,
+            badge: 'Novo',
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Histórico de Entregas',
+            href: '/pcp/entregas/historico',
+            icon: History,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Revisões',
+            href: '/pcp/entregas/revisoes',
+            icon: RotateCcw,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Indicadores',
+            href: '/pcp/entregas/indicadores',
+            icon: BarChart3,
+            permission: 'pcp.schedule.view',
+          },
+        ],
       },
       {
         title: 'Montagem Semanal',
@@ -672,6 +705,39 @@ const officialNavGroups: NavGroup[] = [
         href: '/pcp/entregas',
         icon: PackageCheck,
         permission: 'pcp.schedule.view',
+        subItems: [
+          {
+            title: 'Visão Geral',
+            href: '/pcp/entregas',
+            icon: LayoutDashboard,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Resumo Mensal',
+            href: '/pcp/entregas/resumo-mensal',
+            icon: FileSpreadsheet,
+            badge: 'Novo',
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Histórico de Entregas',
+            href: '/pcp/entregas/historico',
+            icon: History,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Revisões',
+            href: '/pcp/entregas/revisoes',
+            icon: RotateCcw,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Indicadores',
+            href: '/pcp/entregas/indicadores',
+            icon: BarChart3,
+            permission: 'pcp.schedule.view',
+          },
+        ],
       },
       {
         title: 'Montagem Semanal',

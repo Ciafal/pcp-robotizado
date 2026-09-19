@@ -198,6 +198,19 @@ const RawMaterialInventoryPage = lazyWithRetry(
   'RawMaterialInventoryPage',
 )
 const EntregasPcpPage = lazyWithRetry(() => import('@/pages/EntregasPcpPage'), 'EntregasPcpPage')
+const ResumoMensalPage = lazyWithRetry(() => import('@/pages/ResumoMensalPage'), 'ResumoMensalPage')
+const EntregasHistoricoPage = lazyWithRetry(
+  () => import('@/pages/EntregasHistoricoPage'),
+  'EntregasHistoricoPage',
+)
+const EntregasRevisoesPage = lazyWithRetry(
+  () => import('@/pages/EntregasRevisoesPage'),
+  'EntregasRevisoesPage',
+)
+const EntregasIndicadoresPage = lazyWithRetry(
+  () => import('@/pages/EntregasIndicadoresPage'),
+  'EntregasIndicadoresPage',
+)
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
 const MPOverviewConsolidatedPage = lazyWithRetry(
@@ -400,12 +413,52 @@ export const App: React.FC = () => {
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
-                    {/* Rota Oficial de Gestão de Entregas PCP */}
+                    {/* Rotas Oficiais de Gestão de Entregas PCP com Submenu Completo */}
                     <Route
                       path="/pcp/entregas"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
                           <EntregasPcpPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas/visao-geral"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <EntregasPcpPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas/resumo-mensal"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ResumoMensalPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas/historico"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <EntregasHistoricoPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas/revisoes"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <EntregasRevisoesPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas/indicadores"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <EntregasIndicadoresPage />
                         </PermissionGuard>
                       }
                     />
@@ -416,6 +469,10 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp-robotizado/entregas"
                       element={<Navigate to="/pcp/entregas" replace />}
+                    />
+                    <Route
+                      path="/pcp/resumo-mensal"
+                      element={<Navigate to="/pcp/entregas/resumo-mensal" replace />}
                     />
                     <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
                     <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />

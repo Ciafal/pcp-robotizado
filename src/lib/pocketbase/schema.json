@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T21:01:26.110Z",
+  "generatedAt": "2026-09-19T21:20:44.666Z",
   "collections": [
     {
       "name": "users",
@@ -22080,6 +22080,374 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_smg_matkl ON sap_matkl_groups (matkl)",
         "CREATE INDEX idx_smg_active ON sap_matkl_groups (is_active)"
+      ]
+    },
+    {
+      "name": "pcp_monthly_summaries",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "summary_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "empresa_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "linha_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ano",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mes",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "mes_ano",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "version_tag",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "RASCUNHO_IA",
+            "EM_EDICAO_PCP",
+            "AGUARDANDO_APROVACAO",
+            "APROVADO",
+            "PUBLICADO",
+            "ENVIADO"
+          ]
+        },
+        {
+          "name": "responsavel_pcp_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "responsavel_pcp_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_pcp_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_entrega",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "dia_util",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_programacao_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sections_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisions_history",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_verification_report",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approvals_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reading_confirmations",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "read_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_recipients_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "agenda_event_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_dispatched_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "email_recipients",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pdf_generated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "published_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pms_code ON pcp_monthly_summaries (summary_code)",
+        "CREATE INDEX idx_pms_filter ON pcp_monthly_summaries (empresa_code, centro_code, linha_code, ano, mes)",
+        "CREATE INDEX idx_pms_status ON pcp_monthly_summaries (status)"
+      ]
+    },
+    {
+      "name": "pcp_corporate_calendar_events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "event_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "event_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "summary_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pcp_monthly_summaries"
+        },
+        {
+          "name": "summary_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "empresa_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "periodo_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "version_tag",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_entrega",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsavel_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "report_link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pdf_link",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alerts_summary",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_leitura",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ATIVO", "CONCLUIDO", "EXPIRADO", "CANCELADO"]
+        },
+        {
+          "name": "target_groups",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "readers_status",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcce_code ON pcp_corporate_calendar_events (event_code)",
+        "CREATE INDEX idx_pcce_summary ON pcp_corporate_calendar_events (summary_code)"
       ]
     }
   ]
