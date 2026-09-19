@@ -388,7 +388,7 @@ export const lineGaugeRestrictionService = {
         outcome: 'SUCCESS',
         reason: 'Exclusão de restrição sem histórico',
         justification: `Restrição ${beforeRecord.id} sem histórico foi removida fisicamente`,
-        changes: [{ field: 'registro', old_value: beforeRecord.id, new_value: 'EXCLUÍDO' }],
+        changes: [{ field: 'registro', before: beforeRecord.id, after: 'EXCLUÍDO' }],
         details: {
           restriction_id: beforeRecord.id,
           registro_excluido: beforeRecord,

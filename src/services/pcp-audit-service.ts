@@ -206,6 +206,8 @@ export interface TechnicalDetails {
   sessionId?: string
   correlationId?: string
   payload?: any
+  validationSeverity?: string
+  validationResult?: string
   sapDetails?: {
     bapi?: string
     rfc?: string

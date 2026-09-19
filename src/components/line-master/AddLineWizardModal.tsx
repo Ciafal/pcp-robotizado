@@ -34,8 +34,11 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { lineMasterService } from '@/services/line-master'
+import { lineGaugeRestrictionService } from '@/services/line-gauge-restriction-service'
 import { UserProfile } from '@/types/pcp-auth'
 import { ProductionLine, ProductFamily } from '@/types/line-master'
+import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
+import { GaugeRestrictionsSection } from './GaugeRestrictionsSection'
 
 interface AddLineWizardModalProps {
   open: boolean

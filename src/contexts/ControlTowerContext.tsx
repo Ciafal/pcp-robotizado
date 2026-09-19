@@ -60,6 +60,8 @@ import {
 } from '@/types/control-tower'
 import { useToast } from '@/hooks/use-toast'
 import { evaluateScheduleItemsGaugeRestrictions } from '@/services/gauge-restriction-evaluation'
+import { getPlantNow, getIsoWeekAndYear, getWeekDateRange } from '@/lib/temporal-utils'
+import { WeeklyScheduleItem } from '@/types/weekly-schedule'
 
 export interface SimulationDragDiff {
   orderId: string
@@ -235,6 +237,92 @@ interface ControlTowerContextType {
     submodule: CentralSubmodule,
     overrideScope?: { company?: string; plant?: string; line?: string; tab?: ViewTab },
   ) => void
+}
+
+function filterWeeklySchedulesByPeriod(
+  records: any[],
+  period: GlobalFilterState['period'],
+  customRange?: { start?: string | Date; end?: string | Date },
+): any[] {
+  if (!records || records.length === 0) return []
+
+  const plantNow = getPlantNow()
+
+  let rangeStart: Date | null = null
+  let rangeEnd: Date | null = null
+
+  switch (period) {
+    case 'HOJE': {
+      rangeStart = new Date(plantNow)
+      rangeStart.setHours(0, 0, 0, 0)
+      rangeEnd = new Date(plantNow)
+      rangeEnd.setHours(23, 59, 59, 999)
+      break
+    }
+    case 'AMANHA': {
+      rangeStart = new Date(plantNow)
+      rangeStart.setDate(plantNow.getDate() + 1)
+      rangeStart.setHours(0, 0, 0, 0)
+      rangeEnd = new Date(rangeStart)
+      rangeEnd.setHours(23, 59, 59, 999)
+      break
+    }
+    case 'SEMANA': {
+      const { year, week } = getIsoWeekAndYear(plantNow)
+      const weekRange = getWeekDateRange(year, week)
+      rangeStart = weekRange.startDate
+      rangeEnd = weekRange.endDate
+      break
+    }
+    case '7_DIAS': {
+      rangeStart = new Date(plantNow)
+      rangeStart.setHours(0, 0, 0, 0)
+      rangeEnd = new Date(plantNow)
+      rangeEnd.setDate(plantNow.getDate() + 7)
+      rangeEnd.setHours(23, 59, 59, 999)
+      break
+    }
+    case '15_DIAS': {
+      rangeStart = new Date(plantNow)
+      rangeStart.setHours(0, 0, 0, 0)
+      rangeEnd = new Date(plantNow)
+      rangeEnd.setDate(plantNow.getDate() + 15)
+      rangeEnd.setHours(23, 59, 59, 999)
+      break
+    }
+    case 'MES': {
+      rangeStart = new Date(plantNow.getFullYear(), plantNow.getMonth(), 1, 0, 0, 0, 0)
+      rangeEnd = new Date(plantNow.getFullYear(), plantNow.getMonth() + 1, 0, 23, 59, 59, 999)
+      break
+    }
+    case 'CUSTOM': {
+      if (customRange?.start) {
+        rangeStart = new Date(customRange.start)
+      }
+      if (customRange?.end) {
+        rangeEnd = new Date(customRange.end)
+      }
+      break
+    }
+    default:
+      return records
+  }
+
+  if (!rangeStart && !rangeEnd) {
+    return records
+  }
+
+  const startTime = rangeStart ? rangeStart.getTime() : -Infinity
+  const endTime = rangeEnd ? rangeEnd.getTime() : Infinity
+
+  return records.filter((item) => {
+    const rawDateStr = item.start_datetime || item.end_datetime
+    if (!rawDateStr) return true
+    const parsed = new Date(String(rawDateStr).replace(' ', 'T'))
+    if (isNaN(parsed.getTime())) return true
+    const t = parsed.getTime()
+    return t >= startTime && t <= endTime
+  })
 }
 
 const initialFilters: GlobalFilterState = {
@@ -552,6 +640,70 @@ export const ControlTowerProvider: React.FC<{
               return [...rawMaterialAlerts, ...filtered]
             })
           }
+
+          // AVALIAÇÃO DE RESTRIÇÕES MÍNIMAS DE BITOLA
+          const filteredScheduleItems = filterWeeklySchedulesByPeriod(records, filters.period)
+          const gaugeEvaluations = await evaluateScheduleItemsGaugeRestrictions({
+            items: filteredScheduleItems as WeeklyScheduleItem[],
+          })
+
+          const gaugeRestrictionAlerts: OperationalAlert[] = []
+          gaugeEvaluations.forEach((evalResult, idx) => {
+            if (evalResult.pendingCount > 0) {
+              const company = evalResult.company || 'CIAFAL'
+              const line = evalResult.line || 'L1'
+              const gauge = evalResult.currentGauge || 'N/D'
+
+              gaugeRestrictionAlerts.push({
+                id: `al-bitola-${line}-${gauge}-${idx}-${Date.now()}`,
+                code: `AL-BITOLA-${idx + 1}`,
+                companyCode: company,
+                plantCode: 'DIV',
+                processCode: line,
+                severity: 'WARNING',
+                category: 'RESTRIÇÃO_BITOLA',
+                title: `${company} > ${line} — ⚠ Restrição Mínima de Bitola (${gauge})`,
+                cause: `A bitola atual ${gauge} na linha ${line} possui restrições mínimas pendentes de atendimento antes da troca.`,
+                impact:
+                  'Risco de troca prematura de bitola, perda de produtividade por campanha curta ou setup desnecessário.',
+                whoIsAffected: `Operação Linha ${line}, Oficina de Cilindros e Programação PCP`,
+                whenImpact: `Período ${filters.period}`,
+                alternatives: [
+                  'Completar tonelagem mínima da campanha antes da troca',
+                  'Ajustar sequência para aproveitar bitolas adjacentes da mesma família',
+                  'Solicitar liberação extraordinária de exceção com justificativa técnica',
+                ],
+                aiConfidencePct: 98,
+                timestamp: new Date().toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+                acknowledged: false,
+                gaugeRestrictionData: {
+                  lineCode: line,
+                  workCenter: evalResult.center || line,
+                  gaugeMm: gauge,
+                  totalRestrictions: evalResult.activeRestrictionsCount,
+                  satisfiedCount: evalResult.satisfiedCount,
+                  pendingCount: evalResult.pendingCount,
+                  pendingDetails: evalResult.evaluations.map((e) => ({
+                    type: e.ruleDescription || e.restrictionType,
+                    currentStr: `${e.currentValue} ${e.unitOfMeasure}`,
+                    minStr: `${e.requiredValue} ${e.unitOfMeasure}`,
+                    deficitStr:
+                      e.deficitFormatted ||
+                      (e.deficitValue > 0 ? `${e.deficitValue} ${e.unitOfMeasure}` : '0'),
+                    satisfied: e.isSatisfied,
+                  })),
+                },
+              })
+            }
+          })
+
+          setAlerts((prev) => [
+            ...gaugeRestrictionAlerts,
+            ...prev.filter((a) => a.category !== 'RESTRIÇÃO_BITOLA'),
+          ])
         }
       } catch (err) {
         console.warn('Sincronização de weekly_schedules com Torre de Controle:', err)
@@ -600,7 +752,7 @@ export const ControlTowerProvider: React.FC<{
         unsubscribe()
       }
     }
-  }, [location.pathname])
+  }, [location.pathname, filters.period])
   const [processNodes, setProcessNodes] = useState<ProductionProcessNode[]>(mockProcessNodes)
   const [bottlenecks, setBottlenecks] = useState<BottleneckItem[]>(mockBottlenecks)
   const [buffers, setBuffers] = useState<BufferStatus[]>(mockBuffers)

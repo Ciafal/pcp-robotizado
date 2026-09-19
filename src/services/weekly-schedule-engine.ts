@@ -30,6 +30,7 @@ import {
   gaugeRestrictionEvaluationService,
   extractContinuousGaugeBlock,
   calculateContinuousGaugeMetrics,
+  evaluateAndAuditGaugeRestrictions,
 } from './gauge-restriction-evaluation'
 import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
 
