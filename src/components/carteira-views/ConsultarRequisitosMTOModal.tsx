@@ -248,12 +248,12 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] bg-white border-slate-200 text-slate-900 overflow-y-auto p-0 shadow-2xl">
-        {/* CABEÇALHO CORPORATIVO CIAFAL */}
-        <div className="bg-[#004C97] text-white p-5 rounded-t-lg">
+      <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] bg-white border-slate-200 text-slate-900 p-0 shadow-2xl flex flex-col overflow-hidden">
+        {/* ZONA 1: HEADER FIXO (flex 0 0 auto, azul institucional CIAFAL) */}
+        <div className="flex-none bg-gradient-to-r from-[#003870] to-[#004C97] text-white px-6 py-4 border-b border-[#002b55] shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-white/10 rounded-lg border border-white/20">
+              <div className="p-2.5 bg-white/10 rounded-lg border border-white/20 shrink-0">
                 <ClipboardCheck className="w-6 h-6 text-cyan-300" />
               </div>
               <div>
@@ -261,7 +261,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
                   <span className="font-mono text-xs bg-blue-900/80 px-2 py-0.5 rounded text-cyan-200 border border-blue-700">
                     MTO REQUIREMENT ENGINE
                   </span>
-                  <Badge className="bg-[#003870] text-blue-100 border-blue-700 text-[10px] font-bold">
+                  <Badge className="bg-white/20 text-white border-white/30 text-[10px] font-bold">
                     Carteira MTO &bull; Ficha Mestra
                   </Badge>
                   {/* Status Consolidado da Ordem */}
@@ -279,10 +279,16 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
                     </Badge>
                   )}
                 </div>
-                <h2 className="text-base font-bold text-white mt-1">
+                <h2
+                  className="font-bold text-white mt-1 leading-tight"
+                  style={{ fontSize: 'clamp(18px, 1.8vw, 24px)' }}
+                >
                   Consulta de Requisitos MTO do Pedido
                 </h2>
-                <p className="text-xs text-blue-100">
+                <p
+                  className="text-blue-100 mt-0.5"
+                  style={{ fontSize: 'clamp(12px, 0.95vw, 14px)' }}
+                >
                   Motor determinístico de validação por grupos canônicos (Produto, Produção,
                   Qualidade, Comercial/Logístico)
                 </p>
@@ -291,7 +297,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
 
             {/* Seletor rápido de pedido caso venha do cabeçalho geral */}
             {itensMtoDisponiveis.length > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <select
                   value={`${itemAtivo?.ordem_venda}/${itemAtivo?.item_ordem}`}
                   onChange={(e) => {
@@ -317,7 +323,50 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
           </div>
         </div>
 
-        <div className="p-5 space-y-4 text-xs text-slate-800">
+        {/* ZONA 2: TOOLBAR / FILTRO STRIP (flex 0 0 auto) */}
+        <div className="flex-none px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap text-xs">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[320px]">
+            <div className="relative flex-1 min-w-[280px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Filtrar por título, código ou descrição de requisito..."
+                value={filtroTexto}
+                onChange={(e) => setFiltroTexto(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                size="sm"
+                variant={grupoFiltro === 'TODOS' ? 'default' : 'outline'}
+                onClick={() => setGrupoFiltro('TODOS')}
+                className={`h-7 text-xs ${grupoFiltro === 'TODOS' ? 'bg-[#004C97]' : ''}`}
+              >
+                Todos ({validacao.requisitos.length})
+              </Button>
+              {validacao.requisitosPorGrupo.map((g) => (
+                <Button
+                  key={g.grupo}
+                  size="sm"
+                  variant={grupoFiltro === g.grupo ? 'default' : 'outline'}
+                  onClick={() => setGrupoFiltro(g.grupo)}
+                  className={`h-7 text-xs gap-1 ${grupoFiltro === g.grupo ? 'bg-[#004C97]' : ''}`}
+                >
+                  {getGrupoIcon(g.grupo)}
+                  <span>{g.nomeGrupo}</span>
+                  <span className="text-[10px] opacity-80">({g.total})</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+          <span className="text-[11px] text-slate-500 font-mono">
+            {requisitosFiltrados.length} requisito(s) exibido(s)
+          </span>
+        </div>
+
+        {/* ZONA 3: CORPO COM SCROLL VERTICAL ÚNICO (flex 1 1 auto, min-h-0, overflow-y-auto) */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 space-y-4 bg-slate-50/40 text-xs text-slate-800">
           {/* 1. IDENTIFICAÇÃO COMPLETA DO PEDIDO MTO */}
           {itemAtivo && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
@@ -500,42 +549,9 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
           {/* 3. REQUISITOS AGRUPADOS POR GRUPOS CANÔNICOS */}
           <div className="space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              {/* Filtro por grupo canônico */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Button
-                  size="sm"
-                  variant={grupoFiltro === 'TODOS' ? 'default' : 'outline'}
-                  onClick={() => setGrupoFiltro('TODOS')}
-                  className={`h-7 text-xs ${grupoFiltro === 'TODOS' ? 'bg-[#004C97]' : ''}`}
-                >
-                  Todos os Grupos ({validacao.requisitos.length})
-                </Button>
-                {validacao.requisitosPorGrupo.map((g) => (
-                  <Button
-                    key={g.grupo}
-                    size="sm"
-                    variant={grupoFiltro === g.grupo ? 'default' : 'outline'}
-                    onClick={() => setGrupoFiltro(g.grupo)}
-                    className={`h-7 text-xs gap-1 ${grupoFiltro === g.grupo ? 'bg-[#004C97]' : ''}`}
-                  >
-                    {getGrupoIcon(g.grupo)}
-                    <span>{g.nomeGrupo}</span>
-                    <span className="text-[10px] opacity-80">({g.total})</span>
-                  </Button>
-                ))}
-              </div>
-
-              {/* Input de filtro textual */}
-              <div className="relative w-48">
-                <Search className="w-3.5 h-3.5 absolute left-2 top-2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Filtrar requisito..."
-                  value={filtroTexto}
-                  onChange={(e) => setFiltroTexto(e.target.value)}
-                  className="w-full text-xs pl-7 pr-2 py-1 rounded-md border border-slate-300 focus:outline-hidden"
-                />
-              </div>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Detalhamento dos Requisitos ({requisitosFiltrados.length})
+              </span>
             </div>
 
             {/* Loading do backend */}
@@ -632,13 +648,15 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
           </div>
         </div>
 
-        {/* RODAPÉ */}
-        <DialogFooter className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center sm:justify-between">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#004C97]" />
+        {/* ZONA 4: RODAPÉ FIXO (flex 0 0 auto, 60-80px) */}
+        <div className="flex-none px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2 shadow-sm min-h-[60px]">
+          <div className="text-xs text-slate-500 flex items-center gap-2">
             <span>
-              Fonte canônica: PocketBase <code>order_requirement_sheets</code> &bull; Chave: Pedido
-              SAP + Item
+              Fonte: <strong>SAP RFC ZSD28C / PB order_requirement_sheets</strong>
+            </span>
+            <span>&bull;</span>
+            <span>
+              Última sincronização: <strong>{new Date().toLocaleDateString('pt-BR')}</strong>
             </span>
           </div>
           <Button
@@ -648,7 +666,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
           >
             Fechar Consulta
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

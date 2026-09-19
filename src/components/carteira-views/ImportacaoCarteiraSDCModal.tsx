@@ -1,12 +1,5 @@
 import React, { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { UploadCloud, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -135,126 +128,124 @@ export const ImportacaoCarteiraSDCModal: React.FC<ImportacaoCarteiraSDCModalProp
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-[#004C97]" />
-            <DialogTitle className="text-base font-bold text-slate-900">
-              Importar Carga QAS — Carteira SDC (WERKS = SDPL)
-            </DialogTitle>
+    <AnalyticalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="analytical"
+      badge="WERKS = SDPL (Sidercentro)"
+      title="Importar Carga QAS • Carteira SDC"
+      subtitle="Importação controlada de pedidos SDC com classificação e cálculo automático de saldos e coberturas"
+      scrollMode="auto"
+      footer={
+        <div className="w-full flex items-center justify-between gap-2">
+          <div className="text-xs text-slate-500">
+            Fonte: Carga QAS SDC &bull; O saldo é sempre calculado automaticamente pelo sistema
           </div>
-          <DialogDescription className="text-xs text-slate-500">
-            Enquanto o SAP ECC não estiver integrado em produção, utilize a importação controlada
-            QAS. O <strong>Saldo é calculado automaticamente</strong> (o usuário nunca informa o
-            saldo).
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-700">
-              Cole os dados da planilha (formato Tab, Ponto e Vírgula ou CSV):
-            </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+              Cancelar
+            </Button>
             <Button
-              variant="outline"
               size="sm"
-              onClick={handleCarregarExemplo}
-              className="text-xs text-[#004C97] border-[#004C97]/30 hover:bg-blue-50 font-semibold"
+              onClick={handleConfirmar}
+              disabled={previa.length === 0}
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
             >
-              Carregar Exemplo Homologado (C1000A360600)
+              <CheckCircle2 className="w-4 h-4" /> Confirmar Importação QAS ({previa.length} itens)
             </Button>
           </div>
-
-          <textarea
-            value={textoManual}
-            onChange={(e) => {
-              setTextoManual(e.target.value)
-              processarTexto(e.target.value)
-            }}
-            placeholder="Material&#9;Descricao&#9;CurvaABC&#9;Carteira_t&#9;EstoqueTotal_t&#9;Programado_t&#9;Origem&#10;C1000A360600&#9;Cantoneira 1x1/8&#9;A&#9;26.00&#9;6.84&#9;0&#9;Sidercentro"
-            rows={6}
-            className="w-full font-mono text-xs p-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
-          />
-
-          {erro && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-lg text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>{erro}</span>
-            </div>
-          )}
-
-          {previa.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-800">
-                  Prévia da Validação: {previa.length} itens prontos
-                </span>
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                  Filtro Centro SDPL Ativo
-                </Badge>
-              </div>
-
-              <div className="border border-slate-200 rounded-lg overflow-x-auto max-h-48 text-[11px]">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100 font-semibold text-slate-700 border-b border-slate-200">
-                    <tr>
-                      <th className="p-1.5">Material</th>
-                      <th className="p-1.5">Descrição</th>
-                      <th className="p-1.5 text-center">Curva</th>
-                      <th className="p-1.5 text-right">Carteira (t)</th>
-                      <th className="p-1.5 text-right">Estoque (t)</th>
-                      <th className="p-1.5 text-right">Saldo Calculado (t)</th>
-                      <th className="p-1.5 text-center">Origem</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {previa.map((p, idx) => {
-                      const saldo = (p.estoque_total_t - p.carteira_t).toFixed(2)
-                      return (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="p-1.5 font-mono font-bold text-slate-900">{p.material}</td>
-                          <td className="p-1.5 truncate max-w-[200px] text-slate-600">
-                            {p.descricao}
-                          </td>
-                          <td className="p-1.5 text-center">{p.curva_abc || 'B'}</td>
-                          <td className="p-1.5 text-right font-mono">{p.carteira_t.toFixed(2)}</td>
-                          <td className="p-1.5 text-right font-mono">
-                            {p.estoque_total_t.toFixed(2)}
-                          </td>
-                          <td
-                            className={`p-1.5 text-right font-mono font-bold ${
-                              parseFloat(saldo) < 0 ? 'text-rose-600' : 'text-emerald-700'
-                            }`}
-                          >
-                            {parseFloat(saldo) > 0 ? `+${saldo}` : saldo}
-                          </td>
-                          <td className="p-1.5 text-center">{p.origem_producao}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-700">
+            Cole os dados da planilha (formato Tab, Ponto e Vírgula ou CSV):
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCarregarExemplo}
+            className="text-xs text-[#004C97] border-[#004C97]/30 hover:bg-blue-50 font-semibold"
+          >
+            Carregar Exemplo Homologado (C1000A360600)
+          </Button>
         </div>
 
-        <DialogFooter className="pt-2 border-t border-slate-100 flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleConfirmar}
-            disabled={previa.length === 0}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5"
-          >
-            <CheckCircle2 className="w-4 h-4" /> Confirmar Importação QAS ({previa.length} itens)
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <textarea
+          value={textoManual}
+          onChange={(e) => {
+            setTextoManual(e.target.value)
+            processarTexto(e.target.value)
+          }}
+          placeholder="Material&#9;Descricao&#9;CurvaABC&#9;Carteira_t&#9;EstoqueTotal_t&#9;Programado_t&#9;Origem&#10;C1000A360600&#9;Cantoneira 1x1/8&#9;A&#9;26.00&#9;6.84&#9;0&#9;Sidercentro"
+          rows={6}
+          className="w-full font-mono text-xs p-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+        />
+
+        {erro && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-lg text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{erro}</span>
+          </div>
+        )}
+
+        {previa.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-800">
+                Prévia da Validação: {previa.length} itens prontos
+              </span>
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                Filtro Centro SDPL Ativo
+              </Badge>
+            </div>
+
+            <div className="border border-slate-200 rounded-lg overflow-x-auto max-h-48 text-[11px]">
+              <table className="w-full text-left">
+                <thead className="bg-slate-100 font-semibold text-slate-700 border-b border-slate-200">
+                  <tr>
+                    <th className="p-1.5">Material</th>
+                    <th className="p-1.5">Descrição</th>
+                    <th className="p-1.5 text-center">Curva</th>
+                    <th className="p-1.5 text-right">Carteira (t)</th>
+                    <th className="p-1.5 text-right">Estoque (t)</th>
+                    <th className="p-1.5 text-right">Saldo Calculado (t)</th>
+                    <th className="p-1.5 text-center">Origem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {previa.map((p, idx) => {
+                    const saldo = (p.estoque_total_t - p.carteira_t).toFixed(2)
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="p-1.5 font-mono font-bold text-slate-900">{p.material}</td>
+                        <td className="p-1.5 truncate max-w-[200px] text-slate-600">
+                          {p.descricao}
+                        </td>
+                        <td className="p-1.5 text-center">{p.curva_abc || 'B'}</td>
+                        <td className="p-1.5 text-right font-mono">{p.carteira_t.toFixed(2)}</td>
+                        <td className="p-1.5 text-right font-mono">
+                          {p.estoque_total_t.toFixed(2)}
+                        </td>
+                        <td
+                          className={`p-1.5 text-right font-mono font-bold ${
+                            parseFloat(saldo) < 0 ? 'text-rose-600' : 'text-emerald-700'
+                          }`}
+                        >
+                          {parseFloat(saldo) > 0 ? `+${saldo}` : saldo}
+                        </td>
+                        <td className="p-1.5 text-center">{p.origem_producao}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </AnalyticalModal>
   )
 }
 export default ImportacaoCarteiraSDCModal

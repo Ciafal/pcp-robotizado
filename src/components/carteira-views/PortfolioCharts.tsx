@@ -658,7 +658,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="h-[360px] w-full">
+                <div className="min-h-[420px] h-[440px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosPorCobertura}
@@ -766,7 +766,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="h-[360px] w-full">
+                <div className="min-h-[420px] h-[440px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosPorCriticidade}

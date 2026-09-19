@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -367,25 +368,41 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto bg-white border-slate-200 text-slate-900 shadow-2xl">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-sm">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <div>
-                  <DialogTitle className="text-base font-bold text-slate-900">
-                    Importação da Carteira QAS &bull; Transação ZSD28C
-                  </DialogTitle>
-                  <p className="text-xs text-slate-500">
-                    Classificação Semântica &bull; Validação de 3 Níveis &bull; Carga Parcial
-                    Controlada &bull; Gravação Atômica
-                  </p>
-                </div>
-              </div>
-
+      <AnalyticalModal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="analytical"
+        badge="SAP RFC ZSD28C"
+        title="Importação da Carteira QAS • Transação ZSD28C"
+        subtitle="Classificação Semântica • Validação de 3 Níveis • Carga Parcial Controlada • Gravação Atômica"
+        scrollMode="auto"
+        headerKpis={[
+          ...(validacaoResultado
+            ? [
+                {
+                  label: 'Válidos',
+                  value: `${validacaoResultado.linhasValidas}`,
+                  variant: 'success' as const,
+                },
+                {
+                  label: 'Rejeitados',
+                  value: `${validacaoResultado.linhasRejeitadas}`,
+                  variant:
+                    validacaoResultado.linhasRejeitadas > 0
+                      ? ('danger' as const)
+                      : ('default' as const),
+                },
+                {
+                  label: 'Ignorados Auto',
+                  value: `${validacaoResultado.linhasTotalIgnoradas}`,
+                  variant: 'default' as const,
+                },
+              ]
+            : []),
+        ]}
+        footer={
+          <div className="w-full flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -394,9 +411,91 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
               >
                 <Download className="w-3.5 h-3.5 text-[#004C97]" /> Baixar Template Excel (3 Abas)
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onClose}
+                className="border-slate-300 text-slate-700 text-xs"
+              >
+                Fechar
+              </Button>
             </div>
-          </DialogHeader>
 
+            <div className="flex items-center gap-2">
+              {/* Botões do Step de Validação (Requisito 2 & 13) */}
+              {activeStep === 'VALIDACAO' && validacaoResultado && (
+                <>
+                  {validacaoResultado.temErroCriticoEstrutural ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={resetarUpload}
+                      className="border-rose-300 text-rose-800 hover:bg-rose-50 text-xs font-semibold gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Corrigir arquivo e importar novamente
+                    </Button>
+                  ) : validacaoResultado.linhasRejeitadas > 0 ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={resetarUpload}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Corrigir arquivo e importar novamente
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => setIsConfirmacaoParcialOpen(true)}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold gap-1.5 shadow-sm"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        IMPORTAR {validacaoResultado.linhasValidas.toLocaleString('pt-BR')} LINHAS
+                        VÁLIDAS E IGNORAR {validacaoResultado.linhasRejeitadas} REJEITADA
+                        {validacaoResultado.linhasRejeitadas > 1 ? 'S' : ''}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveStep('PREVIEW')}
+                      className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Avançar para Pré-visualização (
+                      {validacaoResultado.linhasValidas})
+                    </Button>
+                  )}
+                </>
+              )}
+
+              {/* Botões do Step de Preview */}
+              {activeStep === 'PREVIEW' && validacaoResultado && (
+                <Button
+                  size="sm"
+                  disabled={isProcessing}
+                  onClick={() => {
+                    if (validacaoResultado.linhasRejeitadas > 0) {
+                      setIsConfirmacaoParcialOpen(true)
+                    } else {
+                      handleExecutarCarga(false)
+                    }
+                  }}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {isProcessing
+                    ? 'Gravando e auditando...'
+                    : validacaoResultado.linhasRejeitadas > 0
+                      ? `Confirmar e Importar ${validacaoResultado.linhasValidas.toLocaleString('pt-BR')} Registros Válidos`
+                      : `Confirmar e Publicar Carteira (${validacaoResultado.linhasValidas} Registros)`}
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
           {/* Stepper Navigation */}
           <div className="flex items-center gap-1 border-b border-slate-200 pt-2 text-xs overflow-x-auto">
             <button
@@ -975,91 +1074,8 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
               </div>
             )}
           </div>
-
-          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onClose}
-              className="border-slate-300 text-slate-700 text-xs"
-            >
-              Fechar
-            </Button>
-
-            <div className="flex items-center gap-2">
-              {/* Botões do Step de Validação (Requisito 2 & 13) */}
-              {activeStep === 'VALIDACAO' && validacaoResultado && (
-                <>
-                  {validacaoResultado.temErroCriticoEstrutural ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={resetarUpload}
-                      className="border-rose-300 text-rose-800 hover:bg-rose-50 text-xs font-semibold gap-1.5"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Corrigir arquivo e importar novamente
-                    </Button>
-                  ) : validacaoResultado.linhasRejeitadas > 0 ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={resetarUpload}
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" /> Corrigir arquivo e importar novamente
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        onClick={() => setIsConfirmacaoParcialOpen(true)}
-                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold gap-1.5 shadow-sm"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                        IMPORTAR {validacaoResultado.linhasValidas.toLocaleString('pt-BR')} LINHAS
-                        VÁLIDAS E IGNORAR {validacaoResultado.linhasRejeitadas} REJEITADA
-                        {validacaoResultado.linhasRejeitadas > 1 ? 'S' : ''}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => setActiveStep('PREVIEW')}
-                      className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Avançar para Pré-visualização (
-                      {validacaoResultado.linhasValidas})
-                    </Button>
-                  )}
-                </>
-              )}
-
-              {/* Botões do Step de Preview */}
-              {activeStep === 'PREVIEW' && validacaoResultado && (
-                <Button
-                  size="sm"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    if (validacaoResultado.linhasRejeitadas > 0) {
-                      setIsConfirmacaoParcialOpen(true)
-                    } else {
-                      handleExecutarCarga(false)
-                    }
-                  }}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 shadow-sm"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {isProcessing
-                    ? 'Gravando e auditando...'
-                    : validacaoResultado.linhasRejeitadas > 0
-                      ? `Confirmar e Importar ${validacaoResultado.linhasValidas.toLocaleString('pt-BR')} Registros Válidos`
-                      : `Confirmar e Publicar Carteira (${validacaoResultado.linhasValidas} Registros)`}
-                </Button>
-              )}
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </AnalyticalModal>
 
       {/* MODAL DE CONFIRMAÇÃO DE IMPORTAÇÃO PARCIAL CONTROLADA (Requisito 2 & 14) */}
       <Dialog

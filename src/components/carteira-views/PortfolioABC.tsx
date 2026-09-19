@@ -209,12 +209,15 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             </div>
           )}
 
-          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Hierarquia vertical, sem linha estreita, valores integrais) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full">
+          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Hierarquia vertical, 3 col desktop, minmax(0,1fr), valores integrais) */}
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))' }}
+          >
             {/* Card Curva A (Azul Institucional Forte) */}
             <div
               onClick={() => abrirDrilldownCurva('A')}
-              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-blue-200 hover:border-[#004C97] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
+              className="p-5 bg-white rounded-xl border-2 border-blue-200 hover:border-[#004C97] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0 w-full"
             >
               <div className="space-y-3">
                 {/* Linha 1: Badge + Limite */}
@@ -238,7 +241,10 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   <div className="text-base sm:text-lg font-bold font-sans text-[#004C97] mt-0.5">
                     {formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
+                  <div
+                    className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
+                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                  >
                     {formatCurrencyPTBR(resumoA.faturamento_brl)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
@@ -254,7 +260,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#004C97] group-hover:text-[#003870]">
-                <span>Ver materiais Curva A &rarr;</span>
+                <span>Ver materiais &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -262,7 +268,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             {/* Card Curva B (Azul Médio) */}
             <div
               onClick={() => abrirDrilldownCurva('B')}
-              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-sky-200 hover:border-[#3380CC] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
+              className="p-5 bg-white rounded-xl border-2 border-sky-200 hover:border-[#3380CC] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0 w-full"
             >
               <div className="space-y-3">
                 {/* Linha 1: Badge + Limite */}
@@ -286,7 +292,10 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   <div className="text-base sm:text-lg font-bold font-sans text-[#3380CC] mt-0.5">
                     {formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
+                  <div
+                    className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
+                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                  >
                     {formatCurrencyPTBR(resumoB.faturamento_brl)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
@@ -302,7 +311,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#3380CC] group-hover:text-[#004C97]">
-                <span>Ver materiais Curva B &rarr;</span>
+                <span>Ver materiais &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -310,7 +319,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             {/* Card Curva C (Cinza-Azulado) */}
             <div
               onClick={() => abrirDrilldownCurva('C')}
-              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-slate-200 hover:border-slate-400 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
+              className="p-5 bg-white rounded-xl border-2 border-slate-200 hover:border-slate-400 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0 w-full"
             >
               <div className="space-y-3">
                 {/* Linha 1: Badge + Limite */}
@@ -334,7 +343,10 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   <div className="text-base sm:text-lg font-bold font-sans text-slate-700 mt-0.5">
                     {formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
+                  <div
+                    className="font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight"
+                    style={{ fontSize: 'clamp(20px, 2vw, 30px)' }}
+                  >
                     {formatCurrencyPTBR(resumoC.faturamento_brl)}
                   </div>
                   <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
@@ -350,7 +362,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-slate-900">
-                <span>Ver materiais Curva C &rarr;</span>
+                <span>Ver materiais &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>

@@ -51,12 +51,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // - Cockpit Operacional PCP (pcp.cockpit.view)
   // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
   // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
+  // - Análise de Carteira (pcp.carteira.view)
   const isDirectOperationalView =
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.schedule.view' ||
     permission === 'pcp.weekly_schedule.view' ||
     permission === 'pcp.masterdata.view' ||
-    permission === 'pcp.lines.view'
+    permission === 'pcp.lines.view' ||
+    permission === 'pcp.carteira.view'
 
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
@@ -195,7 +197,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.schedule.edit' ||
       permission === 'pcp.weekly_schedule.view' ||
-      permission === 'pcp.weekly_schedule.edit'
+      permission === 'pcp.weekly_schedule.edit' ||
+      permission === 'pcp.carteira.view'
     ) {
       hasPerm = true
     }
