@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { ShieldAlert, RotateCcw, Home, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { isChunkLoadError, triggerChunkReloadOnce } from '@/lib/lazyWithRetry'
 
 interface Props {
   children: ReactNode
@@ -28,6 +29,11 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('PCP ErrorBoundary capturou erro não tratado:', error, errorInfo)
     this.setState({ error, errorInfo })
+
+    // Se o erro for de chunk dinâmico desatualizado, tenta um reload automático único
+    if (isChunkLoadError(error)) {
+      triggerChunkReloadOnce()
+    }
   }
 
   public handleReset = () => {

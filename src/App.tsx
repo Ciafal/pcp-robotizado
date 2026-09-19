@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -7,6 +7,7 @@ import { OeeDrilldownProvider } from '@/contexts/OeeDrilldownContext'
 import { OeeDrilldownModal } from '@/components/common/OeeDrilldownModal'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
 // Loading Fallback visual discreto
 const ModuleFallback = () => (
@@ -24,223 +25,370 @@ export const RootRedirect: React.FC = () => {
   return <Navigate to={`/pcp/cockpit${location.search}${location.hash}`} replace />
 }
 
-// Lazy load dos componentes e layouts
-const Index = lazy(() => import('@/pages/Index'))
-const CentralSequenciamentoLayout = lazy(() =>
-  import('@/pages/CentralSequenciamentoLayout').then((m) => ({
-    default: m.CentralSequenciamentoLayout,
-  })),
+// Lazy load dos componentes e layouts com retry resiliente
+const Index = lazyWithRetry(() => import('@/pages/Index'), 'Index')
+const CentralSequenciamentoLayout = lazyWithRetry(
+  () =>
+    import('@/pages/CentralSequenciamentoLayout').then((m) => ({
+      default: m.CentralSequenciamentoLayout,
+    })),
+  'CentralSequenciamentoLayout',
 )
-const CentralSequenciamentoLandingPage = lazy(
+const CentralSequenciamentoLandingPage = lazyWithRetry(
   () => import('@/pages/CentralSequenciamentoLandingPage'),
+  'CentralSequenciamentoLandingPage',
 )
-const ControlTowerPage = lazy(() =>
-  import('@/pages/ControlTowerPage').then((m) => ({ default: m.ControlTowerPage || m.default })),
+const ControlTowerPage = lazyWithRetry(
+  () =>
+    import('@/pages/ControlTowerPage').then((m) => ({ default: m.ControlTowerPage || m.default })),
+  'ControlTowerPage',
 )
-const OperationalPage = lazy(() =>
-  import('@/pages/OperationalPage').then((m) => ({ default: m.OperationalPage || m.default })),
+const OperationalPage = lazyWithRetry(
+  () =>
+    import('@/pages/OperationalPage').then((m) => ({ default: m.OperationalPage || m.default })),
+  'OperationalPage',
 )
-const SequencingPage = lazy(() =>
-  import('@/pages/SequencingPage').then((m) => ({ default: m.SequencingPage || m.default })),
+const SequencingPage = lazyWithRetry(
+  () => import('@/pages/SequencingPage').then((m) => ({ default: m.SequencingPage || m.default })),
+  'SequencingPage',
 )
-const EfficiencyPage = lazy(() => import('@/pages/EfficiencyPage'))
-const EfficiencyProductsSubpage = lazy(() => import('@/pages/EfficiencyProductsSubpage'))
-const EfficiencyLinesSubpage = lazy(() => import('@/pages/EfficiencyLinesSubpage'))
-const EfficiencyPlantsSubpage = lazy(() => import('@/pages/EfficiencyPlantsSubpage'))
-const EfficiencyAssertivenessSubpage = lazy(() => import('@/pages/EfficiencyAssertivenessSubpage'))
-const BacklogPage = lazy(() => import('@/pages/BacklogPage'))
-const AnaliseCarteiraPage = lazy(() => import('@/pages/AnaliseCarteiraPage'))
-const ScenariosPage = lazy(() =>
-  import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
+const EfficiencyPage = lazyWithRetry(() => import('@/pages/EfficiencyPage'), 'EfficiencyPage')
+const EfficiencyProductsSubpage = lazyWithRetry(
+  () => import('@/pages/EfficiencyProductsSubpage'),
+  'EfficiencyProductsSubpage',
 )
-const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
-const InventoryManagementPage = lazy(() => import('@/pages/InventoryManagementPage'))
-const ExecutiveCockpitPage = lazy(() => import('@/pages/ExecutiveCockpitPage'))
-const PCPMeetingsPage = lazy(() => import('@/pages/PCPMeetingsPage'))
-const PCPCommunicationsPage = lazy(() => import('@/pages/PCPCommunicationsPage'))
-const PCPInboxPage = lazy(() => import('@/pages/PCPInboxPage'))
-const LiveMeetingRoom = lazy(() =>
-  import('@/components/meetings/LiveMeetingRoom').then((m) => ({ default: m.LiveMeetingRoom })),
+const EfficiencyLinesSubpage = lazyWithRetry(
+  () => import('@/pages/EfficiencyLinesSubpage'),
+  'EfficiencyLinesSubpage',
 )
-const MeetingMinutesView = lazy(() =>
-  import('@/components/meetings/MeetingMinutesView').then((m) => ({
-    default: m.MeetingMinutesView,
-  })),
+const EfficiencyPlantsSubpage = lazyWithRetry(
+  () => import('@/pages/EfficiencyPlantsSubpage'),
+  'EfficiencyPlantsSubpage',
 )
-const MeetingPendenciesView = lazy(() =>
-  import('@/components/meetings/MeetingPendenciesView').then((m) => ({
-    default: m.MeetingPendenciesView,
-  })),
+const EfficiencyAssertivenessSubpage = lazyWithRetry(
+  () => import('@/pages/EfficiencyAssertivenessSubpage'),
+  'EfficiencyAssertivenessSubpage',
+)
+const BacklogPage = lazyWithRetry(() => import('@/pages/BacklogPage'), 'BacklogPage')
+const AnaliseCarteiraPage = lazyWithRetry(
+  () => import('@/pages/AnaliseCarteiraPage'),
+  'AnaliseCarteiraPage',
+)
+const ScenariosPage = lazyWithRetry(
+  () => import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
+  'ScenariosPage',
+)
+const HistoryPage = lazyWithRetry(() => import('@/pages/HistoryPage'), 'HistoryPage')
+const InventoryManagementPage = lazyWithRetry(
+  () => import('@/pages/InventoryManagementPage'),
+  'InventoryManagementPage',
+)
+const ExecutiveCockpitPage = lazyWithRetry(
+  () => import('@/pages/ExecutiveCockpitPage'),
+  'ExecutiveCockpitPage',
+)
+const PCPMeetingsPage = lazyWithRetry(() => import('@/pages/PCPMeetingsPage'), 'PCPMeetingsPage')
+const PCPCommunicationsPage = lazyWithRetry(
+  () => import('@/pages/PCPCommunicationsPage'),
+  'PCPCommunicationsPage',
+)
+const PCPInboxPage = lazyWithRetry(() => import('@/pages/PCPInboxPage'), 'PCPInboxPage')
+const LiveMeetingRoom = lazyWithRetry(
+  () =>
+    import('@/components/meetings/LiveMeetingRoom').then((m) => ({ default: m.LiveMeetingRoom })),
+  'LiveMeetingRoom',
+)
+const MeetingMinutesView = lazyWithRetry(
+  () =>
+    import('@/components/meetings/MeetingMinutesView').then((m) => ({
+      default: m.MeetingMinutesView,
+    })),
+  'MeetingMinutesView',
+)
+const MeetingPendenciesView = lazyWithRetry(
+  () =>
+    import('@/components/meetings/MeetingPendenciesView').then((m) => ({
+      default: m.MeetingPendenciesView,
+    })),
+  'MeetingPendenciesView',
 )
 
 // Planejamento Mestre
-const MasterPlanningLayout = lazy(() =>
-  import('@/pages/MasterPlanningLayout').then((m) => ({ default: m.MasterPlanningLayout })),
+const MasterPlanningLayout = lazyWithRetry(
+  () => import('@/pages/MasterPlanningLayout').then((m) => ({ default: m.MasterPlanningLayout })),
+  'MasterPlanningLayout',
 )
-const MasterPlanningPage = lazy(() =>
-  import('@/components/control-tower/MasterPlanningPage').then((m) => ({
-    default: m.MasterPlanningPage,
-  })),
+const MasterPlanningPage = lazyWithRetry(
+  () =>
+    import('@/components/control-tower/MasterPlanningPage').then((m) => ({
+      default: m.MasterPlanningPage,
+    })),
+  'MasterPlanningPage',
 )
 
 // Gestão de Linhas & Mapa de Integração
-const LineManagementLayout = lazy(() =>
-  import('@/pages/LineManagementLayout').then((m) => ({ default: m.LineManagementLayout })),
+const LineManagementLayout = lazyWithRetry(
+  () => import('@/pages/LineManagementLayout').then((m) => ({ default: m.LineManagementLayout })),
+  'LineManagementLayout',
 )
-const ProductionIntegrationMapPage = lazy(() => import('@/pages/ProductionIntegrationMapPage'))
-const LineCapacitiesSubpage = lazy(() => import('@/pages/LineCapacitiesSubpage'))
-const LineDependenciesSubpage = lazy(() => import('@/pages/LineDependenciesSubpage'))
-const LineHistorySubpage = lazy(() => import('@/pages/LineHistorySubpage'))
+const ProductionIntegrationMapPage = lazyWithRetry(
+  () => import('@/pages/ProductionIntegrationMapPage'),
+  'ProductionIntegrationMapPage',
+)
+const LineCapacitiesSubpage = lazyWithRetry(
+  () => import('@/pages/LineCapacitiesSubpage'),
+  'LineCapacitiesSubpage',
+)
+const LineDependenciesSubpage = lazyWithRetry(
+  () => import('@/pages/LineDependenciesSubpage'),
+  'LineDependenciesSubpage',
+)
+const LineHistorySubpage = lazyWithRetry(
+  () => import('@/pages/LineHistorySubpage'),
+  'LineHistorySubpage',
+)
 
 // Módulos Auxiliares / Legado
-const LineMasterPage = lazy(() => import('@/pages/LineMasterPage'))
-const LineResponsiblesPage = lazy(() => import('@/pages/LineResponsiblesPage'))
-const SchedulesPage = lazy(() => import('@/pages/SchedulesPage'))
-const AuditPage = lazy(() => import('@/pages/AuditPage'))
-const ReasonsAndGovernancePage = lazy(() => import('@/pages/ReasonsAndGovernancePage'))
-const AccessAdminPage = lazy(() => import('@/pages/AccessAdminPage'))
-const ScheduleChangesCenterPage = lazy(() => import('@/pages/ScheduleChangesCenterPage'))
-const PCPIntegrationsPage = lazy(() => import('@/pages/PCPIntegrationsPage'))
-const PCPIntegrationMonitorPage = lazy(() => import('@/pages/PCPIntegrationMonitorPage'))
-const PCPDataQualityPage = lazy(() => import('@/pages/PCPDataQualityPage'))
-const PCPHomologationStatusPage = lazy(() => import('@/pages/PCPHomologationStatusPage'))
-const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage'))
-const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
-const TestProgrammingPage = lazy(() => import('@/pages/TestProgrammingPage'))
-const RawMaterialInventoryPage = lazy(() => import('@/pages/pcp/RawMaterialInventoryPage'))
-const EntregasPcpPage = lazy(() => import('@/pages/EntregasPcpPage'))
+const LineMasterPage = lazyWithRetry(() => import('@/pages/LineMasterPage'), 'LineMasterPage')
+const LineResponsiblesPage = lazyWithRetry(
+  () => import('@/pages/LineResponsiblesPage'),
+  'LineResponsiblesPage',
+)
+const SchedulesPage = lazyWithRetry(() => import('@/pages/SchedulesPage'), 'SchedulesPage')
+const AuditPage = lazyWithRetry(() => import('@/pages/AuditPage'), 'AuditPage')
+const ReasonsAndGovernancePage = lazyWithRetry(
+  () => import('@/pages/ReasonsAndGovernancePage'),
+  'ReasonsAndGovernancePage',
+)
+const AccessAdminPage = lazyWithRetry(() => import('@/pages/AccessAdminPage'), 'AccessAdminPage')
+const ScheduleChangesCenterPage = lazyWithRetry(
+  () => import('@/pages/ScheduleChangesCenterPage'),
+  'ScheduleChangesCenterPage',
+)
+const PCPIntegrationsPage = lazyWithRetry(
+  () => import('@/pages/PCPIntegrationsPage'),
+  'PCPIntegrationsPage',
+)
+const PCPIntegrationMonitorPage = lazyWithRetry(
+  () => import('@/pages/PCPIntegrationMonitorPage'),
+  'PCPIntegrationMonitorPage',
+)
+const PCPDataQualityPage = lazyWithRetry(
+  () => import('@/pages/PCPDataQualityPage'),
+  'PCPDataQualityPage',
+)
+const PCPHomologationStatusPage = lazyWithRetry(
+  () => import('@/pages/PCPHomologationStatusPage'),
+  'PCPHomologationStatusPage',
+)
+const ProductQualityHubPage = lazyWithRetry(
+  () => import('@/pages/ProductQualityHubPage'),
+  'ProductQualityHubPage',
+)
+const WeeklyScheduleOperationalPage = lazyWithRetry(
+  () => import('@/pages/WeeklyScheduleOperationalPage'),
+  'WeeklyScheduleOperationalPage',
+)
+const TestProgrammingPage = lazyWithRetry(
+  () => import('@/pages/TestProgrammingPage'),
+  'TestProgrammingPage',
+)
+const RawMaterialInventoryPage = lazyWithRetry(
+  () => import('@/pages/pcp/RawMaterialInventoryPage'),
+  'RawMaterialInventoryPage',
+)
+const EntregasPcpPage = lazyWithRetry(() => import('@/pages/EntregasPcpPage'), 'EntregasPcpPage')
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
-const MPOverviewConsolidatedPage = lazy(() =>
-  import('@/pages/mp-optimization/MPOverviewConsolidatedPage').then((m) => ({
-    default: m.MPOverviewConsolidatedPage,
-  })),
+const MPOverviewConsolidatedPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPOverviewConsolidatedPage').then((m) => ({
+      default: m.MPOverviewConsolidatedPage,
+    })),
+  'MPOverviewConsolidatedPage',
 )
-const MPOrdersAndReceiptPage = lazy(() =>
-  import('@/pages/mp-optimization/MPOrdersAndReceiptPage').then((m) => ({
-    default: m.MPOrdersAndReceiptPage,
-  })),
+const MPOrdersAndReceiptPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPOrdersAndReceiptPage').then((m) => ({
+      default: m.MPOrdersAndReceiptPage,
+    })),
+  'MPOrdersAndReceiptPage',
 )
-const MPCuttingPlansUnifiedPage = lazy(() =>
-  import('@/pages/mp-optimization/MPCuttingPlansUnifiedPage').then((m) => ({
-    default: m.MPCuttingPlansUnifiedPage,
-  })),
+const MPCuttingPlansUnifiedPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPCuttingPlansUnifiedPage').then((m) => ({
+      default: m.MPCuttingPlansUnifiedPage,
+    })),
+  'MPCuttingPlansUnifiedPage',
 )
-const MPOptimizeApplicationsUnifiedPage = lazy(() =>
-  import('@/pages/mp-optimization/MPOptimizeApplicationsUnifiedPage').then((m) => ({
-    default: m.MPOptimizeApplicationsUnifiedPage,
-  })),
+const MPOptimizeApplicationsUnifiedPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPOptimizeApplicationsUnifiedPage').then((m) => ({
+      default: m.MPOptimizeApplicationsUnifiedPage,
+    })),
+  'MPOptimizeApplicationsUnifiedPage',
 )
 
 // Subpáginas legadas / rotas de detalhe compatíveis
-const MPOptimizationOverviewPage = lazy(() =>
-  import('@/pages/mp-optimization/MPOptimizationOverviewPage').then((m) => ({
-    default: m.MPOptimizationOverviewPage,
-  })),
+const MPOptimizationOverviewPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPOptimizationOverviewPage').then((m) => ({
+      default: m.MPOptimizationOverviewPage,
+    })),
+  'MPOptimizationOverviewPage',
 )
-const MPNeedsPage = lazy(() =>
-  import('@/pages/mp-optimization/MPNeedsPage').then((m) => ({ default: m.MPNeedsPage })),
+const MPNeedsPage = lazyWithRetry(
+  () => import('@/pages/mp-optimization/MPNeedsPage').then((m) => ({ default: m.MPNeedsPage })),
+  'MPNeedsPage',
 )
-const MPByApplicationPage = lazy(() =>
-  import('@/pages/mp-optimization/MPByApplicationPage').then((m) => ({
-    default: m.MPByApplicationPage,
-  })),
+const MPByApplicationPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPByApplicationPage').then((m) => ({
+      default: m.MPByApplicationPage,
+    })),
+  'MPByApplicationPage',
 )
-const MPCuttingPlanPage = lazy(() =>
-  import('@/pages/mp-optimization/MPCuttingPlanPage').then((m) => ({
-    default: m.MPCuttingPlanPage,
-  })),
+const MPCuttingPlanPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPCuttingPlanPage').then((m) => ({
+      default: m.MPCuttingPlanPage,
+    })),
+  'MPCuttingPlanPage',
 )
-const MPDimensionalInventoryPage = lazy(() =>
-  import('@/pages/mp-optimization/MPDimensionalInventoryPage').then((m) => ({
-    default: m.MPDimensionalInventoryPage,
-  })),
+const MPDimensionalInventoryPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPDimensionalInventoryPage').then((m) => ({
+      default: m.MPDimensionalInventoryPage,
+    })),
+  'MPDimensionalInventoryPage',
 )
-const MPExistingCutsPage = lazy(() =>
-  import('@/pages/mp-optimization/MPExistingCutsPage').then((m) => ({
-    default: m.MPExistingCutsPage,
-  })),
+const MPExistingCutsPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPExistingCutsPage').then((m) => ({
+      default: m.MPExistingCutsPage,
+    })),
+  'MPExistingCutsPage',
 )
-const MPReapplicationsPage = lazy(() =>
-  import('@/pages/mp-optimization/MPReapplicationsPage').then((m) => ({
-    default: m.MPReapplicationsPage,
-  })),
+const MPReapplicationsPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPReapplicationsPage').then((m) => ({
+      default: m.MPReapplicationsPage,
+    })),
+  'MPReapplicationsPage',
 )
-const MPOutOfIdealPage = lazy(() =>
-  import('@/pages/mp-optimization/MPOutOfIdealPage').then((m) => ({ default: m.MPOutOfIdealPage })),
+const MPOutOfIdealPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPOutOfIdealPage').then((m) => ({
+      default: m.MPOutOfIdealPage,
+    })),
+  'MPOutOfIdealPage',
 )
-const MPDimensionalAnalysisPage = lazy(() =>
-  import('@/pages/mp-optimization/MPDimensionalAnalysisPage').then((m) => ({
-    default: m.MPDimensionalAnalysisPage,
-  })),
+const MPDimensionalAnalysisPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPDimensionalAnalysisPage').then((m) => ({
+      default: m.MPDimensionalAnalysisPage,
+    })),
+  'MPDimensionalAnalysisPage',
 )
-const MPProjection3DPage = lazy(() =>
-  import('@/pages/mp-optimization/MPProjection3DPage').then((m) => ({
-    default: m.MPProjection3DPage,
-  })),
+const MPProjection3DPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPProjection3DPage').then((m) => ({
+      default: m.MPProjection3DPage,
+    })),
+  'MPProjection3DPage',
 )
-const MPApprovalsPage = lazy(() =>
-  import('@/pages/mp-optimization/MPApprovalsPage').then((m) => ({ default: m.MPApprovalsPage })),
+const MPApprovalsPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPApprovalsPage').then((m) => ({
+      default: m.MPApprovalsPage,
+    })),
+  'MPApprovalsPage',
 )
-const MPAuditHistoryPage = lazy(() =>
-  import('@/pages/mp-optimization/MPAuditHistoryPage').then((m) => ({
-    default: m.MPAuditHistoryPage,
-  })),
+const MPAuditHistoryPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPAuditHistoryPage').then((m) => ({
+      default: m.MPAuditHistoryPage,
+    })),
+  'MPAuditHistoryPage',
 )
-const MPPlannedVsRealizedPage = lazy(() =>
-  import('@/pages/mp-optimization/MPPlannedVsRealizedPage').then((m) => ({
-    default: m.MPPlannedVsRealizedPage,
-  })),
+const MPPlannedVsRealizedPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPPlannedVsRealizedPage').then((m) => ({
+      default: m.MPPlannedVsRealizedPage,
+    })),
+  'MPPlannedVsRealizedPage',
 )
-const MPIndicatorsPage = lazy(() =>
-  import('@/pages/mp-optimization/MPIndicatorsPage').then((m) => ({ default: m.MPIndicatorsPage })),
+const MPIndicatorsPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPIndicatorsPage').then((m) => ({
+      default: m.MPIndicatorsPage,
+    })),
+  'MPIndicatorsPage',
 )
-const MPProjectionsSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPProjectionsSubpage').then((m) => ({
-    default: m.MPProjectionsSubpage,
-  })),
+const MPProjectionsSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPProjectionsSubpage').then((m) => ({
+      default: m.MPProjectionsSubpage,
+    })),
+  'MPProjectionsSubpage',
 )
-const MPDestinationAndAvailabilitySubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPDestinationAndAvailabilitySubpage').then((m) => ({
-    default: m.MPDestinationAndAvailabilitySubpage,
-  })),
+const MPDestinationAndAvailabilitySubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPDestinationAndAvailabilitySubpage').then((m) => ({
+      default: m.MPDestinationAndAvailabilitySubpage,
+    })),
+  'MPDestinationAndAvailabilitySubpage',
 )
-const MPSpecialSteelsSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPSpecialSteelsSubpage').then((m) => ({
-    default: m.MPSpecialSteelsSubpage,
-  })),
+const MPSpecialSteelsSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPSpecialSteelsSubpage').then((m) => ({
+      default: m.MPSpecialSteelsSubpage,
+    })),
+  'MPSpecialSteelsSubpage',
 )
-const MPL1BalanceAndConsumptionSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPL1BalanceAndConsumptionSubpage').then((m) => ({
-    default: m.MPL1BalanceAndConsumptionSubpage,
-  })),
+const MPL1BalanceAndConsumptionSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPL1BalanceAndConsumptionSubpage').then((m) => ({
+      default: m.MPL1BalanceAndConsumptionSubpage,
+    })),
+  'MPL1BalanceAndConsumptionSubpage',
 )
-const MPUtilizationAndSubstitutionSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPUtilizationAndSubstitutionSubpage').then((m) => ({
-    default: m.MPUtilizationAndSubstitutionSubpage,
-  })),
+const MPUtilizationAndSubstitutionSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPUtilizationAndSubstitutionSubpage').then((m) => ({
+      default: m.MPUtilizationAndSubstitutionSubpage,
+    })),
+  'MPUtilizationAndSubstitutionSubpage',
 )
-const MPIndustrializerSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPIndustrializerSubpage').then((m) => ({
-    default: m.MPIndustrializerSubpage,
-  })),
+const MPIndustrializerSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPIndustrializerSubpage').then((m) => ({
+      default: m.MPIndustrializerSubpage,
+    })),
+  'MPIndustrializerSubpage',
 )
-const MPSidercentroSubpage = lazy(() =>
-  import('@/pages/mp-optimization/MPSidercentroSubpage').then((m) => ({
-    default: m.MPSidercentroSubpage,
-  })),
+const MPSidercentroSubpage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPSidercentroSubpage').then((m) => ({
+      default: m.MPSidercentroSubpage,
+    })),
+  'MPSidercentroSubpage',
 )
-const RulesEnginePage = lazy(() =>
-  import('@/pages/RulesEnginePage').then((m) => ({
-    default: m.RulesEnginePage || m.default,
-  })),
+const RulesEnginePage = lazyWithRetry(
+  () =>
+    import('@/pages/RulesEnginePage').then((m) => ({
+      default: m.RulesEnginePage || m.default,
+    })),
+  'RulesEnginePage',
 )
-const ModulePreparationPage = lazy(() =>
-  import('@/pages/ModulePreparationPage').then((m) => ({
-    default: m.ModulePreparationPage || m.default,
-  })),
+const ModulePreparationPage = lazyWithRetry(
+  () =>
+    import('@/pages/ModulePreparationPage').then((m) => ({
+      default: m.ModulePreparationPage || m.default,
+    })),
+  'ModulePreparationPage',
 )
-const NotFound = lazy(() => import('@/pages/NotFound'))
+const NotFound = lazyWithRetry(() => import('@/pages/NotFound'), 'NotFound')
 
 export const App: React.FC = () => {
   return (
