@@ -1078,6 +1078,7 @@ export const CiafalFormGrid: React.FC<CiafalFormGridProps> = ({
   return <div className={`${colClass} gap-3 sm:gap-4 ${className}`}>{children}</div>
 }
 
+export const FormGrid = CiafalFormGrid
 export const CiafalKPI = CiafalKPICard
 export const CiafalBreadcrumb = CiafalPageHeader
 export {
