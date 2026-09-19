@@ -39,6 +39,9 @@ import { UserProfile } from '@/types/pcp-auth'
 import { ProductionLine, ProductFamily } from '@/types/line-master'
 import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
 import { GaugeRestrictionsSection } from './GaugeRestrictionsSection'
+import { CenterDerivationSection } from './CenterDerivationSection'
+import { centerDerivationService } from '@/services/pcp-center-derivation-service'
+import { CenterDerivationRule } from '@/types/center-derivation'
 
 interface AddLineWizardModalProps {
   open: boolean
@@ -179,6 +182,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   // Restrições Mínimas de Programação por Bitola para o novo Centro
   const [pendingRestrictions, setPendingRestrictions] = useState<LineGaugeMinRestriction[]>([])
 
+  // Derivação de Centro (1:N)
+  const [isDerived, setIsDerived] = useState<boolean>(false)
+  const [derivationRules, setDerivationRules] = useState<CenterDerivationRule[]>([])
+  const [derivationError, setDerivationError] = useState<string | null>(null)
+
   if (!open) return null
 
   const validateStep = (step: number): boolean => {
@@ -191,6 +199,21 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         })
         return false
       }
+      // Validação do Card Derivação de Centro: se Sim, exigir pelo menos 1 regra válida e ativa
+      if (isDerived) {
+        const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+        if (activeRules.length === 0) {
+          const msg = 'Informe pelo menos uma derivação antes de salvar o Centro.'
+          setDerivationError(msg)
+          toast({
+            variant: 'destructive',
+            title: 'Derivação Obrigatória',
+            description: msg,
+          })
+          return false
+        }
+      }
+      setDerivationError(null)
       if (!name.trim()) {
         toast({
           variant: 'destructive',
@@ -328,6 +351,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         name: name.trim(),
         status: validLineStatus,
         is_active: true,
+        is_derived: isDerived,
         current_rate: Number(nominalHourlyCapacity) || 12,
         target_rate: Number(nominalHourlyCapacity) || 12,
         efficiency: Number(plannedEfficiencyPct) || 90,
@@ -638,6 +662,24 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
             )
           } catch (rErr) {
             console.warn('Erro ao salvar restrição mínima configurada no Wizard:', rErr)
+          }
+        }
+      }
+
+      // 8.2. Persistir Derivações de Centro configuradas no Wizard
+      if (isDerived && derivationRules.length > 0) {
+        for (const rule of derivationRules) {
+          try {
+            await centerDerivationService.saveDerivationRule(
+              {
+                ...rule,
+                center_code: createdLine.code,
+                center_id: createdLine.id,
+              },
+              'PCP Robotizado (Wizard)',
+            )
+          } catch (dErr) {
+            console.warn('Erro ao salvar regra de derivação no Wizard:', dErr)
           }
         }
       }
@@ -1003,6 +1045,27 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* CARD DERIVAÇÃO DE CENTRO (HUB CIAFAL) */}
+              <CenterDerivationSection
+                centerCode={code.trim().toUpperCase() || 'NOVO_CENTRO'}
+                centerName={name.trim()}
+                isDerived={isDerived}
+                onToggleDerived={(val) => {
+                  setIsDerived(val)
+                  if (!val) setDerivationError(null)
+                }}
+                rules={derivationRules}
+                onRulesChange={(newRules) => {
+                  setDerivationRules(newRules)
+                  if (newRules.some((r) => !r.deleted && r.status === 'Ativa')) {
+                    setDerivationError(null)
+                  }
+                }}
+                availableCenters={existingLines}
+                currentUser="Engenharia PCP"
+                validationError={derivationError}
+              />
             </div>
           )}
 

@@ -647,6 +647,15 @@ export default function LineMasterPage() {
                             <span className="font-mono font-black text-xl text-slate-900 group-hover:text-[#004C97] transition-colors">
                               {l.code}
                             </span>
+                            {l.is_derived && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] bg-blue-50 text-[#004C97] border-blue-300 font-bold"
+                                title="Centro com regras de derivação ativas"
+                              >
+                                Derivado
+                              </Badge>
+                            )}
                             {l.is_active === false ? (
                               <Badge
                                 variant="outline"

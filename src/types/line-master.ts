@@ -135,6 +135,7 @@ export interface ProductionLine {
   sap_equipment_id?: string
   mes_identifier?: string
   notes?: string
+  is_derived?: boolean
   created?: string
   updated?: string
 }

@@ -39,6 +39,9 @@ import pb from '@/lib/pocketbase/client'
 import { LineGaugeMinRestriction } from '@/types/line-gauge-restriction'
 import { lineGaugeRestrictionService } from '@/services/line-gauge-restriction-service'
 import { GaugeRestrictionsSection } from '@/components/line-master/GaugeRestrictionsSection'
+import { CenterDerivationSection } from './CenterDerivationSection'
+import { centerDerivationService } from '@/services/pcp-center-derivation-service'
+import { CenterDerivationRule } from '@/types/center-derivation'
 
 export interface EditLineModalProps {
   open: boolean
@@ -99,6 +102,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   // Restrições Mínimas de Programação por Bitola (1:N)
   const [gaugeRestrictions, setGaugeRestrictions] = useState<LineGaugeMinRestriction[]>([])
   const [loadingRestrictions, setLoadingRestrictions] = useState<boolean>(false)
+
+  // Derivação de Centro (1:N)
+  const [isDerived, setIsDerived] = useState<boolean>(false)
+  const [derivationRules, setDerivationRules] = useState<CenterDerivationRule[]>([])
+  const [derivationError, setDerivationError] = useState<string | null>(null)
 
   // Deactivation confirmation modal & blocker states
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false)
@@ -314,6 +322,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           setLoadingRestrictions(false)
         }
 
+        // Carregar Derivações de Centro cadastradas
+        try {
+          const rules = await centerDerivationService.getDerivationsByCenter(line.code)
+          setDerivationRules(rules)
+          setIsDerived(Boolean(line.is_derived || rules.length > 0))
+        } catch (dErr) {
+          console.warn('Erro ao carregar derivações do centro:', dErr)
+        }
+
         setFormData((prev) => ({
           ...prev,
           sapPlantCode: overview.master?.sap_plant_code || prev.sapPlantCode,
@@ -404,6 +421,23 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     if (isCodeDuplicate) {
       errors.code = `Já existe outra linha cadastrada com o código ${formData.code.trim().toUpperCase()}.`
     }
+
+    // Validação estrita da Derivação de Centro (Critério 1 e 6 do usuário)
+    // Se "Centro derivado? = Sim", exigir pelo menos 1 regra válida e ativa
+    if (isDerived) {
+      const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+      if (activeRules.length === 0) {
+        const msg = 'Informe pelo menos uma derivação antes de salvar o Centro.'
+        setDerivationError(msg)
+        toast({
+          variant: 'destructive',
+          title: 'Derivação Obrigatória',
+          description: msg,
+        })
+        return
+      }
+    }
+    setDerivationError(null)
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
@@ -500,6 +534,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
         is_active: formData.isActive,
+        is_derived: isDerived,
         programming_type: formData.programmingType,
         process: formData.processName.trim(),
         sap_work_center: formData.sapWorkCenter.trim() || undefined,
@@ -1018,6 +1053,29 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Bloco: DERIVAÇÃO DE CENTRO (1:N) */}
+            <CenterDerivationSection
+              centerCode={formData.code || line.code}
+              centerName={formData.name || line.name}
+              isDerived={isDerived}
+              onToggleDerived={(val) => {
+                setIsDerived(val)
+                if (!val) setDerivationError(null)
+              }}
+              rules={derivationRules}
+              onRulesChange={(newRules) => {
+                setDerivationRules(newRules)
+                if (newRules.some((r) => !r.deleted && r.status === 'Ativa')) {
+                  setDerivationError(null)
+                }
+              }}
+              availableCenters={existingLines}
+              currentUser={
+                users.find((u) => u.id === formData.primaryManagerId)?.name || 'Engenharia PCP'
+              }
+              validationError={derivationError}
+            />
 
             {/* Bloco: RESTRIÇÕES MÍNIMAS DE PROGRAMAÇÃO POR BITOLA (1:N) */}
             <GaugeRestrictionsSection

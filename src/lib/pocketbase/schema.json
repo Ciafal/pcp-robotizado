@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T19:50:03.412Z",
+  "generatedAt": "2026-09-19T20:10:51.995Z",
   "collections": [
     {
       "name": "users",
@@ -217,6 +217,12 @@
         {
           "name": "process",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_derived",
+          "type": "bool",
           "required": false,
           "system": false
         }
@@ -21873,6 +21879,207 @@
       "indexes": [
         "CREATE INDEX idx_lgmr_line ON line_gauge_min_restrictions (line_code, status)",
         "CREATE INDEX idx_lgmr_type ON line_gauge_min_restrictions (restriction_type)"
+      ]
+    },
+    {
+      "name": "pcp_center_derivations",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "center_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source_center_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "production_lines"
+        },
+        {
+          "name": "source_center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "source_center_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_center_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_center_company",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_center_line",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "matkl_groups",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "start_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "end_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Ativa", "Inativa", "ATIVA", "INATIVA"]
+        },
+        {
+          "name": "deleted",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcd_center ON pcp_center_derivations (center_code)",
+        "CREATE INDEX idx_pcd_source ON pcp_center_derivations (source_center_code)",
+        "CREATE INDEX idx_pcd_status ON pcp_center_derivations (status)",
+        "CREATE INDEX idx_pcd_deleted ON pcp_center_derivations (deleted)"
+      ]
+    },
+    {
+      "name": "sap_matkl_groups",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "matkl",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "origin_source",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["SAP_RFC", "CACHE"]
+        },
+        {
+          "name": "last_sync",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_sap_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_smg_matkl ON sap_matkl_groups (matkl)",
+        "CREATE INDEX idx_smg_active ON sap_matkl_groups (is_active)"
       ]
     }
   ]
