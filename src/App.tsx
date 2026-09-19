@@ -16,11 +16,12 @@ const ModuleFallback = () => (
   </div>
 )
 
-// Redirecionamento determinístico da Rota Raiz ("/") para Análise de Carteira Geral ("/pcp/analise-carteira/geral"):
+// Redirecionamento determinístico da Rota Raiz ("/") para a Página PRINCIPAL ("/pcp/cockpit"):
+// A entrada no PCP Robotizado sempre direciona o usuário para o dashboard inicial / página principal.
 // Preserva querystrings (?token=..., ?v=...) e hash, garantindo 1 único redirect sem loop nem tela branca.
 export const RootRedirect: React.FC = () => {
   const location = useLocation()
-  return <Navigate to={`/pcp/analise-carteira/geral${location.search}${location.hash}`} replace />
+  return <Navigate to={`/pcp/cockpit${location.search}${location.hash}`} replace />
 }
 
 // Lazy load dos componentes e layouts
@@ -503,9 +504,10 @@ export const App: React.FC = () => {
                       path="/dwp/cockpit-executivo"
                       element={<Navigate to="/pcp/cockpit-executivo" replace />}
                     />
-                    {/* Landing Raiz: Redirecionamento determinístico imediato para /pcp/analise-carteira/geral */}
+                    {/* Landing Raiz: Redirecionamento determinístico imediato para a Página PRINCIPAL (/pcp/cockpit) */}
                     <Route path="/" element={<RootRedirect />} />
-                    <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
+                    <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
+                    <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route path="/pcp/cockpit" element={<Index />} />
                     <Route
                       path="/pcp-robotizado"

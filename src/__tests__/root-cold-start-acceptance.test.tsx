@@ -39,7 +39,7 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
     localStorage.clear()
   })
 
-  it('carregar "/" em cold start sem sessão aterrissa deterministicamente em /pcp/analise-carteira/geral', async () => {
+  it('carregar "/" em cold start sem sessão aterrissa deterministicamente na página PRINCIPAL (/pcp/cockpit)', async () => {
     // Garante que pb.authStore.isValid é falso (cold start sem sessão prévia)
     ;(pb.authStore as any).isValid = false
     ;(pb.authStore as any).record = null
@@ -60,16 +60,15 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
               <Route element={<Layout />}>
                 <Route path="/" element={<RootRedirect />} />
                 <Route
-                  path="/pcp/analise-carteira/geral"
+                  path="/pcp/cockpit"
                   element={
                     <div>
                       <LocationDisplay />
-                      <span>Análise de Carteira Geral CIAFAL</span>
+                      <span>Página Principal Cockpit Operacional PCP</span>
                     </div>
                   }
                 />
                 <Route path="/pcp-robotizado" element={<Index />} />
-                <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
             </Routes>
           </ControlTowerProvider>
@@ -77,14 +76,12 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
       </MemoryRouter>,
     )
 
-    // Casca do Layout e Análise de Carteira Geral devem estar presentes imediatamente
-    expect(screen.getByText(/Análise de Carteira Geral CIAFAL/i)).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe(
-      '/pcp/analise-carteira/geral?v=919b1f1',
-    )
+    // Casca do Layout e Página Principal Cockpit devem estar presentes imediatamente
+    expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit?v=919b1f1')
   })
 
-  it('carregar "/" com sessão válida aterrissa em /pcp/analise-carteira/geral imediatamente', async () => {
+  it('carregar "/" com sessão válida aterrissa na página PRINCIPAL (/pcp/cockpit) imediatamente', async () => {
     ;(pb.authStore as any).isValid = true
     ;(pb.authStore as any).record = {
       id: 'user-lucas',
@@ -109,11 +106,11 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
               <Route element={<Layout />}>
                 <Route path="/" element={<RootRedirect />} />
                 <Route
-                  path="/pcp/analise-carteira/geral"
+                  path="/pcp/cockpit"
                   element={
                     <div>
                       <LocationDisplay />
-                      <span>Análise de Carteira Geral CIAFAL</span>
+                      <span>Página Principal Cockpit Operacional PCP</span>
                     </div>
                   }
                 />
@@ -124,11 +121,11 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(/Análise de Carteira Geral CIAFAL/i)).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/analise-carteira/geral')
+    expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
   })
 
-  it('PermissionGuard com permissão pcp.carteira.view não bloqueia nem redireciona de volta para "/"', async () => {
+  it('PermissionGuard com permissão pcp.cockpit.view não bloqueia nem redireciona de volta para "/"', async () => {
     ;(pb.authStore as any).isValid = false
     ;(pb.authStore as any).record = null
 
@@ -141,17 +138,17 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
     }
 
     render(
-      <MemoryRouter initialEntries={['/pcp/analise-carteira/geral']}>
+      <MemoryRouter initialEntries={['/pcp/cockpit']}>
         <AuthProvider>
           <ControlTowerProvider>
             <Routes>
               <Route
-                path="/pcp/analise-carteira/geral"
+                path="/pcp/cockpit"
                 element={
-                  <PermissionGuard permission="pcp.carteira.view">
+                  <PermissionGuard permission="pcp.cockpit.view">
                     <div>
                       <LocationDisplay />
-                      <span>Conteúdo Protegido da Carteira</span>
+                      <span>Conteúdo Protegido da Página Principal</span>
                     </div>
                   </PermissionGuard>
                 }
@@ -162,11 +159,11 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Conteúdo Protegido da Carteira')).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/analise-carteira/geral')
+    expect(screen.getByText('Conteúdo Protegido da Página Principal')).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
   })
 
-  it('redirecionamento da raiz "/" para "/pcp/analise-carteira/geral" preserva parâmetros de query (?token=...&v=...)', async () => {
+  it('redirecionamento da raiz "/" para a página PRINCIPAL ("/pcp/cockpit") preserva parâmetros de query (?token=...&v=...)', async () => {
     const { RootRedirect } = await import('@/App')
     const { useLocation } = await import('react-router-dom')
 
@@ -180,11 +177,11 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route
-            path="/pcp/analise-carteira/geral"
+            path="/pcp/cockpit"
             element={
               <div>
                 <LocationDisplay />
-                <span>Análise de Carteira Geral Destino</span>
+                <span>Página Principal Cockpit Destino</span>
               </div>
             }
           />
@@ -192,9 +189,9 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Análise de Carteira Geral Destino')).toBeDefined()
+    expect(screen.getByText('Página Principal Cockpit Destino')).toBeDefined()
     expect(screen.getByTestId('location-display').textContent).toBe(
-      '/pcp/analise-carteira/geral?token=jwt-secret-xyz&v=0.0.217',
+      '/pcp/cockpit?token=jwt-secret-xyz&v=0.0.217',
     )
   })
 })
