@@ -720,12 +720,14 @@ class PcpMonthlySummaryService {
           },
         ],
       },
-      pontosAtencao: [
-        'Acompanhar de perto a curva ABC para evitar formação de sobras de ponta em bitolas acima de 4 polegadas.',
-        'Garantir inspeção de qualidade nas primeiras peças após troca de ferramental da Linha L1.',
-        'Validar conferência de peso nas balanças de saída com leitura RFID vinculada ao ERP.',
-        'Manter sincronia estrita entre apontamentos do MES e baixa de estoque no SAP MM.',
-      ],
+      pontosAtencao: {
+        itens: [
+          'Acompanhar de perto a curva ABC para evitar formação de sobras de ponta em bitolas acima de 4 polegadas.',
+          'Garantir inspeção de qualidade nas primeiras peças após troca de ferramental da Linha L1.',
+          'Validar conferência de peso nas balanças de saída com leitura RFID vinculada ao ERP.',
+          'Manter sincronia estrita entre apontamentos do MES e baixa de estoque no SAP MM.',
+        ],
+      },
       pendenciasPorArea: {
         tabela: [
           {
@@ -1201,12 +1203,13 @@ class PcpMonthlySummaryService {
     }
 
     // Salvar relatório de verificação
-    const reportStatus = issues.length === 0 ? 'VERIFICADO_COM_SUCESSO' : 'DIVERGENCIAS_ENCONTRADAS'
+    const reportStatus: 'VERIFICADO_COM_SUCESSO' | 'DIVERGENCIAS_ENCONTRADAS' =
+      issues.length === 0 ? 'VERIFICADO_COM_SUCESSO' : 'DIVERGENCIAS_ENCONTRADAS'
     const reportData = {
       verifiedAt: new Date().toISOString(),
       issuesCount: issues.length,
       issues,
-      status: reportStatus as const,
+      status: reportStatus,
     }
 
     try {

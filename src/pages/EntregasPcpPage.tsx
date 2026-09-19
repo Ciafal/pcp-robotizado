@@ -12,6 +12,8 @@ import { EntregasSubmenu } from '@/components/pcp/entregas/EntregasSubmenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useToast } from '@/hooks/use-toast'
+import { pcpMonthlySummaryService } from '@/services/pcp-monthly-summaries'
 import {
   CheckCircle2,
   Clock,
@@ -25,6 +27,7 @@ import {
   Truck,
   Building2,
   CalendarRange,
+  PackageCheck,
 } from 'lucide-react'
 
 export interface DeliveryItem {

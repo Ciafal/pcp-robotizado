@@ -162,25 +162,39 @@ export const EntregasRevisoesPage: React.FC = () => {
           { key: 'timestamp', label: 'Data/Hora', align: 'center', width: '140px' },
           { key: 'impactAssessment', label: 'Impacto Transacional' },
         ]}
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderCell={(item, key) => {
-          if (key === 'versionHop') {
-            return (
+        isEmpty={filtered.length === 0}
+        emptyMessage="Nenhuma revisão encontrada."
+      >
+        {filtered.map((item) => (
+          <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+            <td className="px-3 py-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+              {item.revisionCode}
+            </td>
+            <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
+              {item.scheduleCode}
+            </td>
+            <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+              {item.lineCode}
+            </td>
+            <td className="px-3 py-2.5 text-center whitespace-nowrap">
               <Badge
                 variant="outline"
                 className="bg-slate-100 text-slate-800 border-slate-300 font-mono text-[11px]"
               >
                 {item.previousVersion} &rarr; {item.newVersion}
               </Badge>
-            )
-          }
-          if (key === 'reasonCategory') {
-            return <span className="font-semibold text-slate-800">{item.reasonCategory}</span>
-          }
-          return (item as any)[key]
-        }}
-      />
+            </td>
+            <td className="px-3 py-2.5 whitespace-nowrap">
+              <span className="font-semibold text-slate-800">{item.reasonCategory}</span>
+            </td>
+            <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">{item.author}</td>
+            <td className="px-3 py-2.5 text-center font-mono text-slate-600 whitespace-nowrap">
+              {item.timestamp}
+            </td>
+            <td className="px-3 py-2.5 text-slate-700">{item.impactAssessment}</td>
+          </tr>
+        ))}
+      </CiafalDataTable>
     </div>
   )
 }

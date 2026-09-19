@@ -43,6 +43,7 @@ import {
   Globe2,
   ShoppingBag,
   HelpCircle,
+  RotateCcw,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -59,6 +60,7 @@ interface NavSubItem {
   permission?: string
   description?: string
   icon?: React.ComponentType<{ className?: string }>
+  subItems?: NavSubItem[]
 }
 interface NavSectionItem {
   title: string
@@ -681,6 +683,8 @@ interface NavGroup {
     href: string
     icon: React.ComponentType<{ className?: string }>
     permission?: string
+    badge?: string
+    subItems?: NavSubItem[]
   }[]
 }
 

@@ -282,23 +282,44 @@ export const EntregasHistoricoPage: React.FC = () => {
           { key: 'actualDeliveryDate', label: 'Entrega Real', align: 'center', width: '110px' },
           { key: 'status', label: 'Status', align: 'center', width: '130px' },
         ]}
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderCell={(item, key) => {
-          if (key === 'weightTons') return `${formatNumberPTBR(item.weightTons, 1)} t`
-          if (key === 'status') {
-            if (item.status === 'NO_PRAZO') {
-              return (
+        isEmpty={filtered.length === 0}
+        emptyMessage="Nenhuma ordem encontrada."
+      >
+        {filtered.map((item) => (
+          <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+            <td className="px-3 py-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+              {item.orderCode}
+            </td>
+            <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
+              {item.nfNumber}
+            </td>
+            <td className="px-3 py-2.5 text-slate-800 font-medium whitespace-nowrap">
+              {item.clientName}
+            </td>
+            <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+              {item.lineCode}
+            </td>
+            <td className="px-3 py-2.5 text-slate-700" title={item.productDescription}>
+              {item.productDescription}
+            </td>
+            <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+              {formatNumberPTBR(item.weightTons, 1)} t
+            </td>
+            <td className="px-3 py-2.5 text-center font-mono text-slate-700 whitespace-nowrap">
+              {item.scheduledDate}
+            </td>
+            <td className="px-3 py-2.5 text-center font-mono text-slate-700 whitespace-nowrap">
+              {item.actualDeliveryDate}
+            </td>
+            <td className="px-3 py-2.5 text-center whitespace-nowrap">
+              {item.status === 'NO_PRAZO' ? (
                 <Badge
                   variant="outline"
                   className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[11px] gap-1"
                 >
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" /> No Prazo
                 </Badge>
-              )
-            }
-            if (item.status === 'ATRASADA') {
-              return (
+              ) : item.status === 'ATRASADA' ? (
                 <Badge
                   variant="outline"
                   className="bg-rose-50 text-rose-800 border-rose-300 text-[11px] gap-1"
@@ -306,20 +327,18 @@ export const EntregasHistoricoPage: React.FC = () => {
                   <AlertTriangle className="w-3 h-3 text-rose-600" /> Atrasada (+{item.varianceDays}
                   d)
                 </Badge>
-              )
-            }
-            return (
-              <Badge
-                variant="outline"
-                className="bg-amber-50 text-amber-800 border-amber-300 text-[11px] gap-1"
-              >
-                <Clock className="w-3 h-3 text-amber-600" /> Reprogramada
-              </Badge>
-            )
-          }
-          return (item as any)[key]
-        }}
-      />
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="bg-amber-50 text-amber-800 border-amber-300 text-[11px] gap-1"
+                >
+                  <Clock className="w-3 h-3 text-amber-600" /> Reprogramada
+                </Badge>
+              )}
+            </td>
+          </tr>
+        ))}
+      </CiafalDataTable>
     </div>
   )
 }
