@@ -9,7 +9,7 @@
  */
 
 import pb from '@/lib/pocketbase/client'
-import { pcpauditService } from '@/services/pcp-audit-service'
+import { pcpAuditService } from '@/services/pcp-audit-service'
 import { formatNumberPTBR, formatDatePTBR, formatDateTimePTBR } from '@/lib/formatters-ptbr'
 
 export type SummaryStatus =
@@ -868,7 +868,7 @@ class PcpMonthlySummaryService {
       const created = await pb.collection('pcp_monthly_summaries').create(payload)
 
       // Registrar auditoria
-      await pcpauditService.recordLog({
+      await pcpAuditService.recordLog({
         action: 'PCP_SUMMARY_DRAFT_AUTO_CREATED',
         event_type: 'SCHEDULE_ACTION',
         resource: 'PCP_MONTHLY_SUMMARY',
@@ -941,6 +941,67 @@ class PcpMonthlySummaryService {
   }
 
   /**
+   * Atualiza o status do resumo dentro do ciclo de governança
+   */
+  async updateStatus(
+    id: string,
+    newStatus: SummaryStatus,
+    reason?: string,
+  ): Promise<PCPMonthlySummaryRecord> {
+    const user = pb.authStore.record
+    const userName = user?.name || user?.email || 'Programador PCP'
+    const nowIso = new Date().toISOString()
+
+    try {
+      const current = await pb.collection('pcp_monthly_summaries').getOne(id)
+      const oldStatus = current.status
+      const revHistory = current.revisions_history || []
+      revHistory.push({
+        version: current.version_tag,
+        user: userName,
+        timestamp: nowIso,
+        action: 'STATUS_TRANSITION',
+        reason: reason || `Transição de status: ${oldStatus} -> ${newStatus}`,
+      })
+
+      const newSections = { ...current.sections_data }
+      if (newSections.identificacao) {
+        newSections.identificacao = {
+          ...newSections.identificacao,
+          status: newStatus,
+        }
+      }
+
+      const updated = await pb.collection('pcp_monthly_summaries').update(id, {
+        status: newStatus,
+        sections_data: newSections,
+        revisions_history: revHistory,
+      })
+
+      await pcpAuditService.recordLog({
+        action: `Transição de status resumo mensal ${current.summary_code}: ${oldStatus} -> ${newStatus}`,
+        event_type: 'SCHEDULE_ACTION',
+        resource: 'PCP_MONTHLY_SUMMARY',
+        record_id: current.summary_code,
+        line: current.linha_code,
+        center: current.centro_code,
+        company: current.empresa_code,
+        module: 'ENTREGAS_PCP',
+        screen: 'RESUMO_MENSAL',
+        status: 'Concluída',
+        outcome: 'SUCCESS',
+        source: 'Usuário',
+        details: { oldStatus, newStatus, reason },
+      })
+
+      return this.mapRecord(updated)
+    } catch (err: any) {
+      console.error('Erro ao atualizar status do resumo:', err)
+      throw err
+    }
+  }
+
+  /**
    * Salva alterações estruturadas de uma versão em edição
    */
   async updateSummarySections(
@@ -970,7 +1031,7 @@ class PcpMonthlySummaryService {
       })
 
       // Auditoria
-      await pcpauditService.recordLog({
+      await pcpAuditService.recordLog({
         action: 'PCP_SUMMARY_EDITED',
         event_type: 'Alteração',
         resource: 'PCP_MONTHLY_SUMMARY',
@@ -1056,7 +1117,7 @@ class PcpMonthlySummaryService {
     const created = await pb.collection('pcp_monthly_summaries').create(newPayload)
 
     // Auditoria
-    await pcpauditService.recordLog({
+    await pcpAuditService.recordLog({
       action: 'PCP_SUMMARY_NEW_VERSION',
       event_type: 'Criação',
       resource: 'PCP_MONTHLY_SUMMARY',
@@ -1307,7 +1368,7 @@ class PcpMonthlySummaryService {
       }
 
       // Auditoria
-      await pcpauditService.recordLog({
+      await pcpAuditService.recordLog({
         action: 'PCP_SUMMARY_PUBLISHED_TO_AGENDA',
         event_type: 'SCHEDULE_ACTION',
         resource: 'PCP_CORPORATE_CALENDAR',
@@ -1381,7 +1442,7 @@ class PcpMonthlySummaryService {
       }
 
       // Auditoria
-      await pcpauditService.recordLog({
+      await pcpAuditService.recordLog({
         action: 'PCP_SUMMARY_READING_CONFIRMED',
         event_type: 'SCHEDULE_ACTION',
         resource: 'PCP_MONTHLY_SUMMARY',
