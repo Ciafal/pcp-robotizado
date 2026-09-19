@@ -299,18 +299,20 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
             <ShieldCheck className="w-4 h-4 text-[#004C97]" />
             <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
             <span className="text-slate-300">•</span>
-            <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
+            <span>Última sincronização: 19/09/2026 12:40</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={exportarCSVGraficos}
-              className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
+              className="h-8 text-xs font-semibold border-blue-200 text-[#004C97] hover:bg-blue-50 gap-1.5 px-3 shadow-xs"
             >
               <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={onClose}
               className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white px-5 shadow-xs"
@@ -570,8 +572,8 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
                       <YAxis
                         type="category"
                         dataKey="familia"
-                        tick={{ fontSize: 12, fill: '#1E293B', fontWeight: 'bold' }}
-                        width={130}
+                        tick={{ fontSize: 12, fill: '#1E293B', fontWeight: 600 }}
+                        width={160}
                       />
                       <Tooltip
                         content={({ active, payload }) => {

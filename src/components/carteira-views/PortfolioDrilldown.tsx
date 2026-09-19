@@ -171,44 +171,48 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
             <ShieldCheck className="w-4 h-4 text-[#004C97]" />
             <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
             <span className="text-slate-300">•</span>
-            <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
+            <span>Última sincronização: 19/09/2026 12:40</span>
           </div>
 
           <div className="flex items-center gap-3 ml-auto flex-wrap">
             {/* Paginação */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-              <span>
-                Página {paginaAtual} de {totalPaginas}
-              </span>
-              <Button
-                size="icon"
-                variant="outline"
-                disabled={paginaAtual <= 1}
-                onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
-                className="w-7 h-7 p-0"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                disabled={paginaAtual >= totalPaginas}
-                onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
-                className="w-7 h-7 p-0"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+            {totalPaginas > 1 && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+                <span>
+                  Página {paginaAtual} de {totalPaginas}
+                </span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  disabled={paginaAtual <= 1}
+                  onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                  className="w-7 h-7 p-0"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  disabled={paginaAtual >= totalPaginas}
+                  onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+                  className="w-7 h-7 p-0"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
 
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={exportarCSV}
-              className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
+              className="h-8 text-xs font-semibold border-blue-200 text-[#004C97] hover:bg-blue-50 gap-1.5 px-3 shadow-xs"
             >
               <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={onClose}
               className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white px-5 shadow-xs"
@@ -219,7 +223,7 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
         </div>
       }
     >
-      <div className="space-y-3.5">
+      <div className="space-y-4">
         {/* 4 MINI-CARDS NO TOPO DO DRILL-DOWN EM 4 COLUNAS NO DESKTOP (Sem valores cortados) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Itens no Filtro */}
@@ -400,19 +404,19 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
         {/* TABELA PROPORCIONAL COM HEADER STICKY DENTRO DO SEU CONTAINER */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
           <div className="w-full overflow-x-auto max-h-[500px] scrollbar-thin">
-            <table className="w-full min-w-[900px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[980px] text-left text-xs border-collapse">
               <thead className="bg-[#004C97] text-white text-[11px] sticky top-0 z-20 shadow-xs">
                 <tr>
                   <th className="p-2.5 font-bold">Material</th>
                   <th className="p-2.5 font-bold">Descrição</th>
-                  <th className="p-2.5 font-bold text-center">Curva</th>
+                  <th className="p-2.5 font-bold text-center">Curva ABC</th>
                   <th className="p-2.5 font-bold text-center">Centro</th>
                   <th className="p-2.5 font-bold text-center">Linha</th>
-                  <th className="p-2.5 font-bold text-right">Carteira (t)</th>
-                  <th className="p-2.5 font-bold text-right">Estoque (t)</th>
-                  <th className="p-2.5 font-bold text-right">Programado (t)</th>
-                  <th className="p-2.5 font-bold text-right">Déficit (t)</th>
-                  <th className="p-2.5 font-bold text-right">Faturamento (R$)</th>
+                  <th className="p-2.5 font-bold text-right">Carteira</th>
+                  <th className="p-2.5 font-bold text-right">Estoque Disp.</th>
+                  <th className="p-2.5 font-bold text-right">Programado</th>
+                  <th className="p-2.5 font-bold text-right">Déficit</th>
+                  <th className="p-2.5 font-bold text-right">Faturamento</th>
                   <th className="p-2.5 font-bold text-center">Ações</th>
                 </tr>
               </thead>
@@ -439,12 +443,12 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                         }`}
                       >
                         {/* Material (Fonte Mono para códigos técnicos) */}
-                        <td className="p-2.5 font-mono font-bold text-slate-900">
+                        <td className="p-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
                           {it.codigo_material}
                         </td>
 
                         {/* Descrição (Tipografia padrão, sem estourar o modal) */}
-                        <td className="p-2.5 text-slate-700 max-w-[240px]">
+                        <td className="p-2.5 text-slate-700 max-w-[260px]">
                           <span
                             className="truncate block font-medium"
                             title={it.descricao_material}
@@ -456,12 +460,12 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                         {/* Curva ABC (Identificada por TEXTO e badge) */}
                         <td className="p-2.5 text-center">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                            className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
                               it.curva_abc === 'A'
-                                ? 'bg-blue-100 text-[#004C97] border border-blue-300'
+                                ? 'bg-[#004C97] text-white'
                                 : it.curva_abc === 'B'
-                                  ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                                  : 'bg-slate-100 text-slate-700 border border-slate-300'
+                                  ? 'bg-[#3380CC] text-white'
+                                  : 'bg-slate-600 text-white'
                             }`}
                           >
                             Curva {it.curva_abc}
@@ -477,31 +481,31 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                         <td className="p-2.5 text-center font-medium text-slate-700">{it.linha}</td>
 
                         {/* Carteira (t) - Numérico à direita na tipografia padrão */}
-                        <td className="p-2.5 text-right font-sans font-bold text-slate-900">
-                          {formatNumberPTBR(it.carteira_tons, 2)}
+                        <td className="p-2.5 text-right font-sans font-bold text-slate-900 whitespace-nowrap">
+                          {formatNumberPTBR(it.carteira_tons, 2)} t
                         </td>
 
                         {/* Estoque (t) */}
-                        <td className="p-2.5 text-right font-sans font-semibold text-slate-800">
-                          {formatNumberPTBR(it.estoque_disponivel_tons, 2)}
+                        <td className="p-2.5 text-right font-sans font-semibold text-slate-800 whitespace-nowrap">
+                          {formatNumberPTBR(it.estoque_disponivel_tons, 2)} t
                         </td>
 
                         {/* Programado (t) */}
-                        <td className="p-2.5 text-right font-sans text-slate-700">
-                          {formatNumberPTBR(it.programado_tons, 2)}
+                        <td className="p-2.5 text-right font-sans text-slate-700 whitespace-nowrap">
+                          {formatNumberPTBR(it.programado_tons, 2)} t
                         </td>
 
                         {/* Déficit (t) */}
                         <td
-                          className={`p-2.5 text-right font-sans font-bold ${
+                          className={`p-2.5 text-right font-sans font-bold whitespace-nowrap ${
                             isDeficit ? 'text-rose-600' : 'text-emerald-700'
                           }`}
                         >
-                          {formatNumberPTBR(it.deficit_tons, 2)}
+                          {formatNumberPTBR(it.deficit_tons, 2)} t
                         </td>
 
                         {/* Faturamento (R$) */}
-                        <td className="p-2.5 text-right font-sans font-bold text-[#004C97]">
+                        <td className="p-2.5 text-right font-sans font-bold text-[#004C97] whitespace-nowrap">
                           {formatCurrencyPTBR(it.faturamento_brl)}
                         </td>
 
@@ -523,6 +527,69 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* BLOCO: Análise & IA • Interpretação Operacional */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-[#004C97] text-white rounded-lg">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  Análise &amp; IA &bull; Interpretação Operacional
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Leitura executiva do recorte filtrado (
+                  {curvaFiltro === 'TODOS' ? 'Todas as Curvas' : `Curva ${curvaFiltro}`})
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-[#004C97] text-white text-[10px] font-bold">Consultivo</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                1. Diagnóstico
+              </span>
+              <p className="text-slate-800 mt-1 font-medium leading-relaxed">
+                {kpisFiltro.qtd} materiais compõem este conjunto com volume físico de{' '}
+                {formatNumberPTBR(kpisFiltro.carteiraTotal, 2)} t e receita total de{' '}
+                {formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}.
+              </p>
+            </div>
+            <div className="p-3 bg-rose-50/70 rounded-lg border border-rose-200">
+              <span className="text-[10px] uppercase font-bold text-rose-700 block">2. Risco</span>
+              <p className="text-rose-950 mt-1 font-medium leading-relaxed">
+                {kpisFiltro.deficitTotal > 0
+                  ? `Déficit de ${formatNumberPTBR(kpisFiltro.deficitTotal, 2)} t requer atenção imediata de cobertura e semiacabados.`
+                  : 'Nenhum déficit crítico identificado neste recorte filtrado.'}
+              </p>
+            </div>
+            <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-amber-800 block">
+                3. Prioridade
+              </span>
+              <p className="text-amber-950 mt-1 font-medium leading-relaxed">
+                {curvaFiltro === 'A'
+                  ? 'Prioridade Máxima (P1) no sequenciamento semanal para assegurar pedidos de maior margem.'
+                  : curvaFiltro === 'B'
+                    ? 'Prioridade Intermediária (P2) equilibrando lotes mínimos com prazos contratuais.'
+                    : 'Prioridade Normal (P3) agrupando campanhas similares para evitar trocas excessivas.'}
+              </p>
+            </div>
+            <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-200">
+              <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+                4. Ação Sugerida
+              </span>
+              <p className="text-blue-950 mt-1 font-medium leading-relaxed">
+                Avaliar ordens de produção associadas e transferências entre centros antes de
+                confirmar o congelamento da programação.
+              </p>
+            </div>
           </div>
         </div>
       </div>

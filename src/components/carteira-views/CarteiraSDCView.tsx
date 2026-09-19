@@ -281,7 +281,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           isCIAFAL
             ? 'bg-blue-50 text-blue-800 border border-blue-200'
             : isSDC
-              ? 'bg-purple-50 text-purple-800 border border-purple-200'
+              ? 'bg-sky-50 text-[#004C97] border border-sky-200 font-bold'
               : 'bg-slate-100 text-slate-700 border border-slate-200'
         }`}
       >
@@ -889,7 +889,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                           className={`text-[10px] font-bold ${
                             it.origem_producao === 'CIAFAL'
                               ? 'border-blue-300 text-blue-800'
-                              : 'border-purple-300 text-purple-800'
+                              : 'border-blue-200 text-[#004C97]'
                           }`}
                         >
                           {it.origem_producao}

@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type AnalyticalModalSize = 'standard' | 'large' | 'analytical' | 'drilldown' | 'fullscreen'
+export type AnalyticalModalSize =
+  | 'sm'
+  | 'md'
+  | 'lg'
+  | 'xl'
+  | 'standard'
+  | 'large'
+  | 'analytical'
+  | 'drilldown'
+  | 'fullscreen'
 
 export interface AnalyticalModalHeaderKpi {
   label: string
@@ -49,15 +58,17 @@ export interface AnalyticalModalProps {
  * - Altura controlada explicitamente pelo container (flex flex-col overflow-hidden)
  */
 const SIZE_CLASSES: Record<AnalyticalModalSize, string> = {
-  // Modal padrão (formulários leves): min(92vw, 800px)
-  standard: 'w-[min(94vw,800px)] max-w-[min(94vw,800px)] h-auto max-h-[90vh]',
-  // Modal grande: min(94vw, 1200px)
+  sm: 'w-[min(90vw,600px)] max-w-[min(90vw,600px)] h-auto max-h-[85vh]',
+  md: 'w-[min(92vw,800px)] max-w-[min(92vw,800px)] h-auto max-h-[88vh]',
+  standard: 'w-[min(94vw,900px)] max-w-[min(94vw,900px)] h-auto max-h-[90vh]',
+  lg: 'w-[min(94vw,1100px)] max-w-[min(94vw,1100px)] h-[min(90vh,850px)] max-h-[90vh]',
+  xl: 'w-[min(95vw,1350px)] max-w-[min(95vw,1350px)] h-[min(92vh,950px)] max-h-[92vh]',
   large: 'w-[min(95vw,1200px)] max-w-[min(95vw,1200px)] h-[min(92vh,900px)] max-h-[92vh]',
+  // Drill-down executivo de materiais (1450px)
+  drilldown:
+    'modal-analitico-drilldown w-[min(94vw,1450px)] max-w-[min(94vw,1450px)] h-[90vh] max-h-[90vh]',
   // Modal analítico principal (quase fullscreen expandido): min(96vw, 1800px) x 94vh
   analytical:
-    'w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)]',
-  // Drill-down executivo (quase fullscreen expandido)
-  drilldown:
     'w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)]',
   // Fullscreen suave
   fullscreen: 'w-[min(98vw,1900px)] max-w-[min(98vw,1900px)] h-[96vh] max-h-[96vh]',
@@ -85,8 +96,9 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('analytical-modal-open')
+    document.body.classList.add('modal-open')
 
-    // Suporte ao ESC para fechar
+    // Suporte ao ESC e Page Up / Page Down para rolar o modal
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose()
@@ -97,6 +109,7 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
     return () => {
       document.body.style.overflow = originalOverflow
       document.body.classList.remove('analytical-modal-open')
+      document.body.classList.remove('modal-open')
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onClose])
@@ -135,7 +148,7 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
                     )}
                   </div>
                 )}
-                <DialogTitle className="modal-analitico-title font-bold tracking-tight text-white m-0 text-lg sm:text-xl md:text-2xl truncate">
+                <DialogTitle className="modal-analitico-title font-bold tracking-tight text-white m-0 truncate">
                   {title}
                 </DialogTitle>
               </div>
@@ -147,18 +160,18 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
               )}
             </div>
 
-            {/* KPIs Contextuais à Direita (Desktop >= 1024px) em grade responsiva */}
+            {/* KPIs Contextuais à Direita em grade responsiva */}
             {headerKpis && headerKpis.length > 0 && (
-              <div className="hidden lg:flex items-center gap-3 shrink-0 bg-white/10 backdrop-blur-xs px-4 py-2 rounded-xl border border-white/15">
+              <div className="hidden lg:grid grid-flow-col auto-cols-fr gap-2 shrink-0 bg-white/10 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-white/15">
                 {headerKpis.map((kpi, idx) => (
                   <div
                     key={idx}
-                    className="flex flex-col items-end pl-3 first:pl-0 border-l border-white/15 first:border-l-0 leading-tight min-w-[120px] max-w-[220px]"
+                    className="flex flex-col items-end px-3 first:pl-0 border-l border-white/15 first:border-l-0 leading-tight min-w-[110px]"
                   >
                     <span className="text-[10px] uppercase font-semibold text-blue-200 tracking-wider truncate w-full text-right">
                       {kpi.label}
                     </span>
-                    <span className="text-sm sm:text-base font-bold font-sans text-white whitespace-nowrap mt-0.5">
+                    <span className="text-sm sm:text-base font-bold font-sans text-white whitespace-nowrap mt-0.5 modal-analitico-kpi-val">
                       {kpi.value}
                     </span>
                   </div>
@@ -181,16 +194,16 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
 
           {/* KPIs Contextuais em telas intermediárias / menores (< 1024px) */}
           {headerKpis && headerKpis.length > 0 && (
-            <div className="flex lg:hidden items-center gap-2 mt-2.5 pt-2 border-t border-white/15 overflow-x-auto text-xs pb-0.5 scrollbar-thin">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:hidden gap-2 mt-2.5 pt-2 border-t border-white/15 text-xs">
               {headerKpis.map((kpi, idx) => (
                 <div
                   key={idx}
-                  className="shrink-0 bg-white/10 px-2.5 py-1 rounded-lg text-xs font-medium text-white flex items-baseline gap-1.5"
+                  className="bg-white/10 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white flex flex-col items-start leading-tight"
                 >
-                  <span className="text-blue-200 text-[10px] uppercase font-semibold">
-                    {kpi.label}:
+                  <span className="text-blue-200 text-[10px] uppercase font-semibold truncate w-full">
+                    {kpi.label}
                   </span>
-                  <span className="font-bold whitespace-nowrap text-white font-sans">
+                  <span className="font-bold whitespace-nowrap text-white font-sans mt-0.5 text-xs sm:text-sm">
                     {kpi.value}
                   </span>
                 </div>

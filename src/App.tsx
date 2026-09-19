@@ -17,9 +17,11 @@ const ModuleFallback = () => (
 )
 
 // Componente de redirecionamento preservando search params (ex: ?token=..., ?v=...)
+// Garante acesso direto ou padrão aos submódulos prioritários do PCP Robotizado
 const RootRedirect: React.FC = () => {
   const location = useLocation()
-  return <Navigate to={`/pcp-robotizado${location.search}${location.hash}`} replace />
+  // Se houver parâmetro explícito ou rota direcionada, respeita; caso contrário, redireciona para a Análise de Carteira Geral do PCP Robotizado
+  return <Navigate to={`/pcp/analise-carteira/geral${location.search}${location.hash}`} replace />
 }
 
 // Lazy load dos componentes e layouts

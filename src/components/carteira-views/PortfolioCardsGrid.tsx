@@ -36,7 +36,7 @@ export const PortfolioCardsGrid: React.FC<PortfolioCardsGridProps> = ({ cards, o
       case 'amarelo':
         return 'border-amber-200 bg-amber-50/40 hover:border-amber-500 text-amber-900'
       case 'roxo':
-        return 'border-purple-200 bg-purple-50/40 hover:border-purple-500 text-purple-900'
+        return 'border-sky-200 bg-sky-50/40 hover:border-[#004C97] text-[#003870]'
       case 'cinza':
         return 'border-slate-200 bg-slate-50/60 hover:border-slate-400 text-slate-800'
       default:
@@ -55,7 +55,7 @@ export const PortfolioCardsGrid: React.FC<PortfolioCardsGridProps> = ({ cards, o
       case 'amarelo':
         return 'text-amber-700'
       case 'roxo':
-        return 'text-purple-700'
+        return 'text-[#004C97]'
       default:
         return 'text-slate-900'
     }

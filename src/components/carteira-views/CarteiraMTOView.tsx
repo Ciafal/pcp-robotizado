@@ -397,10 +397,10 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                               setItemRequisitosSelecionado(it)
                               setIsConsultarRequisitosOpen(true)
                             }}
-                            className="h-6 px-1.5 text-[10px] text-purple-700 hover:bg-purple-50 font-semibold gap-1 border border-purple-200"
+                            className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1 border border-blue-200"
                             title="Consultar Requisitos MTO do Pedido"
                           >
-                            <ClipboardCheck className="w-3 h-3 text-purple-600" /> Requisitos
+                            <ClipboardCheck className="w-3 h-3 text-[#004C97]" /> Requisitos
                           </Button>
                           <Button
                             size="sm"

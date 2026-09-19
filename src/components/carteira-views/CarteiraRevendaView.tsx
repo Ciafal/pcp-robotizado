@@ -162,11 +162,11 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
             {formatNumberPTBR(totalEstoqueFisico, 2)} t
           </strong>
         </div>
-        <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-purple-700 block">
-            Comprado Pendente
+        <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+            Carteira Revenda
           </span>
-          <strong className="text-base font-mono font-bold text-purple-900 block mt-0.5">
+          <strong className="text-base font-sans font-bold text-[#003870] block mt-0.5">
             {formatNumberPTBR(totalCompradoPendente, 2)} t
           </strong>
         </div>

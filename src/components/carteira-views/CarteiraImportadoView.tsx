@@ -171,14 +171,14 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
             {formatNumberPTBR(totalEstoqueImportado, 2)} t
           </strong>
         </div>
-        <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-purple-700 block">
-            Em Trânsito / Pedidos
+        <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+            Importado em Trânsito
           </span>
-          <strong className="text-base font-mono font-bold text-purple-900 block mt-0.5">
-            {formatNumberPTBR(totalTransitoPendente, 2)} t
+          <strong className="text-base font-sans font-bold text-[#003870] block mt-0.5">
+            {formatNumberPTBR(totalImportadoTransito, 2)} t
           </strong>
-        </div>
+        </div>{' '}
         <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-[#004C97] block">
             Saldo Futuro Projetado
@@ -278,7 +278,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
                       {formatDatePTBR(it.data_desejada)}
                     </td>
                     <td className="p-2.5 text-center">
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[9px] font-bold">
+                      <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[9px] font-bold">
                         Em Trânsito
                       </Badge>
                     </td>

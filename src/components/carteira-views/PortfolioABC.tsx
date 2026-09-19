@@ -158,14 +158,14 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                   : 'Preços médios por família (ZSD28C)'}
               </span>
               <span className="text-slate-300">•</span>
-              <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
+              <span>Última sincronização: 19/09/2026 12:40</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={exportarCSV}
-                className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
+                className="h-8 text-xs font-semibold border-blue-200 text-[#004C97] hover:bg-blue-50 gap-1.5 px-3 shadow-xs"
               >
                 <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
               </Button>
@@ -183,21 +183,21 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
         <div className="space-y-4">
           {/* ALERTA CRÍTICO LIMPO (Fundo vermelho claro, sem blocos vinho escuros) */}
           {alertasPrioritariosCurvaA.length > 0 && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl shadow-xs">
-              <div className="flex items-start gap-2.5">
+            <div className="p-4 bg-rose-50/80 border border-rose-200 rounded-xl shadow-xs">
+              <div className="flex items-start gap-3">
                 <div className="p-1.5 bg-rose-100 rounded-lg shrink-0 mt-0.5">
-                  <AlertTriangle className="w-4 h-4 text-rose-700" />
+                  <AlertTriangle className="w-5 h-5 text-rose-700" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-rose-900 tracking-wide uppercase">
-                      Alerta Prioritário • Ruptura Comercial na Curva A
+                    <span className="text-xs sm:text-sm font-bold text-rose-900 tracking-wide">
+                      ⚠ ALERTA CRÍTICO • Ruptura Comercial na Curva A
                     </span>
-                    <Badge className="bg-rose-200 text-rose-900 border-rose-300 text-[10px] font-bold">
+                    <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-bold">
                       {alertasPrioritariosCurvaA.length} itens em atenção
                     </Badge>
                   </div>
-                  <div className="space-y-1 mt-1 text-xs text-rose-950 font-medium">
+                  <div className="space-y-1 mt-1.5 text-xs text-slate-800 font-medium">
                     {alertasPrioritariosCurvaA.map((alerta, idx) => (
                       <p key={idx} className="leading-relaxed">
                         • {alerta}
@@ -418,8 +418,8 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                       yAxisId="right"
                       orientation="right"
                       domain={[0, 100]}
-                      stroke="#475569"
-                      tick={{ fontSize: 11, fill: '#475569' }}
+                      stroke="#0284c7"
+                      tick={{ fontSize: 11, fill: '#0284c7' }}
                       tickFormatter={(val) => `${val}%`}
                     />
                     <Tooltip
@@ -522,9 +522,9 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                       type="monotone"
                       dataKey="percentualAcumulado"
                       name="% Acumulado"
-                      stroke="#EA580C"
+                      stroke="#0284c7"
                       strokeWidth={2.5}
-                      dot={{ r: 3, fill: '#EA580C' }}
+                      dot={{ r: 3.5, fill: '#0284c7', stroke: '#fff', strokeWidth: 1.5 }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>

@@ -227,7 +227,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
       case 'PRODUTO':
         return <Layers className="w-4 h-4 text-sky-600" />
       case 'PRODUCAO':
-        return <Wrench className="w-4 h-4 text-purple-600" />
+        return <Wrench className="w-4 h-4 text-[#004C97]" />
       case 'QUALIDADE':
         return <Microscope className="w-4 h-4 text-emerald-600" />
       case 'COMERCIAL_LOGISTICO':
@@ -261,7 +261,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
                   <span className="font-mono text-xs bg-blue-900/80 px-2 py-0.5 rounded text-cyan-200 border border-blue-700">
                     MTO REQUIREMENT ENGINE
                   </span>
-                  <Badge className="bg-purple-900 text-purple-200 border-purple-700 text-[10px] font-bold">
+                  <Badge className="bg-[#003870] text-blue-100 border-blue-700 text-[10px] font-bold">
                     Carteira MTO &bull; Ficha Mestra
                   </Badge>
                   {/* Status Consolidado da Ordem */}
