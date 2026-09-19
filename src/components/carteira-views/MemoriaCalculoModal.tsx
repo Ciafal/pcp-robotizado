@@ -13,6 +13,7 @@ import { Calculator, CheckCircle2, ShieldCheck, Database, Calendar, FileText } f
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import CoverageTemporalAnalysis from './CoverageTemporalAnalysis'
+import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 
 interface MemoriaCalculoModalProps {
   isOpen: boolean
