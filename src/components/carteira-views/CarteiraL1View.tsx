@@ -1,19 +1,35 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, TrendingDown, Layers, SlidersHorizontal } from 'lucide-react'
+import {
+  Eye,
+  TrendingDown,
+  Layers,
+  SlidersHorizontal,
+  BarChart3,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import {
+  CurvaAbcFaturamentoEngine,
+  ItemCurvaAbcCalculado,
+} from '@/services/curva-abc-faturamento-engine'
+import { CurvaAbcParametrosBackend } from '@/services/sap-carteira-rfc-service'
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraL1ViewProps {
   itens: CarteiraItem[]
   entradasFuturas?: any[]
   onOpenMemoria: (item: CarteiraItem) => void
   onOpenDetalheMaterial?: (item: CarteiraItem) => void
+  parametrosCurvaAbc?: CurvaAbcParametrosBackend
 }
 
 export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
@@ -24,17 +40,36 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
 }) => {
   const [filtroFamilia, setFiltroFamilia] = useState<string>('TODAS')
   const [filtroOrigem, setFiltroOrigem] = useState<string>('TODAS')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
 
-  const itensL1 = itens.filter(
-    (i) =>
-      i.linha === 'L1' ||
-      ['C', 'Q', 'R', 'V'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
-  )
+  const itensL1 = useMemo(() => {
+    return itens.filter(
+      (i) =>
+        i.linha === 'L1' ||
+        ['C', 'Q', 'R', 'V'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+    )
+  }, [itens])
+
+  const resultadoABCL1 = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensL1)
+  }, [itensL1])
+
+  const mapaAbcL1 = useMemo(() => {
+    const m = new Map<string, string>()
+    resultadoABCL1.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
+    return m
+  }, [resultadoABCL1])
 
   const itensFiltrados = itensL1.filter((i) => {
     if (filtroFamilia !== 'TODAS' && i.familia !== filtroFamilia) return false
     if (filtroOrigem !== 'TODAS' && i.origem_produto !== filtroOrigem) return false
+    if (filtroCurva !== 'TODAS') {
+      const curva = mapaAbcL1.get(i.codigo_material) || 'C'
+      if (curva !== filtroCurva) return false
+    }
     return true
   })
 
@@ -86,13 +121,41 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Filtro Curva ABC */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setFiltroCurva(c)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  filtroCurva === c
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
             variant="outline"
-            className="text-slate-700 bg-slate-50 border-slate-300 font-mono text-xs"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
           >
-            Semana {Math.ceil((new Date().getDate() + 6) / 7)} / {new Date().getFullYear()}
-          </Badge>
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -145,14 +208,15 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
       {itensL1.length === 0 ? (
         <Card className="bg-white border-slate-200 text-center py-12 px-4 shadow-xs">
           <div className="max-w-md mx-auto space-y-2">
-            <div className="p-3 bg-blue-50 text-[#004C97] w-12 h-12 rounded-full mx-auto flex items-center justify-center">
-              <Eye className="w-6 h-6" />
+            <div className="p-3 bg-amber-50 text-amber-700 w-12 h-12 rounded-full mx-auto flex items-center justify-center border border-amber-200">
+              <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-slate-900">
-              Nenhuma carteira carregada para Linha L1
+              Nenhum material encontrado para Linha L1 no SAP RFC
             </h3>
             <p className="text-xs text-slate-500">
-              Utilize 'Importar Carteira' para iniciar a análise dos perfis e barras leves L1.
+              Aguardando sincronização oficial da referência SAP ZSD28C ou nenhum pedido em aberto
+              no ciclo ativo.
             </p>
           </div>
         </Card>
@@ -164,6 +228,7 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
                 <tr>
                   <th className="p-2.5">Material</th>
                   <th className="p-2.5">Descrição</th>
+                  <th className="p-2.5 text-center">ABC</th>
                   <th className="p-2.5 text-center">Família</th>
                   <th className="p-2.5 text-center">Origem</th>
                   <th className="p-2.5 text-right">Carteira Vendas (t)</th>
@@ -207,6 +272,19 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
                       </td>
                       <td className="p-2.5 text-slate-700 max-w-[200px] truncate">
                         {it.descricao_material}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            mapaAbcL1.get(it.codigo_material) === 'A'
+                              ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                              : mapaAbcL1.get(it.codigo_material) === 'B'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                : 'bg-slate-100 text-slate-700 border border-slate-300'
+                          }`}
+                        >
+                          {mapaAbcL1.get(it.codigo_material) || 'C'}
+                        </span>
                       </td>
                       <td className="p-2.5 text-center font-semibold text-slate-600">
                         {it.familia}
@@ -292,6 +370,28 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira L1"
+        itens={resultadoABCL1.itens}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensL1.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCL1}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensL1.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
     </div>
   )
 }

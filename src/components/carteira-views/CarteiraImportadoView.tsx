@@ -1,12 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, SlidersHorizontal } from 'lucide-react'
+import { Eye, SlidersHorizontal, BarChart3, Sparkles } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraImportadoViewProps {
   itens: CarteiraItem[]
@@ -22,8 +25,36 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
   onOpenDetalheMaterial,
 }) => {
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
-  const itensImportados = itens.filter((i) => i.origem_produto === 'IMPORTADO')
-  const entradasImportadas = entradasFuturas.filter((e) => e.origem === 'IMPORTADO')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
+
+  const itensImportados = useMemo(
+    () => itens.filter((i) => i.origem_produto === 'IMPORTADO'),
+    [itens],
+  )
+  const entradasImportadas = useMemo(
+    () => entradasFuturas.filter((e) => e.origem === 'IMPORTADO'),
+    [entradasFuturas],
+  )
+
+  const resultadoABCImportado = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensImportados)
+  }, [itensImportados])
+
+  const mapaAbcImportado = useMemo(() => {
+    const m = new Map<string, string>()
+    resultadoABCImportado.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
+    return m
+  }, [resultadoABCImportado])
+
+  const itensFiltradosImportados = useMemo(() => {
+    if (filtroCurva === 'TODAS') return itensImportados
+    return itensImportados.filter((i) => {
+      const c = mapaAbcImportado.get(i.codigo_material) || 'C'
+      return c === filtroCurva
+    })
+  }, [itensImportados, filtroCurva, mapaAbcImportado])
 
   const totalCarteiraImportados = itensImportados.reduce(
     (s, i) => s + (i.carteira_aberta_tons || 0),
@@ -73,13 +104,41 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Filtro Curva ABC */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setFiltroCurva(c)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  filtroCurva === c
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
             variant="outline"
-            className="text-purple-800 bg-purple-50 border-purple-200 text-xs font-semibold"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
           >
-            Origem ZIMP &bull; Importados & Trading
-          </Badge>
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -91,7 +150,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Colunas: Cobertura Temporal</span>
+            <span>Colunas: Temporal</span>
           </Button>
         </div>
       </div>
@@ -143,6 +202,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
               <tr>
                 <th className="p-2.5">Material</th>
                 <th className="p-2.5">Cliente</th>
+                <th className="p-2.5 text-center">ABC</th>
                 <th className="p-2.5">Pedido / Item</th>
                 <th className="p-2.5 text-right">Carteira (t)</th>
                 <th className="p-2.5 text-right">Estoque (t)</th>
@@ -163,7 +223,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {itensImportados.map((it, idx) => {
+              {itensFiltradosImportados.map((it, idx) => {
                 const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
                   it,
                   'IMPORTADO',
@@ -184,6 +244,19 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
                     </td>
                     <td className="p-2.5 text-slate-700 max-w-[150px] truncate">
                       {it.nome_cliente}
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          mapaAbcImportado.get(it.codigo_material) === 'A'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            : mapaAbcImportado.get(it.codigo_material) === 'B'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}
+                      >
+                        {mapaAbcImportado.get(it.codigo_material) || 'C'}
+                      </span>
                     </td>
                     <td className="p-2.5 font-mono text-slate-700">
                       {it.ordem_venda}/{it.item_ordem}
@@ -262,6 +335,28 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira Importado"
+        itens={resultadoABCImportado.itens}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensImportados.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCImportado}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensImportados.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
     </div>
   )
 }

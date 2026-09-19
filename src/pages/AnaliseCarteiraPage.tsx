@@ -3,18 +3,13 @@ import { useLocation, useNavigate, Link } from 'react-router-dom'
 import {
   Layers,
   RefreshCw,
-  UploadCloud,
   Sliders,
   ShieldCheck,
   Clock,
   Database,
-  Download,
   Briefcase,
   ChevronRight,
-  PackageCheck,
-  ShoppingBag,
-  Globe2,
-  FileSpreadsheet,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +22,10 @@ import {
 } from '@/types/carteira-analise'
 import { CarteiraService } from '@/services/carteira-service'
 import { CarteiraZSD28CEngine } from '@/services/carteira-engine'
+import {
+  SapCarteiraRfcService,
+  CurvaAbcParametrosBackend,
+} from '@/services/sap-carteira-rfc-service'
 
 // Componentes da Análise de Carteira
 import CarteiraGeralView from '@/components/carteira-views/CarteiraGeralView'
@@ -42,7 +41,6 @@ import { CarteiraSDCService } from '@/services/carteira-sdc-service'
 import { formatDateTimePTBR } from '@/lib/formatters-ptbr'
 import MemoriaCalculoModal from '@/components/carteira-views/MemoriaCalculoModal'
 import DetalheMaterialUnificadoModal from '@/components/carteira-views/DetalheMaterialUnificadoModal'
-import ImportacaoCarteiraModal from '@/components/carteira-views/ImportacaoCarteiraModal'
 import GovernancaRegrasModal from '@/components/carteira-views/GovernancaRegrasModal'
 import ReconciliacaoSapModal from '@/components/carteira-views/ReconciliacaoSapModal'
 import { OrigemCarteira } from '@/services/cobertura-temporal-engine'
@@ -94,6 +92,11 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const [uploadAtual, setUploadAtual] = useState<CarteiraUpload | null>(null)
   const [historicoUploads, setHistoricoUploads] = useState<CarteiraUpload[]>([])
   const [insightsIA, setInsightsIA] = useState<CarteiraIAInsight[]>([])
+  const [dataAtualizacaoSap, setDataAtualizacaoSap] = useState<string>(new Date().toISOString())
+  const [parametrosCurvaAbc, setParametrosCurvaAbc] = useState<
+    CurvaAbcParametrosBackend | undefined
+  >(undefined)
+  const [erroConsultaSap, setErroConsultaSap] = useState<string | null>(null)
 
   // Estado da Carteira SDC (WERKS = SDPL)
   const [itensSDC, setItensSDC] = useState<CarteiraSDCItem[]>([])
@@ -108,10 +111,9 @@ export const AnaliseCarteiraPage: React.FC = () => {
     total_itens: 0,
   })
   const [analisesIASDC, setAnalisesIASDC] = useState<string[]>([])
-  const [fonteSDC, setFonteSDC] = useState<'Carga QAS' | 'SAP ECC'>('Carga QAS')
+  const [fonteSDC, setFonteSDC] = useState<'SAP ECC' | 'Carga QAS'>('SAP ECC')
   const [dataAtualizacaoSDC, setDataAtualizacaoSDC] = useState<string>(new Date().toISOString())
 
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMemoriaOpen, setIsMemoriaOpen] = useState(false)
   const [itemSelecionadoMemoria, setItemSelecionadoMemoria] = useState<CarteiraItem | null>(null)
 
@@ -126,36 +128,41 @@ export const AnaliseCarteiraPage: React.FC = () => {
   const [isReconciliacaoOpen, setIsReconciliacaoOpen] = useState(false)
   const [filtroMaterialDireto, setFiltroMaterialDireto] = useState('')
 
-  const carregarDados = async () => {
+  const carregarDados = async (bypassCache = false) => {
     setIsLoading(true)
+    setErroConsultaSap(null)
     try {
-      const regrasDb = await CarteiraService.carregarRegrasVigentes()
-      const res = await CarteiraService.carregarCarteiraAtual()
+      // 1. Obter parâmetros da Curva ABC no backend
+      const paramsAbc = await SapCarteiraRfcService.obterParametrosCurvaAbc()
+      setParametrosCurvaAbc(paramsAbc)
 
-      // Se houver regras cadastradas no backend, recalcula itens para assegurar paridade
-      if (regrasDb && res.itens.length > 0) {
-        const recalculados = res.itens.map((item) =>
-          CarteiraZSD28CEngine.calcularItem(item, res.entradasFuturas, regrasDb),
-        )
-        setItens(recalculados)
+      // 2. Consultar carteira oficial via SAP ECC RFC (referência ZSD28C)
+      const rfcRes = await SapCarteiraRfcService.consultarCarteiraSAP({
+        forceRefresh: bypassCache,
+      })
+
+      if (rfcRes.sucesso) {
+        setItens(rfcRes.itens)
+        setEntradasFuturas(rfcRes.entradasFuturas)
+        setDataAtualizacaoSap(rfcRes.timestamp)
+        if (rfcRes.sdcItens && rfcRes.sdcItens.length > 0) {
+          setItensSDC(rfcRes.sdcItens)
+        }
       } else {
-        setItens(res.itens)
+        // Tratar erro oficial sem dados fictícios
+        setErroConsultaSap(rfcRes.mensagem || 'Não foi possível consultar a carteira no SAP.')
       }
 
-      setEntradasFuturas(res.entradasFuturas)
-      setUploadAtual(res.uploadAtual)
-      setHistoricoUploads(res.historicoUploads)
-      setInsightsIA(res.insights)
-
-      // Carregar Carteira SDC (WERKS = SDPL)
+      // 3. Carregar Carteira SDC (WERKS = SDPL)
       const resSDC = await CarteiraSDCService.carregarCarteiraSDC()
       setItensSDC(resSDC.itens)
       setKpisSDC(resSDC.kpis)
       setAnalisesIASDC(resSDC.analisesIA)
-      setFonteSDC(resSDC.fonteAtual)
+      setFonteSDC('SAP ECC')
       setDataAtualizacaoSDC(resSDC.dataAtualizacao)
     } catch (err: any) {
-      console.error('Erro ao carregar dados da carteira:', err)
+      console.error('Erro ao carregar dados da carteira via SAP RFC:', err)
+      setErroConsultaSap('Não foi possível consultar a carteira no SAP.')
     } finally {
       setIsLoading(false)
     }
@@ -165,36 +172,16 @@ export const AnaliseCarteiraPage: React.FC = () => {
     carregarDados()
   }, [])
 
-  const handleCargaConcluida = (
-    upload: CarteiraUpload,
-    novosItens: CarteiraItem[],
-    novasEntradas: CarteiraEntradaFutura[],
-  ) => {
-    setUploadAtual(upload)
-    setItens(novosItens)
-    setEntradasFuturas(novasEntradas)
-    setHistoricoUploads((prev) => [
-      upload,
-      ...prev.filter((u) => u.upload_code !== upload.upload_code),
-    ])
-    carregarDados()
-  }
-
-  const handleRollback = async (uploadCode: string) => {
-    const ok = await CarteiraService.reverterParaCargaAnterior(uploadCode)
-    if (ok) {
-      toast({
-        title: 'Versão Restaurada com Sucesso',
-        description: `A carteira foi restaurada para a carga ${uploadCode}.`,
-      })
-      await carregarDados()
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Falha no Rollback',
-        description: 'Não foi possível restaurar a versão selecionada.',
-      })
-    }
+  const handleForcarAtualizacaoSap = async () => {
+    toast({
+      title: 'Consultando SAP ECC RFC...',
+      description: 'Sincronizando carteira oficial ZSD28C diretamente do SAP.',
+    })
+    await carregarDados(true)
+    toast({
+      title: 'Dados Atualizados',
+      description: 'Carteira SAP ECC atualizada com sucesso.',
+    })
   }
 
   const handleOpenMemoria = (item: CarteiraItem) => {
@@ -233,34 +220,9 @@ export const AnaliseCarteiraPage: React.FC = () => {
     }
   }
 
-  const handleDownloadTemplate = () => {
-    try {
-      const blob = CarteiraService.gerarTemplateExcelBlob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'Template_Carteira_PCP_ZSD28C_QAS.xlsx'
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      toast({
-        title: 'Template Baixado com Sucesso',
-        description: 'Arquivo Template_Carteira_PCP_ZSD28C_QAS.xlsx pronto para preenchimento.',
-      })
-    } catch (err) {
-      console.error('Erro ao baixar template:', err)
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao gerar template',
-        description: 'Não foi possível gerar a planilha modelo.',
-      })
-    }
-  }
-
   return (
     <div className="space-y-4 pb-12">
-      {/* Header Geral com Breadcrumb Oficial */}
+      {/* Header Geral com Breadcrumb Oficial e Ações */}
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           {/* Breadcrumb padrão: PCP Robotizado > Análise de Carteira > Carteira L1 etc. */}
@@ -295,13 +257,13 @@ export const AnaliseCarteiraPage: React.FC = () => {
                   Análise de Carteira
                 </h1>
                 <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
-                  Paridade SAP ZSD28C
+                  Fonte atual: SAP ECC • RFC
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-semibold"
+                  className="bg-blue-50 text-[#004C97] border-blue-300 text-[10px] font-semibold"
                 >
-                  SAP ECC / ZSD28C — integração pendente
+                  Referência SAP: ZSD28C
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-1">
@@ -333,40 +295,31 @@ export const AnaliseCarteiraPage: React.FC = () => {
 
           <Button
             size="sm"
-            onClick={() => setIsImportModalOpen(true)}
+            onClick={handleForcarAtualizacaoSap}
+            disabled={isLoading}
             className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
           >
-            <UploadCloud className="w-3.5 h-3.5" /> Importar Carteira QAS
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Atualizar
+            dados SAP
           </Button>
         </div>
       </div>
 
-      <div className="px-3.5 py-2 bg-slate-100/80 rounded-lg border border-slate-200 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">
+      {/* Selo Superior com Rastreabilidade Oficial SAP ECC RFC */}
+      <div className="px-3.5 py-2 bg-slate-100/90 rounded-lg border border-slate-200 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="flex items-center gap-1 font-bold text-slate-800">
-            <Database className="w-3.5 h-3.5 text-[#004C97]" /> Fonte atual:{' '}
-            <span className="text-[#004C97] font-semibold">
-              {topicoAtivo === 'SDC'
-                ? `Fonte atual: ${fonteSDC}`
-                : uploadAtual
-                  ? `${uploadAtual.source_mode === 'EXCEL_QAS' ? 'Carga Excel QAS' : uploadAtual.source_mode} (${uploadAtual.upload_code})`
-                  : 'Carga Excel QAS'}
-            </span>
+            <Database className="w-3.5 h-3.5 text-[#004C97]" />
+            Fonte atual: <span className="text-[#004C97] font-semibold">SAP ECC &bull; RFC</span>
           </span>
           <span className="text-slate-400">&bull;</span>
-          <span className="flex items-center gap-1 text-slate-500 font-mono text-[10px]">
-            {topicoAtivo === 'SDC'
-              ? 'WERKS = SDPL (Sidercentro Industrializadora)'
-              : 'SAP ECC / ZSD28C — integração pendente'}
+          <span className="flex items-center gap-1 text-slate-700 font-mono text-[10px]">
+            Referência SAP: <strong>ZSD28C</strong>
           </span>
           <span className="text-slate-400">&bull;</span>
           <span className="flex items-center gap-1 text-slate-500">
-            <Clock className="w-3.5 h-3.5 text-slate-500" /> Carga:{' '}
-            {topicoAtivo === 'SDC'
-              ? formatDateTimePTBR(dataAtualizacaoSDC, true)
-              : uploadAtual?.created
-                ? formatDateTimePTBR(uploadAtual.created, true)
-                : 'Padrão QAS Ativo'}
+            <Clock className="w-3.5 h-3.5 text-slate-500" /> Última atualização:{' '}
+            <strong>{formatDateTimePTBR(dataAtualizacaoSap, true)}</strong>
           </span>
         </div>
 
@@ -375,10 +328,12 @@ export const AnaliseCarteiraPage: React.FC = () => {
             Unidades: <strong>Toneladas (t)</strong>
           </span>
           <button
-            onClick={carregarDados}
-            className="text-[#004C97] hover:underline font-bold flex items-center gap-1 ml-2"
+            onClick={() => carregarDados(true)}
+            disabled={isLoading}
+            className="text-[#004C97] hover:underline font-bold flex items-center gap-1 ml-2 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} /> Atualizar
+            <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} /> Forçar
+            Sincronização SAP
           </button>
         </div>
       </div>
@@ -470,6 +425,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
           <CarteiraGeralView
             itens={itens}
             entradasFuturas={entradasFuturas}
+            sdcItens={itensSDC}
             isLoading={isLoading}
             onOpenMemoria={handleOpenMemoria}
             onOpenDetalheMaterial={(it) =>
@@ -484,8 +440,10 @@ export const AnaliseCarteiraPage: React.FC = () => {
                       : 'GERAL') as any,
               )
             }
-            onOpenImportModal={() => setIsImportModalOpen(true)}
-            onDownloadTemplate={handleDownloadTemplate}
+            onAtualizarSap={() => carregarDados(true)}
+            parametrosCurvaAbc={parametrosCurvaAbc}
+            erroDisponibilidade={Boolean(erroConsultaSap)}
+            mensagemErro={erroConsultaSap || undefined}
             filtroMaterial={filtroMaterialDireto}
           />
         )}
@@ -539,7 +497,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
           <CarteiraSDCView
             itens={itensSDC}
             kpis={kpisSDC}
-            fonteAtual={fonteSDC}
+            fonteAtual="SAP ECC"
             dataAtualizacao={dataAtualizacaoSDC}
             analisesIA={analisesIASDC}
             materialAncorado={materialParam}
@@ -551,6 +509,7 @@ export const AnaliseCarteiraPage: React.FC = () => {
               setOrigemUnificadaModal('SDC')
               setIsDetalheUnificadoOpen(true)
             }}
+            onAtualizarSap={() => carregarDados(true)}
           />
         )}
       </div>
@@ -576,14 +535,6 @@ export const AnaliseCarteiraPage: React.FC = () => {
         genItem={materialUnificadoSelecionado || undefined}
         sdcItem={materialSDCSelecionado || undefined}
         entradasFuturas={entradasFuturas}
-      />
-
-      <ImportacaoCarteiraModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onCargaConcluida={handleCargaConcluida}
-        historicoUploads={historicoUploads}
-        onRollback={handleRollback}
       />
 
       <GovernancaRegrasModal

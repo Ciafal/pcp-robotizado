@@ -1,13 +1,16 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, Factory, SlidersHorizontal, ClipboardCheck } from 'lucide-react'
+import { Eye, Factory, SlidersHorizontal, ClipboardCheck, BarChart3, Sparkles } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { ConsultarRequisitosMTOModal } from './ConsultarRequisitosMTOModal'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraMTOViewProps {
   itens: CarteiraItem[]
@@ -23,21 +26,43 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   onOpenDetalheMaterial,
 }) => {
   const [subAba, setSubAba] = useState<'RESUMO' | 'MTO_L1' | 'MTO_L2'>('RESUMO')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const [isConsultarRequisitosOpen, setIsConsultarRequisitosOpen] = useState(false)
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
   const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
     null,
   )
-  const itensMTO = itens.filter((i) => i.tipo_ordem === 'MTO')
-  const mtoL1 = itensMTO.filter(
-    (i) =>
-      i.linha === 'L1' ||
-      ['C', 'Q', 'R', 'V'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+  const itensMTO = useMemo(() => itens.filter((i) => i.tipo_ordem === 'MTO'), [itens])
+
+  const resultadoABCMTO = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensMTO)
+  }, [itensMTO])
+
+  const mapaAbcMTO = useMemo(() => {
+    const m = new Map<string, string>()
+    resultadoABCMTO.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
+    return m
+  }, [resultadoABCMTO])
+
+  const mtoL1 = useMemo(
+    () =>
+      itensMTO.filter(
+        (i) =>
+          i.linha === 'L1' ||
+          ['C', 'Q', 'R', 'V'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+      ),
+    [itensMTO],
   )
-  const mtoL2 = itensMTO.filter(
-    (i) =>
-      i.linha === 'L2' ||
-      ['R', 'Q', 'B', 'S'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+  const mtoL2 = useMemo(
+    () =>
+      itensMTO.filter(
+        (i) =>
+          i.linha === 'L2' ||
+          ['R', 'Q', 'B', 'S'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+      ),
+    [itensMTO],
   )
 
   const totalMtoTons = itensMTO.reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
@@ -106,6 +131,40 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Filtro Curva ABC */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setFiltroCurva(c)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  filtroCurva === c
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+          </Button>
+
           <Button
             size="sm"
             variant="default"
@@ -117,15 +176,9 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             title="Consultar Requisitos MTO do Pedido (Produto, Produção, Qualidade, Comercial)"
           >
             <ClipboardCheck className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Consultar Requisitos MTO</span>
+            <span>Requisitos MTO</span>
           </Button>
 
-          <Badge
-            variant="outline"
-            className="text-purple-800 bg-purple-50 border-purple-200 text-xs hidden sm:inline-flex"
-          >
-            Substitui Planilhas "Pedidos MTO L1" e "Pedidos MTO em aberto L2"
-          </Badge>
           <Button
             size="sm"
             variant="outline"
@@ -137,7 +190,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Colunas: Cobertura Temporal</span>
+            <span>Colunas: Temporal</span>
           </Button>
         </div>
       </div>
@@ -188,6 +241,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                 <th className="p-2.5">Pedido / Item</th>
                 <th className="p-2.5">Cliente</th>
                 <th className="p-2.5">Material & Descrição</th>
+                <th className="p-2.5 text-center">ABC</th>
                 <th className="p-2.5 text-center">Linha</th>
                 <th className="p-2.5 text-right">Qtd Ordem (t)</th>
                 <th className="p-2.5 text-right">Faturado (t)</th>
@@ -210,8 +264,15 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(subAba === 'MTO_L1' ? mtoL1 : subAba === 'MTO_L2' ? mtoL2 : itensMTO).map(
-                (it, idx) => {
+              {(subAba === 'MTO_L1' ? mtoL1 : subAba === 'MTO_L2' ? mtoL2 : itensMTO)
+                .filter((it) => {
+                  if (filtroCurva !== 'TODAS') {
+                    const c = mapaAbcMTO.get(it.codigo_material) || 'C'
+                    if (c !== filtroCurva) return false
+                  }
+                  return true
+                })
+                .map((it, idx) => {
                   const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
                     it,
                     'MTO',
@@ -239,6 +300,19 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                         </span>
                         <span className="text-[10px] text-slate-500 block truncate max-w-[180px]">
                           {it.descricao_material}
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            mapaAbcMTO.get(it.codigo_material) === 'A'
+                              ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                              : mapaAbcMTO.get(it.codigo_material) === 'B'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                : 'bg-slate-100 text-slate-700 border border-slate-300'
+                          }`}
+                        >
+                          {mapaAbcMTO.get(it.codigo_material) || 'C'}
                         </span>
                       </td>
                       <td className="p-2.5 text-center">
@@ -343,8 +417,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                       </td>
                     </tr>
                   )
-                },
-              )}
+                })}
             </tbody>
           </table>
         </div>
@@ -360,6 +433,28 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
         item={itemRequisitosSelecionado}
         itensMtoDisponiveis={itensMTO}
         onSelecionarItem={(it) => setItemRequisitosSelecionado(it)}
+      />
+
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira MTO"
+        itens={resultadoABCMTO.itens}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensMTO.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCMTO}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensMTO.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
       />
     </div>
   )

@@ -14,6 +14,8 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
+  BarChart3,
+  RefreshCw,
 } from 'lucide-react'
 import {
   CarteiraSDCItem,
@@ -25,19 +27,22 @@ import {
 import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
-import { ImportacaoCarteiraSDCModal } from './ImportacaoCarteiraSDCModal'
 import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
+import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraSDCViewProps {
   itens: CarteiraSDCItem[]
   kpis: CarteiraSDCKpis
-  fonteAtual: 'Carga QAS' | 'SAP ECC'
+  fonteAtual?: 'Carga QAS' | 'SAP ECC'
   dataAtualizacao: string
   analisesIA: string[]
   materialAncorado?: string
   abrirDetalheAncorado?: boolean
   onAtualizarItens?: (itens: CarteiraSDCItem[]) => void
   onOpenDetalheSDC?: (item: CarteiraSDCItem) => void
+  onAtualizarSap?: () => void
 }
 
 export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
@@ -50,6 +55,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   abrirDetalheAncorado = false,
   onAtualizarItens,
   onOpenDetalheSDC,
+  onAtualizarSap,
 }) => {
   const [itens, setItens] = useState<CarteiraSDCItem[]>(itensIniciais)
   const [kpis, setKpis] = useState<CarteiraSDCKpis>(kpisIniciais)
@@ -64,7 +70,14 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [itemSelecionado, setItemSelecionado] = useState<CarteiraSDCItem | null>(null)
   const [isModalDetalheOpen, setIsModalDetalheOpen] = useState(false)
   const [isModalImportOpen, setIsModalImportOpen] = useState(false)
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
   const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
+
+  // Curva ABC por faturamento para SDC
+  const resultadoABCSDC = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itens)
+  }, [itens])
 
   // Efeito de ancoragem por parâmetro de URL (?material=)
   React.useEffect(() => {
@@ -597,11 +610,30 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
               <Button
                 size="sm"
-                onClick={() => setIsModalImportOpen(true)}
-                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1 h-7 shadow-sm"
+                variant="outline"
+                onClick={() => setIsChartsOpen(true)}
+                className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
               >
-                <UploadCloud className="w-3.5 h-3.5" /> Importar Carga QAS
+                <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
               </Button>
+
+              <Button
+                size="sm"
+                onClick={() => setIsAbcOpen(true)}
+                className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+              </Button>
+
+              {onAtualizarSap && (
+                <Button
+                  size="sm"
+                  onClick={onAtualizarSap}
+                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1 h-7 shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Atualizar SAP
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -959,11 +991,26 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         origemCarteira="SDC"
       />
 
-      {/* MODAL IMPORTAÇÃO QAS (Modo Preparado para SAP ECC) */}
-      <ImportacaoCarteiraSDCModal
-        isOpen={isModalImportOpen}
-        onClose={() => setIsModalImportOpen(false)}
-        onImportar={handleImportarQAS}
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira SDC (WERKS SDPL)"
+        itens={resultadoABCSDC.itens}
+        onSelectMaterial={(itemCalc) => {
+          const sdc = itens.find((i) => i.material === itemCalc.codigo_material)
+          if (sdc) handleOpenDetalhe(sdc)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCSDC}
+        onSelectMaterial={(itemCalc) => {
+          const sdc = itens.find((i) => i.material === itemCalc.codigo_material)
+          if (sdc) handleOpenDetalhe(sdc)
+        }}
       />
     </div>
   )

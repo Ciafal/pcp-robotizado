@@ -1,12 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, SlidersHorizontal } from 'lucide-react'
+import { Eye, SlidersHorizontal, BarChart3, Sparkles } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraL2ViewProps {
   itens: CarteiraItem[]
@@ -22,16 +25,35 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
   onOpenDetalheMaterial,
 }) => {
   const [filtroFamilia, setFiltroFamilia] = useState<string>('TODAS')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
 
-  const itensL2 = itens.filter(
-    (i) =>
-      i.linha === 'L2' ||
-      ['R', 'Q', 'B', 'S'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
-  )
+  const itensL2 = useMemo(() => {
+    return itens.filter(
+      (i) =>
+        i.linha === 'L2' ||
+        ['R', 'Q', 'B', 'S'].includes((i.codigo_material || '').charAt(0).toUpperCase()),
+    )
+  }, [itens])
+
+  const resultadoABCL2 = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensL2)
+  }, [itensL2])
+
+  const mapaAbcL2 = useMemo(() => {
+    const m = new Map<string, string>()
+    resultadoABCL2.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
+    return m
+  }, [resultadoABCL2])
 
   const itensFiltrados = itensL2.filter((i) => {
     if (filtroFamilia !== 'TODAS' && i.familia !== filtroFamilia) return false
+    if (filtroCurva !== 'TODAS') {
+      const c = mapaAbcL2.get(i.codigo_material) || 'C'
+      if (c !== filtroCurva) return false
+    }
     return true
   })
 
@@ -71,13 +93,41 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Filtro Curva ABC */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setFiltroCurva(c)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  filtroCurva === c
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
             variant="outline"
-            className="text-amber-800 bg-amber-50 border-amber-300 text-xs font-semibold"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
           >
-            Regra Legada Ciclo L2 &bull; Sujeita a validação do PCP
-          </Badge>
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -101,8 +151,9 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
               <tr>
                 <th className="p-2.5">Material</th>
                 <th className="p-2.5">Descrição</th>
+                <th className="p-2.5 text-center">ABC</th>
                 <th className="p-2.5 text-center">Família</th>
-                <th className="p-2.5 text-right">ZSD24 (t)</th>
+                <th className="p-2.5 text-right">ZSD24 (t)</th>{' '}
                 <th className="p-2.5 text-right">Carteira Vendas</th>
                 <th className="p-2.5 text-right">Estoque Livre</th>
                 <th className="p-2.5 text-right">Semi CIAFAL</th>
@@ -144,6 +195,19 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
                     </td>
                     <td className="p-2.5 text-slate-700 max-w-[200px] truncate">
                       {it.descricao_material}
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          mapaAbcL2.get(it.codigo_material) === 'A'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            : mapaAbcL2.get(it.codigo_material) === 'B'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}
+                      >
+                        {mapaAbcL2.get(it.codigo_material) || 'C'}
+                      </span>
                     </td>
                     <td className="p-2.5 text-center font-semibold text-slate-600">{it.familia}</td>
                     <td className="p-2.5 text-right font-mono text-slate-700">
@@ -227,6 +291,28 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira L2"
+        itens={resultadoABCL2.itens}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensL2.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCL2}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensL2.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
     </div>
   )
 }

@@ -2,208 +2,603 @@ import React, { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileSpreadsheet, Eye, Download, UploadCloud } from 'lucide-react'
+import {
+  FileSpreadsheet,
+  Eye,
+  SlidersHorizontal,
+  BarChart3,
+  Sparkles,
+  RefreshCw,
+  Search,
+  Filter,
+  AlertTriangle,
+  ArrowUpDown,
+  Building2,
+  Package,
+} from 'lucide-react'
 import { CarteiraItem, StatusRuptura, CarteiraEntradaFutura } from '@/types/carteira-analise'
+import { CarteiraSDCItem } from '@/types/carteira-sdc'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
-import { SlidersHorizontal } from 'lucide-react'
-import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
-import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
-import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import {
+  formatNumberPTBR,
+  formatDatePTBR,
+  formatCurrencyPTBR,
+  formatPercentagePTBR,
+} from '@/lib/formatters-ptbr'
+import {
+  CurvaAbcFaturamentoEngine,
+  CurvaAbcResultadoConsolidado,
+  ItemCurvaAbcCalculado,
+} from '@/services/curva-abc-faturamento-engine'
+import { CurvaAbcParametrosBackend } from '@/services/sap-carteira-rfc-service'
+import { PortfolioCardsGrid, PortfolioCardMetric } from './PortfolioCardsGrid'
+import { PortfolioDrilldown } from './PortfolioDrilldown'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
+import { PortfolioAISection } from './PortfolioAISection'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
   entradasFuturas?: CarteiraEntradaFutura[]
+  sdcItens?: CarteiraSDCItem[]
   isLoading?: boolean
   onOpenMemoria: (item: CarteiraItem) => void
-  onOpenImportModal: () => void
-  onDownloadTemplate: () => void
   filtroMaterial?: string
   onOpenDetalheMaterial?: (item: CarteiraItem) => void
+  onAtualizarSap?: () => void
+  parametrosCurvaAbc?: CurvaAbcParametrosBackend
+  erroDisponibilidade?: boolean
+  mensagemErro?: string
 }
+
 export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   itens,
   entradasFuturas = [],
+  sdcItens = [],
   isLoading,
   onOpenMemoria,
-  onOpenImportModal,
-  onDownloadTemplate,
   filtroMaterial,
   onOpenDetalheMaterial,
+  onAtualizarSap,
+  parametrosCurvaAbc,
+  erroDisponibilidade,
+  mensagemErro,
 }) => {
-  const [searchTerm, setSearchTerm] = useState(filtroMaterial)
+  const [searchTerm, setSearchTerm] = useState(filtroMaterial || '')
   const [filtroLinha, setFiltroLinha] = useState<string>('TODAS')
+  const [filtroCentro, setFiltroCentro] = useState<string>('TODOS')
   const [filtroTipo, setFiltroTipo] = useState<string>('TODOS')
-  const [filtroCurva, setFiltroCurva] = useState<string>('TODAS')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
   const [filtroSaldo, setFiltroSaldo] = useState<'TODOS' | 'POSITIVO' | 'NEGATIVO'>('TODOS')
   const [filtroRuptura, setFiltroRuptura] = useState<string>('TODOS')
+  const [filtroEspecial, setFiltroEspecial] = useState<
+    'NENHUM' | 'DEFICIT' | 'SEM_PROG' | 'RUPTURA' | 'EXCESSO'
+  >('NENHUM')
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const [pagina, setPagina] = useState(1)
   const itensPorPagina = 25
 
-  const itensFiltrados = itens.filter((it) => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      const matchMat = it.codigo_material.toLowerCase().includes(term)
-      const matchDesc = it.descricao_material.toLowerCase().includes(term)
-      const matchCli = it.nome_cliente.toLowerCase().includes(term)
-      const matchPed = it.ordem_venda.toLowerCase().includes(term)
-      if (!matchMat && !matchDesc && !matchCli && !matchPed) return false
-    }
-
-    if (filtroLinha !== 'TODAS' && it.linha !== filtroLinha) return false
-    if (filtroTipo !== 'TODOS' && it.tipo_ordem !== filtroTipo) return false
-    if (filtroCurva !== 'TODAS' && it.curva_abc !== filtroCurva) return false
-
-    if (filtroSaldo === 'POSITIVO' && it.saldo_positivo_tons <= 0) return false
-    if (filtroSaldo === 'NEGATIVO' && it.saldo_negativo_tons >= 0) return false
-
-    if (filtroRuptura !== 'TODOS' && it.status_ruptura !== filtroRuptura) return false
-
-    return true
+  // Modais analíticos
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [drilldownConfig, setDrilldownConfig] = useState<{
+    isOpen: boolean
+    nome: string
+    descricao?: string
+    itens: ItemCurvaAbcCalculado[]
+  }>({
+    isOpen: false,
+    nome: '',
+    itens: [],
   })
 
-  const totalCarteiraTons = itens.reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
-  const totalSaldoPositivoTons = itens.reduce((s, i) => s + (i.saldo_positivo_tons || 0), 0)
-  const totalSaldoNegativoTons = itens.reduce((s, i) => s + (i.saldo_negativo_tons || 0), 0)
-  const totalMtoProduzir = itens
-    .filter((i) => i.tipo_ordem === 'MTO' && i.status_atendimento === 'A_PRODUZIR')
-    .reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
-  const itensRuptura = itens.filter((i) => i.status_ruptura === 'VERMELHO').length
-  const itensDuplicidade = itens.filter((i) => i.possivel_duplicidade).length
+  // 1. Processar dados da Carteira Consolidada (Geral + SDC) pelo motor Curva ABC por faturamento
+  const conjuntoBrutoConsolidado = useMemo(() => {
+    return [...itens, ...sdcItens]
+  }, [itens, sdcItens])
 
-  // Análise automática Alertas & IA da Carteira Geral
-  const analiseGeral = useMemo(() => {
-    return CarteiraAnaliseEngine.analisarCarteiraGenerica('GERAL', itens, entradasFuturas)
-  }, [itens, entradasFuturas])
+  const resultadoABC: CurvaAbcResultadoConsolidado = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(conjuntoBrutoConsolidado, parametrosCurvaAbc)
+  }, [conjuntoBrutoConsolidado, parametrosCurvaAbc])
+
+  const todosItensCalculados = resultadoABC.itens
+
+  // Centros e Linhas disponíveis
+  const centrosDisponiveis = useMemo(() => {
+    const s = new Set<string>()
+    todosItensCalculados.forEach((i) => {
+      if (i.centro) s.add(i.centro)
+    })
+    return Array.from(s).sort()
+  }, [todosItensCalculados])
+
+  const linhasDisponiveis = useMemo(() => {
+    const s = new Set<string>()
+    todosItensCalculados.forEach((i) => {
+      if (i.linha) s.add(i.linha)
+    })
+    return Array.from(s).sort()
+  }, [todosItensCalculados])
+
+  // 2. Os 17 Cards Executivos Consolidados da Carteira Geral
+  const cardsExecutivos: PortfolioCardMetric[] = useMemo(() => {
+    const totalItens = todosItensCalculados.length
+    const carteiraTotalT = todosItensCalculados.reduce((s, i) => s + i.carteira_tons, 0)
+    const estoqueDisponivelT = todosItensCalculados.reduce(
+      (s, i) => s + i.estoque_disponivel_tons,
+      0,
+    )
+    const estoqueQualidadeT = todosItensCalculados.reduce((s, i) => s + i.estoque_qualidade_tons, 0)
+    const estoqueBloqueadoT = todosItensCalculados.reduce((s, i) => s + i.estoque_bloqueado_tons, 0)
+    const deficitAtualT = todosItensCalculados.reduce((s, i) => s + i.deficit_tons, 0)
+    const itensComDeficitCount = todosItensCalculados.filter((i) => i.deficit_tons > 0).length
+    const emProducaoT = todosItensCalculados.reduce((s, i) => s + i.em_producao_tons, 0)
+    const coberturaProgramadaT = todosItensCalculados.reduce((s, i) => s + i.programado_tons, 0)
+    const saldoProjetadoT = todosItensCalculados.reduce((s, i) => s + i.saldo_projetado_tons, 0)
+    const itensCriticosCount = todosItensCalculados.filter((i) => i.risco === 'CRITICO').length
+    const itensSemProgCount = todosItensCalculados.filter(
+      (i) => i.deficit_tons > 0 && i.programado_tons === 0,
+    ).length
+    const itensRiscoRupturaCount = todosItensCalculados.filter(
+      (i) => i.deficit_tons > 0 && i.saldo_projetado_tons < 0,
+    ).length
+    const valorTotalCarteiraBrl = resultadoABC.faturamentoTotal_brl
+    const faturamentoRelacionadoBrl = resultadoABC.faturamentoTotal_brl
+
+    return [
+      {
+        id: 'CARTEIRA_TOTAL',
+        titulo: 'Carteira Total',
+        valor: carteiraTotalT,
+        tipoFormato: 'tonelada',
+        cor: 'azul',
+        subtitulo: 'Volume comercial aberto',
+        tooltip:
+          'Volume total da carteira comercial consolidada (L1, L2, MTO, Revenda, Importado e SDC)',
+      },
+      {
+        id: 'TOTAL_ITENS',
+        titulo: 'Qtd. Total de Itens',
+        valor: totalItens,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'padrao',
+        subtitulo: 'Materiais distintos',
+        tooltip: 'Quantidade de códigos de materiais distintos cadastrados na carteira',
+      },
+      {
+        id: 'ESTOQUE_DISPONIVEL',
+        titulo: 'Estoque Disponível',
+        valor: estoqueDisponivelT,
+        tipoFormato: 'tonelada',
+        cor: 'verde',
+        subtitulo: 'Pronto para faturamento',
+        tooltip: 'Estoque físico livre deduzido de bloqueios e reservas',
+      },
+      {
+        id: 'ESTOQUE_QUALIDADE',
+        titulo: 'Estoque Qualidade',
+        valor: estoqueQualidadeT,
+        tipoFormato: 'tonelada',
+        cor: 'amarelo',
+        subtitulo: 'Em inspeção técnica',
+        tooltip:
+          'Lotes de material sob avaliação do controle de qualidade ou ensaios laboratoriais',
+      },
+      {
+        id: 'ESTOQUE_BLOQUEADO',
+        titulo: 'Estoque Bloqueado',
+        valor: estoqueBloqueadoT,
+        tipoFormato: 'tonelada',
+        cor: 'vermelho',
+        subtitulo: 'Retido comercial/SGQ',
+        tooltip: 'Estoque com bloqueio comercial, financeiro ou por não conformidade técnica',
+      },
+      {
+        id: 'DEFICIT_ATUAL',
+        titulo: 'Déficit Atual',
+        valor: deficitAtualT,
+        tipoFormato: 'tonelada',
+        cor: 'vermelho',
+        badge: itensComDeficitCount > 0 ? `${itensComDeficitCount} itens` : undefined,
+        badgeVariant: 'destructive',
+        subtitulo: 'Demanda sem estoque físico',
+        tooltip: 'Volume de pedidos que ultrapassam o estoque físico disponível atual',
+      },
+      {
+        id: 'ITENS_COM_DEFICIT',
+        titulo: 'Itens com Déficit',
+        valor: itensComDeficitCount,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'vermelho',
+        subtitulo: 'Materiais com saldo negativo',
+        tooltip: 'Quantidade de materiais cujo saldo de estoque imediato é negativo',
+      },
+      {
+        id: 'EM_PRODUCAO',
+        titulo: 'Em Produção',
+        valor: emProducaoT,
+        tipoFormato: 'tonelada',
+        cor: 'roxo',
+        subtitulo: 'OPs em execução no chão',
+        tooltip: 'Ordens de produção com apontamento iniciado na laminação CIAFAL ou SDC',
+      },
+      {
+        id: 'COBERTURA_PROGRAMADA',
+        titulo: 'Cobertura Programada',
+        valor: coberturaProgramadaT,
+        tipoFormato: 'tonelada',
+        cor: 'azul',
+        subtitulo: 'OPs no sequenciamento PCP',
+        tooltip: 'Volume total de ordens programadas pelo PCP para entrega da carteira',
+      },
+      {
+        id: 'SALDO_PROJETADO',
+        titulo: 'Saldo Projetado',
+        valor: saldoProjetadoT,
+        tipoFormato: 'tonelada',
+        cor: saldoProjetadoT < 0 ? 'vermelho' : 'verde',
+        subtitulo: 'Estoque + Prog. - Carteira',
+        tooltip:
+          'Saldo final projetado considerando estoque livre mais produção programada menos pedidos',
+      },
+      {
+        id: 'ITENS_CRITICOS',
+        titulo: 'Itens Críticos',
+        valor: itensCriticosCount,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'vermelho',
+        badge: 'Risco Alto',
+        badgeVariant: 'destructive',
+        subtitulo: 'Risco imediato de ruptura',
+        tooltip:
+          'Materiais com ruptura iminente ou sem possibilidade de atendimento no prazo comercial',
+      },
+      {
+        id: 'ITENS_SEM_PROGRAMACAO',
+        titulo: 'Itens sem Programação',
+        valor: itensSemProgCount,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'amarelo',
+        subtitulo: 'Déficit sem OP no PCP',
+        tooltip:
+          'Produtos com déficit de estoque que ainda não possuem ordem de produção vinculada',
+      },
+      {
+        id: 'ITENS_RISCO_RUPTURA',
+        titulo: 'Risco de Ruptura',
+        valor: itensRiscoRupturaCount,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'vermelho',
+        subtitulo: 'Saldo projetado negativo',
+        tooltip: 'Materiais onde a programação cadastrada é insuficiente para cobrir o déficit',
+      },
+      {
+        id: 'VALOR_TOTAL_CARTEIRA',
+        titulo: 'Valor Total da Carteira',
+        valor: valorTotalCarteiraBrl,
+        tipoFormato: 'moeda',
+        cor: 'azul',
+        subtitulo: 'Base faturamento R$',
+        tooltip:
+          'Faturamento total estimado da carteira com base no preço médio SAP ECC por família',
+      },
+      {
+        id: 'FATURAMENTO_RELACIONADO',
+        titulo: 'Faturamento Relacionado',
+        valor: faturamentoRelacionadoBrl,
+        tipoFormato: 'moeda',
+        cor: 'padrao',
+        subtitulo: 'Exposição comercial total',
+        tooltip: 'Faturamento global associado ao lote de pedidos sob gestão',
+      },
+      {
+        id: 'CURVA_A',
+        titulo: 'Curva A',
+        valor: resultadoABC.resumoA.quantidade_itens,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'roxo',
+        badge: `${formatPercentagePTBR(resultadoABC.resumoA.percentual_faturamento, 0)} fat.`,
+        subtitulo: `Até ${parametrosCurvaAbc?.corteA_pct || 85}% do faturamento`,
+        tooltip: `Materiais de maior relevância financeira comercial (concentram ${resultadoABC.resumoA.percentual_faturamento.toFixed(1)}% do faturamento)`,
+      },
+      {
+        id: 'CURVA_B',
+        titulo: 'Curva B',
+        valor: resultadoABC.resumoB.quantidade_itens,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'azul',
+        badge: `${formatPercentagePTBR(resultadoABC.resumoB.percentual_faturamento, 0)} fat.`,
+        subtitulo: `${parametrosCurvaAbc?.corteA_pct || 85}% a ${parametrosCurvaAbc?.corteB_pct || 95}%`,
+        tooltip: `Materiais de relevância intermediária (concentram ${resultadoABC.resumoB.percentual_faturamento.toFixed(1)}% do faturamento)`,
+      },
+      {
+        id: 'CURVA_C',
+        titulo: 'Curva C',
+        valor: resultadoABC.resumoC.quantidade_itens,
+        tipoFormato: 'quantidade',
+        unidade: 'itens',
+        cor: 'cinza',
+        badge: `${formatPercentagePTBR(resultadoABC.resumoC.percentual_faturamento, 0)} fat.`,
+        subtitulo: `Acima de ${parametrosCurvaAbc?.corteB_pct || 95}%`,
+        tooltip: `Materiais de cauda longa (concentram ${resultadoABC.resumoC.percentual_faturamento.toFixed(1)}% do faturamento)`,
+      },
+    ]
+  }, [todosItensCalculados, resultadoABC, parametrosCurvaAbc])
+
+  // Drill-down dos cards executivos
+  const handleCardClick = (cardId: string) => {
+    switch (cardId) {
+      case 'CARTEIRA_TOTAL':
+      case 'TOTAL_ITENS':
+      case 'VALOR_TOTAL_CARTEIRA':
+      case 'FATURAMENTO_RELACIONADO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Carteira Total Consolidada',
+          descricao: 'Todos os materiais com ordens abertas no SAP ECC ZSD28C',
+          itens: todosItensCalculados,
+        })
+        break
+      case 'ESTOQUE_DISPONIVEL':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Estoque Disponível',
+          descricao: 'Produtos com disponibilidade física imediata para faturamento',
+          itens: todosItensCalculados.filter((i) => i.estoque_disponivel_tons > 0),
+        })
+        break
+      case 'ESTOQUE_QUALIDADE':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais em Inspeção de Qualidade',
+          descricao: 'Lotes sob retenção do controle de qualidade',
+          itens: todosItensCalculados.filter((i) => i.estoque_qualidade_tons > 0),
+        })
+        break
+      case 'ESTOQUE_BLOQUEADO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Estoque Bloqueado',
+          descricao: 'Materiais retidos por bloqueio comercial, de qualidade ou apontamento',
+          itens: todosItensCalculados.filter((i) => i.estoque_bloqueado_tons > 0),
+        })
+        break
+      case 'DEFICIT_ATUAL':
+      case 'ITENS_COM_DEFICIT':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Déficit Físico Atual',
+          descricao: 'Itens com necessidade de reposição imediata (carteira supera estoque)',
+          itens: todosItensCalculados.filter((i) => i.deficit_tons > 0),
+        })
+        break
+      case 'EM_PRODUCAO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Produção em Chão de Fábrica',
+          descricao: 'Ordens em processamento nas linhas de laminação CIAFAL ou SDC',
+          itens: todosItensCalculados.filter((i) => i.em_producao_tons > 0),
+        })
+        break
+      case 'COBERTURA_PROGRAMADA':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Cobertura Programada no PCP',
+          descricao: 'Itens com ordens programadas cadastradas no sequenciamento',
+          itens: todosItensCalculados.filter((i) => i.programado_tons > 0),
+        })
+        break
+      case 'SALDO_PROJETADO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Saldo Projetado Negativo',
+          descricao: 'Produtos com déficit final mesmo após considerar as OPs programadas',
+          itens: todosItensCalculados.filter((i) => i.saldo_projetado_tons < 0),
+        })
+        break
+      case 'ITENS_CRITICOS':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais em Nível Crítico',
+          descricao: 'Produtos sob risco imediato de ruptura no horizonte de entrega',
+          itens: todosItensCalculados.filter((i) => i.risco === 'CRITICO'),
+        })
+        break
+      case 'ITENS_SEM_PROGRAMACAO':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Déficits sem Programação PCP',
+          descricao: 'Materiais que demandam inserção prioritária no sequenciamento semanal',
+          itens: todosItensCalculados.filter((i) => i.deficit_tons > 0 && i.programado_tons === 0),
+        })
+        break
+      case 'ITENS_RISCO_RUPTURA':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais com Risco de Ruptura',
+          descricao: 'Programação insuficiente para saldar os pedidos em aberto',
+          itens: todosItensCalculados.filter(
+            (i) => i.deficit_tons > 0 && i.saldo_projetado_tons < 0,
+          ),
+        })
+        break
+      case 'CURVA_A':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais da Curva A',
+          descricao: `Itens de alta relevância (até ${parametrosCurvaAbc?.corteA_pct || 85}% do faturamento)`,
+          itens: todosItensCalculados.filter((i) => i.curva_abc === 'A'),
+        })
+        break
+      case 'CURVA_B':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais da Curva B',
+          descricao: `Itens de relevância intermediária (${parametrosCurvaAbc?.corteA_pct || 85}% a ${
+            parametrosCurvaAbc?.corteB_pct || 95
+          }%)`,
+          itens: todosItensCalculados.filter((i) => i.curva_abc === 'B'),
+        })
+        break
+      case 'CURVA_C':
+        setDrilldownConfig({
+          isOpen: true,
+          nome: 'Materiais da Curva C',
+          descricao: `Itens de cauda longa (acima de ${parametrosCurvaAbc?.corteB_pct || 95}%)`,
+          itens: todosItensCalculados.filter((i) => i.curva_abc === 'C'),
+        })
+        break
+      default:
+        break
+    }
+  }
+
+  // Filtragem da tabela consolidada
+  const itensFiltrados = useMemo(() => {
+    return todosItensCalculados.filter((it) => {
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase()
+        const matchMat = it.codigo_material.toLowerCase().includes(term)
+        const matchDesc = it.descricao_material.toLowerCase().includes(term)
+        const matchCli = (it.cliente || '').toLowerCase().includes(term)
+        if (!matchMat && !matchDesc && !matchCli) return false
+      }
+
+      if (filtroLinha !== 'TODAS' && it.linha !== filtroLinha) return false
+      if (filtroCentro !== 'TODOS' && it.centro !== filtroCentro) return false
+      if (filtroCurva !== 'TODAS' && it.curva_abc !== filtroCurva) return false
+
+      if (filtroSaldo === 'POSITIVO' && it.saldo_atual_tons <= 0) return false
+      if (filtroSaldo === 'NEGATIVO' && it.saldo_atual_tons >= 0) return false
+
+      if (filtroRuptura !== 'TODOS' && it.risco !== filtroRuptura) return false
+
+      if (filtroEspecial === 'DEFICIT' && it.deficit_tons <= 0) return false
+      if (filtroEspecial === 'SEM_PROG' && (it.deficit_tons <= 0 || it.programado_tons > 0))
+        return false
+      if (filtroEspecial === 'RUPTURA' && (it.deficit_tons <= 0 || it.saldo_projetado_tons >= 0))
+        return false
+      if (filtroEspecial === 'EXCESSO' && it.saldo_projetado_tons <= it.carteira_tons * 1.5)
+        return false
+
+      return true
+    })
+  }, [
+    todosItensCalculados,
+    searchTerm,
+    filtroLinha,
+    filtroCentro,
+    filtroCurva,
+    filtroSaldo,
+    filtroRuptura,
+    filtroEspecial,
+  ])
 
   const totalPaginas = Math.ceil(itensFiltrados.length / itensPorPagina) || 1
   const itensExibidos = itensFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina)
 
-  // Cache memoizado dos cálculos do motor único por material para evitar recálculo duplicado na renderização
-  const mapaCalculosTemporais = useMemo(() => {
-    const mapa = new Map<string, any>()
-    for (const it of itensExibidos) {
-      const chave = `${it.codigo_material}-${it.linha}-${it.ordem_venda || ''}`
-      if (!mapa.has(chave)) {
-        const origemItem =
-          it.linha === 'L1'
-            ? 'L1'
-            : it.linha === 'L2'
-              ? 'L2'
-              : it.tipo_ordem === 'ZPRM' || it.tipo_ordem === 'MTO'
-                ? 'MTO'
-                : 'GERAL'
-        const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
-          it,
-          origemItem,
-          entradasFuturas,
-        )
-        mapa.set(chave, CoberturaTemporalEngine.calcular(inputTemp))
+  // Disparar abertura de detalhe do material original se for CarteiraItem
+  const handleAbrirDetalhe = (itemCalc: ItemCurvaAbcCalculado) => {
+    if (itemCalc.origemItemOriginal) {
+      if ('ordem_venda' in itemCalc.origemItemOriginal && onOpenDetalheMaterial) {
+        onOpenDetalheMaterial(itemCalc.origemItemOriginal as CarteiraItem)
+        return
       }
     }
-    return mapa
-  }, [itensExibidos, entradasFuturas])
-
-  const getRupturaBadge = (status: StatusRuptura) => {
-    switch (status) {
-      case 'VERDE':
-        return (
-          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
-            No Prazo
-          </Badge>
-        )
-      case 'AMARELO':
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
-            Atenção
-          </Badge>
-        )
-      case 'VERMELHO':
-        return (
-          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-bold animate-pulse">
-            Risco Ruptura
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px]">
-            Sem Prog.
-          </Badge>
-        )
+    // Fallback: abrir memória de cálculo
+    const ci = itens.find((i) => i.codigo_material === itemCalc.codigo_material)
+    if (ci) {
+      onOpenMemoria(ci)
     }
   }
 
-  const handleBaixarTemplate = () => {
-    if (onDownloadTemplate) {
-      onDownloadTemplate()
-      return
-    }
-  }
-
-  // Se a lista geral de itens estiver vazia e não estiver carregando
-  if (!isLoading && itens.length === 0) {
+  // Estado de indisponibilidade oficial da RFC SAP ECC
+  if (!isLoading && (erroDisponibilidade || (itens.length === 0 && sdcItens.length === 0))) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#004C97] flex items-center justify-center mx-auto border border-blue-100 shadow-inner">
-          <FileSpreadsheet className="w-8 h-8" />
+      <Card className="bg-white border-amber-300 rounded-xl p-8 sm:p-12 text-center shadow-xs space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto border border-amber-200 shadow-inner">
+          <AlertTriangle className="w-7 h-7" />
         </div>
         <div className="max-w-md mx-auto space-y-2">
-          <h3 className="text-base font-bold text-slate-900">Nenhuma carteira carregada</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Nenhuma carteira carregada. Baixe o template ou importe uma carteira QAS para iniciar a
-            análise.
+          <h3 className="text-base font-bold text-slate-900">
+            {mensagemErro || 'Não foi possível consultar a carteira no SAP.'}
+          </h3>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Status de contingência: a integração SAP ECC via RFC (referência ZSD28C) está em
+            processamento ou aguardando resposta do gateway corporativo. Em conformidade com as
+            regras do PCP Robotizado, não são gerados dados fictícios.
           </p>
         </div>
-        <div className="flex items-center justify-center gap-3 pt-2">
+        <div className="pt-2 flex items-center justify-center gap-3">
           <Button
-            variant="outline"
-            onClick={handleBaixarTemplate}
-            className="gap-2 text-xs border-slate-300 hover:bg-slate-50 font-semibold"
+            onClick={onAtualizarSap}
+            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 px-4"
           >
-            <Download className="w-4 h-4 text-slate-600" /> Baixar Template
-          </Button>
-          <Button
-            onClick={onOpenImportModal}
-            className="gap-2 text-xs bg-[#004C97] hover:bg-[#003B75] text-white font-bold"
-          >
-            <UploadCloud className="w-4 h-4" /> Importar Carteira
+            <RefreshCw className="w-3.5 h-3.5" /> Tentar novamente
           </Button>
         </div>
-      </div>
+      </Card>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* Bloco Alertas & IA • Análise Automática da Carteira Geral com Cards de Indicadores */}
-      <AlertasIACarteiraCard
-        nomeCarteira="Carteira Geral"
-        subtitulo="Diagnóstico consolidado de toda a carteira aberta CIAFAL (MTS, MTO, L1, L2, Revenda e Importado)"
-        indicadores={analiseGeral.indicadores}
-        alertas={analiseGeral.alertas}
-        analisesIA={analiseGeral.analisesIA}
+      {/* Barra de Ações Rápidas: Botões Análise Gráfica & Curva ABC */}
+      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-[#004C97] text-white text-xs font-bold">Visão Consolidada</Badge>
+          <span className="text-xs text-slate-600 hidden sm:inline">
+            Síntese operacional: Laminação L1, L2, Encomenda MTO, Revenda, Importados e SDC.
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-8 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1.5 shadow-2xs"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-8 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1.5 shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC (Pareto)
+          </Button>
+        </div>
+      </div>
+
+      {/* Bloco Alertas & IA • Análise Automática da Carteira Geral */}
+      <PortfolioAISection
+        resultadoABC={resultadoABC}
         onFiltrarMaterial={(mat) => {
           setSearchTerm(mat)
           setPagina(1)
         }}
-        onCardClick={(card) => {
-          if (card === 'CARTEIRA_TOTAL') {
-            setFiltroSaldo('TODOS')
-            setFiltroTipo('TODOS')
-            setFiltroRuptura('TODOS')
-          } else if (card === 'DEFICIT_ATUAL' || card === 'ITENS_DEFICIT') {
-            setFiltroSaldo('NEGATIVO')
-          } else if (card === 'ITENS_CRITICOS') {
-            setFiltroRuptura('VERMELHO')
-          }
-        }}
+        onOpenCurvaAbcModal={() => setIsAbcOpen(true)}
       />
 
+      {/* Grid de 17 Cards Executivos Consolidados */}
+      <PortfolioCardsGrid cards={cardsExecutivos} onCardClick={handleCardClick} />
+
+      {/* Barra de Filtros Combináveis */}
       <Card className="bg-white border-slate-200 shadow-xs">
         <CardContent className="p-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 flex-1">
               <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchTerm}
@@ -211,10 +606,46 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                     setSearchTerm(e.target.value)
                     setPagina(1)
                   }}
-                  placeholder="Buscar material, descrição, cliente ou pedido..."
-                  className="w-full text-xs pl-3 pr-8 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                  placeholder="Buscar material, descrição ou cliente..."
+                  className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#004C97] bg-white"
                 />
               </div>
+
+              {/* Filtro Curva ABC [Todos | A | B | C] */}
+              <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      setFiltroCurva(c)
+                      setPagina(1)
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                      filtroCurva === c
+                        ? 'bg-[#004C97] text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filtros Especiais Rápidos */}
+              <select
+                value={filtroEspecial}
+                onChange={(e) => {
+                  setFiltroEspecial(e.target.value as any)
+                  setPagina(1)
+                }}
+                className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium"
+              >
+                <option value="NENHUM">Condição: Todas</option>
+                <option value="DEFICIT">Apenas com Déficit</option>
+                <option value="SEM_PROG">Déficit sem Programação</option>
+                <option value="RUPTURA">Risco de Ruptura (Proj. Negativo)</option>
+                <option value="EXCESSO">Estoque Excessivo (&gt;150%)</option>
+              </select>
 
               <select
                 value={filtroLinha}
@@ -225,48 +656,27 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                 className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium"
               >
                 <option value="TODAS">Linhas: Todas</option>
-                <option value="L1">Linha L1</option>
-                <option value="L2">Linha L2</option>
+                {linhasDisponiveis.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
               </select>
 
               <select
-                value={filtroTipo}
+                value={filtroCentro}
                 onChange={(e) => {
-                  setFiltroTipo(e.target.value)
+                  setFiltroCentro(e.target.value)
                   setPagina(1)
                 }}
                 className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium"
               >
-                <option value="TODOS">Tipo: Todos</option>
-                <option value="MTS">MTS (Estoque)</option>
-                <option value="MTO">MTO (Encomenda)</option>
-              </select>
-
-              <select
-                value={filtroCurva}
-                onChange={(e) => {
-                  setFiltroCurva(e.target.value)
-                  setPagina(1)
-                }}
-                className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium"
-              >
-                <option value="TODAS">Curva ABC: Todas</option>
-                <option value="A">Curva A</option>
-                <option value="B">Curva B</option>
-                <option value="C">Curva C</option>
-              </select>
-
-              <select
-                value={filtroSaldo}
-                onChange={(e) => {
-                  setFiltroSaldo(e.target.value as any)
-                  setPagina(1)
-                }}
-                className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium"
-              >
-                <option value="TODOS">Saldos: Todos</option>
-                <option value="POSITIVO">Apenas Saldo Positivo (+)</option>
-                <option value="NEGATIVO">Apenas Saldo Negativo (-)</option>
+                <option value="TODOS">Centros: Todos</option>
+                {centrosDisponiveis.map((c) => (
+                  <option key={c} value={c}>
+                    Centro {c}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -291,267 +701,239 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                 onClick={() => {
                   setSearchTerm('')
                   setFiltroLinha('TODAS')
+                  setFiltroCentro('TODOS')
                   setFiltroTipo('TODOS')
                   setFiltroCurva('TODAS')
                   setFiltroSaldo('TODOS')
                   setFiltroRuptura('TODOS')
+                  setFiltroEspecial('NENHUM')
                   setPagina(1)
                 }}
                 className="border-slate-300 text-slate-600 hover:bg-slate-50 text-xs h-7"
               >
-                Limpar Filtros
+                Limpar
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {itens.length === 0 ? (
-        <Card className="bg-white border-slate-200 text-center py-12 px-4 shadow-xs">
-          <div className="max-w-md mx-auto space-y-3">
-            <div className="p-3 bg-blue-50 text-[#004C97] w-12 h-12 rounded-full mx-auto flex items-center justify-center shadow-xs">
-              <FileSpreadsheet className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">Nenhuma carteira carregada</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Utilize "Importar Carteira" para iniciar a análise. O arquivo Excel QAS ZSD28C
-              alimentará automaticamente todos os 6 tópicos da base única de carteira.
-            </p>
-            <Button
-              onClick={onOpenImportModal}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold gap-1.5"
-            >
-              <FileSpreadsheet className="w-4 h-4" /> Importar Carteira QAS / ZSD28C
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#004C97] text-white text-[11px] select-none">
+      {/* Tabela Consolidada de Materiais */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-[#004C97] text-white text-[11px] select-none">
+              <tr>
+                <th className="p-2.5 font-bold">Material / Descrição</th>
+                <th className="p-2.5 font-bold text-center">Linha</th>
+                <th className="p-2.5 font-bold text-center">Centro</th>
+                <th className="p-2.5 font-bold text-center">Curva ABC</th>
+                <th className="p-2.5 font-bold text-right">Carteira (t)</th>
+                <th className="p-2.5 font-bold text-right">Estoque Disp. (t)</th>
+                <th className="p-2.5 font-bold text-right">Programado (t)</th>
+                <th className="p-2.5 font-bold text-right">Déficit (t)</th>
+                <th className="p-2.5 font-bold text-right">Saldo Proj. (t)</th>
+                <th className="p-2.5 font-bold text-right">Faturamento (R$)</th>
+                <th className="p-2.5 font-bold text-right">% Indiv.</th>
+                <th className="p-2.5 font-bold text-center">Risco</th>
+                <th className="p-2.5 font-bold text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {itensExibidos.length === 0 ? (
                 <tr>
-                  <th className="p-2.5 font-bold">Material / Descrição</th>
-                  <th className="p-2.5 font-bold">Cliente & Pedido</th>
-                  <th className="p-2.5 font-bold text-center">Linha</th>
-                  <th className="p-2.5 font-bold text-center">Tipo</th>
-                  <th className="p-2.5 font-bold text-center">Curva</th>
-                  <th className="p-2.5 font-bold text-right">Carteira (t)</th>
-                  <th className="p-2.5 font-bold text-right">Estoque (t)</th>
-                  <th className="p-2.5 font-bold text-right">Saldo (+)</th>
-                  <th className="p-2.5 font-bold text-right">Saldo (-)</th>
-                  <th className="p-2.5 font-bold text-right">Nec. Líquida (t)</th>
-                  <th className="p-2.5 font-bold text-center">Programação</th>
-                  <th className="p-2.5 font-bold text-center">Ruptura</th>
-                  {mostrarColunasTemporais && (
-                    <>
-                      <th className="p-2.5 font-bold text-right bg-blue-900/40">Média (t/d)</th>
-                      <th className="p-2.5 font-bold text-right bg-blue-900/40">Cobertura</th>
-                      <th className="p-2.5 font-bold text-center bg-blue-900/40">Fim Estoque</th>
-                      <th className="p-2.5 font-bold text-center bg-blue-900/40">
-                        Próx. Reposição
-                      </th>
-                      <th className="p-2.5 font-bold text-center bg-blue-900/40">Gap Dias</th>
-                      <th className="p-2.5 font-bold text-center bg-blue-900/40">
-                        Status Temporal
-                      </th>
-                    </>
-                  )}
-                  <th className="p-2.5 font-bold text-center">Ações</th>
+                  <td colSpan={13} className="p-8 text-center text-slate-500">
+                    Nenhum material encontrado com os filtros aplicados.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {itensExibidos.map((it, idx) => {
-                  const chave = `${it.codigo_material}-${it.linha}-${it.ordem_venda || ''}`
-                  const resTemp = mapaCalculosTemporais.get(chave)
+              ) : (
+                itensExibidos.map((it, idx) => (
+                  <tr
+                    key={it.codigo_material + idx}
+                    onClick={() => handleAbrirDetalhe(it)}
+                    className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
+                      it.curva_abc === 'A' && it.deficit_tons > 0
+                        ? 'bg-rose-50/30'
+                        : idx % 2 === 0
+                          ? 'bg-white'
+                          : 'bg-slate-50/30'
+                    }`}
+                  >
+                    <td className="p-2.5">
+                      <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
+                        {it.codigo_material}
+                        {it.curva_abc === 'A' && (
+                          <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[9px] font-bold">
+                            A
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 block truncate max-w-[220px]">
+                        {it.descricao_material}
+                      </span>
+                    </td>
 
-                  return (
-                    <tr
-                      key={idx}
-                      onClick={() =>
-                        onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
-                      }
-                      className={`hover:bg-blue-50/50 transition-colors text-[11px] cursor-pointer ${
-                        it.possivel_duplicidade ? 'bg-amber-50/40' : ''
+                    <td className="p-2.5 text-center">
+                      <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
+                        {it.linha}
+                      </Badge>
+                    </td>
+
+                    <td className="p-2.5 text-center font-mono text-slate-600">{it.centro}</td>
+
+                    <td className="p-2.5 text-center font-bold">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
+                          it.curva_abc === 'A'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            : it.curva_abc === 'B'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}
+                      >
+                        {it.curva_abc}
+                      </span>
+                    </td>
+
+                    <td className="p-2.5 text-right font-mono font-bold text-blue-950">
+                      {formatNumberPTBR(it.carteira_tons, 2)}
+                    </td>
+
+                    <td className="p-2.5 text-right font-mono text-slate-700">
+                      {formatNumberPTBR(it.estoque_disponivel_tons, 2)}
+                    </td>
+
+                    <td className="p-2.5 text-right font-mono text-indigo-700 font-semibold">
+                      {formatNumberPTBR(it.programado_tons, 2)}
+                    </td>
+
+                    <td className="p-2.5 text-right font-mono font-bold text-rose-700">
+                      {it.deficit_tons > 0 ? formatNumberPTBR(it.deficit_tons, 2) : '-'}
+                    </td>
+
+                    <td
+                      className={`p-2.5 text-right font-mono font-bold ${
+                        it.saldo_projetado_tons < 0 ? 'text-rose-700' : 'text-emerald-700'
                       }`}
                     >
-                      <td className="p-2.5">
-                        <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                          {it.codigo_material}
-                          {it.possivel_duplicidade && (
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold">
-                              Sobrecobertura
-                            </Badge>
-                          )}
-                          {it.bloqueio && (
-                            <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
-                              Bloqueado
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-500 block truncate max-w-[200px]">
-                          {it.descricao_material}
-                        </span>
-                      </td>
+                      {formatNumberPTBR(it.saldo_projetado_tons, 2)}
+                    </td>
 
-                      <td className="p-2.5">
-                        <span className="font-semibold text-slate-800 block truncate max-w-[160px]">
-                          {it.nome_cliente}
-                        </span>
-                        <span className="font-mono text-[10px] text-slate-500">
-                          Ped: {it.ordem_venda}/{it.item_ordem} &bull; Desejada:{' '}
-                          {formatDatePTBR(it.data_desejada)}
-                        </span>
-                      </td>
+                    <td className="p-2.5 text-right font-mono text-slate-900">
+                      {formatCurrencyPTBR(it.faturamento_brl)}
+                    </td>
 
-                      <td className="p-2.5 text-center">
-                        <Badge className="bg-slate-100 text-[#004C97] font-bold border-slate-200 text-[10px]">
-                          {it.linha || 'GERAL'}
-                        </Badge>
-                      </td>
+                    <td className="p-2.5 text-right font-mono text-slate-700">
+                      {formatPercentagePTBR(it.participacao_individual_pct, 2)}
+                    </td>
 
-                      <td className="p-2.5 text-center">
-                        <Badge
-                          className={`text-[9px] ${it.tipo_ordem === 'MTO' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}
-                        >
-                          {it.tipo_ordem}
-                        </Badge>
-                      </td>
+                    <td className="p-2.5 text-center">
+                      <Badge
+                        className={`text-[9px] font-bold ${
+                          it.risco === 'CRITICO'
+                            ? 'bg-rose-100 text-rose-900 border-rose-300'
+                            : it.risco === 'ATENCAO'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                        }`}
+                      >
+                        {it.risco}
+                      </Badge>
+                    </td>
 
-                      <td className="p-2.5 text-center font-bold text-slate-700">{it.curva_abc}</td>
+                    <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleAbrirDetalhe(it)}
+                        className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                      >
+                        <Eye className="w-3 h-3" /> Ficha
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-                      <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                        {formatNumberPTBR(it.carteira_aberta_tons, 2)}
-                      </td>
-
-                      <td className="p-2.5 text-right font-mono text-slate-700">
-                        {formatNumberPTBR(it.disponibilidade_fisica_elegivel_tons || 0, 2)}
-                      </td>
-
-                      <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                        {it.saldo_positivo_tons > 0
-                          ? `+${formatNumberPTBR(it.saldo_positivo_tons, 2)}`
-                          : '-'}
-                      </td>
-
-                      <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                        {it.saldo_negativo_tons < 0
-                          ? formatNumberPTBR(it.saldo_negativo_tons, 2)
-                          : '-'}
-                      </td>
-
-                      <td className="p-2.5 text-right font-mono font-bold text-amber-900">
-                        {it.necessidade_liquida_tons > 0
-                          ? formatNumberPTBR(it.necessidade_liquida_tons, 2)
-                          : '-'}
-                      </td>
-
-                      <td className="p-2.5 text-center">
-                        {it.qtd_programada_tons > 0 ? (
-                          <div>
-                            <strong className="font-mono text-slate-800 block text-[10px]">
-                              {formatNumberPTBR(it.qtd_programada_tons, 2)} t
-                            </strong>
-                            <span className="text-[9px] text-slate-500 font-mono">
-                              {it.data_programada
-                                ? formatDatePTBR(it.data_programada)
-                                : it.semana_programada || 'Programado'}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">Sem Prog.</span>
-                        )}
-                      </td>
-
-                      <td className="p-2.5 text-center">{getRupturaBadge(it.status_ruptura)}</td>
-
-                      {mostrarColunasTemporais && resTemp && (
-                        <>
-                          <td className="p-2.5 text-right font-mono text-slate-700">
-                            {resTemp.mediaDiariaFaturamentoT
-                              ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
-                              : 'N/D'}
-                          </td>
-                          <td className="p-2.5 text-right font-mono font-bold text-slate-800">
-                            {resTemp.diasCoberturaFormatado}
-                          </td>
-                          <td className="p-2.5 text-center font-mono text-slate-700">
-                            {resTemp.dataFimEstoqueFormatada}
-                          </td>
-                          <td
-                            className="p-2.5 text-center font-mono text-[10px] text-blue-900 truncate max-w-[120px]"
-                            title={resTemp.proximaDataPrevistaFormatada}
-                          >
-                            {resTemp.proximaDataPrevistaFormatada}
-                          </td>
-                          <td
-                            className={`p-2.5 text-center font-mono font-bold ${
-                              resTemp.temGapRuptura ? 'text-rose-700' : 'text-emerald-700'
-                            }`}
-                          >
-                            {resTemp.diasEstoqueNegativoFormatado}
-                          </td>
-                          <td className="p-2.5 text-center">
-                            <Badge
-                              className={`text-[9px] font-bold border ${resTemp.badgeCor.bg} ${resTemp.badgeCor.text} ${resTemp.badgeCor.border}`}
-                            >
-                              {resTemp.status}
-                            </Badge>
-                          </td>
-                        </>
-                      )}
-
-                      <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
-                          }
-                          className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
-                          title="Ver detalhe com Cobertura Temporal & Previsão"
-                        >
-                          <Eye className="w-3 h-3 text-[#004C97]" /> Detalhe
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-            <span>
-              Exibindo <strong>{itensExibidos.length}</strong> de{' '}
-              <strong>{itensFiltrados.length}</strong> itens
+        {/* Paginação */}
+        <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+          <span>
+            Exibindo <strong>{itensExibidos.length}</strong> de{' '}
+            <strong>{itensFiltrados.length}</strong> materiais
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pagina === 1}
+              onClick={() => setPagina(pagina - 1)}
+              className="h-7 text-xs border-slate-300"
+            >
+              Anterior
+            </Button>
+            <span className="px-2 font-mono text-xs">
+              {pagina} / {totalPaginas}
             </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pagina === 1}
-                onClick={() => setPagina(pagina - 1)}
-                className="h-7 text-xs border-slate-300"
-              >
-                Anterior
-              </Button>
-              <span className="px-2 font-mono text-xs">
-                {pagina} / {totalPaginas}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pagina === totalPaginas}
-                onClick={() => setPagina(pagina + 1)}
-                className="h-7 text-xs border-slate-300"
-              >
-                Próxima
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pagina === totalPaginas}
+              onClick={() => setPagina(pagina + 1)}
+              className="h-7 text-xs border-slate-300"
+            >
+              Próxima
+            </Button>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Modal Drilldown Reutilizável */}
+      <PortfolioDrilldown
+        isOpen={drilldownConfig.isOpen}
+        onClose={() => setDrilldownConfig((prev) => ({ ...prev, isOpen: false }))}
+        indicadorNome={drilldownConfig.nome}
+        indicadorDescricao={drilldownConfig.descricao}
+        itens={drilldownConfig.itens}
+        onOpenDetalheMaterialOriginal={handleAbrirDetalhe}
+      />
+
+      {/* Modal Análise Gráfica Reutilizável */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira Consolidada"
+        itens={todosItensCalculados}
+        onSelectMaterial={handleAbrirDetalhe}
+        onDrilldownGrupo={(grupoNome, grupoItens) => {
+          setIsChartsOpen(false)
+          setDrilldownConfig({
+            isOpen: true,
+            nome: grupoNome,
+            descricao: `Detalhamento dos materiais do grupo ${grupoNome}`,
+            itens: grupoItens,
+          })
+        }}
+      />
+
+      {/* Modal Curva ABC (Pareto) Reutilizável */}
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABC}
+        onSelectMaterial={handleAbrirDetalhe}
+        onDrilldownFaixa={(faixa, faixaItens) => {
+          setIsAbcOpen(false)
+          setDrilldownConfig({
+            isOpen: true,
+            nome: `Materiais da Curva ${faixa}`,
+            descricao: `Materiais classificados na faixa ${faixa} por faturamento comercial`,
+            itens: faixaItens,
+          })
+        }}
+      />
     </div>
   )
 }

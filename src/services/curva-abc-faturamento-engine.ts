@@ -218,7 +218,7 @@ export class CurvaAbcFaturamentoEngine {
       codigo_material: item.material,
       descricao_material: item.descricao,
       familia: item.familia || 'OUTROS',
-      linha: item.linha || 'SDC',
+      linha: (item as any).linha || 'SDC',
       centro: item.centro_sap || 'SDPL',
       cliente: item.pedidos_compoem?.[0]?.cliente || 'Industrialização SDC',
       carteira_tons: carteiraT,

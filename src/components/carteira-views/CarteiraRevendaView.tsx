@@ -1,12 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, SlidersHorizontal } from 'lucide-react'
+import { Eye, SlidersHorizontal, BarChart3, Sparkles } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
+import { PortfolioCharts } from './PortfolioCharts'
+import { PortfolioABC } from './PortfolioABC'
 
 interface CarteiraRevendaViewProps {
   itens: CarteiraItem[]
@@ -22,8 +25,33 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
   onOpenDetalheMaterial,
 }) => {
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
-  const itensRevenda = itens.filter((i) => i.origem_produto === 'REVENDA')
-  const entradasRevenda = entradasFuturas.filter((e) => e.origem === 'REVENDA')
+  const [filtroCurva, setFiltroCurva] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
+  const [isChartsOpen, setIsChartsOpen] = useState(false)
+  const [isAbcOpen, setIsAbcOpen] = useState(false)
+
+  const itensRevenda = useMemo(() => itens.filter((i) => i.origem_produto === 'REVENDA'), [itens])
+  const entradasRevenda = useMemo(
+    () => entradasFuturas.filter((e) => e.origem === 'REVENDA'),
+    [entradasFuturas],
+  )
+
+  const resultadoABCRevenda = useMemo(() => {
+    return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensRevenda)
+  }, [itensRevenda])
+
+  const mapaAbcRevenda = useMemo(() => {
+    const m = new Map<string, string>()
+    resultadoABCRevenda.itens.forEach((i) => m.set(i.codigo_material, i.curva_abc))
+    return m
+  }, [resultadoABCRevenda])
+
+  const itensFiltradosRevenda = useMemo(() => {
+    if (filtroCurva === 'TODAS') return itensRevenda
+    return itensRevenda.filter((i) => {
+      const c = mapaAbcRevenda.get(i.codigo_material) || 'C'
+      return c === filtroCurva
+    })
+  }, [itensRevenda, filtroCurva, mapaAbcRevenda])
 
   const totalCarteiraRevenda = itensRevenda.reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
   const totalEstoqueFisico = itensRevenda.reduce((s, i) => s + (i.estoque_livre_tons || 0), 0)
@@ -67,13 +95,41 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Filtro Curva ABC */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+            {(['TODAS', 'A', 'B', 'C'] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => setFiltroCurva(c)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  filtroCurva === c
+                    ? 'bg-[#004C97] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {c === 'TODAS' ? 'ABC: Todos' : `Curva ${c}`}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
             variant="outline"
-            className="text-emerald-800 bg-emerald-50 border-emerald-300 text-xs font-semibold"
+            onClick={() => setIsChartsOpen(true)}
+            className="h-7 text-xs font-bold border-blue-300 text-[#004C97] hover:bg-blue-50 gap-1"
           >
-            Origem ZRES &bull; Revenda Comercial
-          </Badge>
+            <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" /> Análise Gráfica
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => setIsAbcOpen(true)}
+            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -85,7 +141,7 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
             }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Colunas: Cobertura Temporal</span>
+            <span>Colunas: Temporal</span>
           </Button>
         </div>
       </div>
@@ -137,6 +193,7 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
               <tr>
                 <th className="p-2.5">Material</th>
                 <th className="p-2.5">Cliente</th>
+                <th className="p-2.5 text-center">ABC</th>
                 <th className="p-2.5">Pedido / Item</th>
                 <th className="p-2.5 text-right">Carteira (t)</th>
                 <th className="p-2.5 text-right">Estoque Físico (t)</th>
@@ -157,7 +214,7 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {itensRevenda.map((it, idx) => {
+              {itensFiltradosRevenda.map((it, idx) => {
                 const inputTemp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
                   it,
                   'REVENDA',
@@ -178,6 +235,19 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
                     </td>
                     <td className="p-2.5 text-slate-700 max-w-[150px] truncate">
                       {it.nome_cliente}
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          mapaAbcRevenda.get(it.codigo_material) === 'A'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            : mapaAbcRevenda.get(it.codigo_material) === 'B'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}
+                      >
+                        {mapaAbcRevenda.get(it.codigo_material) || 'C'}
+                      </span>
                     </td>
                     <td className="p-2.5 font-mono text-slate-700">
                       {it.ordem_venda}/{it.item_ordem}
@@ -262,6 +332,28 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Modais Analíticos */}
+      <PortfolioCharts
+        isOpen={isChartsOpen}
+        onClose={() => setIsChartsOpen(false)}
+        tituloCarteira="Carteira Revenda"
+        itens={resultadoABCRevenda.itens}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensRevenda.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      <PortfolioABC
+        isOpen={isAbcOpen}
+        onClose={() => setIsAbcOpen(false)}
+        resultadoABC={resultadoABCRevenda}
+        onSelectMaterial={(itemCalc) => {
+          const ci = itensRevenda.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
     </div>
   )
 }

@@ -186,7 +186,6 @@ export class SapCarteiraRfcService {
                 upload_code: r.upload_code || 'SAP-RFC-ZSD28C',
                 source_system: 'SAP_ECC',
                 source_transaction: 'ZSD28C',
-                source_mode: 'SAP_ECC_RFC',
                 empresa: r.empresa || '1000',
                 centro: r.centro || '1000',
                 linha: r.linha || 'L1',
