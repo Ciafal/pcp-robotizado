@@ -16,10 +16,11 @@ const ModuleFallback = () => (
   </div>
 )
 
-// Landing Raiz do PCP Robotizado: Renderiza diretamente a Análise de Carteira Geral com casca funcional,
-// ou redireciona de forma limpa preservando search params (ex: ?token=..., ?v=...)
-const RootLanding: React.FC = () => {
-  return <AnaliseCarteiraPage />
+// Redirecionamento determinístico da Rota Raiz ("/") para Análise de Carteira Geral ("/pcp/analise-carteira/geral"):
+// Preserva querystrings (?token=..., ?v=...) e hash, garantindo 1 único redirect sem loop nem tela branca.
+export const RootRedirect: React.FC = () => {
+  const location = useLocation()
+  return <Navigate to={`/pcp/analise-carteira/geral${location.search}${location.hash}`} replace />
 }
 
 // Lazy load dos componentes e layouts
@@ -502,15 +503,8 @@ export const App: React.FC = () => {
                       path="/dwp/cockpit-executivo"
                       element={<Navigate to="/pcp/cockpit-executivo" replace />}
                     />
-                    {/* Landing Raiz: renderiza diretamente a Análise de Carteira Geral sem bounce de redirect */}
-                    <Route
-                      path="/"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <RootLanding />
-                        </PermissionGuard>
-                      }
-                    />
+                    {/* Landing Raiz: Redirecionamento determinístico imediato para /pcp/analise-carteira/geral */}
+                    <Route path="/" element={<RootRedirect />} />
                     <Route path="/pcp" element={<Navigate to="/pcp/sequenciamento" replace />} />
                     <Route path="/pcp/cockpit" element={<Index />} />
                     <Route
