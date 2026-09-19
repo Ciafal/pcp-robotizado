@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Eye, SlidersHorizontal } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 
 interface CarteiraRevendaViewProps {
   itens: CarteiraItem[]
@@ -30,8 +33,26 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
   )
   const saldoFuturoProjetado = totalEstoqueFisico + totalCompradoPendente - totalCarteiraRevenda
 
+  // Análise automática Alertas & IA da Carteira Revenda
+  const analiseRevenda = React.useMemo(() => {
+    return CarteiraAnaliseEngine.analisarCarteiraGenerica('REVENDA', itens, entradasFuturas)
+  }, [itens, entradasFuturas])
+
   return (
     <div className="space-y-4">
+      {/* Alertas & IA • Análise Automática da Carteira Revenda */}
+      <AlertasIACarteiraCard
+        nomeCarteira="Carteira Revenda"
+        subtitulo="Diagnóstico preditivo em tempo real • Suprimentos & Compras Externas • Revenda Comercial"
+        indicadores={analiseRevenda.indicadores}
+        alertas={analiseRevenda.alertas}
+        analisesIA={analiseRevenda.analisesIA}
+        onFiltrarMaterial={(mat) => {
+          const item = itensRevenda.find((i) => i.codigo_material === mat)
+          if (item && onOpenDetalheMaterial) onOpenDetalheMaterial(item)
+        }}
+      />
+
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -71,42 +92,39 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Carteira Revenda
+            Carteira Total Revenda
           </span>
           <strong className="text-base font-mono font-bold text-slate-900 block mt-0.5">
-            {totalCarteiraRevenda.toFixed(1)} t
+            {formatNumberPTBR(totalCarteiraRevenda, 2)} t
           </strong>
         </div>
-
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Estoque Físico Disponível
+            Estoque Físico Livre
           </span>
           <strong className="text-base font-mono font-bold text-slate-800 block mt-0.5">
-            {totalEstoqueFisico.toFixed(1)} t
+            {formatNumberPTBR(totalEstoqueFisico, 2)} t
           </strong>
         </div>
-
+        <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-purple-700 block">
+            Comprado Pendente
+          </span>
+          <strong className="text-base font-mono font-bold text-purple-900 block mt-0.5">
+            {formatNumberPTBR(totalCompradoPendente, 2)} t
+          </strong>
+        </div>
         <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-[#004C97] block">
-            Entradas Previstas (PO)
-          </span>
-          <strong className="text-base font-mono font-bold text-[#004C97] block mt-0.5">
-            {totalCompradoPendente.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block">
             Saldo Futuro Projetado
           </span>
-          <strong className="text-base font-mono font-bold text-emerald-700 block mt-0.5">
-            {saldoFuturoProjetado >= 0
-              ? `+${saldoFuturoProjetado.toFixed(1)}`
-              : saldoFuturoProjetado.toFixed(1)}{' '}
+          <strong className="text-base font-mono font-bold text-[#004C97] block mt-0.5">
+            {saldoFuturoProjetado > 0
+              ? `+${formatNumberPTBR(saldoFuturoProjetado, 2)}`
+              : formatNumberPTBR(saldoFuturoProjetado, 2)}{' '}
             t
           </strong>
-        </div>
+        </div>{' '}
       </div>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
@@ -165,18 +183,20 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
                       {it.ordem_venda}/{it.item_ordem}
                     </td>
                     <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                      {it.carteira_aberta_tons.toFixed(1)}
+                      {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                     </td>
                     <td className="p-2.5 text-right font-mono text-slate-700">
-                      {it.estoque_livre_tons.toFixed(1)}
+                      {formatNumberPTBR(it.estoque_livre_tons, 2)}
                     </td>
                     <td className="p-2.5 text-right font-mono text-[#004C97]">
-                      {entradasRevenda
-                        .find((e) => e.codigo_material === it.codigo_material)
-                        ?.quantidade_pendente_tons.toFixed(1) || '0.0'}
+                      {formatNumberPTBR(
+                        entradasRevenda.find((e) => e.codigo_material === it.codigo_material)
+                          ?.quantidade_pendente_tons || 0,
+                        2,
+                      )}
                     </td>
                     <td className="p-2.5 text-center font-mono text-slate-700">
-                      {it.data_desejada}
+                      {formatDatePTBR(it.data_desejada)}
                     </td>
                     <td className="p-2.5 text-center">
                       {it.status_ruptura === 'VERMELHO' ? (
@@ -193,7 +213,7 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
                       <>
                         <td className="p-2.5 text-right font-mono text-slate-700">
                           {resTemp.mediaDiariaFaturamentoT
-                            ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                            ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                             : 'N/D'}
                         </td>
                         <td className="p-2.5 text-right font-mono font-bold text-slate-800">

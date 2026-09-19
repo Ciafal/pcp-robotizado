@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Eye, TrendingDown, Layers, SlidersHorizontal } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 
 interface CarteiraL1ViewProps {
   itens: CarteiraItem[]
@@ -42,6 +45,11 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
   const totalSaldoPositivoL1 = itensL1.reduce((s, i) => s + (i.saldo_positivo_tons || 0), 0)
   const totalSaldoNegativoL1 = itensL1.reduce((s, i) => s + (i.saldo_negativo_tons || 0), 0)
 
+  // Análise automática Alertas & IA da Carteira L1
+  const analiseL1 = React.useMemo(() => {
+    return CarteiraAnaliseEngine.analisarCarteiraGenerica('L1', itens, entradasFuturas)
+  }, [itens, entradasFuturas])
+
   const topNegativos = [...itensL1]
     .filter((i) => i.saldo_negativo_tons < 0)
     .sort((a, b) => a.saldo_negativo_tons - b.saldo_negativo_tons)
@@ -49,6 +57,19 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Alertas & IA • Análise Automática da Carteira L1 */}
+      <AlertasIACarteiraCard
+        nomeCarteira="Carteira L1"
+        subtitulo="Diagnóstico preditivo em tempo real • Laminação de Perfis Leves • Linha L1"
+        indicadores={analiseL1.indicadores}
+        alertas={analiseL1.alertas}
+        analisesIA={analiseL1.analisesIA}
+        onFiltrarMaterial={(mat) => {
+          const item = itensL1.find((i) => i.codigo_material === mat)
+          if (item && onOpenDetalheMaterial) onOpenDetalheMaterial(item)
+        }}
+      />
+
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -88,58 +109,6 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Demanda Total L1
-          </span>
-          <strong className="text-base font-mono font-bold text-slate-900 block mt-0.5">
-            {totalCarteiraL1.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Estoque Livre
-          </span>
-          <strong className="text-base font-mono font-bold text-slate-800 block mt-0.5">
-            {totalEstoqueLivreL1.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-purple-700 block">Estoque MTO</span>
-          <strong className="text-base font-mono font-bold text-purple-900 block mt-0.5">
-            {totalEstoqueMtoL1.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-[#004C97] block">Semiacabado</span>
-          <strong className="text-base font-mono font-bold text-[#004C97] block mt-0.5">
-            {totalSemiacabadoL1.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block">
-            Saldo Positivo
-          </span>
-          <strong className="text-base font-mono font-bold text-emerald-700 block mt-0.5">
-            +{totalSaldoPositivoL1.toFixed(1)} t
-          </strong>
-        </div>
-
-        <div className="p-3 bg-white rounded-xl border border-rose-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-rose-700 block">
-            Carteira Negativa
-          </span>
-          <strong className="text-base font-mono font-bold text-rose-700 block mt-0.5">
-            {totalSaldoNegativoL1.toFixed(1)} t
-          </strong>
-        </div>
-      </div>
-
       {topNegativos.length > 0 && (
         <Card className="bg-rose-50/40 border-rose-200 shadow-xs">
           <CardHeader className="p-3 pb-2 border-b border-rose-100">
@@ -160,7 +129,7 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
                       {top.codigo_material}
                     </span>
                     <Badge className="bg-rose-100 text-rose-800 text-[9px] font-bold">
-                      {top.saldo_negativo_tons.toFixed(1)} t
+                      {formatNumberPTBR(top.saldo_negativo_tons, 2)} t
                     </Badge>
                   </div>
                   <p className="text-[10px] text-slate-500 truncate mt-0.5">
@@ -248,28 +217,32 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
                         </Badge>
                       </td>
                       <td className="p-2.5 text-right font-mono text-slate-800">
-                        {it.carteira_aberta_tons.toFixed(1)}
+                        {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-slate-700">
-                        {it.estoque_livre_tons.toFixed(1)}
+                        {formatNumberPTBR(it.estoque_livre_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-purple-800">
-                        {it.estoque_mto_tons.toFixed(1)}
+                        {formatNumberPTBR(it.estoque_mto_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-[#004C97]">
-                        {it.estoque_semiacabado_tons.toFixed(1)}
+                        {formatNumberPTBR(it.estoque_semiacabado_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                        {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
+                        {it.saldo_negativo_tons < 0
+                          ? formatNumberPTBR(it.saldo_negativo_tons, 2)
+                          : '-'}
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                        {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
+                        {it.saldo_positivo_tons > 0
+                          ? `+${formatNumberPTBR(it.saldo_positivo_tons, 2)}`
+                          : '-'}
                       </td>
                       {mostrarColunasTemporais && (
                         <>
                           <td className="p-2.5 text-right font-mono text-slate-700">
                             {resTemp.mediaDiariaFaturamentoT
-                              ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                              ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                               : 'N/D'}
                           </td>
                           <td className="p-2.5 text-right font-mono font-bold text-slate-800">

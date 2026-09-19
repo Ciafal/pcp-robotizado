@@ -40,6 +40,7 @@ import {
   TipoAlertaSDC,
   ConfiguracaoVariacaoCarteiraSDC,
 } from '@/types/carteira-sdc'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 
 export class CarteiraSDCEngine {
   /**
@@ -320,9 +321,9 @@ export class CarteiraSDCEngine {
     // "Material C1000A360600 possui carteira de 26 t e estoque de 6,84 t, resultando em déficit atual de 19,16 t. Verificar programação existente e necessidade de cobertura."
     const itemComDeficit = itens.find((i) => i.saldo_t < 0)
     if (itemComDeficit) {
-      const c = itemComDeficit.carteira_t.toFixed(2).replace('.', ',')
-      const e = itemComDeficit.estoque_total_t.toFixed(2).replace('.', ',')
-      const d = Math.abs(itemComDeficit.saldo_t).toFixed(2).replace('.', ',')
+      const c = formatNumberPTBR(itemComDeficit.carteira_t, 2)
+      const e = formatNumberPTBR(itemComDeficit.estoque_total_t, 2)
+      const d = formatNumberPTBR(Math.abs(itemComDeficit.saldo_t), 2)
       analises.push(
         `Material ${itemComDeficit.material} possui carteira de ${c} t e estoque de ${e} t, resultando em déficit atual de ${d} t. Verificar programação existente e necessidade de cobertura.`,
       )
@@ -333,7 +334,7 @@ export class CarteiraSDCEngine {
     if (criticos.length > 0) {
       const materiaisCriticos = criticos
         .slice(0, 3)
-        .map((c) => `${c.material} (${Math.abs(c.saldo_t).toFixed(1)} t)`)
+        .map((c) => `${c.material} (${formatNumberPTBR(Math.abs(c.saldo_t), 2)} t)`)
         .join(', ')
       analises.push(
         `Atenção Crítica: ${criticos.length} itens sem estoque ou sem nenhuma programação vinculada: ${materiaisCriticos}. Demanda desatendida imediata no centro SDPL.`,
@@ -348,7 +349,7 @@ export class CarteiraSDCEngine {
         0,
       )
       analises.push(
-        `Industrialização Parcial: ${parciais.length} materiais possuem programação SDC/CIAFAL ativa, porém ainda restam ${deficitResidualTotal.toFixed(1)} t sem cobertura projetada. Necessário ampliar ordem de industrialização.`,
+        `Industrialização Parcial: ${parciais.length} materiais possuem programação SDC/CIAFAL ativa, porém ainda restam ${formatNumberPTBR(deficitResidualTotal, 2)} t sem cobertura projetada. Necessário ampliar ordem de industrialização.`,
       )
     }
 
@@ -373,7 +374,7 @@ export class CarteiraSDCEngine {
     const entries = Object.entries(familiasComDeficit).sort((a, b) => b[1] - a[1])
     if (entries.length > 0) {
       analises.push(
-        `Concentração de Déficit: A família "${entries[0][0]}" concentra o maior volume de déficit na Sidercentro (${entries[0][1].toFixed(1)} t). Alinhar campanha industrial com a coordenação fabril.`,
+        `Concentração de Déficit: A família "${entries[0][0]}" concentra o maior volume de déficit na Sidercentro (${formatNumberPTBR(entries[0][1], 2)} t). Alinhar campanha industrial com a coordenação fabril.`,
       )
     }
 
@@ -577,7 +578,7 @@ export class CarteiraSDCEngine {
           chavesDetectadasNesteCiclo.add(chavePrazo)
 
           const sevPrazo: SeveridadeAlertaSDC = diasAtraso >= 5 ? 'CRÍTICO' : 'ALTO'
-          const desc = `Material ${mat} com risco de atraso na Carteira SDC: entrega prevista em ${item.data_prevista} ultrapassa a data desejada (${item.data_desejada}) com atraso projetado de ${diasAtraso} dia(s).`
+          const desc = `Material ${mat} com risco de atraso na Carteira SDC: entrega prevista em ${formatDatePTBR(item.data_prevista)} ultrapassa a data desejada (${formatDatePTBR(item.data_desejada)}) com atraso projetado de ${diasAtraso} dia(s).`
           const rec = `Antecipar lote na escala de laminação SDC ou renegociar prazo de entrega com o cliente.`
 
           this.upsertAlerta(mapaExistentes, alertasResultado, chavePrazo, {

@@ -5,6 +5,9 @@ import { Eye, Factory, SlidersHorizontal, ClipboardCheck } from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { ConsultarRequisitosMTOModal } from './ConsultarRequisitosMTOModal'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 
 interface CarteiraMTOViewProps {
   itens: CarteiraItem[]
@@ -48,8 +51,26 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
     .filter((i) => i.bloqueio)
     .reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
 
+  // Análise automática Alertas & IA da Carteira MTO com regras estritas de ordens, requisitos e clientes
+  const analiseMTO = React.useMemo(() => {
+    return CarteiraAnaliseEngine.analisarCarteiraGenerica('MTO', itens, entradasFuturas)
+  }, [itens, entradasFuturas])
+
   return (
     <div className="space-y-4">
+      {/* Alertas & IA • Análise Automática da Carteira MTO */}
+      <AlertasIACarteiraCard
+        nomeCarteira="Carteira MTO"
+        subtitulo="Diagnóstico preditivo em tempo real • Make-to-Order • Ordens, Requisitos e Prazos"
+        indicadores={analiseMTO.indicadores}
+        alertas={analiseMTO.alertas}
+        analisesIA={analiseMTO.analisesIA}
+        onFiltrarMaterial={(mat) => {
+          const item = itensMTO.find((i) => i.codigo_material === mat)
+          if (item && onOpenDetalheMaterial) onOpenDetalheMaterial(item)
+        }}
+      />
+
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex items-center gap-2">
           <button
@@ -127,7 +148,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             Total Carteira MTO
           </span>
           <strong className="text-base font-mono font-bold text-slate-900 block mt-0.5">
-            {totalMtoTons.toFixed(1)} t
+            {formatNumberPTBR(totalMtoTons, 2)} t
           </strong>
         </div>
 
@@ -136,7 +157,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             MTO A Faturar (Coberto)
           </span>
           <strong className="text-base font-mono font-bold text-emerald-700 block mt-0.5">
-            {aFaturarTons.toFixed(1)} t
+            {formatNumberPTBR(aFaturarTons, 2)} t
           </strong>
         </div>
 
@@ -145,7 +166,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             MTO A Produzir (Pendente)
           </span>
           <strong className="text-base font-mono font-bold text-amber-800 block mt-0.5">
-            {aProduzirTons.toFixed(1)} t
+            {formatNumberPTBR(aProduzirTons, 2)} t
           </strong>
         </div>
 
@@ -154,7 +175,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             Ordens Bloqueadas
           </span>
           <strong className="text-base font-mono font-bold text-rose-800 block mt-0.5">
-            {bloqueadosTons.toFixed(1)} t
+            {formatNumberPTBR(bloqueadosTons, 2)} t
           </strong>
         </div>
       </div>
@@ -226,19 +247,21 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                         </Badge>
                       </td>
                       <td className="p-2.5 text-right font-mono text-slate-800">
-                        {it.qtd_ordem_tons.toFixed(1)}
+                        {formatNumberPTBR(it.qtd_ordem_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-slate-600">
-                        {it.qtd_faturada_tons.toFixed(1)}
+                        {formatNumberPTBR(it.qtd_faturada_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                        {it.carteira_aberta_tons.toFixed(1)}
+                        {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-purple-800">
-                        {it.estoque_mto_tons.toFixed(1)}
+                        {formatNumberPTBR(it.estoque_mto_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                        {it.falta_produzir_tons > 0 ? it.falta_produzir_tons.toFixed(1) : '0.0'}
+                        {it.falta_produzir_tons > 0
+                          ? formatNumberPTBR(it.falta_produzir_tons, 2)
+                          : '0,00'}
                       </td>
                       <td className="p-2.5 text-center">
                         {it.bloqueio ? (
@@ -256,13 +279,13 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                         )}
                       </td>
                       <td className="p-2.5 text-center font-mono text-slate-700">
-                        {it.data_desejada}
+                        {formatDatePTBR(it.data_desejada)}
                       </td>
                       {mostrarColunasTemporais && (
                         <>
                           <td className="p-2.5 text-right font-mono text-slate-700">
                             {resTemp.mediaDiariaFaturamentoT
-                              ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                              ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                               : 'N/D'}
                           </td>
                           <td className="p-2.5 text-right font-mono font-bold text-slate-800">

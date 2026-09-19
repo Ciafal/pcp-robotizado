@@ -39,6 +39,7 @@ import CarteiraSDCView from '@/components/carteira-views/CarteiraSDCView'
 import AnalistaIACard from '@/components/carteira-views/AnalistaIACard'
 import { CarteiraSDCItem, CarteiraSDCKpis } from '@/types/carteira-sdc'
 import { CarteiraSDCService } from '@/services/carteira-sdc-service'
+import { formatDateTimePTBR } from '@/lib/formatters-ptbr'
 import MemoriaCalculoModal from '@/components/carteira-views/MemoriaCalculoModal'
 import DetalheMaterialUnificadoModal from '@/components/carteira-views/DetalheMaterialUnificadoModal'
 import ImportacaoCarteiraModal from '@/components/carteira-views/ImportacaoCarteiraModal'
@@ -362,9 +363,9 @@ export const AnaliseCarteiraPage: React.FC = () => {
           <span className="flex items-center gap-1 text-slate-500">
             <Clock className="w-3.5 h-3.5 text-slate-500" /> Carga:{' '}
             {topicoAtivo === 'SDC'
-              ? new Date(dataAtualizacaoSDC).toLocaleString('pt-BR')
+              ? formatDateTimePTBR(dataAtualizacaoSDC, true)
               : uploadAtual?.created
-                ? new Date(uploadAtual.created).toLocaleString('pt-BR')
+                ? formatDateTimePTBR(uploadAtual.created, true)
                 : 'Padrão QAS Ativo'}
           </span>
         </div>

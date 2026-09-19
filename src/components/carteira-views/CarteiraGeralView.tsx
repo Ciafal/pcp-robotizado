@@ -6,6 +6,9 @@ import { FileSpreadsheet, Eye, Download, UploadCloud } from 'lucide-react'
 import { CarteiraItem, StatusRuptura, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { SlidersHorizontal } from 'lucide-react'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
@@ -67,6 +70,11 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     .reduce((s, i) => s + (i.carteira_aberta_tons || 0), 0)
   const itensRuptura = itens.filter((i) => i.status_ruptura === 'VERMELHO').length
   const itensDuplicidade = itens.filter((i) => i.possivel_duplicidade).length
+
+  // Análise automática Alertas & IA da Carteira Geral
+  const analiseGeral = useMemo(() => {
+    return CarteiraAnaliseEngine.analisarCarteiraGenerica('GERAL', itens, entradasFuturas)
+  }, [itens, entradasFuturas])
 
   const totalPaginas = Math.ceil(itensFiltrados.length / itensPorPagina) || 1
   const itensExibidos = itensFiltrados.slice((pagina - 1) * itensPorPagina, pagina * itensPorPagina)
@@ -167,111 +175,29 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 min-w-0">
-        <div
-          onClick={() => {
+      {/* Bloco Alertas & IA • Análise Automática da Carteira Geral com Cards de Indicadores */}
+      <AlertasIACarteiraCard
+        nomeCarteira="Carteira Geral"
+        subtitulo="Diagnóstico consolidado de toda a carteira aberta CIAFAL (MTS, MTO, L1, L2, Revenda e Importado)"
+        indicadores={analiseGeral.indicadores}
+        alertas={analiseGeral.alertas}
+        analisesIA={analiseGeral.analisesIA}
+        onFiltrarMaterial={(mat) => {
+          setSearchTerm(mat)
+          setPagina(1)
+        }}
+        onCardClick={(card) => {
+          if (card === 'CARTEIRA_TOTAL') {
             setFiltroSaldo('TODOS')
             setFiltroTipo('TODOS')
             setFiltroRuptura('TODOS')
-          }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
-            Carteira Total
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-slate-900 truncate">
-              {totalCarteiraTons.toFixed(1)}
-            </strong>
-            <span className="text-xs font-semibold text-slate-500 shrink-0">t</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
-            setFiltroSaldo('POSITIVO')
-          }}
-          className="p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-400 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block truncate">
-            Saldo Positivo (+)
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700 truncate">
-              +{totalSaldoPositivoTons.toFixed(1)}
-            </strong>
-            <span className="text-xs font-semibold text-emerald-600 shrink-0">t</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
+          } else if (card === 'DEFICIT_ATUAL' || card === 'ITENS_DEFICIT') {
             setFiltroSaldo('NEGATIVO')
-          }}
-          className="p-3 bg-white rounded-xl border border-rose-200 hover:border-rose-400 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-rose-700 block truncate">
-            Saldo Negativo (-)
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-rose-700 truncate">
-              {totalSaldoNegativoTons.toFixed(1)}
-            </strong>
-            <span className="text-xs font-semibold text-rose-600 shrink-0">t</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
-            setFiltroTipo('MTO')
-          }}
-          className="p-3 bg-white rounded-xl border border-purple-200 hover:border-purple-400 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-purple-700 block truncate">
-            MTO a Produzir
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-purple-800 truncate">
-              {totalMtoProduzir.toFixed(1)}
-            </strong>
-            <span className="text-xs font-semibold text-purple-600 shrink-0">t</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
+          } else if (card === 'ITENS_CRITICOS') {
             setFiltroRuptura('VERMELHO')
-          }}
-          className="p-3 bg-white rounded-xl border border-amber-200 hover:border-amber-400 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-amber-700 block truncate">
-            Risco Ruptura
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-amber-800 truncate">
-              {itensRuptura}
-            </strong>
-            <span className="text-xs font-semibold text-amber-600 shrink-0">itens</span>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
-            setSearchTerm('')
-          }}
-          className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 cursor-pointer shadow-xs transition-all min-w-0"
-        >
-          <span className="text-[10px] uppercase font-bold text-slate-400 block truncate">
-            Duplicidades
-          </span>
-          <div className="flex items-baseline gap-1 mt-0.5 min-w-0">
-            <strong className="text-base sm:text-lg font-bold font-mono text-blue-900 truncate">
-              {itensDuplicidade}
-            </strong>
-            <span className="text-xs font-semibold text-slate-500 shrink-0">alertas</span>
-          </div>
-        </div>
-      </div>
+          }
+        }}
+      />
 
       <Card className="bg-white border-slate-200 shadow-xs">
         <CardContent className="p-3 space-y-2.5">
@@ -473,7 +399,8 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                           {it.nome_cliente}
                         </span>
                         <span className="font-mono text-[10px] text-slate-500">
-                          Ped: {it.ordem_venda}/{it.item_ordem} &bull; Desejada: {it.data_desejada}
+                          Ped: {it.ordem_venda}/{it.item_ordem} &bull; Desejada:{' '}
+                          {formatDatePTBR(it.data_desejada)}
                         </span>
                       </td>
 
@@ -494,24 +421,28 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                       <td className="p-2.5 text-center font-bold text-slate-700">{it.curva_abc}</td>
 
                       <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                        {it.carteira_aberta_tons.toFixed(1)}
+                        {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                       </td>
 
                       <td className="p-2.5 text-right font-mono text-slate-700">
-                        {it.disponibilidade_fisica_elegivel_tons?.toFixed(1) || '0.0'}
+                        {formatNumberPTBR(it.disponibilidade_fisica_elegivel_tons || 0, 2)}
                       </td>
 
                       <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                        {it.saldo_positivo_tons > 0 ? `+${it.saldo_positivo_tons.toFixed(1)}` : '-'}
+                        {it.saldo_positivo_tons > 0
+                          ? `+${formatNumberPTBR(it.saldo_positivo_tons, 2)}`
+                          : '-'}
                       </td>
 
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700">
-                        {it.saldo_negativo_tons < 0 ? it.saldo_negativo_tons.toFixed(1) : '-'}
+                        {it.saldo_negativo_tons < 0
+                          ? formatNumberPTBR(it.saldo_negativo_tons, 2)
+                          : '-'}
                       </td>
 
                       <td className="p-2.5 text-right font-mono font-bold text-amber-900">
                         {it.necessidade_liquida_tons > 0
-                          ? it.necessidade_liquida_tons.toFixed(1)
+                          ? formatNumberPTBR(it.necessidade_liquida_tons, 2)
                           : '-'}
                       </td>
 
@@ -519,10 +450,12 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                         {it.qtd_programada_tons > 0 ? (
                           <div>
                             <strong className="font-mono text-slate-800 block text-[10px]">
-                              {it.qtd_programada_tons.toFixed(1)} t
+                              {formatNumberPTBR(it.qtd_programada_tons, 2)} t
                             </strong>
                             <span className="text-[9px] text-slate-500 font-mono">
-                              {it.data_programada || it.semana_programada || 'Programado'}
+                              {it.data_programada
+                                ? formatDatePTBR(it.data_programada)
+                                : it.semana_programada || 'Programado'}
                             </span>
                           </div>
                         ) : (
@@ -536,7 +469,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                         <>
                           <td className="p-2.5 text-right font-mono text-slate-700">
                             {resTemp.mediaDiariaFaturamentoT
-                              ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                              ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                               : 'N/D'}
                           </td>
                           <td className="p-2.5 text-right font-mono font-bold text-slate-800">

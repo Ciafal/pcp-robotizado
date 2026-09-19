@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CarteiraIAInsight } from '@/types/carteira-analise'
+import { formatPercentagePTBR } from '@/lib/formatters-ptbr'
 
 interface AnalistaIACardProps {
   insights: CarteiraIAInsight[]
@@ -81,7 +82,7 @@ export const AnalistaIACard: React.FC<AnalistaIACardProps> = ({ insights, onFilt
                 <div className="flex items-center justify-between gap-1">
                   {getCriticidadeBadge(ins.criticidade)}
                   <span className="text-[10px] font-mono text-slate-400">
-                    Confiança: {ins.nivel_confianca_pct}%
+                    Confiança: {formatPercentagePTBR(ins.nivel_confianca_pct, 0)}
                   </span>
                 </div>
 

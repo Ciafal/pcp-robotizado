@@ -26,6 +26,7 @@ import { CarteiraSDCEngine } from '@/services/carteira-sdc-engine'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { DetalheMaterialUnificadoModal } from './DetalheMaterialUnificadoModal'
 import { ImportacaoCarteiraSDCModal } from './ImportacaoCarteiraSDCModal'
+import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
 
 interface CarteiraSDCViewProps {
   itens: CarteiraSDCItem[]
@@ -294,7 +295,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-0.5">
             <strong className="text-base sm:text-lg font-bold font-mono text-slate-900">
-              {kpis.carteira_total_t.toFixed(1)}
+              {formatNumberPTBR(kpis.carteira_total_t, 2)}
             </strong>
             <span className="text-xs font-semibold text-slate-500">t</span>
           </div>
@@ -310,7 +311,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-0.5">
             <strong className="text-base sm:text-lg font-bold font-mono text-emerald-700">
-              {kpis.estoque_total_t.toFixed(1)}
+              {formatNumberPTBR(kpis.estoque_total_t, 2)}
             </strong>
             <span className="text-xs font-semibold text-emerald-600">t</span>
           </div>
@@ -331,7 +332,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-0.5">
             <strong className="text-base sm:text-lg font-bold font-mono text-rose-700">
-              {kpis.deficit_atual_t.toFixed(1)}
+              {formatNumberPTBR(kpis.deficit_atual_t, 2)}
             </strong>
             <span className="text-xs font-semibold text-rose-600">t</span>
           </div>
@@ -369,7 +370,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-0.5">
             <strong className="text-base sm:text-lg font-bold font-mono text-indigo-700">
-              {kpis.em_producao_total_t.toFixed(1)}
+              {formatNumberPTBR(kpis.em_producao_total_t, 2)}
             </strong>
             <span className="text-xs font-semibold text-indigo-600">t</span>
           </div>
@@ -781,18 +782,18 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
                       {/* Carteira (t) */}
                       <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                        {it.carteira_t.toFixed(2)}
+                        {formatNumberPTBR(it.carteira_t, 2)}
                       </td>
 
                       {/* Estoque Total (t) */}
                       <td className="p-2.5 text-right font-mono font-semibold text-slate-800">
-                        {it.estoque_total_t.toFixed(2)}
+                        {formatNumberPTBR(it.estoque_total_t, 2)}
                         {(it.estoque_bloqueado_t || 0) > 0 && (
                           <span
                             className="block text-[9px] text-rose-600 font-normal"
                             title="Estoque bloqueado"
                           >
-                            (bloq: {it.estoque_bloqueado_t?.toFixed(2)})
+                            (bloq: {formatNumberPTBR(it.estoque_bloqueado_t || 0, 2)})
                           </span>
                         )}
                       </td>
@@ -803,17 +804,19 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                           isDeficit ? 'text-rose-600' : 'text-emerald-700'
                         }`}
                       >
-                        {it.saldo_t > 0 ? `+${it.saldo_t.toFixed(2)}` : it.saldo_t.toFixed(2)}
+                        {it.saldo_t > 0
+                          ? `+${formatNumberPTBR(it.saldo_t, 2)}`
+                          : formatNumberPTBR(it.saldo_t, 2)}
                       </td>
 
                       {/* Programado (t) */}
                       <td className="p-2.5 text-right font-mono text-slate-700">
-                        {it.programado_t.toFixed(2)}
+                        {formatNumberPTBR(it.programado_t, 2)}
                       </td>
 
                       {/* Em Produção (t) */}
                       <td className="p-2.5 text-right font-mono font-semibold text-indigo-700">
-                        {it.em_producao_t.toFixed(2)}
+                        {formatNumberPTBR(it.em_producao_t, 2)}
                       </td>
 
                       {/* Saldo Projetado (t) */}
@@ -823,8 +826,8 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                         }`}
                       >
                         {it.saldo_projetado_t > 0
-                          ? `+${it.saldo_projetado_t.toFixed(2)}`
-                          : it.saldo_projetado_t.toFixed(2)}
+                          ? `+${formatNumberPTBR(it.saldo_projetado_t, 2)}`
+                          : formatNumberPTBR(it.saldo_projetado_t, 2)}
                       </td>
 
                       {/* Cobertura (%) */}
@@ -838,7 +841,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                                 : 'text-rose-600'
                           }`}
                         >
-                          {it.cobertura_pct.toFixed(0)}%
+                          {formatPercentagePTBR(it.cobertura_pct, 2)}
                         </span>
                       </td>
 
@@ -868,7 +871,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
 
                       {/* Data Prevista */}
                       <td className="p-2.5 text-center font-mono text-slate-600">
-                        {it.data_prevista || '-'}
+                        {formatDatePTBR(it.data_prevista)}
                       </td>
 
                       {mostrarColunasTemporais &&
@@ -880,7 +883,7 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
                             <>
                               <td className="p-2.5 text-right font-mono text-slate-700">
                                 {resTemp.mediaDiariaFaturamentoT
-                                  ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                                  ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                                   : 'N/D'}
                               </td>
                               <td className="p-2.5 text-right font-mono font-bold text-slate-800">

@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Eye, SlidersHorizontal } from 'lucide-react'
 import { CarteiraItem, CarteiraEntradaFutura } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
+import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
+import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 
 interface CarteiraImportadoViewProps {
   itens: CarteiraItem[]
@@ -34,8 +37,26 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
   const saldoFuturoImportado =
     totalEstoqueImportado + totalTransitoPendente - totalCarteiraImportados
 
+  // Análise automática Alertas & IA da Carteira Importado
+  const analiseImportado = React.useMemo(() => {
+    return CarteiraAnaliseEngine.analisarCarteiraGenerica('IMPORTADO', itens, entradasFuturas)
+  }, [itens, entradasFuturas])
+
   return (
     <div className="space-y-4">
+      {/* Alertas & IA • Análise Automática da Carteira Importado */}
+      <AlertasIACarteiraCard
+        nomeCarteira="Carteira Importado"
+        subtitulo="Diagnóstico preditivo em tempo real • Comércio Exterior & Trânsito Marítimo • Produtos Importados"
+        indicadores={analiseImportado.indicadores}
+        alertas={analiseImportado.alertas}
+        analisesIA={analiseImportado.analisesIA}
+        onFiltrarMaterial={(mat) => {
+          const item = itensImportados.find((i) => i.codigo_material === mat)
+          if (item && onOpenDetalheMaterial) onOpenDetalheMaterial(item)
+        }}
+      />
+
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -77,42 +98,39 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Carteira Importada
+            Carteira Total Importados
           </span>
           <strong className="text-base font-mono font-bold text-slate-900 block mt-0.5">
-            {totalCarteiraImportados.toFixed(1)} t
+            {formatNumberPTBR(totalCarteiraImportados, 2)} t
           </strong>
         </div>
-
         <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
             Estoque Disponível
           </span>
           <strong className="text-base font-mono font-bold text-slate-800 block mt-0.5">
-            {totalEstoqueImportado.toFixed(1)} t
+            {formatNumberPTBR(totalEstoqueImportado, 2)} t
           </strong>
         </div>
-
         <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-xs">
           <span className="text-[10px] uppercase font-bold text-purple-700 block">
-            Em Trânsito / Porto (t)
+            Em Trânsito / Pedidos
           </span>
           <strong className="text-base font-mono font-bold text-purple-900 block mt-0.5">
-            {totalTransitoPendente.toFixed(1)} t
+            {formatNumberPTBR(totalTransitoPendente, 2)} t
           </strong>
         </div>
-
-        <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-xs">
-          <span className="text-[10px] uppercase font-bold text-emerald-700 block">
+        <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
+          <span className="text-[10px] uppercase font-bold text-[#004C97] block">
             Saldo Futuro Projetado
           </span>
-          <strong className="text-base font-mono font-bold text-emerald-700 block mt-0.5">
-            {saldoFuturoImportado >= 0
-              ? `+${saldoFuturoImportado.toFixed(1)}`
-              : saldoFuturoImportado.toFixed(1)}{' '}
+          <strong className="text-base font-mono font-bold text-[#004C97] block mt-0.5">
+            {saldoFuturoImportado > 0
+              ? `+${formatNumberPTBR(saldoFuturoImportado, 2)}`
+              : formatNumberPTBR(saldoFuturoImportado, 2)}{' '}
             t
           </strong>
-        </div>
+        </div>{' '}
       </div>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
@@ -171,18 +189,20 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
                       {it.ordem_venda}/{it.item_ordem}
                     </td>
                     <td className="p-2.5 text-right font-mono font-bold text-blue-900">
-                      {it.carteira_aberta_tons.toFixed(1)}
+                      {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                     </td>
                     <td className="p-2.5 text-right font-mono text-slate-700">
-                      {it.estoque_livre_tons.toFixed(1)}
+                      {formatNumberPTBR(it.estoque_livre_tons, 2)}
                     </td>
                     <td className="p-2.5 text-right font-mono text-purple-800">
-                      {entradasImportadas
-                        .find((e) => e.codigo_material === it.codigo_material)
-                        ?.quantidade_pendente_tons.toFixed(1) || '0.0'}
+                      {formatNumberPTBR(
+                        entradasImportadas.find((e) => e.codigo_material === it.codigo_material)
+                          ?.quantidade_pendente_tons || 0,
+                        2,
+                      )}
                     </td>
                     <td className="p-2.5 text-center font-mono text-slate-700">
-                      {it.data_desejada}
+                      {formatDatePTBR(it.data_desejada)}
                     </td>
                     <td className="p-2.5 text-center">
                       <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[9px] font-bold">
@@ -193,7 +213,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
                       <>
                         <td className="p-2.5 text-right font-mono text-slate-700">
                           {resTemp.mediaDiariaFaturamentoT
-                            ? `${resTemp.mediaDiariaFaturamentoT.toFixed(2)}`
+                            ? formatNumberPTBR(resTemp.mediaDiariaFaturamentoT, 2)
                             : 'N/D'}
                         </td>
                         <td className="p-2.5 text-right font-mono font-bold text-slate-800">
