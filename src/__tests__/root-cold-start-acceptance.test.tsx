@@ -79,6 +79,10 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
     // Casca do Layout e Página Principal Cockpit devem estar presentes imediatamente
     expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
     expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit?v=919b1f1')
+    // Verifica que o item "Principal" no menu lateral está presente e ativo
+    const principalLink = screen.getByRole('link', { name: /^Principal$/i })
+    expect(principalLink).toBeDefined()
+    expect(principalLink.className).toContain('bg-[#004C97]')
   })
 
   it('carregar "/" com sessão válida aterrissa na página PRINCIPAL (/pcp/cockpit) imediatamente', async () => {
@@ -123,6 +127,9 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
 
     expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
     expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
+    const principalLink = screen.getByRole('link', { name: /^Principal$/i })
+    expect(principalLink).toBeDefined()
+    expect(principalLink.className).toContain('bg-[#004C97]')
   })
 
   it('PermissionGuard com permissão pcp.cockpit.view não bloqueia nem redireciona de volta para "/"', async () => {

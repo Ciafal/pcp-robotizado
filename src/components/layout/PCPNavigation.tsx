@@ -649,7 +649,7 @@ const officialNavGroups: NavGroup[] = [
   {
     groupTitle: 'PRINCIPAL',
     items: [
-      { title: 'Visão Geral', href: '/pcp/cockpit', icon: LayoutDashboard },
+      { title: 'Principal', href: '/pcp/cockpit', icon: LayoutDashboard },
       {
         title: 'Torre de Controle',
         href: '/pcp/sequenciamento/torre-controle',
