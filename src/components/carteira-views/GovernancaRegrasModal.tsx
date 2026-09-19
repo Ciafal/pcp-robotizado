@@ -77,7 +77,7 @@ export const GovernancaRegrasModal: React.FC<GovernancaRegrasModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-white border-slate-200 text-slate-900 shadow-xl">
+      <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] bg-white border-slate-200 text-slate-900 shadow-xl overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-[#004C97] text-white rounded-lg">

@@ -186,6 +186,25 @@ describe('AnalyticalModal and Analytical Views Acceptance', () => {
     expect(screen.getByText('Rodapé de Teste')).toBeInTheDocument()
   })
 
+  it('deve possuir dimensionamento analítico expandido quase fullscreen (min(96vw, 1800px) e altura 94vh)', () => {
+    const handleClose = vi.fn()
+    render(
+      <AnalyticalModal
+        isOpen={true}
+        onClose={handleClose}
+        size="analytical"
+        title="Teste de Dimensionamento Quase Fullscreen"
+      >
+        <div data-testid="modal-content">Conteúdo</div>
+      </AnalyticalModal>,
+    )
+
+    const dialogEl = screen.getByRole('dialog')
+    expect(dialogEl.className).toContain('min(96vw,1800px)')
+    expect(dialogEl.className).toContain('94vh')
+    expect(dialogEl.className).toContain('modal-analitico')
+  })
+
   it('deve renderizar o PortfolioABC com cards Curva A/B/C e sem quebras indevidas', () => {
     const handleClose = vi.fn()
     render(<PortfolioABC isOpen={true} onClose={handleClose} resultadoABC={mockResultadoABC} />)

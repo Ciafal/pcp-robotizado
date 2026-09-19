@@ -248,7 +248,7 @@ export const ConsultarRequisitosMTOModal: React.FC<ConsultarRequisitosMTOModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl bg-white border-slate-200 text-slate-900 max-h-[92vh] overflow-y-auto p-0 shadow-2xl">
+      <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] bg-white border-slate-200 text-slate-900 overflow-y-auto p-0 shadow-2xl">
         {/* CABEÇALHO CORPORATIVO CIAFAL */}
         <div className="bg-[#004C97] text-white p-5 rounded-t-lg">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

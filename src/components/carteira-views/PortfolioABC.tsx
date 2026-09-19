@@ -148,9 +148,10 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
         headerKpis={kpisTopo}
         scrollMode="auto"
         footer={
-          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[11px] text-slate-500">
-              <span className="font-semibold text-slate-700">Fonte:</span>
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-slate-600 flex-wrap">
+              <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
+              <span className="text-slate-300">•</span>
               <span>
                 {fonteFaturamentoParametrizada
                   ? 'Faturamento real SAP RFC ZSD28C'
@@ -159,19 +160,19 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
               <span className="text-slate-300">•</span>
               <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={exportarCSV}
-                className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5"
+                className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
               >
                 <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
               </Button>
               <Button
                 size="sm"
                 onClick={onClose}
-                className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white"
+                className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white px-5 shadow-xs"
               >
                 Fechar
               </Button>
@@ -208,46 +209,52 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             </div>
           )}
 
-          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Mesma largura no desktop, paleta CIAFAL) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Hierarquia vertical, sem linha estreita, valores integrais) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full">
             {/* Card Curva A (Azul Institucional Forte) */}
             <div
               onClick={() => abrirDrilldownCurva('A')}
-              className="p-4 bg-white rounded-xl border-2 border-blue-200 hover:border-[#004C97] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-blue-200 hover:border-[#004C97] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
             >
-              <div>
-                <div className="flex items-center justify-between gap-2">
+              <div className="space-y-3">
+                {/* Linha 1: Badge + Limite */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-[#004C97] text-white text-[11px] font-bold px-2 py-0.5">
+                    <Badge className="bg-[#004C97] text-white text-xs font-bold px-2.5 py-0.5 tracking-wide">
                       Curva A
                     </Badge>
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-xs font-semibold text-slate-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
                       Até {formatPercentagePTBR(limiteA, 0)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-full">
                     {resumoA.quantidade_itens} materiais
                   </span>
                 </div>
 
-                <div className="mt-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
-                    <span className="text-lg font-bold font-sans text-[#004C97]">
-                      {formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento
-                    </span>
+                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                <div className="pt-1">
+                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-base sm:text-lg font-bold font-sans text-[#004C97] mt-0.5">
+                    {formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
                     {formatCurrencyPTBR(resumoA.faturamento_brl)}
                   </div>
-                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                    Volume físico: {formatNumberPTBR(resumoA.toneladas, 2)} t
-                  </span>
+                  <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#004C97]" />
+                    <span>
+                      Volume físico:{' '}
+                      <strong className="text-slate-800">
+                        {formatNumberPTBR(resumoA.toneladas, 2)} t
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#004C97] group-hover:text-[#003870]">
-                <span>Filtrar materiais Curva A</span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#004C97] group-hover:text-[#003870]">
+                <span>Ver materiais Curva A &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -255,41 +262,47 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             {/* Card Curva B (Azul Médio) */}
             <div
               onClick={() => abrirDrilldownCurva('B')}
-              className="p-4 bg-white rounded-xl border-2 border-sky-200 hover:border-[#3380CC] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-sky-200 hover:border-[#3380CC] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
             >
-              <div>
-                <div className="flex items-center justify-between gap-2">
+              <div className="space-y-3">
+                {/* Linha 1: Badge + Limite */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-[#3380CC] text-white text-[11px] font-bold px-2 py-0.5">
+                    <Badge className="bg-[#3380CC] text-white text-xs font-bold px-2.5 py-0.5 tracking-wide">
                       Curva B
                     </Badge>
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-xs font-semibold text-slate-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-100">
                       {formatPercentagePTBR(limiteA, 0)} a {formatPercentagePTBR(limiteB, 0)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-full">
                     {resumoB.quantidade_itens} materiais
                   </span>
                 </div>
 
-                <div className="mt-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
-                    <span className="text-lg font-bold font-sans text-[#3380CC]">
-                      {formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento
-                    </span>
+                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                <div className="pt-1">
+                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-base sm:text-lg font-bold font-sans text-[#3380CC] mt-0.5">
+                    {formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
                     {formatCurrencyPTBR(resumoB.faturamento_brl)}
                   </div>
-                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                    Volume físico: {formatNumberPTBR(resumoB.toneladas, 2)} t
-                  </span>
+                  <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#3380CC]" />
+                    <span>
+                      Volume físico:{' '}
+                      <strong className="text-slate-800">
+                        {formatNumberPTBR(resumoB.toneladas, 2)} t
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#3380CC] group-hover:text-[#004C97]">
-                <span>Filtrar materiais Curva B</span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#3380CC] group-hover:text-[#004C97]">
+                <span>Ver materiais Curva B &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -297,41 +310,47 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
             {/* Card Curva C (Cinza-Azulado) */}
             <div
               onClick={() => abrirDrilldownCurva('C')}
-              className="p-4 bg-white rounded-xl border-2 border-slate-200 hover:border-slate-400 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+              className="p-4 sm:p-5 bg-white rounded-xl border-2 border-slate-200 hover:border-slate-400 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group min-w-0"
             >
-              <div>
-                <div className="flex items-center justify-between gap-2">
+              <div className="space-y-3">
+                {/* Linha 1: Badge + Limite */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-slate-600 text-white text-[11px] font-bold px-2 py-0.5">
+                    <Badge className="bg-slate-600 text-white text-xs font-bold px-2.5 py-0.5 tracking-wide">
                       Curva C
                     </Badge>
-                    <span className="text-[11px] font-medium text-slate-500">
+                    <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                       Acima de {formatPercentagePTBR(limiteB, 0)}
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-full">
                     {resumoC.quantidade_itens} materiais
                   </span>
                 </div>
 
-                <div className="mt-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
-                    <span className="text-lg font-bold font-sans text-slate-700">
-                      {formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento
-                    </span>
+                {/* Linha 2 e 3: Percentual e Faturamento integral */}
+                <div className="pt-1">
+                  <div className="text-xs text-slate-500 font-medium">Concentração de Receita</div>
+                  <div className="text-base sm:text-lg font-bold font-sans text-slate-700 mt-0.5">
+                    {formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                  <div className="text-xl sm:text-2xl lg:text-[26px] font-bold font-sans text-slate-950 mt-1 whitespace-nowrap tracking-tight">
                     {formatCurrencyPTBR(resumoC.faturamento_brl)}
                   </div>
-                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                    Volume físico: {formatNumberPTBR(resumoC.toneladas, 2)} t
-                  </span>
+                  <div className="text-xs font-medium text-slate-600 mt-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                    <span>
+                      Volume físico:{' '}
+                      <strong className="text-slate-800">
+                        {formatNumberPTBR(resumoC.toneladas, 2)} t
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-slate-900">
-                <span>Filtrar materiais Curva C</span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-slate-900">
+                <span>Ver materiais Curva C &rarr;</span>
                 <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -371,7 +390,7 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
                 Nenhum material encontrado para gerar o diagrama de Pareto.
               </div>
             ) : (
-              <div className="w-full h-[400px]">
+              <div className="w-full min-h-[440px] h-[480px] lg:h-[520px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={dadosPareto}

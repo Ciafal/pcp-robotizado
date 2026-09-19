@@ -44,8 +44,8 @@ export const AnalisarImpactoSDCModal: React.FC<AnalisarImpactoSDCModalProps> = (
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200">
-        <DialogHeader className="bg-gradient-to-r from-rose-50 via-white to-slate-50 border-b border-rose-200 p-5">
+      <DialogContent className="modal-analitico w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)] bg-white p-0 overflow-hidden shadow-2xl border-slate-200 flex flex-col">
+        <DialogHeader className="bg-gradient-to-r from-rose-50 via-white to-slate-50 border-b border-rose-200 p-5 flex-none">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm">
@@ -80,7 +80,7 @@ export const AnalisarImpactoSDCModal: React.FC<AnalisarImpactoSDCModalProps> = (
             5. Impactos possíveis (atendimento, capacidade, programação, industrialização)
             6. Próximas verificações (sem alterar programação)
         */}
-        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+        <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto text-xs">
           {/* Grid dos 4 Primeiros Blocos Numéricos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* Bloco 1: Situação (Déficit Atual) */}
@@ -251,7 +251,7 @@ export const AnalisarImpactoSDCModal: React.FC<AnalisarImpactoSDCModalProps> = (
           </div>
         </div>
 
-        <DialogFooter className="bg-slate-50 border-t border-slate-200 p-4 flex flex-wrap items-center justify-between gap-2">
+        <DialogFooter className="bg-slate-50 border-t border-slate-200 p-4 flex-none flex flex-wrap items-center justify-between gap-2">
           <Button
             type="button"
             variant="outline"

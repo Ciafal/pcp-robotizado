@@ -166,17 +166,17 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
       headerKpis={kpisTopo}
       scrollMode="auto"
       footer={
-        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
-            <span>Dados sincronizados via RFC SAP ECC – ZSD28C</span>
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-600 flex-wrap">
+            <ShieldCheck className="w-4 h-4 text-[#004C97]" />
+            <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
             <span className="text-slate-300">•</span>
             <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto flex-wrap">
             {/* Paginação */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
               <span>
                 Página {paginaAtual} de {totalPaginas}
               </span>
@@ -204,14 +204,14 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
               size="sm"
               variant="outline"
               onClick={exportarCSV}
-              className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5"
+              className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
             >
               <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
             </Button>
             <Button
               size="sm"
               onClick={onClose}
-              className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white"
+              className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white px-5 shadow-xs"
             >
               Fechar
             </Button>
@@ -221,72 +221,75 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
     >
       <div className="space-y-3.5">
         {/* 4 MINI-CARDS NO TOPO DO DRILL-DOWN EM 4 COLUNAS NO DESKTOP (Sem valores cortados) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Itens no Filtro */}
-          <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <span className="text-[11px] uppercase font-bold text-slate-500 block">
               Materiais Filtrados
             </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <strong className="text-base sm:text-lg font-bold font-sans text-slate-900">
+            <div className="flex items-baseline gap-1 mt-1">
+              <strong className="text-xl sm:text-2xl font-bold font-sans text-slate-900">
                 {kpisFiltro.qtd}
               </strong>
               <span className="text-xs font-semibold text-slate-500">itens</span>
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              Volume: {formatNumberPTBR(kpisFiltro.carteiraTotal, 2)} t
+            <span className="text-xs text-slate-600 block mt-1">
+              Volume:{' '}
+              <strong className="text-slate-800">
+                {formatNumberPTBR(kpisFiltro.carteiraTotal, 2)} t
+              </strong>
             </span>
           </div>
 
           {/* Card 2: Déficit Total */}
-          <div className="p-3 bg-white rounded-xl border border-rose-200 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-rose-700 block">
+          <div className="p-3.5 bg-white rounded-xl border border-rose-200 shadow-xs flex flex-col justify-between">
+            <span className="text-[11px] uppercase font-bold text-rose-700 block">
               Déficit Físico Total
             </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <strong className="text-base sm:text-lg font-bold font-sans text-rose-700">
+            <div className="flex items-baseline gap-1 mt-1">
+              <strong className="text-xl sm:text-2xl font-bold font-sans text-rose-700 whitespace-nowrap">
                 {formatNumberPTBR(kpisFiltro.deficitTotal, 2)}
               </strong>
               <span className="text-xs font-semibold text-rose-600">t</span>
             </div>
-            <span className="text-[10px] text-rose-600 block mt-0.5">Necessidade de produção</span>
+            <span className="text-xs text-rose-600 font-medium block mt-1">
+              Necessidade de produção
+            </span>
           </div>
 
           {/* Card 3: Valor Comercial Relacionado (Completo, sem corte) */}
-          <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+          <div className="p-3.5 bg-white rounded-xl border border-blue-200 shadow-xs flex flex-col justify-between">
+            <span className="text-[11px] uppercase font-bold text-[#004C97] block">
               Faturamento Relacionado
             </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
+            <div className="flex items-baseline gap-1 mt-1">
               <strong
-                className="text-base sm:text-lg font-bold font-sans text-[#004C97] truncate"
+                className="text-xl sm:text-2xl font-bold font-sans text-[#004C97] whitespace-nowrap"
                 title={formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}
               >
                 {formatCurrencyPTBR(kpisFiltro.faturamentoTotal)}
               </strong>
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              Receita dos itens filtrados
-            </span>
+            <span className="text-xs text-slate-600 block mt-1">Receita dos itens filtrados</span>
           </div>
 
           {/* Card 4: Distribuição ABC Clara */}
-          <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <span className="text-[11px] uppercase font-bold text-slate-500 block mb-1">
               Distribuição ABC no Filtro
             </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              <Badge className="bg-[#004C97] text-white text-xs font-bold px-2 py-0.5">
                 A: {kpisFiltro.countA}
               </Badge>
-              <Badge className="bg-[#3380CC] text-white text-[10px] font-bold">
+              <Badge className="bg-[#3380CC] text-white text-xs font-bold px-2 py-0.5">
                 B: {kpisFiltro.countB}
               </Badge>
-              <Badge className="bg-slate-500 text-white text-[10px] font-bold">
+              <Badge className="bg-slate-600 text-white text-xs font-bold px-2 py-0.5">
                 C: {kpisFiltro.countC}
               </Badge>
             </div>
-            <span className="text-[10px] text-slate-400 block mt-1">Classificação por receita</span>
+            <span className="text-xs text-slate-600 block mt-1">Classificação por receita</span>
           </div>
         </div>
 
@@ -396,8 +399,8 @@ export const PortfolioDrilldown: React.FC<PortfolioDrilldownProps> = ({
 
         {/* TABELA PROPORCIONAL COM HEADER STICKY DENTRO DO SEU CONTAINER */}
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-          <div className="overflow-x-auto max-h-[460px] scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="w-full overflow-x-auto max-h-[500px] scrollbar-thin">
+            <table className="w-full min-w-[900px] text-left text-xs border-collapse">
               <thead className="bg-[#004C97] text-white text-[11px] sticky top-0 z-20 shadow-xs">
                 <tr>
                   <th className="p-2.5 font-bold">Material</th>

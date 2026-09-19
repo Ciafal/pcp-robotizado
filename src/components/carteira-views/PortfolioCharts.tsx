@@ -294,26 +294,26 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
       tabs={tabsConfig}
       scrollMode="auto"
       footer={
-        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
-            <span>Dados sincronizados via RFC SAP ECC – ZSD28C</span>
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-600 flex-wrap">
+            <ShieldCheck className="w-4 h-4 text-[#004C97]" />
+            <span className="font-semibold text-slate-800">Fonte: SAP RFC ZSD28C</span>
             <span className="text-slate-300">•</span>
             <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               size="sm"
               variant="outline"
               onClick={exportarCSVGraficos}
-              className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5"
+              className="h-8 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5 px-3"
             >
-              <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar Dimensão Atual
+              <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
             </Button>
             <Button
               size="sm"
               onClick={onClose}
-              className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white"
+              className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white px-5 shadow-xs"
             >
               Fechar
             </Button>
@@ -355,7 +355,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
                   Nenhum registro encontrado para a dimensão Linha de Produção.
                 </div>
               ) : (
-                <div className="w-full h-[400px]">
+                <div className="w-full min-h-[440px] h-[480px] lg:h-[520px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosPorLinha}
@@ -457,7 +457,7 @@ export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
                   Nenhum centro SAP identificado no conjunto de dados.
                 </div>
               ) : (
-                <div className="w-full h-[380px]">
+                <div className="w-full min-h-[440px] h-[480px] lg:h-[520px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosPorCentro}

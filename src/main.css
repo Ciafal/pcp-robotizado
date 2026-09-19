@@ -340,4 +340,54 @@
   .animate-spotlight {
     animation: spotlight 2s ease forwards;
   }
+
+  /* REGRAS ESTRUTURAIS DO MODAL ANALÍTICO EXPANDIDO / QUASE FULLSCREEN */
+  body.analytical-modal-open {
+    overflow: hidden !important;
+  }
+
+  .modal-analitico,
+  .modal-analitico * {
+    box-sizing: border-box;
+  }
+
+  .modal-analitico {
+    width: min(96vw, 1800px);
+    max-width: min(96vw, 1800px);
+    height: 94vh;
+    max-height: 94vh;
+  }
+
+  @media (min-width: 1920px) {
+    .modal-analitico {
+      width: min(96vw, 1800px);
+      height: min(94vh, 1100px);
+      max-height: min(94vh, 1100px);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .modal-analitico {
+      width: 98vw;
+      max-width: 98vw;
+      height: 96vh;
+      max-height: 96vh;
+    }
+  }
+
+  /* Tipografia fluida institucional */
+  .modal-analitico-title {
+    font-size: clamp(20px, 1.8vw, 28px);
+    line-height: 1.25;
+  }
+
+  .modal-analitico-kpi-val {
+    font-size: clamp(18px, 1.8vw, 28px);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .modal-analitico-text {
+    font-size: clamp(13px, 0.95vw, 15px);
+  }
 }

@@ -41,17 +41,26 @@ export interface AnalyticalModalProps {
   contentClassName?: string
 }
 
+/**
+ * Dimensionamento estrutural obrigatório:
+ * - Desktop padrão (1366x768, 1920x1080): min(96vw, 1800px) x 94vh
+ * - Monitores grandes (2560x1440): min(96vw, 1800px) x min(94vh, 1100px)
+ * - Telas menores / mobile: 98vw x 96vh
+ * - Altura controlada explicitamente pelo container (flex flex-col overflow-hidden)
+ */
 const SIZE_CLASSES: Record<AnalyticalModalSize, string> = {
-  // Modal padrão (formulários): ~700-800px
-  standard: 'w-[min(92vw,760px)] max-w-[760px] h-auto max-h-[85vh]',
-  // Modal grande (cadastros): ~1100px
-  large: 'w-[min(94vw,1100px)] max-w-[1100px] h-[min(88vh,850px)] max-h-[88vh]',
-  // Modal analítico (gráficos / ABC / Pareto): min(94vw, 1500px), max-height 90vh
-  analytical: 'w-[min(94vw,1500px)] max-w-[1500px] h-[min(90vh,950px)] max-h-[90vh]',
-  // Drill-down executivo: min(94vw, 1450px), max-height 90vh
-  drilldown: 'w-[min(94vw,1450px)] max-w-[1450px] h-[min(90vh,920px)] max-h-[90vh]',
-  // Fullscreen suave com margens 3-5%
-  fullscreen: 'w-[94vw] max-w-[1600px] h-[92vh] max-h-[92vh]',
+  // Modal padrão (formulários leves): min(92vw, 800px)
+  standard: 'w-[min(94vw,800px)] max-w-[min(94vw,800px)] h-auto max-h-[90vh]',
+  // Modal grande: min(94vw, 1200px)
+  large: 'w-[min(95vw,1200px)] max-w-[min(95vw,1200px)] h-[min(92vh,900px)] max-h-[92vh]',
+  // Modal analítico principal (quase fullscreen expandido): min(96vw, 1800px) x 94vh
+  analytical:
+    'w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)]',
+  // Drill-down executivo (quase fullscreen expandido)
+  drilldown:
+    'w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh] 2xl:h-[min(94vh,1100px)] 2xl:max-h-[min(94vh,1100px)]',
+  // Fullscreen suave
+  fullscreen: 'w-[min(98vw,1900px)] max-w-[min(98vw,1900px)] h-[96vh] max-h-[96vh]',
 }
 
 export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
@@ -70,14 +79,14 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
   className,
   contentClassName,
 }) => {
-  // Bloqueio de scroll no body ao abrir modal (body.modal-open)
+  // Bloqueio mandatário de scroll no body ao abrir o modal (sem scroll de fundo)
   useEffect(() => {
     if (!isOpen) return
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('analytical-modal-open')
 
-    // Suporte ao ESC
+    // Suporte ao ESC para fechar
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose()
@@ -96,25 +105,29 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
-          // Estrutura flex-column obrigatória com margens seguras (3-5% horizontal, 4-6% vertical)
-          'flex flex-col p-0 overflow-hidden bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-2xl transition-all duration-200',
-          // Modais sem width fixo pequeno: usa classes padronizadas com clamp/min
+          // Estrutura base de 4 zonas flex-col, overflow-hidden no container pai
+          'modal-analitico flex flex-col p-0 overflow-hidden bg-white text-slate-900 border border-slate-200/90 rounded-2xl shadow-2xl transition-all duration-200',
           SIZE_CLASSES[size],
-          // Reset default close button styling do shadcn porque colocamos um customizado e acessível
+          // Reset default close button styling do shadcn porque usamos um botão X acessível dentro do cabeçalho
           '[&>button:last-child]:hidden',
           className,
         )}
       >
-        {/* ZONA 1: CABEÇALHO INSTITUCIONAL CIAFAL (flex: 0 0 auto) */}
-        <header className="flex-none px-5 py-3.5 bg-gradient-to-r from-[#003870] via-[#004C97] to-[#0A2540] text-white border-b border-blue-900/60 shadow-xs relative">
-          <div className="flex items-center justify-between gap-3">
+        {/* =========================================================================
+            ZONA 1: CABEÇALHO FIXO INSTITUCIONAL CIAFAL (flex: 0 0 auto; 120-180px)
+            Paleta institucional CIAFAL: Azul escuro (#003870 -> #004C97 -> #0A2540)
+            Contém: Badge da análise, Título, Descrição, KPIs contextuais em grade,
+            e botão X no canto superior direito com área clicável mínima 40x40px
+           ========================================================================= */}
+        <header className="flex-none px-5 py-3.5 sm:px-6 sm:py-4 bg-gradient-to-r from-[#003870] via-[#004C97] to-[#0A2540] text-white border-b border-blue-900/60 shadow-xs relative">
+          <div className="flex items-start justify-between gap-4">
             {/* Título, Badges e Descrição */}
-            <div className="flex-1 min-w-0 pr-8">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
                 {badge && (
                   <div className="shrink-0 inline-flex items-center">
                     {typeof badge === 'string' ? (
-                      <Badge className="bg-white/15 text-white border-white/20 text-[10px] font-bold tracking-wide uppercase px-2 py-0.5">
+                      <Badge className="bg-white/15 hover:bg-white/20 text-white border-white/25 text-[11px] font-bold tracking-wide uppercase px-2.5 py-0.5 rounded-md">
                         {badge}
                       </Badge>
                     ) : (
@@ -122,32 +135,30 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
                     )}
                   </div>
                 )}
-                <DialogTitle className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-white m-0 truncate">
+                <DialogTitle className="modal-analitico-title font-bold tracking-tight text-white m-0 text-lg sm:text-xl md:text-2xl truncate">
                   {title}
                 </DialogTitle>
               </div>
 
               {subtitle && (
-                <DialogDescription className="text-xs text-blue-100/90 mt-1 line-clamp-2 leading-relaxed m-0">
+                <DialogDescription className="modal-analitico-text text-blue-100/90 mt-0.5 line-clamp-2 leading-relaxed m-0 font-normal">
                   {subtitle}
                 </DialogDescription>
               )}
             </div>
 
-            {/* KPIs Contextuais à Direita */}
+            {/* KPIs Contextuais à Direita (Desktop >= 1024px) em grade responsiva */}
             {headerKpis && headerKpis.length > 0 && (
-              <div className="hidden md:flex items-center gap-2.5 shrink-0 bg-white/10 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-white/15">
+              <div className="hidden lg:flex items-center gap-3 shrink-0 bg-white/10 backdrop-blur-xs px-4 py-2 rounded-xl border border-white/15">
                 {headerKpis.map((kpi, idx) => (
                   <div
                     key={idx}
-                    className={cn(
-                      'flex flex-col items-end pl-2.5 first:pl-0 border-l border-white/15 first:border-l-0 leading-tight',
-                    )}
+                    className="flex flex-col items-end pl-3 first:pl-0 border-l border-white/15 first:border-l-0 leading-tight min-w-[120px] max-w-[220px]"
                   >
-                    <span className="text-[10px] uppercase font-semibold text-blue-200 tracking-wider">
+                    <span className="text-[10px] uppercase font-semibold text-blue-200 tracking-wider truncate w-full text-right">
                       {kpi.label}
                     </span>
-                    <span className="text-xs sm:text-sm font-bold font-sans text-white">
+                    <span className="text-sm sm:text-base font-bold font-sans text-white whitespace-nowrap mt-0.5">
                       {kpi.value}
                     </span>
                   </div>
@@ -155,38 +166,44 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
               </div>
             )}
 
-            {/* Botão Fechar X Padronizado: min 40x40px, sempre visível, sem sobrepor texto */}
+            {/* Botão X de Fechamento Padronizado: min 40x40px, sempre dentro do cabeçalho, canto superior direito */}
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={onClose}
               aria-label="Fechar modal"
-              className="w-10 h-10 rounded-xl text-white/80 hover:text-white hover:bg-white/15 active:bg-white/25 shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-white"
+              className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl text-white/90 hover:text-white hover:bg-white/15 active:bg-white/25 shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-white flex items-center justify-center -mr-1"
             >
               <X className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* KPIs Contextuais em telas móveis/pequenas */}
+          {/* KPIs Contextuais em telas intermediárias / menores (< 1024px) */}
           {headerKpis && headerKpis.length > 0 && (
-            <div className="flex md:hidden items-center gap-2 mt-2 pt-2 border-t border-white/15 overflow-x-auto text-xs pb-0.5">
+            <div className="flex lg:hidden items-center gap-2 mt-2.5 pt-2 border-t border-white/15 overflow-x-auto text-xs pb-0.5 scrollbar-thin">
               {headerKpis.map((kpi, idx) => (
                 <div
                   key={idx}
-                  className="shrink-0 bg-white/10 px-2 py-0.5 rounded text-[11px] font-medium text-white"
+                  className="shrink-0 bg-white/10 px-2.5 py-1 rounded-lg text-xs font-medium text-white flex items-baseline gap-1.5"
                 >
-                  <span className="text-blue-200 mr-1">{kpi.label}:</span>
-                  <span className="font-bold">{kpi.value}</span>
+                  <span className="text-blue-200 text-[10px] uppercase font-semibold">
+                    {kpi.label}:
+                  </span>
+                  <span className="font-bold whitespace-nowrap text-white font-sans">
+                    {kpi.value}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </header>
 
-        {/* ZONA 2: ÁREA DE NAVEGAÇÃO E FILTROS (flex: 0 0 auto) */}
+        {/* =========================================================================
+            ZONA 2: BARRA DE NAVEGAÇÃO E FILTROS / ABAS (flex: 0 0 auto)
+           ========================================================================= */}
         {(tabs || filters) && (
-          <div className="flex-none bg-slate-50 border-b border-slate-200 px-5 py-2.5 space-y-2">
+          <div className="flex-none bg-slate-50/90 border-b border-slate-200 px-5 py-2.5 sm:px-6 space-y-2">
             {/* Barra de Abas (se houver) */}
             {tabs && (
               <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-0.5">
@@ -198,10 +215,10 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
                       type="button"
                       onClick={() => tabs.onTabChange(tab.id)}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 border select-none',
+                        'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 border select-none cursor-pointer',
                         isActive
                           ? 'bg-[#004C97] text-white border-[#004C97] shadow-xs'
-                          : 'bg-white text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-100/80',
+                          : 'bg-white text-slate-700 border-slate-200 hover:text-slate-900 hover:bg-slate-100/90',
                       )}
                     >
                       {tab.icon && <span className="shrink-0">{tab.icon}</span>}
@@ -227,12 +244,17 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
           </div>
         )}
 
-        {/* ZONA 3: CONTEÚDO ANALÍTICO (flex: 1 1 auto com min-height: 0 e scroll interno único) */}
+        {/* =========================================================================
+            ZONA 3: CORPO PRINCIPAL ROLÁVEL (flex: 1 1 auto; min-height: 0; overflow-y: auto)
+            EXATAMENTE UM scroll vertical principal = modal-body
+            overflow-x: hidden para evitar scroll horizontal na raiz do modal
+           ========================================================================= */}
         <main
           className={cn(
-            'flex-1 min-h-0 bg-slate-50/50 p-4 sm:p-5',
+            'flex-1 min-h-0 bg-slate-50/40 p-4 sm:p-5 lg:p-6',
             scrollMode === 'auto' &&
-              'overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400',
+              'overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400',
+            scrollMode === 'internal' && 'overflow-hidden flex flex-col',
             scrollMode === 'none' && 'overflow-hidden flex flex-col',
             contentClassName,
           )}
@@ -240,9 +262,12 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
           {children}
         </main>
 
-        {/* ZONA 4: RODAPÉ INSTITUCIONAL (flex: 0 0 auto quando aplicável) */}
+        {/* =========================================================================
+            ZONA 4: RODAPÉ FIXO OU COMPACTO (flex: 0 0 auto; ~60-80px; sem position fixed)
+            Em fluxo natural para nunca sobrepor o conteúdo final
+           ========================================================================= */}
         {footer && (
-          <footer className="flex-none px-5 py-2.5 bg-white border-t border-slate-200 text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2 shadow-xs">
+          <footer className="flex-none px-5 py-3 sm:px-6 bg-white border-t border-slate-200 text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2 shadow-xs min-h-[56px]">
             {footer}
           </footer>
         )}
