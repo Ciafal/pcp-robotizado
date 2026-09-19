@@ -555,6 +555,57 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
             </button>
           </div>
 
+          {/* Confirmação Inline de Carga Parcial (Substitui modal sobre modal) */}
+          {isConfirmacaoParcialOpen && (
+            <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-xl space-y-3 animate-in fade-in">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0" />
+                <span>Confirmar importação parcial? (Governança e Auditoria CIAFAL)</span>
+              </div>
+              <p className="text-xs text-amber-900 leading-relaxed">
+                Serão importados{' '}
+                <strong className="font-mono text-emerald-800">
+                  {validacaoResultado?.linhasValidas.toLocaleString('pt-BR')}
+                </strong>{' '}
+                registros válidos.
+                {validacaoResultado?.linhasRejeitadas ? (
+                  <span>
+                    {' '}
+                    <strong>
+                      {validacaoResultado.linhasRejeitadas} registro(s) rejeitado(s) não serão
+                      importados
+                    </strong>{' '}
+                    e permanecerão no relatório de inconsistências.
+                  </span>
+                ) : null}
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsConfirmacaoParcialOpen(false)}
+                  className="border-slate-300 text-slate-700 text-xs"
+                >
+                  CANCELAR
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={isProcessing}
+                  onClick={() => {
+                    setIsConfirmacaoParcialOpen(false)
+                    handleExecutarCarga(true)
+                  }}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold gap-1.5 shadow-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {isProcessing
+                    ? 'Gravando e auditando...'
+                    : `CONFIRMAR E IMPORTAR ${validacaoResultado?.linhasValidas.toLocaleString('pt-BR')} REGISTROS`}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="py-3 text-xs space-y-4">
             {/* ETAPA 1: UPLOAD */}
             {activeStep === 'UPLOAD' && (
@@ -1077,73 +1128,7 @@ export const ImportacaoCarteiraModal: React.FC<ImportacaoCarteiraModalProps> = (
         </div>
       </AnalyticalModal>
 
-      {/* MODAL DE CONFIRMAÇÃO DE IMPORTAÇÃO PARCIAL CONTROLADA (Requisito 2 & 14) */}
-      <Dialog
-        open={isConfirmacaoParcialOpen}
-        onOpenChange={(open) => !open && setIsConfirmacaoParcialOpen(false)}
-      >
-        <DialogContent className="max-w-md bg-white border-amber-200 text-slate-900 shadow-2xl">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-amber-900">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-amber-700" />
-              </div>
-              <div>
-                <DialogTitle className="text-sm font-bold text-slate-900">
-                  Confirmar importação parcial?
-                </DialogTitle>
-                <span className="text-[11px] text-amber-800 font-semibold">
-                  Governança e Auditoria CIAFAL
-                </span>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="py-2 text-xs space-y-3 text-slate-700">
-            <p className="leading-relaxed">
-              Serão importados{' '}
-              <strong className="text-emerald-800 font-mono text-sm">
-                {validacaoResultado?.linhasValidas.toLocaleString('pt-BR')}
-              </strong>{' '}
-              registros válidos.
-            </p>
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
-              <strong>
-                {validacaoResultado?.linhasRejeitadas} registro(s) rejeitado(s) não{' '}
-                {validacaoResultado?.linhasRejeitadas === 1 ? 'será importado' : 'serão importados'}
-                .
-              </strong>
-              <p className="text-amber-800">
-                Os registros rejeitados permanecerão disponíveis no histórico e relatório de
-                inconsistências para posterior consulta e correção.
-              </p>
-            </div>
-            <p className="text-xs font-semibold text-slate-800">Deseja continuar?</p>
-          </div>
-
-          <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsConfirmacaoParcialOpen(false)}
-              className="border-slate-300 text-slate-700 text-xs"
-            >
-              CANCELAR
-            </Button>
-            <Button
-              size="sm"
-              disabled={isProcessing}
-              onClick={() => handleExecutarCarga(true)}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold gap-1.5 shadow-sm"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {isProcessing
-                ? 'Gravando e auditando...'
-                : `CONFIRMAR E IMPORTAR ${validacaoResultado?.linhasValidas.toLocaleString('pt-BR')} REGISTROS`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Confirmação de importação parcial convertida para banner inline interno — eliminação de modal sobre modal */}
     </>
   )
 }

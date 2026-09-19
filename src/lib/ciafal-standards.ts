@@ -11,6 +11,24 @@
  * - Tratamento seguro de strings e fallback para valores não disponíveis.
  */
 
+export const CIAFAL_COLORS = {
+  // Paleta Oficial Institucional CIAFAL
+  BLUE_PRIMARY: '#004C97',
+  BLUE_DARK: '#003870',
+  BLUE_DEEP: '#0A2540',
+  BLUE_LIGHT: '#EBF4FC',
+  YELLOW_ACCENT: '#F59E0B',
+  YELLOW_DARK: '#D97706',
+  BG_PAGE: '#F8FAFC',
+  BG_CARD: '#FFFFFF',
+  BORDER: '#E2E8F0',
+  TEXT_MAIN: '#0F172A',
+  TEXT_MUTED: '#64748B',
+  SUCCESS: '#10B981',
+  WARNING: '#F59E0B',
+  DANGER: '#EF4444',
+} as const
+
 export const CIAFAL_TERMS = {
   // Entidades e Processos
   RAW_MATERIAL: 'Matéria-prima',

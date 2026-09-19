@@ -263,8 +263,10 @@ export const AnalyticalModal: React.FC<AnalyticalModalProps> = ({
             overflow-x: hidden para evitar scroll horizontal na raiz do modal
            ========================================================================= */}
         <main
+          id="analytical-modal-body"
+          tabIndex={-1}
           className={cn(
-            'flex-1 min-h-0 bg-slate-50/40 p-4 sm:p-5 lg:p-6',
+            'flex-1 min-h-0 bg-slate-50/40 p-4 sm:p-5 lg:p-6 outline-none',
             scrollMode === 'auto' &&
               'overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400',
             scrollMode === 'internal' && 'overflow-hidden flex flex-col',

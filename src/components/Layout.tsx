@@ -14,14 +14,14 @@ export const Layout: React.FC = () => {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white">
       {/* Barra de carregamento discreta no topo (não obstrutiva) */}
       {isLoading && (
-        <div className="w-full bg-blue-100 h-1 overflow-hidden shrink-0">
+        <div className="w-full bg-blue-100 h-1 overflow-hidden shrink-0 z-50">
           <div className="bg-[#004C97] h-full w-1/3 animate-pulse transition-all duration-300" />
         </div>
       )}
 
       {/* Banner amigável de reconexão sem desmontar a navegação */}
       {authError && (
-        <div className="w-full bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-900 shrink-0">
+        <div className="w-full bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-900 shrink-0 z-40">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>{authError}</span>
@@ -38,10 +38,17 @@ export const Layout: React.FC = () => {
         </div>
       )}
 
+      {/* Header Superior CIAFAL fixado estruturalmente sem sobrepor conteúdo */}
       <PCPNavbar />
-      <div className="flex-1 flex w-full max-w-full min-w-0 overflow-hidden">
+
+      {/* Container Principal: Sidebar com largura estável + MainContent com overflow controlado */}
+      <div className="flex-1 flex w-full max-w-full min-w-0 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] overflow-hidden">
         <PCPSidebar />
-        <main className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50">
+        <main
+          id="pcp-main-content"
+          tabIndex={-1}
+          className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50 relative outline-none scrollbar-thin scrollbar-thumb-slate-300"
+        >
           <Outlet />
         </main>
       </div>

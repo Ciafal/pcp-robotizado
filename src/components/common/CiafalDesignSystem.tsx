@@ -875,6 +875,209 @@ export const SAPField: React.FC<SAPFieldProps> = ({
   )
 }
 
+/* =========================================================================================
+ * 8. COMPONENTES ESTRUTURAIS GLOBAIS (DataTable, FilterBar, ChartContainer, FormGrid)
+ * ========================================================================================= */
+
+export interface CiafalDataTableProps {
+  title?: ReactNode
+  subtitle?: ReactNode
+  actions?: ReactNode
+  columns: {
+    key: string
+    label: string
+    align?: 'left' | 'center' | 'right'
+    width?: string
+  }[]
+  children: ReactNode
+  footer?: ReactNode
+  emptyMessage?: string
+  isEmpty?: boolean
+  className?: string
+}
+
+export const CiafalDataTable: React.FC<CiafalDataTableProps> = ({
+  title,
+  subtitle,
+  actions,
+  columns,
+  children,
+  footer,
+  emptyMessage = 'Nenhum registro encontrado',
+  isEmpty = false,
+  className = '',
+}) => {
+  return (
+    <div
+      className={`bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col ${className}`}
+    >
+      {(title || actions) && (
+        <div className="p-3.5 sm:p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/50">
+          <div>
+            {typeof title === 'string' ? (
+              <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
+            ) : (
+              title
+            )}
+            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+          </div>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
+      )}
+
+      <div className="table-responsive-container w-full overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead className="bg-slate-100/90 text-slate-700 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  style={{ width: col.width }}
+                  className={`px-3 py-2.5 whitespace-nowrap ${
+                    col.align === 'right'
+                      ? 'text-right'
+                      : col.align === 'center'
+                        ? 'text-center'
+                        : 'text-left'
+                  }`}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {isEmpty ? (
+              <tr>
+                <td colSpan={columns.length} className="p-8 text-center text-slate-500">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              children
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {footer && (
+        <div className="p-3 border-t border-slate-200 bg-slate-50/60 text-xs text-slate-600">
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export interface CiafalFilterBarProps {
+  children: ReactNode
+  onClear?: () => void
+  totalCount?: number
+  filteredCount?: number
+  className?: string
+}
+
+export const CiafalFilterBar: React.FC<CiafalFilterBarProps> = ({
+  children,
+  onClear,
+  totalCount,
+  filteredCount,
+  className = '',
+}) => {
+  return (
+    <div
+      className={`bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 ${className}`}
+    >
+      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">{children}</div>
+
+      {(totalCount !== undefined || onClear) && (
+        <div className="flex items-center gap-2.5 shrink-0 text-xs">
+          {totalCount !== undefined && (
+            <span className="text-slate-500 font-mono text-[11px]">
+              {filteredCount !== undefined ? `${filteredCount} de ` : ''}
+              <strong>{totalCount}</strong> registro(s)
+            </span>
+          )}
+          {onClear && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onClear}
+              className="h-7 text-xs text-slate-600 hover:text-slate-900"
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export interface CiafalChartContainerProps {
+  title: string
+  subtitle?: string
+  height?: number | string
+  badge?: ReactNode
+  actions?: ReactNode
+  children: ReactNode
+  className?: string
+}
+
+export const CiafalChartContainer: React.FC<CiafalChartContainerProps> = ({
+  title,
+  subtitle,
+  height = 320,
+  badge,
+  actions,
+  children,
+  className = '',
+}) => {
+  return (
+    <div
+      className={`bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden ${className}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-3 shrink-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="font-bold text-slate-900 text-sm tracking-tight">{title}</h4>
+            {badge}
+          </div>
+          {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      </div>
+
+      <div style={{ height }} className="w-full min-w-0 relative flex-1 contain-horizontal">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export interface CiafalFormGridProps {
+  children: ReactNode
+  columns?: 1 | 2 | 3 | 4
+  className?: string
+}
+
+export const CiafalFormGrid: React.FC<CiafalFormGridProps> = ({
+  children,
+  columns = 3,
+  className = '',
+}) => {
+  const colClass =
+    columns === 4
+      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+      : columns === 3
+        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+        : columns === 2
+          ? 'grid grid-cols-1 md:grid-cols-2'
+          : 'grid grid-cols-1'
+
+  return <div className={`${colClass} gap-3 sm:gap-4 ${className}`}>{children}</div>
+}
+
 export const CiafalKPI = CiafalKPICard
 export const CiafalBreadcrumb = CiafalPageHeader
 export {

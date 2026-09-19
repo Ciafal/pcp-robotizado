@@ -1129,17 +1129,20 @@ export const PCPSidebar: React.FC = () => {
   return (
     <aside
       data-testid="pcp-sidebar"
-      className="w-[215px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 min-h-[calc(100vh-4rem)] border-r border-slate-200 select-none"
+      aria-label="Navegação Principal PCP"
+      className="w-[230px] min-w-[230px] max-w-[230px] bg-white text-slate-600 hidden md:flex flex-col shrink-0 h-full border-r border-slate-200 select-none shadow-xs z-20"
     >
-      {/* Topo do menu lateral */}
-      <div className="p-3 border-b border-slate-200 bg-white">
+      {/* Topo do menu lateral institucional */}
+      <div className="px-3.5 py-3 border-b border-slate-200 bg-slate-50/60 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#004C97] ring-2 ring-[#004C97]/30" />
-          <span className="font-black text-xs tracking-wider text-slate-900 uppercase">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#004C97] ring-2 ring-[#004C97]/30 shrink-0" />
+          <span className="font-black text-xs tracking-wider text-slate-900 uppercase truncate">
             PCP ROBOTIZADO
           </span>
         </div>
-        <div className="text-[10px] text-slate-500 font-mono mt-0.5 pl-4">CIAFAL • Divinópolis</div>
+        <div className="text-[10px] text-slate-500 font-mono mt-0.5 pl-4 truncate">
+          CIAFAL • Divinópolis &bull; Contagem
+        </div>
       </div>
 
       {/* Itens agrupados compactos */}

@@ -9,9 +9,23 @@
 
 @layer base {
   :root {
-    /* Design System Claro Corporativo CIAFAL - Pantone 2945 C (#004C97) */
-    --background: 210 20% 98%; /* Fundo geral claro / cinza muito sutil */
-    --foreground: 215 25% 15%; /* Grafite/azul muito escuro para excelente contraste */
+    /* Design System Oficial CIAFAL - Tokens Corporativos Industriais
+       Referência: https://ciafal.com.br/
+       Azul Institucional Primário: #004C97 (HSL: 210 100% 29.6%)
+       Azul Institucional Escuro: #003870 (HSL: 210 100% 22%)
+       Amarelo Aço/Alerta Institucional: #F59E0B / #D97706 (HSL: 38 92% 50%)
+       Fundos Limpos / Neutros Industriais: #F8FAFC / #FFFFFF
+    */
+    --ciafal-blue-primary: #004c97;
+    --ciafal-blue-dark: #003870;
+    --ciafal-blue-deep: #0a2540;
+    --ciafal-blue-light: #ebf4fc;
+    --ciafal-blue-hover: #003870;
+    --ciafal-yellow-accent: #f59e0b;
+    --ciafal-yellow-dark: #d97706;
+
+    --background: 210 20% 98%; /* Fundo geral claro / #F8FAFC */
+    --foreground: 215 25% 15%; /* Grafite/azul escuro (#1E293B) para legibilidade industrial */
 
     --card: 0 0% 100%; /* Cards brancos */
     --card-foreground: 215 25% 15%;
@@ -49,11 +63,12 @@
     --sidebar-border: 214 20% 88%;
     --sidebar-ring: 210 100% 29.6%;
 
-    --chart-1: 34 100% 44%;
-    --chart-2: 189 100% 38%;
-    --chart-3: 209 100% 32%;
-    --chart-4: 42 100% 50%;
-    --chart-5: 33 100% 50%;
+    /* Paleta Institucional CIAFAL para Gráficos */
+    --chart-1: 210 100% 30%; /* Azul CIAFAL */
+    --chart-2: 38 92% 50%; /* Amarelo Aço CIAFAL */
+    --chart-3: 160 84% 39%; /* Verde Operacional */
+    --chart-4: 215 25% 27%; /* Grafite Metálico */
+    --chart-5: 0 84% 60%; /* Vermelho Atenção */
   }
 
   .dark {
@@ -132,6 +147,7 @@
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   /* Prevenção rigorosa de overflow-x no html, body e root */
@@ -151,12 +167,36 @@
     box-sizing: border-box;
   }
 
-  /* Grid padronizado de cards responsivos (minmax 260px) */
+  /* Hierarquia Tipográfica Global CIAFAL */
+  .ciafal-page-title {
+    font-size: clamp(1.25rem, 1.5vw + 0.5rem, 1.75rem); /* 20-28px */
+    line-height: 1.25;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .ciafal-section-title {
+    font-size: clamp(1.05rem, 1vw + 0.5rem, 1.35rem); /* 17-22px */
+    line-height: 1.3;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .ciafal-card-title {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 600;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  /* Grid padronizado de cards responsivos CIAFAL: minmax(220px, 1fr) */
   .pcp-card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.875rem;
     width: 100%;
+    min-width: 0;
   }
 
   /* Utilitário para contenção horizontal rígida */
