@@ -478,9 +478,9 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-purple-600" /> Industrialização SDC
+                  <Building2 className="w-4 h-4 text-[#004C97]" /> Industrialização SDC
                 </span>
-                <span className="text-sm font-mono font-bold text-purple-700">
+                <span className="text-sm font-mono font-bold text-[#003870]">
                   {(sdcItem.em_producao_t + sdcItem.programado_t).toFixed(2)} t
                 </span>
               </div>
@@ -594,7 +594,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Factory className="w-4 h-4 text-purple-600" /> Ordem MTO &amp; Rastreabilidade
+                  <Factory className="w-4 h-4 text-[#004C97]" /> Ordem MTO &amp; Rastreabilidade
                 </span>
                 <Badge variant="outline" className="text-[10px]">
                   OP Associada ao Pedido
@@ -603,7 +603,7 @@ export const DetalheMaterialUnificadoModal: React.FC<DetalheMaterialUnificadoMod
               <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Estoque MTO Dedicado:</span>
-                  <strong className="text-purple-800 font-mono">
+                  <strong className="text-[#003870] font-mono">
                     {Number(genItem?.estoque_mto_tons || 0).toFixed(2)} t
                   </strong>
                 </div>

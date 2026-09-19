@@ -176,7 +176,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
             Importado em Trânsito
           </span>
           <strong className="text-base font-sans font-bold text-[#003870] block mt-0.5">
-            {formatNumberPTBR(totalImportadoTransito, 2)} t
+            {formatNumberPTBR(totalTransitoPendente, 2)} t
           </strong>
         </div>{' '}
         <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-xs">
@@ -267,7 +267,7 @@ export const CarteiraImportadoView: React.FC<CarteiraImportadoViewProps> = ({
                     <td className="p-2.5 text-right font-mono text-slate-700">
                       {formatNumberPTBR(it.estoque_livre_tons, 2)}
                     </td>
-                    <td className="p-2.5 text-right font-mono text-purple-800">
+                    <td className="p-2.5 text-right font-mono text-[#003870]">
                       {formatNumberPTBR(
                         entradasImportadas.find((e) => e.codigo_material === it.codigo_material)
                           ?.quantidade_pendente_tons || 0,

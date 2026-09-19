@@ -300,7 +300,7 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
                       <td className="p-2.5 text-right font-mono text-slate-700">
                         {formatNumberPTBR(it.estoque_livre_tons, 2)}
                       </td>
-                      <td className="p-2.5 text-right font-mono text-purple-800">
+                      <td className="p-2.5 text-right font-mono text-[#003870]">
                         {formatNumberPTBR(it.estoque_mto_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono text-[#004C97]">

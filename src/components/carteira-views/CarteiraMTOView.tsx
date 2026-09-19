@@ -329,7 +329,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                       <td className="p-2.5 text-right font-mono font-bold text-blue-900">
                         {formatNumberPTBR(it.carteira_aberta_tons, 2)}
                       </td>
-                      <td className="p-2.5 text-right font-mono text-purple-800">
+                      <td className="p-2.5 text-right font-mono text-[#003870]">
                         {formatNumberPTBR(it.estoque_mto_tons, 2)}
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-rose-700">

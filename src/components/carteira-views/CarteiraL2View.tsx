@@ -225,7 +225,7 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
                         2,
                       )}
                     </td>
-                    <td className="p-2.5 text-right font-mono text-purple-800">
+                    <td className="p-2.5 text-right font-mono text-[#003870]">
                       {formatNumberPTBR(it.estoque_semiacabado_vallourec_tons || 0, 2)}
                     </td>
                     <td className="p-2.5 text-right font-mono font-bold text-rose-700">

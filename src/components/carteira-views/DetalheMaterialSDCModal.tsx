@@ -237,9 +237,9 @@ export const DetalheMaterialSDCModal: React.FC<DetalheMaterialSDCModalProps> = (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-purple-600" /> 4. Industrialização SDC
+                <Building2 className="w-4 h-4 text-[#004C97]" /> 4. Industrialização SDC
               </span>
-              <span className="text-sm font-mono font-bold text-purple-700">
+              <span className="text-sm font-mono font-bold text-[#003870]">
                 {(item.em_producao_t + item.programado_t).toFixed(2)} t
               </span>
             </div>
