@@ -108,6 +108,7 @@ const ProductQualityHubPage = lazy(() => import('@/pages/ProductQualityHubPage')
 const WeeklyScheduleOperationalPage = lazy(() => import('@/pages/WeeklyScheduleOperationalPage'))
 const TestProgrammingPage = lazy(() => import('@/pages/TestProgrammingPage'))
 const RawMaterialInventoryPage = lazy(() => import('@/pages/pcp/RawMaterialInventoryPage'))
+const EntregasPcpPage = lazy(() => import('@/pages/EntregasPcpPage'))
 
 // Otimização Dimensional de Matéria-Prima (14 Subpáginas)
 const MPOverviewConsolidatedPage = lazy(() =>
@@ -251,6 +252,25 @@ export const App: React.FC = () => {
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
+                    {/* Rota Oficial de Gestão de Entregas PCP */}
+                    <Route
+                      path="/pcp/entregas"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <EntregasPcpPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/entregas-pcp"
+                      element={<Navigate to="/pcp/entregas" replace />}
+                    />
+                    <Route
+                      path="/pcp-robotizado/entregas"
+                      element={<Navigate to="/pcp/entregas" replace />}
+                    />
+                    <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
+                    <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
                     {/* Rota Direta de Programação de Testes (Ciclo Corporativo Integrado) */}
                     <Route
                       path="/pcp/sequenciamento/programacao-testes"

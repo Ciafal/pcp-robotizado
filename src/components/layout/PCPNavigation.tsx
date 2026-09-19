@@ -147,6 +147,12 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
+        title: 'Entregas PCP',
+        href: '/pcp/entregas',
+        icon: PackageCheck,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Montagem Semanal',
         href: '/pcp/sequenciamento/montagem-semanal',
         icon: CalendarDays,
@@ -661,6 +667,12 @@ const officialNavGroups: NavGroup[] = [
   {
     groupTitle: 'PROGRAMAÇÃO',
     items: [
+      {
+        title: 'Entregas PCP',
+        href: '/pcp/entregas',
+        icon: PackageCheck,
+        permission: 'pcp.schedule.view',
+      },
       {
         title: 'Montagem Semanal',
         href: '/pcp/sequenciamento/montagem-semanal',

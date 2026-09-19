@@ -202,7 +202,8 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
               <select
                 value={filters.companyCode}
                 onChange={(e) => setCompanyScope(e.target.value)}
-                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0"
+                aria-label="Filtro de Empresa"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 max-w-[150px] truncate"
               >
                 {companies.map((c) => (
                   <option key={c.code} value={c.code} className="bg-white text-slate-900">
@@ -217,7 +218,8 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
               <select
                 value={filters.plantCode}
                 onChange={(e) => setPlantScope(e.target.value)}
-                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0"
+                aria-label="Filtro de Planta"
+                className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer border-r border-slate-300 font-medium min-w-0 max-w-[160px] truncate"
               >
                 <option value="ALL" className="bg-white text-slate-900">
                   Todas as Plantas
@@ -236,6 +238,10 @@ export const ControlTowerHeader: React.FC<ControlTowerHeaderProps> = ({
                 value={filters.lineCode}
                 onChange={(e) => setLineScope(e.target.value)}
                 aria-label="Filtro de Linha"
+                title={
+                  availableLines.find((l) => l.code === filters.lineCode)?.name ||
+                  (filters.lineCode === 'ALL' ? 'Todas as Linhas' : filters.lineCode)
+                }
                 className="bg-transparent text-slate-800 text-xs px-2 py-1 outline-none cursor-pointer font-medium min-w-0 w-full sm:w-auto sm:max-w-[260px] truncate"
               >
                 <option value="ALL" className="bg-white text-slate-900">

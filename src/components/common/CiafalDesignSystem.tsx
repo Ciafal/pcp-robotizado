@@ -896,6 +896,28 @@ export interface CiafalDataTableProps {
   className?: string
 }
 
+export interface CiafalDataTableColumnDef {
+  key: string
+  label: string
+  align?: 'left' | 'center' | 'right'
+  width?: string
+}
+
+export interface CiafalDataTableProps {
+  title?: ReactNode
+  subtitle?: ReactNode
+  actions?: ReactNode
+  columns: CiafalDataTableColumnDef[]
+  children: ReactNode
+  footer?: ReactNode
+  emptyMessage?: string
+  isEmpty?: boolean
+  className?: string
+  loading?: boolean
+  errorMessage?: string
+  onRetry?: () => void
+}
+
 export const CiafalDataTable: React.FC<CiafalDataTableProps> = ({
   title,
   subtitle,
@@ -906,6 +928,9 @@ export const CiafalDataTable: React.FC<CiafalDataTableProps> = ({
   emptyMessage = 'Nenhum registro encontrado',
   isEmpty = false,
   className = '',
+  loading = false,
+  errorMessage,
+  onRetry,
 }) => {
   return (
     <div
@@ -925,40 +950,65 @@ export const CiafalDataTable: React.FC<CiafalDataTableProps> = ({
         </div>
       )}
 
-      <div className="table-responsive-container w-full overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-slate-100/90 text-slate-700 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  style={{ width: col.width }}
-                  className={`px-3 py-2.5 whitespace-nowrap ${
-                    col.align === 'right'
-                      ? 'text-right'
-                      : col.align === 'center'
-                        ? 'text-center'
-                        : 'text-left'
-                  }`}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {isEmpty ? (
+      {errorMessage ? (
+        <div className="p-8 text-center bg-white">
+          <p className="text-sm font-semibold text-rose-700 mb-2">
+            Erro ao carregar dados: {errorMessage}
+          </p>
+          {onRetry && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRetry}
+              className="border-rose-300 text-rose-700 hover:bg-rose-50"
+            >
+              Tentar novamente
+            </Button>
+          )}
+        </div>
+      ) : loading ? (
+        <div className="p-6 space-y-3">
+          <div className="h-4 bg-slate-200 rounded animate-pulse w-1/3" />
+          <div className="h-8 bg-slate-100 rounded animate-pulse" />
+          <div className="h-8 bg-slate-100 rounded animate-pulse" />
+          <div className="h-8 bg-slate-100 rounded animate-pulse" />
+        </div>
+      ) : (
+        <div className="table-responsive-container w-full overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-100/90 text-slate-700 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
               <tr>
-                <td colSpan={columns.length} className="p-8 text-center text-slate-500">
-                  {emptyMessage}
-                </td>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    style={{ width: col.width }}
+                    className={`px-3 py-2.5 whitespace-nowrap ${
+                      col.align === 'right'
+                        ? 'text-right'
+                        : col.align === 'center'
+                          ? 'text-center'
+                          : 'text-left'
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
-            ) : (
-              children
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {isEmpty ? (
+                <tr>
+                  <td colSpan={columns.length} className="p-8 text-center text-slate-500">
+                    {emptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                children
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {footer && (
         <div className="p-3 border-t border-slate-200 bg-slate-50/60 text-xs text-slate-600">
@@ -988,7 +1038,7 @@ export const CiafalFilterBar: React.FC<CiafalFilterBarProps> = ({
     <div
       className={`bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 min-w-0 max-w-full ${className}`}
     >
-      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 max-w-full [&>*]:min-w-0 [&>*]:max-w-full">
+      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 max-w-full [&>*]:min-w-0 [&>*]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full [&_select]:truncate [&_input]:min-w-0">
         {children}
       </div>
 
