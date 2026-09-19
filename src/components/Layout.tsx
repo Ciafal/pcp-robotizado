@@ -11,7 +11,7 @@ export const Layout: React.FC = () => {
   const { isLoading, authError, refreshPermissions } = useAuth()
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white relative">
+    <div className="h-screen max-h-screen w-full max-w-full overflow-hidden bg-slate-50 text-slate-900 flex flex-col font-sans antialiased selection:bg-[#004C97] selection:text-white relative">
       {/* Barra de carregamento discreta no topo (não obstrutiva) */}
       {isLoading && (
         <div className="w-full bg-blue-100 h-1 overflow-hidden shrink-0 z-50">
@@ -38,16 +38,16 @@ export const Layout: React.FC = () => {
         </div>
       )}
 
-      {/* Header Superior CIAFAL fixado estruturalmente sem sobrepor conteúdo */}
+      {/* Header Superior CIAFAL no fluxo natural: altura dinâmica real sem sobrepor conteúdo */}
       <PCPNavbar />
 
-      {/* Container Principal: Sidebar com largura estável 230px + MainContent viewport-sidebar min-w-0 */}
-      <div className="flex-1 flex w-full max-w-full min-w-0 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] overflow-hidden relative">
+      {/* Container Principal: Sidebar com largura estável 230px + MainContent ocupando restante via flex-1 min-h-0 */}
+      <div className="flex-1 flex w-full max-w-full min-w-0 min-h-0 overflow-hidden relative">
         <PCPSidebar />
         <main
           id="pcp-main-content"
           tabIndex={-1}
-          className="flex-1 min-w-0 w-full max-w-full p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50 relative outline-none scrollbar-thin scrollbar-thumb-slate-300"
+          className="flex-1 min-w-0 min-h-0 w-full max-w-full p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50 relative outline-none scrollbar-thin scrollbar-thumb-slate-300"
         >
           <Outlet />
         </main>
