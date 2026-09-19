@@ -132,9 +132,9 @@ export const PortfolioAISection: React.FC<PortfolioAISectionProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={onOpenCurvaAbcModal}
-                className="h-7 text-xs bg-purple-950/60 border-purple-400 text-purple-200 hover:bg-purple-900/80 font-bold gap-1"
+                className="h-7 text-xs bg-blue-900/60 border-blue-400 text-blue-100 hover:bg-blue-800/80 font-bold gap-1"
               >
-                <Sparkles className="w-3.5 h-3.5 text-purple-300" /> Curva ABC Detalhada
+                <Sparkles className="w-3.5 h-3.5 text-blue-300" /> Curva ABC Detalhada
               </Button>
             )}
           </div>

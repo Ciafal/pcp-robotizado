@@ -1,776 +1,914 @@
 import React, { useState, useMemo } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  BarChart3,
+  Layers,
+  Building2,
+  Calendar,
+  AlertTriangle,
+  Bot,
+  PieChart as PieIcon,
+  Download,
+  ShieldCheck,
+  CheckCircle2,
+} from 'lucide-react'
+import {
+  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
   CartesianGrid,
+  Tooltip,
   Legend,
   Cell,
-  PieChart,
-  Pie,
 } from 'recharts'
-import {
-  TrendingUp,
-  BarChart3,
-  PieChart as PieIcon,
-  Layers,
-  ArrowRight,
-  Filter,
-} from 'lucide-react'
 import { ItemCurvaAbcCalculado } from '@/services/curva-abc-faturamento-engine'
-import { formatNumberPTBR, formatCurrencyPTBR } from '@/lib/formatters-ptbr'
+import { formatNumberPTBR, formatCurrencyPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
+import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 
-export interface PortfolioChartsProps {
+interface PortfolioChartsProps {
   isOpen: boolean
   onClose: () => void
-  tituloCarteira?: string
+  tituloCarteira: string
   itens: ItemCurvaAbcCalculado[]
   onSelectMaterial?: (item: ItemCurvaAbcCalculado) => void
-  onDrilldownGrupo?: (nomeGrupo: string, itensGrupo: ItemCurvaAbcCalculado[]) => void
+  onDrilldownGrupo?: (grupoNome: string, grupoItens: ItemCurvaAbcCalculado[]) => void
 }
 
-type TabGrafico =
-  | 'CARTEIRA_X_ESTOQUE'
-  | 'DEFICIT_MATERIAL'
-  | 'POR_LINHA'
-  | 'POR_CENTRO'
-  | 'POR_FAMILIA'
-  | 'COBERTURA'
-  | 'CRITICIDADE'
-
-const CORES_PALETA = ['#004C97', '#00A3E0', '#008080', '#F59E0B', '#EF4444', '#8B5CF6', '#64748B']
+type TabTipo = 'LINHA' | 'CENTRO' | 'FAMILIA' | 'COBERTURA' | 'CRITICIDADE'
 
 export const PortfolioCharts: React.FC<PortfolioChartsProps> = ({
   isOpen,
   onClose,
-  tituloCarteira = 'Carteira Consolidada',
+  tituloCarteira,
   itens,
   onSelectMaterial,
   onDrilldownGrupo,
 }) => {
-  const [tabAtiva, setTabAtiva] = useState<TabGrafico>('CARTEIRA_X_ESTOQUE')
+  const [activeTab, setActiveTab] = useState<TabTipo>('LINHA')
 
-  // 1. Dados: Carteira x Estoque x Programação x Saldo Projetado (Top 10 Materiais)
-  const dadosCarteiraEstoque = useMemo(() => {
-    return [...itens]
-      .sort((a, b) => b.carteira_tons - a.carteira_tons)
-      .slice(0, 10)
-      .map((i) => ({
-        material: i.codigo_material,
-        descricao: i.descricao_material,
-        carteira: Number(i.carteira_tons.toFixed(2)),
-        estoqueDisp: Number(i.estoque_disponivel_tons.toFixed(2)),
-        programado: Number(i.programado_tons.toFixed(2)),
-        saldoProjetado: Number(i.saldo_projetado_tons.toFixed(2)),
-        itemOriginal: i,
-      }))
-  }, [itens])
-
-  // 2. Dados: Top Déficits por Material
-  const dadosDeficitPorMaterial = useMemo(() => {
-    return [...itens]
-      .filter((i) => i.deficit_tons > 0)
-      .sort((a, b) => b.deficit_tons - a.deficit_tons)
-      .slice(0, 12)
-      .map((i) => ({
-        material: i.codigo_material,
-        descricao: i.descricao_material,
-        deficit: Number(i.deficit_tons.toFixed(2)),
-        curva: i.curva_abc,
-        itemOriginal: i,
-      }))
-  }, [itens])
-
-  // 3. Dados: Carteira por Linha
+  // Agregações determinísticas
   const dadosPorLinha = useMemo(() => {
     const mapa = new Map<
       string,
-      { linha: string; toneladas: number; itens: ItemCurvaAbcCalculado[] }
+      {
+        carteira: number
+        estoque: number
+        programado: number
+        deficit: number
+        faturamento: number
+      }
     >()
-    itens.forEach((i) => {
-      const l = i.linha || 'N/D'
-      const atual = mapa.get(l) || { linha: l, toneladas: 0, itens: [] }
-      atual.toneladas += i.carteira_tons
-      atual.itens.push(i)
-      mapa.set(l, atual)
+
+    itens.forEach((it) => {
+      const linha = it.linha || 'Outros'
+      const atual = mapa.get(linha) || {
+        carteira: 0,
+        estoque: 0,
+        programado: 0,
+        deficit: 0,
+        faturamento: 0,
+      }
+      atual.carteira += it.carteira_tons
+      atual.estoque += it.estoque_disponivel_tons
+      atual.programado += it.programado_tons
+      atual.deficit += it.deficit_tons
+      atual.faturamento += it.faturamento_brl
+      mapa.set(linha, atual)
     })
-    return Array.from(mapa.values())
-      .map((g) => ({
-        ...g,
-        toneladas: Number(g.toneladas.toFixed(2)),
+
+    return Array.from(mapa.entries())
+      .map(([linha, dados]) => ({
+        linha,
+        ...dados,
       }))
-      .sort((a, b) => b.toneladas - a.toneladas)
+      .sort((a, b) => b.carteira - a.carteira)
   }, [itens])
 
-  // 4. Dados: Carteira por Centro
   const dadosPorCentro = useMemo(() => {
     const mapa = new Map<
       string,
-      { centro: string; toneladas: number; itens: ItemCurvaAbcCalculado[] }
+      { carteira: number; estoque: number; deficit: number; faturamento: number }
     >()
-    itens.forEach((i) => {
-      const c = i.centro || '1000'
-      const atual = mapa.get(c) || { centro: c, toneladas: 0, itens: [] }
-      atual.toneladas += i.carteira_tons
-      atual.itens.push(i)
-      mapa.set(c, atual)
+
+    itens.forEach((it) => {
+      const centro = it.centro || 'SDPL'
+      const atual = mapa.get(centro) || { carteira: 0, estoque: 0, deficit: 0, faturamento: 0 }
+      atual.carteira += it.carteira_tons
+      atual.estoque += it.estoque_disponivel_tons
+      atual.deficit += it.deficit_tons
+      atual.faturamento += it.faturamento_brl
+      mapa.set(centro, atual)
     })
-    return Array.from(mapa.values())
-      .map((g) => ({
-        ...g,
-        toneladas: Number(g.toneladas.toFixed(2)),
-      }))
-      .sort((a, b) => b.toneladas - a.toneladas)
+
+    return Array.from(mapa.entries()).map(([centro, dados]) => ({
+      centro,
+      ...dados,
+    }))
   }, [itens])
 
-  // 5. Dados: Carteira por Família de Produto
   const dadosPorFamilia = useMemo(() => {
     const mapa = new Map<
       string,
-      { familia: string; toneladas: number; itens: ItemCurvaAbcCalculado[] }
+      { carteira: number; estoque: number; deficit: number; faturamento: number; itens: number }
     >()
-    itens.forEach((i) => {
-      const f = i.familia || 'OUTROS'
-      const atual = mapa.get(f) || { familia: f, toneladas: 0, itens: [] }
-      atual.toneladas += i.carteira_tons
-      atual.itens.push(i)
-      mapa.set(f, atual)
+
+    itens.forEach((it) => {
+      const familia = it.familia || 'Geral'
+      const atual = mapa.get(familia) || {
+        carteira: 0,
+        estoque: 0,
+        deficit: 0,
+        faturamento: 0,
+        itens: 0,
+      }
+      atual.carteira += it.carteira_tons
+      atual.estoque += it.estoque_disponivel_tons
+      atual.deficit += it.deficit_tons
+      atual.faturamento += it.faturamento_brl
+      atual.itens += 1
+      mapa.set(familia, atual)
     })
-    return Array.from(mapa.values())
-      .map((g) => ({
-        ...g,
-        toneladas: Number(g.toneladas.toFixed(2)),
+
+    return Array.from(mapa.entries())
+      .map(([familia, dados]) => ({
+        familia,
+        ...dados,
       }))
-      .sort((a, b) => b.toneladas - a.toneladas)
-      .slice(0, 8)
+      .sort((a, b) => b.carteira - a.carteira)
   }, [itens])
 
-  // 6. Dados: Cobertura (Sem Cobertura, Baixa, Adequada, Excesso)
-  const dadosCobertura = useMemo(() => {
-    let semCobertura = 0
-    let baixa = 0
-    let adequada = 0
-    let excesso = 0
-    const itensSemCob: ItemCurvaAbcCalculado[] = []
-    const itensBaixa: ItemCurvaAbcCalculado[] = []
-    const itensAdequada: ItemCurvaAbcCalculado[] = []
-    const itensExcesso: ItemCurvaAbcCalculado[] = []
-
-    itens.forEach((i) => {
-      if (i.deficit_tons > 0 && i.programado_tons === 0) {
-        semCobertura++
-        itensSemCob.push(i)
-      } else if (i.deficit_tons > 0 && i.saldo_projetado_tons < 0) {
-        baixa++
-        itensBaixa.push(i)
-      } else if (i.saldo_projetado_tons >= 0 && i.saldo_projetado_tons <= i.carteira_tons * 1.5) {
-        adequada++
-        itensAdequada.push(i)
-      } else {
-        excesso++
-        itensExcesso.push(i)
-      }
-    })
-
-    return [
-      { name: 'Sem Cobertura', value: semCobertura, cor: '#EF4444', itens: itensSemCob },
-      { name: 'Baixa Cobertura', value: baixa, cor: '#F59E0B', itens: itensBaixa },
-      { name: 'Adequada', value: adequada, cor: '#10B981', itens: itensAdequada },
-      { name: 'Excesso de Estoque', value: excesso, cor: '#004C97', itens: itensExcesso },
+  const dadosPorCobertura = useMemo(() => {
+    const faixas = [
+      { faixa: 'Sem Estoque (0d)', qtd: 0, tons: 0, cor: '#E11D48' },
+      { faixa: 'Crítica (<7d)', qtd: 0, tons: 0, cor: '#F97316' },
+      { faixa: 'Parcial (7-15d)', qtd: 0, tons: 0, cor: '#FBBF24' },
+      { faixa: 'Equilibrada (15-30d)', qtd: 0, tons: 0, cor: '#059669' },
+      { faixa: 'Alta (>30d)', qtd: 0, tons: 0, cor: '#004C97' },
     ]
-  }, [itens])
 
-  // 7. Dados: Criticidade x Impacto Financeiro
-  const dadosCriticidade = useMemo(() => {
-    const mapa = new Map<
-      string,
-      {
-        criticidade: string
-        quantidade: number
-        faturamento: number
-        cor: string
-        itens: ItemCurvaAbcCalculado[]
+    itens.forEach((it) => {
+      const d = it.dias_cobertura
+      if (d === 0 || it.estoque_disponivel_tons <= 0) {
+        faixas[0].qtd += 1
+        faixas[0].tons += it.carteira_tons
+      } else if (d < 7) {
+        faixas[1].qtd += 1
+        faixas[1].tons += it.carteira_tons
+      } else if (d < 15) {
+        faixas[2].qtd += 1
+        faixas[2].tons += it.carteira_tons
+      } else if (d <= 30) {
+        faixas[3].qtd += 1
+        faixas[3].tons += it.carteira_tons
+      } else {
+        faixas[4].qtd += 1
+        faixas[4].tons += it.carteira_tons
       }
-    >([
-      [
-        'CRITICA',
-        { criticidade: 'Crítica', quantidade: 0, faturamento: 0, cor: '#EF4444', itens: [] },
-      ],
-      ['ALTA', { criticidade: 'Alta', quantidade: 0, faturamento: 0, cor: '#F59E0B', itens: [] }],
-      ['MEDIA', { criticidade: 'Média', quantidade: 0, faturamento: 0, cor: '#3B82F6', itens: [] }],
-      ['BAIXA', { criticidade: 'Baixa', quantidade: 0, faturamento: 0, cor: '#10B981', itens: [] }],
-    ])
-
-    itens.forEach((i) => {
-      const c = mapa.get(i.criticidade) || mapa.get('BAIXA')!
-      c.quantidade++
-      c.faturamento += i.faturamento_brl
-      c.itens.push(i)
     })
 
-    return Array.from(mapa.values())
+    return faixas
   }, [itens])
+
+  const dadosPorCriticidade = useMemo(() => {
+    const niveis = [
+      { nivel: 'Crítico (Curva A c/ Déficit)', qtd: 0, tons: 0, cor: '#DC2626' },
+      { nivel: 'Atenção (Curva B c/ Déficit)', qtd: 0, tons: 0, cor: '#D97706' },
+      { nivel: 'Normal (Curva C c/ Déficit)', qtd: 0, tons: 0, cor: '#475569' },
+      { nivel: 'Coberto / Sem Risco', qtd: 0, tons: 0, cor: '#16A34A' },
+    ]
+
+    itens.forEach((it) => {
+      if (it.curva_abc === 'A' && it.deficit_tons > 0) {
+        niveis[0].qtd += 1
+        niveis[0].tons += it.deficit_tons
+      } else if (it.curva_abc === 'B' && it.deficit_tons > 0) {
+        niveis[1].qtd += 1
+        niveis[1].tons += it.deficit_tons
+      } else if (it.curva_abc === 'C' && it.deficit_tons > 0) {
+        niveis[2].qtd += 1
+        niveis[2].tons += it.deficit_tons
+      } else {
+        niveis[3].qtd += 1
+        niveis[3].tons += it.carteira_tons
+      }
+    })
+
+    return niveis
+  }, [itens])
+
+  // Métricas agregadas de topo
+  const totalCarteira = itens.reduce((s, i) => s + i.carteira_tons, 0)
+  const totalEstoque = itens.reduce((s, i) => s + i.estoque_disponivel_tons, 0)
+  const totalDeficit = itens.reduce((s, i) => s + i.deficit_tons, 0)
+  const totalFat = itens.reduce((s, i) => s + i.faturamento_brl, 0)
+
+  // Altura dinâmica para tabelas/barras horizontais para evitar corte
+  const alturaGraficoFamilia = Math.max(380, Math.min(650, dadosPorFamilia.length * 42))
+
+  const exportarCSVGraficos = () => {
+    const cabecalho = 'Categoria;Carteira (t);Estoque (t);Déficit (t);Faturamento (R$)\n'
+    let linhas = ''
+    if (activeTab === 'LINHA') {
+      linhas = dadosPorLinha
+        .map(
+          (d) =>
+            `"${d.linha}";${d.carteira.toFixed(2)};${d.estoque.toFixed(2)};${d.deficit.toFixed(2)};${d.faturamento.toFixed(2)}`,
+        )
+        .join('\n')
+    } else if (activeTab === 'CENTRO') {
+      linhas = dadosPorCentro
+        .map(
+          (d) =>
+            `"${d.centro}";${d.carteira.toFixed(2)};${d.estoque.toFixed(2)};${d.deficit.toFixed(2)};${d.faturamento.toFixed(2)}`,
+        )
+        .join('\n')
+    } else if (activeTab === 'FAMILIA') {
+      linhas = dadosPorFamilia
+        .map(
+          (d) =>
+            `"${d.familia}";${d.carteira.toFixed(2)};${d.estoque.toFixed(2)};${d.deficit.toFixed(2)};${d.faturamento.toFixed(2)}`,
+        )
+        .join('\n')
+    } else if (activeTab === 'COBERTURA') {
+      linhas = dadosPorCobertura.map((d) => `"${d.faixa}";${d.tons.toFixed(2)};0;0;0`).join('\n')
+    } else {
+      linhas = dadosPorCriticidade.map((d) => `"${d.nivel}";${d.tons.toFixed(2)};0;0;0`).join('\n')
+    }
+
+    const blob = new Blob(['\uFEFF' + cabecalho + linhas], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute(
+      'download',
+      `analise_grafica_${activeTab.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const headerKpis = [
+    { label: 'Carteira Total', value: `${formatNumberPTBR(totalCarteira, 2)} t` },
+    { label: 'Estoque Livre', value: `${formatNumberPTBR(totalEstoque, 2)} t` },
+    { label: 'Déficit Geral', value: `${formatNumberPTBR(totalDeficit, 2)} t` },
+    { label: 'Faturamento Total', value: formatCurrencyPTBR(totalFat) },
+  ]
+
+  const tabsConfig = {
+    activeTab,
+    onTabChange: (id: string) => setActiveTab(id as TabTipo),
+    items: [
+      { id: 'LINHA', label: 'Por Linha de Produção', icon: <Layers className="w-3.5 h-3.5" /> },
+      {
+        id: 'CENTRO',
+        label: 'Por Centro SAP (WERKS)',
+        icon: <Building2 className="w-3.5 h-3.5" />,
+      },
+      {
+        id: 'FAMILIA',
+        label: 'Por Família de Produtos',
+        icon: <BarChart3 className="w-3.5 h-3.5" />,
+      },
+      { id: 'COBERTURA', label: 'Faixas de Cobertura', icon: <Calendar className="w-3.5 h-3.5" /> },
+      {
+        id: 'CRITICIDADE',
+        label: 'Matriz de Criticidade',
+        icon: <AlertTriangle className="w-3.5 h-3.5" />,
+      },
+    ],
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-white">
-        <DialogHeader className="p-4 bg-slate-900 text-white flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
-                  Painel Analítico
-                </Badge>
-                <DialogTitle className="text-base sm:text-lg font-bold text-white">
-                  Análise Gráfica &bull; {tituloCarteira}
-                </DialogTitle>
-              </div>
-              <DialogDescription className="text-xs text-slate-300">
-                Visualização comparativa de carteira, estoques, déficits, linhas, centros e
-                criticidade. Clique nas barras ou fatias para abrir os materiais correspondentes.
-              </DialogDescription>
-            </div>
-            <Badge variant="outline" className="border-slate-700 text-slate-300 text-xs font-mono">
-              Base: {itens.length} materiais
-            </Badge>
+    <AnalyticalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="analytical"
+      badge="Painel Analítico"
+      title={`Análise Gráfica • ${tituloCarteira}`}
+      subtitle="Visualização consolidada de demandas, capacidades, estoques e gargalos industriais por dimensões estruturais"
+      headerKpis={headerKpis}
+      tabs={tabsConfig}
+      scrollMode="auto"
+      footer={
+        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
+            <span>Dados sincronizados via RFC SAP ECC – ZSD28C</span>
+            <span className="text-slate-300">•</span>
+            <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
           </div>
-        </DialogHeader>
-
-        {/* Abas dos Gráficos */}
-        <div className="flex items-center gap-1 p-2 bg-slate-100 border-b border-slate-200 overflow-x-auto text-xs">
-          <Button
-            size="sm"
-            variant={tabAtiva === 'CARTEIRA_X_ESTOQUE' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('CARTEIRA_X_ESTOQUE')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'CARTEIRA_X_ESTOQUE' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            Carteira x Estoque
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'DEFICIT_MATERIAL' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('DEFICIT_MATERIAL')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'DEFICIT_MATERIAL' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            Déficit por Material
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'POR_LINHA' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('POR_LINHA')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'POR_LINHA' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            Por Linha
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'POR_CENTRO' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('POR_CENTRO')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'POR_CENTRO' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            Por Centro
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'POR_FAMILIA' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('POR_FAMILIA')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'POR_FAMILIA' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            Por Família
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'COBERTURA' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('COBERTURA')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'COBERTURA' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            <PieIcon className="w-3.5 h-3.5" />
-            Cobertura
-          </Button>
-          <Button
-            size="sm"
-            variant={tabAtiva === 'CRITICIDADE' ? 'default' : 'ghost'}
-            onClick={() => setTabAtiva('CRITICIDADE')}
-            className={`h-7 text-xs font-bold gap-1 ${
-              tabAtiva === 'CRITICIDADE' ? 'bg-[#004C97] text-white' : 'text-slate-700'
-            }`}
-          >
-            Criticidade
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportarCSVGraficos}
+              className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar Dimensão Atual
+            </Button>
+            <Button
+              size="sm"
+              onClick={onClose}
+              className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white"
+            >
+              Fechar
+            </Button>
+          </div>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* ABA: POR LINHA */}
+        {activeTab === 'LINHA' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#004C97]" />
+                    Demandas e Estoques por Linha de Laminação
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Comparativo entre Carteira em aberto, Estoque disponível e Déficit físico por
+                    linha produtiva
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                    <span className="w-3 h-3 rounded-xs bg-[#004C97] inline-block" /> Carteira (t)
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                    <span className="w-3 h-3 rounded-xs bg-[#059669] inline-block" /> Estoque (t)
+                  </span>
+                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                    <span className="w-3 h-3 rounded-xs bg-[#E11D48] inline-block" /> Déficit (t)
+                  </span>
+                </div>
+              </div>
 
-        {/* Área do Gráfico */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          {tabAtiva === 'CARTEIRA_X_ESTOQUE' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">
-                  Top 10 Materiais em Demanda: Carteira (t), Estoque Disponível (t), Programado (t)
-                  e Saldo Projetado (t)
-                </span>
-                <span className="text-[11px] text-slate-400">Valores em toneladas (t)</span>
-              </div>
-              <div className="h-[380px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosCarteiraEstoque}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 40 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis
-                      dataKey="material"
-                      angle={-25}
-                      textAnchor="end"
-                      height={50}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => formatNumberPTBR(v, 0)}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <Tooltip
-                      formatter={(val: any, name: string) => [
-                        `${formatNumberPTBR(val, 2)} t`,
-                        name === 'carteira'
-                          ? 'Carteira'
-                          : name === 'estoqueDisp'
-                            ? 'Estoque Disp.'
-                            : name === 'programado'
-                              ? 'Programado PCP'
-                              : 'Saldo Projetado',
-                      ]}
-                      labelFormatter={(label) => `Material: ${label}`}
-                    />
-                    <Legend
-                      formatter={(val) =>
-                        val === 'carteira'
-                          ? 'Carteira (t)'
-                          : val === 'estoqueDisp'
-                            ? 'Estoque Disponível (t)'
-                            : val === 'programado'
-                              ? 'Programado PCP (t)'
-                              : 'Saldo Projetado (t)'
-                      }
-                    />
-                    <Bar
-                      dataKey="carteira"
-                      fill="#004C97"
-                      radius={[3, 3, 0, 0]}
-                      onClick={(entry: any) =>
-                        entry.itemOriginal &&
-                        onSelectMaterial &&
-                        onSelectMaterial(entry.itemOriginal)
-                      }
-                      cursor="pointer"
-                    />
-                    <Bar
-                      dataKey="estoqueDisp"
-                      fill="#10B981"
-                      radius={[3, 3, 0, 0]}
-                      onClick={(entry: any) =>
-                        entry.itemOriginal &&
-                        onSelectMaterial &&
-                        onSelectMaterial(entry.itemOriginal)
-                      }
-                      cursor="pointer"
-                    />
-                    <Bar
-                      dataKey="programado"
-                      fill="#8B5CF6"
-                      radius={[3, 3, 0, 0]}
-                      onClick={(entry: any) =>
-                        entry.itemOriginal &&
-                        onSelectMaterial &&
-                        onSelectMaterial(entry.itemOriginal)
-                      }
-                      cursor="pointer"
-                    />
-                    <Bar
-                      dataKey="saldoProjetado"
-                      fill="#F59E0B"
-                      radius={[3, 3, 0, 0]}
-                      onClick={(entry: any) =>
-                        entry.itemOriginal &&
-                        onSelectMaterial &&
-                        onSelectMaterial(entry.itemOriginal)
-                      }
-                      cursor="pointer"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {tabAtiva === 'DEFICIT_MATERIAL' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">
-                  Ranking dos Maiores Déficits Físicos de Estoque (t) — Materiais com saldo negativo
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Clique na barra para ver a ficha do item
-                </span>
-              </div>
-              <div className="h-[380px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosDeficitPorMaterial}
-                    layout="vertical"
-                    margin={{ top: 10, right: 30, left: 60, bottom: 10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                    <XAxis
-                      type="number"
-                      tickFormatter={(v) => `${formatNumberPTBR(v, 0)} t`}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="material"
-                      tick={{ fontSize: 10, fill: '#1E293B' }}
-                      width={100}
-                    />
-                    <Tooltip
-                      formatter={(val: any) => [`${formatNumberPTBR(val, 2)} t`, 'Déficit Atual']}
-                      labelFormatter={(label) => `Material: ${label}`}
-                    />
-                    <Bar
-                      dataKey="deficit"
-                      fill="#EF4444"
-                      radius={[0, 4, 4, 0]}
-                      onClick={(entry: any) =>
-                        entry.itemOriginal &&
-                        onSelectMaterial &&
-                        onSelectMaterial(entry.itemOriginal)
-                      }
-                      cursor="pointer"
+              {dadosPorLinha.length === 0 ? (
+                <div className="h-80 flex items-center justify-center text-slate-400 text-sm">
+                  Nenhum registro encontrado para a dimensão Linha de Produção.
+                </div>
+              ) : (
+                <div className="w-full h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dadosPorLinha}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 25 }}
                     >
-                      {dadosDeficitPorMaterial.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={
-                            entry.curva === 'A'
-                              ? '#DC2626'
-                              : entry.curva === 'B'
-                                ? '#EA580C'
-                                : '#F59E0B'
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis
+                        dataKey="linha"
+                        tick={{ fontSize: 12, fill: '#334155', fontWeight: 'bold' }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748B' }}
+                        tickFormatter={(v) => `${v} t`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1">
+                                <span className="font-bold text-slate-900 block border-b border-slate-100 pb-1">
+                                  {d.linha}
+                                </span>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Carteira:</span>
+                                  <strong className="text-[#004C97] font-sans">
+                                    {formatNumberPTBR(d.carteira, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Estoque:</span>
+                                  <strong className="text-emerald-700 font-sans">
+                                    {formatNumberPTBR(d.estoque, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Déficit:</span>
+                                  <strong className="text-rose-600 font-sans">
+                                    {formatNumberPTBR(d.deficit, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4 pt-1 border-t border-slate-100">
+                                  <span className="text-slate-600">Faturamento:</span>
+                                  <strong className="text-slate-900 font-sans">
+                                    {formatCurrencyPTBR(d.faturamento)}
+                                  </strong>
+                                </div>
+                              </div>
+                            )
                           }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                          return null
+                        }}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                      <Bar
+                        dataKey="carteira"
+                        name="Carteira (t)"
+                        fill="#004C97"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="estoque"
+                        name="Estoque (t)"
+                        fill="#059669"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="deficit"
+                        name="Déficit (t)"
+                        fill="#E11D48"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {tabAtiva === 'POR_LINHA' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">
-                  Volume de Carteira Consolidado por Linha Produtiva (t)
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Clique na barra para drill-down dos materiais
-                </span>
+        {/* ABA: POR CENTRO */}
+        {activeTab === 'CENTRO' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#004C97]" />
+                    Distribuição Geográfica e Operacional por Centro SAP (WERKS)
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Volumes acumulados por plantas produtivas e centros de armazenagem
+                  </p>
+                </div>
               </div>
-              <div className="h-[360px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosPorLinha}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis
-                      dataKey="linha"
-                      tick={{ fontSize: 11, fill: '#1E293B', fontWeight: 600 }}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `${formatNumberPTBR(v, 0)} t`}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <Tooltip
-                      formatter={(val: any) => [`${formatNumberPTBR(val, 2)} t`, 'Volume Carteira']}
-                    />
-                    <Bar
-                      dataKey="toneladas"
-                      fill="#004C97"
-                      radius={[4, 4, 0, 0]}
-                      cursor="pointer"
-                      onClick={(entry: any) =>
-                        onDrilldownGrupo && onDrilldownGrupo(`Linha ${entry.linha}`, entry.itens)
-                      }
+
+              {dadosPorCentro.length === 0 ? (
+                <div className="h-80 flex items-center justify-center text-slate-400 text-sm">
+                  Nenhum centro SAP identificado no conjunto de dados.
+                </div>
+              ) : (
+                <div className="w-full h-[380px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dadosPorCentro}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 25 }}
                     >
-                      {dadosPorLinha.map((_, idx) => (
-                        <Cell
-                          key={`cell-l-${idx}`}
-                          fill={CORES_PALETA[idx % CORES_PALETA.length]}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis
+                        dataKey="centro"
+                        tick={{ fontSize: 12, fill: '#334155', fontWeight: 'bold' }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748B' }}
+                        tickFormatter={(v) => `${v} t`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1">
+                                <span className="font-bold text-slate-900 block border-b border-slate-100 pb-1">
+                                  Centro {d.centro}
+                                </span>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Carteira:</span>
+                                  <strong className="text-[#004C97] font-sans">
+                                    {formatNumberPTBR(d.carteira, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Estoque:</span>
+                                  <strong className="text-emerald-700 font-sans">
+                                    {formatNumberPTBR(d.estoque, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Déficit:</span>
+                                  <strong className="text-rose-600 font-sans">
+                                    {formatNumberPTBR(d.deficit, 2)} t
+                                  </strong>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                      <Bar
+                        dataKey="carteira"
+                        name="Carteira (t)"
+                        fill="#004C97"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="estoque"
+                        name="Estoque (t)"
+                        fill="#059669"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="deficit"
+                        name="Déficit (t)"
+                        fill="#E11D48"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {tabAtiva === 'POR_CENTRO' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">Volume de Carteira por Centro SAP (t)</span>
-                <span className="text-[11px] text-slate-400">
-                  Clique para detalhar os itens do centro
-                </span>
+        {/* ABA: POR FAMÍLIA (BARRAS HORIZONTAIS COM LABELS INTEGRAIS) */}
+        {activeTab === 'FAMILIA' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-[#004C97]" />
+                    Demandas por Família de Produtos (Barras Horizontais com Labels Integrais)
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Leitura executiva das principais linhas de produto sem sobreposição ou corte de
+                    texto
+                  </p>
+                </div>
               </div>
-              <div className="h-[360px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosPorCentro}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis
-                      dataKey="centro"
-                      tickFormatter={(c) => `Centro ${c}`}
-                      tick={{ fontSize: 11, fill: '#1E293B', fontWeight: 600 }}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `${formatNumberPTBR(v, 0)} t`}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <Tooltip
-                      formatter={(val: any) => [`${formatNumberPTBR(val, 2)} t`, 'Volume Carteira']}
-                      labelFormatter={(l) => `Centro: ${l}`}
-                    />
-                    <Bar
-                      dataKey="toneladas"
-                      fill="#008080"
-                      radius={[4, 4, 0, 0]}
-                      cursor="pointer"
-                      onClick={(entry: any) =>
-                        onDrilldownGrupo && onDrilldownGrupo(`Centro ${entry.centro}`, entry.itens)
-                      }
+
+              {dadosPorFamilia.length === 0 ? (
+                <div className="h-80 flex items-center justify-center text-slate-400 text-sm">
+                  Nenhuma família identificada.
+                </div>
+              ) : (
+                <div style={{ height: `${alturaGraficoFamilia}px` }} className="w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={dadosPorFamilia}
+                      margin={{ top: 10, right: 40, left: 140, bottom: 20 }}
                     >
-                      {dadosPorCentro.map((_, idx) => (
-                        <Cell
-                          key={`cell-c-${idx}`}
-                          fill={CORES_PALETA[idx % CORES_PALETA.length]}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 11, fill: '#64748B' }}
+                        tickFormatter={(v) => `${v} t`}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="familia"
+                        tick={{ fontSize: 12, fill: '#1E293B', fontWeight: 'bold' }}
+                        width={130}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1">
+                                <span className="font-bold text-slate-900 block border-b border-slate-100 pb-1">
+                                  {d.familia} ({d.itens} materiais)
+                                </span>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Carteira:</span>
+                                  <strong className="text-[#004C97] font-sans">
+                                    {formatNumberPTBR(d.carteira, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Estoque:</span>
+                                  <strong className="text-emerald-700 font-sans">
+                                    {formatNumberPTBR(d.estoque, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Déficit:</span>
+                                  <strong className="text-rose-600 font-sans">
+                                    {formatNumberPTBR(d.deficit, 2)} t
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4 pt-1 border-t border-slate-100">
+                                  <span className="text-slate-600">Faturamento:</span>
+                                  <strong className="text-slate-900 font-sans">
+                                    {formatCurrencyPTBR(d.faturamento)}
+                                  </strong>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                      <Bar
+                        dataKey="carteira"
+                        name="Carteira (t)"
+                        fill="#004C97"
+                        radius={[0, 4, 4, 0]}
+                      />
+                      <Bar
+                        dataKey="estoque"
+                        name="Estoque (t)"
+                        fill="#059669"
+                        radius={[0, 4, 4, 0]}
+                      />
+                      <Bar
+                        dataKey="deficit"
+                        name="Déficit (t)"
+                        fill="#E11D48"
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          {tabAtiva === 'POR_FAMILIA' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">
-                  Distribuição da Carteira por Família de Produtos (Top 8)
-                </span>
-                <span className="text-[11px] text-slate-400">Valores em toneladas</span>
+        {/* ABA: FAIXAS DE COBERTURA */}
+        {activeTab === 'COBERTURA' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#004C97]" />
+                    Distribuição da Carteira por Faixa de Cobertura Física
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Classificação por dias de cobertura do estoque em relação à demanda da carteira
+                  </p>
+                </div>
               </div>
-              <div className="h-[360px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dadosPorFamilia}
-                    layout="vertical"
-                    margin={{ top: 10, right: 30, left: 80, bottom: 10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                    <XAxis
-                      type="number"
-                      tickFormatter={(v) => `${formatNumberPTBR(v, 0)} t`}
-                      tick={{ fontSize: 10, fill: '#475569' }}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="familia"
-                      tick={{ fontSize: 10, fill: '#1E293B' }}
-                      width={120}
-                    />
-                    <Tooltip
-                      formatter={(val: any) => [`${formatNumberPTBR(val, 2)} t`, 'Carteira']}
-                    />
-                    <Bar
-                      dataKey="toneladas"
-                      fill="#004C97"
-                      radius={[0, 4, 4, 0]}
-                      cursor="pointer"
-                      onClick={(entry: any) =>
-                        onDrilldownGrupo &&
-                        onDrilldownGrupo(`Família ${entry.familia}`, entry.itens)
-                      }
-                    >
-                      {dadosPorFamilia.map((_, idx) => (
-                        <Cell
-                          key={`cell-fam-${idx}`}
-                          fill={CORES_PALETA[idx % CORES_PALETA.length]}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
 
-          {tabAtiva === 'COBERTURA' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-              <div className="h-[340px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={dadosCobertura}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={110}
-                      dataKey="value"
-                      label={({ name, percent }: any) =>
-                        percent ? `${name}: ${(percent * 100).toFixed(0)}%` : name
-                      }
-                      cursor="pointer"
-                      onClick={(entry: any) =>
-                        onDrilldownGrupo &&
-                        onDrilldownGrupo(`Cobertura: ${entry.name}`, entry.itens)
-                      }
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="h-[360px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dadosPorCobertura}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 45 }}
                     >
-                      {dadosCobertura.map((entry, index) => (
-                        <Cell key={`cell-cob-${index}`} fill={entry.cor} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: any) => [`${val} materiais`, 'Quantidade']} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2 text-xs">
-                <span className="font-bold text-slate-900 block text-sm">
-                  Resumo da Cobertura de Estoque
-                </span>
-                <p className="text-slate-500 leading-relaxed">
-                  Avaliação da capacidade de atendimento com estoque disponível e produção
-                  programada:
-                </p>
-                <div className="space-y-1.5 pt-2">
-                  {dadosCobertura.map((c) => (
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis
+                        dataKey="faixa"
+                        angle={-25}
+                        textAnchor="end"
+                        height={55}
+                        tick={{ fontSize: 11, fill: '#334155', fontWeight: 'bold' }}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748B' }}
+                        tickFormatter={(v) => `${v} t`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1">
+                                <span className="font-bold text-slate-900 block border-b border-slate-100 pb-1">
+                                  {d.faixa}
+                                </span>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Quantidade:</span>
+                                  <strong className="text-slate-900 font-sans">
+                                    {d.qtd} materiais
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Volume:</span>
+                                  <strong className="text-[#004C97] font-sans">
+                                    {formatNumberPTBR(d.tons, 2)} t
+                                  </strong>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Bar dataKey="tons" name="Toneladas (t)" radius={[4, 4, 0, 0]}>
+                        {dadosPorCobertura.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.cor} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Resumo em cards */}
+                <div className="space-y-2 flex flex-col justify-center">
+                  {dadosPorCobertura.map((item, idx) => (
                     <div
-                      key={c.name}
-                      onClick={() =>
-                        onDrilldownGrupo && onDrilldownGrupo(`Cobertura: ${c.name}`, c.itens)
-                      }
-                      className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                      key={idx}
+                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <span
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: c.cor }}
+                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          style={{ backgroundColor: item.cor }}
                         />
-                        <span className="font-semibold text-slate-800">{c.name}</span>
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">
+                            {item.faixa}
+                          </span>
+                          <span className="text-[11px] text-slate-500">{item.qtd} materiais</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-slate-900">
-                          {c.value} materiais
+                      <div className="text-right">
+                        <strong className="text-sm font-bold font-sans text-slate-900 block">
+                          {formatNumberPTBR(item.tons, 2)} t
+                        </strong>
+                        <span className="text-[10px] text-slate-400">
+                          {totalCarteira > 0 ? ((item.tons / totalCarteira) * 100).toFixed(1) : 0}%
+                          da carteira
                         </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {tabAtiva === 'CRITICIDADE' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-600">
-                <span className="font-semibold">
-                  Materiais por Nível de Criticidade e Impacto Financeiro Estimado (R$)
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Clique para abrir os itens da faixa
-                </span>
+        {/* ABA: CRITICIDADE */}
+        {activeTab === 'CRITICIDADE' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    Matriz de Criticidade • Cruzamento Curva ABC x Déficit Físico
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Classificação por severidade de ruptura cruzando impacto comercial e déficit na
+                    programação
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {dadosCriticidade.map((crit) => (
-                  <div
-                    key={crit.criticidade}
-                    onClick={() =>
-                      onDrilldownGrupo &&
-                      onDrilldownGrupo(`Criticidade ${crit.criticidade}`, crit.itens)
-                    }
-                    className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs cursor-pointer hover:border-[#004C97] transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs uppercase font-bold text-slate-500">
-                        {crit.criticidade}
-                      </span>
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: crit.cor }}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="h-[360px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dadosPorCriticidade}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 45 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis
+                        dataKey="nivel"
+                        angle={-25}
+                        textAnchor="end"
+                        height={55}
+                        tick={{ fontSize: 11, fill: '#334155', fontWeight: 'bold' }}
                       />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: '#64748B' }}
+                        tickFormatter={(v) => `${v} t`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload
+                            return (
+                              <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1">
+                                <span className="font-bold text-slate-900 block border-b border-slate-100 pb-1">
+                                  {d.nivel}
+                                </span>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Quantidade:</span>
+                                  <strong className="text-slate-900 font-sans">
+                                    {d.qtd} materiais
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-slate-600">Volume:</span>
+                                  <strong className="text-[#004C97] font-sans">
+                                    {formatNumberPTBR(d.tons, 2)} t
+                                  </strong>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Bar dataKey="tons" name="Volume (t)" radius={[4, 4, 0, 0]}>
+                        {dadosPorCriticidade.map((entry, index) => (
+                          <Cell key={`cell-crit-${index}`} fill={entry.cor} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Resumo da Matriz */}
+                <div className="space-y-2 flex flex-col justify-center">
+                  {dadosPorCriticidade.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          style={{ backgroundColor: item.cor }}
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">
+                            {item.nivel}
+                          </span>
+                          <span className="text-[11px] text-slate-500">{item.qtd} materiais</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <strong className="text-sm font-bold font-sans text-slate-900 block">
+                          {formatNumberPTBR(item.tons, 2)} t
+                        </strong>
+                      </div>
                     </div>
-                    <div className="text-xl font-bold font-mono text-slate-900">
-                      {crit.quantidade}{' '}
-                      <span className="text-xs text-slate-500 font-normal">materiais</span>
-                    </div>
-                    <div className="text-xs text-slate-600 mt-1 font-mono">
-                      {formatCurrencyPTBR(crit.faturamento)}
-                    </div>
-                    <span className="text-[10px] text-[#004C97] font-semibold mt-2 inline-flex items-center gap-1">
-                      Ver materiais <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Rodapé com botão fechar */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-          <span className="text-[11px]">
-            Dados sincronizados da RFC SAP ECC ZSD28C. Formatações em padrão brasileiro (pt-BR).
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onClose}
-            className="h-7 text-xs border-slate-300"
-          >
-            Fechar Gráficos
-          </Button>
+        {/* BLOCO DE INTERPRETAÇÃO OPERACIONAL IA */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-[#004C97] text-white rounded-lg">
+                <Bot className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  Análise &amp; IA &bull; Interpretação Operacional da Carteira
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Diagnóstico determinístico dos dados agregados para apoio ao programador
+                </p>
+              </div>
+            </div>
+            <Badge className="bg-[#004C97] text-white text-[10px] font-bold">Consultivo</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                Diagnóstico
+              </span>
+              <p className="text-slate-800 mt-1 font-medium leading-relaxed">
+                A carteira analisada totaliza {formatNumberPTBR(totalCarteira, 2)} t com{' '}
+                {formatNumberPTBR(totalEstoque, 2)} t em estoque livre.
+              </p>
+            </div>
+            <div className="p-3 bg-rose-50/70 rounded-lg border border-rose-200">
+              <span className="text-[10px] uppercase font-bold text-rose-700 block">
+                Déficit Crítico
+              </span>
+              <p className="text-rose-950 mt-1 font-medium leading-relaxed">
+                Existe um déficit agregado de {formatNumberPTBR(totalDeficit, 2)} t necessitando
+                cobertura via OP nas linhas de laminação.
+              </p>
+            </div>
+            <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-amber-800 block">Gargalos</span>
+              <p className="text-amber-950 mt-1 font-medium leading-relaxed">
+                Verificar restrições de bitola e campanhas térmicas em L1/L2 antes de liberar ordens
+                de produção.
+              </p>
+            </div>
+            <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-200">
+              <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+                Ação Recomendada
+              </span>
+              <p className="text-blue-950 mt-1 font-medium leading-relaxed">
+                Priorizar materiais com ruptura iminente na aba Matriz de Criticidade no
+                sequenciamento semanal.
+              </p>
+            </div>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AnalyticalModal>
   )
 }
+
 export default PortfolioCharts

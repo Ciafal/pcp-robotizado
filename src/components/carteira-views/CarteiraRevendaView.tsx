@@ -125,9 +125,9 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
           <Button
             size="sm"
             onClick={() => setIsAbcOpen(true)}
-            className="h-7 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1"
+            className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white gap-1"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC
+            <Sparkles className="w-3.5 h-3.5 text-blue-200" /> Curva ABC
           </Button>
 
           <Button
@@ -240,14 +240,14 @@ export const CarteiraRevendaView: React.FC<CarteiraRevendaViewProps> = ({
                       <span
                         className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
                           mapaAbcRevenda.get(it.codigo_material) === 'A'
-                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            ? 'bg-blue-100 text-[#004C97] border border-blue-300'
                             : mapaAbcRevenda.get(it.codigo_material) === 'B'
-                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
                               : 'bg-slate-100 text-slate-700 border border-slate-300'
                         }`}
                       >
                         {mapaAbcRevenda.get(it.codigo_material) || 'C'}
-                      </span>
+                      </span>{' '}
                     </td>
                     <td className="p-2.5 font-mono text-slate-700">
                       {it.ordem_venda}/{it.item_ordem}

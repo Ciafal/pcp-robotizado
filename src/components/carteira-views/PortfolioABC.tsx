@@ -1,33 +1,44 @@
-import React, { useMemo, useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  TrendingUp,
+  AlertTriangle,
+  Bot,
+  ChevronRight,
+  ShieldAlert,
+  Download,
+  Filter,
+  DollarSign,
+  PackageCheck,
+  Percent,
+} from 'lucide-react'
+import {
+  ResponsiveContainer,
   ComposedChart,
   Bar,
   Line,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
   CartesianGrid,
+  Tooltip,
+  Legend,
   ReferenceLine,
-  Cell,
 } from 'recharts'
-import { Bot, AlertTriangle, ArrowRight, TrendingUp, Sliders } from 'lucide-react'
 import {
-  CurvaAbcResultadoConsolidado,
   ItemCurvaAbcCalculado,
+  CurvaAbcResultadoConsolidado,
 } from '@/services/curva-abc-faturamento-engine'
-import { formatNumberPTBR, formatCurrencyPTBR, formatPercentagePTBR } from '@/lib/formatters-ptbr'
+import {
+  formatNumberPTBR,
+  formatCurrencyPTBR,
+  formatPercentagePTBR,
+  formatDatePTBR,
+} from '@/lib/formatters-ptbr'
+import { PortfolioDrilldown } from './PortfolioDrilldown'
+import { AnalyticalModal } from '@/components/common/AnalyticalModal'
 
-export interface PortfolioABCProps {
+interface PortfolioABCProps {
   isOpen: boolean
   onClose: () => void
   resultadoABC: CurvaAbcResultadoConsolidado
@@ -42,478 +53,571 @@ export const PortfolioABC: React.FC<PortfolioABCProps> = ({
   onSelectMaterial,
   onDrilldownFaixa,
 }) => {
-  const [faixaFiltro, setFaixaFiltro] = useState<'TODAS' | 'A' | 'B' | 'C'>('TODAS')
+  const [curvaFiltroDrilldown, setCurvaFiltroDrilldown] = useState<'A' | 'B' | 'C' | null>(null)
+  const [isDrilldownOpen, setIsDrilldownOpen] = useState(false)
+
   const {
+    itens,
     resumoA,
     resumoB,
     resumoC,
     faturamentoTotal_brl,
     tonelagemTotal_t,
-    itens,
+    alertasPrioritariosCurvaA,
     parametrosAplicados,
+    fonteFaturamentoParametrizada,
   } = resultadoABC
 
-  // Top 30 materiais para exibição legível no gráfico de Pareto
+  const limiteA = parametrosAplicados.corteA_pct ?? 85
+  const limiteB = parametrosAplicados.corteB_pct ?? 95
+
+  // Prepara dados do Pareto (Top 25 materiais por faturamento para visualização nítida)
   const dadosPareto = useMemo(() => {
-    return itens.slice(0, 30).map((i) => ({
-      codigo: i.codigo_material,
-      descricao: i.descricao_material,
-      faturamento: Number((i.faturamento_brl / 1000).toFixed(1)), // em milhares R$
-      faturamentoReal: i.faturamento_brl,
-      acumuladoPct: Number(i.participacao_acumulada_pct.toFixed(2)),
-      individualPct: Number(i.participacao_individual_pct.toFixed(2)),
-      curva: i.curva_abc,
-      itemOriginal: i,
+    return itens.slice(0, 25).map((it) => ({
+      material: it.codigo_material,
+      descricao: it.descricao_material,
+      faturamento: it.faturamento_brl,
+      percentualAcumulado: it.participacao_acumulada_pct,
+      toneladas: it.carteira_tons,
+      curva: it.curva_abc,
+      deficit: it.deficit_tons,
+      cobertura: it.dias_cobertura,
+      // Curva A = Azul Institucional Forte, Curva B = Azul Médio, Curva C = Cinza-Azulado
+      fillColor: it.curva_abc === 'A' ? '#004C97' : it.curva_abc === 'B' ? '#3380CC' : '#94A3B8',
     }))
   }, [itens])
 
-  // Itens filtrados para a tabela rápida
-  const itensFiltrados = useMemo(() => {
-    if (faixaFiltro === 'TODAS') return itens
-    return itens.filter((i) => i.curva_abc === faixaFiltro)
-  }, [itens, faixaFiltro])
+  const abrirDrilldownCurva = (curva: 'A' | 'B' | 'C') => {
+    if (onDrilldownFaixa) {
+      const itensFaixa = itens.filter((i) => i.curva_abc === curva)
+      onDrilldownFaixa(curva, itensFaixa)
+      return
+    }
+    setCurvaFiltroDrilldown(curva)
+    setIsDrilldownOpen(true)
+  }
 
-  // Materiais A críticos
-  const materiaisACriticos = useMemo(() => {
-    return itens.filter((i) => i.curva_abc === 'A' && (i.deficit_tons > 0 || i.risco === 'CRITICO'))
-  }, [itens])
+  // Exportar dados em CSV formatado
+  const exportarCSV = () => {
+    const cabecalho =
+      'Material;Descrição;Curva ABC;Carteira (t);Faturamento Estimado (R$);% do Total;% Acumulado;Estoque (t);Programado (t);Déficit (t);Risco\n'
+    const linhas = itens
+      .map(
+        (i) =>
+          `"${i.codigo_material}";"${i.descricao_material}";"${i.curva_abc}";${i.carteira_tons.toFixed(2)};${i.faturamento_brl.toFixed(2)};${i.participacao_individual_pct.toFixed(2)};${i.participacao_acumulada_pct.toFixed(2)};${i.estoque_disponivel_tons.toFixed(2)};${i.programado_tons.toFixed(2)};${i.deficit_tons.toFixed(2)};"${i.risco}"`,
+      )
+      .join('\n')
 
-  // Materiais C com estoque excessivo
-  const materiaisCExcesso = useMemo(() => {
-    return itens.filter(
-      (i) => i.curva_abc === 'C' && i.saldo_projetado_tons > 20 && i.carteira_tons < 5,
+    const blob = new Blob(['\uFEFF' + cabecalho + linhas], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute(
+      'download',
+      `curva_abc_faturamento_${new Date().toISOString().slice(0, 10)}.csv`,
     )
-  }, [itens])
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
-  // Texto da Seção "Análise IA da Curva ABC"
-  const textoAnaliseIA = useMemo(() => {
-    const totalItensA = resumoA.quantidade_itens
-    const pctFatA = formatPercentagePTBR(resumoA.percentual_faturamento, 2)
-    const fatTotalFmt = formatCurrencyPTBR(faturamentoTotal_brl)
-    const critA = materiaisACriticos.length
-
-    let alertaCurvaA = ''
-    if (critA > 0) {
-      alertaCurvaA = ` Existem ${critA} materiais na Curva A apresentando déficit físico ou risco crítico de ruptura comercial — prioridade máxima para validação no sequenciamento semanal.`
-    } else {
-      alertaCurvaA =
-        ' Todos os materiais da Curva A encontram-se cobertos pelo estoque ou pela programação vigente.'
-    }
-
-    let excessoC = ''
-    if (materiaisCExcesso.length > 0) {
-      excessoC = ` Foram identificados ${materiaisCExcesso.length} materiais da Curva C com estoque residual elevado e baixa demanda comercial associada.`
-    }
-
-    return `A Curva ABC calculada por FATURAMENTO (R$) consolida ${itens.length} materiais com faturamento total de ${fatTotalFmt}. A faixa A concentra ${pctFatA} do faturamento em apenas ${totalItensA} itens, com limite dinâmico de corte em ${parametrosAplicados.corteA_pct}%.${alertaCurvaA}${excessoC} (Diagnóstico consultivo — IA não altera programação nem modifica SAP).`
-  }, [
-    resumoA,
-    faturamentoTotal_brl,
-    itens.length,
-    parametrosAplicados,
-    materiaisACriticos,
-    materiaisCExcesso,
-  ])
+  const kpisTopo = [
+    {
+      label: 'Base Analisada',
+      value: `${itens.length} materiais`,
+    },
+    {
+      label: 'Faturamento Total',
+      value: formatCurrencyPTBR(faturamentoTotal_brl),
+    },
+    {
+      label: 'Volume Físico',
+      value: `${formatNumberPTBR(tonelagemTotal_t, 2)} t`,
+    },
+  ]
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-white">
-        <DialogHeader className="p-4 bg-slate-900 text-white flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-purple-600 text-white text-[10px] font-bold">
-                  Curva ABC Oficial
-                </Badge>
-                <DialogTitle className="text-base sm:text-lg font-bold text-white">
-                  Curva ABC por Faturamento (R$) &bull; Diagrama de Pareto
-                </DialogTitle>
-              </div>
-              <DialogDescription className="text-xs text-slate-300">
-                Ordenação decrescente por Faturamento Comercial (nunca por tonelagem), com limites
-                parametrizáveis ({parametrosAplicados.corteA_pct}% A /{' '}
-                {parametrosAplicados.corteB_pct}% B).
-              </DialogDescription>
-            </div>
-            <div className="text-right hidden sm:block">
-              <span className="text-xs text-slate-400">Faturamento Analisado</span>
-              <div className="text-base font-bold text-cyan-300 font-mono">
-                {formatCurrencyPTBR(faturamentoTotal_brl)}
-              </div>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* 3 Cards Executivos de Resumo A / B / C */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 bg-slate-50 border-b border-slate-200 text-xs">
-          {/* Curva A */}
-          <div
-            onClick={() => {
-              setFaixaFiltro('A')
-              if (onDrilldownFaixa)
-                onDrilldownFaixa(
-                  'A',
-                  itens.filter((i) => i.curva_abc === 'A'),
-                )
-            }}
-            className="p-3 bg-purple-50/60 rounded-xl border border-purple-200 cursor-pointer hover:border-purple-500 transition-colors shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Badge className="bg-purple-600 text-white text-[10px] font-bold">Curva A</Badge>
-              <span className="text-[11px] font-mono font-bold text-purple-900">
-                Até {parametrosAplicados.corteA_pct}%
+    <>
+      <AnalyticalModal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="analytical"
+        badge="Curva ABC • Faturamento"
+        title="Curva ABC & Diagrama de Pareto Comercial"
+        subtitle="Classificação estratégica por faturamento em R$ (não tonelagem) com identificação de riscos de ruptura e impactos na receita"
+        headerKpis={kpisTopo}
+        scrollMode="auto"
+        footer={
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="font-semibold text-slate-700">Fonte:</span>
+              <span>
+                {fonteFaturamentoParametrizada
+                  ? 'Faturamento real SAP RFC ZSD28C'
+                  : 'Preços médios por família (ZSD28C)'}
               </span>
+              <span className="text-slate-300">•</span>
+              <span>Última sincronização: {formatDatePTBR(new Date().toISOString())}</span>
             </div>
-            <div className="text-lg font-bold font-mono text-purple-950 mt-1">
-              {resumoA.quantidade_itens}{' '}
-              <span className="text-xs font-normal text-slate-600">materiais</span>
-            </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-slate-600 font-mono">
-              <span>{formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento</span>
-              <span className="font-bold text-purple-900">
-                {formatCurrencyPTBR(resumoA.faturamento_brl)}
-              </span>
-            </div>
-            <span className="text-[10px] text-purple-700 font-semibold mt-1.5 inline-flex items-center gap-1">
-              Filtrar materiais A <ArrowRight className="w-3 h-3" />
-            </span>
-          </div>
-
-          {/* Curva B */}
-          <div
-            onClick={() => {
-              setFaixaFiltro('B')
-              if (onDrilldownFaixa)
-                onDrilldownFaixa(
-                  'B',
-                  itens.filter((i) => i.curva_abc === 'B'),
-                )
-            }}
-            className="p-3 bg-blue-50/60 rounded-xl border border-blue-200 cursor-pointer hover:border-blue-500 transition-colors shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Badge className="bg-blue-600 text-white text-[10px] font-bold">Curva B</Badge>
-              <span className="text-[11px] font-mono font-bold text-blue-900">
-                {parametrosAplicados.corteA_pct}% a {parametrosAplicados.corteB_pct}%
-              </span>
-            </div>
-            <div className="text-lg font-bold font-mono text-blue-950 mt-1">
-              {resumoB.quantidade_itens}{' '}
-              <span className="text-xs font-normal text-slate-600">materiais</span>
-            </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-slate-600 font-mono">
-              <span>{formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento</span>
-              <span className="font-bold text-blue-900">
-                {formatCurrencyPTBR(resumoB.faturamento_brl)}
-              </span>
-            </div>
-            <span className="text-[10px] text-blue-700 font-semibold mt-1.5 inline-flex items-center gap-1">
-              Filtrar materiais B <ArrowRight className="w-3 h-3" />
-            </span>
-          </div>
-
-          {/* Curva C */}
-          <div
-            onClick={() => {
-              setFaixaFiltro('C')
-              if (onDrilldownFaixa)
-                onDrilldownFaixa(
-                  'C',
-                  itens.filter((i) => i.curva_abc === 'C'),
-                )
-            }}
-            className="p-3 bg-slate-100 rounded-xl border border-slate-300 cursor-pointer hover:border-slate-500 transition-colors shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <Badge className="bg-slate-700 text-white text-[10px] font-bold">Curva C</Badge>
-              <span className="text-[11px] font-mono font-bold text-slate-700">
-                Acima de {parametrosAplicados.corteB_pct}%
-              </span>
-            </div>
-            <div className="text-lg font-bold font-mono text-slate-900 mt-1">
-              {resumoC.quantidade_itens}{' '}
-              <span className="text-xs font-normal text-slate-600">materiais</span>
-            </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-slate-600 font-mono">
-              <span>{formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento</span>
-              <span className="font-bold text-slate-900">
-                {formatCurrencyPTBR(resumoC.faturamento_brl)}
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-700 font-semibold mt-1.5 inline-flex items-center gap-1">
-              Filtrar materiais C <ArrowRight className="w-3 h-3" />
-            </span>
-          </div>
-        </div>
-
-        {/* Análise IA da Curva ABC */}
-        <div className="p-3 bg-gradient-to-r from-purple-50/80 via-blue-50/50 to-white border-b border-slate-200 text-xs">
-          <div className="flex items-start gap-2">
-            <div className="p-1.5 bg-purple-700 text-white rounded-md mt-0.5 shrink-0 shadow-2xs">
-              <Bot className="w-3.5 h-3.5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <span className="font-bold text-slate-900 text-xs block mb-0.5">
-                Análise IA da Curva ABC &bull; Concentração & Riscos Comerciais
-              </span>
-              <p className="text-[11px] text-slate-700 leading-relaxed font-sans">
-                {textoAnaliseIA}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Gráfico de Pareto */}
-        <div className="p-4 border-b border-slate-200 bg-white">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="font-bold text-slate-800">
-              Diagrama de Pareto &bull; Barras: Faturamento (milhares R$) &bull; Linha: % Acumulado
-            </span>
-            <div className="flex items-center gap-2 text-[10px] font-mono">
-              <span className="flex items-center gap-1 text-purple-700">
-                <span className="w-2.5 h-2.5 bg-purple-600 rounded-xs" /> Curva A (&le;
-                {parametrosAplicados.corteA_pct}%)
-              </span>
-              <span className="flex items-center gap-1 text-blue-700">
-                <span className="w-2.5 h-2.5 bg-blue-600 rounded-xs" /> Curva B (&le;
-                {parametrosAplicados.corteB_pct}%)
-              </span>
-              <span className="flex items-center gap-1 text-slate-600">
-                <span className="w-2.5 h-2.5 bg-slate-500 rounded-xs" /> Curva C
-              </span>
-            </div>
-          </div>
-
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={dadosPareto}
-                margin={{ top: 10, right: 30, left: 10, bottom: 40 }}
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportarCSV}
+                className="h-7 text-xs font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 gap-1.5"
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis
-                  dataKey="codigo"
-                  angle={-35}
-                  textAnchor="end"
-                  height={50}
-                  tick={{ fontSize: 9, fill: '#475569' }}
-                />
-                <YAxis
-                  yAxisId="left"
-                  tickFormatter={(v) => `${v}k`}
-                  tick={{ fontSize: 10, fill: '#475569' }}
-                  label={{
-                    value: 'Faturamento (milhares R$)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    fontSize: 10,
-                    fill: '#64748B',
-                  }}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
-                  tick={{ fontSize: 10, fill: '#DC2626' }}
-                  label={{
-                    value: '% Acumulado',
-                    angle: 90,
-                    position: 'insideRight',
-                    fontSize: 10,
-                    fill: '#DC2626',
-                  }}
-                />
-                <Tooltip
-                  formatter={(val: any, name: string) => [
-                    name === 'faturamento'
-                      ? formatCurrencyPTBR(Number(val) * 1000)
-                      : `${formatNumberPTBR(val, 2)} %`,
-                    name === 'faturamento' ? 'Faturamento' : '% Acumulado',
-                  ]}
-                  labelFormatter={(l) => `Material: ${l}`}
-                />
-                {/* Linhas de corte 85% e 95% */}
-                <ReferenceLine
-                  yAxisId="right"
-                  y={parametrosAplicados.corteA_pct}
-                  stroke="#9333EA"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `Corte A (${parametrosAplicados.corteA_pct}%)`,
-                    position: 'right',
-                    fill: '#9333EA',
-                    fontSize: 10,
-                  }}
-                />
-                <ReferenceLine
-                  yAxisId="right"
-                  y={parametrosAplicados.corteB_pct}
-                  stroke="#2563EB"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `Corte B (${parametrosAplicados.corteB_pct}%)`,
-                    position: 'right',
-                    fill: '#2563EB',
-                    fontSize: 10,
-                  }}
-                />
-
-                <Bar
-                  yAxisId="left"
-                  dataKey="faturamento"
-                  radius={[3, 3, 0, 0]}
-                  cursor="pointer"
-                  onClick={(entry: any) =>
-                    entry.itemOriginal && onSelectMaterial && onSelectMaterial(entry.itemOriginal)
-                  }
-                >
-                  {dadosPareto.map((entry, index) => (
-                    <Cell
-                      key={`cell-abc-${index}`}
-                      fill={
-                        entry.curva === 'A'
-                          ? '#9333EA'
-                          : entry.curva === 'B'
-                            ? '#2563EB'
-                            : '#94A3B8'
-                      }
-                    />
-                  ))}
-                </Bar>
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="acumuladoPct"
-                  stroke="#DC2626"
-                  strokeWidth={2}
-                  dot={{ r: 2, fill: '#DC2626' }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+                <Download className="w-3.5 h-3.5 text-[#004C97]" /> Exportar CSV
+              </Button>
+              <Button
+                size="sm"
+                onClick={onClose}
+                className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white"
+              >
+                Fechar
+              </Button>
+            </div>
           </div>
-        </div>
-
-        {/* Tabela dos Materiais Filtrados */}
-        <div className="flex-1 overflow-auto p-3">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-800">Materiais da Faixa Selecionada</span>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md">
-                {(['TODAS', 'A', 'B', 'C'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFaixaFiltro(f)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      faixaFiltro === f
-                        ? 'bg-[#004C97] text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {f === 'TODAS' ? 'Todos' : `Curva ${f}`}
-                  </button>
-                ))}
+        }
+      >
+        <div className="space-y-4">
+          {/* ALERTA CRÍTICO LIMPO (Fundo vermelho claro, sem blocos vinho escuros) */}
+          {alertasPrioritariosCurvaA.length > 0 && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl shadow-xs">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 bg-rose-100 rounded-lg shrink-0 mt-0.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-rose-900 tracking-wide uppercase">
+                      Alerta Prioritário • Ruptura Comercial na Curva A
+                    </span>
+                    <Badge className="bg-rose-200 text-rose-900 border-rose-300 text-[10px] font-bold">
+                      {alertasPrioritariosCurvaA.length} itens em atenção
+                    </Badge>
+                  </div>
+                  <div className="space-y-1 mt-1 text-xs text-rose-950 font-medium">
+                    {alertasPrioritariosCurvaA.map((alerta, idx) => (
+                      <p key={idx} className="leading-relaxed">
+                        • {alerta}
+                      </p>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">
-              {itensFiltrados.length} materiais exibidos
-            </span>
+          )}
+
+          {/* 3 CARDS CURVA A / B / C EM GRID RESPONSIVO (Mesma largura no desktop, paleta CIAFAL) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Card Curva A (Azul Institucional Forte) */}
+            <div
+              onClick={() => abrirDrilldownCurva('A')}
+              className="p-4 bg-white rounded-xl border-2 border-blue-200 hover:border-[#004C97] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-[#004C97] text-white text-[11px] font-bold px-2 py-0.5">
+                      Curva A
+                    </Badge>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Até {formatPercentagePTBR(limiteA, 0)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">
+                    {resumoA.quantidade_itens} materiais
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
+                    <span className="text-lg font-bold font-sans text-[#004C97]">
+                      {formatPercentagePTBR(resumoA.percentual_faturamento, 2)} do faturamento
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                    {formatCurrencyPTBR(resumoA.faturamento_brl)}
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                    Volume físico: {formatNumberPTBR(resumoA.toneladas, 2)} t
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#004C97] group-hover:text-[#003870]">
+                <span>Filtrar materiais Curva A</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </div>
+
+            {/* Card Curva B (Azul Médio) */}
+            <div
+              onClick={() => abrirDrilldownCurva('B')}
+              className="p-4 bg-white rounded-xl border-2 border-sky-200 hover:border-[#3380CC] cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-[#3380CC] text-white text-[11px] font-bold px-2 py-0.5">
+                      Curva B
+                    </Badge>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      {formatPercentagePTBR(limiteA, 0)} a {formatPercentagePTBR(limiteB, 0)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">
+                    {resumoB.quantidade_itens} materiais
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
+                    <span className="text-lg font-bold font-sans text-[#3380CC]">
+                      {formatPercentagePTBR(resumoB.percentual_faturamento, 2)} do faturamento
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                    {formatCurrencyPTBR(resumoB.faturamento_brl)}
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                    Volume físico: {formatNumberPTBR(resumoB.toneladas, 2)} t
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#3380CC] group-hover:text-[#004C97]">
+                <span>Filtrar materiais Curva B</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </div>
+
+            {/* Card Curva C (Cinza-Azulado) */}
+            <div
+              onClick={() => abrirDrilldownCurva('C')}
+              className="p-4 bg-white rounded-xl border-2 border-slate-200 hover:border-slate-400 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-slate-600 text-white text-[11px] font-bold px-2 py-0.5">
+                      Curva C
+                    </Badge>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Acima de {formatPercentagePTBR(limiteB, 0)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">
+                    {resumoC.quantidade_itens} materiais
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Concentração</span>
+                    <span className="text-lg font-bold font-sans text-slate-700">
+                      {formatPercentagePTBR(resumoC.percentual_faturamento, 2)} do faturamento
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-bold font-sans text-slate-900 mt-0.5">
+                    {formatCurrencyPTBR(resumoC.faturamento_brl)}
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                    Volume físico: {formatNumberPTBR(resumoC.toneladas, 2)} t
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-slate-900">
+                <span>Filtrar materiais Curva C</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </div>
           </div>
 
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#004C97] text-white text-[11px] sticky top-0">
-              <tr>
-                <th className="p-2">Material</th>
-                <th className="p-2">Descrição</th>
-                <th className="p-2 text-center">Linha</th>
-                <th className="p-2 text-center">ABC</th>
-                <th className="p-2 text-right">Carteira (t)</th>
-                <th className="p-2 text-right">Déficit (t)</th>
-                <th className="p-2 text-right">Faturamento (R$)</th>
-                <th className="p-2 text-right">% Indiv.</th>
-                <th className="p-2 text-right">% Acum.</th>
-                <th className="p-2 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {itensFiltrados.slice(0, 50).map((it, idx) => (
-                <tr
-                  key={it.codigo_material + idx}
-                  onClick={() => onSelectMaterial && onSelectMaterial(it)}
-                  className="hover:bg-blue-50/60 cursor-pointer text-[11px]"
-                >
-                  <td className="p-2 font-mono font-bold text-slate-900">{it.codigo_material}</td>
-                  <td
-                    className="p-2 text-slate-700 truncate max-w-[200px]"
-                    title={it.descricao_material}
-                  >
-                    {it.descricao_material}
-                  </td>
-                  <td className="p-2 text-center">{it.linha}</td>
-                  <td className="p-2 text-center">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        it.curva_abc === 'A'
-                          ? 'bg-purple-100 text-purple-900'
-                          : it.curva_abc === 'B'
-                            ? 'bg-blue-100 text-blue-900'
-                            : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {it.curva_abc}
-                    </span>
-                  </td>
-                  <td className="p-2 text-right font-mono font-bold text-blue-950">
-                    {formatNumberPTBR(it.carteira_tons, 2)}
-                  </td>
-                  <td className="p-2 text-right font-mono font-bold text-rose-700">
-                    {it.deficit_tons > 0 ? formatNumberPTBR(it.deficit_tons, 2) : '-'}
-                  </td>
-                  <td className="p-2 text-right font-mono text-slate-900">
-                    {formatCurrencyPTBR(it.faturamento_brl)}
-                  </td>
-                  <td className="p-2 text-right font-mono text-slate-700">
-                    {formatPercentagePTBR(it.participacao_individual_pct, 2)}
-                  </td>
-                  <td className="p-2 text-right font-mono text-slate-500">
-                    {formatPercentagePTBR(it.participacao_acumulada_pct, 2)}
-                  </td>
-                  <td className="p-2 text-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (onSelectMaterial) onSelectMaterial(it)
-                      }}
-                      className="h-6 px-1 text-[10px] text-[#004C97] hover:bg-blue-100"
-                    >
-                      Ver
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {/* DIAGRAMA DE PARETO: BARRAS EM AZUL INSTITUCIONAL, LINHA ACUMULADA, REF 85%/95% */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#004C97]" />
+                  Diagrama de Pareto &bull; Top 25 Materiais por Faturamento
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Barras representam o Faturamento individual (R$ - Eixo Esquerdo) e a linha
+                  representa o Percentual Acumulado (% - Eixo Direito)
+                </p>
+              </div>
 
-        {/* Rodapé */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-          <span className="text-[11px]">
-            Cálculo baseado em preço médio por família SAP ECC. Parâmetros aplicados: A=
-            {parametrosAplicados.corteA_pct}% / B={parametrosAplicados.corteB_pct}%.
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onClose}
-            className="h-7 text-xs border-slate-300"
-          >
-            Fechar Curva ABC
-          </Button>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <span className="w-3 h-3 rounded-xs bg-[#004C97] inline-block" /> Curva A (até
+                  85%)
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <span className="w-3 h-3 rounded-xs bg-[#3380CC] inline-block" /> Curva B (85-95%)
+                </span>
+                <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <span className="w-3 h-3 rounded-xs bg-slate-400 inline-block" /> Curva C
+                  (&gt;95%)
+                </span>
+              </div>
+            </div>
+
+            {dadosPareto.length === 0 ? (
+              <div className="h-80 flex items-center justify-center text-slate-400 text-sm">
+                Nenhum material encontrado para gerar o diagrama de Pareto.
+              </div>
+            ) : (
+              <div className="w-full h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={dadosPareto}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 65 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="material"
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                      tick={{ fontSize: 11, fill: '#334155', fontFamily: 'monospace' }}
+                      interval={0}
+                    />
+                    {/* Eixo Esquerdo: Faturamento R$ */}
+                    <YAxis
+                      yAxisId="left"
+                      orientation="left"
+                      stroke="#004C97"
+                      tick={{ fontSize: 11, fill: '#004C97' }}
+                      tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
+                    />
+                    {/* Eixo Direito: Percentual Acumulado % */}
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      domain={[0, 100]}
+                      stroke="#475569"
+                      tick={{ fontSize: 11, fill: '#475569' }}
+                      tickFormatter={(val) => `${val}%`}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const d = payload[0].payload
+                          return (
+                            <div className="p-3 bg-white border border-slate-200 shadow-xl rounded-xl text-xs space-y-1.5 max-w-xs z-50">
+                              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
+                                <span className="font-mono font-bold text-slate-900">
+                                  {d.material}
+                                </span>
+                                <Badge
+                                  className={`text-[10px] font-bold ${
+                                    d.curva === 'A'
+                                      ? 'bg-[#004C97] text-white'
+                                      : d.curva === 'B'
+                                        ? 'bg-[#3380CC] text-white'
+                                        : 'bg-slate-500 text-white'
+                                  }`}
+                                >
+                                  Curva {d.curva}
+                                </Badge>
+                              </div>
+                              <p className="text-slate-600 font-medium text-[11px] truncate">
+                                {d.descricao}
+                              </p>
+                              <div className="space-y-0.5 pt-1 text-slate-700">
+                                <div className="flex justify-between">
+                                  <span>Faturamento:</span>
+                                  <strong className="font-sans text-[#004C97]">
+                                    {formatCurrencyPTBR(d.faturamento)}
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Acumulado:</span>
+                                  <strong className="font-sans text-slate-900">
+                                    {formatPercentagePTBR(d.percentualAcumulado, 2)}
+                                  </strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Carteira:</span>
+                                  <span className="font-sans">
+                                    {formatNumberPTBR(d.toneladas, 2)} t
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Déficit:</span>
+                                  <span
+                                    className={
+                                      d.deficit > 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'
+                                    }
+                                  >
+                                    {formatNumberPTBR(d.deficit, 2)} t
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+                    <ReferenceLine
+                      yAxisId="right"
+                      y={limiteA}
+                      stroke="#004C97"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: `Limite A (${limiteA}%)`,
+                        position: 'insideTopLeft',
+                        fill: '#004C97',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                      }}
+                    />
+                    <ReferenceLine
+                      yAxisId="right"
+                      y={limiteB}
+                      stroke="#3380CC"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: `Limite B (${limiteB}%)`,
+                        position: 'insideTopLeft',
+                        fill: '#3380CC',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                      }}
+                    />
+                    <Bar
+                      yAxisId="left"
+                      dataKey="faturamento"
+                      name="Faturamento (R$)"
+                      fill="#004C97"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="percentualAcumulado"
+                      name="% Acumulado"
+                      stroke="#EA580C"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#EA580C' }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* ANÁLISE IA DA CURVA ABC: CONCENTRAÇÃO & RISCOS COMERCIAIS (LARGURA TOTAL, LEITURA EXECUTIVA) */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-[#004C97] text-white rounded-lg">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Análise IA da Curva ABC &bull; Concentração & Riscos Comerciais
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Interpretação consultiva determinística para apoio à tomada de decisão do
+                    programador PCP
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
+                Motor Consultivo IA
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              {/* 1. Diagnóstico */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                  1. Diagnóstico
+                </span>
+                <p className="text-xs text-slate-800 leading-relaxed mt-1 font-medium">
+                  {resumoA.quantidade_itens} materiais concentram{' '}
+                  <strong className="text-[#004C97]">
+                    {formatPercentagePTBR(resumoA.percentual_faturamento, 1)}
+                  </strong>{' '}
+                  da receita total da carteira ({formatCurrencyPTBR(resumoA.faturamento_brl)}).
+                </p>
+              </div>
+
+              {/* 2. Riscos */}
+              <div className="p-3 bg-rose-50/70 rounded-lg border border-rose-200">
+                <span className="text-[10px] uppercase font-bold text-rose-700 block">
+                  2. Riscos
+                </span>
+                <p className="text-xs text-rose-950 leading-relaxed mt-1 font-medium">
+                  {alertasPrioritariosCurvaA.length > 0
+                    ? `${alertasPrioritariosCurvaA.length} itens de alta relevância comercial possuem déficit físico sem cobertura imediata.`
+                    : 'Carteira Curva A com cobertura física estável para o ciclo corrente.'}
+                </p>
+              </div>
+
+              {/* 3. Materiais Críticos */}
+              <div className="p-3 bg-amber-50/70 rounded-lg border border-amber-200">
+                <span className="text-[10px] uppercase font-bold text-amber-800 block">
+                  3. Materiais Críticos
+                </span>
+                <p className="text-xs text-amber-950 leading-relaxed mt-1 font-medium">
+                  Prioridade 1 em sequenciamento nas linhas de laminação L1/L2 para blindar
+                  contratos comerciais.
+                </p>
+              </div>
+
+              {/* 4. Ação Sugerida */}
+              <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-200">
+                <span className="text-[10px] uppercase font-bold text-[#004C97] block">
+                  4. Ação Sugerida
+                </span>
+                <p className="text-xs text-blue-950 leading-relaxed mt-1 font-medium">
+                  Conferir no Drill-Down os materiais com déficit e alinhar antecipação com o
+                  sequenciamento PCP.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-100 flex items-center justify-between">
+              <span>
+                * A IA permanece consultiva — nunca altera programação nem dados SAP
+                automaticamente.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => abrirDrilldownCurva('A')}
+                className="h-6 text-[11px] font-bold text-[#004C97] border-blue-200 hover:bg-blue-50"
+              >
+                Abrir Drill-Down Completo &rarr;
+              </Button>
+            </div>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AnalyticalModal>
+
+      {/* MODAL SECUNDÁRIO DE DRILL-DOWN EXECUTIVO */}
+      {curvaFiltroDrilldown && (
+        <PortfolioDrilldown
+          isOpen={isDrilldownOpen}
+          onClose={() => {
+            setIsDrilldownOpen(false)
+            setCurvaFiltroDrilldown(null)
+          }}
+          curvaInicial={curvaFiltroDrilldown}
+          itens={itens}
+          onSelectMaterial={onSelectMaterial}
+        />
+      )}
+    </>
   )
 }
+
 export default PortfolioABC

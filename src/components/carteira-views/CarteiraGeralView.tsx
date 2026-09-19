@@ -572,9 +572,9 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
           <Button
             size="sm"
             onClick={() => setIsAbcOpen(true)}
-            className="h-8 text-xs font-bold bg-purple-700 hover:bg-purple-800 text-white gap-1.5 shadow-2xs"
+            className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-2xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-200" /> Curva ABC (Pareto)
+            <Sparkles className="w-3.5 h-3.5 text-blue-200" /> Curva ABC (Pareto)
           </Button>
         </div>
       </div>
@@ -763,7 +763,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
                       <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
                         {it.codigo_material}
                         {it.curva_abc === 'A' && (
-                          <Badge className="bg-purple-100 text-purple-900 border-purple-300 text-[9px] font-bold">
+                          <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[9px] font-bold">
                             A
                           </Badge>
                         )}
@@ -783,16 +783,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
 
                     <td className="p-2.5 text-center font-bold">
                       <span
-                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
+                        className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
                           it.curva_abc === 'A'
-                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            ? 'bg-blue-100 text-[#004C97] border border-blue-300'
                             : it.curva_abc === 'B'
-                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              ? 'bg-sky-100 text-sky-800 border border-sky-300'
                               : 'bg-slate-100 text-slate-700 border border-slate-300'
                         }`}
                       >
-                        {it.curva_abc}
-                      </span>
+                        {it.curva_abc || 'C'}
+                      </span>{' '}
                     </td>
 
                     <td className="p-2.5 text-right font-mono font-bold text-blue-950">
