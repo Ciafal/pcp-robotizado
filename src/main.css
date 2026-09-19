@@ -151,6 +151,12 @@
   }
 
   /* Prevenção rigorosa de overflow-x no html, body e root */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html,
   body {
     width: 100%;
@@ -161,10 +167,13 @@
     box-sizing: border-box;
   }
 
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
   }
 
   /* Hierarquia Tipográfica Global CIAFAL */
@@ -402,6 +411,38 @@
     height: 94vh !important;
     max-height: 94vh !important;
     overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  /* 4 Zonas Rígidas do Modal Analítico */
+  .modal-analitico-header {
+    flex: 0 0 auto !important;
+    border-bottom: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    z-index: 10;
+  }
+
+  .modal-analitico-toolbar {
+    flex: 0 0 auto !important;
+    border-bottom: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    z-index: 5;
+  }
+
+  .modal-analitico-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .modal-analitico-footer {
+    flex: 0 0 auto !important;
+    border-top: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    z-index: 10;
   }
 
   div.modal-analitico.modal-analitico-drilldown,

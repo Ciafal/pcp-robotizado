@@ -67,6 +67,10 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route
+                  path="/pcp/analise-carteira/geral"
+                  element={<div>Análise de Carteira Geral</div>}
+                />
                 <Route path="/pcp-robotizado" element={<Index />} />
                 <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
@@ -105,6 +109,10 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route
+                  path="/pcp/analise-carteira/geral"
+                  element={<div>Análise de Carteira Geral</div>}
+                />
                 <Route path="/pcp-robotizado" element={<Index />} />
                 <Route path="/pcp/cockpit" element={<Index />} />
               </Route>
@@ -134,6 +142,10 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<Index />} />
+                <Route
+                  path="/pcp/analise-carteira/geral"
+                  element={<div>Análise de Carteira Geral</div>}
+                />
                 <Route path="/pcp-robotizado" element={<Index />} />
                 <Route path="/pcp/cockpit" element={<Index />} />
               </Route>

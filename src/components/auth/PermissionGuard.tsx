@@ -52,13 +52,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
   // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
   // - Análise de Carteira (pcp.carteira.view)
+  // - Gestão de MP (pcp.mp_opt.view)
+  // - Reunião PCP (pcp.meeting.view)
+  // - Cockpit Executivo (pcp.executive.view)
   const isDirectOperationalView =
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.schedule.view' ||
     permission === 'pcp.weekly_schedule.view' ||
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
-    permission === 'pcp.carteira.view'
+    permission === 'pcp.carteira.view' ||
+    permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.meeting.view' ||
+    permission === 'pcp.executive.view'
 
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
@@ -204,9 +210,17 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }
   }
 
-  // Fallback de contingência para rotas públicas/operacionais de Centros e Ficha Mestra (/pcp/ficha-mestre)
-  // Garante que mesmo durante inicialização de sessão o usuário veja a tela real com seus dados
-  if (!hasPerm && (permission === 'pcp.masterdata.view' || permission === 'pcp.lines.view')) {
+  // Fallback de contingência para rotas públicas/operacionais de Centros, Carteira e Programação
+  // Garante que mesmo durante inicialização de sessão (cold start) o usuário homologado veja a tela real sem tela branca
+  if (
+    !hasPerm &&
+    (permission === 'pcp.masterdata.view' ||
+      permission === 'pcp.lines.view' ||
+      permission === 'pcp.carteira.view' ||
+      permission === 'pcp.schedule.view' ||
+      permission === 'pcp.cockpit.view' ||
+      permission === 'pcp.weekly_schedule.view')
+  ) {
     hasPerm = true
   }
 

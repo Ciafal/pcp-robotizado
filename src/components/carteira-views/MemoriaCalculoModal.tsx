@@ -44,7 +44,7 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="modal-analitico flex flex-col p-0 overflow-hidden bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-2xl [&>button:last-child]:hidden">
+      <DialogContent className="modal-analitico flex flex-col p-0 overflow-hidden bg-white text-slate-900 border border-slate-200 rounded-2xl shadow-2xl [&>button:last-child]:hidden w-[min(96vw,1800px)] max-w-[min(96vw,1800px)] h-[94vh] max-h-[94vh]">
         {/* CABEÇALHO FIXO INSTITUCIONAL */}
         <header className="flex-none px-6 py-4 bg-gradient-to-r from-[#003870] via-[#004C97] to-[#0A2540] text-white border-b border-blue-900/60 shadow-xs relative flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -142,13 +142,13 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Qtd Ordem:</span>
                 <strong className="font-sans text-slate-800 text-sm">
-                  {item.qtd_ordem_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.qtd_ordem_tons, 2)} t
                 </strong>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Qtd Faturada:</span>
                 <strong className="font-sans text-slate-800 text-sm">
-                  {item.qtd_faturada_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.qtd_faturada_tons, 2)} t
                 </strong>
               </div>
               <div>
@@ -156,25 +156,25 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
                   Carteira Aberta:
                 </span>
                 <strong className="font-sans text-[#004C97] text-sm">
-                  {item.carteira_aberta_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.carteira_aberta_tons, 2)} t
                 </strong>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Estoque Livre:</span>
                 <strong className="font-sans text-slate-800 text-sm">
-                  {item.estoque_livre_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.estoque_livre_tons, 2)} t
                 </strong>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Estoque MTO:</span>
                 <strong className="font-sans text-blue-900 text-sm">
-                  {item.estoque_mto_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.estoque_mto_tons, 2)} t
                 </strong>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-medium block">Semiacabado:</span>
                 <strong className="font-sans text-slate-800 text-sm">
-                  {item.estoque_semiacabado_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.estoque_semiacabado_tons, 2)} t
                 </strong>
               </div>
               <div className="pt-2 border-t border-slate-100">
@@ -182,13 +182,13 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
                   Saldo Positivo:
                 </span>
                 <strong className="font-sans text-emerald-700 text-base">
-                  +{item.saldo_positivo_tons.toFixed(2)} t
+                  +{formatNumberPTBR(item.saldo_positivo_tons, 2)} t
                 </strong>
               </div>
               <div className="pt-2 border-t border-slate-100">
                 <span className="text-[10px] text-rose-700 font-bold block">Saldo Negativo:</span>
                 <strong className="font-sans text-rose-700 text-base">
-                  {item.saldo_negativo_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.saldo_negativo_tons, 2)} t
                 </strong>
               </div>
               <div className="pt-2 border-t border-slate-100">
@@ -196,7 +196,7 @@ export const MemoriaCalculoModal: React.FC<MemoriaCalculoModalProps> = ({
                   Necessidade Líquida:
                 </span>
                 <strong className="font-sans text-amber-900 text-base">
-                  {item.necessidade_liquida_tons.toFixed(2)} t
+                  {formatNumberPTBR(item.necessidade_liquida_tons, 2)} t
                 </strong>
               </div>
             </div>
