@@ -865,6 +865,65 @@ const officialNavGroups: NavGroup[] = [
     ],
   },
   {
+    groupTitle: 'CONTROLE DE PRODUÇÃO',
+    items: [
+      {
+        title: 'Visão Geral',
+        href: '/pcp/producao/visao-geral',
+        icon: LayoutDashboard,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Ordens de Produção',
+        href: '/pcp/producao/ordens',
+        icon: Layers,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Controle de Apontamentos',
+        href: '/pcp/producao/apontamentos',
+        icon: Activity,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Pendências de Fechamento',
+        href: '/pcp/producao/pendencias',
+        icon: AlertTriangle,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Desvios de Produção',
+        href: '/pcp/producao/desvios',
+        icon: BarChart3,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Comparativo PCP x Produção',
+        href: '/pcp/producao/comparativo',
+        icon: RefreshCw,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Relatório ZPP_01',
+        href: '/pcp/producao/zpp-01',
+        icon: FileSpreadsheet,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Análises por IA',
+        href: '/pcp/producao/ia-analises',
+        icon: Sparkles,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Histórico',
+        href: '/pcp/producao/historico',
+        icon: History,
+        permission: 'pcp.production.view',
+      },
+    ],
+  },
+  {
     groupTitle: 'EXECUÇÃO',
     items: [
       {

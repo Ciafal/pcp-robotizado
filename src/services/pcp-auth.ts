@@ -138,6 +138,9 @@ export const authService = {
         'pcp.carteira.import',
         'pcp.carteira.manage_rules',
         'pcp.carteira.reconcile',
+        'pcp.production.view',
+        'pcp.production.close',
+        'pcp.production.admin',
       ]
     }
     if (roleUpper === 'AUDITOR' || roleUpper === 'COMPLIANCE') {
@@ -203,6 +206,8 @@ export const authService = {
         'pcp.carteira.view',
         'pcp.carteira.import',
         'pcp.carteira.reconcile',
+        'pcp.production.view',
+        'pcp.production.close',
       ]
     }
     if (roleUpper === 'PCP_PLANNER') {
@@ -225,6 +230,8 @@ export const authService = {
         'pcp.carteira.view',
         'pcp.carteira.import',
         'pcp.carteira.reconcile',
+        'pcp.production.view',
+        'pcp.production.close',
       ]
     }
     if (roleUpper === 'LINE_MANAGER') {
@@ -243,12 +250,32 @@ export const authService = {
         'pcp.quality.view',
         'pcp.meeting.view',
         'pcp.carteira.view',
+        'pcp.production.view',
+        'pcp.production.close',
       ]
     }
-    if (roleUpper === 'OPERATOR' || roleUpper === 'PRODUCTION_VIEWER') {
-      return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.quality.view', 'pcp.carteira.view']
+    if (roleUpper === 'GESTOR_INDUSTRIAL' || roleUpper === 'GERENTE_INDUSTRIAL') {
+      return [
+        'pcp.cockpit.view',
+        'pcp.executive.view',
+        'pcp.schedule.view',
+        'pcp.production.view',
+        'pcp.production.close',
+        'pcp.production.admin',
+        'pcp.quality.view',
+        'pcp.carteira.view',
+      ]
     }
-    return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.carteira.view']
+    if (roleUpper === 'OPERATOR' || roleUpper === 'OPERADOR' || roleUpper === 'PRODUCTION_VIEWER') {
+      return [
+        'pcp.cockpit.view',
+        'pcp.schedule.view',
+        'pcp.quality.view',
+        'pcp.carteira.view',
+        'pcp.production.view',
+      ]
+    }
+    return ['pcp.cockpit.view', 'pcp.schedule.view', 'pcp.carteira.view', 'pcp.production.view']
   },
 
   /**

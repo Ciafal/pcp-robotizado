@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T21:36:02.401Z",
+  "generatedAt": "2026-09-19T21:51:56.842Z",
   "collections": [
     {
       "name": "users",
@@ -22448,6 +22448,854 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_pcce_code ON pcp_corporate_calendar_events (event_code)",
         "CREATE INDEX idx_pcce_summary ON pcp_corporate_calendar_events (summary_code)"
+      ]
+    },
+    {
+      "name": "pcp_production_orders",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "op_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "empresa_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "work_center",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "family_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "steel_grade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "gauge_dimension",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mrp_planner",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programming_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_planned_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_produced_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_posted_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_sap_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "balance_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "yield_planned_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "yield_realized_pct",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_start_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "planned_end_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "real_start_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "real_end_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_op",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "PROGRAMADA",
+            "EM_PRODUCAO",
+            "PARCIALMENTE_APONTADA",
+            "CONCLUIDA_FISICAMENTE",
+            "AGUARDANDO_FECHAMENTO",
+            "ENCERRADA",
+            "CANCELADA"
+          ]
+        },
+        {
+          "name": "status_mes",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "NAO_INICIADO",
+            "EM_EXECUCAO",
+            "PARADA_OPERACIONAL",
+            "INTERROMPIDO",
+            "FINALIZADO_OPERADOR",
+            "SEM_COMUNICACAO"
+          ]
+        },
+        {
+          "name": "status_sap",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "CRIADA_LIBERADA",
+            "INTEGRADA_ZPPT010",
+            "CONFIRMADA_TOTAL",
+            "CONFIRMADA_PARCIAL",
+            "ERRO_INTEGRACAO",
+            "REJEITADA_SAP",
+            "FECHADA_TECNICAMENTE"
+          ]
+        },
+        {
+          "name": "status_fechamento",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["APTA", "PENDENTE_DE_FECHAMENTO", "FECHADA", "BLOQUEADA"]
+        },
+        {
+          "name": "visual_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["NORMAL", "ATENCAO", "DESVIO", "CRITICO", "AGUARDANDO", "CONCLUIDO"]
+        },
+        {
+          "name": "ai_risk_score",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["NORMAL", "ATENCAO", "ALTO_RISCO", "CRITICO"]
+        },
+        {
+          "name": "ai_risk_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_pendency",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_deviation",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_posting_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operator_leader",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "flow_status_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timeline_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "checklist_fechamento_json",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_po_op ON pcp_production_orders (op_number)",
+        "CREATE INDEX idx_pcp_po_centro ON pcp_production_orders (centro_code)",
+        "CREATE INDEX idx_pcp_po_status ON pcp_production_orders (status_op)",
+        "CREATE INDEX idx_pcp_po_fech ON pcp_production_orders (status_fechamento)",
+        "CREATE INDEX idx_pcp_po_mat ON pcp_production_orders (material_code)"
+      ]
+    },
+    {
+      "name": "pcp_production_postings",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "posting_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "op_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "posting_date",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "posting_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "empresa_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "work_center",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shift_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operation_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "posting_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantity_tons",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unit",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operator_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_origin",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PCP", "MES", "SAP", "IA", "USUARIO"]
+        },
+        {
+          "name": "status_mes",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["RECEBIDO", "EM_PROCESSAMENTO", "VALIDADO_MES", "REJEITADO_MES"]
+        },
+        {
+          "name": "status_sap",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "RECEBIDO",
+            "EM_PROCESSAMENTO",
+            "ENVIADO_SAP",
+            "PROCESSADO_SAP",
+            "REJEITADO_SAP",
+            "AGUARDANDO_CORRECAO",
+            "CORRIGIDO",
+            "REPROCESSANDO"
+          ]
+        },
+        {
+          "name": "sap_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_document_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "retry_attempts",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_retry_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_pendency",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pendency_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "required_action",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "zppt010_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_post_code ON pcp_production_postings (posting_code)",
+        "CREATE INDEX idx_pcp_post_op ON pcp_production_postings (op_number)",
+        "CREATE INDEX idx_pcp_post_sap ON pcp_production_postings (status_sap)",
+        "CREATE INDEX idx_pcp_post_dt ON pcp_production_postings (posting_date)"
+      ]
+    },
+    {
+      "name": "pcp_closing_pendencies",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "pendency_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "op_number",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "problem_category",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "problem_description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "business_impact",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_role_or_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detected_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "pending_duration_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criticality",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["CRITICA", "ALTA", "MEDIA", "BAIXA"]
+        },
+        {
+          "name": "required_action",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolution_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["PENDENTE", "EM_TRATAMENTO", "CONCILIADO", "JUSTIFICADO", "ENCERRADO"]
+        },
+        {
+          "name": "resolution_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "checklist_item_affected",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_cp_code ON pcp_closing_pendencies (pendency_code)",
+        "CREATE INDEX idx_pcp_cp_op ON pcp_closing_pendencies (op_number)",
+        "CREATE INDEX idx_pcp_cp_crit ON pcp_closing_pendencies (criticality)",
+        "CREATE INDEX idx_pcp_cp_status ON pcp_closing_pendencies (resolution_status)"
+      ]
+    },
+    {
+      "name": "pcp_production_stops",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "stop_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "op_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "start_datetime",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "end_datetime",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason_reported",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "technical_cause_confirmed",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "maintenance_order_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "maintenance_note_ref",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operator_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_open",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "correlation_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_pcp_stops_code ON pcp_production_stops (stop_code)",
+        "CREATE INDEX idx_pcp_stops_op ON pcp_production_stops (op_number)",
+        "CREATE INDEX idx_pcp_stops_lin ON pcp_production_stops (linha_code)"
+      ]
+    },
+    {
+      "name": "pcp_zpp01_config",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != \"\"",
+        "view": "@request.auth.id != \"\"",
+        "create": "@request.auth.id != \"\"",
+        "update": "@request.auth.id != \"\"",
+        "delete": "@request.auth.id != \"\""
+      },
+      "fields": [
+        {
+          "name": "group_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "group_label",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "column_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "column_label",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "line_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "company_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_seq",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_zpp_cfg_grp_col ON pcp_zpp01_config (group_code, column_code)",
+        "CREATE INDEX idx_zpp_cfg_active ON pcp_zpp01_config (is_active)"
       ]
     }
   ]

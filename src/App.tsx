@@ -394,6 +394,71 @@ const RulesEnginePage = lazyWithRetry(
     })),
   'RulesEnginePage',
 )
+
+// Módulo CONTROLE DE PRODUÇÃO (9 Telas Reais Homologadas)
+const ProductionOverviewPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionOverviewPage').then((m) => ({
+      default: m.ProductionOverviewPage,
+    })),
+  'ProductionOverviewPage',
+)
+const ProductionOrdersPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionOrdersPage').then((m) => ({
+      default: m.ProductionOrdersPage,
+    })),
+  'ProductionOrdersPage',
+)
+const ProductionPostingsPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionPostingsPage').then((m) => ({
+      default: m.ProductionPostingsPage,
+    })),
+  'ProductionPostingsPage',
+)
+const ProductionPendenciesPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionPendenciesPage').then((m) => ({
+      default: m.ProductionPendenciesPage,
+    })),
+  'ProductionPendenciesPage',
+)
+const ProductionDeviationsPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionDeviationsPage').then((m) => ({
+      default: m.ProductionDeviationsPage,
+    })),
+  'ProductionDeviationsPage',
+)
+const ProductionComparativePage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionComparativePage').then((m) => ({
+      default: m.ProductionComparativePage,
+    })),
+  'ProductionComparativePage',
+)
+const ProductionZPP01Page = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionZPP01Page').then((m) => ({
+      default: m.ProductionZPP01Page,
+    })),
+  'ProductionZPP01Page',
+)
+const ProductionAIAnalysisPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionAIAnalysisPage').then((m) => ({
+      default: m.ProductionAIAnalysisPage,
+    })),
+  'ProductionAIAnalysisPage',
+)
+const ProductionHistoryPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionHistoryPage').then((m) => ({
+      default: m.ProductionHistoryPage,
+    })),
+  'ProductionHistoryPage',
+)
 const ModulePreparationPage = lazyWithRetry(
   () =>
     import('@/pages/ModulePreparationPage').then((m) => ({
@@ -1248,6 +1313,92 @@ export const App: React.FC = () => {
                           <ScheduleChangesCenterPage />
                         </PermissionGuard>
                       }
+                    />
+                    {/* NOVO GRUPO: CONTROLE DE PRODUÇÃO (9 Rotas Reais com PermissionGuard) */}
+                    <Route
+                      path="/pcp/producao"
+                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                    />
+                    <Route
+                      path="/pcp/producao/visao-geral"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionOverviewPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/ordens"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionOrdersPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/apontamentos"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionPostingsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/pendencias"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionPendenciesPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/desvios"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionDeviationsPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/comparativo"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionComparativePage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/zpp-01"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionZPP01Page />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/ia-analises"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionAIAnalysisPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/producao/historico"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ProductionHistoryPage />
+                        </PermissionGuard>
+                      }
+                    />
+                    {/* Aliases de rota para Controle de Produção */}
+                    <Route
+                      path="/pcp-robotizado/producao"
+                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                    />
+                    <Route
+                      path="/controle-producao"
+                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
                     />
                     <Route
                       path="/pcp/integracoes"
