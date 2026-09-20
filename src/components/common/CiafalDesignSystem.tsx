@@ -40,12 +40,14 @@ export interface CiafalBreadcrumbItem {
 export interface CiafalPageHeaderProps {
   moduleName?: string
   screenTitle: string
-  subtitle?: string
+  subtitle?: ReactNode
   breadcrumbs?: CiafalBreadcrumbItem[]
-  badge?: string
+  badge?: ReactNode
   actions?: ReactNode
   lastUpdated?: string | Date | null
   dataSource?: string
+  infoTooltip?: string
+  compactInfo?: ReactNode
 }
 
 export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
@@ -57,18 +59,23 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
   actions,
   lastUpdated,
   dataSource,
+  infoTooltip,
+  compactInfo,
 }) => {
   const updateStatus = lastUpdated ? formatUpdateTimestamp(lastUpdated) : null
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-2.5 mb-4">
+    <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-xs space-y-2 mb-3.5 w-full max-w-full min-w-0 box-border">
       {/* Breadcrumb e Rastreabilidade de Sistema */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-1.5 min-w-0">
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-1.5 text-xs text-slate-500 font-medium"
+          className="flex items-center gap-1.5 text-xs text-slate-500 font-medium overflow-x-auto no-scrollbar py-0.5 max-w-full"
         >
-          <Link to="/pcp/sequenciamento" className="hover:text-[#004C97] transition-colors">
+          <Link
+            to="/pcp/sequenciamento"
+            className="hover:text-[#004C97] transition-colors shrink-0 whitespace-nowrap"
+          >
             {moduleName}
           </Link>
           {breadcrumbs &&
@@ -76,18 +83,23 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
               <React.Fragment key={idx}>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 {b.href ? (
-                  <Link to={b.href} className="hover:text-[#004C97] transition-colors">
+                  <Link
+                    to={b.href}
+                    className="hover:text-[#004C97] transition-colors shrink-0 whitespace-nowrap"
+                  >
                     {b.label}
                   </Link>
                 ) : (
-                  <span className="text-slate-900 font-semibold">{b.label}</span>
+                  <span className="text-slate-900 font-semibold shrink-0 whitespace-nowrap">
+                    {b.label}
+                  </span>
                 )}
               </React.Fragment>
             ))}
         </nav>
 
         {(dataSource || updateStatus) && (
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono shrink-0">
             {dataSource && (
               <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
                 <Database className="w-3 h-3 text-[#004C97]" />
@@ -110,27 +122,76 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
         )}
       </div>
 
-      {/* Título Principal e Ações de Topo */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 min-w-0">
-        <div className="space-y-0.5 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 tracking-tight leading-snug">
+      {/* Linha 1: Título e Ações de Topo */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 min-w-0 w-full">
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Linha 1 do cabeçalho: Título responsivo em 1 linha (máx 2), nunca letra por letra */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1
+              className="ciafal-page-title text-slate-900 font-bold tracking-tight leading-tight m-0"
+              style={{
+                fontSize: 'clamp(1.25rem, 1.25vw + 0.875rem, 1.875rem)',
+                wordBreak: 'normal',
+                overflowWrap: 'normal',
+                whiteSpace: 'normal',
+              }}
+            >
               {screenTitle}
             </h1>
             {badge && (
-              <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-xs font-semibold">
-                {badge}
-              </Badge>
+              <div className="shrink-0 inline-flex items-center">
+                {typeof badge === 'string' ? (
+                  <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-xs font-semibold">
+                    {badge}
+                  </Badge>
+                ) : (
+                  badge
+                )}
+              </div>
+            )}
+            {infoTooltip && (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Informações da tela"
+                      className="text-slate-400 hover:text-slate-700 transition-colors p-0.5 rounded-full"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-md bg-slate-900 text-white text-xs border-slate-700 leading-relaxed">
+                    {infoTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
-          {subtitle && (
-            <p className="text-xs sm:text-[13px] text-slate-600 max-w-3xl leading-relaxed">
-              {subtitle}
-            </p>
+
+          {/* Linha 2 do cabeçalho: Compact info e/ou subtítulo conciso */}
+          {(compactInfo || subtitle) && (
+            <div className="flex items-center gap-2 text-xs sm:text-[13px] text-slate-600 flex-wrap min-w-0 leading-normal">
+              {compactInfo && <span className="font-semibold text-slate-700">{compactInfo}</span>}
+              {compactInfo && subtitle && <span className="text-slate-300">&bull;</span>}
+              {subtitle && (
+                <div
+                  className="text-slate-600 truncate max-w-2xl"
+                  title={typeof subtitle === 'string' ? subtitle : undefined}
+                >
+                  {subtitle}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
-        {actions && <div className="flex items-center gap-2 shrink-0 flex-wrap">{actions}</div>}
+        {/* Barra de ações resiliente: desktop em linha, telas menores em wrap */}
+        {actions && (
+          <div className="ciafal-action-bar flex flex-wrap items-center gap-2 shrink-0 max-w-full">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   )
