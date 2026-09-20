@@ -293,3 +293,5 @@ export const ProductionDeviationsPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionDeviationsPage

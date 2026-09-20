@@ -1302,7 +1302,7 @@ export const PCPSidebar: React.FC = () => {
               <div
                 data-testid={`nav-group-header-${group.groupTitle}`}
                 onClick={() => toggleGroup(group.groupTitle)}
-                className="px-2 py-1.5 text-[9px] font-black tracking-widest uppercase flex items-center justify-between select-none cursor-pointer text-slate-700 hover:text-[#004C97] hover:bg-slate-100/70 rounded transition-colors"
+                className="px-2 py-1.5 text-[9px] font-black tracking-widest uppercase flex items-center justify-between select-none cursor-pointer text-slate-700 hover:text-[#004C97] hover:bg-slate-100/70 rounded transition-colors group"
                 role="button"
                 aria-expanded={!isCollapsed}
                 tabIndex={0}
@@ -1313,14 +1313,28 @@ export const PCPSidebar: React.FC = () => {
                   }
                 }}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   {group.groupTitle === 'ANÁLISE DE CARTEIRA' && (
-                    <Briefcase className="w-3 h-3 text-[#004C97]" />
+                    <Briefcase className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
                   {group.groupTitle === 'GESTÃO DE MP' && (
-                    <Boxes className="w-3 h-3 text-[#004C97]" />
+                    <Boxes className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
-                  <span className="truncate">{group.groupTitle}</span>
+                  {group.groupTitle === 'CONTROLE DE PRODUÇÃO' && (
+                    <Activity className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'CONTROLE DE PRODUÇÃO' ? (
+                    <Link
+                      to="/pcp/producao/visao-geral"
+                      onClick={(e) => e.stopPropagation()}
+                      className="truncate hover:underline text-slate-700 hover:text-[#004C97]"
+                      title="Abrir Controle de Produção"
+                    >
+                      {group.groupTitle}
+                    </Link>
+                  ) : (
+                    <span className="truncate">{group.groupTitle}</span>
+                  )}
                 </div>
                 <span className="text-slate-400 shrink-0 ml-1">
                   {isCollapsed ? (

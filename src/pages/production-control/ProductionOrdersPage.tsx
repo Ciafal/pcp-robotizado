@@ -303,3 +303,5 @@ export const ProductionOrdersPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionOrdersPage

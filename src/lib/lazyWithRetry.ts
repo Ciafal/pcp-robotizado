@@ -60,10 +60,25 @@ export function lazyWithRetry<T extends ComponentType<any>>(
 ): LazyExoticComponent<T> {
   return lazy(async () => {
     try {
-      const component = await factory()
+      const m = await factory()
       // Se carregou com sucesso, limpa a flag de reload para que futuros deploys possam usá-la novamente
       clearChunkReloadFlag()
-      return component
+      // Resolução segura: se m já tiver default component válido usa-o, senão procura named export
+      if (m && typeof m === 'object') {
+        if (m.default !== undefined) {
+          return m
+        }
+        // Se default for undefined mas existir named export igual ao moduleName ou outro componente
+        const candidate =
+          (moduleName && m[moduleName]) ||
+          m.Component ||
+          m.Index ||
+          m[Object.keys(m).find((k) => typeof m[k] === 'function') || '']
+        if (candidate) {
+          return { default: candidate }
+        }
+      }
+      return m
     } catch (error) {
       console.warn(`[PCP Robotizado] Falha ao carregar chunk dinâmico de "${moduleName}":`, error)
 

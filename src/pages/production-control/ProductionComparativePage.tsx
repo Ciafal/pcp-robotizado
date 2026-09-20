@@ -245,3 +245,5 @@ export const ProductionComparativePage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionComparativePage

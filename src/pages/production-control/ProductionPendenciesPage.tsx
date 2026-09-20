@@ -359,3 +359,5 @@ export const ProductionPendenciesPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionPendenciesPage

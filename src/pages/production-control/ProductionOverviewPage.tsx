@@ -582,3 +582,5 @@ export const ProductionOverviewPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionOverviewPage

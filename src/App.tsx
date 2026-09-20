@@ -26,7 +26,10 @@ export const RootRedirect: React.FC = () => {
 }
 
 // Lazy load dos componentes e layouts com retry resiliente
-const Index = lazyWithRetry(() => import('@/pages/Index'), 'Index')
+const Index = lazyWithRetry(
+  () => import('@/pages/Index').then((m) => ({ default: m.default ?? m.Index })),
+  'Index',
+)
 const CentralSequenciamentoLayout = lazyWithRetry(
   () =>
     import('@/pages/CentralSequenciamentoLayout').then((m) => ({
@@ -35,7 +38,10 @@ const CentralSequenciamentoLayout = lazyWithRetry(
   'CentralSequenciamentoLayout',
 )
 const CentralSequenciamentoLandingPage = lazyWithRetry(
-  () => import('@/pages/CentralSequenciamentoLandingPage'),
+  () =>
+    import('@/pages/CentralSequenciamentoLandingPage').then((m) => ({
+      default: m.default ?? m.CentralSequenciamentoLandingPage,
+    })),
   'CentralSequenciamentoLandingPage',
 )
 const ControlTowerPage = lazyWithRetry(
@@ -52,47 +58,101 @@ const SequencingPage = lazyWithRetry(
   () => import('@/pages/SequencingPage').then((m) => ({ default: m.SequencingPage || m.default })),
   'SequencingPage',
 )
-const EfficiencyPage = lazyWithRetry(() => import('@/pages/EfficiencyPage'), 'EfficiencyPage')
+const EfficiencyPage = lazyWithRetry(
+  () =>
+    import('@/pages/EfficiencyPage').then((m) => ({
+      default: m.default ?? m.EfficiencyPage,
+    })),
+  'EfficiencyPage',
+)
 const EfficiencyProductsSubpage = lazyWithRetry(
-  () => import('@/pages/EfficiencyProductsSubpage'),
+  () =>
+    import('@/pages/EfficiencyProductsSubpage').then((m) => ({
+      default: m.default ?? m.EfficiencyProductsSubpage,
+    })),
   'EfficiencyProductsSubpage',
 )
 const EfficiencyLinesSubpage = lazyWithRetry(
-  () => import('@/pages/EfficiencyLinesSubpage'),
+  () =>
+    import('@/pages/EfficiencyLinesSubpage').then((m) => ({
+      default: m.default ?? m.EfficiencyLinesSubpage,
+    })),
   'EfficiencyLinesSubpage',
 )
 const EfficiencyPlantsSubpage = lazyWithRetry(
-  () => import('@/pages/EfficiencyPlantsSubpage'),
+  () =>
+    import('@/pages/EfficiencyPlantsSubpage').then((m) => ({
+      default: m.default ?? m.EfficiencyPlantsSubpage,
+    })),
   'EfficiencyPlantsSubpage',
 )
 const EfficiencyAssertivenessSubpage = lazyWithRetry(
-  () => import('@/pages/EfficiencyAssertivenessSubpage'),
+  () =>
+    import('@/pages/EfficiencyAssertivenessSubpage').then((m) => ({
+      default: m.default ?? m.EfficiencyAssertivenessSubpage,
+    })),
   'EfficiencyAssertivenessSubpage',
 )
-const BacklogPage = lazyWithRetry(() => import('@/pages/BacklogPage'), 'BacklogPage')
+const BacklogPage = lazyWithRetry(
+  () =>
+    import('@/pages/BacklogPage').then((m) => ({
+      default: m.default ?? m.BacklogPage,
+    })),
+  'BacklogPage',
+)
 const AnaliseCarteiraPage = lazyWithRetry(
-  () => import('@/pages/AnaliseCarteiraPage'),
+  () =>
+    import('@/pages/AnaliseCarteiraPage').then((m) => ({
+      default: m.default ?? m.AnaliseCarteiraPage,
+    })),
   'AnaliseCarteiraPage',
 )
 const ScenariosPage = lazyWithRetry(
   () => import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
   'ScenariosPage',
 )
-const HistoryPage = lazyWithRetry(() => import('@/pages/HistoryPage'), 'HistoryPage')
+const HistoryPage = lazyWithRetry(
+  () =>
+    import('@/pages/HistoryPage').then((m) => ({
+      default: m.default ?? m.HistoryPage,
+    })),
+  'HistoryPage',
+)
 const InventoryManagementPage = lazyWithRetry(
-  () => import('@/pages/InventoryManagementPage'),
+  () =>
+    import('@/pages/InventoryManagementPage').then((m) => ({
+      default: m.default ?? m.InventoryManagementPage,
+    })),
   'InventoryManagementPage',
 )
 const ExecutiveCockpitPage = lazyWithRetry(
-  () => import('@/pages/ExecutiveCockpitPage'),
+  () =>
+    import('@/pages/ExecutiveCockpitPage').then((m) => ({
+      default: m.default ?? m.ExecutiveCockpitPage,
+    })),
   'ExecutiveCockpitPage',
 )
-const PCPMeetingsPage = lazyWithRetry(() => import('@/pages/PCPMeetingsPage'), 'PCPMeetingsPage')
+const PCPMeetingsPage = lazyWithRetry(
+  () =>
+    import('@/pages/PCPMeetingsPage').then((m) => ({
+      default: m.default ?? m.PCPMeetingsPage,
+    })),
+  'PCPMeetingsPage',
+)
 const PCPCommunicationsPage = lazyWithRetry(
-  () => import('@/pages/PCPCommunicationsPage'),
+  () =>
+    import('@/pages/PCPCommunicationsPage').then((m) => ({
+      default: m.default ?? m.PCPCommunicationsPage,
+    })),
   'PCPCommunicationsPage',
 )
-const PCPInboxPage = lazyWithRetry(() => import('@/pages/PCPInboxPage'), 'PCPInboxPage')
+const PCPInboxPage = lazyWithRetry(
+  () =>
+    import('@/pages/PCPInboxPage').then((m) => ({
+      default: m.default ?? m.PCPInboxPage,
+    })),
+  'PCPInboxPage',
+)
 const LiveMeetingRoom = lazyWithRetry(
   () =>
     import('@/components/meetings/LiveMeetingRoom').then((m) => ({ default: m.LiveMeetingRoom })),
@@ -132,83 +192,173 @@ const LineManagementLayout = lazyWithRetry(
   'LineManagementLayout',
 )
 const ProductionIntegrationMapPage = lazyWithRetry(
-  () => import('@/pages/ProductionIntegrationMapPage'),
+  () =>
+    import('@/pages/ProductionIntegrationMapPage').then((m) => ({
+      default: m.default ?? m.ProductionIntegrationMapPage,
+    })),
   'ProductionIntegrationMapPage',
 )
 const LineCapacitiesSubpage = lazyWithRetry(
-  () => import('@/pages/LineCapacitiesSubpage'),
+  () =>
+    import('@/pages/LineCapacitiesSubpage').then((m) => ({
+      default: m.default ?? m.LineCapacitiesSubpage,
+    })),
   'LineCapacitiesSubpage',
 )
 const LineDependenciesSubpage = lazyWithRetry(
-  () => import('@/pages/LineDependenciesSubpage'),
+  () =>
+    import('@/pages/LineDependenciesSubpage').then((m) => ({
+      default: m.default ?? m.LineDependenciesSubpage,
+    })),
   'LineDependenciesSubpage',
 )
 const LineHistorySubpage = lazyWithRetry(
-  () => import('@/pages/LineHistorySubpage'),
+  () =>
+    import('@/pages/LineHistorySubpage').then((m) => ({
+      default: m.default ?? m.LineHistorySubpage,
+    })),
   'LineHistorySubpage',
 )
 
 // Módulos Auxiliares / Legado
-const LineMasterPage = lazyWithRetry(() => import('@/pages/LineMasterPage'), 'LineMasterPage')
+const LineMasterPage = lazyWithRetry(
+  () =>
+    import('@/pages/LineMasterPage').then((m) => ({
+      default: m.default ?? m.LineMasterPage,
+    })),
+  'LineMasterPage',
+)
 const LineResponsiblesPage = lazyWithRetry(
-  () => import('@/pages/LineResponsiblesPage'),
+  () =>
+    import('@/pages/LineResponsiblesPage').then((m) => ({
+      default: m.default ?? m.LineResponsiblesPage,
+    })),
   'LineResponsiblesPage',
 )
-const SchedulesPage = lazyWithRetry(() => import('@/pages/SchedulesPage'), 'SchedulesPage')
-const AuditPage = lazyWithRetry(() => import('@/pages/AuditPage'), 'AuditPage')
+const SchedulesPage = lazyWithRetry(
+  () =>
+    import('@/pages/SchedulesPage').then((m) => ({
+      default: m.default ?? m.SchedulesPage,
+    })),
+  'SchedulesPage',
+)
+const AuditPage = lazyWithRetry(
+  () =>
+    import('@/pages/AuditPage').then((m) => ({
+      default: m.default ?? m.AuditPage,
+    })),
+  'AuditPage',
+)
 const ReasonsAndGovernancePage = lazyWithRetry(
-  () => import('@/pages/ReasonsAndGovernancePage'),
+  () =>
+    import('@/pages/ReasonsAndGovernancePage').then((m) => ({
+      default: m.default ?? m.ReasonsAndGovernancePage,
+    })),
   'ReasonsAndGovernancePage',
 )
-const AccessAdminPage = lazyWithRetry(() => import('@/pages/AccessAdminPage'), 'AccessAdminPage')
+const AccessAdminPage = lazyWithRetry(
+  () =>
+    import('@/pages/AccessAdminPage').then((m) => ({
+      default: m.default ?? m.AccessAdminPage,
+    })),
+  'AccessAdminPage',
+)
 const ScheduleChangesCenterPage = lazyWithRetry(
-  () => import('@/pages/ScheduleChangesCenterPage'),
+  () =>
+    import('@/pages/ScheduleChangesCenterPage').then((m) => ({
+      default: m.default ?? m.ScheduleChangesCenterPage,
+    })),
   'ScheduleChangesCenterPage',
 )
 const PCPIntegrationsPage = lazyWithRetry(
-  () => import('@/pages/PCPIntegrationsPage'),
+  () =>
+    import('@/pages/PCPIntegrationsPage').then((m) => ({
+      default: m.default ?? m.PCPIntegrationsPage,
+    })),
   'PCPIntegrationsPage',
 )
 const PCPIntegrationMonitorPage = lazyWithRetry(
-  () => import('@/pages/PCPIntegrationMonitorPage'),
+  () =>
+    import('@/pages/PCPIntegrationMonitorPage').then((m) => ({
+      default: m.default ?? m.PCPIntegrationMonitorPage,
+    })),
   'PCPIntegrationMonitorPage',
 )
 const PCPDataQualityPage = lazyWithRetry(
-  () => import('@/pages/PCPDataQualityPage'),
+  () =>
+    import('@/pages/PCPDataQualityPage').then((m) => ({
+      default: m.default ?? m.PCPDataQualityPage,
+    })),
   'PCPDataQualityPage',
 )
 const PCPHomologationStatusPage = lazyWithRetry(
-  () => import('@/pages/PCPHomologationStatusPage'),
+  () =>
+    import('@/pages/PCPHomologationStatusPage').then((m) => ({
+      default: m.default ?? m.PCPHomologationStatusPage,
+    })),
   'PCPHomologationStatusPage',
 )
 const ProductQualityHubPage = lazyWithRetry(
-  () => import('@/pages/ProductQualityHubPage'),
+  () =>
+    import('@/pages/ProductQualityHubPage').then((m) => ({
+      default: m.default ?? m.ProductQualityHubPage,
+    })),
   'ProductQualityHubPage',
 )
 const WeeklyScheduleOperationalPage = lazyWithRetry(
-  () => import('@/pages/WeeklyScheduleOperationalPage'),
+  () =>
+    import('@/pages/WeeklyScheduleOperationalPage').then((m) => ({
+      default: m.default ?? m.WeeklyScheduleOperationalPage,
+    })),
   'WeeklyScheduleOperationalPage',
 )
 const TestProgrammingPage = lazyWithRetry(
-  () => import('@/pages/TestProgrammingPage'),
+  () =>
+    import('@/pages/TestProgrammingPage').then((m) => ({
+      default: m.default ?? m.TestProgrammingPage,
+    })),
   'TestProgrammingPage',
 )
 const RawMaterialInventoryPage = lazyWithRetry(
-  () => import('@/pages/pcp/RawMaterialInventoryPage'),
+  () =>
+    import('@/pages/pcp/RawMaterialInventoryPage').then((m) => ({
+      default: m.default ?? m.RawMaterialInventoryPage,
+    })),
   'RawMaterialInventoryPage',
 )
-const EntregasPcpPage = lazyWithRetry(() => import('@/pages/EntregasPcpPage'), 'EntregasPcpPage')
-const ResumoMensalPage = lazyWithRetry(() => import('@/pages/ResumoMensalPage'), 'ResumoMensalPage')
+const EntregasPcpPage = lazyWithRetry(
+  () =>
+    import('@/pages/EntregasPcpPage').then((m) => ({
+      default: m.default ?? m.EntregasPcpPage,
+    })),
+  'EntregasPcpPage',
+)
+const ResumoMensalPage = lazyWithRetry(
+  () =>
+    import('@/pages/ResumoMensalPage').then((m) => ({
+      default: m.default ?? m.ResumoMensalPage,
+    })),
+  'ResumoMensalPage',
+)
 const EntregasHistoricoPage = lazyWithRetry(
-  () => import('@/pages/EntregasHistoricoPage'),
+  () =>
+    import('@/pages/EntregasHistoricoPage').then((m) => ({
+      default: m.default ?? m.EntregasHistoricoPage,
+    })),
   'EntregasHistoricoPage',
 )
 const EntregasRevisoesPage = lazyWithRetry(
-  () => import('@/pages/EntregasRevisoesPage'),
+  () =>
+    import('@/pages/EntregasRevisoesPage').then((m) => ({
+      default: m.default ?? m.EntregasRevisoesPage,
+    })),
   'EntregasRevisoesPage',
 )
 const EntregasIndicadoresPage = lazyWithRetry(
-  () => import('@/pages/EntregasIndicadoresPage'),
+  () =>
+    import('@/pages/EntregasIndicadoresPage').then((m) => ({
+      default: m.default ?? m.EntregasIndicadoresPage,
+    })),
   'EntregasIndicadoresPage',
 )
 
@@ -399,82 +549,88 @@ const RulesEnginePage = lazyWithRetry(
 const ProductionOverviewPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionOverviewPage').then((m) => ({
-      default: m.ProductionOverviewPage,
+      default: m.default ?? m.ProductionOverviewPage,
     })),
   'ProductionOverviewPage',
 )
 const ProductionOrdersPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionOrdersPage').then((m) => ({
-      default: m.ProductionOrdersPage,
+      default: m.default ?? m.ProductionOrdersPage,
     })),
   'ProductionOrdersPage',
 )
 const ProductionPostingsPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionPostingsPage').then((m) => ({
-      default: m.ProductionPostingsPage,
+      default: m.default ?? m.ProductionPostingsPage,
     })),
   'ProductionPostingsPage',
 )
 const ProductionPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionPendenciesPage').then((m) => ({
-      default: m.ProductionPendenciesPage,
+      default: m.default ?? m.ProductionPendenciesPage,
     })),
   'ProductionPendenciesPage',
 )
 const ProductionDeviationsPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionDeviationsPage').then((m) => ({
-      default: m.ProductionDeviationsPage,
+      default: m.default ?? m.ProductionDeviationsPage,
     })),
   'ProductionDeviationsPage',
 )
 const ProductionComparativePage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionComparativePage').then((m) => ({
-      default: m.ProductionComparativePage,
+      default: m.default ?? m.ProductionComparativePage,
     })),
   'ProductionComparativePage',
 )
 const ProductionZPP01Page = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionZPP01Page').then((m) => ({
-      default: m.ProductionZPP01Page,
+      default: m.default ?? m.ProductionZPP01Page,
     })),
   'ProductionZPP01Page',
 )
 const ProductionAIAnalysisPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionAIAnalysisPage').then((m) => ({
-      default: m.ProductionAIAnalysisPage,
+      default: m.default ?? m.ProductionAIAnalysisPage,
     })),
   'ProductionAIAnalysisPage',
 )
 const ProductionHistoryPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionHistoryPage').then((m) => ({
-      default: m.ProductionHistoryPage,
+      default: m.default ?? m.ProductionHistoryPage,
     })),
   'ProductionHistoryPage',
 )
 const ModulePreparationPage = lazyWithRetry(
   () =>
     import('@/pages/ModulePreparationPage').then((m) => ({
-      default: m.ModulePreparationPage || m.default,
+      default: m.default ?? m.ModulePreparationPage,
     })),
   'ModulePreparationPage',
 )
-const NotFound = lazyWithRetry(() => import('@/pages/NotFound'), 'NotFound')
+const NotFound = lazyWithRetry(
+  () =>
+    import('@/pages/NotFound').then((m) => ({
+      default: m.default ?? m.NotFound,
+    })),
+  'NotFound',
+)
 
 export const App: React.FC = () => {
   return (
-    <ErrorBoundary moduleName="Aplicação Principal">
-      <BrowserRouter>
-        <AuthProvider>
-          <ControlTowerProvider>
-            <OeeDrilldownProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <ControlTowerProvider>
+          <OeeDrilldownProvider>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
@@ -798,7 +954,14 @@ export const App: React.FC = () => {
                     <Route path="/" element={<RootRedirect />} />
                     <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
-                    <Route path="/pcp/cockpit" element={<Index />} />
+                    <Route
+                      path="/pcp/cockpit"
+                      element={
+                        <ErrorBoundary moduleName="Cockpit Principal">
+                          <Index />
+                        </ErrorBoundary>
+                      }
+                    />
                     <Route
                       path="/pcp-robotizado"
                       element={
@@ -1323,7 +1486,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/visao-geral"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionOverviewPage />
+                          <ErrorBoundary moduleName="Visão Geral da Produção">
+                            <ProductionOverviewPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1331,7 +1496,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/ordens"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionOrdersPage />
+                          <ErrorBoundary moduleName="Ordens de Produção">
+                            <ProductionOrdersPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1339,7 +1506,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/apontamentos"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionPostingsPage />
+                          <ErrorBoundary moduleName="Apontamentos de Produção">
+                            <ProductionPostingsPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1347,7 +1516,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/pendencias"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionPendenciesPage />
+                          <ErrorBoundary moduleName="Pendências de Produção">
+                            <ProductionPendenciesPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1355,7 +1526,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/desvios"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionDeviationsPage />
+                          <ErrorBoundary moduleName="Desvios de Produção">
+                            <ProductionDeviationsPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1363,7 +1536,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/comparativo"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionComparativePage />
+                          <ErrorBoundary moduleName="Comparativo MES x SAP">
+                            <ProductionComparativePage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1371,7 +1546,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/zpp-01"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionZPP01Page />
+                          <ErrorBoundary moduleName="Demonstrativo ZPP_01">
+                            <ProductionZPP01Page />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1379,7 +1556,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/ia-analises"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionAIAnalysisPage />
+                          <ErrorBoundary moduleName="Análises Industriais de IA">
+                            <ProductionAIAnalysisPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1387,7 +1566,9 @@ export const App: React.FC = () => {
                       path="/pcp/producao/historico"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ProductionHistoryPage />
+                          <ErrorBoundary moduleName="Histórico de Produção">
+                            <ProductionHistoryPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -1488,12 +1669,12 @@ export const App: React.FC = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-              <OeeDrilldownModal />
-            </OeeDrilldownProvider>
-          </ControlTowerProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
+            </ErrorBoundary>
+            <OeeDrilldownModal />
+          </OeeDrilldownProvider>
+        </ControlTowerProvider>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
 export default App

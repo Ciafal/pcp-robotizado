@@ -254,3 +254,5 @@ export const ProductionAIAnalysisPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionAIAnalysisPage

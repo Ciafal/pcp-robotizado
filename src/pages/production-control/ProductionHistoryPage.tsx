@@ -270,3 +270,5 @@ export const ProductionHistoryPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionHistoryPage

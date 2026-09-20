@@ -287,3 +287,5 @@ export const ProductionPostingsPage: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionPostingsPage

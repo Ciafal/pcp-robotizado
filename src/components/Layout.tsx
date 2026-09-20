@@ -49,7 +49,9 @@ export const Layout: React.FC = () => {
           tabIndex={-1}
           className="flex-1 min-w-0 min-h-0 w-full max-w-full p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50 relative outline-none scrollbar-thin scrollbar-thumb-slate-300"
         >
-          <Outlet />
+          <ErrorBoundary moduleName="Conteúdo da Rota">
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

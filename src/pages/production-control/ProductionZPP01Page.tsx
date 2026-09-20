@@ -495,3 +495,5 @@ export const ProductionZPP01Page: React.FC = () => {
     </div>
   )
 }
+
+export default ProductionZPP01Page

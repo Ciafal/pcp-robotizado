@@ -41,6 +41,10 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload()
   }
 
+  public handleRetryLocal = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null })
+  }
+
   public handleGoHome = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
     window.location.href = '/'
@@ -100,10 +104,17 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-wrap gap-3 justify-center pt-2">
               <Button
                 variant="default"
-                onClick={this.handleReset}
+                onClick={this.handleRetryLocal}
                 className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold shadow-sm"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Recarregar Módulo
+                <RotateCcw className="w-3.5 h-3.5" /> Tentar Novamente
+              </Button>
+              <Button
+                variant="outline"
+                onClick={this.handleReset}
+                className="gap-2 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Recarregar Página
               </Button>
               <Button
                 variant="outline"
