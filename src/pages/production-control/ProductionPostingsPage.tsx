@@ -822,11 +822,11 @@ export const ProductionPostingsPage: React.FC = () => {
                       <th className="py-2.5 px-3">OP</th>
                       <th className="py-2.5 px-3">Centro</th>
                       <th className="py-2.5 px-3">Material</th>
-                      <th className="py-2.5 px-3 text-right">Prod. Realizada (t)</th>
-                      <th className="py-2.5 px-3 text-right">Prod. Apontada (t)</th>
-                      <th className="py-2.5 px-3 text-right">Diferença (t)</th>
-                      <th className="py-2.5 px-3">Motivo da Pendência</th>
-                      <th className="py-2.5 px-3 text-center">Tempo Pendente</th>
+                      <th className="py-2.5 px-3 text-right">Produção realizada</th>
+                      <th className="py-2.5 px-3 text-right">Produção apontada</th>
+                      <th className="py-2.5 px-3 text-right">Diferença</th>
+                      <th className="py-2.5 px-3">Pendência</th>
+                      <th className="py-2.5 px-3 text-center">Tempo pendente</th>
                       <th className="py-2.5 px-3">Responsável</th>
                       <th className="py-2.5 px-3 text-center">Criticidade</th>
                       <th className="py-2.5 px-3 text-center">Status</th>

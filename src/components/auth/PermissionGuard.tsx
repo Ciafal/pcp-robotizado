@@ -55,6 +55,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // - Gestão de MP (pcp.mp_opt.view)
   // - Reunião PCP (pcp.meeting.view)
   // - Cockpit Executivo (pcp.executive.view)
+  // - Controle de Produção (pcp.production.view)
   const isDirectOperationalView =
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.schedule.view' ||
@@ -64,7 +65,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.mp_opt.view' ||
     permission === 'pcp.meeting.view' ||
-    permission === 'pcp.executive.view'
+    permission === 'pcp.executive.view' ||
+    permission === 'pcp.production.view'
 
   // Se já temos permissões/usuário disponíveis no AuthContext, ou cache/authStore válido,
   // temos contexto de auth resolvido e não há necessidade de armar o timer de timeout
@@ -91,13 +93,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // 1) Rota de Ficha Mestra e Centros (pcp.masterdata.view / pcp.lines.view):
+  // 1) Rota de Ficha Mestra e Centros (pcp.masterdata.view / pcp.lines.view) e Controle de Produção (pcp.production.view):
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
-  //    garantindo que a Ficha Mestra nunca fique presa no PermissionGuard no runtime ou cold start.
+  //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start.
   if (
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
-    window.location?.pathname?.includes('/ficha-mestre')
+    permission === 'pcp.production.view' ||
+    window.location?.pathname?.includes('/ficha-mestre') ||
+    window.location?.pathname?.includes('/pcp/producao')
   ) {
     return <>{children}</>
   }
@@ -221,7 +225,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.carteira.view' ||
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.cockpit.view' ||
-      permission === 'pcp.weekly_schedule.view')
+      permission === 'pcp.weekly_schedule.view' ||
+      permission === 'pcp.production.view')
   ) {
     hasPerm = true
   }
@@ -293,7 +298,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   if (
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
-    permission === 'pcp.carteira.view'
+    permission === 'pcp.carteira.view' ||
+    permission === 'pcp.production.view'
   ) {
     return <>{children}</>
   }

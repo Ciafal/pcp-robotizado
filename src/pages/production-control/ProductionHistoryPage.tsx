@@ -47,10 +47,12 @@ export const ProductionHistoryPage: React.FC = () => {
 
   // Filtros de busca
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '')
+  const [selectedEmpresa, setSelectedEmpresa] = useState<string>('TODOS')
   const [selectedCentro, setSelectedCentro] = useState<string>('TODOS')
   const [selectedLinha, setSelectedLinha] = useState<string>('TODOS')
   const [selectedStatus, setSelectedStatus] = useState<string>('TODOS')
   const [selectedFamilia, setSelectedFamilia] = useState<string>('TODOS')
+  const [selectedPeriodo, setSelectedPeriodo] = useState<string>('TODOS')
 
   // OP selecionada para detalhe histórico completo
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null)
@@ -124,15 +126,44 @@ export const ProductionHistoryPage: React.FC = () => {
           o.material_description.toLowerCase().includes(t)
         if (!match) return false
       }
+      if (
+        selectedEmpresa !== 'TODOS' &&
+        (o.empresa_code || (o as any).company_code) !== selectedEmpresa
+      )
+        return false
       if (selectedCentro !== 'TODOS' && o.centro_code !== selectedCentro) return false
       if (selectedLinha !== 'TODOS' && o.linha_code !== selectedLinha) return false
       if (selectedStatus !== 'TODOS' && o.status_op !== selectedStatus) return false
       if (selectedFamilia !== 'TODOS' && o.family_code !== selectedFamilia) return false
+      if (selectedPeriodo !== 'TODOS' && o.created_at) {
+        const orderDate = new Date(o.created_at).getTime()
+        const now = Date.now()
+        const daysDiff = (now - orderDate) / (1000 * 60 * 60 * 24)
+        if (selectedPeriodo === '7D' && daysDiff > 7) return false
+        if (selectedPeriodo === '30D' && daysDiff > 30) return false
+        if (selectedPeriodo === '90D' && daysDiff > 90) return false
+      }
       return true
     })
-  }, [orders, searchTerm, selectedCentro, selectedLinha, selectedStatus, selectedFamilia])
+  }, [
+    orders,
+    searchTerm,
+    selectedEmpresa,
+    selectedCentro,
+    selectedLinha,
+    selectedStatus,
+    selectedFamilia,
+    selectedPeriodo,
+  ])
 
-  // Centros e linhas dinâmicos
+  // Opções dinâmicas de filtros
+  const empresasDisponiveis = useMemo(
+    () =>
+      Array.from(
+        new Set(orders.map((o) => o.empresa_code || (o as any).company_code).filter(Boolean)),
+      ),
+    [orders],
+  )
   const centrosDisponiveis = useMemo(
     () => Array.from(new Set(orders.map((o) => o.centro_code))).filter(Boolean),
     [orders],
@@ -297,6 +328,20 @@ export const ProductionHistoryPage: React.FC = () => {
             />
           </div>
 
+          <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
+            <SelectTrigger className="h-8 text-xs w-[130px] bg-white">
+              <SelectValue placeholder="Empresa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TODOS">Empresa: Todas</SelectItem>
+              {empresasDisponiveis.map((e) => (
+                <SelectItem key={e} value={e}>
+                  {e}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={selectedCentro} onValueChange={setSelectedCentro}>
             <SelectTrigger className="h-8 text-xs w-[130px] bg-white">
               <SelectValue placeholder="Centro" />
@@ -352,20 +397,36 @@ export const ProductionHistoryPage: React.FC = () => {
             </SelectContent>
           </Select>
 
+          <Select value={selectedPeriodo} onValueChange={setSelectedPeriodo}>
+            <SelectTrigger className="h-8 text-xs w-[130px] bg-white">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TODOS">Período: Todos</SelectItem>
+              <SelectItem value="7D">Últimos 7 dias</SelectItem>
+              <SelectItem value="30D">Últimos 30 dias</SelectItem>
+              <SelectItem value="90D">Últimos 90 dias</SelectItem>
+            </SelectContent>
+          </Select>
+
           {(searchTerm ||
+            selectedEmpresa !== 'TODOS' ||
             selectedCentro !== 'TODOS' ||
             selectedLinha !== 'TODOS' ||
             selectedStatus !== 'TODOS' ||
-            selectedFamilia !== 'TODOS') && (
+            selectedFamilia !== 'TODOS' ||
+            selectedPeriodo !== 'TODOS') && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
+                setSelectedEmpresa('TODOS')
                 setSelectedCentro('TODOS')
                 setSelectedLinha('TODOS')
                 setSelectedStatus('TODOS')
                 setSelectedFamilia('TODOS')
+                setSelectedPeriodo('TODOS')
               }}
               className="h-8 text-xs text-slate-600 hover:text-slate-900"
             >
@@ -607,20 +668,27 @@ export const ProductionHistoryPage: React.FC = () => {
                           {/* Ponto / Marcador */}
                           <div className="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-[#004C97] shadow-xs" />
 
-                          <div className="bg-slate-50 hover:bg-blue-50/40 p-3 rounded-lg border border-slate-200 transition-colors space-y-1.5">
+                          <div className="bg-slate-50 hover:bg-blue-50/40 p-3.5 rounded-lg border border-slate-200 transition-colors space-y-2">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-900">{ev.title}</span>
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] font-mono px-1.5 py-0 bg-white"
+                                  className="text-[9px] font-mono px-1.5 py-0 bg-white text-slate-700"
                                 >
-                                  {ev.origin || 'SISTEMA'}
+                                  Origem: {ev.origin || 'SISTEMA'}
                                 </Badge>
                               </div>
 
                               <div className="text-[11px] font-mono text-slate-500 flex items-center gap-2">
-                                <span>{formatDatePTBR(ev.timestamp)}</span>
+                                <span className="font-semibold text-slate-700">
+                                  {new Date(ev.timestamp).toLocaleDateString('pt-BR')} &bull;{' '}
+                                  {new Date(ev.timestamp).toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                  })}
+                                </span>
                                 <span className="text-slate-300">&bull;</span>
                                 <span className="flex items-center gap-1">
                                   <User className="w-3 h-3 text-slate-400" />
@@ -629,16 +697,48 @@ export const ProductionHistoryPage: React.FC = () => {
                               </div>
                             </div>
 
-                            <p className="text-xs text-slate-600 leading-relaxed">
+                            <p className="text-xs text-slate-700 leading-relaxed">
                               {ev.description}
                             </p>
 
-                            {ev.payload?.quantity_impact_tons !== undefined && (
-                              <div className="text-[11px] font-mono text-[#004C97] font-semibold pt-0.5">
-                                Volume apontado / impacto:{' '}
-                                {formatQuantity(Number(ev.payload.quantity_impact_tons), 't')}
+                            {/* Metadados obrigatórios do evento: Data, Hora, Usuário, Evento, Valor, Origem, Alteração, Observação */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-600">
+                              <div>
+                                <span className="text-slate-400 block text-[9px] uppercase">
+                                  Evento / Tipo
+                                </span>
+                                <span className="font-medium text-slate-800">{ev.category}</span>
                               </div>
-                            )}
+                              <div>
+                                <span className="text-slate-400 block text-[9px] uppercase">
+                                  Valor / Impacto
+                                </span>
+                                <span className="font-medium text-slate-800">
+                                  {ev.payload?.quantity_impact_tons !== undefined
+                                    ? formatQuantity(Number(ev.payload.quantity_impact_tons), 't')
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[9px] uppercase">
+                                  Alteração
+                                </span>
+                                <span className="font-medium text-slate-800">
+                                  {String(ev.payload?.field_changed || 'Registro de Estado')}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[9px] uppercase">
+                                  Observação
+                                </span>
+                                <span
+                                  className="font-medium text-slate-800 truncate block"
+                                  title={ev.description}
+                                >
+                                  {String(ev.payload?.note || 'Sem anotação de desvio')}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )

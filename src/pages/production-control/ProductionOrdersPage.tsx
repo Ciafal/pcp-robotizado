@@ -628,10 +628,10 @@ export const ProductionOrdersPage: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleOpenDetail(o)}
-                              className="h-7 px-1.5 text-xs text-[#004C97] hover:text-[#003870]"
-                              title="Ver OP completa"
+                              className="h-7 px-2 text-xs font-medium text-[#004C97] hover:bg-blue-50"
+                              title="Detalhar OP completa"
                             >
-                              Ver OP
+                              Detalhar OP
                             </Button>
                             <Button
                               variant="ghost"
@@ -639,10 +639,10 @@ export const ProductionOrdersPage: React.FC = () => {
                               onClick={() =>
                                 navigate(`/pcp/producao/apontamentos?search=${o.op_number}`)
                               }
-                              className="h-7 px-1.5 text-xs text-slate-600 hover:text-slate-900"
-                              title="Ver apontamentos desta OP"
+                              className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              title="Ver Apontamentos desta OP"
                             >
-                              Apontamentos
+                              Ver Apontamentos
                             </Button>
                             <Button
                               variant="ghost"
@@ -650,10 +650,10 @@ export const ProductionOrdersPage: React.FC = () => {
                               onClick={() =>
                                 navigate(`/pcp/producao/historico?search=${o.op_number}`)
                               }
-                              className="h-7 px-1.5 text-xs text-slate-600 hover:text-slate-900"
-                              title="Ver histórico e timeline desta OP"
+                              className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              title="Ver Histórico e timeline desta OP"
                             >
-                              Histórico
+                              Ver Histórico
                             </Button>
                             <Button
                               variant="ghost"
@@ -661,8 +661,8 @@ export const ProductionOrdersPage: React.FC = () => {
                               onClick={() =>
                                 navigate(`/pcp/producao/ia-analises?search=${o.op_number}`)
                               }
-                              className="h-7 px-1.5 text-xs text-blue-700 hover:text-blue-900"
-                              title="Análise IA com Fato/Hipótese"
+                              className="h-7 px-2 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                              title="Análise IA com Fato, Histórico, Hipótese e Ação Sugerida"
                             >
                               Análise IA
                             </Button>

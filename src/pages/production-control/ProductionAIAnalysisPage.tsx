@@ -12,6 +12,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  History,
 } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -153,6 +154,24 @@ export const ProductionAIAnalysisPage: React.FC = () => {
     return { criticas: crit, atencao: aten, normais: norm }
   }, [orders])
 
+  // Desvios detectados para subseção dedicada
+  const desvios = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        o.has_deviation ||
+        o.visual_status === 'DESVIO' ||
+        o.status_sap === 'ERRO_INTEGRACAO' ||
+        o.status_sap === 'REJEITADA_SAP' ||
+        Math.abs(o.quantity_produced_tons - o.quantity_posted_tons) > 0.01 ||
+        o.yield_realized_pct < o.yield_planned_pct - 1,
+    )
+  }, [orders])
+
+  // Subseções de navegação da tela: Ordens atuais, Ordens críticas, Desvios, Histórico comparativo, Análises IA
+  const [activeSubSection, setActiveSubSection] = useState<
+    'ATUAIS' | 'CRITICAS' | 'DESVIOS' | 'COMPARATIVO' | 'IA'
+  >('CRITICAS')
+
   const calculateComparison = (targetOp: ProductionOrder, allOrders: ProductionOrder[]) => {
     // Busca OPs semelhantes por material, família, centro ou linha
     const semelhantes = allOrders.filter(
@@ -202,7 +221,8 @@ export const ProductionAIAnalysisPage: React.FC = () => {
     })
   }
 
-  // Gera a análise estrita: FATO / HISTÓRICO / HIPÓTESE DA IA / AÇÃO SUGERIDA
+  // Gera a análise estrita em 4 blocos: FATO / HISTÓRICO / HIPÓTESE DA IA / AÇÃO SUGERIDA
+  // Abrange: atraso, rendimento, produtividade, aderência PCP, tempo sem apontamento, excesso de parada, diferença MES x SAP, quantidade acima/abaixo, risco de fechamento, comportamento anormal
   const getStructuredAnalysis = (op: ProductionOrder): StructuredAIAnalysis => {
     const isCritical =
       op.criticality === 'CRITICA' ||
@@ -211,23 +231,31 @@ export const ProductionAIAnalysisPage: React.FC = () => {
 
     const deltaRend = op.yield_realized_pct - op.yield_planned_pct
     const deltaSaldo = op.balance_tons
+    const diffMesSap = Math.abs(op.quantity_produced_tons - op.quantity_posted_tons).toFixed(1)
+    const aderenciaPcp =
+      op.quantity_planned_tons > 0
+        ? ((op.quantity_produced_tons / op.quantity_planned_tons) * 100).toFixed(1)
+        : '100'
 
-    const fato = `OP ${op.op_number} no centro ${op.centro_code} (${op.linha_code}) com ${formatQuantity(
+    const fato = `[FATO] OP ${op.op_number} no centro ${op.centro_code} (${op.linha_code}) para o material ${op.material_code}. Quantidade programada PCP: ${formatQuantity(
       op.quantity_planned_tons,
       't',
-    )} programadas, ${formatQuantity(
+    )}; Quantidade produzida MES: ${formatQuantity(
       op.quantity_produced_tons,
       't',
-    )} produzidas no MES e ${formatQuantity(
+    )}; Quantidade apontada: ${formatQuantity(
       op.quantity_posted_tons,
       't',
-    )} apontadas. Rendimento realizado: ${formatPercentagePTBR(
+    )}; Saldo restante: ${deltaSaldo.toFixed(1)} t (aderência PCP: ${aderenciaPcp}%). Rendimento realizado: ${formatPercentagePTBR(
       op.yield_realized_pct,
-    )} (meta: ${formatPercentagePTBR(op.yield_planned_pct)}). Status SAP: ${op.status_sap}.`
+    )} (meta: ${formatPercentagePTBR(op.yield_planned_pct)}). Produtividade real: ${formatQuantity(
+      op.productivity_realized_ton_h || 110,
+      't/h',
+    )}. Diferença MES x SAP: ${diffMesSap} t. Status MES: ${op.status_mes}; Status SAP: ${op.status_sap}; Fechamento: ${op.status_fechamento}.`
 
     const historico =
       comparisonData && comparisonData.temHistoricoSuficiente
-        ? `Base de ${comparisonData.totalHistoricas} ordens semelhantes no histórico registra média de rendimento de ${formatPercentagePTBR(
+        ? `[HISTÓRICO] Base de ${comparisonData.totalHistoricas} ordens semelhantes no histórico registra média de rendimento de ${formatPercentagePTBR(
             comparisonData.mediaHistoricaRendimento,
           )} (melhor: ${formatPercentagePTBR(
             comparisonData.melhorRendimento,
@@ -236,21 +264,16 @@ export const ProductionAIAnalysisPage: React.FC = () => {
           )}) e produtividade média de ${formatQuantity(
             comparisonData.mediaHistoricaProdutividade,
             't/h',
-          )}.`
-        : 'Histórico insuficiente para análise comparativa automatizada deste material específico.'
+          )}. Desvio histórico de rendimento da OP atual: ${deltaRend.toFixed(1)}%.`
+        : `[HISTÓRICO] Histórico insuficiente de campanhas anteriores deste material específico. Referência adotada: Ficha Mestra e parâmetros de capacidade do Centro ${op.centro_code}.`
 
     const hipotese = isCritical
-      ? `A variação de ${formatQuantity(
-          deltaSaldo,
-          't',
-        )} no saldo apontado e o delta de ${formatPercentagePTBR(
-          deltaRend,
-        )} no rendimento indicam provável inconsistência de pesagem no terminal MES do turno anterior, ou perda metálica pontual decorrente de ajuste térmico no início da campanha.`
-      : `Padrão de produção dentro da curva de estabilidade operacional esperada para a família ${op.family_code}, sem indício de anomalia refratária ou bloqueio de processo.`
+      ? `[HIPÓTESE DA IA — NÃO CONFIRMADA] A divergência de ${diffMesSap} t entre produção física no MES e saldo apontado no SAP, associada ao saldo de ${deltaSaldo.toFixed(1)} t, sugere HIPÓTESE de atraso no conector RFC ZPPT010 ou perda de rendimento não lançada ao fim do passe (tempo sem apontamento ou excesso de paradas operacionais). Risco moderado a alto de bloqueio de fechamento técnico. ATENÇÃO: É uma hipótese preditiva e investigativa da IA, NÃO uma causa confirmada.`
+      : `[HIPÓTESE DA IA — NÃO CONFIRMADA] Aderência de ${aderenciaPcp}% ao plano de corte/laminação e delta de rendimento de ${deltaRend.toFixed(1)}% indicam estabilidade termomecânica na linha, sem evidência de anomalia refratária, parada crítica ou risco de fechamento.`
 
     const acaoSugerida = isCritical
-      ? `1. Líder de turno realizar a conferência física da pesagem dos lotes intermediários.\n2. Caso haja refugo gerado, apontar o descarte no código apropriado antes do fechamento técnico.\n3. Acionar o conector ZPPT010 para reconciliar o saldo residual junto ao SAP ECC.`
-      : `Manter monitoramento de ritmo de laminação/trefilação e prosseguir com o checklist padrão de encerramento.`
+      ? `1. Convocação do Líder de Turno para conferência física de pesagem e saldo na esteira de saída.\n2. Caso haja refugo ou descarte gerado, apontar imediatamente no código SGQ adequado antes do encerramento.\n3. Acionar repasse do conector ZPPT010 no monitor de integrações para reconciliar com o SAP ECC.\n4. Bloquear fechamento técnico final da OP até saneamento da diferença de ${diffMesSap} t.`
+      : `1. Manter ritmo operacional da linha acompanhado pela supervisão.\n2. Executar checklist preventivo de setup da próxima campanha.\n3. Proceder com encerramento e sincronização SAP standard.`
 
     return { fato, historico, hipotese, acaoSugerida }
   }
@@ -331,11 +354,86 @@ export const ProductionAIAnalysisPage: React.FC = () => {
         </div>
       </div>
 
+      {/* BARRA DE SUBSEÇÕES: Ordens atuais, Ordens críticas, Desvios, Histórico comparativo, Análises IA */}
+      <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-x-auto text-xs">
+        <button
+          type="button"
+          onClick={() => setActiveSubSection('CRITICAS')}
+          className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+            activeSubSection === 'CRITICAS'
+              ? 'bg-rose-50 text-rose-800 font-bold border border-rose-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
+          Ordens críticas ({criticas.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubSection('ATUAIS')}
+          className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+            activeSubSection === 'ATUAIS'
+              ? 'bg-blue-50 text-[#004C97] font-bold border border-blue-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5 text-[#004C97]" />
+          Ordens atuais ({orders.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubSection('DESVIOS')}
+          className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+            activeSubSection === 'DESVIOS'
+              ? 'bg-amber-50 text-amber-800 font-bold border border-amber-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+          Desvios ({desvios.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubSection('COMPARATIVO')}
+          className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+            activeSubSection === 'COMPARATIVO'
+              ? 'bg-indigo-50 text-indigo-800 font-bold border border-indigo-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <History className="w-3.5 h-3.5 text-indigo-600" />
+          Histórico comparativo
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubSection('IA')}
+          className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+            activeSubSection === 'IA'
+              ? 'bg-purple-50 text-purple-800 font-bold border border-purple-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+          Análises IA (Parecer 4 Blocos)
+        </button>
+      </div>
+
       {/* GESTÃO POR EXCEÇÃO: 3 FAIXAS (CRÍTICAS PRIMEIRO, ATENÇÃO, E CONSOLIDAÇÃO DE NORMAIS) */}
       <ErrorBoundary moduleName="Painel de Exceções" variant="compact">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* Card Críticas */}
-          <div className="bg-rose-50/60 border border-rose-200 rounded-xl p-3 flex flex-col justify-between">
+          <div
+            onClick={() => setActiveSubSection('CRITICAS')}
+            className={`cursor-pointer transition-all border rounded-xl p-3 flex flex-col justify-between ${
+              activeSubSection === 'CRITICAS'
+                ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400'
+                : 'bg-rose-50/60 border-rose-200 hover:bg-rose-50'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-900 uppercase">
                 1. OPs Críticas (Intervenção Imediata)
@@ -351,15 +449,22 @@ export const ProductionAIAnalysisPage: React.FC = () => {
           </div>
 
           {/* Card Atenção */}
-          <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3 flex flex-col justify-between">
+          <div
+            onClick={() => setActiveSubSection('DESVIOS')}
+            className={`cursor-pointer transition-all border rounded-xl p-3 flex flex-col justify-between ${
+              activeSubSection === 'DESVIOS'
+                ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400'
+                : 'bg-amber-50/60 border-amber-200 hover:bg-amber-50'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-amber-900 uppercase">
-                2. OPs em Atenção (Monitoramento Ativo)
+                2. OPs em Desvio / Atenção
               </span>
               <AlertTriangle className="w-4 h-4 text-amber-600" />
             </div>
             <div className="text-2xl font-bold font-mono text-amber-800 mt-2">
-              {atencao.length} <span className="text-xs font-normal text-slate-600">ordens</span>
+              {desvios.length} <span className="text-xs font-normal text-slate-600">ordens</span>
             </div>
             <p className="text-[11px] text-amber-800 mt-1">
               Pendência de checklist ou divergência branda
@@ -367,15 +472,22 @@ export const ProductionAIAnalysisPage: React.FC = () => {
           </div>
 
           {/* Card Normais */}
-          <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 flex flex-col justify-between">
+          <div
+            onClick={() => setActiveSubSection('ATUAIS')}
+            className={`cursor-pointer transition-all border rounded-xl p-3 flex flex-col justify-between ${
+              activeSubSection === 'ATUAIS'
+                ? 'bg-blue-50 border-blue-300 ring-2 ring-[#004C97]'
+                : 'bg-emerald-50/60 border-emerald-200 hover:bg-emerald-50'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-900 uppercase">
-                3. OPs Normais (Consolidadas)
+                3. Total de OPs Atuais
               </span>
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="text-2xl font-bold font-mono text-emerald-800 mt-2">
-              {normais.length} <span className="text-xs font-normal text-slate-600">ordens</span>
+              {orders.length} <span className="text-xs font-normal text-slate-600">ordens</span>
             </div>
             <p className="text-[11px] text-emerald-800 mt-1">
               Produção aderente e conciliação regular

@@ -44,12 +44,21 @@ import {
   ShoppingBag,
   HelpCircle,
   RotateCcw,
+  Network,
+  ClipboardList,
+  ClipboardCheck,
+  BrainCircuit,
+  PlayCircle,
+  Database,
+  Factory,
+  Route,
+  Gauge,
+  CalendarOff,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
 import { EnvironmentSelectorBadge } from './EnvironmentSelectorBadge'
 import { Button } from '@/components/ui/button'
-import { Network } from 'lucide-react'
 
 const logoCiafalBlue = 'https://img.usecurling.com/i?q=ciafal&color=blue'
 
@@ -868,15 +877,21 @@ const officialNavGroups: NavGroup[] = [
     groupTitle: 'CONTROLE DE PRODUÇÃO',
     items: [
       {
+        title: 'Torre de Controle (Visão Geral)',
+        href: '/pcp/producao/visao-geral',
+        icon: Activity,
+        permission: 'pcp.production.view',
+      },
+      {
         title: 'Controle de Ordens de Produção',
         href: '/pcp/producao/ordens',
-        icon: Layers,
+        icon: ClipboardList,
         permission: 'pcp.production.view',
       },
       {
         title: 'Apontamentos',
         href: '/pcp/producao/apontamentos',
-        icon: Activity,
+        icon: ClipboardCheck,
         permission: 'pcp.production.view',
       },
       {
@@ -888,7 +903,7 @@ const officialNavGroups: NavGroup[] = [
       {
         title: 'Análise de Ordens',
         href: '/pcp/producao/ia-analises',
-        icon: Sparkles,
+        icon: BrainCircuit,
         permission: 'pcp.production.view',
       },
     ],
@@ -899,7 +914,7 @@ const officialNavGroups: NavGroup[] = [
       {
         title: 'Acompanhamento',
         href: '/pcp/sequenciamento/operacional',
-        icon: Sparkles,
+        icon: PlayCircle,
         permission: 'pcp.schedule.view',
       },
       {
@@ -1052,13 +1067,37 @@ const officialNavGroups: NavGroup[] = [
       {
         title: 'Centros e Ficha Mestra',
         href: '/pcp/ficha-mestre',
-        icon: FileSpreadsheet,
+        icon: Factory,
         permission: 'pcp.masterdata.view',
       },
       {
         title: 'Hierarquia das Linhas',
         href: '/pcp/linhas/capacidades',
-        icon: Clock,
+        icon: Network,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Rotas de Produção',
+        href: '/pcp/linhas/dependencias',
+        icon: Route,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Matriz de Setup',
+        href: '/pcp/regras',
+        icon: Sliders,
+        permission: 'pcp.rules.view',
+      },
+      {
+        title: 'Produtividade Padrão',
+        href: '/pcp/linhas/capacidades',
+        icon: Gauge,
+        permission: 'pcp.masterdata.view',
+      },
+      {
+        title: 'Paradas Programadas',
+        href: '/pcp/linhas/paradas-programadas',
+        icon: CalendarOff,
         permission: 'pcp.masterdata.view',
       },
     ],
@@ -1141,12 +1180,16 @@ export const PCPSidebar: React.FC = () => {
   // Estado de expansão dos grupos colapsáveis:
   // (a) Grupo "PRINCIPAL" EXPANDIDO POR PADRÃO (false no collapsedGroups) para garantir visualização imediata da página principal
   // (b) Grupo "INTEGRAÇÕES & GOVERNANÇA" EXPANDIDO POR PADRÃO (false no collapsedGroups)
-  // (c) Auto-expandir qualquer grupo que contenha a rota ativa
+  // (c) Grupo "CONTROLE DE PRODUÇÃO" EXPANDIDO POR PADRÃO se estiver em rota /pcp/producao
+  // (d) Auto-expandir qualquer grupo que contenha a rota ativa
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     const currentPath = window.location?.pathname || ''
     officialNavGroups.forEach((g) => {
       const isPrincipal = g.groupTitle === 'PRINCIPAL'
+      const isProducaoRoute =
+        g.groupTitle === 'CONTROLE DE PRODUÇÃO' &&
+        (currentPath.startsWith('/pcp/producao') || currentPath.startsWith('/controle-producao'))
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isGovernanceRoute =
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
@@ -1158,7 +1201,12 @@ export const PCPSidebar: React.FC = () => {
           currentPath.startsWith('/pcp/status-homologacao') ||
           currentPath.startsWith('/pcp/qualidade-dados'))
 
-      if (isPrincipal || g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' || isGovernanceRoute) {
+      if (
+        isPrincipal ||
+        g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' ||
+        isGovernanceRoute ||
+        isProducaoRoute
+      ) {
         initial[g.groupTitle] = false
       } else {
         initial[g.groupTitle] = true
@@ -1284,24 +1332,43 @@ export const PCPSidebar: React.FC = () => {
                 }}
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {group.groupTitle === 'PRINCIPAL' && (
+                    <LayoutDashboard className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'PROGRAMAÇÃO' && (
+                    <CalendarDays className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'REUNIÃO PCP' && (
+                    <Users className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'CONTROLE DE PRODUÇÃO' && (
+                    <Activity className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'EXECUÇÃO' && (
+                    <PlayCircle className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
                   {group.groupTitle === 'ANÁLISE DE CARTEIRA' && (
                     <Briefcase className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
                   {group.groupTitle === 'GESTÃO DE MP' && (
                     <Boxes className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
-                  {group.groupTitle === 'CONTROLE DE PRODUÇÃO' && (
-                    <Activity className="w-3 h-3 text-[#004C97] shrink-0" />
+                  {group.groupTitle === 'CADASTROS' && (
+                    <Database className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'RELATÓRIOS' && (
+                    <BarChart3 className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' && (
+                    <Network className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
                   {group.groupTitle === 'CONTROLE DE PRODUÇÃO' ? (
-                    <Link
-                      to="/pcp/producao/visao-geral"
-                      onClick={(e) => e.stopPropagation()}
-                      className="truncate hover:underline text-slate-700 hover:text-[#004C97]"
-                      title="Abrir Controle de Produção"
+                    <span
+                      className="truncate text-slate-700 hover:text-[#004C97]"
+                      title="Expandir Controle de Produção"
                     >
                       {group.groupTitle}
-                    </Link>
+                    </span>
                   ) : (
                     <span className="truncate">{group.groupTitle}</span>
                   )}
@@ -1381,18 +1448,18 @@ export const PCPSidebar: React.FC = () => {
                         key={item.title}
                         to={item.href}
                         title={item.title}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors relative ${
                           isSelected
-                            ? 'bg-[#004C97] text-white font-bold shadow-xs'
+                            ? 'bg-blue-50/90 text-[#004C97] font-bold shadow-2xs border-l-2 border-[#004C97]'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                         }`}
                       >
                         <ItemIcon
                           className={`w-3.5 h-3.5 shrink-0 ${
-                            isSelected ? 'text-white' : 'text-slate-500'
+                            isSelected ? 'text-[#004C97]' : 'text-slate-500'
                           }`}
                         />
-                        <span className="truncate" title={item.title}>
+                        <span className="truncate flex-1" title={item.title}>
                           {item.title}
                         </span>
                       </Link>
