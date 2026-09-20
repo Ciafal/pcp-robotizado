@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { PCPNavbar, PCPSidebar } from './layout/PCPNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'

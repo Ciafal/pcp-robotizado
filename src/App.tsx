@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
@@ -22,7 +22,16 @@ const ModuleFallback = () => (
 // Preserva querystrings (?token=..., ?v=...) e hash, garantindo 1 único redirect sem loop nem tela branca.
 export const RootRedirect: React.FC = () => {
   const location = useLocation()
-  return <Navigate to={`/pcp/cockpit${location.search}${location.hash}`} replace />
+  const navigate = useNavigate()
+  const target = `/pcp/cockpit${location.search}${location.hash}`
+
+  React.useEffect(() => {
+    // Redirecionamento imperativo síncrono/imediato no mount para contornar ambientes
+    // onde o componente declarativo <Navigate /> não transiciona a rota no primeiro frame
+    navigate(target, { replace: true })
+  }, [navigate, target])
+
+  return <Navigate to={target} replace />
 }
 
 // Lazy load dos componentes e layouts com retry resiliente
@@ -200,21 +209,21 @@ const ProductionIntegrationMapPage = lazyWithRetry(
 )
 const LineCapacitiesSubpage = lazyWithRetry(
   () =>
-    import('@/pages/LineCapacitiesSubpage').then((m) => ({
+    import('@/pages/LineCapacitiesSubpage').then((m: any) => ({
       default: m.default ?? m.LineCapacitiesSubpage,
     })),
   'LineCapacitiesSubpage',
 )
 const LineDependenciesSubpage = lazyWithRetry(
   () =>
-    import('@/pages/LineDependenciesSubpage').then((m) => ({
+    import('@/pages/LineDependenciesSubpage').then((m: any) => ({
       default: m.default ?? m.LineDependenciesSubpage,
     })),
   'LineDependenciesSubpage',
 )
 const LineHistorySubpage = lazyWithRetry(
   () =>
-    import('@/pages/LineHistorySubpage').then((m) => ({
+    import('@/pages/LineHistorySubpage').then((m: any) => ({
       default: m.default ?? m.LineHistorySubpage,
     })),
   'LineHistorySubpage',
@@ -223,42 +232,42 @@ const LineHistorySubpage = lazyWithRetry(
 // Módulos Auxiliares / Legado
 const LineMasterPage = lazyWithRetry(
   () =>
-    import('@/pages/LineMasterPage').then((m) => ({
+    import('@/pages/LineMasterPage').then((m: any) => ({
       default: m.default ?? m.LineMasterPage,
     })),
   'LineMasterPage',
 )
 const LineResponsiblesPage = lazyWithRetry(
   () =>
-    import('@/pages/LineResponsiblesPage').then((m) => ({
+    import('@/pages/LineResponsiblesPage').then((m: any) => ({
       default: m.default ?? m.LineResponsiblesPage,
     })),
   'LineResponsiblesPage',
 )
 const SchedulesPage = lazyWithRetry(
   () =>
-    import('@/pages/SchedulesPage').then((m) => ({
+    import('@/pages/SchedulesPage').then((m: any) => ({
       default: m.default ?? m.SchedulesPage,
     })),
   'SchedulesPage',
 )
 const AuditPage = lazyWithRetry(
   () =>
-    import('@/pages/AuditPage').then((m) => ({
+    import('@/pages/AuditPage').then((m: any) => ({
       default: m.default ?? m.AuditPage,
     })),
   'AuditPage',
 )
 const ReasonsAndGovernancePage = lazyWithRetry(
   () =>
-    import('@/pages/ReasonsAndGovernancePage').then((m) => ({
+    import('@/pages/ReasonsAndGovernancePage').then((m: any) => ({
       default: m.default ?? m.ReasonsAndGovernancePage,
     })),
   'ReasonsAndGovernancePage',
 )
 const AccessAdminPage = lazyWithRetry(
   () =>
-    import('@/pages/AccessAdminPage').then((m) => ({
+    import('@/pages/AccessAdminPage').then((m: any) => ({
       default: m.default ?? m.AccessAdminPage,
     })),
   'AccessAdminPage',
@@ -618,7 +627,7 @@ const ModulePreparationPage = lazyWithRetry(
 )
 const NotFound = lazyWithRetry(
   () =>
-    import('@/pages/NotFound').then((m) => ({
+    import('@/pages/NotFound').then((m: any) => ({
       default: m.default ?? m.NotFound,
     })),
   'NotFound',
@@ -950,8 +959,15 @@ export const App: React.FC = () => {
                       path="/dwp/cockpit-executivo"
                       element={<Navigate to="/pcp/cockpit-executivo" replace />}
                     />
-                    {/* Landing Raiz: Redirecionamento determinístico imediato para a Página PRINCIPAL (/pcp/cockpit) */}
-                    <Route path="/" element={<RootRedirect />} />
+                    {/* Landing Raiz: Renderização direta da Página PRINCIPAL (Cockpit) sem redirect intermediário */}
+                    <Route
+                      path="/"
+                      element={
+                        <ErrorBoundary moduleName="Cockpit Principal">
+                          <Index />
+                        </ErrorBoundary>
+                      }
+                    />
                     <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route
