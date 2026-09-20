@@ -180,10 +180,7 @@ export const ProductionHistoryPage: React.FC = () => {
       })
     }
 
-    if (
-      selectedOrder.started_at &&
-      !existingCategories.has('INICIO_PRODUCAO')
-    ) {
+    if (selectedOrder.started_at && !existingCategories.has('INICIO_PRODUCAO')) {
       timeline.push({
         id: `inicio-prod-${selectedOrder.id}`,
         category: 'INICIO_PRODUCAO',
@@ -203,7 +200,8 @@ export const ProductionHistoryPage: React.FC = () => {
         description: `Total de ${formatQuantity(selectedOrder.quantity_posted_tons, 't')} lançados e conciliados.`,
         userOrSystem: 'Líder / MES 4.0',
         origin: 'MES',
-        timestamp: selectedOrder.last_posting_at || selectedOrder.created_at || new Date().toISOString(),
+        timestamp:
+          selectedOrder.last_posting_at || selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
@@ -220,7 +218,10 @@ export const ProductionHistoryPage: React.FC = () => {
         userOrSystem: 'Supervisão de Produção',
         origin: 'MES',
         timestamp:
-          selectedOrder.ended_at || selectedOrder.last_posting_at || selectedOrder.created_at || new Date().toISOString(),
+          selectedOrder.ended_at ||
+          selectedOrder.last_posting_at ||
+          selectedOrder.created_at ||
+          new Date().toISOString(),
       })
     }
 

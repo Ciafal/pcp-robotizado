@@ -157,7 +157,7 @@ class WeeklyDerivationEngine {
       productivity_rate_th: Math.round((plannedTons / derivedHours) * 10) / 10 || 15,
       production_hours: derivedHours,
       setup_duration_minutes: 30,
-      status: item.status || 'RASCUNHO',
+      status: item.status || 'DRAFT',
       version: item.version || 1,
       order_type: item.order_type || 'MTS',
       start_datetime: item.end_datetime || item.start_datetime,
