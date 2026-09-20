@@ -1355,45 +1355,111 @@ export const App: React.FC = () => {
                     }
                   />
                   {/* 6. Módulos Auxiliares & Governança - Centros e Ficha Mestra */}
+                  {/* ROTAS CANÔNICAS: CADASTROS */}
                   <Route
-                    path="/pcp/ficha-mestre"
+                    path="/pcp/cadastros/ficha-mestre"
                     element={
                       <PermissionGuard permission="pcp.masterdata.view">
-                        <LineMasterPage />
+                        <ErrorBoundary moduleName="Centros e Ficha Mestra">
+                          <LineMasterPage />
+                        </ErrorBoundary>
                       </PermissionGuard>
                     }
+                  />
+                  <Route
+                    path="/pcp/cadastros/hierarquia"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <ErrorBoundary moduleName="Hierarquia das Linhas">
+                          <LineCapacitiesSubpage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cadastros/rotas"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <ErrorBoundary moduleName="Rotas de Produção">
+                          <LineDependenciesSubpage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cadastros/matriz-setup"
+                    element={
+                      <PermissionGuard permission="pcp.rules.view">
+                        <ErrorBoundary moduleName="Matriz de Setup">
+                          <RulesEnginePage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cadastros/produtividade"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <ErrorBoundary moduleName="Produtividade Padrão">
+                          <LineCapacitiesSubpage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cadastros/paradas-programadas"
+                    element={
+                      <PermissionGuard permission="pcp.rules.view">
+                        <ErrorBoundary moduleName="Paradas Programadas">
+                          <RulesEnginePage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* REDIRECTS DE COMPATIBILIDADE PARA ROTAS ANTIGAS DE CADASTROS */}
+                  <Route
+                    path="/pcp/linhas/paradas-programadas"
+                    element={<Navigate to="/pcp/cadastros/paradas-programadas" replace />}
+                  />
+                  <Route
+                    path="/pcp/ficha-mestre"
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp/centros-ficha-mestre"
-                    element={
-                      <PermissionGuard permission="pcp.masterdata.view">
-                        <LineMasterPage />
-                      </PermissionGuard>
-                    }
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp/linhas-ficha-mestre"
-                    element={
-                      <PermissionGuard permission="pcp.masterdata.view">
-                        <LineMasterPage />
-                      </PermissionGuard>
-                    }
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/centros-ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/linhas-ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp-robotizado/centros-ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp-robotizado/linhas-ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp/linhas/capacidades"
+                    element={<Navigate to="/pcp/cadastros/hierarquia" replace />}
+                  />
+                  <Route
+                    path="/pcp/linhas/dependencias"
+                    element={<Navigate to="/pcp/cadastros/rotas" replace />}
+                  />
+                  <Route
+                    path="/pcp/linhas/sequenciamento"
+                    element={<Navigate to="/pcp/cadastros/rotas" replace />}
                   />
                   <Route
                     path="/pcp/regras"
@@ -1677,11 +1743,11 @@ export const App: React.FC = () => {
                   />
                   <Route
                     path="/pcp-robotizado/ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp-robotizado/administracao/ficha-mestre"
-                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                    element={<Navigate to="/pcp/cadastros/ficha-mestre" replace />}
                   />
                   <Route
                     path="/pcp-robotizado/regras"

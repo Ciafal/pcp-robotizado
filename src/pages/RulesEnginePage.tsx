@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Cpu,
   Layers,
@@ -59,8 +59,25 @@ import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndust
 
 export const RulesEnginePage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
+
+  // Determinação da aba ativa inicial baseada na rota e parâmetros
+  const initialActiveTab = useMemo(() => {
+    const path = location.pathname.toLowerCase()
+    if (path.includes('paradas-programadas')) {
+      return 'paradas-programadas'
+    }
+    if (path.includes('matriz-setup')) {
+      return 'setup-acerto'
+    }
+    const tabParam = searchParams.get('tab')
+    if (tabParam) {
+      return tabParam
+    }
+    return 'setup-acerto'
+  }, [location.pathname, searchParams])
 
   // Painel de Filtros Operacionais no Topo
   const [selectedCompany, setSelectedCompany] = useState<string>('ALL') // Empresa
@@ -73,7 +90,12 @@ export const RulesEnginePage: React.FC = () => {
   const [validityFilter, setValidityFilter] = useState<string>('ALL') // Período de Validade/Vigência
   const [searchTerm, setSearchTerm] = useState<string>('') // Busca textual geral
 
-  const [activeTab, setActiveTab] = useState<string>('setup-acerto')
+  const [activeTab, setActiveTab] = useState<string>(initialActiveTab)
+
+  // Sincroniza a aba quando a rota mudar (ex: navegação via menu)
+  useEffect(() => {
+    setActiveTab(initialActiveTab)
+  }, [initialActiveTab])
 
   // Estados de Dados do Backend (Fontes Oficiais da Ficha Mestra / Centro)
   const [lines, setLines] = useState<ProductionLine[]>([])
@@ -185,35 +207,36 @@ export const RulesEnginePage: React.FC = () => {
     return Array.from(set)
   }, [lines, setupList])
 
-  // Filtros aplicados na lista de Setup
+  // Filtros aplicados na lista de Setup (blindado contra undefined/null)
   const filteredSetups = useMemo(() => {
-    return setupList.filter((item) => {
+    return (setupList ?? []).filter((item) => {
+      if (!item) return false
       if (selectedPlant !== 'ALL' && item.center_code && item.center_code !== selectedPlant)
         return false
       if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
       if (selectedStatus !== 'ALL' && item.status !== selectedStatus) return false
-      if (!matchesValidity(`${item.validity_start} ${item.validity_end}`)) return false
+      if (!matchesValidity(`${item.validity_start ?? ''} ${item.validity_end ?? ''}`)) return false
 
       if (selectedGaugeMaterial) {
         const gm = selectedGaugeMaterial.toLowerCase()
         const matchGauge =
-          item.from_family_code.toLowerCase().includes(gm) ||
-          item.from_code_prefix.toLowerCase().includes(gm) ||
-          item.from_description_gauge.toLowerCase().includes(gm) ||
-          item.to_family_code.toLowerCase().includes(gm) ||
-          item.to_code_prefix.toLowerCase().includes(gm) ||
-          item.to_description_gauge.toLowerCase().includes(gm)
+          (item.from_family_code ?? '').toLowerCase().includes(gm) ||
+          (item.from_code_prefix ?? '').toLowerCase().includes(gm) ||
+          (item.from_description_gauge ?? '').toLowerCase().includes(gm) ||
+          (item.to_family_code ?? '').toLowerCase().includes(gm) ||
+          (item.to_code_prefix ?? '').toLowerCase().includes(gm) ||
+          (item.to_description_gauge ?? '').toLowerCase().includes(gm)
         if (!matchGauge) return false
       }
 
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
         const matchSearch =
-          item.line_code.toLowerCase().includes(q) ||
-          item.from_family_code.toLowerCase().includes(q) ||
-          item.to_family_code.toLowerCase().includes(q) ||
-          item.to_description_gauge.toLowerCase().includes(q) ||
-          item.work_center.toLowerCase().includes(q) ||
+          (item.line_code ?? '').toLowerCase().includes(q) ||
+          (item.from_family_code ?? '').toLowerCase().includes(q) ||
+          (item.to_family_code ?? '').toLowerCase().includes(q) ||
+          (item.to_description_gauge ?? '').toLowerCase().includes(q) ||
+          (item.work_center ?? '').toLowerCase().includes(q) ||
           (item.responsible_name && item.responsible_name.toLowerCase().includes(q))
         if (!matchSearch) return false
       }
@@ -229,9 +252,10 @@ export const RulesEnginePage: React.FC = () => {
     searchTerm,
   ])
 
-  // Filtros aplicados nas Paradas Programadas
+  // Filtros aplicados nas Paradas Programadas (blindado contra undefined/null)
   const filteredStops = useMemo(() => {
-    return stopsList.filter((item) => {
+    return (stopsList ?? []).filter((item) => {
+      if (!item) return false
       if (selectedPlant !== 'ALL' && item.center_code && item.center_code !== selectedPlant)
         return false
       if (selectedLine !== 'ALL' && item.line_code !== selectedLine) return false
@@ -242,10 +266,10 @@ export const RulesEnginePage: React.FC = () => {
       if (searchTerm) {
         const q = searchTerm.toLowerCase()
         const matchSearch =
-          item.line_code.toLowerCase().includes(q) ||
-          item.stop_type.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q) ||
-          item.reason.toLowerCase().includes(q) ||
+          (item.line_code ?? '').toLowerCase().includes(q) ||
+          (item.stop_type ?? '').toLowerCase().includes(q) ||
+          (item.description ?? '').toLowerCase().includes(q) ||
+          (item.reason ?? '').toLowerCase().includes(q) ||
           (item.responsible_name && item.responsible_name.toLowerCase().includes(q))
         if (!matchSearch) return false
       }
@@ -879,7 +903,7 @@ export const RulesEnginePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredSetups.map((row) => (
+                  {(filteredSetups ?? []).map((row) => (
                     <tr
                       key={row.id}
                       onClick={() => handleSelectSetupRow(row)}
@@ -1037,7 +1061,7 @@ export const RulesEnginePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {filteredStops.map((row) => (
+                  {(filteredStops ?? []).map((row) => (
                     <tr
                       key={row.id}
                       className="hover:bg-blue-50/40 transition-colors whitespace-nowrap"

@@ -1061,39 +1061,39 @@ const officialNavGroups: NavGroup[] = [
     items: [
       {
         title: 'Centros e Ficha Mestra',
-        href: '/pcp/ficha-mestre',
+        href: '/pcp/cadastros/ficha-mestre',
         icon: Factory,
         permission: 'pcp.masterdata.view',
       },
       {
         title: 'Hierarquia das Linhas',
-        href: '/pcp/linhas/capacidades',
+        href: '/pcp/cadastros/hierarquia',
         icon: Network,
         permission: 'pcp.masterdata.view',
       },
       {
         title: 'Rotas de Produção',
-        href: '/pcp/linhas/dependencias',
+        href: '/pcp/cadastros/rotas',
         icon: Route,
         permission: 'pcp.masterdata.view',
       },
       {
         title: 'Matriz de Setup',
-        href: '/pcp/regras',
+        href: '/pcp/cadastros/matriz-setup',
         icon: Sliders,
         permission: 'pcp.rules.view',
       },
       {
         title: 'Produtividade Padrão',
-        href: '/pcp/linhas/capacidades',
+        href: '/pcp/cadastros/produtividade',
         icon: Gauge,
         permission: 'pcp.masterdata.view',
       },
       {
         title: 'Paradas Programadas',
-        href: '/pcp/linhas/paradas-programadas',
+        href: '/pcp/cadastros/paradas-programadas',
         icon: CalendarOff,
-        permission: 'pcp.masterdata.view',
+        permission: 'pcp.rules.view',
       },
     ],
   },
@@ -1187,6 +1187,9 @@ export const PCPSidebar: React.FC = () => {
         (currentPath.startsWith('/pcp/controle-producao') ||
           currentPath.startsWith('/pcp/producao') ||
           currentPath.startsWith('/controle-producao'))
+      // Auto-expansão do grupo CADASTROS quando currentPath.startsWith('/pcp/cadastros')
+      const isCadastrosRoute =
+        g.groupTitle === 'CADASTROS' && currentPath.startsWith('/pcp/cadastros')
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isGovernanceRoute =
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
@@ -1202,7 +1205,8 @@ export const PCPSidebar: React.FC = () => {
         isPrincipal ||
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' ||
         isGovernanceRoute ||
-        isProducaoRoute
+        isProducaoRoute ||
+        isCadastrosRoute
       ) {
         initial[g.groupTitle] = false
       } else {
@@ -1290,7 +1294,11 @@ export const PCPSidebar: React.FC = () => {
           location.pathname.startsWith('/pcp/producao') ||
           location.pathname.startsWith('/controle-producao'))
 
-      if (hasActiveItem || isGovernanceDirect || isProducaoDirect) {
+      // Se a rota for do grupo CADASTROS (/pcp/cadastros), força expansão
+      const isCadastrosDirect =
+        group.groupTitle === 'CADASTROS' && location.pathname.startsWith('/pcp/cadastros')
+
+      if (hasActiveItem || isGovernanceDirect || isProducaoDirect || isCadastrosDirect) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
             return { ...prev, [group.groupTitle]: false }
@@ -1452,10 +1460,12 @@ export const PCPSidebar: React.FC = () => {
                                                     location.pathname.startsWith(
                                                       '/pcp/configuracoes',
                                                     )
-                                                  : location.pathname === item.href ||
-                                                    (item.href.includes('?') &&
-                                                      location.pathname + location.search ===
-                                                        item.href)
+                                                  : group.groupTitle === 'CADASTROS'
+                                                    ? location.pathname === item.href
+                                                    : location.pathname === item.href ||
+                                                      (item.href.includes('?') &&
+                                                        location.pathname + location.search ===
+                                                          item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 
