@@ -1,14 +1,16 @@
 import React from 'react'
-import { AlertCircle, CheckCircle2, RefreshCw, Server, ArrowRight } from 'lucide-react'
+import { RefreshCw, Server, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { MESConnectionStatus } from '@/services/pcp-production-service'
 import { Link } from 'react-router-dom'
+import { formatDatePTBR } from '@/lib/formatters-ptbr'
 
 interface MESIntegrationBannerProps {
   status: MESConnectionStatus | null
   loading?: boolean
   onRefresh?: () => void
+  compact?: boolean
 }
 
 export const MESIntegrationBanner: React.FC<MESIntegrationBannerProps> = ({
@@ -17,89 +19,107 @@ export const MESIntegrationBanner: React.FC<MESIntegrationBannerProps> = ({
   onRefresh,
 }) => {
   const isAvailable = status?.available ?? false
-  const isDisconnectedOrNotConfigured = !isAvailable
+
+  const formatLastSync = (isoString?: string) => {
+    if (!isoString) return 'Não sincronizado'
+    try {
+      const d = new Date(isoString)
+      if (isNaN(d.getTime())) return 'Não sincronizado'
+      const datePart = formatDatePTBR(d)
+      const hours = String(d.getHours()).padStart(2, '0')
+      const minutes = String(d.getMinutes()).padStart(2, '0')
+      return `${datePart} ${hours}:${minutes}`
+    } catch {
+      return 'Não sincronizado'
+    }
+  }
+
+  const lastSyncText = formatLastSync(status?.lastChecked)
 
   return (
     <div
       data-testid="mes-integration-banner"
-      className={`rounded-lg border px-4 py-3 mb-4 transition-colors ${
-        isAvailable
-          ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-          : 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-xs'
-      }`}
+      className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 transition-colors"
     >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div
-            className={`p-2 rounded-md ${
-              isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'
-            }`}
-          >
-            {isAvailable ? (
-              <CheckCircle2 className="w-5 h-5" />
-            ) : (
-              <AlertCircle className="w-5 h-5" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">
-                {isAvailable
-                  ? 'Conexão Operacional MES 4.0 Ativa'
-                  : 'Conector MES 4.0 não configurado ou desconectado.'}
-              </span>
-              <Badge
-                variant="outline"
-                className={`text-xs uppercase font-mono ${
-                  isAvailable
-                    ? 'border-emerald-300 text-emerald-800 bg-white'
-                    : 'border-amber-400 text-amber-900 bg-white font-semibold'
-                }`}
-              >
-                {status?.source === 'MES_40_INTEGRATED'
-                  ? 'Conectado (Tempo Real)'
-                  : 'Desconectado / Modo Leitura'}
-              </Badge>
-              <span className="text-xs text-slate-500">
-                (Origens: <strong>MES</strong> = operação | <strong>SAP</strong> = ERP |{' '}
-                <strong>PCP</strong> = programação)
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 mt-1 max-w-4xl leading-relaxed">
-              {isDisconnectedOrNotConfigured
-                ? 'Conector MES 4.0 não configurado ou desconectado. O módulo está operando em modo resiliente de visualização e histórico com dados consolidados. Verifique o endpoint de telemetria ou configure a integração.'
-                : status?.message ||
-                  'Telemetria industrial e conectores de chão de fábrica operando normalmente.'}
-            </p>
-          </div>
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-800 tracking-tight">MES 4.0</span>
+          {isAvailable ? (
+            <Badge
+              variant="outline"
+              className="text-[11px] font-medium border-emerald-200 bg-emerald-50 text-emerald-800 flex items-center gap-1 px-1.5 py-0.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              Conectado
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="text-[11px] font-medium border-rose-200 bg-rose-50 text-rose-800 flex items-center gap-1 px-1.5 py-0.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+              MES 4.0 desconectado
+            </Badge>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
-          {onRefresh && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefresh}
-              disabled={loading}
-              className="h-8 text-xs bg-white hover:bg-slate-50 border-slate-300 text-slate-800"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-              Tentar Novamente
-            </Button>
-          )}
-          <Link to="/pcp/integracoes">
-            <Button
-              variant="default"
-              size="sm"
-              className="h-8 text-xs bg-[#004C97] hover:bg-[#003d7a] text-white"
-            >
-              <Server className="w-3.5 h-3.5 mr-1" />
-              Configurar Integração
-              <ArrowRight className="w-3 h-3 ml-1" />
-            </Button>
-          </Link>
-        </div>
+        <span className="text-[11px] text-slate-500">
+          Última sincronização: <strong className="text-slate-700 font-mono">{lastSyncText}</strong>
+        </span>
+
+        <Link
+          to="/pcp/integracoes"
+          className="text-[11px] text-[#004C97] hover:underline hover:text-[#003870] font-medium hidden sm:inline"
+          title="Ver detalhes de conector, telemetria e governança"
+        >
+          Detalhes da integração &rarr;
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+        {isAvailable && onRefresh && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+            className="h-7 px-2.5 text-xs bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+          >
+            <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        )}
+
+        {!isAvailable && (
+          <div className="flex items-center gap-1.5">
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={loading}
+                className="h-7 px-2 text-xs bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            )}
+            <Link to="/pcp/integracoes">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2.5 text-xs border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+              >
+                <Server className="w-3 h-3 mr-1 text-amber-700" />
+                Configurar Integração
+                <ArrowRight className="w-2.5 h-2.5 ml-1" />
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+
+export default MESIntegrationBanner

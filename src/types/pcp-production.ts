@@ -146,6 +146,15 @@ export interface ProductionOrder {
   timeline_json?: ProductionTimelineEvent[]
   checklist_fechamento_json?: ProductionChecklistItem[]
   notes?: string
+  criticality?: 'CRITICA' | 'ALTA' | 'MEDIA' | 'NORMAL'
+  productivity_realized_ton_h?: number
+  productivity_planned_ton_h?: number
+  due_date?: string
+  started_at?: string
+  ended_at?: string
+  created_at?: string
+  pendencies_count?: number
+  sap_message?: string
   created?: string
   updated?: string
 }
@@ -160,6 +169,8 @@ export interface ProductionPosting {
   centro_code: string
   linha_code: string
   work_center: string
+  material_code?: string
+  material_description?: string
   shift_code: string
   operation_code: string
   posting_type: string

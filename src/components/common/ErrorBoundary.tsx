@@ -7,6 +7,8 @@ interface Props {
   children: ReactNode
   moduleName?: string
   fallback?: ReactNode
+  variant?: 'full' | 'compact' | 'inline'
+  onRetry?: () => void
 }
 
 interface State {
@@ -38,11 +40,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
-    window.location.reload()
+    if (this.props.onRetry) {
+      this.props.onRetry()
+    } else {
+      window.location.reload()
+    }
   }
 
   public handleRetryLocal = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
+    if (this.props.onRetry) {
+      this.props.onRetry()
+    }
   }
 
   public handleGoHome = () => {
@@ -56,6 +65,30 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback
       }
 
+      // Fallback compacto para widgets individuais (cards, tabelas, gráficos)
+      if (this.props.variant === 'compact' || this.props.variant === 'inline') {
+        return (
+          <div className="p-3 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>
+                Não foi possível carregar este componente
+                {this.props.moduleName ? ` (${this.props.moduleName})` : ''}.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={this.handleRetryLocal}
+              className="h-7 text-xs border-rose-300 bg-white hover:bg-rose-50 text-rose-900 gap-1.5 shrink-0"
+            >
+              <RotateCcw className="w-3 h-3 text-rose-700" />
+              Tentar Novamente
+            </Button>
+          </div>
+        )
+      }
+
       const isDevOrQas =
         typeof window !== 'undefined' &&
         (window.location.hostname === 'localhost' ||
@@ -64,7 +97,7 @@ export class ErrorBoundary extends Component<Props, State> {
           import.meta.env.DEV)
 
       return (
-        <div className="min-h-[70vh] flex items-center justify-center p-6 bg-slate-50 text-slate-800">
+        <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50 text-slate-800">
           <div className="max-w-xl w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center space-y-6">
             <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 shadow-xs">
               <ShieldAlert className="w-8 h-8" />
@@ -72,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div className="space-y-2">
               <span className="text-[11px] font-mono uppercase tracking-widest text-rose-700 font-semibold bg-rose-100 px-2.5 py-1 rounded border border-rose-200">
-                Recuperação de Falha &bull; {this.props.moduleName || 'Central de Sequenciamento'}
+                Recuperação de Falha &bull; {this.props.moduleName || 'Área Operacional'}
               </span>
               <h2 className="text-xl font-black text-slate-900 tracking-tight">
                 Instabilidade Temporária no Módulo

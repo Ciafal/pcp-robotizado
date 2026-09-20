@@ -641,1053 +641,1042 @@ export const App: React.FC = () => {
       <AuthProvider>
         <ControlTowerProvider>
           <OeeDrilldownProvider>
-            <ErrorBoundary moduleName="Estrutura de Rotas">
-              <Suspense fallback={<ModuleFallback />}>
-                <Routes>
-                  <Route element={<Layout />}>
-                    {/* Rotas Oficiais de Gestão de Entregas PCP com Submenu Completo */}
+            <Suspense fallback={<ModuleFallback />}>
+              <Routes>
+                <Route element={<Layout />}>
+                  {/* Rotas Oficiais de Gestão de Entregas PCP com Submenu Completo */}
+                  <Route
+                    path="/pcp/entregas"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <EntregasPcpPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas/visao-geral"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <EntregasPcpPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas/resumo-mensal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <ResumoMensalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas/historico"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <EntregasHistoricoPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas/revisoes"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <EntregasRevisoesPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas/indicadores"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <EntregasIndicadoresPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/entregas-pcp"
+                    element={<Navigate to="/pcp/entregas" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/entregas"
+                    element={<Navigate to="/pcp/entregas" replace />}
+                  />
+                  <Route
+                    path="/pcp/resumo-mensal"
+                    element={<Navigate to="/pcp/entregas/resumo-mensal" replace />}
+                  />
+                  <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
+                  <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
+                  {/* Rota Direta de Programação de Testes (Ciclo Corporativo Integrado) */}
+                  <Route
+                    path="/pcp/sequenciamento/programacao-testes"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <TestProgrammingPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* Rota Direta do Inventário de Matéria-Prima DP07 */}
+                  <Route
+                    path="/pcp/sequenciamento/inventario-mp"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <RawMaterialInventoryPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/inventario-mp"
+                    element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
+                  />
+                  <Route
+                    path="/inventario-mp"
+                    element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
+                  />
+                  <Route
+                    path="/pcp/programacao-testes"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <TestProgrammingPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/test-programming"
+                    element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
+                  />
+                  <Route
+                    path="/programacao-testes"
+                    element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
+                  />
+                  {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases com correção de typo) */}
+                  <Route
+                    path="/pcp/montagem-sewanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/programacao-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/programacao-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/programacao/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/programacao/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado/programacao/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/montagem-semanal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/programacao-mensal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/oficina-cilindros"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/oficina-cilindros"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/programacao-mensal"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <WeeklyScheduleOperationalPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* SUBMÓDULO OFICIAL: ANÁLISE DE CARTEIRA (ZSD28C / CICLOS L1 & L2 / MTO / REVENDA / IMPORTADO) */}
+                  <Route
+                    path="/pcp/analise-carteira"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/geral"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/l1"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/l2"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/mto"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/revenda"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/importado"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/sdc"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado/analise-carteira"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/analise-carteira/*"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  <Route
+                    path="/analise-carteira"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  <Route
+                    path="/analise-carteira/*"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  <Route
+                    path="/carteira-analise"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  <Route
+                    path="/carteira-analise/*"
+                    element={<Navigate to="/pcp/analise-carteira" replace />}
+                  />
+                  {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}{' '}
+                  <Route
+                    path="/pcp/cockpit-executivo"
+                    element={
+                      <PermissionGuard permission="pcp.executive.view">
+                        <ExecutiveCockpitPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/dwp/meu-hub/cockpit-executivo"
+                    element={<Navigate to="/pcp/cockpit-executivo" replace />}
+                  />
+                  <Route
+                    path="/dwp/cockpit-executivo"
+                    element={<Navigate to="/pcp/cockpit-executivo" replace />}
+                  />
+                  {/* Landing Raiz: Renderização direta da Página PRINCIPAL (Cockpit) sem redirect intermediário */}
+                  <Route
+                    path="/"
+                    element={
+                      <ErrorBoundary moduleName="Cockpit Principal">
+                        <Index />
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
+                  <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
+                  <Route
+                    path="/pcp/cockpit"
+                    element={
+                      <ErrorBoundary moduleName="Cockpit Principal">
+                        <Index />
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado"
+                    element={
+                      <PermissionGuard permission="pcp.cockpit.view">
+                        <Index />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado/cockpit"
+                    element={<Navigate to="/pcp/cockpit" replace />}
+                  />
+                  {/* Gestão de Estoques SAP / PCP */}
+                  <Route
+                    path="/pcp/estoques"
+                    element={
+                      <PermissionGuard permission="pcp.inventory.overview">
+                        <InventoryManagementPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp-robotizado/estoques"
+                    element={<Navigate to="/pcp/estoques" replace />}
+                  />
+                  <Route path="/estoque" element={<Navigate to="/pcp/estoques" replace />} />
+                  {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
+                  <Route
+                    path="/pcp/sequenciamento"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <CentralSequenciamentoLayout />
+                      </PermissionGuard>
+                    }
+                  >
+                    {/* Landing da Central */}
+                    <Route index element={<CentralSequenciamentoLandingPage />} />
+                    {/* Rotas filhas protegidas pelo PermissionGuard de nível superior em /pcp/sequenciamento */}
+                    <Route path="montagem-semanal" element={<WeeklyScheduleOperationalPage />} />
+                    <Route path="programacao-testes" element={<TestProgrammingPage />} />
+                    <Route path="inventario-mp" element={<RawMaterialInventoryPage />} />
+                    <Route path="programacao-mensal" element={<WeeklyScheduleOperationalPage />} />
+                    <Route path="torre-controle" element={<ControlTowerPage />} />
+                    <Route path="operacional" element={<OperationalPage />} />
                     <Route
-                      path="/pcp/entregas"
+                      path="programacao"
                       element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasPcpPage />
+                        <PermissionGuard permission="pcp.schedule.edit">
+                          <SequencingPage />
                         </PermissionGuard>
                       }
                     />
-                    <Route
-                      path="/pcp/entregas/visao-geral"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasPcpPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/entregas/resumo-mensal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <ResumoMensalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/entregas/historico"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasHistoricoPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/entregas/revisoes"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasRevisoesPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/entregas/indicadores"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasIndicadoresPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/entregas-pcp"
-                      element={<Navigate to="/pcp/entregas" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/entregas"
-                      element={<Navigate to="/pcp/entregas" replace />}
-                    />
-                    <Route
-                      path="/pcp/resumo-mensal"
-                      element={<Navigate to="/pcp/entregas/resumo-mensal" replace />}
-                    />
-                    <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
-                    <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
-                    {/* Rota Direta de Programação de Testes (Ciclo Corporativo Integrado) */}
-                    <Route
-                      path="/pcp/sequenciamento/programacao-testes"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <TestProgrammingPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* Rota Direta do Inventário de Matéria-Prima DP07 */}
-                    <Route
-                      path="/pcp/sequenciamento/inventario-mp"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <RawMaterialInventoryPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/inventario-mp"
-                      element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
-                    />
-                    <Route
-                      path="/inventario-mp"
-                      element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
-                    />
-                    <Route
-                      path="/pcp/programacao-testes"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <TestProgrammingPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/test-programming"
-                      element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
-                    />
-                    <Route
-                      path="/programacao-testes"
-                      element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
-                    />
-                    {/* Rota Direta de Montagem Semanal (Renderiza a tela diretamente em todos os aliases com correção de typo) */}
-                    <Route
-                      path="/pcp/montagem-sewanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/programacao-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/programacao-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/programacao/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/programacao/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado/programacao/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/montagem-semanal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/programacao-mensal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/oficina-cilindros"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/oficina-cilindros"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/programacao-mensal"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <WeeklyScheduleOperationalPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* SUBMÓDULO OFICIAL: ANÁLISE DE CARTEIRA (ZSD28C / CICLOS L1 & L2 / MTO / REVENDA / IMPORTADO) */}
-                    <Route
-                      path="/pcp/analise-carteira"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/geral"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/l1"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/l2"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/mto"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/revenda"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/importado"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/analise-carteira/sdc"
-                      element={
-                        <PermissionGuard permission="pcp.carteira.view">
-                          <AnaliseCarteiraPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado/analise-carteira"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/analise-carteira/*"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    <Route
-                      path="/analise-carteira"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    <Route
-                      path="/analise-carteira/*"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    <Route
-                      path="/carteira-analise"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    <Route
-                      path="/carteira-analise/*"
-                      element={<Navigate to="/pcp/analise-carteira" replace />}
-                    />
-                    {/* 1. Cockpit Executivo CIAFAL com IA & DWP / Meu Hub */}{' '}
-                    <Route
-                      path="/pcp/cockpit-executivo"
-                      element={
-                        <PermissionGuard permission="pcp.executive.view">
-                          <ExecutiveCockpitPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/dwp/meu-hub/cockpit-executivo"
-                      element={<Navigate to="/pcp/cockpit-executivo" replace />}
-                    />
-                    <Route
-                      path="/dwp/cockpit-executivo"
-                      element={<Navigate to="/pcp/cockpit-executivo" replace />}
-                    />
-                    {/* Landing Raiz: Renderização direta da Página PRINCIPAL (Cockpit) sem redirect intermediário */}
-                    <Route
-                      path="/"
-                      element={
-                        <ErrorBoundary moduleName="Cockpit Principal">
-                          <Index />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
-                    <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
-                    <Route
-                      path="/pcp/cockpit"
-                      element={
-                        <ErrorBoundary moduleName="Cockpit Principal">
-                          <Index />
-                        </ErrorBoundary>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado"
-                      element={
-                        <PermissionGuard permission="pcp.cockpit.view">
-                          <Index />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado/cockpit"
-                      element={<Navigate to="/pcp/cockpit" replace />}
-                    />
-                    {/* Gestão de Estoques SAP / PCP */}
-                    <Route
-                      path="/pcp/estoques"
-                      element={
-                        <PermissionGuard permission="pcp.inventory.overview">
-                          <InventoryManagementPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp-robotizado/estoques"
-                      element={<Navigate to="/pcp/estoques" replace />}
-                    />
-                    <Route path="/estoque" element={<Navigate to="/pcp/estoques" replace />} />
-                    {/* 2. Central de Sequenciamento como Rota Pai com Nested Routes */}
-                    <Route
-                      path="/pcp/sequenciamento"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <CentralSequenciamentoLayout />
-                        </PermissionGuard>
-                      }
-                    >
-                      {/* Landing da Central */}
-                      <Route index element={<CentralSequenciamentoLandingPage />} />
-                      {/* Rotas filhas protegidas pelo PermissionGuard de nível superior em /pcp/sequenciamento */}
-                      <Route path="montagem-semanal" element={<WeeklyScheduleOperationalPage />} />
-                      <Route path="programacao-testes" element={<TestProgrammingPage />} />
-                      <Route path="inventario-mp" element={<RawMaterialInventoryPage />} />
-                      <Route
-                        path="programacao-mensal"
-                        element={<WeeklyScheduleOperationalPage />}
-                      />
-                      <Route path="torre-controle" element={<ControlTowerPage />} />
-                      <Route path="operacional" element={<OperationalPage />} />
-                      <Route
-                        path="programacao"
-                        element={
-                          <PermissionGuard permission="pcp.schedule.edit">
-                            <SequencingPage />
-                          </PermissionGuard>
-                        }
-                      />
 
-                      {/* Eficiência & Subrotas especializadas */}
-                      <Route path="eficiencia" element={<EfficiencyPage />} />
-                      <Route path="eficiencia/produtos" element={<EfficiencyProductsSubpage />} />
-                      <Route path="eficiencia/linhas" element={<EfficiencyLinesSubpage />} />
-                      <Route path="eficiencia/plantas" element={<EfficiencyPlantsSubpage />} />
-                      <Route
-                        path="eficiencia/assertividade"
-                        element={<EfficiencyAssertivenessSubpage />}
-                      />
+                    {/* Eficiência & Subrotas especializadas */}
+                    <Route path="eficiencia" element={<EfficiencyPage />} />
+                    <Route path="eficiencia/produtos" element={<EfficiencyProductsSubpage />} />
+                    <Route path="eficiencia/linhas" element={<EfficiencyLinesSubpage />} />
+                    <Route path="eficiencia/plantas" element={<EfficiencyPlantsSubpage />} />
+                    <Route
+                      path="eficiencia/assertividade"
+                      element={<EfficiencyAssertivenessSubpage />}
+                    />
 
-                      {/* Análise de Carteira Integrada */}
-                      <Route path="analise-carteira" element={<AnaliseCarteiraPage />} />
-                      {/* Carteira CRM / WMS */}
-                      <Route path="carteira" element={<BacklogPage />} />
-                      {/* Cenários & Simulações */}
-                      <Route
-                        path="cenarios"
-                        element={
-                          <PermissionGuard permission="pcp.schedule.simulate">
-                            <ScenariosPage />
-                          </PermissionGuard>
-                        }
-                      />
+                    {/* Análise de Carteira Integrada */}
+                    <Route path="analise-carteira" element={<AnaliseCarteiraPage />} />
+                    {/* Carteira CRM / WMS */}
+                    <Route path="carteira" element={<BacklogPage />} />
+                    {/* Cenários & Simulações */}
+                    <Route
+                      path="cenarios"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.simulate">
+                          <ScenariosPage />
+                        </PermissionGuard>
+                      }
+                    />
 
-                      {/* Histórico & Trilha de Versões */}
-                      <Route path="historico" element={<HistoryPage />} />
-                    </Route>
-                    {/* 3. Planejamento Mestre (S&OP / PMP) */}
-                    <Route
-                      path="/pcp/planejamento"
-                      element={
-                        <PermissionGuard permission="pcp.masterplan.overview">
-                          <MasterPlanningLayout />
-                        </PermissionGuard>
-                      }
-                    >
-                      <Route index element={<MasterPlanningPage />} />
-                      <Route path="anual" element={<MasterPlanningPage initialHorizon="ANUAL" />} />
-                      <Route
-                        path="mensal"
-                        element={<MasterPlanningPage initialHorizon="MENSAL" />}
-                      />
-                      <Route
-                        path="semanal"
-                        element={<MasterPlanningPage initialHorizon="SEMANAL" />}
-                      />
-                    </Route>
-                    <Route
-                      path="/planejamento-mestre"
-                      element={<Navigate to="/pcp/planejamento" replace />}
-                    />
-                    {/* 4. Gestão de Linhas (Estrutura da Malha Produtiva e Mapa de Integração) */}
-                    <Route
-                      path="/pcp/linhas"
-                      element={
-                        <PermissionGuard permission="pcp.masterdata.view">
-                          <LineManagementLayout />
-                        </PermissionGuard>
-                      }
-                    >
-                      <Route index element={<Navigate to="/pcp/linhas/capacidades" replace />} />
-                      <Route
-                        path="cadastro"
-                        element={<Navigate to="/pcp/ficha-mestre" replace />}
-                      />
-                      <Route path="sequenciamento" element={<SequencingPage />} />
-                      <Route path="mapa-integracao" element={<ProductionIntegrationMapPage />} />
-                      <Route path="capacidades" element={<LineCapacitiesSubpage />} />
-                      <Route path="dependencias" element={<LineDependenciesSubpage />} />
-                      <Route path="historico" element={<LineHistorySubpage />} />
-                    </Route>
-                    {/* 5. Módulo Oficial REUNIÃO PCP (8 Subtópicos) */}
-                    <Route
-                      path="/pcp/reunioes"
-                      element={<Navigate to="/pcp/reunioes/visao-geral" replace />}
-                    />
-                    <Route
-                      path="/pcp/reunioes/visao-geral"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/preparacao"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/agenda"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/andamento"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.conduct">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/atas"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/pendencias"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/historico"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/reunioes/configuracoes"
-                      element={
-                        <PermissionGuard permission="pcp.meeting.view">
-                          <PCPMeetingsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/comunicados"
-                      element={
-                        <PermissionGuard permission="pcp.communication.view">
-                          <PCPCommunicationsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/inbox"
-                      element={
-                        <PermissionGuard permission="pcp.communication.view">
-                          <PCPInboxPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* SUBMÓDULO PRINCIPAL: GESTÃO DE MATÉRIA-PRIMA (Estrutura Obrigatória Oficial CIAFAL) */}
-                    <Route
-                      path="/pcp/gestao-materia-prima"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPOverviewConsolidatedPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/pedidos-recebimento"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPOrdersAndReceiptPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/planos-corte"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.simulate">
-                          <MPCuttingPlansUnifiedPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/otimizar-aplicacoes"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.simulate">
-                          <MPOptimizeApplicationsUnifiedPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* 5 Novos Subtópicos Oficiais da Gestão de Matéria-Prima */}
-                    <Route
-                      path="/pcp/gestao-materia-prima/projecoes-mp"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPProjectionsSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/saldo-disponibilidade-destino"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPDestinationAndAvailabilitySubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/niveis-estoque-acos-especiais"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPSpecialSteelsSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPL1BalanceAndConsumptionSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/utilizacao-substituicao-mp"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPUtilizationAndSubstitutionSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* 9. NOVO TÓPICO: Matéria-prima – Industrializador */}
-                    <Route
-                      path="/pcp/gestao-materia-prima/industrializador"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPIndustrializerSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* 10. NOVO TÓPICO: Matéria-prima – Sidercentro */}
-                    <Route
-                      path="/pcp/gestao-materia-prima/sidercentro"
-                      element={
-                        <PermissionGuard permission="pcp.mp_opt.view">
-                          <MPSidercentroSubpage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/gestao-materia-prima/materia-prima-industrializador"
-                      element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/industrializador"
-                      element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
-                    />
-                    {/* Rotas de Compatibilidade e Detalhes Específicos do Módulo MP */}
-                    <Route
-                      path="/pcp/otimizacao-mp"
-                      element={<Navigate to="/pcp/gestao-materia-prima" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/visao-geral"
-                      element={<Navigate to="/pcp/gestao-materia-prima" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/necessidade"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/pedidos-recebimento" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/por-aplicacao"
-                      element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/plano-corte"
-                      element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/estoque-dimensional"
-                      element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/cortes-existentes"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/reaplicacoes"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/fora-padrao-ideal"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/analise-dimensional"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/projecao-3d"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/aprovacoes"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/historico"
-                      element={
-                        <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
-                      }
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/plano-x-real"
-                      element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
-                    />
-                    <Route
-                      path="/pcp/otimizacao-mp/indicadores"
-                      element={<Navigate to="/pcp/gestao-materia-prima" replace />}
-                    />
-                    {/* 5.1 Módulo de Qualidade do Produto, Ultrassom e Ensaios */}
-                    <Route
-                      path="/pcp/qualidade"
-                      element={
-                        <PermissionGuard permission="pcp.quality.view">
-                          <ProductQualityHubPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* 6. Módulos Auxiliares & Governança - Centros e Ficha Mestra */}
-                    <Route
-                      path="/pcp/ficha-mestre"
-                      element={
-                        <PermissionGuard permission="pcp.masterdata.view">
-                          <LineMasterPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/centros-ficha-mestre"
-                      element={
-                        <PermissionGuard permission="pcp.masterdata.view">
-                          <LineMasterPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/linhas-ficha-mestre"
-                      element={
-                        <PermissionGuard permission="pcp.masterdata.view">
-                          <LineMasterPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/centros-ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/linhas-ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/centros-ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/linhas-ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/pcp/regras"
-                      element={
-                        <PermissionGuard permission="pcp.rules.view">
-                          <RulesEnginePage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/aprovacoes"
-                      element={
-                        <PermissionGuard permission="pcp.approval.view">
-                          <SchedulesPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/linhas-responsaveis"
-                      element={
-                        <PermissionGuard permission="pcp.masterdata.view">
-                          <LineResponsiblesPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/qualidade-dados"
-                      element={
-                        <PermissionGuard permission="pcp.audit.view">
-                          <PCPDataQualityPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/status-homologacao"
-                      element={
-                        <PermissionGuard permission="pcp.audit.view">
-                          <PCPHomologationStatusPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/motivos-justificativas"
-                      element={
-                        <PermissionGuard permission="pcp.audit.view">
-                          <ReasonsAndGovernancePage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/motivos"
-                      element={<Navigate to="/pcp/motivos-justificativas" replace />}
-                    />
-                    <Route
-                      path="/pcp/justificativas"
-                      element={<Navigate to="/pcp/motivos-justificativas" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/motivos-justificativas"
-                      element={<Navigate to="/pcp/motivos-justificativas" replace />}
-                    />
-                    <Route
-                      path="/pcp/auditoria"
-                      element={
-                        <PermissionGuard permission="pcp.audit.view">
-                          <AuditPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/alteracoes"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <ScheduleChangesCenterPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* NOVO GRUPO: CONTROLE DE PRODUÇÃO (9 Rotas Reais com PermissionGuard) */}
-                    <Route
-                      path="/pcp/producao"
-                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
-                    />
-                    <Route
-                      path="/pcp/producao/visao-geral"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Visão Geral da Produção">
-                            <ProductionOverviewPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/ordens"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Ordens de Produção">
-                            <ProductionOrdersPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/apontamentos"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Apontamentos de Produção">
-                            <ProductionPostingsPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/pendencias"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Pendências de Produção">
-                            <ProductionPendenciesPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/desvios"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Desvios de Produção">
-                            <ProductionDeviationsPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/comparativo"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Comparativo MES x SAP">
-                            <ProductionComparativePage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/zpp-01"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Demonstrativo ZPP_01">
-                            <ProductionZPP01Page />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/ia-analises"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Análises Industriais de IA">
-                            <ProductionAIAnalysisPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/producao/historico"
-                      element={
-                        <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Histórico de Produção">
-                            <ProductionHistoryPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    {/* Aliases de rota para Controle de Produção */}
-                    <Route
-                      path="/pcp-robotizado/producao"
-                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
-                    />
-                    <Route
-                      path="/controle-producao"
-                      element={<Navigate to="/pcp/producao/visao-geral" replace />}
-                    />
-                    <Route
-                      path="/pcp/integracoes"
-                      element={
-                        <PermissionGuard permission="pcp.integrations.view">
-                          <PCPIntegrationsPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/integracoes/monitor"
-                      element={
-                        <PermissionGuard permission="pcp.integrations.view">
-                          <PCPIntegrationMonitorPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/admin/acessos"
-                      element={
-                        <PermissionGuard permission="pcp.admin.manage">
-                          <AccessAdminPage />
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/configuracoes"
-                      element={<Navigate to="/pcp/admin/acessos" replace />}
-                    />
-                    <Route
-                      path="/pcp/configuracoes-acessos"
-                      element={<Navigate to="/pcp/admin/acessos" replace />}
-                    />
-                    {/* Aliases e Redirecionamentos de Compatibilidade */}
-                    <Route
-                      path="/pcp-robotizado/programacoes"
-                      element={<Navigate to="/pcp/sequenciamento/programacao" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/torre-controle"
-                      element={<Navigate to="/pcp/sequenciamento/torre-controle" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/planejamento-mestre"
-                      element={<Navigate to="/pcp/planejamento" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/administracao/ficha-mestre"
-                      element={<Navigate to="/pcp/ficha-mestre" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/regras"
-                      element={<Navigate to="/pcp/regras" replace />}
-                    />
-                    <Route
-                      path="/pcp/sequenciamento/regras"
-                      element={<Navigate to="/pcp/regras" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/motor-regras"
-                      element={<Navigate to="/pcp/regras" replace />}
-                    />
-                    <Route path="/regras" element={<Navigate to="/pcp/regras" replace />} />
-                    <Route
-                      path="/pcp-robotizado/aprovacoes"
-                      element={<Navigate to="/pcp/aprovacoes" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/linhas-responsaveis"
-                      element={<Navigate to="/pcp/linhas-responsaveis" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/auditoria"
-                      element={<Navigate to="/pcp/auditoria" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/admin/acessos"
-                      element={<Navigate to="/pcp/admin/acessos" replace />}
+                    {/* Histórico & Trilha de Versões */}
+                    <Route path="historico" element={<HistoryPage />} />
+                  </Route>
+                  {/* 3. Planejamento Mestre (S&OP / PMP) */}
+                  <Route
+                    path="/pcp/planejamento"
+                    element={
+                      <PermissionGuard permission="pcp.masterplan.overview">
+                        <MasterPlanningLayout />
+                      </PermissionGuard>
+                    }
+                  >
+                    <Route index element={<MasterPlanningPage />} />
+                    <Route path="anual" element={<MasterPlanningPage initialHorizon="ANUAL" />} />
+                    <Route path="mensal" element={<MasterPlanningPage initialHorizon="MENSAL" />} />
+                    <Route
+                      path="semanal"
+                      element={<MasterPlanningPage initialHorizon="SEMANAL" />}
                     />
                   </Route>
+                  <Route
+                    path="/planejamento-mestre"
+                    element={<Navigate to="/pcp/planejamento" replace />}
+                  />
+                  {/* 4. Gestão de Linhas (Estrutura da Malha Produtiva e Mapa de Integração) */}
+                  <Route
+                    path="/pcp/linhas"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <LineManagementLayout />
+                      </PermissionGuard>
+                    }
+                  >
+                    <Route index element={<Navigate to="/pcp/linhas/capacidades" replace />} />
+                    <Route path="cadastro" element={<Navigate to="/pcp/ficha-mestre" replace />} />
+                    <Route path="sequenciamento" element={<SequencingPage />} />
+                    <Route path="mapa-integracao" element={<ProductionIntegrationMapPage />} />
+                    <Route path="capacidades" element={<LineCapacitiesSubpage />} />
+                    <Route path="dependencias" element={<LineDependenciesSubpage />} />
+                    <Route path="historico" element={<LineHistorySubpage />} />
+                  </Route>
+                  {/* 5. Módulo Oficial REUNIÃO PCP (8 Subtópicos) */}
+                  <Route
+                    path="/pcp/reunioes"
+                    element={<Navigate to="/pcp/reunioes/visao-geral" replace />}
+                  />
+                  <Route
+                    path="/pcp/reunioes/visao-geral"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/preparacao"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/agenda"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/andamento"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.conduct">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/atas"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/pendencias"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/historico"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/reunioes/configuracoes"
+                    element={
+                      <PermissionGuard permission="pcp.meeting.view">
+                        <PCPMeetingsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/comunicados"
+                    element={
+                      <PermissionGuard permission="pcp.communication.view">
+                        <PCPCommunicationsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/inbox"
+                    element={
+                      <PermissionGuard permission="pcp.communication.view">
+                        <PCPInboxPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* SUBMÓDULO PRINCIPAL: GESTÃO DE MATÉRIA-PRIMA (Estrutura Obrigatória Oficial CIAFAL) */}
+                  <Route
+                    path="/pcp/gestao-materia-prima"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPOverviewConsolidatedPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/pedidos-recebimento"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPOrdersAndReceiptPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/planos-corte"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.simulate">
+                        <MPCuttingPlansUnifiedPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/otimizar-aplicacoes"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.simulate">
+                        <MPOptimizeApplicationsUnifiedPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* 5 Novos Subtópicos Oficiais da Gestão de Matéria-Prima */}
+                  <Route
+                    path="/pcp/gestao-materia-prima/projecoes-mp"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPProjectionsSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/saldo-disponibilidade-destino"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPDestinationAndAvailabilitySubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/niveis-estoque-acos-especiais"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPSpecialSteelsSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/saldo-mp-l1-previsao-consumo"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPL1BalanceAndConsumptionSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/utilizacao-substituicao-mp"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPUtilizationAndSubstitutionSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* 9. NOVO TÓPICO: Matéria-prima – Industrializador */}
+                  <Route
+                    path="/pcp/gestao-materia-prima/industrializador"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPIndustrializerSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* 10. NOVO TÓPICO: Matéria-prima – Sidercentro */}
+                  <Route
+                    path="/pcp/gestao-materia-prima/sidercentro"
+                    element={
+                      <PermissionGuard permission="pcp.mp_opt.view">
+                        <MPSidercentroSubpage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/gestao-materia-prima/materia-prima-industrializador"
+                    element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/industrializador"
+                    element={<Navigate to="/pcp/gestao-materia-prima/industrializador" replace />}
+                  />
+                  {/* Rotas de Compatibilidade e Detalhes Específicos do Módulo MP */}
+                  <Route
+                    path="/pcp/otimizacao-mp"
+                    element={<Navigate to="/pcp/gestao-materia-prima" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/visao-geral"
+                    element={<Navigate to="/pcp/gestao-materia-prima" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/necessidade"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/pedidos-recebimento" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/por-aplicacao"
+                    element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/plano-corte"
+                    element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/estoque-dimensional"
+                    element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/cortes-existentes"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/reaplicacoes"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/fora-padrao-ideal"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/analise-dimensional"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/projecao-3d"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/aprovacoes"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/historico"
+                    element={
+                      <Navigate to="/pcp/gestao-materia-prima/otimizar-aplicacoes" replace />
+                    }
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/plano-x-real"
+                    element={<Navigate to="/pcp/gestao-materia-prima/planos-corte" replace />}
+                  />
+                  <Route
+                    path="/pcp/otimizacao-mp/indicadores"
+                    element={<Navigate to="/pcp/gestao-materia-prima" replace />}
+                  />
+                  {/* 5.1 Módulo de Qualidade do Produto, Ultrassom e Ensaios */}
+                  <Route
+                    path="/pcp/qualidade"
+                    element={
+                      <PermissionGuard permission="pcp.quality.view">
+                        <ProductQualityHubPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* 6. Módulos Auxiliares & Governança - Centros e Ficha Mestra */}
+                  <Route
+                    path="/pcp/ficha-mestre"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <LineMasterPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/centros-ficha-mestre"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <LineMasterPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/linhas-ficha-mestre"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <LineMasterPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/centros-ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/linhas-ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/centros-ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/linhas-ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp/regras"
+                    element={
+                      <PermissionGuard permission="pcp.rules.view">
+                        <RulesEnginePage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/aprovacoes"
+                    element={
+                      <PermissionGuard permission="pcp.approval.view">
+                        <SchedulesPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/linhas-responsaveis"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <LineResponsiblesPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/qualidade-dados"
+                    element={
+                      <PermissionGuard permission="pcp.audit.view">
+                        <PCPDataQualityPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/status-homologacao"
+                    element={
+                      <PermissionGuard permission="pcp.audit.view">
+                        <PCPHomologationStatusPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/motivos-justificativas"
+                    element={
+                      <PermissionGuard permission="pcp.audit.view">
+                        <ReasonsAndGovernancePage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/motivos"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
+                  />
+                  <Route
+                    path="/pcp/justificativas"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/motivos-justificativas"
+                    element={<Navigate to="/pcp/motivos-justificativas" replace />}
+                  />
+                  <Route
+                    path="/pcp/auditoria"
+                    element={
+                      <PermissionGuard permission="pcp.audit.view">
+                        <AuditPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/alteracoes"
+                    element={
+                      <PermissionGuard permission="pcp.schedule.view">
+                        <ScheduleChangesCenterPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* NOVO GRUPO: CONTROLE DE PRODUÇÃO (9 Rotas Reais com PermissionGuard) */}
+                  <Route
+                    path="/pcp/producao"
+                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/visao-geral"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Visão Geral da Produção">
+                          <ProductionOverviewPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/ordens"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Ordens de Produção">
+                          <ProductionOrdersPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/apontamentos"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Apontamentos de Produção">
+                          <ProductionPostingsPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/pendencias"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Pendências de Produção">
+                          <ProductionPendenciesPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/desvios"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Desvios de Produção">
+                          <ProductionDeviationsPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/comparativo"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Comparativo MES x SAP">
+                          <ProductionComparativePage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/zpp-01"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Demonstrativo ZPP_01">
+                          <ProductionZPP01Page />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/ia-analises"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Análises Industriais de IA">
+                          <ProductionAIAnalysisPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/historico"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Histórico de Produção">
+                          <ProductionHistoryPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* Aliases de rota para Controle de Produção */}
+                  <Route
+                    path="/pcp-robotizado/producao"
+                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                  />
+                  <Route
+                    path="/controle-producao"
+                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                  />
+                  <Route
+                    path="/pcp/integracoes"
+                    element={
+                      <PermissionGuard permission="pcp.integrations.view">
+                        <PCPIntegrationsPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/integracoes/monitor"
+                    element={
+                      <PermissionGuard permission="pcp.integrations.view">
+                        <PCPIntegrationMonitorPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/admin/acessos"
+                    element={
+                      <PermissionGuard permission="pcp.admin.manage">
+                        <AccessAdminPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/configuracoes"
+                    element={<Navigate to="/pcp/admin/acessos" replace />}
+                  />
+                  <Route
+                    path="/pcp/configuracoes-acessos"
+                    element={<Navigate to="/pcp/admin/acessos" replace />}
+                  />
+                  {/* Aliases e Redirecionamentos de Compatibilidade */}
+                  <Route
+                    path="/pcp-robotizado/programacoes"
+                    element={<Navigate to="/pcp/sequenciamento/programacao" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/torre-controle"
+                    element={<Navigate to="/pcp/sequenciamento/torre-controle" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/planejamento-mestre"
+                    element={<Navigate to="/pcp/planejamento" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/administracao/ficha-mestre"
+                    element={<Navigate to="/pcp/ficha-mestre" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/regras"
+                    element={<Navigate to="/pcp/regras" replace />}
+                  />
+                  <Route
+                    path="/pcp/sequenciamento/regras"
+                    element={<Navigate to="/pcp/regras" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/motor-regras"
+                    element={<Navigate to="/pcp/regras" replace />}
+                  />
+                  <Route path="/regras" element={<Navigate to="/pcp/regras" replace />} />
+                  <Route
+                    path="/pcp-robotizado/aprovacoes"
+                    element={<Navigate to="/pcp/aprovacoes" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/linhas-responsaveis"
+                    element={<Navigate to="/pcp/linhas-responsaveis" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/auditoria"
+                    element={<Navigate to="/pcp/auditoria" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/admin/acessos"
+                    element={<Navigate to="/pcp/admin/acessos" replace />}
+                  />
+                </Route>
 
-                  {/* Rota 404 controlada */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
+                {/* Rota 404 controlada */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
             <OeeDrilldownModal />
           </OeeDrilldownProvider>
         </ControlTowerProvider>
