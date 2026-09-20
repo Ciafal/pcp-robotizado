@@ -10,7 +10,7 @@ import {
   UserProfile,
 } from '@/types/pcp-auth'
 
-const PERMISSIONS_CACHE_KEY = 'ciafal_pcp_permissions_cache_v1'
+const PERMISSIONS_CACHE_KEY = 'ciafal_pcp_permissions_cache_v2_prod'
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutos de cache para revalidação suave
 
 interface CachedPermissionsEntry {
@@ -37,6 +37,12 @@ export function getCachedPermissions(): AuthPermissionsResponse | null {
     const parsed: CachedPermissionsEntry = JSON.parse(raw)
     if (parsed && parsed.userId && parsed.data) {
       if (pb.authStore.isValid && pb.authStore.record?.id === parsed.userId) {
+        const pKeys = parsed.data.permission_keys || []
+        // Se o cache persistido não tem pcp.production.view, invalida imediatamente
+        if (!pKeys.includes('pcp.production.view')) {
+          localStorage.removeItem(PERMISSIONS_CACHE_KEY)
+          return null
+        }
         permissionsCache = parsed
         return parsed.data
       }
@@ -156,6 +162,7 @@ export const authService = {
         'pcp.lines.manage',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.production.view',
       ]
     }
     if (roleUpper === 'EXECUTIVE_VIEWER' || roleUpper === 'EXECUTIVE') {
@@ -170,6 +177,7 @@ export const authService = {
         'pcp.inventory.overview',
         'pcp.quality.view',
         'pcp.carteira.view',
+        'pcp.production.view',
       ]
     }
     if (roleUpper === 'PCP_PROGRAMMER' || roleUpper === 'PPC_PROGRAMMER') {
@@ -301,9 +309,15 @@ export const authService = {
     // Se temos cache no localStorage para este usuário, usar enquanto busca
     const localCached = getCachedPermissions()
     if (!forceRefresh && localCached && localCached.user.id === currentUserId) {
-      // Se há request em andamento, aguarda ele para não duplicar requisições em paralelo
-      if (inFlightPromise) {
-        return localCached
+      // Validar se o cache local contém as chaves essenciais de produção antes de usá-lo; se não, invalida
+      const permKeys = localCached.permission_keys || []
+      const hasProductionView = permKeys.includes('pcp.production.view')
+      if (hasProductionView) {
+        if (inFlightPromise) {
+          return localCached
+        }
+      } else {
+        clearPermissionsCache()
       }
     }
 

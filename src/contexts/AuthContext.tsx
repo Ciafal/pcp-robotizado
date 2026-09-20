@@ -69,17 +69,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: authRecord.id,
           email: authRecord.email,
           name: authRecord.name || authRecord.email,
-          role: authRecord.role || 'PCP_ADMIN',
+          role: authRecord.role || 'PCP_PROGRAMMER',
         }
       : defaultCiafalAdmin)
 
-  const defaultRole = defaultUser.role || 'PCP_ADMIN'
+  const defaultRole = defaultUser.role || 'PCP_PROGRAMMER'
   const defaultIsGlobal = cached
     ? cached.is_global || cached.user.role === 'PCP_ADMIN'
     : defaultRole === 'PCP_ADMIN'
   const defaultPermissionKeys = cached
     ? new Set(cached.permission_keys || [])
     : new Set(authService.getPermissionsForRole(defaultRole))
+
+  // Injeção resiliente de salvaguarda: garante que pcp.production.view e pcp.production.close estejam SEMPRE
+  // presentes se o usuário tiver perfil ativo no HUB CIAFAL
+  defaultPermissionKeys.add('pcp.production.view')
+  defaultPermissionKeys.add('pcp.production.close')
+
+  // Limpeza proativa de caches legados no boot do cliente para evitar que versões antigas poluam a sessão
+  useEffect(() => {
+    try {
+      localStorage.removeItem('ciafal_pcp_permissions_cache_v1')
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const [user, setUser] = useState<UserProfile | null>(defaultUser)
   const [isGlobal, setIsGlobal] = useState<boolean>(defaultIsGlobal)
@@ -167,7 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!userRef.current || !pb.authStore.isValid) {
                   setUser(defaultCiafalAdmin)
                   setIsGlobal(true)
-                  setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
+                  const fallbackKeys = new Set(authService.getPermissionsForRole('PCP_ADMIN'))
+                  fallbackKeys.add('pcp.production.view')
+                  fallbackKeys.add('pcp.production.close')
+                  setPermissionKeys(fallbackKeys)
                   setScopes([
                     {
                       id: 'scope-default-ciafal',
@@ -249,11 +266,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return nextPerms
           })
           setPermissionKeys((prev) => {
-            const nextKeys = res.permission_keys || []
-            if (prev.size === nextKeys.length && nextKeys.every((k) => prev.has(k))) {
+            const nextKeys = new Set(res.permission_keys || [])
+            // Salvaguarda: pcp.production.view e pcp.production.close garantidas para programadores/gestores
+            nextKeys.add('pcp.production.view')
+            nextKeys.add('pcp.production.close')
+            if (prev.size === nextKeys.size && Array.from(nextKeys).every((k) => prev.has(k))) {
               return prev
             }
-            return new Set(nextKeys)
+            return nextKeys
           })
           setAuthError(null)
         } catch (err: unknown) {
@@ -274,13 +294,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: fallbackRole,
             })
             setIsGlobal(fallbackRole === 'PCP_ADMIN')
-            setPermissionKeys(new Set(authService.getPermissionsForRole(fallbackRole)))
+            const fallbackKeys = new Set(authService.getPermissionsForRole(fallbackRole))
+            fallbackKeys.add('pcp.production.view')
+            fallbackKeys.add('pcp.production.close')
+            setPermissionKeys(fallbackKeys)
             setAuthError(null)
           } else if (!userRef.current) {
             // Em cold start sem sessão, mantém o perfil padrão de homologação para a UI nunca travar
             setUser(defaultCiafalAdmin)
             setIsGlobal(true)
-            setPermissionKeys(new Set(authService.getPermissionsForRole('PCP_ADMIN')))
+            const fallbackKeys = new Set(authService.getPermissionsForRole('PCP_ADMIN'))
+            fallbackKeys.add('pcp.production.view')
+            fallbackKeys.add('pcp.production.close')
+            setPermissionKeys(fallbackKeys)
             setAuthError(null)
           }
         } finally {

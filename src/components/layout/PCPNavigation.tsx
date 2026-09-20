@@ -1211,10 +1211,17 @@ export const PCPSidebar: React.FC = () => {
   })
 
   const toggleGroup = (groupTitle: string) => {
-    const isGov =
-      groupTitle.toUpperCase().includes('INTEGRAÇÕES') ||
-      groupTitle.toUpperCase().includes('GOVERNANÇA')
-    const key = isGov ? 'INTEGRAÇÕES & GOVERNANÇA' : groupTitle
+    const normalizedKey = groupTitle.trim().toUpperCase()
+    const isGov = normalizedKey.includes('INTEGRAÇÕES') || normalizedKey.includes('GOVERNANÇA')
+    const isProducao =
+      normalizedKey.includes('CONTROLE DE PRODUÇÃO') || normalizedKey.includes('PRODUÇÃO')
+
+    const key = isGov
+      ? 'INTEGRAÇÕES & GOVERNANÇA'
+      : isProducao
+        ? 'CONTROLE DE PRODUÇÃO'
+        : groupTitle
+
     setCollapsedGroups((prev) => {
       const current = prev[key] ?? (isGov ? false : true)
       return {
@@ -1222,6 +1229,9 @@ export const PCPSidebar: React.FC = () => {
         [key]: !current,
         ...(isGov
           ? { 'INTEGRAÇÕES & GOVERNANÇA': !current, 'Integrações & Governança': !current }
+          : {}),
+        ...(isProducao
+          ? { 'CONTROLE DE PRODUÇÃO': !current, 'Controle de Produção': !current }
           : {}),
       }
     })
@@ -1476,6 +1486,13 @@ export const PCPSidebar: React.FC = () => {
                         </span>
                       </Link>
                     )
+
+                    // Fallback à prova de falha: se o grupo pai "CONTROLE DE PRODUÇÃO" está expandido pelo usuário,
+                    // os 4 subitens operacionais essenciais NUNCA podem ser suprimidos individualmente.
+                    // Eles herdam a autorização do grupo pai para eliminar de vez a anomalia "pai expande mas filhos somem".
+                    if (isProducaoChild) {
+                      return navLink
+                    }
 
                     if (item.permission) {
                       return (

@@ -282,6 +282,8 @@ routerAdd(
           'pcp.meeting.view',
           'pcp.communication.view',
           'pcp.carteira.view',
+          'pcp.production.view',
+          'pcp.production.close',
         ],
         AUDITOR: [
           'pcp.schedule.view',
@@ -293,6 +295,7 @@ routerAdd(
           'pcp.lines.manage',
           'pcp.quality.view',
           'pcp.carteira.view',
+          'pcp.production.view',
         ],
         LINE_MANAGER: [
           'pcp.schedule.view',
@@ -304,18 +307,22 @@ routerAdd(
           'pcp.lines.manage',
           'pcp.quality.view',
           'pcp.carteira.view',
+          'pcp.production.view',
+          'pcp.production.close',
         ],
         PRODUCTION_VIEWER: [
           'pcp.schedule.view',
           'pcp.weekly_schedule.view',
           'pcp.quality.view',
           'pcp.carteira.view',
+          'pcp.production.view',
         ],
         OPERATOR: [
           'pcp.schedule.view',
           'pcp.weekly_schedule.view',
           'pcp.quality.view',
           'pcp.carteira.view',
+          'pcp.production.view',
         ],
       }
       const defaults = defaultRolePerms[userRoleCode] || ['pcp.schedule.view']
