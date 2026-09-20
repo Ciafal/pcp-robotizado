@@ -877,7 +877,7 @@ const officialNavGroups: NavGroup[] = [
     groupTitle: 'CONTROLE DE PRODUÇÃO',
     items: [
       {
-        title: 'Torre de Controle (Visão Geral)',
+        title: 'Torre de Controle',
         href: '/pcp/producao/visao-geral',
         icon: Activity,
         permission: 'pcp.production.view',

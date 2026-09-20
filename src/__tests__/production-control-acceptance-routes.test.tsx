@@ -87,7 +87,8 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     const grupoTitle = screen.getByText('CONTROLE DE PRODUÇÃO')
     expect(grupoTitle).toBeInTheDocument()
 
-    // Os 4 subitens obrigatórios devem estar visíveis
+    // Os 4 subitens obrigatórios e a Torre de Controle devem estar no menu
+    expect(screen.getByText('Torre de Controle')).toBeInTheDocument()
     expect(screen.getByText('Controle de Ordens de Produção')).toBeInTheDocument()
     expect(screen.getByText('Apontamentos')).toBeInTheDocument()
     expect(screen.getByText('Histórico de Ordens de Produção')).toBeInTheDocument()
@@ -107,6 +108,9 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // Clica no header do grupo CONTROLE DE PRODUÇÃO para garantir expansão
     const grupoHeader = screen.getByText('CONTROLE DE PRODUÇÃO')
     fireEvent.click(grupoHeader)
+
+    const linkTorre = screen.getByText('Torre de Controle').closest('a')
+    expect(linkTorre).toHaveAttribute('href', '/pcp/producao/visao-geral')
 
     const linkOrdens = screen.getByText('Controle de Ordens de Produção').closest('a')
     expect(linkOrdens).toHaveAttribute('href', '/pcp/producao/ordens')
@@ -174,5 +178,49 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     )
     expect(screen.getByText(/Análise de Ordens com Inteligência Artificial/i)).toBeInTheDocument()
     unmount4()
+  })
+
+  // TESTE D: rota da Torre de Controle renderiza com os critérios de aceite executivos
+  it('TESTE D: Torre de Controle da Produção renderiza com título, status MES, KPIs e seções executivas', async () => {
+    const { default: ProductionOverviewPage } =
+      await import('@/pages/production-control/ProductionOverviewPage')
+
+    render(
+      <AuthContext.Provider value={mockAuthValue}>
+        <MemoryRouter initialEntries={['/pcp/producao/visao-geral']}>
+          <Routes>
+            <Route path="/pcp/producao/visao-geral" element={<ProductionOverviewPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    // Título Principal e Subtítulo
+    expect(screen.getByText('Torre de Controle da Produção')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Acompanhamento das ordens, apontamentos, desvios e pendências da produção/i,
+      ),
+    ).toBeInTheDocument()
+
+    // Status MES 4.0 compacto
+    expect(screen.getByTestId('mes-status-compact-card')).toBeInTheDocument()
+    expect(screen.getByText(/MES 4.0/i)).toBeInTheDocument()
+
+    // 8 KPIs
+    expect(screen.getByText('Total de OPs')).toBeInTheDocument()
+    expect(screen.getByText('Programadas')).toBeInTheDocument()
+    expect(screen.getByText('Em Produção')).toBeInTheDocument()
+    expect(screen.getByText('Concluídas')).toBeInTheDocument()
+    expect(screen.getByText('Aguardando Fechamento')).toBeInTheDocument()
+    expect(screen.getByText('Com Pendência')).toBeInTheDocument()
+    expect(screen.getByText('Com Desvio')).toBeInTheDocument()
+    expect(screen.getByText('Críticas')).toBeInTheDocument()
+
+    // Gráficos e Seções
+    expect(screen.getByText('Produção Programada x Realizada')).toBeInTheDocument()
+    expect(screen.getByText('Status das Ordens de Produção')).toBeInTheDocument()
+    expect(screen.getByText('Últimas Ordens de Produção')).toBeInTheDocument()
+    expect(screen.getByText('Alertas e Exceções (IA)')).toBeInTheDocument()
   })
 })
