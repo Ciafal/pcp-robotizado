@@ -17,18 +17,20 @@ const ModuleFallback = () => (
   </div>
 )
 
-// Redirecionamento determinístico da Rota Raiz ("/") para a Página PRINCIPAL ("/pcp/cockpit"):
-// A entrada no PCP Robotizado sempre direciona o usuário para o dashboard inicial / página principal.
-// Preserva querystrings (?token=..., ?v=...) e hash, garantindo 1 único redirect sem loop nem tela branca.
+// Componente de compatibilidade para testes e importações legadas:
+// A rota raiz "/" agora renderiza DIRETAMENTE o Cockpit (<Index />) sem intermediários,
+// evitando instabilidade de cold start e erros no ErrorBoundary.
 export const RootRedirect: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const target = `/pcp/cockpit${location.search}${location.hash}`
 
   React.useEffect(() => {
-    // Redirecionamento imperativo síncrono/imediato no mount para contornar ambientes
-    // onde o componente declarativo <Navigate /> não transiciona a rota no primeiro frame
-    navigate(target, { replace: true })
+    try {
+      navigate(target, { replace: true })
+    } catch (e) {
+      console.warn('RootRedirect fallback notice:', e)
+    }
   }, [navigate, target])
 
   return <Navigate to={target} replace />

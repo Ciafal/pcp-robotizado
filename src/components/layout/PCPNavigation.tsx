@@ -1355,7 +1355,8 @@ export const PCPSidebar: React.FC = () => {
                     // Identifica seleção ativa
                     const isSelected =
                       item.href === '/pcp/cockpit'
-                        ? location.pathname === '/pcp/cockpit' ||
+                        ? location.pathname === '/' ||
+                          location.pathname === '/pcp/cockpit' ||
                           location.pathname === '/pcp/principal' ||
                           location.pathname === '/pcp' ||
                           location.pathname === '/pcp-robotizado' ||

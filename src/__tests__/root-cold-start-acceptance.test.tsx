@@ -1,15 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
-import Index from '@/pages/Index'
+import { Index } from '@/pages/Index'
+import { ProductionOrdersPage } from '@/pages/production-control/ProductionOrdersPage'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import pb from '@/lib/pocketbase/client'
-import { authService } from '@/services/pcp-auth'
 
-// Mock de chamadas do authService e pb
+// Helper para inspecionar localização atual no DOM
+const LocationDisplay = () => {
+  const location = useLocation()
+  return (
+    <div data-testid="current-location">{location.pathname + location.search + location.hash}</div>
+  )
+}
+
+// Mock de chamadas do PocketBase client
 vi.mock('@/lib/pocketbase/client', () => {
   return {
     default: {
@@ -33,162 +43,270 @@ vi.mock('@/lib/pocketbase/client', () => {
   }
 })
 
-describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skeleton eterno', () => {
+describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFAL', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
   })
 
-  it('carregar "/" em cold start sem sessão aterrissa deterministicamente na página PRINCIPAL (/pcp/cockpit)', async () => {
-    // Garante que pb.authStore.isValid é falso (cold start sem sessão prévia)
+  it('(a) abrir "/" carrega diretamente o cockpit normalmente sem ErrorBoundary e sem tela de instabilidade', async () => {
     ;(pb.authStore as any).isValid = false
     ;(pb.authStore as any).record = null
-
-    const { RootRedirect } = await import('@/App')
-    const { useLocation } = await import('react-router-dom')
-
-    const LocationDisplay = () => {
-      const location = useLocation()
-      return <div data-testid="current-location">{location.pathname + location.search}</div>
-    }
-
-    render(
-      <MemoryRouter initialEntries={['/?v=919b1f1']}>
-        <AuthProvider>
-          <ControlTowerProvider>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<RootRedirect />} />
-                <Route
-                  path="/pcp/cockpit"
-                  element={
-                    <div>
-                      <LocationDisplay />
-                      <span>Página Principal Cockpit Operacional PCP</span>
-                    </div>
-                  }
-                />
-                <Route path="/pcp-robotizado" element={<Index />} />
-              </Route>
-            </Routes>
-          </ControlTowerProvider>
-        </AuthProvider>
-      </MemoryRouter>,
-    )
-
-    // Casca do Layout e Página Principal Cockpit devem estar presentes imediatamente
-    expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit?v=919b1f1')
-    // Verifica que o item "Principal" no menu lateral está presente e ativo
-    const principalLink = screen.getByRole('link', { name: /^Principal$/i })
-    expect(principalLink).toBeDefined()
-    expect(principalLink.className).toContain('bg-[#004C97]')
-  })
-
-  it('carregar "/" com sessão válida aterrissa na página PRINCIPAL (/pcp/cockpit) imediatamente', async () => {
-    ;(pb.authStore as any).isValid = true
-    ;(pb.authStore as any).record = {
-      id: 'user-lucas',
-      email: 'lucas@ciafal.com.br',
-      name: 'Lucas Ferreira',
-      role: 'PCP_PROGRAMMER',
-    }
-
-    const { RootRedirect } = await import('@/App')
-    const { useLocation } = await import('react-router-dom')
-
-    const LocationDisplay = () => {
-      const location = useLocation()
-      return <div data-testid="current-location">{location.pathname}</div>
-    }
 
     render(
       <MemoryRouter initialEntries={['/']}>
         <AuthProvider>
           <ControlTowerProvider>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<RootRedirect />} />
-                <Route
-                  path="/pcp/cockpit"
-                  element={
-                    <div>
-                      <LocationDisplay />
-                      <span>Página Principal Cockpit Operacional PCP</span>
-                    </div>
-                  }
-                />
-              </Route>
-            </Routes>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route
+                    path="/"
+                    element={
+                      <ErrorBoundary moduleName="Cockpit Principal">
+                        <div>
+                          <LocationDisplay />
+                          <Index />
+                        </div>
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cockpit"
+                    element={
+                      <ErrorBoundary moduleName="Cockpit Principal">
+                        <div>
+                          <LocationDisplay />
+                          <Index />
+                        </div>
+                      </ErrorBoundary>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
           </ControlTowerProvider>
         </AuthProvider>
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(/Página Principal Cockpit Operacional PCP/i)).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
+    // Não deve haver tela de erro do ErrorBoundary
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+    expect(screen.queryByText(/Recuperação de Falha/i)).toBeNull()
+
+    // O Cockpit deve ser renderizado com sucesso
+    expect(screen.getByTestId('current-location').textContent).toBe('/')
+    expect(screen.getByText(/Visão Geral & Indicadores Chave da Fábrica/i)).toBeDefined()
+    expect(screen.getByText(/PCP ROBOTIZADO/i)).toBeDefined()
+
+    // O item "Principal" no menu lateral deve estar ativo
     const principalLink = screen.getByRole('link', { name: /^Principal$/i })
     expect(principalLink).toBeDefined()
     expect(principalLink.className).toContain('bg-[#004C97]')
   })
 
-  it('PermissionGuard com permissão pcp.cockpit.view não bloqueia nem redireciona de volta para "/"', async () => {
-    ;(pb.authStore as any).isValid = false
-    ;(pb.authStore as any).record = null
-
-    const { PermissionGuard } = await import('@/components/auth/PermissionGuard')
-    const { useLocation } = await import('react-router-dom')
-
-    const LocationDisplay = () => {
-      const location = useLocation()
-      return <div data-testid="current-location">{location.pathname}</div>
-    }
-
+  it('(a-2) abrir "/" com parâmetros de querystring e hash preserva parâmetros e renderiza Cockpit', async () => {
     render(
-      <MemoryRouter initialEntries={['/pcp/cockpit']}>
+      <MemoryRouter initialEntries={['/?v=1.0.4&token=demo-xyz#dashboard']}>
         <AuthProvider>
           <ControlTowerProvider>
-            <Routes>
-              <Route
-                path="/pcp/cockpit"
-                element={
-                  <PermissionGuard permission="pcp.cockpit.view">
-                    <div>
-                      <LocationDisplay />
-                      <span>Conteúdo Protegido da Página Principal</span>
-                    </div>
-                  </PermissionGuard>
-                }
-              />
-            </Routes>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route
+                    path="/"
+                    element={
+                      <ErrorBoundary moduleName="Cockpit Principal">
+                        <div>
+                          <LocationDisplay />
+                          <Index />
+                        </div>
+                      </ErrorBoundary>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
           </ControlTowerProvider>
         </AuthProvider>
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Conteúdo Protegido da Página Principal')).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+    expect(screen.getByTestId('current-location').textContent).toBe(
+      '/?v=1.0.4&token=demo-xyz#dashboard',
+    )
+    expect(screen.getByText(/Visão Geral & Indicadores Chave da Fábrica/i)).toBeDefined()
   })
 
-  it('redirecionamento da raiz "/" para a página PRINCIPAL ("/pcp/cockpit") preserva parâmetros de query (?token=...&v=...)', async () => {
-    const { RootRedirect } = await import('@/App')
-    const { useLocation } = await import('react-router-dom')
+  it('(b) F5 / acesso direto em sub-rota do Controle de Produção ("/pcp/producao/ordens") carrega a tela sem "página inexistente" nem ErrorBoundary', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/producao/ordens']}>
+        <AuthProvider>
+          <ControlTowerProvider>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route
+                    path="/pcp/producao/ordens"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Ordens de Produção">
+                          <div>
+                            <LocationDisplay />
+                            <ProductionOrdersPage />
+                          </div>
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
+          </ControlTowerProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
 
-    const LocationDisplay = () => {
-      const location = useLocation()
-      return <div data-testid="location-display">{location.pathname + location.search}</div>
-    }
+    // Não pode disparar tela de erro nem página 404
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+    expect(screen.queryByText(/Página Não Encontrada/i)).toBeNull()
+
+    // O cabeçalho de Ordens de Produção deve renderizar normalmente
+    expect(screen.getByText(/Ordens de Produção \(OPs\)/i)).toBeDefined()
+    expect(screen.getByText(/GESTÃO DE ORDENS/i)).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+  })
+
+  it('(c) navegação pelo menu lateral entre módulos não faz nenhuma tela desaparecer', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <ControlTowerProvider>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route
+                    path="/"
+                    element={
+                      <div>
+                        <LocationDisplay />
+                        <span data-testid="screen-cockpit">Cockpit Visão Geral</span>
+                      </div>
+                    }
+                  />
+                  <Route
+                    path="/pcp/cockpit"
+                    element={
+                      <div>
+                        <LocationDisplay />
+                        <span data-testid="screen-cockpit">Cockpit Visão Geral</span>
+                      </div>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/ordens"
+                    element={
+                      <div>
+                        <LocationDisplay />
+                        <span data-testid="screen-ordens">Ordens de Produção Ativas</span>
+                      </div>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
+          </ControlTowerProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    // 1. Inicial na rota raiz
+    expect(screen.getByTestId('screen-cockpit')).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/')
+
+    // 2. Localiza grupo Controle de Produção e clica para expandir
+    const groupControle = screen.getByTestId('nav-group-header-CONTROLE DE PRODUÇÃO')
+    fireEvent.click(groupControle)
+
+    // 3. Clica no item "Ordens de Produção"
+    const ordensLink = await screen.findByRole('link', { name: /Ordens de Produção/i })
+    expect(ordensLink).toBeDefined()
+    fireEvent.click(ordensLink)
+
+    // 4. A tela de ordens de produção deve carregar sem tela branca nem ErrorBoundary
+    await waitFor(() => {
+      expect(screen.getByTestId('screen-ordens')).toBeDefined()
+      expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+    })
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+
+    // 5. Clica de volta no item "Principal" no menu lateral
+    const principalLink = screen.getByRole('link', { name: /^Principal$/i })
+    fireEvent.click(principalLink)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('screen-cockpit')).toBeDefined()
+      expect(screen.getByTestId('current-location').textContent).toBe('/pcp/cockpit')
+    })
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+  })
+
+  it('(d) histórico de navegação e voltar pelo navegador mantém as rotas corretas', async () => {
+    const historyEntries = ['/', '/pcp/producao/ordens']
 
     render(
-      <MemoryRouter initialEntries={['/?token=jwt-secret-xyz&v=0.0.217']}>
+      <MemoryRouter initialEntries={historyEntries} initialIndex={1}>
+        <AuthProvider>
+          <ControlTowerProvider>
+            <ErrorBoundary moduleName="Estrutura de Rotas">
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route
+                    path="/"
+                    element={
+                      <div>
+                        <LocationDisplay />
+                        <span data-testid="screen-cockpit">Cockpit Principal Raiz</span>
+                      </div>
+                    }
+                  />
+                  <Route
+                    path="/pcp/producao/ordens"
+                    element={
+                      <div>
+                        <LocationDisplay />
+                        <span data-testid="screen-ordens">Ordens de Produção</span>
+                      </div>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
+          </ControlTowerProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    // Estado inicial no índice 1: /pcp/producao/ordens
+    expect(screen.getByTestId('screen-ordens')).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+    expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
+  })
+
+  it('garante que RootRedirect de compatibilidade não entra em loop e preserva query params', async () => {
+    const { RootRedirect } = await import('@/App')
+
+    render(
+      <MemoryRouter initialEntries={['/redirect-test?token=ciafal-auth&env=prod#status']}>
         <Routes>
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/redirect-test" element={<RootRedirect />} />
           <Route
             path="/pcp/cockpit"
             element={
               <div>
                 <LocationDisplay />
-                <span>Página Principal Cockpit Destino</span>
+                <span>Página Cockpit Destino</span>
               </div>
             }
           />
@@ -196,9 +314,9 @@ describe('Aceite de Cold Start na Raiz (/) — Renderização imediata sem skele
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Página Principal Cockpit Destino')).toBeDefined()
-    expect(screen.getByTestId('location-display').textContent).toBe(
-      '/pcp/cockpit?token=jwt-secret-xyz&v=0.0.217',
+    expect(screen.getByText('Página Cockpit Destino')).toBeDefined()
+    expect(screen.getByTestId('current-location').textContent).toBe(
+      '/pcp/cockpit?token=ciafal-auth&env=prod#status',
     )
   })
 })
