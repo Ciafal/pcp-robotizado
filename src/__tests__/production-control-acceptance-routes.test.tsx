@@ -87,8 +87,7 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     const grupoTitle = screen.getByText('CONTROLE DE PRODUÇÃO')
     expect(grupoTitle).toBeInTheDocument()
 
-    // Os 4 subitens obrigatórios e a Torre de Controle devem estar no menu
-    expect(screen.getByText('Torre de Controle')).toBeInTheDocument()
+    // Os 4 subitens obrigatórios devem estar no menu
     expect(screen.getByText('Controle de Ordens de Produção')).toBeInTheDocument()
     expect(screen.getByText('Apontamentos')).toBeInTheDocument()
     expect(screen.getByText('Histórico de Ordens de Produção')).toBeInTheDocument()
@@ -108,9 +107,6 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // Clica no header do grupo CONTROLE DE PRODUÇÃO para garantir expansão
     const grupoHeader = screen.getByText('CONTROLE DE PRODUÇÃO')
     fireEvent.click(grupoHeader)
-
-    const linkTorre = screen.getByText('Torre de Controle').closest('a')
-    expect(linkTorre).toHaveAttribute('href', '/pcp/producao/visao-geral')
 
     const linkOrdens = screen.getByText('Controle de Ordens de Produção').closest('a')
     expect(linkOrdens).toHaveAttribute('href', '/pcp/producao/ordens')

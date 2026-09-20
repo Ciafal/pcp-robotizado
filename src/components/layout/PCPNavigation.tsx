@@ -48,6 +48,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   BrainCircuit,
+  ChartNoAxesCombined,
   PlayCircle,
   Database,
   Factory,
@@ -877,12 +878,6 @@ const officialNavGroups: NavGroup[] = [
     groupTitle: 'CONTROLE DE PRODUÇÃO',
     items: [
       {
-        title: 'Torre de Controle',
-        href: '/pcp/producao/visao-geral',
-        icon: Activity,
-        permission: 'pcp.production.view',
-      },
-      {
         title: 'Controle de Ordens de Produção',
         href: '/pcp/producao/ordens',
         icon: ClipboardList,
@@ -903,7 +898,7 @@ const officialNavGroups: NavGroup[] = [
       {
         title: 'Análise de Ordens',
         href: '/pcp/producao/ia-analises',
-        icon: BrainCircuit,
+        icon: ChartNoAxesCombined,
         permission: 'pcp.production.view',
       },
     ],
@@ -1276,7 +1271,13 @@ export const PCPSidebar: React.FC = () => {
           location.pathname.startsWith('/pcp/status-homologacao') ||
           location.pathname.startsWith('/pcp/qualidade-dados'))
 
-      if (hasActiveItem || isGovernanceDirect) {
+      // Se a rota for de Controle de Produção (/pcp/producao ou /controle-producao), força expansão
+      const isProducaoDirect =
+        group.groupTitle === 'CONTROLE DE PRODUÇÃO' &&
+        (location.pathname.startsWith('/pcp/producao') ||
+          location.pathname.startsWith('/controle-producao'))
+
+      if (hasActiveItem || isGovernanceDirect || isProducaoDirect) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
             return { ...prev, [group.groupTitle]: false }
@@ -1443,12 +1444,16 @@ export const PCPSidebar: React.FC = () => {
                                                       location.pathname + location.search ===
                                                         item.href)
 
+                    const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
+
                     const navLink = (
                       <Link
                         key={item.title}
                         to={item.href}
                         title={item.title}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors relative ${
+                        className={`flex items-center gap-2 py-1.5 rounded text-[11px] font-medium leading-tight transition-colors relative ${
+                          isProducaoChild ? 'pl-6 pr-2.5' : 'px-2.5'
+                        } ${
                           isSelected
                             ? 'bg-blue-50/90 text-[#004C97] font-bold shadow-2xs border-l-2 border-[#004C97]'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -1459,7 +1464,14 @@ export const PCPSidebar: React.FC = () => {
                             isSelected ? 'text-[#004C97]' : 'text-slate-500'
                           }`}
                         />
-                        <span className="truncate flex-1" title={item.title}>
+                        <span
+                          className={`flex-1 ${
+                            isProducaoChild
+                              ? 'whitespace-normal break-words text-[11px]'
+                              : 'truncate'
+                          }`}
+                          title={item.title}
+                        >
                           {item.title}
                         </span>
                       </Link>

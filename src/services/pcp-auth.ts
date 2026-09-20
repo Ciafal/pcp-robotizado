@@ -172,7 +172,7 @@ export const authService = {
         'pcp.carteira.view',
       ]
     }
-    if (roleUpper === 'PCP_PROGRAMMER') {
+    if (roleUpper === 'PCP_PROGRAMMER' || roleUpper === 'PPC_PROGRAMMER') {
       return [
         'pcp.cockpit.view',
         'pcp.schedule.view',
