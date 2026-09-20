@@ -961,24 +961,10 @@ export const App: React.FC = () => {
                     element={<Navigate to="/pcp/cockpit-executivo" replace />}
                   />
                   {/* Landing Raiz: Renderização direta da Página PRINCIPAL (Cockpit) sem redirect intermediário */}
-                  <Route
-                    path="/"
-                    element={
-                      <ErrorBoundary moduleName="Cockpit Principal">
-                        <Index />
-                      </ErrorBoundary>
-                    }
-                  />
+                  <Route path="/" element={<Index />} />
                   <Route path="/pcp" element={<Navigate to="/pcp/cockpit" replace />} />
                   <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
-                  <Route
-                    path="/pcp/cockpit"
-                    element={
-                      <ErrorBoundary moduleName="Cockpit Principal">
-                        <Index />
-                      </ErrorBoundary>
-                    }
-                  />
+                  <Route path="/pcp/cockpit" element={<Index />} />
                   <Route
                     path="/pcp-robotizado"
                     element={

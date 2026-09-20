@@ -101,7 +101,7 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
   // -------------------------------------------------------------
   // CRITÉRIO 4: Bloqueio de autorrelacionamento (Centro A -> Centro A)
   // -------------------------------------------------------------
-  it('Critério 4: Bloqueio de autorrelacionamento com mensagem exata "Um Centro não pode ser derivado dele mesmo."', async () => {
+  it('Critério 4: Bloqueio de autorrelacionamento com mensagem exata "O Centro de destino não pode ser utilizado como seu próprio Centro de origem."', async () => {
     const rule: CenterDerivationRule = {
       center_code: 'L1',
       source_center_code: 'L1', // Mesmo centro!
@@ -112,7 +112,9 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
 
     const validation = await centerDerivationService.validateDerivationRule('L1', rule, [])
     expect(validation.isValid).toBe(false)
-    expect(validation.error).toBe('Um Centro não pode ser derivado dele mesmo.')
+    expect(validation.error).toBe(
+      'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
+    )
   })
 
   // -------------------------------------------------------------

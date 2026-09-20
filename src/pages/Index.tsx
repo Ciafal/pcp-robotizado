@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { authService } from '@/services/pcp-auth'
 import { ProductionLine, PCPAlert } from '@/types/pcp-auth'
-import { formatNumberPTBR } from '@/lib/formatters-ptbr'
+import { formatNumberPTBR, formatDatePTBR, formatDateTimePTBR } from '@/lib/formatters-ptbr'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { mockProductionLines, mockOperationalAlerts } from '@/data/control-tower-mock'
 import { Can } from '@/components/auth/Can'
@@ -1323,12 +1323,11 @@ export function Index() {
                           </span>
                           {al.data_prevista_acao && (
                             <span className="text-slate-500">
-                              (Prazo: {new Date(al.data_prevista_acao).toLocaleDateString('pt-BR')})
+                              (Prazo: {formatDatePTBR(al.data_prevista_acao)})
                             </span>
                           )}
                         </div>
                       )}
-
                       {/* Botões de Ação Obrigatórios:
                         [Ver análise], [Assumir tratamento] e [Analisar Impacto] (para críticos)
                     */}
@@ -1454,10 +1453,7 @@ export function Index() {
                       <div className="flex items-center justify-between pt-1 border-t border-slate-200">
                         <span className="text-[10px] text-slate-500">
                           {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
-                          {new Date(alert.created || '').toLocaleTimeString('pt-BR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatDateTimePTBR(alert.created, false, '--:--')}
                         </span>
 
                         {!alert.acknowledged && (

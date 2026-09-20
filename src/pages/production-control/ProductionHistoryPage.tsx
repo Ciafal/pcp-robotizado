@@ -154,82 +154,73 @@ export const ProductionHistoryPage: React.FC = () => {
     const timeline = [...orderEvents]
 
     // Se houver poucos eventos nos logs, garantimos a cadeia completa padronizada de eventos da OP
-    const existingTypes = new Set(timeline.map((e) => e.event_type))
+    const existingCategories = new Set(timeline.map((e) => e.category))
 
-    if (!existingTypes.has('PROGRAMACAO_PCP')) {
+    if (!existingCategories.has('PROGRAMACAO')) {
       timeline.unshift({
         id: `prog-pcp-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'PROGRAMACAO_PCP',
-        event_title: 'Programação PCP Aprovada',
+        category: 'PROGRAMACAO',
+        title: 'Programação PCP Aprovada',
         description: `Ordem incluída no sequenciamento semanal oficial com meta de ${formatQuantity(selectedOrder.quantity_planned_tons, 't')}.`,
-        user_name: 'Planejador PCP',
+        userOrSystem: 'Planejador PCP',
         origin: 'PCP',
-        logged_at: selectedOrder.created_at,
-        quantity_impact_tons: selectedOrder.quantity_planned_tons,
+        timestamp: selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
-    if (!existingTypes.has('CRIACAO_OP')) {
+    if (!existingCategories.has('CRIACAO_OP')) {
       timeline.push({
         id: `criacao-op-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'CRIACAO_OP',
-        event_title: 'OP Gerada no SAP ECC',
+        category: 'CRIACAO_OP',
+        title: 'OP Gerada no SAP ECC',
         description: `Ordem gerada com roteiro padrão para centro ${selectedOrder.centro_code} e linha ${selectedOrder.linha_code}.`,
-        user_name: 'Interface SAP',
+        userOrSystem: 'Interface SAP',
         origin: 'SAP',
-        logged_at: selectedOrder.created_at,
+        timestamp: selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
     if (
       selectedOrder.started_at &&
-      !existingTypes.has('INICIO_PRODUCAO') &&
-      !existingTypes.has('INICIO_FISICO')
+      !existingCategories.has('INICIO_PRODUCAO')
     ) {
       timeline.push({
         id: `inicio-prod-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'INICIO_PRODUCAO',
-        event_title: 'Início Físico na Linha',
+        category: 'INICIO_PRODUCAO',
+        title: 'Início Físico na Linha',
         description: `Processamento fabril iniciado no MES pelo turno operacional.`,
-        user_name: 'Operador Líder',
+        userOrSystem: 'Operador Líder',
         origin: 'MES',
-        logged_at: selectedOrder.started_at,
+        timestamp: selectedOrder.started_at,
       })
     }
 
-    if (selectedOrder.quantity_posted_tons > 0 && !existingTypes.has('APONTAMENTO')) {
+    if (selectedOrder.quantity_posted_tons > 0 && !existingCategories.has('APONTAMENTO')) {
       timeline.push({
         id: `apont-prod-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'APONTAMENTO',
-        event_title: 'Apontamentos Realizados',
+        category: 'APONTAMENTO',
+        title: 'Apontamentos Realizados',
         description: `Total de ${formatQuantity(selectedOrder.quantity_posted_tons, 't')} lançados e conciliados.`,
-        user_name: 'Líder / MES 4.0',
+        userOrSystem: 'Líder / MES 4.0',
         origin: 'MES',
-        logged_at: selectedOrder.last_posting_at || selectedOrder.created_at,
-        quantity_impact_tons: selectedOrder.quantity_posted_tons,
+        timestamp: selectedOrder.last_posting_at || selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
     if (
       (selectedOrder.status_op === 'CONCLUIDA_FISICAMENTE' ||
         selectedOrder.quantity_produced_tons >= selectedOrder.quantity_planned_tons) &&
-      !existingTypes.has('CONCLUSAO_FISICA')
+      !existingCategories.has('FIM_FISICO')
     ) {
       timeline.push({
         id: `concl-fisica-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'CONCLUSAO_FISICA',
-        event_title: 'Conclusão Física no MES',
+        category: 'FIM_FISICO',
+        title: 'Conclusão Física no MES',
         description: `Volume total produzido de ${formatQuantity(selectedOrder.quantity_produced_tons, 't')}.`,
-        user_name: 'Supervisão de Produção',
+        userOrSystem: 'Supervisão de Produção',
         origin: 'MES',
-        logged_at:
-          selectedOrder.ended_at || selectedOrder.last_posting_at || selectedOrder.created_at,
-        quantity_impact_tons: selectedOrder.quantity_produced_tons,
+        timestamp:
+          selectedOrder.ended_at || selectedOrder.last_posting_at || selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
@@ -239,19 +230,18 @@ export const ProductionHistoryPage: React.FC = () => {
     ) {
       timeline.push({
         id: `sap-sync-${selectedOrder.id}`,
-        order_id: selectedOrder.id,
-        event_type: 'INTEGRACAO_SAP',
-        event_title: 'Integração SAP Concluída (ZPPT010)',
+        category: 'ENVIO_SAP',
+        title: 'Integração SAP Concluída (ZPPT010)',
         description: `Documentos fiscais e de estoque gerados sem divergências no SAP ECC.`,
-        user_name: 'Conector RFC',
+        userOrSystem: 'Conector RFC',
         origin: 'SAP',
-        logged_at: selectedOrder.ended_at || selectedOrder.created_at,
+        timestamp: selectedOrder.ended_at || selectedOrder.created_at || new Date().toISOString(),
       })
     }
 
     // Ordenar cronologicamente
     return timeline.sort(
-      (a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime(),
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     )
   }, [selectedOrder, orderEvents])
 

@@ -96,8 +96,7 @@ export class CenterDerivationService {
     if (circular) {
       return {
         isValid: false,
-        error:
-          'Não foi possível salvar a derivação: esta relação criaria um ciclo de derivação entre Centros.',
+        error: 'Esta configuração gera uma relação circular entre Centros e não pode ser salva.',
       }
     }
 
@@ -124,8 +123,7 @@ export class CenterDerivationService {
           if (sharedMatkl) {
             return {
               isValid: false,
-              error:
-                'Não foi possível salvar a derivação: já existe uma regra ativa com esta combinação Centro + MATKL + período.',
+              error: 'Já existe uma derivação cadastrada para esta combinação.',
             }
           }
         }
@@ -206,6 +204,10 @@ export class CenterDerivationService {
     }
 
     return false
+  }
+
+  getInMemoryDerivations(): CenterDerivationRule[] {
+    return [...inMemoryDerivations]
   }
 
   /**

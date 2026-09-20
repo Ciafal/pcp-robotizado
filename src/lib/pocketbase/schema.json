@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T16:03:16.625Z",
+  "generatedAt": "2026-09-20T16:21:22.753Z",
   "collections": [
     {
       "name": "users",
@@ -23296,6 +23296,130 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_zpp_cfg_grp_col ON pcp_zpp01_config (group_code, column_code)",
         "CREATE INDEX idx_zpp_cfg_active ON pcp_zpp01_config (is_active)"
+      ]
+    },
+    {
+      "name": "pcp_derived_schedules",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "origem_programacao_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "derivada_programacao_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_origem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro_destino",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "matkl",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regra_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "versao_origem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_origem",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_derivada",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_hora_criacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "usuario_criacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_geracao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["MANUAL", "AUTOMATICA"]
+        },
+        {
+          "name": "derivation_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["ATIVA", "ORIGEM_CANCELADA", "REVISAO_NECESSARIA", "DESVINCULADA"]
+        },
+        {
+          "name": "analise_ia",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pds_origem ON pcp_derived_schedules (origem_programacao_id)",
+        "CREATE INDEX idx_pds_derivada ON pcp_derived_schedules (derivada_programacao_id)",
+        "CREATE INDEX idx_pds_centros ON pcp_derived_schedules (centro_origem, centro_destino)"
       ]
     }
   ]

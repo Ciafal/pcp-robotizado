@@ -57,34 +57,28 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
       <MemoryRouter initialEntries={['/']}>
         <AuthProvider>
           <ControlTowerProvider>
-            <ErrorBoundary moduleName="Estrutura de Rotas">
-              <Routes>
-                <Route element={<Layout />}>
-                  <Route
-                    path="/"
-                    element={
-                      <ErrorBoundary moduleName="Cockpit Principal">
-                        <div>
-                          <LocationDisplay />
-                          <Index />
-                        </div>
-                      </ErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="/pcp/cockpit"
-                    element={
-                      <ErrorBoundary moduleName="Cockpit Principal">
-                        <div>
-                          <LocationDisplay />
-                          <Index />
-                        </div>
-                      </ErrorBoundary>
-                    }
-                  />
-                </Route>
-              </Routes>
-            </ErrorBoundary>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route
+                  path="/"
+                  element={
+                    <div>
+                      <LocationDisplay />
+                      <Index />
+                    </div>
+                  }
+                />
+                <Route
+                  path="/pcp/cockpit"
+                  element={
+                    <div>
+                      <LocationDisplay />
+                      <Index />
+                    </div>
+                  }
+                />
+              </Route>
+            </Routes>
           </ControlTowerProvider>
         </AuthProvider>
       </MemoryRouter>,
@@ -110,23 +104,19 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
       <MemoryRouter initialEntries={['/?v=1.0.4&token=demo-xyz#dashboard']}>
         <AuthProvider>
           <ControlTowerProvider>
-            <ErrorBoundary moduleName="Estrutura de Rotas">
-              <Routes>
-                <Route element={<Layout />}>
-                  <Route
-                    path="/"
-                    element={
-                      <ErrorBoundary moduleName="Cockpit Principal">
-                        <div>
-                          <LocationDisplay />
-                          <Index />
-                        </div>
-                      </ErrorBoundary>
-                    }
-                  />
-                </Route>
-              </Routes>
-            </ErrorBoundary>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route
+                  path="/"
+                  element={
+                    <div>
+                      <LocationDisplay />
+                      <Index />
+                    </div>
+                  }
+                />
+              </Route>
+            </Routes>
           </ControlTowerProvider>
         </AuthProvider>
       </MemoryRouter>,
