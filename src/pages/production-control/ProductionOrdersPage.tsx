@@ -43,6 +43,8 @@ export const ProductionOrdersPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const [orders, setOrders] = useState<ProductionOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [isHomologation, setIsHomologation] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [mesStatus, setMesStatus] = useState<MESConnectionStatus | null>(null)
   const [filters, setFilters] = useState<ProductionFiltersState>(() => {
     const search = searchParams.get('search')
@@ -60,21 +62,37 @@ export const ProductionOrdersPage: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
-      const [mes, list] = await Promise.all([
+      const [mes, ordersRes] = await Promise.all([
         pcpProductionService.checkMESConnection().catch(
           (): MESConnectionStatus => ({
             available: false,
             lastChecked: new Date().toISOString(),
-            message: 'Falha na checagem do MES 4.0',
+            message: 'MES 4.0 indisponível temporariamente',
             source: 'OFFLINE',
             activeLinesWithRealtime: [],
           }),
         ),
-        pcpProductionService.listOrders(filters).catch(() => []),
+        pcpProductionService.getOrders(filters).catch((err: any) => ({
+          success: false,
+          data: pcpProductionService.getStandardSeedOrders(),
+          error: err?.message || 'Erro ao carregar ordens',
+          isFallback: true,
+          source: 'HOMOLOGATION_SEED' as const,
+        })),
       ])
       setMesStatus(mes)
-      setOrders(Array.isArray(list) ? list : [])
+      const data = ordersRes?.data || []
+      setOrders(Array.isArray(data) ? data : [])
+      setIsHomologation(Boolean(ordersRes?.isFallback))
+      if (ordersRes && !ordersRes.success && ordersRes.error) {
+        setLoadError(ordersRes.error)
+      }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Não foi possível carregar os dados.')
+      setOrders(pcpProductionService.getStandardSeedOrders())
+      setIsHomologation(true)
     } finally {
       setLoading(false)
     }
@@ -209,11 +227,19 @@ export const ProductionOrdersPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
-              Controle de Ordens de Produção
+              Controle de Ordens de Produção (MES x SAP ECC)
             </h1>
             <Badge className="bg-[#004C97] hover:bg-[#003d7a] text-white text-[11px] font-semibold">
               CONTROLE DE PRODUÇÃO
             </Badge>
+            {isHomologation && (
+              <Badge
+                variant="outline"
+                className="bg-amber-50 text-amber-900 border-amber-300 text-[11px] font-medium"
+              >
+                Dados de homologação
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl">
             Acompanhamento completo das ordens: volumes programados, apuração no MES, integração SAP
@@ -479,10 +505,38 @@ export const ProductionOrdersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {displayedOrders.length === 0 ? (
+                {loading ? (
                   <tr>
-                    <td colSpan={21} className="py-8 text-center text-slate-500 text-xs">
-                      Nenhum dado encontrado para os filtros selecionados.
+                    <td colSpan={21} className="py-12 text-center text-slate-500 text-xs">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <RefreshCw className="w-5 h-5 text-[#004C97] animate-spin" />
+                        <span>Carregando ordens...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : loadError ? (
+                  <tr>
+                    <td
+                      colSpan={21}
+                      className="py-8 text-center text-rose-700 text-xs bg-rose-50/50"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <span>Não foi possível carregar os dados. Tentar novamente.</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={loadData}
+                          className="h-7 text-xs border-rose-300 text-rose-800 bg-white hover:bg-rose-50"
+                        >
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : displayedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={21} className="py-10 text-center text-slate-500 text-xs">
+                      Nenhuma Ordem de Produção encontrada.
                     </td>
                   </tr>
                 ) : (
@@ -567,16 +621,24 @@ export const ProductionOrdersPage: React.FC = () => {
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-mono ${
-                              o.status_sap.includes('ERRO') || o.status_sap.includes('REJEITADA')
-                                ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                : 'bg-slate-50 text-slate-700'
-                            }`}
-                          >
-                            {o.status_sap}
-                          </Badge>
+                          {o.status_sap?.includes('ERRO') ||
+                          o.status_sap?.includes('REJEITADA') ||
+                          (o.status_sap as string) === 'INDISPONIVEL' ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-mono bg-rose-50 text-rose-800 border-rose-300 cursor-help"
+                              title="Não foi possível consultar o SAP."
+                            >
+                              Indisponível
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-mono bg-slate-50 text-slate-700"
+                            >
+                              {o.status_sap || '-'}
+                            </Badge>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 text-center font-mono text-[11px] whitespace-nowrap">
                           <span

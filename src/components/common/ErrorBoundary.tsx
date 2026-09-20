@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
-import { ShieldAlert, RotateCcw, Home, FileText } from 'lucide-react'
+import { ShieldAlert, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isChunkLoadError, triggerChunkReloadOnce } from '@/lib/lazyWithRetry'
 
@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  public handleReset = () => {
+  public handleRetryLocal = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
     if (this.props.onRetry) {
       this.props.onRetry()
@@ -47,16 +47,13 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  public handleRetryLocal = () => {
+  public handleGoBack = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
-    if (this.props.onRetry) {
-      this.props.onRetry()
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back()
+    } else {
+      window.location.href = '/'
     }
-  }
-
-  public handleGoHome = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null })
-    window.location.href = '/'
   }
 
   public render() {
@@ -83,83 +80,48 @@ export class ErrorBoundary extends Component<Props, State> {
               className="h-7 text-xs border-rose-300 bg-white hover:bg-rose-50 text-rose-900 gap-1.5 shrink-0"
             >
               <RotateCcw className="w-3 h-3 text-rose-700" />
-              Tentar Novamente
+              Tentar novamente
             </Button>
           </div>
         )
       }
 
-      const isDevOrQas =
-        typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' ||
-          window.location.hostname.includes('qas') ||
-          window.location.hostname.includes('127.0.0.1') ||
-          import.meta.env.DEV)
-
       return (
         <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50 text-slate-800">
-          <div className="max-w-xl w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center space-y-6">
-            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 shadow-xs">
-              <ShieldAlert className="w-8 h-8" />
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center space-y-6">
+            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 shadow-xs">
+              <ShieldAlert className="w-7 h-7" />
             </div>
 
             <div className="space-y-2">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-rose-700 font-semibold bg-rose-100 px-2.5 py-1 rounded border border-rose-200">
-                Recuperação de Falha &bull; {this.props.moduleName || 'Área Operacional'}
-              </span>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                Instabilidade Temporária no Módulo
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                Não foi possível carregar esta página.
               </h2>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
-                Não foi possível carregar esta área. Tente novamente ou retorne ao Cockpit.
+              <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                Ocorreu uma instabilidade pontual na renderização dos dados. Você pode tentar
+                novamente ou voltar à tela anterior.
               </p>
             </div>
-
-            {isDevOrQas && this.state.error && (
-              <details className="text-left bg-slate-50 p-3.5 rounded-xl border border-slate-200 group">
-                <summary className="text-[11px] font-mono text-slate-600 cursor-pointer flex items-center gap-1.5 select-none font-semibold">
-                  <FileText className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Diagnóstico Técnico (Ambiente de Testes/QAS)</span>
-                </summary>
-                <div className="mt-2 text-[10px] font-mono text-slate-700 space-y-1 max-h-40 overflow-y-auto">
-                  <div className="text-rose-600 font-bold break-all">
-                    {this.state.error.message || 'Erro desconhecido'}
-                  </div>
-                  {this.state.error.stack && (
-                    <pre className="text-slate-500 whitespace-pre-wrap text-[9px] leading-tight">
-                      {this.state.error.stack}
-                    </pre>
-                  )}
-                </div>
-              </details>
-            )}
 
             <div className="flex flex-wrap gap-3 justify-center pt-2">
               <Button
                 variant="default"
                 onClick={this.handleRetryLocal}
-                className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold shadow-sm"
+                className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold shadow-sm px-4"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Tentar Novamente
+                <RotateCcw className="w-3.5 h-3.5" /> Tentar novamente
               </Button>
               <Button
                 variant="outline"
-                onClick={this.handleReset}
-                className="gap-2 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs"
+                onClick={this.handleGoBack}
+                className="gap-2 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs px-4"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Recarregar Página
-              </Button>
-              <Button
-                variant="outline"
-                onClick={this.handleGoHome}
-                className="gap-2 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs"
-              >
-                <Home className="w-3.5 h-3.5" /> Cockpit Operacional
+                Voltar
               </Button>
             </div>
 
-            <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100">
-              CIAFAL Wilson Santos &bull; HUB PCP Robotizado &bull; ErrorBoundary Resiliente
+            <div className="text-[11px] text-slate-500 font-mono pt-3 border-t border-slate-100">
+              CIAFAL &bull; HUB PCP Robotizado
             </div>
           </div>
         </div>

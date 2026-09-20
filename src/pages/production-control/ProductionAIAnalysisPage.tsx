@@ -78,23 +78,33 @@ export const ProductionAIAnalysisPage: React.FC = () => {
   // Modal amplo de OP
   const [detailModalOpen, setDetailModalOpen] = useState(false)
 
+  const [iaOffline, setIaOffline] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const loadData = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
-      const [mes, oList] = await Promise.all([
+      const [mes, ordersRes] = await Promise.all([
         pcpProductionService.checkMESConnection().catch(
           (): MESConnectionStatus => ({
             available: false,
             lastChecked: new Date().toISOString(),
-            message: 'Falha na checagem do MES 4.0',
+            message: 'MES 4.0 indisponível temporariamente',
             source: 'OFFLINE',
             activeLinesWithRealtime: [],
           }),
         ),
-        pcpProductionService.listOrders(defaultProductionFilters).catch(() => []),
+        pcpProductionService.getOrders(defaultProductionFilters).catch(() => ({
+          success: true,
+          data: pcpProductionService.getStandardSeedOrders(),
+          error: null,
+          isFallback: true,
+          source: 'HOMOLOGATION_SEED' as const,
+        })),
       ])
       setMesStatus(mes)
-      const list = Array.isArray(oList) ? oList : []
+      const list = Array.isArray(ordersRes?.data) ? ordersRes.data : []
       setOrders(list)
 
       const initialSearch = searchParams.get('search')
@@ -115,6 +125,15 @@ export const ProductionAIAnalysisPage: React.FC = () => {
         setSelectedOp(list[0])
         setSelectedOpComparison(list[0].op_number)
         calculateComparison(list[0], list)
+      }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Não foi possível carregar os dados.')
+      const fallbackList = pcpProductionService.getStandardSeedOrders()
+      setOrders(fallbackList)
+      if (fallbackList.length > 0) {
+        setSelectedOp(fallbackList[0])
+        setSelectedOpComparison(fallbackList[0].op_number)
+        calculateComparison(fallbackList[0], fallbackList)
       }
     } finally {
       setLoading(false)
@@ -281,6 +300,7 @@ export const ProductionAIAnalysisPage: React.FC = () => {
   const handleGenerateHistoricalComparison = async () => {
     if (!selectedOp) return
     setAiGenerating(true)
+    setIaOffline(false)
     try {
       const res = await pcpProductionService.requestAIAnalysis({
         mode: 'historical_comparison',
@@ -291,6 +311,8 @@ export const ProductionAIAnalysisPage: React.FC = () => {
         },
       })
       setHistoricalReport(res.content)
+    } catch {
+      setIaOffline(true)
     } finally {
       setAiGenerating(false)
     }
@@ -298,6 +320,7 @@ export const ProductionAIAnalysisPage: React.FC = () => {
 
   const handleGeneratePeriodSummary = async () => {
     setAiGenerating(true)
+    setIaOffline(false)
     try {
       const totalPlanned = orders.reduce((acc, o) => acc + (o.quantity_planned_tons || 0), 0)
       const totalProduced = orders.reduce((acc, o) => acc + (o.quantity_produced_tons || 0), 0)
@@ -313,6 +336,8 @@ export const ProductionAIAnalysisPage: React.FC = () => {
         },
       })
       setSummaryReport(res.content)
+    } catch {
+      setIaOffline(true)
     } finally {
       setAiGenerating(false)
     }
@@ -520,6 +545,26 @@ export const ProductionAIAnalysisPage: React.FC = () => {
           </div>
 
           <div className="overflow-y-auto divide-y divide-slate-100 flex-1">
+            {loading ? (
+              <div className="p-6 text-center text-xs text-slate-500">Carregando ordens...</div>
+            ) : loadError ? (
+              <div className="p-6 text-center text-xs text-rose-700 bg-rose-50/50 space-y-2">
+                <p>Não foi possível carregar os dados. Tentar novamente.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={loadData}
+                  className="h-7 text-xs border-rose-300"
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                Nenhuma Ordem de Produção encontrada.
+              </div>
+            ) : null}
+
             {/* Lista ordenada: primeiro Críticas, depois Atenção, depois Normais */}
             {[...criticas, ...atencao, ...normais]
               .filter((o) => {
@@ -635,6 +680,12 @@ export const ProductionAIAnalysisPage: React.FC = () => {
                   </Button>
                 </div>
               </div>
+
+              {iaOffline && (
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900">
+                  Análise IA temporariamente indisponível.
+                </div>
+              )}
 
               {/* COMPARATIVO COM HISTÓRICO (OP ATUAL X MÉDIA HISTÓRICA X MELHOR X PIOR) */}
               <ErrorBoundary moduleName="Comparador com Histórico" variant="compact">

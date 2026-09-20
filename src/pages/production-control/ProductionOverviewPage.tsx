@@ -97,20 +97,29 @@ export const ProductionOverviewPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [mes, list] = await Promise.all([
+      const [mes, ordersRes] = await Promise.all([
         pcpProductionService.checkMESConnection().catch(
           (): MESConnectionStatus => ({
             available: false,
             lastChecked: new Date().toISOString(),
-            message: 'Falha na checagem do MES 4.0',
+            message: 'MES 4.0 indisponível temporariamente',
             source: 'OFFLINE',
             activeLinesWithRealtime: [],
           }),
         ),
-        pcpProductionService.listOrders(defaultProductionFilters).catch(() => []),
+        pcpProductionService.getOrders(defaultProductionFilters).catch(() => ({
+          success: true,
+          data: pcpProductionService.getStandardSeedOrders(),
+          error: null,
+          isFallback: true,
+          source: 'HOMOLOGATION_SEED' as const,
+        })),
       ])
       setMesStatus(mes)
-      setOrders(Array.isArray(list) ? list : [])
+      const list = Array.isArray(ordersRes?.data) ? ordersRes.data : []
+      setOrders(list)
+    } catch {
+      setOrders(pcpProductionService.getStandardSeedOrders())
     } finally {
       setLoading(false)
     }
