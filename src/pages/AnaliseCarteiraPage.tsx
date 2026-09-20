@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import {
   CarteiraItem,
   CarteiraEntradaFutura,
@@ -223,87 +224,64 @@ export const AnaliseCarteiraPage: React.FC = () => {
   return (
     <div className="space-y-4 pb-12">
       {/* Header Geral com Breadcrumb Oficial e Ações */}
-      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          {/* Breadcrumb padrão: PCP Robotizado > Análise de Carteira > Carteira L1 etc. */}
-          <nav
-            aria-label="Breadcrumb"
-            className="flex items-center gap-1.5 text-xs text-slate-500 mb-2"
-          >
-            <Link
-              to="/pcp/sequenciamento"
-              className="hover:text-[#004C97] font-medium transition-colors"
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Análise de Carteira"
+        subtitle="Base única de carteira aberta, saldos fabris e rupturas industriais com rastreabilidade SAP."
+        compactInfo={`Subtópico: ${getSubtopicName(topicoAtivo)} | SAP ECC RFC (ZSD28C)`}
+        infoTooltip="Base única de carteira corporativa CIAFAL integrada via RFC ao SAP ECC (transação ZSD28C), com balanceamento de ordens L1, L2, MTO, Revenda, Importados e SDC."
+        breadcrumbs={[
+          { label: 'PCP' },
+          { label: 'Análise de Carteira', href: '/pcp/analise-carteira/geral' },
+          { label: getSubtopicName(topicoAtivo) },
+        ]}
+        badge={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge className="bg-[#004C97] text-white text-xs font-bold">
+              Fonte atual: SAP ECC • RFC
+            </Badge>
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-[#004C97] border-blue-300 text-xs font-semibold"
             >
-              PCP Robotizado
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <Link
-              to="/pcp/analise-carteira/geral"
-              className="hover:text-[#004C97] font-medium transition-colors"
-            >
-              Análise de Carteira
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-bold text-[#004C97]">{getSubtopicName(topicoAtivo)}</span>
-          </nav>
-
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#004C97] text-white rounded-lg shadow-sm">
-              <Briefcase className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 leading-none">
-                  Análise de Carteira
-                </h1>
-                <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
-                  Fonte atual: SAP ECC • RFC
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="bg-blue-50 text-[#004C97] border-blue-300 text-[10px] font-semibold"
-                >
-                  Referência SAP: ZSD28C
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Base única de carteira &bull; Central de Carteira Aberta, Saldos
-                L1/L2/MTO/Revenda/Importado e Rupturas CIAFAL.
-              </p>
-            </div>
+              Referência: ZSD28C
+            </Badge>
           </div>
-        </div>
+        }
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsReconciliacaoOpen(true)}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5 h-8 shrink-0"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Reconciliação SAP</span>
+            </Button>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsReconciliacaoOpen(true)}
-            className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5 h-8"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#004C97]" /> Reconciliação SAP
-          </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsRegrasModalOpen(true)}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5 h-8 shrink-0"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Motor de Regras</span>
+            </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsRegrasModalOpen(true)}
-            className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold gap-1.5 h-8"
-          >
-            <Sliders className="w-3.5 h-3.5 text-[#004C97]" /> Motor de Regras
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handleForcarAtualizacaoSap}
-            disabled={isLoading}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Atualizar
-            dados SAP
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              onClick={handleForcarAtualizacaoSap}
+              disabled={isLoading}
+              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-xs shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Atualizar dados SAP</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Selo Superior com Rastreabilidade Oficial SAP ECC RFC */}
       <div className="px-3.5 py-2 bg-slate-100/90 rounded-lg border border-slate-200 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">

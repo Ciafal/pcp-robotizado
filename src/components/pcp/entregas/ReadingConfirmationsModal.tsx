@@ -110,7 +110,7 @@ export const ReadingConfirmationsModal: React.FC<ReadingConfirmationsModalProps>
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-4 border-b border-slate-200 bg-slate-50/80 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

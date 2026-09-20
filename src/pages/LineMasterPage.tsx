@@ -30,6 +30,7 @@ import { lineMasterService } from '@/services/line-master'
 import { OeeInteractiveValue } from '@/components/common/OeeInteractiveValue'
 import { sapIntegrationService } from '@/services/sap-integration'
 import { authService } from '@/services/pcp-auth'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
 import {
   LineOverviewData,
@@ -373,49 +374,39 @@ export default function LineMasterPage() {
   return (
     <div className="space-y-6">
       {/* 1. Header da Página em Fundo Claro Corporativo CIAFAL */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white p-4 rounded-xl shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#004C97] rounded-md text-white">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Centros e Ficha Mestra
-            </h1>
-            <Badge
-              variant="outline"
-              className="text-xs border-blue-200 text-[#004C97] bg-blue-50 font-bold"
-            >
-              CIAFAL &bull; Homologado
-            </Badge>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Centros de produção, parâmetros operacionais, capacidade, turnos, responsáveis e Ficha
-            Mestra industrial.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => setIsSapCatalogModalOpen(true)}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold h-8 gap-1.5"
-          >
-            <Database className="w-3.5 h-3.5 text-[#004C97]" />
-            Catálogo SAP ({sapCatalog.length})
-          </Button>
-
-          <Can permission="pcp.masterdata.edit">
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Centros e Ficha Mestra"
+        subtitle="Centros de produção, parâmetros operacionais, turnos, responsáveis e Ficha Mestra industrial."
+        compactInfo={`${lines.length} centros | Homologado CIAFAL`}
+        infoTooltip="Centros de produção, parâmetros operacionais, capacidade, turnos, responsáveis e Ficha Mestra industrial."
+        breadcrumbs={[{ label: 'Cadastros' }, { label: 'Ficha Mestra' }]}
+        badge="CIAFAL • Homologado"
+        actions={
+          <>
             <Button
               size="sm"
-              onClick={() => setIsAddLineModalOpen(true)}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-sm"
+              variant="outline"
+              onClick={() => setIsSapCatalogModalOpen(true)}
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold h-8 gap-1.5 shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" /> + Adicionar Centro
+              <Database className="w-3.5 h-3.5 text-[#004C97]" />
+              <span>Catálogo SAP ({sapCatalog.length})</span>
             </Button>
-          </Can>
-        </div>
-      </div>
+
+            <Can permission="pcp.masterdata.edit">
+              <Button
+                size="sm"
+                onClick={() => setIsAddLineModalOpen(true)}
+                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5 h-8 shadow-xs shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Adicionar Centro</span>
+              </Button>
+            </Can>
+          </>
+        }
+      />
 
       {/* 2. Se houver linha selecionada: Modo Detalhe 360 / Senão: Grid Principal de Linhas */}
       {selectedLineOverview && selectedLineId ? (

@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PCPCommunication, CommunicationType, CriticalityLevel } from '@/types/pcp-meetings-comms'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { pcpCommunicationService } from '@/services/pcp-communication-service'
 import CreateCommunicationModal from '@/components/communications/CreateCommunicationModal'
 import CommDetailModal from '@/components/communications/CommDetailModal'
@@ -122,28 +123,25 @@ export const PCPCommunicationsPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Header CIAFAL */}
-      <div className="bg-white border-b border-slate-200 -mx-6 -mt-6 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-500">
-            <span>PCP ROBOTIZADO</span>
-            <span>&bull;</span>
-            <span className="text-[#004C97] font-semibold">CENTRAL DE COMUNICADOS PCP</span>
-          </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">
-            Comunicação Formal, Governança & Controle de Leitura
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Comunicados PCP"
+        subtitle="Comunicação formal, governança operacional e controle de leitura obrigatória."
+        compactInfo={`${totalVigentes} vigentes | ${totalCriticos} críticos`}
+        infoTooltip="Comunicação formal de diretrizes produtivas, manutenções emergenciais, bloqueios de ordem e alinhamento executivo entre equipes."
+        breadcrumbs={[{ label: 'PCP' }, { label: 'Comunicados' }]}
+        badge="Governança de Leitura"
+        actions={
           <Button
             size="sm"
             onClick={() => setCreateModalOpen(true)}
-            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 px-4 gap-1.5 shadow-xs font-semibold"
+            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 px-4 gap-1.5 shadow-xs font-semibold shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" /> Criar Comunicado PCP
+            <Plus className="w-3.5 h-3.5" />
+            <span>Criar Comunicado PCP</span>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Métricas do Dashboard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

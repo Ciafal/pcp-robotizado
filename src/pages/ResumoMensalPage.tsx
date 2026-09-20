@@ -336,18 +336,27 @@ export const ResumoMensalPage: React.FC = () => {
       <CiafalPageHeader
         moduleName="PCP Robotizado"
         screenTitle="Resumo Mensal de Entregas"
-        subtitle="Consolidação analítica de 18 seções mínimas por linha fabril com revisão assistida por IA, rastreabilidade SAP e governança de versões."
+        subtitle="Consolidação analítica de 18 seções mínimas por linha fabril com governança de versões e rastreabilidade SAP."
+        compactInfo={`${String(filterMes).padStart(2, '0')}/${filterAno} | 18 seções | Atualizado em tempo real`}
+        infoTooltip="Consolidação analítica de 18 seções mínimas por linha fabril com revisão assistida por IA, rastreabilidade SAP SD/PP e governança imutável de versões."
         breadcrumbs={[{ label: 'Entregas PCP', href: '/pcp/entregas' }, { label: 'Resumo Mensal' }]}
-        badge={`Mês: ${String(filterMes).padStart(2, '0')}/${filterAno}`}
+        badge={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge className="bg-[#004C97]/10 text-[#004C97] border-[#004C97]/30 text-xs font-semibold whitespace-nowrap">
+              {String(filterMes).padStart(2, '0')}/{filterAno}
+            </Badge>
+            {renderStatusBadge(selectedSummary?.status || 'RASCUNHO_IA')}
+          </div>
+        }
         dataSource="SAP ECC / WMS / Ficha Mestra / PocketBase"
         lastUpdated={new Date()}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <Button
               variant="outline"
               size="sm"
               onClick={handleVerifyData}
-              className="h-8 text-xs border-amber-300 text-amber-900 bg-amber-50/70 hover:bg-amber-100 gap-1.5"
+              className="h-8 text-xs border-amber-300 text-amber-900 bg-amber-50/70 hover:bg-amber-100 gap-1.5 shrink-0"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
               <span>Verificar Dados</span>
@@ -360,7 +369,7 @@ export const ResumoMensalPage: React.FC = () => {
                 setIsPdfExecutive(false)
                 setIsPdfOpen(true)
               }}
-              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5"
+              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Gerar PDF</span>
@@ -373,7 +382,7 @@ export const ResumoMensalPage: React.FC = () => {
                 setIsPdfExecutive(true)
                 setIsPdfOpen(true)
               }}
-              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5"
+              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>PDF Executivo</span>
@@ -383,7 +392,7 @@ export const ResumoMensalPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setIsEmailOpen(true)}
-              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5"
+              className="h-8 text-xs border-slate-300 bg-white text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
             >
               <Mail className="w-3.5 h-3.5 text-[#004C97]" />
               <span>Enviar por E-mail</span>
@@ -393,12 +402,12 @@ export const ResumoMensalPage: React.FC = () => {
               variant="default"
               size="sm"
               onClick={handlePublishAgenda}
-              className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 font-bold shadow-xs"
+              className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 font-bold shadow-xs shrink-0"
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>Publicar na Agenda HUB</span>
             </Button>
-          </div>
+          </>
         }
       />
 
@@ -1169,8 +1178,8 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 12. Previsto x Realizado Histórico (Últimos Meses)
               </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                <table className="w-full text-xs text-left min-w-[500px]">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                     <tr>
                       <th className="py-2 px-3">Mês</th>
@@ -1208,8 +1217,8 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 13. Histórico de Revisões de Versão (V1 / V2 / V3)
               </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                <table className="w-full text-xs text-left min-w-[580px]">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                     <tr>
                       <th className="py-2 px-3">Versão</th>
@@ -1239,8 +1248,8 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 14. Matriz de Riscos de Entrega
               </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                <table className="w-full text-xs text-left min-w-[550px]">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                     <tr>
                       <th className="py-2 px-3">Risco Identificado</th>
@@ -1293,8 +1302,8 @@ export const ResumoMensalPage: React.FC = () => {
               <h3 className="text-xs font-black uppercase text-[#004C97] tracking-wider">
                 16. Pendências e Planos de Ação por Área
               </h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                <table className="w-full text-xs text-left min-w-[600px]">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b">
                     <tr>
                       <th className="py-2 px-3">Área</th>

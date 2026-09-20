@@ -22,6 +22,7 @@ import { ConfiguracoesReuniaoView } from '@/components/meetings/ConfiguracoesReu
 import { ReuniaoEmAndamentoView } from '@/components/meetings/ReuniaoEmAndamentoView'
 import { CentralAtasFatia2View } from '@/components/meetings/CentralAtasFatia2View'
 import { HistoricoReunioesView } from '@/components/meetings/HistoricoReunioesView'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { CreatePcpMeetingModal } from '@/components/meetings/CreatePcpMeetingModal'
 import { PCPMeetingRecord } from '@/types/pcp-meeting'
 import { useAuth } from '@/contexts/AuthContext'
@@ -65,38 +66,30 @@ export const PCPMeetingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho Oficial do Módulo REUNIÃO PCP (Sem sticky/fixed interno) */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black tracking-widest text-[#004C97] uppercase">
-                Módulo Oficial CIAFAL &bull; PCP Robotizado
-              </span>
-            </div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <CalendarDays className="w-6 h-6 text-[#004C97]" />
-              REUNIÃO PCP
-            </h1>
-            <p className="text-xs text-slate-500">
-              Gestão de ponta a ponta da reunião semanal de PCP: organização via IA executiva,
-              minuta SGQ 8.1.001-R002, trava de governança para agendamento e rastreabilidade 5W2H.
-            </p>
-          </div>
+      {/* Cabeçalho Oficial do Módulo REUNIÃO PCP */}
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Reunião PCP"
+        subtitle="Gestão ponta a ponta da reunião semanal de PCP: organização via IA executiva e minuta SGQ."
+        compactInfo="SGQ 8.1.001-R002 | Rastreabilidade 5W2H"
+        infoTooltip="Gestão de ponta a ponta da reunião semanal de PCP: organização via IA executiva, minuta SGQ 8.1.001-R002, trava de governança para agendamento e rastreabilidade 5W2H."
+        breadcrumbs={[{ label: 'PCP' }, { label: 'Reunião PCP' }]}
+        badge="SGQ 8.1.001-R002"
+        actions={
+          <Button
+            size="sm"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold h-8 px-4 gap-1.5 shadow-xs shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nova Reunião PCP</span>
+          </Button>
+        }
+      />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold h-9 px-4 gap-1.5 shadow-xs"
-            >
-              <Plus className="w-4 h-4" /> + NOVA REUNIÃO PCP
-            </Button>
-          </div>
-        </div>
-
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
         {/* 8 Subtópicos Oficiais da Reunião PCP */}
-        <div className="mt-4 pt-3 border-t border-slate-100 overflow-x-auto">
+        <div className="overflow-x-auto">
           <Tabs value={activeTab} onValueChange={(val) => handleTabChange(val)}>
             <TabsList className="bg-slate-100/80 p-1 h-auto flex flex-nowrap min-w-max gap-1">
               <TabsTrigger

@@ -128,12 +128,11 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
           {/* Linha 1 do cabeçalho: Título responsivo em 1 linha (máx 2), nunca letra por letra */}
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <h1
-              className="ciafal-page-title text-slate-900 font-bold tracking-tight leading-tight m-0"
+              className="ciafal-page-title text-slate-900 font-bold tracking-tight leading-tight m-0 shrink-0 lg:whitespace-nowrap"
               style={{
-                fontSize: 'clamp(1.25rem, 1.25vw + 0.875rem, 1.875rem)',
+                fontSize: 'var(--font-page-title, clamp(1.25rem, 1.25vw + 0.875rem, 2rem))',
                 wordBreak: 'normal',
                 overflowWrap: 'normal',
-                whiteSpace: 'normal',
               }}
             >
               {screenTitle}
@@ -156,7 +155,7 @@ export const CiafalPageHeader: React.FC<CiafalPageHeaderProps> = ({
                     <button
                       type="button"
                       aria-label="Informações da tela"
-                      className="text-slate-400 hover:text-slate-700 transition-colors p-0.5 rounded-full"
+                      className="text-slate-400 hover:text-slate-700 transition-colors p-0.5 rounded-full shrink-0"
                     >
                       <HelpCircle className="w-4 h-4" />
                     </button>

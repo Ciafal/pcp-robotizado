@@ -33,7 +33,7 @@ export const SummaryPdfModal: React.FC<SummaryPdfModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden bg-slate-100">
+      <DialogContent className="w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] max-h-[90vh] flex flex-col p-0 overflow-hidden bg-slate-100">
         <DialogHeader className="p-3.5 border-b border-slate-200 bg-white shrink-0 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded bg-[#004C97] text-white">

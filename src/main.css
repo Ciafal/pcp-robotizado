@@ -69,6 +69,19 @@
     --chart-3: 160 84% 39%; /* Verde Operacional */
     --chart-4: 215 25% 27%; /* Grafite Metálico */
     --chart-5: 0 84% 60%; /* Vermelho Atenção */
+
+    /* CIAFAL Design System - Tokens Tipográficos Padronizados (Escopo Global e Dark) */
+    --font-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.8125rem); /* 12-13px: texto auxiliar, legendas */
+    --font-sm: clamp(0.8125rem, 0.775rem + 0.2vw, 0.875rem); /* 13-14px: labels, badges compactos */
+    --font-base: clamp(0.875rem, 0.825rem + 0.25vw, 1rem); /* 14-16px: corpo normal de texto */
+    --font-button: clamp(0.8125rem, 0.775rem + 0.25vw, 0.9375rem); /* 13-15px: botões */
+    --font-card-title: clamp(0.9375rem, 0.875rem + 0.3vw, 1.125rem); /* 15-18px: títulos de cards */
+    --font-section-title: clamp(1.125rem, 1rem + 0.5vw, 1.375rem); /* 18-22px: títulos de seção */
+    --font-page-title: clamp(
+      1.25rem,
+      1.25vw + 0.875rem,
+      2rem
+    ); /* 20-32px: título da página (responsivo, desktop 28-32px, tablet 24-28px, mobile 20-24px) */
   }
 
   .dark {
@@ -198,6 +211,14 @@
     word-break: normal;
     overflow-wrap: normal;
     white-space: normal;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .ciafal-page-title {
+      white-space: nowrap;
+    }
   }
 
   .ciafal-section-title {

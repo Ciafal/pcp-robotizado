@@ -55,6 +55,7 @@ import { lineMasterService } from '@/services/line-master'
 import { ProductionLine } from '@/types/line-master'
 import { SetupDetailDrawer } from '@/components/rules-engine/SetupDetailDrawer'
 import { CoolingCalculatorWidget } from '@/components/rules-engine/CoolingCalculatorWidget'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 import { MasterIndustrialRulesTab } from '@/components/rules-engine/MasterIndustrialRulesTab'
 
 export const RulesEnginePage: React.FC = () => {
@@ -418,59 +419,52 @@ export const RulesEnginePage: React.FC = () => {
   return (
     <div className="space-y-4 p-4 md:p-6 bg-slate-50 min-h-screen text-slate-900 relative">
       {/* 1. CABEÇALHO READ ONLY PADRÃO CIAFAL COM BADGES OBRIGATÓRIAS */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-[#004C97] text-white rounded-lg shadow-xs shrink-0">
-            <Cpu className="w-6 h-6" />
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Motor de Regras & Setup"
+        subtitle="Painel analítico e consultivo das regras mestras industriais (tempos DE→PARA, paradas e penalidades CP-SAT)."
+        compactInfo={`${filteredSetups.length} setups | Modo Somente Leitura`}
+        infoTooltip="Painel analítico e consultivo das regras mestras industriais (tempos DE→PARA, acertos, paradas de capacidade, resfriamento metalúrgico e penalidades CP-SAT). Para ajustes, utilize a Ficha Mestra oficial."
+        breadcrumbs={[{ label: 'Cadastros' }, { label: 'Motor de Regras & Setup' }]}
+        badge={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge className="bg-blue-50 text-[#004C97] border border-blue-200 text-xs font-semibold gap-1">
+              <Database className="w-3 h-3 text-[#004C97]" />
+              Consulta Operacional • Fonte: Ficha Mestra
+            </Badge>
+            <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold gap-1">
+              <Lock className="w-3 h-3 text-slate-500" />
+              Somente Leitura
+            </Badge>
           </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                Motor de Regras & Setup
-              </h1>
-              {/* Badge Obrigatória 1 */}
-              <Badge className="bg-blue-50 text-[#004C97] border border-blue-200 text-[10px] font-semibold gap-1">
-                <Database className="w-3 h-3 text-[#004C97]" />
-                Consulta Operacional &bull; Fonte: Centros e Ficha Mestra
-              </Badge>
-              {/* Badge Obrigatória 2 */}
-              <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-semibold gap-1">
-                <Lock className="w-3 h-3 text-slate-500" />
-                Modo Somente Leitura
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-600 mt-1">
-              Painel analítico e consultivo das regras mestras industriais (tempos DE&rarr;PARA,
-              acertos, paradas de capacidade, resfriamento metalúrgico e penalidades CP-SAT). Para
-              ajustes, utilize a Ficha Mestra oficial.
-            </p>
-          </div>
-        </div>
+        }
+        actions={
+          <>
+            <Button
+              size="sm"
+              onClick={() =>
+                handleOpenMasterSheet(selectedLine !== 'ALL' ? selectedLine : undefined)
+              }
+              className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs gap-1.5 h-8 font-bold shadow-xs shrink-0"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Abrir na Ficha Mestra</span>
+            </Button>
 
-        {/* AÇÕES NO TOPO: APENAS CONSULTAS / NAVEGAÇÃO / ATUALIZAÇÃO */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => handleOpenMasterSheet(selectedLine !== 'ALL' ? selectedLine : undefined)}
-            className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs gap-1.5 h-8 font-bold shadow-xs"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Abrir na Ficha Mestra</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={loadAllData}
-            disabled={isLoading}
-            className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50 px-3 text-slate-700"
-            title="Recarregar parâmetros da Ficha Mestra"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Atualizar</span>
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadAllData}
+              disabled={isLoading}
+              className="text-xs border-slate-300 gap-1.5 h-8 bg-white hover:bg-slate-50 px-3 text-slate-700 shrink-0"
+              title="Recarregar parâmetros da Ficha Mestra"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* 2. PAINEL DE FILTROS AVANÇADOS NO TOPO (8 DIMENSÕES ESPECIFICADAS) */}
       <Card className="border-slate-200 shadow-xs bg-white">

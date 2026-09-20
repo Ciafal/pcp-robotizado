@@ -42,8 +42,8 @@ const DialogContent = React.forwardRef<
         !className?.includes('modal-analitico') &&
           !className?.includes('max-w-') &&
           !className?.includes('w-') &&
-          'max-w-[95vw] sm:max-w-lg',
-        !className?.includes('max-h-') && !className?.includes('h-') && 'max-h-[95vh]',
+          'max-w-[min(92vw,1400px)] w-[min(92vw,1400px)]',
+        !className?.includes('max-h-') && !className?.includes('h-') && 'max-h-[90vh]',
         className,
       )}
       {...props}

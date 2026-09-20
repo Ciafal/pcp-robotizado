@@ -38,6 +38,7 @@ import { IndustrialApprovalModal } from '@/components/test-programming/Industria
 import { TestHistoryModal } from '@/components/test-programming/TestHistoryModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
+import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
 
 export const TestProgrammingPage: React.FC = () => {
   const { user } = useAuth()
@@ -326,49 +327,41 @@ export const TestProgrammingPage: React.FC = () => {
   return (
     <div className="w-full min-h-screen bg-slate-50/50 p-4 md:p-6 space-y-4">
       {/* Cabeçalho da Página */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Programação de Testes
-            </h1>
-            <Badge
+      <CiafalPageHeader
+        moduleName="PCP Robotizado"
+        screenTitle="Programação de Testes"
+        subtitle="Gestão ponta a ponta do teste industrial: engenharia, PCP, impacto fabril e eficácia."
+        compactInfo={`${items.length} solicitações | Ciclo Integrado`}
+        infoTooltip="Gestão ponta a ponta do teste industrial: solicitação, aprovação de engenharia e PCP, impacto produtivo e eficácia."
+        breadcrumbs={[{ label: 'PCP' }, { label: 'Programação de Testes' }]}
+        badge="Ciclo Corporativo Integrado"
+        actions={
+          <>
+            <Button
               variant="outline"
-              className="text-xs bg-[#004C97]/10 text-[#004C97] border-[#004C97]/20 font-semibold"
+              size="sm"
+              onClick={loadData}
+              disabled={loading}
+              className="text-xs h-8 gap-1.5 shrink-0"
             >
-              Ciclo Corporativo Integrado
-            </Badge>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Gestão ponta a ponta do teste industrial: solicitação, aprovação de engenharia e PCP,
-            impacto produtivo e eficácia.
-          </p>
-        </div>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </Button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadData}
-            disabled={loading}
-            className="text-xs h-9 gap-1.5"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => {
-              setSelectedForEdit(null)
-              setIsFormOpen(true)
-            }}
-            className="text-xs h-9 gap-1.5 bg-[#004C97] hover:bg-[#003974] text-white shadow-sm font-semibold"
-          >
-            <Plus className="w-4 h-4" />+ Nova Programação de Teste
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                setSelectedForEdit(null)
+                setIsFormOpen(true)
+              }}
+              className="text-xs h-8 gap-1.5 bg-[#004C97] hover:bg-[#003974] text-white shadow-xs font-semibold shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nova Programação de Teste</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Cards Compactos e Clicáveis com Contadores */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">

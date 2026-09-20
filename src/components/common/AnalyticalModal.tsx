@@ -60,11 +60,11 @@ export interface AnalyticalModalProps {
 const SIZE_CLASSES: Record<AnalyticalModalSize, string> = {
   sm: 'w-[min(90vw,600px)] max-w-[min(90vw,600px)] h-auto max-h-[85vh]',
   md: 'w-[min(92vw,800px)] max-w-[min(92vw,800px)] h-auto max-h-[88vh]',
-  standard: 'w-[min(94vw,900px)] max-w-[min(94vw,900px)] h-auto max-h-[90vh]',
-  lg: 'w-[min(94vw,1100px)] max-w-[min(94vw,1100px)] h-[min(90vh,850px)] max-h-[90vh]',
-  xl: 'w-[min(95vw,1350px)] max-w-[min(95vw,1350px)] h-[min(92vh,950px)] max-h-[92vh]',
-  large: 'w-[min(95vw,1200px)] max-w-[min(95vw,1200px)] h-[min(92vh,900px)] max-h-[92vh]',
-  // Drill-down executivo de materiais (1450px)
+  standard: 'w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] h-auto max-h-[90vh]',
+  lg: 'w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] h-[min(90vh,850px)] max-h-[90vh]',
+  xl: 'w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] h-[min(90vh,950px)] max-h-[90vh]',
+  large: 'w-[min(92vw,1400px)] max-w-[min(92vw,1400px)] h-[min(90vh,900px)] max-h-[90vh]',
+  // Drill-down executivo de materiais
   drilldown:
     'modal-analitico-drilldown w-[min(94vw,1450px)] max-w-[min(94vw,1450px)] h-[90vh] max-h-[90vh]',
   // Modal analítico principal (quase fullscreen expandido): min(96vw, 1800px) x 94vh
