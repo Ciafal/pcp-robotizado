@@ -40,6 +40,9 @@ export type ScheduleGridFilter =
   | 'BLOQUEADOS'
   | 'MTO'
   | 'MTS'
+  | 'DERIVADA_TODAS'
+  | 'DERIVADA_AUTOMATICA'
+  | 'DERIVADA_MANUAL'
 
 interface WeeklyScheduleGridProps {
   items: WeeklyScheduleItem[]
@@ -208,6 +211,11 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
         if (activeFilter === 'BLOQUEADOS') return isBlocked
         if (activeFilter === 'MTO') return item.order_type === 'MTO'
         if (activeFilter === 'MTS') return item.order_type === 'MTS'
+        if (activeFilter === 'DERIVADA_TODAS') return Boolean(item.is_derived)
+        if (activeFilter === 'DERIVADA_AUTOMATICA')
+          return Boolean(item.is_derived && item.tipo_geracao === 'AUTOMATICA')
+        if (activeFilter === 'DERIVADA_MANUAL')
+          return Boolean(item.is_derived && item.tipo_geracao === 'MANUAL')
         return true
       })
   }, [items, activeFilter, lineOverview])
@@ -301,6 +309,9 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 { key: 'BLOQUEADOS', label: 'Bloqueados' },
                 { key: 'MTO', label: 'MTO' },
                 { key: 'MTS', label: 'MTS' },
+                { key: 'DERIVADA_TODAS', label: 'Derivadas' },
+                { key: 'DERIVADA_AUTOMATICA', label: 'Derivada Auto' },
+                { key: 'DERIVADA_MANUAL', label: 'Derivada Manual' },
               ].map((f) => {
                 const isActive = activeFilter === f.key
                 return (
@@ -498,6 +509,51 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                             <span className="font-mono font-bold text-slate-900 text-xs">
                               {item.material_code}
                             </span>
+                            {item.is_derived && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 text-[9px] font-black tracking-wide px-1.5 py-0 flex items-center gap-1 shadow-xs cursor-help">
+                                    <GitFork className="w-2.5 h-2.5" />🔗{' '}
+                                    {item.tipo_geracao === 'AUTOMATICA'
+                                      ? 'DERIVADA AUTO'
+                                      : 'DERIVADA'}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
+                                >
+                                  <p className="font-bold text-blue-300 flex items-center gap-1">
+                                    <GitFork className="w-3.5 h-3.5" /> Programação Derivada
+                                  </p>
+                                  <div className="text-[11px] text-slate-200 space-y-0.5">
+                                    <p>
+                                      <strong>Origem:</strong> Centro{' '}
+                                      {item.centro_origem || 'Origem'}
+                                    </p>
+                                    <p>
+                                      <strong>Destino:</strong> Centro{' '}
+                                      {item.centro_destino || item.line_code}
+                                    </p>
+                                    <p>
+                                      <strong>MATKL:</strong> {item.matkl || '001'}
+                                    </p>
+                                    <p>
+                                      <strong>Quantidade:</strong>{' '}
+                                      {item.quantidade_derivada || item.planned_quantity_tons} t
+                                    </p>
+                                    <p>
+                                      <strong>Status:</strong> {item.derivation_status || 'ATIVA'}
+                                    </p>
+                                    {item.origem_programacao_id && (
+                                      <p className="text-[10px] text-blue-300 pt-1 border-t border-slate-700">
+                                        ID Origem: {item.origem_programacao_id}
+                                      </p>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             {item.cooling_validation?.hasViolation && (
                               <Tooltip>
                                 <TooltipTrigger asChild>

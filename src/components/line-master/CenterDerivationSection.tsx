@@ -163,8 +163,8 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
       } else {
         updatedList = [saved, ...rules]
         toast({
-          title: 'Regra Criada',
-          description: 'Derivação cadastrada com sucesso.',
+          title: 'Derivação salva com sucesso.',
+          description: `Regra de derivação do Centro de origem ${saved.source_center_code} para ${centerCode} (${saved.matkl_groups?.length || 0} MATKLs) foi persistida com sucesso.`,
         })
       }
 
@@ -246,9 +246,11 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                 DERIVAÇÃO DE CENTRO
               </span>
-              <p className="text-[11px] text-slate-500">
-                Configure se este Centro herda ou complementa processos de outro Centro cadastrado
-                (1:N)
+              <p className="text-[11px] text-slate-500 leading-snug">
+                Configure se este Centro deriva sua programação de outro Centro. Quando ativo, o PCP
+                poderá gerar de forma integrada e automatizada a programação deste Centro na
+                Montagem Semanal, considerando o Centro de origem, grupos de mercadorias e regras
+                técnicas cadastradas.
               </p>
             </div>
           </div>

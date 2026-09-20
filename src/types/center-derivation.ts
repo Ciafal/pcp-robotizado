@@ -19,6 +19,7 @@ export interface CenterDerivationRule {
   source_center_name?: string
   source_center_sap?: string
   source_center_company?: string
+  source_center_werks?: string
   source_center_line?: string
   matkl_groups: MatklGroupItem[]
   start_date: string // DD/MM/AAAA or YYYY-MM-DD

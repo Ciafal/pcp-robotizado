@@ -79,7 +79,7 @@ export class CenterDerivationService {
     if (curCode === srcCode) {
       return {
         isValid: false,
-        error: 'Um Centro não pode ser derivado dele mesmo.',
+        error: 'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
       }
     }
 
@@ -96,7 +96,8 @@ export class CenterDerivationService {
     if (circular) {
       return {
         isValid: false,
-        error: 'Esta configuração gera uma relação circular entre Centros e não pode ser salva.',
+        error:
+          'Não foi possível salvar a derivação: esta relação criaria um ciclo de derivação entre Centros.',
       }
     }
 
@@ -123,7 +124,8 @@ export class CenterDerivationService {
           if (sharedMatkl) {
             return {
               isValid: false,
-              error: 'Já existe uma derivação cadastrada para esta combinação.',
+              error:
+                'Não foi possível salvar a derivação: já existe uma regra ativa com esta combinação Centro + MATKL + período.',
             }
           }
         }
@@ -268,6 +270,7 @@ export class CenterDerivationService {
       source_center_name: rule.source_center_name || '',
       source_center_sap: rule.source_center_sap || '',
       source_center_company: rule.source_center_company || '',
+      source_center_werks: rule.source_center_werks || '',
       source_center_line: rule.source_center_line || '',
       matkl_groups: rule.matkl_groups,
       start_date: this.parsePtBrToIsoDate(rule.start_date),

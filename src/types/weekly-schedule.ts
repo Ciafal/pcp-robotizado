@@ -250,6 +250,26 @@ export interface WeeklyScheduleItem {
   metadata?: Record<string, any>
   created?: string
   updated?: string
+  // Rastreabilidade de Derivação de Centros (Requisito C)
+  is_derived?: boolean
+  tipo_geracao?: 'MANUAL' | 'AUTOMATICA'
+  origem_programacao_id?: string
+  derivada_programacao_id?: string
+  centro_origem?: string
+  centro_destino?: string
+  matkl?: string
+  regra_id?: string
+  versao_origem?: number
+  quantidade_origem?: number
+  quantidade_derivada?: number
+  usuario_criacao?: string
+  derivation_status?: 'ATIVA' | 'ORIGEM_CANCELADA' | 'REVISAO_NECESSARIA' | 'DESVINCULADA'
+  derivation_metadata?: {
+    regra_codigo?: string
+    regra_resumo?: string
+    linha_origem?: string
+    data_hora_prevista?: string
+  }
 }
 
 export type SimulationFeasibilityResult = 'VIAVEL' | 'ALERTAS' | 'INVIAVEL'

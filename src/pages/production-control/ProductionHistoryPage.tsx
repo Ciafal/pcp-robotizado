@@ -619,9 +619,7 @@ export const ProductionHistoryPage: React.FC = () => {
                           <div className="bg-slate-50 hover:bg-blue-50/40 p-3 rounded-lg border border-slate-200 transition-colors space-y-1.5">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-900">
-                                  {ev.title}
-                                </span>
+                                <span className="text-xs font-bold text-slate-900">{ev.title}</span>
                                 <Badge
                                   variant="outline"
                                   className="text-[9px] font-mono px-1.5 py-0 bg-white"

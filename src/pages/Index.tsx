@@ -61,30 +61,49 @@ export function Index() {
   // CORREÇÃO 3: Fallback imediato com dados existentes no app (mockProductionLines / mockOperationalAlerts)
   // Revalidação em background (stale-while-revalidate) — nenhuma promise de rede bloqueia o primeiro render
   const initialLinesFallback = useMemo<ProductionLine[]>(() => {
-    return mockProductionLines.map((l) => ({
-      id: l.id,
-      name: l.name,
-      code: l.code,
-      status: (l.status as 'running' | 'idle' | 'stopped' | 'maintenance') || 'running',
-      target_rate: l.nominal_capacity || 100,
-      current_rate: l.nominal_capacity ? Math.round(l.nominal_capacity * 0.95) : 95,
-      active_order: l.code === 'L1' ? 'OP-2026-1011' : l.code === 'L2' ? 'OP-2026-1014' : '',
-      operator: l.manager_name || 'Operador PCP',
-      efficiency: l.code === 'L1' ? 95 : 88,
-    }))
+    try {
+      if (!Array.isArray(mockProductionLines)) return []
+      return mockProductionLines.map((l) => ({
+        id: l?.id ?? '',
+        name: l?.name ?? '',
+        code: l?.code ?? '',
+        status: (l?.status as 'running' | 'idle' | 'stopped' | 'maintenance') || 'running',
+        target_rate: Number(l?.nominal_capacity ?? 100) || 100,
+        current_rate: l?.nominal_capacity ? Math.round(Number(l.nominal_capacity) * 0.95) : 95,
+        active_order: l?.code === 'L1' ? 'OP-2026-1011' : l?.code === 'L2' ? 'OP-2026-1014' : '',
+        operator: l?.manager_name || 'Operador PCP',
+        efficiency: l?.code === 'L1' ? 95 : 88,
+      }))
+    } catch {
+      return []
+    }
   }, [])
 
   const initialAlertsFallback = useMemo<PCPAlert[]>(() => {
-    return mockOperationalAlerts.map((a) => ({
-      id: a.id,
-      title: a.title,
-      severity: (a.severity.toLowerCase() as 'critical' | 'warning' | 'info' | 'success') || 'info',
-      message: a.impact || a.cause || '',
-      line_id:
-        a.processCode === 'ENDIR' ? 'line-endir' : a.processCode === 'L2' ? 'line-l2' : 'line-l1',
-      category: a.category,
-      acknowledged: a.acknowledged,
-    }))
+    try {
+      if (!Array.isArray(mockOperationalAlerts)) return []
+      return mockOperationalAlerts.map((a) => {
+        const rawSev = typeof a?.severity === 'string' ? a.severity.toLowerCase() : 'info'
+        const sev: 'critical' | 'warning' | 'info' | 'success' =
+          rawSev === 'critical' || rawSev === 'warning' || rawSev === 'success' ? rawSev : 'info'
+        return {
+          id: a?.id ?? '',
+          title: a?.title ?? '',
+          severity: sev,
+          message: a?.impact || a?.cause || '',
+          line_id:
+            a?.processCode === 'ENDIR'
+              ? 'line-endir'
+              : a?.processCode === 'L2'
+                ? 'line-l2'
+                : 'line-l1',
+          category: a?.category ?? 'Geral',
+          acknowledged: Boolean(a?.acknowledged),
+        }
+      })
+    } catch {
+      return []
+    }
   }, [])
 
   const [lines, setLines] = useState<ProductionLine[]>(initialLinesFallback)
@@ -430,107 +449,162 @@ export function Index() {
     }
   }, [carregarAlertasSDC])
 
+  // Carregamento resiliente do consolidado de alertas
+  const carregarAlertasSDCSafe = useCallback(async () => {
+    try {
+      await carregarAlertasSDC()
+    } catch {
+      setAlertasSDC([])
+    }
+  }, [carregarAlertasSDC])
+
   // Linhas filtradas de acordo com o escopo do usuário e o filtro selecionado
   const scopedLines = useMemo(() => {
-    return lines.filter((line) => {
-      // 1. Validar autorização de escopo (RBAC + Scope)
-      const isAllowedByScope = hasLineScope(line.id, line.code)
-      if (!isAllowedByScope) return false
+    try {
+      if (!Array.isArray(lines)) return []
+      return lines.filter((line) => {
+        if (!line) return false
+        // 1. Validar autorização de escopo (RBAC + Scope)
+        const isAllowedByScope = hasLineScope ? hasLineScope(line.id ?? '', line.code ?? '') : true
+        if (!isAllowedByScope) return false
 
-      // 2. Filtro de tela
-      if (selectedLineFilter === 'ALL') return true
-      return line.id === selectedLineFilter
-    })
+        // 2. Filtro de tela
+        if (selectedLineFilter === 'ALL') return true
+        return line.id === selectedLineFilter
+      })
+    } catch {
+      return []
+    }
   }, [lines, hasLineScope, selectedLineFilter])
 
   // Alertas filtrados de acordo com o escopo do usuário
   const scopedAlerts = useMemo(() => {
-    return alerts.filter((alert) => {
-      if (!alert.line_id) return true
-      return hasLineScope(alert.line_id)
-    })
+    try {
+      if (!Array.isArray(alerts)) return []
+      return alerts.filter((alert) => {
+        if (!alert) return false
+        if (!alert.line_id) return true
+        return hasLineScope ? hasLineScope(alert.line_id) : true
+      })
+    } catch {
+      return []
+    }
   }, [alerts, hasLineScope])
 
   // Métricas consolidadas dos alertas SDC no escopo (Cobertura programada NÃO aumenta o contador de críticos)
   const metricasAlertasSDC = useMemo(() => {
-    const sdcAtivos = alertasSDC.filter((a) => a.ativo)
-    const criticosSDC = sdcAtivos.filter(
-      (a) => a.severidade === 'CRÍTICO' && a.tipo_alerta !== 'COBERTURA_PROGRAMADA',
-    ).length
-    const altosSDC = sdcAtivos.filter((a) => a.severidade === 'ALTO').length
-    const mediosSDC = sdcAtivos.filter((a) => a.severidade === 'MÉDIO').length
-    const informativosSDC = sdcAtivos.filter((a) => a.severidade === 'INFORMATIVO').length
+    try {
+      const list = Array.isArray(alertasSDC) ? alertasSDC : []
+      const sdcAtivos = list.filter((a) => Boolean(a?.ativo))
+      const criticosSDC = sdcAtivos.filter(
+        (a) => a?.severidade === 'CRÍTICO' && a?.tipo_alerta !== 'COBERTURA_PROGRAMADA',
+      ).length
+      const altosSDC = sdcAtivos.filter((a) => a?.severidade === 'ALTO').length
+      const mediosSDC = sdcAtivos.filter((a) => a?.severidade === 'MÉDIO').length
+      const informativosSDC = sdcAtivos.filter((a) => a?.severidade === 'INFORMATIVO').length
 
-    return {
-      total: sdcAtivos.length,
-      criticos: criticosSDC,
-      altos: altosSDC,
-      medios: mediosSDC,
-      informativos: informativosSDC,
+      return {
+        total: sdcAtivos.length,
+        criticos: criticosSDC,
+        altos: altosSDC,
+        medios: mediosSDC,
+        informativos: informativosSDC,
+      }
+    } catch {
+      return { total: 0, criticos: 0, altos: 0, medios: 0, informativos: 0 }
     }
   }, [alertasSDC])
 
   // Métricas de contagem discriminada por origem para o card "Alertas Ativos no Escopo"
   const totalAlertasAtivosConsolidado = useMemo(() => {
-    const operacionaisAtivos = scopedAlerts.filter((a) => !a.acknowledged)
-    const sdcAtivos = alertasSDC.filter((a) => a.ativo)
-    const temporaisCriticos = alertasTemporais.filter((a) => a.severidade === 'CRÍTICO').length
-    const total = operacionaisAtivos.length + sdcAtivos.length + alertasTemporais.length
+    try {
+      const opList = Array.isArray(scopedAlerts) ? scopedAlerts : []
+      const sdcList = Array.isArray(alertasSDC) ? alertasSDC : []
+      const tempAlerts = Array.isArray(alertasTemporais) ? alertasTemporais : []
 
-    const criticosSDC = metricasAlertasSDC.criticos
-    const criticosOperacionais = operacionaisAtivos.filter((a) => a.severity === 'critical').length
-    const totalCriticos = criticosSDC + criticosOperacionais + temporaisCriticos
+      const operacionaisAtivos = opList.filter((a) => !a?.acknowledged)
+      const sdcAtivos = sdcList.filter((a) => Boolean(a?.ativo))
+      const temporaisCriticos = tempAlerts.filter((a) => a?.severidade === 'CRÍTICO').length
+      const total = operacionaisAtivos.length + sdcAtivos.length + tempAlerts.length
 
-    // Categorias operacionais discriminadas
-    const countProg =
-      operacionaisAtivos.filter(
-        (a) =>
-          a.category?.toLowerCase().includes('sched') || a.category?.toLowerCase().includes('prog'),
-      ).length || 0
-    const countRestricao =
-      operacionaisAtivos.filter(
-        (a) =>
-          a.category?.toLowerCase().includes('restr') || a.category?.toLowerCase().includes('qual'),
-      ).length || 0
-    const countCapacidade =
-      operacionaisAtivos.filter(
-        (a) =>
-          a.category?.toLowerCase().includes('capac') ||
-          a.category?.toLowerCase().includes('bottleneck') ||
-          a.category?.toLowerCase().includes('gargalo'),
-      ).length || 0
-    const countOutros = operacionaisAtivos.length - (countProg + countRestricao + countCapacidade)
+      const criticosSDC = metricasAlertasSDC?.criticos ?? 0
+      const criticosOperacionais = operacionaisAtivos.filter(
+        (a) => a?.severity === 'critical',
+      ).length
+      const totalCriticos = criticosSDC + criticosOperacionais + temporaisCriticos
 
-    return {
-      total,
-      totalCriticos,
-      criticosSDC,
-      criticosOperacionais,
-      countProg,
-      countRestricao,
-      countCapacidade,
-      countOutros: Math.max(0, countOutros),
-      subtextoDiscriminado: `${total} (${totalCriticos} críticos: ${temporaisCriticos} riscos de carteira, ${criticosSDC} SDC, ${countProg > 0 ? `${countProg} programação` : '3 programação'})`,
+      // Categorias operacionais discriminadas
+      const countProg =
+        operacionaisAtivos.filter((a) => {
+          const cat = typeof a?.category === 'string' ? a.category.toLowerCase() : ''
+          return cat.includes('sched') || cat.includes('prog')
+        }).length || 0
+      const countRestricao =
+        operacionaisAtivos.filter((a) => {
+          const cat = typeof a?.category === 'string' ? a.category.toLowerCase() : ''
+          return cat.includes('restr') || cat.includes('qual')
+        }).length || 0
+      const countCapacidade =
+        operacionaisAtivos.filter((a) => {
+          const cat = typeof a?.category === 'string' ? a.category.toLowerCase() : ''
+          return cat.includes('capac') || cat.includes('bottleneck') || cat.includes('gargalo')
+        }).length || 0
+      const countOutros = operacionaisAtivos.length - (countProg + countRestricao + countCapacidade)
+
+      return {
+        total,
+        totalCriticos,
+        criticosSDC,
+        criticosOperacionais,
+        countProg,
+        countRestricao,
+        countCapacidade,
+        countOutros: Math.max(0, countOutros),
+        subtextoDiscriminado: `${total} (${totalCriticos} críticos: ${temporaisCriticos} riscos de carteira, ${criticosSDC} SDC, ${countProg > 0 ? `${countProg} programação` : '3 programação'})`,
+      }
+    } catch {
+      return {
+        total: 0,
+        totalCriticos: 0,
+        criticosSDC: 0,
+        criticosOperacionais: 0,
+        countProg: 0,
+        countRestricao: 0,
+        countCapacidade: 0,
+        countOutros: 0,
+        subtextoDiscriminado: '',
+      }
     }
   }, [scopedAlerts, alertasSDC, metricasAlertasSDC, alertasTemporais])
 
   // Métricas de capacidade calculadas
   const metrics = useMemo(() => {
-    const total = scopedLines.length
-    const running = scopedLines.filter((l) => l.status === 'running').length
-    const avgEfficiency =
-      total > 0
-        ? Math.round(scopedLines.reduce((acc, l) => acc + (l.efficiency || 0), 0) / total)
-        : 0
-    const totalCurrentRate = scopedLines.reduce((acc, l) => acc + (l.current_rate || 0), 0)
-    const totalTargetRate = scopedLines.reduce((acc, l) => acc + (l.target_rate || 0), 0)
+    try {
+      const list = Array.isArray(scopedLines) ? scopedLines : []
+      const total = list.length
+      const running = list.filter((l) => l?.status === 'running').length
+      const avgEfficiency =
+        total > 0
+          ? Math.round(list.reduce((acc, l) => acc + Number(l?.efficiency ?? 0), 0) / total)
+          : 0
+      const totalCurrentRate = list.reduce((acc, l) => acc + Number(l?.current_rate ?? 0), 0)
+      const totalTargetRate = list.reduce((acc, l) => acc + Number(l?.target_rate ?? 0), 0)
 
-    return {
-      total,
-      running,
-      avgEfficiency,
-      totalCurrentRate,
-      totalTargetRate,
+      return {
+        total,
+        running,
+        avgEfficiency,
+        totalCurrentRate,
+        totalTargetRate,
+      }
+    } catch {
+      return {
+        total: 0,
+        running: 0,
+        avgEfficiency: 0,
+        totalCurrentRate: 0,
+        totalTargetRate: 0,
+      }
     }
   }, [scopedLines])
 
@@ -1087,7 +1161,7 @@ export function Index() {
                           <AlertCircle className="w-3 h-3" /> [CRÍTICO]
                         </Badge>
                         <span className="text-[11px] font-bold text-slate-800">
-                          {al.carteira} &bull; Cobertura Temporal
+                          {al.carteira || 'Carteira'} &bull; Cobertura Temporal
                         </span>
                       </div>
                       <Badge
@@ -1101,19 +1175,20 @@ export function Index() {
                     {/* Formato padrão solicitado: CRÍTICO · Carteira L1 — Material X — Estoque termina 20/09, próxima produção 25/09 — N dias sem cobertura */}
                     <div className="p-2 bg-white/95 rounded border border-rose-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
                       <span className="font-bold">
-                        CRÍTICO &bull; {al.carteira} — Material {al.material}
+                        CRÍTICO &bull; {al.carteira || ''} — Material {al.material || '-'}
                       </span>{' '}
                       &bull;{' '}
                       <span>
-                        Estoque termina {al.dataFimEstoque}, próxima reposição {al.dataReposicao} —{' '}
+                        Estoque termina {al.dataFimEstoque || '-'}, próxima reposição{' '}
+                        {al.dataReposicao || '-'} —{' '}
                         <strong className="text-rose-700">
-                          {al.diasSemCobertura} dias sem cobertura
+                          {al.diasSemCobertura ?? 0} dias sem cobertura
                         </strong>
                       </span>
                     </div>
 
                     <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
-                      {al.material} ({al.descricao}): {al.mensagem}.
+                      {al.material || '-'} ({al.descricao || ''}): {al.mensagem || ''}.
                     </p>
 
                     <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-rose-200/80">
@@ -1123,7 +1198,7 @@ export function Index() {
                         asChild
                         className="h-6 px-2 text-[10px] font-bold border-rose-300 text-rose-800 hover:bg-rose-100"
                       >
-                        <Link to={al.link}>
+                        <Link to={al.link || '#'}>
                           <ExternalLink className="w-3 h-3 mr-1" /> Ver análise na carteira
                         </Link>
                       </Button>
@@ -1154,14 +1229,18 @@ export function Index() {
                   const isAlto = al.severidade === 'ALTO'
                   const isMedio = al.severidade === 'MÉDIO'
                   const isInfo = al.severidade === 'INFORMATIVO'
-                  const deficitTxt = Math.abs(al.saldo_atual).toFixed(2).replace('.', ',')
-                  const progTxt = al.quantidade_programada.toFixed(2).replace('.', ',')
+                  const saldoAtualVal = Number(al?.saldo_atual ?? 0)
+                  const quantProgVal = Number(al?.quantidade_programada ?? 0)
+                  const saldoProjVal = Number(al?.saldo_projetado ?? 0)
+                  const deficitTxt = Math.abs(saldoAtualVal).toFixed(2).replace('.', ',')
+                  const progTxt = quantProgVal.toFixed(2).replace('.', ',')
+                  const residTxt = Math.abs(saldoProjVal).toFixed(2).replace('.', ',')
 
                   return (
                     <div
                       key={al.id}
                       className={`p-3 rounded-lg border transition-all text-xs shadow-xs ${
-                        !al.ativo || al.status === 'Resolvido' || al.status === 'Encerrado'
+                        !al?.ativo || al?.status === 'Resolvido' || al?.status === 'Encerrado'
                           ? 'bg-slate-50 border-slate-200 opacity-60'
                           : isCritico
                             ? 'bg-rose-50 border-rose-200 text-rose-950'
@@ -1197,7 +1276,7 @@ export function Index() {
                           )}
 
                           <span className="text-[11px] font-bold text-slate-800">
-                            {al.origem} &bull; {al.empresa_centro}
+                            {al.origem || 'Carteira SDC'} &bull; {al.empresa_centro || 'SDPL'}
                           </span>
                         </div>
 
@@ -1211,7 +1290,7 @@ export function Index() {
                                 : 'border-slate-300 text-slate-700 bg-white'
                           }`}
                         >
-                          {al.status}
+                          {al.status || 'Novo'}
                         </Badge>
                       </div>
 
@@ -1219,14 +1298,14 @@ export function Index() {
                         "[CRÍTICO] Carteira SDC • SDPL — Material: XXXXX — Déficit: 19,16 t — Programado: 0 t — Sem cobertura produtiva."
                     */}
                       <div className="p-2 bg-white/90 rounded border border-slate-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
-                        <span className="font-bold">Material: {al.material}</span> &bull; Déficit:{' '}
-                        <span className="font-bold text-rose-700">{deficitTxt} t</span> &bull;
-                        Programado: <span className="font-semibold">{progTxt} t</span> &bull;{' '}
+                        <span className="font-bold">Material: {al.material || '-'}</span> &bull;
+                        Déficit: <span className="font-bold text-rose-700">{deficitTxt} t</span>{' '}
+                        &bull; Programado: <span className="font-semibold">{progTxt} t</span> &bull;{' '}
                         <span className="text-slate-600 font-sans">
-                          {al.quantidade_programada === 0
+                          {quantProgVal === 0
                             ? 'Sem cobertura produtiva.'
-                            : al.saldo_projetado < 0
-                              ? `Déficit residual: ${Math.abs(al.saldo_projetado).toFixed(2).replace('.', ',')} t.`
+                            : saldoProjVal < 0
+                              ? `Déficit residual: ${residTxt} t.`
                               : 'Cobertura integral programada.'}
                         </span>
                       </div>
@@ -1279,7 +1358,7 @@ export function Index() {
                                   title: 'Tratamento Assumido',
                                   description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
                                 })
-                                await carregarAlertasSDC()
+                                await carregarAlertasSDCSafe()
                               }}
                               className="h-6 px-2 text-[10px] text-indigo-700 hover:bg-indigo-50 font-semibold"
                             >
@@ -1418,7 +1497,7 @@ export function Index() {
             title: 'Tratamento Assumido',
             description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
           })
-          await carregarAlertasSDC()
+          await carregarAlertasSDCSafe()
         }}
       />
     </div>

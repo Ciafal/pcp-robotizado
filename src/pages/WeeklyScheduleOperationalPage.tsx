@@ -89,6 +89,8 @@ import {
 } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
+import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
+import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
 import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
@@ -245,6 +247,15 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<WeeklyScheduleItem | null>(null)
+
+  // Estados de Derivação de Centro na Montagem Semanal (Requisito C)
+  const [isAutoDerivationActive, setIsAutoDerivationActive] = useState<boolean>(false)
+  const [contextualDerivationMatch, setContextualDerivationMatch] =
+    useState<DerivationMatchResult | null>(null)
+  const [pendingParentForDerivation, setPendingParentForDerivation] =
+    useState<WeeklyScheduleItem | null>(null)
+  const [isDerivedModalOpen, setIsDerivedModalOpen] = useState<boolean>(false)
+  const [originCenterFilter, setOriginCenterFilter] = useState<string>('ALL')
   const [targetDay, setTargetDay] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
   )
@@ -1461,6 +1472,47 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       title: 'Produto Adicionado',
       description: `Material ${itemToAdd.material_code} (${itemToAdd.planned_quantity_tons} t) inserido na sequência. Grade recalculada.`,
     })
+
+    // Motor de Derivação de Centro Contextual (Requisito C)
+    weeklyDerivationEngine
+      .findActiveRuleForItem(selectedLineCode, itemToAdd, recalculated.items)
+      .then((match) => {
+        if (match.hasMatch && match.targetCenterCode) {
+          setContextualDerivationMatch(match)
+          setPendingParentForDerivation(itemToAdd)
+
+          if (isAutoDerivationActive) {
+            // Modo Automático: cria a programação derivada respeitando o fluxo
+            weeklyDerivationEngine
+              .createDerivedScheduleItem(
+                itemToAdd,
+                match.derivedItemPreview || {},
+                'AUTOMATICA',
+                auth?.user?.name || 'PCP Copilot',
+              )
+              .then((derivedCreated) => {
+                const listWithDerived = [...recalculated.items, derivedCreated]
+                const finalRecalc = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+                  listWithDerived,
+                  currentLineOverview,
+                  headerFilter,
+                  rawMaterialContext,
+                )
+                setItems(finalRecalc.items)
+                weeklyScheduleService
+                  .saveWeeklyScheduleDraft(finalRecalc.items, headerFilter)
+                  .catch(() => {})
+                toast({
+                  title: 'Centro Derivado Programado Automaticamente',
+                  description: `Programação no Centro ${match.targetCenterCode} gerada vinculada ao item #${itemToAdd.sequence_order}.`,
+                })
+              })
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Erro ao avaliar derivação automática:', err)
+      })
   }
 
   // Regra de bloqueio temporal no passado respeitando timezone da planta e regras canônicas
@@ -1619,6 +1671,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         })
       } catch (audErr) {
         console.warn('Falha na auditoria de edição de item:', audErr)
+      }
+
+      // Se houver programações derivadas vinculadas a este item de origem, sinalizar impacto (Requisito C.6)
+      const derivedCount = items.filter((it) => it.origem_programacao_id === updatedItem.id).length
+      if (derivedCount > 0) {
+        const updatedWithDerivedNotice = weeklyDerivationEngine.handleParentItemChangeOrCancel(
+          updatedItem.id,
+          'MODIFY',
+          updatedItem.planned_quantity_tons,
+          recalculated.items,
+          auth?.user?.name || 'Engenharia PCP',
+        )
+        setItems(updatedWithDerivedNotice)
+        toast({
+          title: `Esta alteração impacta ${derivedCount} programação(ões) derivada(s).`,
+          description: 'As programações vinculadas foram marcadas para revisão e recalculo.',
+        })
       }
 
       toast({
@@ -2104,9 +2173,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       console.warn('Falha ao auditar SCHEDULE_ITEM_DELETE:', auditErr)
     }
 
+    // Se o item cancelado for origem de programações derivadas, atualizar derivadas vinculadas (Requisito C.6)
+    const derivedItemsAffected = recalculated.items.filter(
+      (it) => it.origem_programacao_id === target.id,
+    )
+    let itemsToSave = recalculated.items
+    if (derivedItemsAffected.length > 0) {
+      itemsToSave = weeklyDerivationEngine.handleParentItemChangeOrCancel(
+        target.id,
+        'CANCEL',
+        undefined,
+        recalculated.items,
+        auth?.user?.name || 'Engenharia PCP',
+      )
+      setItems(itemsToSave)
+      toast({
+        title: `Origem cancelada — revisão necessária em ${derivedItemsAffected.length} derivada(s).`,
+        description:
+          'As programações vinculadas não foram apagadas para preservar a rastreabilidade.',
+        variant: 'destructive',
+      })
+    }
+
     // 3. Persistência do rascunho com o item cancelado
     try {
-      await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+      await weeklyScheduleService.saveWeeklyScheduleDraft(itemsToSave, headerFilter)
     } catch (saveErr) {
       console.warn('Falha ao persistir rascunho pós-exclusão:', saveErr)
     }
@@ -4177,6 +4268,80 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* 5.1 BANNER CONTEXTUAL DE CENTRO DERIVADO (Requisito C.2) */}
+      {contextualDerivationMatch?.hasMatch && pendingParentForDerivation && (
+        <div className="bg-linear-to-r from-blue-900 via-[#004C97] to-indigo-900 border border-blue-400/40 text-white p-3 rounded-lg shadow-md flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+              <GitFork className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                  Centro Derivado Identificado:
+                </span>
+                <Badge className="bg-amber-400 text-slate-900 font-extrabold text-[11px] px-2 py-0.5">
+                  {contextualDerivationMatch.targetCenterCode}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-blue-100 mt-0.5">
+                O item #{pendingParentForDerivation.sequence_order} (
+                {pendingParentForDerivation.material_code}) possui regra de derivação técnica ativa.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-blue-100 cursor-pointer bg-white/10 px-2.5 py-1 rounded border border-white/20">
+              <input
+                type="checkbox"
+                checked={isAutoDerivationActive}
+                onChange={(e) => setIsAutoDerivationActive(e.target.checked)}
+                className="rounded border-white/40 text-[#004C97] focus:ring-0"
+              />
+              <span>Programar Centros Derivados Automaticamente</span>
+            </label>
+
+            <Button
+              size="sm"
+              onClick={() => setIsDerivedModalOpen(true)}
+              className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs h-7 shadow-xs"
+            >
+              <GitFork className="w-3.5 h-3.5 mr-1" />
+              Programar Centro Derivado
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 5.2 MODAL DE PROGRAMAÇÃO DERIVADA (Requisito C.7) */}
+      <DerivedProgrammingModal
+        open={isDerivedModalOpen}
+        onClose={() => setIsDerivedModalOpen(false)}
+        matchResult={contextualDerivationMatch}
+        parentItem={pendingParentForDerivation}
+        currentUser={auth?.user?.name || 'Engenharia PCP'}
+        onConfirmDerive={(derivedCreated) => {
+          const listWithDerived = [...items, derivedCreated]
+          const finalRecalc = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+            listWithDerived,
+            currentLineOverview,
+            headerFilter,
+            rawMaterialContext,
+          )
+          setItems(finalRecalc.items)
+          weeklyScheduleService
+            .saveWeeklyScheduleDraft(finalRecalc.items, headerFilter)
+            .catch(() => {})
+          setContextualDerivationMatch(null)
+          setPendingParentForDerivation(null)
+          toast({
+            title: 'Centro Derivado Programado',
+            description: `Programação no Centro ${derivedCreated.centro_destino} inserida com rastreabilidade mantida.`,
+          })
+        }}
+      />
 
       {/* 6. MODAL DE ADICIONAR PRODUTO */}
       <AddProductModal
