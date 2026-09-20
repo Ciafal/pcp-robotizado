@@ -1240,6 +1240,15 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                           {item.material_code}
                                         </span>
 
+                                        {item.is_derived && (
+                                          <span
+                                            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-600 text-white shadow-2xs shrink-0 cursor-help flex items-center gap-0.5"
+                                            title={`Origem: ${item.centro_origem || 'L2'} | Regra: ${item.derivation_metadata?.regra_resumo || 'Derivação'} | MATKL: ${item.matkl || item.family_code || '001'} | Geração: ${item.tipo_geracao || 'MANUAL'}`}
+                                          >
+                                            DERIVADA
+                                          </span>
+                                        )}
+
                                         {documentImpactsByItem[item.id] && (
                                           <SgqRuleIndicatorBadge
                                             impacts={documentImpactsByItem[item.id]}

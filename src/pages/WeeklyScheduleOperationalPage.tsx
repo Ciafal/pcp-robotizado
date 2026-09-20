@@ -92,6 +92,8 @@ import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProduct
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
 import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
+import { centerDerivationService } from '@/services/pcp-center-derivation-service'
+import { CenterDerivationRule } from '@/types/line-center-derivation'
 import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
@@ -257,6 +259,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     useState<WeeklyScheduleItem | null>(null)
   const [isDerivedModalOpen, setIsDerivedModalOpen] = useState<boolean>(false)
   const [originCenterFilter, setOriginCenterFilter] = useState<string>('ALL')
+  const [activeSourceDerivationRules, setActiveSourceDerivationRules] = useState<
+    CenterDerivationRule[]
+  >([])
+  const [isLoadingDerivationRules, setIsLoadingDerivationRules] = useState<boolean>(false)
+  const [derivationFilterCard, setDerivationFilterCard] = useState<
+    'ALL' | 'PENDING' | 'GENERATED' | 'CONFLICT'
+  >('ALL')
   const [targetDay, setTargetDay] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
   )
@@ -367,6 +376,104 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }),
     [companyCode, plantCode, selectedLineCode, selectedYear, selectedWeekNumber, weekRange.display],
   )
+
+  // Carrega regras de derivação onde selectedLineCode é o CENTRO DE ORIGEM
+  useEffect(() => {
+    let isMounted = true
+    setIsLoadingDerivationRules(true)
+    centerDerivationService
+      .getRulesBySourceCenter(selectedLineCode)
+      .then((rules) => {
+        if (!isMounted) return
+        // Filtra apenas regras ativas, não deletadas e com vigência válida
+        const valid = rules.filter((r) => {
+          if (r.deleted || r.status !== 'Ativa') return false
+          const nowIso = new Date().toISOString().slice(0, 10)
+          const startIso = centerDerivationService.parsePtBrToIsoDate(r.start_date) || '2000-01-01'
+          const endIso = r.end_date
+            ? centerDerivationService.parsePtBrToIsoDate(r.end_date) || '9999-12-31'
+            : '9999-12-31'
+          return nowIso >= startIso && nowIso <= endIso
+        })
+        setActiveSourceDerivationRules(valid)
+      })
+      .catch((err) => {
+        console.warn('Erro ao consultar regras de derivação de origem:', err)
+        if (isMounted) setActiveSourceDerivationRules([])
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingDerivationRules(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedLineCode])
+
+  // Itens da semana aguardando derivação (N)
+  // Regra: itens da semana cujo MATKL tem regra ativa e sem derivação atualizada
+  // Não contar: sem MATKL, regra inativa/fora de vigência, destino inativo, já derivado
+  const derivationMetrics = useMemo(() => {
+    if (activeSourceDerivationRules.length === 0) {
+      return {
+        pendingCount: 0,
+        generatedCount: 0,
+        conflictCount: 0,
+        pendingItems: [],
+        uniqueTargetCenters: [],
+      }
+    }
+
+    const uniqueTargets = Array.from(new Set(activeSourceDerivationRules.map((r) => r.center_code)))
+    const activeMatkls = new Set<string>()
+    activeSourceDerivationRules.forEach((r) => {
+      ;(r.matkl_groups || []).forEach((mg) => activeMatkls.add(mg.matkl.trim().toUpperCase()))
+    })
+
+    const pendingItems: WeeklyScheduleItem[] = []
+    let generatedCount = 0
+    let conflictCount = 0
+
+    items.forEach((item) => {
+      if (item.item_type !== 'PRODUCTION') return
+
+      // Se for o próprio item derivado
+      if (item.is_derived) {
+        generatedCount++
+        if (
+          item.derivation_status === 'REVISAO_NECESSARIA' ||
+          item.derivation_status === 'ORIGEM_CANCELADA'
+        ) {
+          conflictCount++
+        }
+        return
+      }
+
+      // Se o item já gerou derivação
+      if (item.metadata?.derivada_gerada) {
+        generatedCount++
+        return
+      }
+
+      const itemMatkl = (item.family_code || item.metadata?.matkl || '001').toString().toUpperCase()
+      // Deve ter MATKL com regra ativa
+      const matchesRule =
+        activeMatkls.has(itemMatkl) ||
+        activeSourceDerivationRules.some((r) => (r.matkl_groups || []).length === 0)
+
+      if (matchesRule) {
+        pendingItems.push(item)
+      }
+    })
+
+    return {
+      pendingCount: pendingItems.length,
+      generatedCount,
+      conflictCount,
+      pendingItems,
+      uniqueTargetCenters: uniqueTargets,
+    }
+  }, [items, activeSourceDerivationRules])
 
   // 1. Carrega Linhas Produtivas Cadastradas Oficialmente
   useEffect(() => {

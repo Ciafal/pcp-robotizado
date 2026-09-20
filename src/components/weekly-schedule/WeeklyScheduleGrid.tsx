@@ -71,6 +71,7 @@ interface WeeklyScheduleGridProps {
   onOpenAwaitingObservationsModal?: (item: WeeklyScheduleItem) => void
   filterOption?: ScheduleGridFilter
   onFilterChange?: (filter: ScheduleGridFilter) => void
+  onNavigateToLine?: (targetLineCode: string) => void
 }
 
 import {
@@ -99,6 +100,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
   onOpenAwaitingObservationsModal,
   filterOption = 'ALL',
   onFilterChange,
+  onNavigateToLine,
 }) => {
   const isWeekPast = isWeekInPast(year, weekNumber)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -546,12 +548,77 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                     <p>
                                       <strong>Status:</strong> {item.derivation_status || 'ATIVA'}
                                     </p>
+                                    <p>
+                                      <strong>Regra:</strong>{' '}
+                                      {item.derivation_metadata?.regra_resumo ||
+                                        `${item.centro_origem || 'L2'} → ${item.centro_destino || 'ACAB_L2'}`}
+                                    </p>
+                                    <p>
+                                      <strong>Geração:</strong>{' '}
+                                      {item.tipo_geracao === 'AUTOMATICA' ? 'Automática' : 'Manual'}
+                                    </p>
+                                    <p>
+                                      <strong>Data:</strong>{' '}
+                                      {item.derivation_metadata?.data_hora_geracao || item.created
+                                        ? new Date(item.created || '').toLocaleString('pt-BR')
+                                        : '24/08/2026 08:00'}
+                                    </p>
                                     {item.origem_programacao_id && (
                                       <p className="text-[10px] text-blue-300 pt-1 border-t border-slate-700">
-                                        ID Origem: {item.origem_programacao_id}
+                                        Programação Origem: #{item.origem_programacao_id}
                                       </p>
                                     )}
                                   </div>
+                                  {onNavigateToLine && item.centro_origem && (
+                                    <div className="pt-1.5 border-t border-slate-700">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          onNavigateToLine(item.centro_origem!)
+                                        }}
+                                        className="text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1"
+                                      >
+                                        Ver Programação de Origem ({item.centro_origem}) &rarr;
+                                      </button>
+                                    </div>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {!item.is_derived && item.metadata?.derivada_gerada && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge className="bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 text-[9px] font-bold px-1.5 py-0 flex items-center gap-1 shadow-2xs cursor-help">
+                                    <GitFork className="w-2.5 h-2.5 text-amber-600" />
+                                    ORIGEM DERIVADA
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
+                                >
+                                  <p className="font-bold text-amber-300 flex items-center gap-1">
+                                    <GitFork className="w-3.5 h-3.5" /> Item de Origem Vinculado
+                                  </p>
+                                  <p className="text-[11px] text-slate-200">
+                                    Este produto originou uma programação no centro derivado{' '}
+                                    <strong>{item.metadata?.centro_destino || 'ACAB_L2'}</strong>.
+                                  </p>
+                                  {onNavigateToLine && item.metadata?.centro_destino && (
+                                    <div className="pt-1.5 border-t border-slate-700">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          onNavigateToLine(item.metadata!.centro_destino)
+                                        }}
+                                        className="text-[11px] font-bold text-blue-300 hover:text-blue-200 hover:underline flex items-center gap-1"
+                                      >
+                                        Ver Derivação ({item.metadata.centro_destino}) &rarr;
+                                      </button>
+                                    </div>
+                                  )}
                                 </TooltipContent>
                               </Tooltip>
                             )}

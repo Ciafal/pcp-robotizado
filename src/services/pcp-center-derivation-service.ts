@@ -216,7 +216,7 @@ export class CenterDerivationService {
   async getDerivationsByCenter(centerCode: string): Promise<CenterDerivationRule[]> {
     const code = centerCode.trim()
     try {
-      const records = await pb.collection('pcp_center_derivations').getFullList({
+      const records = await pb.collection('pcp_center_derivations').getFullList<any>({
         filter: `center_code = '${code}' && deleted = false`,
         sort: '-created',
       })
@@ -250,6 +250,48 @@ export class CenterDerivationService {
     // Fallback de memória
     return inMemoryDerivations.filter(
       (r) => r.center_code.trim().toUpperCase() === code.toUpperCase() && !r.deleted,
+    )
+  }
+
+  /**
+   * Lista regras de derivação onde o centro informado é o CENTRO DE ORIGEM
+   * (ex: L2 -> ACAB_L2: L2 é a origem)
+   */
+  async getRulesBySourceCenter(sourceCenterCode: string): Promise<CenterDerivationRule[]> {
+    const srcUpper = sourceCenterCode.trim().toUpperCase()
+    try {
+      const records = await pb.collection('pcp_center_derivations').getFullList<any>({
+        filter: `source_center_code = '${srcUpper}' && deleted = false`,
+        sort: '-created',
+      })
+      if (records && records.length > 0) {
+        return records.map((r: any) => ({
+          id: r.id,
+          center_id: r.center_id,
+          center_code: r.center_code,
+          source_center_id: r.source_center_id,
+          source_center_code: r.source_center_code,
+          source_center_name: r.source_center_name,
+          source_center_sap: r.source_center_sap,
+          source_center_company: r.source_center_company,
+          source_center_line: r.source_center_line,
+          matkl_groups: r.matkl_groups || [],
+          start_date: this.formatDatePtBr(r.start_date),
+          end_date: r.end_date ? this.formatDatePtBr(r.end_date) : undefined,
+          status: r.status as DerivationStatus,
+          deleted: r.deleted,
+          created_by: r.created_by,
+          updated_by: r.updated_by,
+          created: r.created,
+          updated: r.updated,
+        }))
+      }
+    } catch (err) {
+      console.warn('Erro ao consultar regras por origem no PocketBase:', err)
+    }
+
+    return inMemoryDerivations.filter(
+      (r) => r.source_center_code?.trim().toUpperCase() === srcUpper && !r.deleted,
     )
   }
 
