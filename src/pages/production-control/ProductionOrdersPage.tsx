@@ -699,7 +699,9 @@ export const ProductionOrdersPage: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                navigate(`/pcp/producao/apontamentos?search=${o.op_number}`)
+                                navigate(
+                                  `/pcp/controle-producao/apontamentos?search=${o.op_number}`,
+                                )
                               }
                               className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
                               title="Ver Apontamentos desta OP"
@@ -710,7 +712,7 @@ export const ProductionOrdersPage: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                navigate(`/pcp/producao/historico?search=${o.op_number}`)
+                                navigate(`/pcp/controle-producao/historico?search=${o.op_number}`)
                               }
                               className="h-7 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
                               title="Ver Histórico e timeline desta OP"
@@ -721,7 +723,7 @@ export const ProductionOrdersPage: React.FC = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                navigate(`/pcp/producao/ia-analises?search=${o.op_number}`)
+                                navigate(`/pcp/controle-producao/analise?search=${o.op_number}`)
                               }
                               className="h-7 px-2 text-xs font-medium text-blue-700 hover:bg-blue-50"
                               title="Análise IA com Fato, Histórico, Hipótese e Ação Sugerida"

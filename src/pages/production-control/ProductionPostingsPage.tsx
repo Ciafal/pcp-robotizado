@@ -335,7 +335,7 @@ export const ProductionPostingsPage: React.FC = () => {
       setSelectedOrder(found)
       setDetailModalOpen(true)
     } else {
-      navigate(`/pcp/producao/ordens?search=${opNum}`)
+      navigate(`/pcp/controle-producao/ordens?search=${opNum}`)
     }
   }
 

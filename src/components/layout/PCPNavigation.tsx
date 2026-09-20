@@ -879,25 +879,25 @@ const officialNavGroups: NavGroup[] = [
     items: [
       {
         title: 'Controle de Ordens de Produção',
-        href: '/pcp/producao/ordens',
+        href: '/pcp/controle-producao/ordens',
         icon: ClipboardList,
         permission: 'pcp.production.view',
       },
       {
         title: 'Apontamentos',
-        href: '/pcp/producao/apontamentos',
+        href: '/pcp/controle-producao/apontamentos',
         icon: ClipboardCheck,
         permission: 'pcp.production.view',
       },
       {
         title: 'Histórico de Ordens de Produção',
-        href: '/pcp/producao/historico',
+        href: '/pcp/controle-producao/historico',
         icon: History,
         permission: 'pcp.production.view',
       },
       {
         title: 'Análise de Ordens',
-        href: '/pcp/producao/ia-analises',
+        href: '/pcp/controle-producao/analise',
         icon: ChartNoAxesCombined,
         permission: 'pcp.production.view',
       },
@@ -1175,7 +1175,7 @@ export const PCPSidebar: React.FC = () => {
   // Estado de expansão dos grupos colapsáveis:
   // (a) Grupo "PRINCIPAL" EXPANDIDO POR PADRÃO (false no collapsedGroups) para garantir visualização imediata da página principal
   // (b) Grupo "INTEGRAÇÕES & GOVERNANÇA" EXPANDIDO POR PADRÃO (false no collapsedGroups)
-  // (c) Grupo "CONTROLE DE PRODUÇÃO" EXPANDIDO POR PADRÃO se estiver em rota /pcp/producao
+  // (c) Grupo "CONTROLE DE PRODUÇÃO" EXPANDIDO POR PADRÃO se estiver em rota /pcp/controle-producao, /pcp/producao ou /controle-producao
   // (d) Auto-expandir qualquer grupo que contenha a rota ativa
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
@@ -1184,7 +1184,9 @@ export const PCPSidebar: React.FC = () => {
       const isPrincipal = g.groupTitle === 'PRINCIPAL'
       const isProducaoRoute =
         g.groupTitle === 'CONTROLE DE PRODUÇÃO' &&
-        (currentPath.startsWith('/pcp/producao') || currentPath.startsWith('/controle-producao'))
+        (currentPath.startsWith('/pcp/controle-producao') ||
+          currentPath.startsWith('/pcp/producao') ||
+          currentPath.startsWith('/controle-producao'))
       // "INTEGRAÇÕES & GOVERNANÇA" expandido por padrão ou se estiver em rota interna do grupo
       const isGovernanceRoute =
         g.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' &&
@@ -1281,10 +1283,11 @@ export const PCPSidebar: React.FC = () => {
           location.pathname.startsWith('/pcp/status-homologacao') ||
           location.pathname.startsWith('/pcp/qualidade-dados'))
 
-      // Se a rota for de Controle de Produção (/pcp/producao ou /controle-producao), força expansão
+      // Se a rota for de Controle de Produção (/pcp/controle-producao, /pcp/producao ou /controle-producao), força expansão
       const isProducaoDirect =
         group.groupTitle === 'CONTROLE DE PRODUÇÃO' &&
-        (location.pathname.startsWith('/pcp/producao') ||
+        (location.pathname.startsWith('/pcp/controle-producao') ||
+          location.pathname.startsWith('/pcp/producao') ||
           location.pathname.startsWith('/controle-producao'))
 
       if (hasActiveItem || isGovernanceDirect || isProducaoDirect) {

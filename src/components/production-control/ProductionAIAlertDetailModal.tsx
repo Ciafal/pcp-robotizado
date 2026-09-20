@@ -206,7 +206,7 @@ export const ProductionAIAlertDetailModal: React.FC<ProductionAIAlertDetailModal
               size="sm"
               onClick={() => {
                 onOpenChange(false)
-                navigate(`/pcp/producao/ordens?search=${alert.opNumber}`)
+                navigate(`/pcp/controle-producao/ordens?search=${alert.opNumber}`)
               }}
               className="h-8 text-xs text-[#004C97] hover:bg-blue-50/50 border-blue-200"
             >
@@ -220,7 +220,7 @@ export const ProductionAIAlertDetailModal: React.FC<ProductionAIAlertDetailModal
               size="sm"
               onClick={() => {
                 onOpenChange(false)
-                navigate(`/pcp/producao/ia-analises?search=${alert.opNumber}`)
+                navigate(`/pcp/controle-producao/analise?search=${alert.opNumber}`)
               }}
               className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
             >

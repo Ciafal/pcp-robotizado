@@ -1471,33 +1471,39 @@ export const App: React.FC = () => {
                       </PermissionGuard>
                     }
                   />
-                  {/* NOVO GRUPO: CONTROLE DE PRODUÇÃO (9 Rotas Reais com PermissionGuard) */}
+                  {/* ROTAS CANÔNICAS: CONTROLE DE PRODUÇÃO */}
                   <Route
-                    path="/pcp/producao"
-                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
-                  />
-                  <Route
-                    path="/pcp/producao/visao-geral"
+                    path="/pcp/controle-producao"
                     element={
                       <PermissionGuard permission="pcp.production.view">
-                        <ErrorBoundary moduleName="Visão Geral da Produção">
+                        <ErrorBoundary moduleName="Torre de Controle da Produção">
                           <ProductionOverviewPage />
                         </ErrorBoundary>
                       </PermissionGuard>
                     }
                   />
                   <Route
-                    path="/pcp/producao/ordens"
+                    path="/pcp/controle-producao/ordens"
                     element={
                       <PermissionGuard permission="pcp.production.view">
-                        <ErrorBoundary moduleName="Ordens de Produção">
+                        <ErrorBoundary moduleName="Controle de Ordens de Produção">
                           <ProductionOrdersPage />
                         </ErrorBoundary>
                       </PermissionGuard>
                     }
                   />
                   <Route
-                    path="/pcp/producao/apontamentos"
+                    path="/pcp/controle-producao/ordens/:opId"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Detalhe da Ordem de Produção">
+                          <ProductionOrdersPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/controle-producao/apontamentos"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Apontamentos de Produção">
@@ -1507,7 +1513,28 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="/pcp/producao/pendencias"
+                    path="/pcp/controle-producao/historico"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Histórico de Produção">
+                          <ProductionHistoryPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/controle-producao/analise"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Análise de Ordens">
+                          <ProductionAIAnalysisPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  {/* Subrotas operacionais adicionais do Controle de Produção */}
+                  <Route
+                    path="/pcp/controle-producao/pendencias"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Pendências de Produção">
@@ -1517,7 +1544,7 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="/pcp/producao/desvios"
+                    path="/pcp/controle-producao/desvios"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Desvios de Produção">
@@ -1527,7 +1554,7 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="/pcp/producao/comparativo"
+                    path="/pcp/controle-producao/comparativo"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Comparativo MES x SAP">
@@ -1537,7 +1564,7 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="/pcp/producao/zpp-01"
+                    path="/pcp/controle-producao/zpp-01"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Demonstrativo ZPP_01">
@@ -1546,34 +1573,62 @@ export const App: React.FC = () => {
                       </PermissionGuard>
                     }
                   />
+                  {/* REDIRECTS DE COMPATIBILIDADE / ROTAS LEGADAS (Navigate replace) */}
                   <Route
-                    path="/pcp/producao/ia-analises"
-                    element={
-                      <PermissionGuard permission="pcp.production.view">
-                        <ErrorBoundary moduleName="Análises Industriais de IA">
-                          <ProductionAIAnalysisPage />
-                        </ErrorBoundary>
-                      </PermissionGuard>
-                    }
+                    path="/pcp/producao"
+                    element={<Navigate to="/pcp/controle-producao" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/visao-geral"
+                    element={<Navigate to="/pcp/controle-producao" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/ordens"
+                    element={<Navigate to="/pcp/controle-producao/ordens" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/ordens/:opId"
+                    element={<Navigate to="/pcp/controle-producao/ordens/:opId" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/apontamentos"
+                    element={<Navigate to="/pcp/controle-producao/apontamentos" replace />}
                   />
                   <Route
                     path="/pcp/producao/historico"
-                    element={
-                      <PermissionGuard permission="pcp.production.view">
-                        <ErrorBoundary moduleName="Histórico de Produção">
-                          <ProductionHistoryPage />
-                        </ErrorBoundary>
-                      </PermissionGuard>
-                    }
+                    element={<Navigate to="/pcp/controle-producao/historico" replace />}
                   />
-                  {/* Aliases de rota para Controle de Produção */}
+                  <Route
+                    path="/pcp/producao/ia-analises"
+                    element={<Navigate to="/pcp/controle-producao/analise" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/analise"
+                    element={<Navigate to="/pcp/controle-producao/analise" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/pendencias"
+                    element={<Navigate to="/pcp/controle-producao/pendencias" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/desvios"
+                    element={<Navigate to="/pcp/controle-producao/desvios" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/comparativo"
+                    element={<Navigate to="/pcp/controle-producao/comparativo" replace />}
+                  />
+                  <Route
+                    path="/pcp/producao/zpp-01"
+                    element={<Navigate to="/pcp/controle-producao/zpp-01" replace />}
+                  />
                   <Route
                     path="/pcp-robotizado/producao"
-                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                    element={<Navigate to="/pcp/controle-producao" replace />}
                   />
                   <Route
                     path="/controle-producao"
-                    element={<Navigate to="/pcp/producao/visao-geral" replace />}
+                    element={<Navigate to="/pcp/controle-producao" replace />}
                   />
                   <Route
                     path="/pcp/integracoes"

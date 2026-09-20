@@ -594,7 +594,9 @@ export const ProductionHistoryPage: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          navigate(`/pcp/producao/ia-analises?search=${selectedOrder.op_number}`)
+                          navigate(
+                            `/pcp/controle-producao/analise?search=${selectedOrder.op_number}`,
+                          )
                         }
                         className="h-8 text-xs text-blue-700 border-blue-200 hover:bg-blue-50"
                       >

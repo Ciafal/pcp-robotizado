@@ -129,16 +129,16 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
     expect(screen.getByText(/Visão Geral & Indicadores Chave da Fábrica/i)).toBeDefined()
   })
 
-  it('(b) F5 / acesso direto em sub-rota do Controle de Produção ("/pcp/producao/ordens") carrega a tela sem "página inexistente" nem ErrorBoundary', async () => {
+  it('(b) F5 / acesso direto em sub-rota do Controle de Produção ("/pcp/controle-producao/ordens") carrega a tela sem "página inexistente" nem ErrorBoundary', async () => {
     render(
-      <MemoryRouter initialEntries={['/pcp/producao/ordens']}>
+      <MemoryRouter initialEntries={['/pcp/controle-producao/ordens']}>
         <AuthProvider>
           <ControlTowerProvider>
             <ErrorBoundary moduleName="Estrutura de Rotas">
               <Routes>
                 <Route element={<Layout />}>
                   <Route
-                    path="/pcp/producao/ordens"
+                    path="/pcp/controle-producao/ordens"
                     element={
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Ordens de Produção">
@@ -165,7 +165,7 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
     // O cabeçalho de Ordens de Produção deve renderizar normalmente
     expect(screen.getByText(/Ordens de Produção \(OPs\)/i)).toBeDefined()
     expect(screen.getByText(/GESTÃO DE ORDENS/i)).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/controle-producao/ordens')
   })
 
   it('(c) navegação pelo menu lateral entre módulos não faz nenhuma tela desaparecer', async () => {
@@ -195,7 +195,7 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
                     }
                   />
                   <Route
-                    path="/pcp/producao/ordens"
+                    path="/pcp/controle-producao/ordens"
                     element={
                       <div>
                         <LocationDisplay />
@@ -220,14 +220,16 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
     fireEvent.click(groupControle)
 
     // 3. Clica no item "Ordens de Produção"
-    const ordensLink = await screen.findByRole('link', { name: /Ordens de Produção/i })
+    const ordensLink = await screen.findByRole('link', { name: /Controle de Ordens de Produção/i })
     expect(ordensLink).toBeDefined()
     fireEvent.click(ordensLink)
 
     // 4. A tela de ordens de produção deve carregar sem tela branca nem ErrorBoundary
     await waitFor(() => {
       expect(screen.getByTestId('screen-ordens')).toBeDefined()
-      expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+      expect(screen.getByTestId('current-location').textContent).toBe(
+        '/pcp/controle-producao/ordens',
+      )
     })
     expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
 
@@ -243,7 +245,7 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
   })
 
   it('(d) histórico de navegação e voltar pelo navegador mantém as rotas corretas', async () => {
-    const historyEntries = ['/', '/pcp/producao/ordens']
+    const historyEntries = ['/', '/pcp/controle-producao/ordens']
 
     render(
       <MemoryRouter initialEntries={historyEntries} initialIndex={1}>
@@ -262,7 +264,7 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
                     }
                   />
                   <Route
-                    path="/pcp/producao/ordens"
+                    path="/pcp/controle-producao/ordens"
                     element={
                       <div>
                         <LocationDisplay />
@@ -278,9 +280,9 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
       </MemoryRouter>,
     )
 
-    // Estado inicial no índice 1: /pcp/producao/ordens
+    // Estado inicial no índice 1: /pcp/controle-producao/ordens
     expect(screen.getByTestId('screen-ordens')).toBeDefined()
-    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/producao/ordens')
+    expect(screen.getByTestId('current-location').textContent).toBe('/pcp/controle-producao/ordens')
     expect(screen.queryByText(/Instabilidade Temporária no Módulo/i)).toBeNull()
   })
 

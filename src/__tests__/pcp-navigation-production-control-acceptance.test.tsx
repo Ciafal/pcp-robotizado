@@ -79,11 +79,20 @@ function renderSidebarWithRole(initialRoute = '/pcp/cockpit', role: string = 'PC
                 <PCPSidebar />
                 <div data-testid="route-content">
                   <Routes>
-                    <Route path="/pcp/producao/ordens" element={<ProductionOrdersPage />} />
-                    <Route path="/pcp/producao/apontamentos" element={<ProductionPostingsPage />} />
-                    <Route path="/pcp/producao/historico" element={<ProductionHistoryPage />} />
                     <Route
-                      path="/pcp/producao/ia-analises"
+                      path="/pcp/controle-producao/ordens"
+                      element={<ProductionOrdersPage />}
+                    />
+                    <Route
+                      path="/pcp/controle-producao/apontamentos"
+                      element={<ProductionPostingsPage />}
+                    />
+                    <Route
+                      path="/pcp/controle-producao/historico"
+                      element={<ProductionHistoryPage />}
+                    />
+                    <Route
+                      path="/pcp/controle-producao/analise"
                       element={<ProductionAIAnalysisPage />}
                     />
                   </Routes>
@@ -129,16 +138,16 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
 
     // Verifica links corretos
     const linkOrdens = screen.getByText('Controle de Ordens de Produção').closest('a')
-    expect(linkOrdens).toHaveAttribute('href', '/pcp/producao/ordens')
+    expect(linkOrdens).toHaveAttribute('href', '/pcp/controle-producao/ordens')
 
     const linkApontamentos = screen.getByText('Apontamentos').closest('a')
-    expect(linkApontamentos).toHaveAttribute('href', '/pcp/producao/apontamentos')
+    expect(linkApontamentos).toHaveAttribute('href', '/pcp/controle-producao/apontamentos')
 
     const linkHistorico = screen.getByText('Histórico de Ordens de Produção').closest('a')
-    expect(linkHistorico).toHaveAttribute('href', '/pcp/producao/historico')
+    expect(linkHistorico).toHaveAttribute('href', '/pcp/controle-producao/historico')
 
     const linkAnalise = screen.getByText('Análise de Ordens').closest('a')
-    expect(linkAnalise).toHaveAttribute('href', '/pcp/producao/ia-analises')
+    expect(linkAnalise).toHaveAttribute('href', '/pcp/controle-producao/analise')
 
     // Verifica estilos dos filhos: recuo pl-6 e quebra de linha whitespace-normal break-words
     expect(linkOrdens).toHaveClass('pl-6')
@@ -146,8 +155,8 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
     expect(screen.getByText('Histórico de Ordens de Produção')).toHaveClass('break-words')
   })
 
-  it('3. Expansão persistente (simulação de F5 ou entrada direta) em /pcp/producao/ordens com destaque do subitem', () => {
-    renderSidebarWithRole('/pcp/producao/ordens', 'PCP_PROGRAMMER')
+  it('3. Expansão persistente (simulação de F5 ou entrada direta) em /pcp/controle-producao/ordens com destaque do subitem', () => {
+    renderSidebarWithRole('/pcp/controle-producao/ordens', 'PCP_PROGRAMMER')
 
     // Deve estar automaticamente expandido
     expect(screen.getByText('Controle de Ordens de Produção')).toBeInTheDocument()
@@ -162,23 +171,32 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
     expect(linkOrdens).toHaveClass('border-[#004C97]')
   })
 
-  it('4. Expansão persistente em cada uma das outras 3 rotas (/apontamentos, /historico, /ia-analises)', () => {
+  it('4. Expansão persistente em cada uma das outras 3 rotas (/apontamentos, /historico, /analise)', () => {
     // 4.1 Apontamentos
-    const { unmount: u1 } = renderSidebarWithRole('/pcp/producao/apontamentos', 'PCP_PROGRAMMER')
+    const { unmount: u1 } = renderSidebarWithRole(
+      '/pcp/controle-producao/apontamentos',
+      'PCP_PROGRAMMER',
+    )
     const linkApont = screen.getByText('Apontamentos').closest('a')
     expect(linkApont).toHaveClass('bg-blue-50/90')
     expect(linkApont).toHaveClass('text-[#004C97]')
     u1()
 
     // 4.2 Histórico
-    const { unmount: u2 } = renderSidebarWithRole('/pcp/producao/historico', 'PCP_PROGRAMMER')
+    const { unmount: u2 } = renderSidebarWithRole(
+      '/pcp/controle-producao/historico',
+      'PCP_PROGRAMMER',
+    )
     const linkHist = screen.getByText('Histórico de Ordens de Produção').closest('a')
     expect(linkHist).toHaveClass('bg-blue-50/90')
     expect(linkHist).toHaveClass('text-[#004C97]')
     u2()
 
-    // 4.3 IA Análises
-    const { unmount: u3 } = renderSidebarWithRole('/pcp/producao/ia-analises', 'PCP_PROGRAMMER')
+    // 4.3 Análise
+    const { unmount: u3 } = renderSidebarWithRole(
+      '/pcp/controle-producao/analise',
+      'PCP_PROGRAMMER',
+    )
     const linkAnalise = screen.getByText('Análise de Ordens').closest('a')
     expect(linkAnalise).toHaveClass('bg-blue-50/90')
     expect(linkAnalise).toHaveClass('text-[#004C97]')
@@ -186,7 +204,7 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
   })
 
   it('5. Teste de clique e navegação nos 4 subitens renderizando as telas corretas', async () => {
-    renderSidebarWithRole('/pcp/producao/ordens', 'PCP_PROGRAMMER')
+    renderSidebarWithRole('/pcp/controle-producao/ordens', 'PCP_PROGRAMMER')
 
     // Clica em Apontamentos
     fireEvent.click(screen.getByText('Apontamentos'))

@@ -101,6 +101,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.lines.view' ||
     permission === 'pcp.production.view' ||
     window.location?.pathname?.includes('/ficha-mestre') ||
+    window.location?.pathname?.includes('/pcp/controle-producao') ||
     window.location?.pathname?.includes('/pcp/producao')
   ) {
     return <>{children}</>

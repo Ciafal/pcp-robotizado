@@ -81,7 +81,7 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
   it('TESTE A: ao renderizar o menu, o grupo CONTROLE DE PRODUÇÃO exibe seus 4 subitens funcionais', () => {
     render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/ordens']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao/ordens']}>
           <PCPNavigation />
         </MemoryRouter>
       </AuthContext.Provider>,
@@ -113,16 +113,16 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     fireEvent.click(grupoHeader)
 
     const linkOrdens = screen.getByText('Controle de Ordens de Produção').closest('a')
-    expect(linkOrdens).toHaveAttribute('href', '/pcp/producao/ordens')
+    expect(linkOrdens).toHaveAttribute('href', '/pcp/controle-producao/ordens')
 
     const linkApontamentos = screen.getByText('Apontamentos').closest('a')
-    expect(linkApontamentos).toHaveAttribute('href', '/pcp/producao/apontamentos')
+    expect(linkApontamentos).toHaveAttribute('href', '/pcp/controle-producao/apontamentos')
 
     const linkHistorico = screen.getByText('Histórico de Ordens de Produção').closest('a')
-    expect(linkHistorico).toHaveAttribute('href', '/pcp/producao/historico')
+    expect(linkHistorico).toHaveAttribute('href', '/pcp/controle-producao/historico')
 
     const linkAnalise = screen.getByText('Análise de Ordens').closest('a')
-    expect(linkAnalise).toHaveAttribute('href', '/pcp/producao/ia-analises')
+    expect(linkAnalise).toHaveAttribute('href', '/pcp/controle-producao/analise')
   })
 
   // TESTE C: rotas carregam direto (simulação de F5 direto na rota)
@@ -130,9 +130,9 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // 1. Rota de Ordens
     const { unmount: unmount1 } = render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/ordens']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao/ordens']}>
           <Routes>
-            <Route path="/pcp/producao/ordens" element={<ProductionOrdersPage />} />
+            <Route path="/pcp/controle-producao/ordens" element={<ProductionOrdersPage />} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>,
@@ -143,9 +143,12 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // 2. Rota de Apontamentos
     const { unmount: unmount2 } = render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/apontamentos']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao/apontamentos']}>
           <Routes>
-            <Route path="/pcp/producao/apontamentos" element={<ProductionPostingsPage />} />
+            <Route
+              path="/pcp/controle-producao/apontamentos"
+              element={<ProductionPostingsPage />}
+            />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>,
@@ -156,9 +159,9 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // 3. Rota de Histórico
     const { unmount: unmount3 } = render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/historico']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao/historico']}>
           <Routes>
-            <Route path="/pcp/producao/historico" element={<ProductionHistoryPage />} />
+            <Route path="/pcp/controle-producao/historico" element={<ProductionHistoryPage />} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>,
@@ -169,9 +172,9 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
     // 4. Rota de Análise
     const { unmount: unmount4 } = render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/ia-analises']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao/analise']}>
           <Routes>
-            <Route path="/pcp/producao/ia-analises" element={<ProductionAIAnalysisPage />} />
+            <Route path="/pcp/controle-producao/analise" element={<ProductionAIAnalysisPage />} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>,
@@ -187,9 +190,9 @@ describe('Testes de Aceite — Controle de Produção (HUB CIAFAL)', () => {
 
     render(
       <AuthContext.Provider value={mockAuthValue}>
-        <MemoryRouter initialEntries={['/pcp/producao/visao-geral']}>
+        <MemoryRouter initialEntries={['/pcp/controle-producao']}>
           <Routes>
-            <Route path="/pcp/producao/visao-geral" element={<ProductionOverviewPage />} />
+            <Route path="/pcp/controle-producao" element={<ProductionOverviewPage />} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>,

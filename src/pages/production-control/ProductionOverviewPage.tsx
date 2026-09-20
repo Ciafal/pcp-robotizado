@@ -216,7 +216,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: FileText,
         iconColor: 'text-[#004C97]',
         ordersSubset: orders,
-        routeLink: '/pcp/producao/ordens',
+        routeLink: '/pcp/controle-producao/ordens',
       },
       {
         id: 'programadas',
@@ -229,7 +229,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: Calendar,
         iconColor: 'text-blue-600',
         ordersSubset: opProgramadas,
-        routeLink: '/pcp/producao/ordens?status=PROGRAMADA',
+        routeLink: '/pcp/controle-producao/ordens?status=PROGRAMADA',
       },
       {
         id: 'em_producao',
@@ -242,7 +242,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: PlayCircle,
         iconColor: 'text-emerald-600',
         ordersSubset: opEmProducao,
-        routeLink: '/pcp/producao/ordens?status=EM_PRODUCAO',
+        routeLink: '/pcp/controle-producao/ordens?status=EM_PRODUCAO',
       },
       {
         id: 'concluidas',
@@ -255,7 +255,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: CheckCircle2,
         iconColor: 'text-[#004C97]',
         ordersSubset: opConcluidas,
-        routeLink: '/pcp/producao/ordens?status=CONCLUIDA',
+        routeLink: '/pcp/controle-producao/ordens?status=CONCLUIDA',
       },
       {
         id: 'aguardando_fechamento',
@@ -268,7 +268,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: Hourglass,
         iconColor: 'text-amber-600',
         ordersSubset: opAguardandoFechamento,
-        routeLink: '/pcp/producao/ordens?status=AGUARDANDO_FECHAMENTO',
+        routeLink: '/pcp/controle-producao/ordens?status=AGUARDANDO_FECHAMENTO',
       },
       {
         id: 'com_pendencia',
@@ -281,7 +281,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: AlertTriangle,
         iconColor: 'text-rose-600',
         ordersSubset: opComPendencia,
-        routeLink: '/pcp/producao/ordens?status=PENDENCIA',
+        routeLink: '/pcp/controle-producao/ordens?status=PENDENCIA',
       },
       {
         id: 'com_desvio',
@@ -294,7 +294,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: TrendingUp,
         iconColor: 'text-indigo-600',
         ordersSubset: opComDesvio,
-        routeLink: '/pcp/producao/ordens?status=DESVIO',
+        routeLink: '/pcp/controle-producao/ordens?status=DESVIO',
       },
       {
         id: 'criticas',
@@ -307,7 +307,7 @@ export const ProductionOverviewPage: React.FC = () => {
         icon: AlertCircle,
         iconColor: 'text-orange-600',
         ordersSubset: opCriticas,
-        routeLink: '/pcp/producao/ordens?status=CRITICA',
+        routeLink: '/pcp/controle-producao/ordens?status=CRITICA',
       },
     ],
     [
@@ -625,7 +625,7 @@ export const ProductionOverviewPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
-            <Link to="/pcp/producao/ordens">
+            <Link to="/pcp/controle-producao/ordens">
               <Button
                 variant="outline"
                 size="sm"
@@ -635,7 +635,7 @@ export const ProductionOverviewPage: React.FC = () => {
                 Controle de Ordens
               </Button>
             </Link>
-            <Link to="/pcp/producao/ia-analises">
+            <Link to="/pcp/controle-producao/analise">
               <Button
                 variant="default"
                 size="sm"
@@ -922,7 +922,7 @@ export const ProductionOverviewPage: React.FC = () => {
 
             <div className="text-center pt-2 border-t border-slate-100">
               <Link
-                to="/pcp/producao/ordens"
+                to="/pcp/controle-producao/ordens"
                 className="text-xs text-[#004C97] hover:underline font-semibold inline-flex items-center gap-1"
               >
                 Explorar mapa completo de ordens no painel &rarr;
@@ -945,7 +945,7 @@ export const ProductionOverviewPage: React.FC = () => {
                     Ordens recentes com apontamento físico no MES 4.0 e ERP SAP ECC
                   </p>
                 </div>
-                <Link to="/pcp/producao/ordens">
+                <Link to="/pcp/controle-producao/ordens">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1090,7 +1090,9 @@ export const ProductionOverviewPage: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     onClick={() =>
-                                      navigate(`/pcp/producao/apontamentos?search=${o.op_number}`)
+                                      navigate(
+                                        `/pcp/controle-producao/apontamentos?search=${o.op_number}`,
+                                      )
                                     }
                                     className="h-7 w-7 text-slate-500 hover:text-blue-700 hover:bg-blue-50"
                                   >
@@ -1109,7 +1111,9 @@ export const ProductionOverviewPage: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     onClick={() =>
-                                      navigate(`/pcp/producao/historico?search=${o.op_number}`)
+                                      navigate(
+                                        `/pcp/controle-producao/historico?search=${o.op_number}`,
+                                      )
                                     }
                                     className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                                   >
@@ -1128,7 +1132,9 @@ export const ProductionOverviewPage: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     onClick={() =>
-                                      navigate(`/pcp/producao/ia-analises?search=${o.op_number}`)
+                                      navigate(
+                                        `/pcp/controle-producao/analise?search=${o.op_number}`,
+                                      )
                                     }
                                     className="h-7 w-7 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
                                   >
@@ -1152,7 +1158,7 @@ export const ProductionOverviewPage: React.FC = () => {
             <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>Exibindo as 7 ordens mais recentes com atividade industrial</span>
               <Link
-                to="/pcp/producao/ordens"
+                to="/pcp/controle-producao/ordens"
                 className="text-[#004C97] hover:underline font-semibold"
               >
                 Abrir grade completa no Controle de Ordens &rarr;
@@ -1175,7 +1181,7 @@ export const ProductionOverviewPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <Link to="/pcp/producao/ia-analises">
+                <Link to="/pcp/controle-producao/analise">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1275,7 +1281,7 @@ export const ProductionOverviewPage: React.FC = () => {
                 Agente IA ativo com telemetria contínua
               </span>
               <Link
-                to="/pcp/producao/ia-analises"
+                to="/pcp/controle-producao/analise"
                 className="text-[#004C97] hover:underline font-semibold"
               >
                 Painel Completo de IA &rarr;
