@@ -50,6 +50,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Rotas operacionais e cadastrais com bypass de visualização para não travar na inicialização:
   // - Cockpit Operacional PCP (pcp.cockpit.view)
   // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
+  // - Regras e Cadastros (pcp.rules.view, rotas /pcp/cadastros/*)
   // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
   // - Análise de Carteira (pcp.carteira.view)
   // - Gestão de MP (pcp.mp_opt.view)
@@ -62,6 +63,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.weekly_schedule.view' ||
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
+    permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.mp_opt.view' ||
     permission === 'pcp.meeting.view' ||
@@ -93,16 +95,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // 1) Rota de Ficha Mestra e Centros (pcp.masterdata.view / pcp.lines.view) e Controle de Produção (pcp.production.view):
+  // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros
+  //    (pcp.masterdata.view / pcp.lines.view / pcp.rules.view) e Controle de Produção (pcp.production.view):
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
   //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start.
+  const currentPathname = typeof window !== 'undefined' ? window.location?.pathname || '' : ''
   if (
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
     permission === 'pcp.production.view' ||
-    window.location?.pathname?.includes('/ficha-mestre') ||
-    window.location?.pathname?.includes('/pcp/controle-producao') ||
-    window.location?.pathname?.includes('/pcp/producao')
+    permission === 'pcp.rules.view' ||
+    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname.startsWith('/pcp/linhas') ||
+    currentPathname.includes('/ficha-mestre') ||
+    currentPathname.includes('/pcp/controle-producao') ||
+    currentPathname.includes('/pcp/producao')
   ) {
     return <>{children}</>
   }
@@ -207,6 +214,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.masterdata.edit' ||
       permission === 'pcp.masterdata.view' ||
       permission === 'pcp.lines.view' ||
+      permission === 'pcp.rules.view' ||
+      permission === 'pcp.rules.edit' ||
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.schedule.edit' ||
       permission === 'pcp.weekly_schedule.view' ||
@@ -223,6 +232,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     !hasPerm &&
     (permission === 'pcp.masterdata.view' ||
       permission === 'pcp.lines.view' ||
+      permission === 'pcp.rules.view' ||
       permission === 'pcp.carteira.view' ||
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.cockpit.view' ||
@@ -295,12 +305,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   const hasScope = lineId ? hasLineScope(lineId) : true
 
-  // Garantia adicional de exibição para Ficha Mestra e Carteira
+  // Garantia adicional de exibição para Ficha Mestra, Cadastros, Regras e Carteira
   if (
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
+    permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
-    permission === 'pcp.production.view'
+    permission === 'pcp.production.view' ||
+    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname.startsWith('/pcp/linhas')
   ) {
     return <>{children}</>
   }
