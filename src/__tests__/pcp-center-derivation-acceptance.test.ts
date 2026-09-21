@@ -99,9 +99,9 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
   })
 
   // -------------------------------------------------------------
-  // CRITÉRIO 4: Bloqueio de autorrelacionamento (Centro A -> Centro A)
+  // CRITÉRIO 4: Bloqueio de autorrelacionamento (A -> A)
   // -------------------------------------------------------------
-  it('Critério 4: Bloqueio de autorrelacionamento com mensagem exata "O Centro de destino não pode ser utilizado como seu próprio Centro de origem."', async () => {
+  it('Critério 4: Bloqueio de autorrelacionamento com mensagem exata "O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem."', async () => {
     const rule: CenterDerivationRule = {
       center_code: 'L1',
       source_center_code: 'L1', // Mesmo centro!
@@ -113,10 +113,9 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
     const validation = await centerDerivationService.validateDerivationRule('L1', rule, [])
     expect(validation.isValid).toBe(false)
     expect(validation.error).toBe(
-      'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
+      'O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem.',
     )
   })
-
   // -------------------------------------------------------------
   // CRITÉRIO 5: Múltiplos Grupos de Mercadorias (MATKL) por regra
   // -------------------------------------------------------------
@@ -269,7 +268,7 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
   // -------------------------------------------------------------
   // CRITÉRIO 10: Bloqueio de duplicidade (mesma combinação)
   // -------------------------------------------------------------
-  it('Critério 10: Bloqueio de duplicidade com mensagem exata "Já existe uma derivação cadastrada para esta combinação."', async () => {
+  it('Critério 10: Bloqueio de duplicidade com mensagem exata "Já existe uma Regra de Derivação com esta combinação."', async () => {
     const existingRule: CenterDerivationRule = {
       id: 'rule_dup_1',
       center_code: 'L2',
@@ -296,13 +295,13 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
     )
 
     expect(validation.isValid).toBe(false)
-    expect(validation.error).toBe('Já existe uma derivação cadastrada para esta combinação.')
+    expect(validation.error).toBe('Já existe uma Regra de Derivação com esta combinação.')
   })
 
   // -------------------------------------------------------------
   // CRITÉRIO 11: Bloqueio de relações circulares (A->B, B->A ou A->B->C->A)
   // -------------------------------------------------------------
-  it('Critério 11: Bloqueio de relações circulares com mensagem exata "Esta configuração gera uma relação circular entre Centros e não pode ser salva."', async () => {
+  it('Critério 11: Bloqueio de relações circulares com mensagem exata "Esta configuração gera relação circular entre Centros."', async () => {
     // Simular que já existe Centro B derivado de Centro A
     const ruleBFromA: CenterDerivationRule = {
       id: 'rule_b_a',
@@ -330,9 +329,7 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
     )
 
     expect(validation.isValid).toBe(false)
-    expect(validation.error).toBe(
-      'Esta configuração gera uma relação circular entre Centros e não pode ser salva.',
-    )
+    expect(validation.error).toBe('Esta configuração gera relação circular entre Centros.')
   })
 
   // -------------------------------------------------------------
@@ -355,7 +352,7 @@ describe('Suíte de Aceitação: Derivação de Centro (HUB CIAFAL)', () => {
     )
 
     expect(validation.isValid).toBe(false)
-    expect(validation.error).toBe('A Data de Término não pode ser anterior à Data de Início.')
+    expect(validation.error).toBe('A Data Fim não pode ser anterior à Data Início.')
   })
 
   // -------------------------------------------------------------

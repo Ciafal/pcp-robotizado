@@ -75,11 +75,26 @@ export class CenterDerivationService {
     const curCode = currentCenterCode.trim().toUpperCase()
     const srcCode = rule.source_center_code.trim().toUpperCase()
 
+    // 0. Validações preliminares obrigatórias
+    if (!srcCode) {
+      return {
+        isValid: false,
+        error: 'Selecione um Centro de Origem.',
+      }
+    }
+
+    if (!rule.matkl_groups || rule.matkl_groups.length === 0) {
+      return {
+        isValid: false,
+        error: 'Selecione pelo menos um Grupo de Mercadorias.',
+      }
+    }
+
     // 1. Autorrelacionamento (Centro A -> Centro A)
     if (curCode === srcCode) {
       return {
         isValid: false,
-        error: 'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
+        error: 'O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem.',
       }
     }
 
@@ -87,7 +102,7 @@ export class CenterDerivationService {
     if (this.isEndDateBeforeStartDate(rule.start_date, rule.end_date)) {
       return {
         isValid: false,
-        error: 'A Data de Término não pode ser anterior à Data de Início.',
+        error: 'A Data Fim não pode ser anterior à Data Início.',
       }
     }
 
@@ -96,7 +111,7 @@ export class CenterDerivationService {
     if (circular) {
       return {
         isValid: false,
-        error: 'Esta configuração gera uma relação circular entre Centros e não pode ser salva.',
+        error: 'Esta configuração gera relação circular entre Centros.',
       }
     }
 
@@ -123,7 +138,7 @@ export class CenterDerivationService {
           if (sharedMatkl) {
             return {
               isValid: false,
-              error: 'Já existe uma derivação cadastrada para esta combinação.',
+              error: 'Já existe uma Regra de Derivação com esta combinação.',
             }
           }
         }
@@ -489,26 +504,49 @@ export class CenterDerivationService {
   /**
    * Registra log de auditoria no serviço oficial de governança pcpAuditService
    */
-  async recordAuditLog(entry: CenterDerivationAuditEntry): Promise<void> {
-    const logTitle = `Centro ${entry.center} | Derivação ${entry.action} | ${entry.rule_summary} | ${entry.previous_value} → ${entry.new_value} | usuário ${entry.user_name} | ${entry.timestamp}`
+  async recordAuditLog(
+    entry: CenterDerivationAuditEntry & {
+      field?: string
+      status?: 'SUCESSO' | 'ERRO'
+      errorMessage?: string
+    },
+  ): Promise<void> {
+    const isSuccess = entry.status !== 'ERRO'
+    const logTitle = `Centro ${entry.center} | Derivação ${entry.action} | ${entry.rule_summary} | ${entry.previous_value} → ${entry.new_value} | ${isSuccess ? 'SUCESSO' : `ERRO: ${entry.errorMessage}`} | usuário ${entry.user_name} | ${entry.timestamp}`
     try {
-      await pcpAuditService.recordLog({
-        user_id: 'usr_pcp_admin',
-        user_name: entry.user_name,
-        action: `DERIVACAO_CENTRO_${entry.action.toUpperCase()}`,
-        event_type: 'GOVERNANCE',
-        resource: 'PCP_CENTER_DERIVATION',
-        resource_id: entry.center,
-        center: entry.center,
-        details: {
-          center_code: entry.center,
-          action: entry.action,
-          rule_summary: entry.rule_summary,
-          previous_value: entry.previous_value,
-          new_value: entry.new_value,
-          formatted_log: logTitle,
-        },
-      })
+      if (!isSuccess) {
+        await pcpAuditService.recordFailureAttempt({
+          operation: `Derivação ${entry.action} centro ${entry.center}`,
+          module: 'Centros e Ficha Mestra',
+          screen: 'Derivação de Centro',
+          line: entry.center,
+          center: entry.center,
+          recordId: entry.center,
+          errorMessage: entry.errorMessage || 'Falha na operação de derivação',
+          reason: 'Falha de validação ou persistência na Regra de Derivação',
+          justification: entry.rule_summary,
+        })
+      } else {
+        await pcpAuditService.recordLog({
+          user_id: 'usr_pcp_admin',
+          user_name: entry.user_name,
+          action: `DERIVACAO_CENTRO_${entry.action.toUpperCase()}`,
+          event_type: 'GOVERNANCE',
+          resource: 'PCP_CENTER_DERIVATION',
+          resource_id: entry.center,
+          center: entry.center,
+          status: 'SUCESSO',
+          details: {
+            center_code: entry.center,
+            action: entry.action,
+            field_name: entry.field || 'regra_derivacao',
+            rule_summary: entry.rule_summary,
+            previous_value: entry.previous_value,
+            new_value: entry.new_value,
+            formatted_log: logTitle,
+          },
+        })
+      }
     } catch (e) {
       console.warn('Aviso: falha ao registrar auditoria centralizada:', e)
     }

@@ -69,8 +69,6 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
   const [werksCatalog, setWerksCatalog] = useState<SapWerksItem[]>([])
   const [isWerksLoading, setIsWerksLoading] = useState<boolean>(false)
   const [werksError, setWerksError] = useState<string | null>(null)
-  const [werksFilterInOrigin, setWerksFilterInOrigin] = useState<string>('ALL')
-
   const [sourceCenterCode, setSourceCenterCode] = useState<string>('')
   const [sourceCenterSearch, setSourceCenterSearch] = useState<string>('')
   const [showInactiveCenters, setShowInactiveCenters] = useState<boolean>(false)
@@ -177,39 +175,30 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
     }
   }
 
-  // Filtragem de centros disponíveis para origem com filtro por WERKS e busca por código/nome/WERKS/linha/SAP
+  // Filtragem de centros disponíveis para origem: fonte EXCLUSIVA Centros e Ficha Mestre
+  // Sem filtro WERKS intermediário. Bloqueio de autorrelacionamento e busca unificada.
   const filteredSourceCenters = useMemo(() => {
     const curUpper = currentCenterCode.trim().toUpperCase()
     const search = sourceCenterSearch.trim().toLowerCase()
 
     return availableCenters.filter((c) => {
-      // REGRA 1: Bloquear autorrelacionamento ("O Centro de destino não pode ser utilizado como seu próprio Centro de origem.")
+      // REGRA: Bloquear autorrelacionamento (não permitir o próprio centro como origem)
       if (c.code.trim().toUpperCase() === curUpper) return false
 
-      // REGRA 2: Só ativos por padrão com checkbox "Exibir centros inativos"
+      // REGRA: Por padrão mostrar apenas ativos, com toggle para exibir inativos
       const isActive = c.is_active !== false && c.status !== 'stopped'
       if (!showInactiveCenters && !isActive) return false
 
-      // REGRA 3: Filtro por WERKS no seletor de origem
-      if (werksFilterInOrigin !== 'ALL') {
-        const centerWerks = c.sap_plant_code || c.company_name || ''
-        if (!centerWerks.includes(werksFilterInOrigin)) return false
-      }
-
       if (!search) return true
 
-      // Pesquisa por código/nome/WERKS/linha/SAP
-      const fullString =
-        `${c.code} ${c.name} ${c.sap_plant_code || ''} ${c.company_name || ''} ${c.linha_produtiva_nome || ''} ${c.sap_work_center || ''}`.toLowerCase()
+      // Busca única por código interno, nome oficial, Centro SAP, linha e empresa
+      const sapCode = c.sap_work_center || c.sap_plant_code || ''
+      const lineName = c.linha_produtiva_nome || ''
+      const company = c.company_name || ''
+      const fullString = `${c.code} ${c.name} ${sapCode} ${lineName} ${company}`.toLowerCase()
       return fullString.includes(search)
     })
-  }, [
-    availableCenters,
-    currentCenterCode,
-    sourceCenterSearch,
-    showInactiveCenters,
-    werksFilterInOrigin,
-  ])
+  }, [availableCenters, currentCenterCode, sourceCenterSearch, showInactiveCenters])
 
   // Objeto do centro selecionado
   const selectedCenterObj = useMemo(() => {
@@ -272,7 +261,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
     // 2. Autorrelacionamento
     if (sourceCenterCode.trim().toUpperCase() === currentCenterCode.trim().toUpperCase()) {
       setErrorMessage(
-        'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
+        'O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem.',
       )
       return
     }
@@ -280,7 +269,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
     // 3. Grupo de Mercadorias: exigir pelo menos 1
     if (selectedMatklGroups.length === 0) {
       setErrorMessage(
-        'Não foi possível salvar a derivação: nenhum Grupo de Mercadorias foi selecionado.',
+        'Não foi possível salvar a Derivação: selecione pelo menos um Grupo de Mercadorias.',
       )
       return
     }
@@ -299,7 +288,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
       const eDate = new Date(eY, eM - 1, eD)
 
       if (eDate < sDate) {
-        setErrorMessage('A Data de Término não pode ser anterior à Data de Início.')
+        setErrorMessage('A Data Fim não pode ser anterior à Data Início.')
         return
       }
     }
@@ -337,10 +326,24 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
         onClose()
       }
     } catch (err: any) {
-      setErrorMessage(
-        err.message ||
-          'Não foi possível salvar a derivação: falha na persistência dos dados. Tente novamente ou consulte os Logs de Integração.',
-      )
+      const rawMsg = err?.message || ''
+      if (rawMsg.includes('circular')) {
+        setErrorMessage('Esta configuração gera relação circular entre Centros.')
+      } else if (
+        rawMsg.includes('combinação') ||
+        rawMsg.includes('duplicada') ||
+        rawMsg.includes('duplicidade')
+      ) {
+        setErrorMessage('Já existe uma Regra de Derivação com esta combinação.')
+      } else if (rawMsg.includes('Data Fim') || rawMsg.includes('Data de Término')) {
+        setErrorMessage('A Data Fim não pode ser anterior à Data Início.')
+      } else if (rawMsg.includes('Centro de Origem') || rawMsg.includes('dele mesmo')) {
+        setErrorMessage(rawMsg)
+      } else if (rawMsg) {
+        setErrorMessage(`Não foi possível salvar a Derivação: ${rawMsg}`)
+      } else {
+        setErrorMessage('Falha ao persistir a Regra de Derivação. Consulte Logs & Auditoria.')
+      }
     } finally {
       setSaving(false)
     }
@@ -349,9 +352,9 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
   return (
     <>
       <Dialog open={open} onOpenChange={(val) => !val && handleRequestCancel()}>
-        <DialogContent className="max-w-2xl bg-white border border-slate-200 text-slate-800 shadow-xl p-0 overflow-hidden">
-          {/* Cabeçalho */}
-          <DialogHeader className="bg-[#004C97] text-white p-4 border-b border-blue-900">
+        <DialogContent className="max-w-2xl bg-white border border-slate-200 text-slate-800 shadow-xl p-0 flex flex-col max-h-[90vh] overflow-hidden">
+          {/* Header Fixo */}
+          <DialogHeader className="bg-[#004C97] text-white p-4 border-b border-blue-900 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-cyan-300">
                 <GitFork className="w-5 h-5" />
@@ -369,8 +372,8 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
             </div>
           </DialogHeader>
 
-          {/* Corpo com scroll */}
-          <div className="p-5 max-h-[72vh] overflow-y-auto space-y-5 text-xs">
+          {/* Conteúdo com Scroll vertical */}
+          <div className="p-5 overflow-y-auto flex-1 space-y-5 text-xs">
             {/* Mensagem de Erro / Alerta Geral */}
             {errorMessage && (
               <div className="p-3 bg-rose-50 border border-rose-300 rounded-md text-rose-800 flex items-start gap-2 animate-in fade-in">
@@ -379,7 +382,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
               </div>
             )}
 
-            {/* 0. SELETOR DE EMPRESA (INTEGRAÇÃO SAP RFC WERKS) */}
+            {/* 1. TOPO: Empresa / Unidade (Integração SAP RFC - WERKS) */}
             <div className="space-y-2 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -425,58 +428,43 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
               </select>
             </div>
 
-            {/* 1. SELEÇÃO DE CENTRO DE ORIGEM (Consultando exclusivamente Centros cadastrados) */}
+            {/* 2. CENTRO DE ORIGEM (Fonte EXCLUSIVA: Centros e Ficha Mestre) */}
             <div className="space-y-2 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <Building2 className="w-4 h-4 text-[#004C97]" />
-                  Centro de Origem (Centros e Ficha Mestra) <span className="text-rose-500">*</span>
+                  Centro de Origem *
                 </Label>
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={showInactiveCenters}
                     onChange={(e) => setShowInactiveCenters(e.target.checked)}
                     className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97]"
                   />
-                  Exibir centros inativos
+                  ☐ Exibir Centros inativos
                 </label>
               </div>
 
-              {/* Filtros: Busca e filtro por WERKS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                  <Input
-                    placeholder="Pesquisar por código, nome, WERKS, linha ou SAP..."
-                    value={sourceCenterSearch}
-                    onChange={(e) => setSourceCenterSearch(e.target.value)}
-                    className="pl-8 h-8 text-xs bg-white border-slate-300"
-                  />
-                </div>
-
-                <select
-                  value={werksFilterInOrigin}
-                  onChange={(e) => setWerksFilterInOrigin(e.target.value)}
-                  className="bg-white border border-slate-300 rounded-md h-8 px-2 text-xs text-slate-700"
-                >
-                  <option value="ALL">Filtro WERKS: Todos</option>
-                  {werksCatalog.map((w) => (
-                    <option key={w.werks} value={w.werks}>
-                      WERKS {w.werks}
-                    </option>
-                  ))}
-                </select>
+              {/* Único campo de busca */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                <Input
+                  placeholder="Pesquisar Centro..."
+                  value={sourceCenterSearch}
+                  onChange={(e) => setSourceCenterSearch(e.target.value)}
+                  className="pl-8 h-8 text-xs bg-white border-slate-300"
+                />
               </div>
 
-              {/* Select customizado no formato exigido: "Código — Nome — WERKS — Linha — SAP: código" */}
+              {/* Seletor "Selecione o Centro de Origem": "Código — Nome Oficial" + "Centro SAP" */}
               <select
                 value={sourceCenterCode}
                 onChange={(e) => {
                   const val = e.target.value
                   if (val.trim().toUpperCase() === currentCenterCode.trim().toUpperCase()) {
                     setErrorMessage(
-                      'O Centro de destino não pode ser utilizado como seu próprio Centro de origem.',
+                      'O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem.',
                     )
                     return
                   }
@@ -489,14 +477,13 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
                 <option value="">Selecione o Centro de Origem...</option>
                 {filteredSourceCenters.map((c) => {
                   const isActive = c.is_active !== false && c.status !== 'stopped'
-                  const plantWerks = c.sap_plant_code || '1000'
-                  const lineName = c.linha_produtiva_nome || c.code
-                  const sapCode = c.sap_work_center || c.sap_plant_code || c.code
-                  // Formato exigido: "Código — Nome — WERKS — Linha — SAP: código"
-                  const formatLabel = `${c.code} — ${c.name} — ${plantWerks} — ${lineName} — SAP: ${sapCode}${!isActive ? ' [INATIVO]' : ''}`
+                  const sapCode = c.sap_work_center || c.sap_plant_code || ''
+                  const sapPart = sapCode ? ` — SAP: ${sapCode}` : ''
+                  const inactivePart = !isActive ? ' — INATIVO' : ''
+                  const label = `${c.code} — ${c.name}${sapPart}${inactivePart}`
                   return (
                     <option key={c.id || c.code} value={c.code}>
-                      {formatLabel}
+                      {label}
                     </option>
                   )
                 })}
@@ -509,10 +496,9 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
                   <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-md text-amber-800 text-[11px] flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <strong>Atenção:</strong> O centro de origem selecionado (
+                      <strong>Atenção:</strong> O Centro de Origem selecionado (
                       {selectedCenterObj.code}) está atualmente <strong>INATIVO</strong> no cadastro
-                      de Centros. Esta regra pode não ter efeito operacional enquanto o centro de
-                      origem estiver inativo.
+                      de Centros.
                     </div>
                   </div>
                 )}
@@ -731,15 +717,15 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
             </div>
           </div>
 
-          {/* Rodapé fixo com [Cancelar] e [Salvar Derivação] */}
-          <DialogFooter className="p-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between sm:justify-between">
+          {/* Rodapé FIXO/STICKY com [Cancelar] e [Salvar Derivação] */}
+          <DialogFooter className="p-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between sm:justify-between shrink-0 sticky bottom-0 z-10">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleRequestCancel}
               disabled={saving}
-              className="h-8 text-xs bg-white text-slate-700"
+              className="h-8 text-xs bg-white text-slate-700 hover:bg-slate-50"
             >
               Cancelar
             </Button>
@@ -751,7 +737,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
               disabled={saving}
               className="h-8 text-xs bg-[#004C97] hover:bg-[#003870] text-white font-semibold gap-1.5 shadow-xs"
             >
-              {saving ? 'Validando e salvando...' : 'Salvar Derivação'}
+              {saving ? 'Salvando...' : 'Salvar Derivação'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -763,11 +749,11 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
           <DialogContent className="max-w-md bg-white border border-slate-200 text-slate-800 p-4">
             <DialogHeader>
               <DialogTitle className="text-sm font-bold text-slate-900">
-                Alterações Não Salvas
+                Alterações não salvas
               </DialogTitle>
             </DialogHeader>
             <p className="text-xs text-slate-600 py-2">
-              Existem alterações não salvas. Deseja realmente cancelar?
+              Existem alterações nesta Regra de Derivação que ainda não foram salvas.
             </p>
             <DialogFooter className="flex items-center justify-end gap-2 pt-2">
               <Button

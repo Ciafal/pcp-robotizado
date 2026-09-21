@@ -98,6 +98,9 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
   const [managerAssignments, setManagerAssignments] = useState<LineManagerAssignment[]>([])
   const [approversList, setApproversList] = useState<LineApproverMatrix[]>([])
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [isDirty, setIsDirty] = useState(false)
+  const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false)
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null)
 
   // Restrições Mínimas de Programação por Bitola (1:N)
   const [gaugeRestrictions, setGaugeRestrictions] = useState<LineGaugeMinRestriction[]>([])
@@ -147,6 +150,8 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     setShowDeactivateConfirm(false)
     setFutureSchedulesCount(null)
     setBlockedByFutureSchedules(false)
+    setIsDirty(false)
+    setShowCancelConfirmDialog(false)
 
     // Load full context (managers, approvers, active master, companies, hierarchy lines)
     const loadContext = async () => {
@@ -393,7 +398,16 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
   const handleConfirmDeactivation = () => {
     setFormData((prev) => ({ ...prev, isActive: false }))
+    setIsDirty(true)
     setShowDeactivateConfirm(false)
+  }
+
+  const handleRequestCancel = () => {
+    if (isDirty) {
+      setShowCancelConfirmDialog(true)
+    } else {
+      onClose()
+    }
   }
 
   const handleSave = async () => {
@@ -401,37 +415,37 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
     const errors: Record<string, string> = {}
 
-    // Validações obrigatórias com exibição explícita junto aos campos
+    // Validações obrigatórias com mensagens amigáveis e específicas
     if (!formData.code.trim()) {
-      errors.code = 'Informe o código identificador do centro (ex.: L1, L2, ENF_L1).'
+      errors.code = 'Código Interno do Centro é obrigatório.'
     }
 
     if (!formData.name.trim()) {
-      errors.name = 'Informe o nome oficial do centro de produção.'
+      errors.name = 'Nome Oficial do Centro é obrigatório.'
     }
 
     const numCapacity = Number(formData.nominalCapacity)
     if (isNaN(numCapacity) || numCapacity <= 0) {
-      errors.nominalCapacity = 'A capacidade nominal horária deve ser maior que zero.'
+      errors.nominalCapacity = 'Capacidade Nominal Horária é obrigatória.'
     }
 
     const isCodeDuplicate = existingLines.some(
       (l) => l.id !== line.id && l.code.toUpperCase() === formData.code.trim().toUpperCase(),
     )
     if (isCodeDuplicate) {
-      errors.code = `Já existe outra linha cadastrada com o código ${formData.code.trim().toUpperCase()}.`
+      errors.code = `Já existe outro Centro cadastrado com o código ${formData.code.trim().toUpperCase()}.`
     }
 
-    // Validação estrita da Derivação de Centro (Critério 1 e 6 do usuário)
+    // Validação estrita da Derivação de Centro
     // Se "Centro derivado? = Sim", exigir pelo menos 1 regra válida e ativa
     if (isDerived) {
       const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
       if (activeRules.length === 0) {
-        const msg = 'Informe pelo menos uma derivação antes de salvar o Centro.'
+        const msg = 'Existe uma Regra de Derivação incompleta.'
         setDerivationError(msg)
         toast({
           variant: 'destructive',
-          title: 'Derivação Obrigatória',
+          title: 'Não foi possível salvar o Centro',
           description: msg,
         })
         return
@@ -443,7 +457,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
       setValidationErrors(errors)
       toast({
         variant: 'destructive',
-        title: 'Campos obrigatórios inválidos',
+        title: 'Não foi possível salvar o Centro',
         description: Object.values(errors)[0],
       })
       return
@@ -729,26 +743,34 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Falha ao gravar auditoria de versão:', auditErr)
       }
 
-      // Toast de sucesso apenas após confirmação do backend (texto exato)
+      // Data e hora da atualização no formato DD/MM/AAAA HH:mm
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const formattedTimestamp = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+      setLastSavedTime(formattedTimestamp)
+      setIsDirty(false)
+
+      // Toast de confirmação real da persistência
+      const centerLabel = `${formData.code.trim().toUpperCase()} — ${formData.name.trim()}`
       toast({
-        title: '✓ Alterações do Centro salvas com sucesso.',
+        title: 'Centro salvo com sucesso',
+        description: `Centro: ${centerLabel} | Última atualização: ${formattedTimestamp}`,
       })
 
-      // onSuccess recarrega listagem e fecha modal
-      onSuccess(updatedLine)
-      onClose()
+      // onSuccess recarrega listagem sem fechar abruptamente se usuário quiser continuar
+      await onSuccess(updatedLine)
     } catch (err: unknown) {
       console.error('Erro ao salvar alterações da linha:', err)
 
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as any).message)
+            : 'Falha de persistência no cadastro do Centro.'
+
       // Registrar a falha no serviço de auditoria existente (pcp_audit_logs) com status "Erro" e diff tentado
       try {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : typeof err === 'object' && err !== null && 'message' in err
-              ? String((err as any).message)
-              : 'Erro desconhecido ao salvar alterações do centro'
-
         await pcpAuditService.recordFailureAttempt({
           operation: `Salvar alterações do centro ${formData.code.trim().toUpperCase()}`,
           module: 'Centros e Ficha Mestra',
@@ -765,11 +787,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
         console.warn('Erro ao registrar auditoria de falha:', auditFailureErr)
       }
 
-      // Em erro, manter o modal aberto com todos os valores digitados preservados e exibir mensagem amigável (sem stack trace bruta)
+      // Em erro, manter o modal aberto com todos os valores digitados preservados
       toast({
         variant: 'destructive',
-        title: 'Não foi possível salvar as alterações',
-        description: 'Verifique os dados informados e tente novamente.',
+        title: 'Não foi possível salvar o Centro',
+        description: errorMessage || 'Falha de persistência no cadastro do Centro.',
       })
     } finally {
       setSaving(false)
@@ -779,10 +801,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-slate-200">
-          {/* Header */}
-          <div className="p-5 bg-gradient-to-r from-[#004C97] via-[#003870] to-slate-900 text-white rounded-t-lg">
+      <Dialog open={open} onOpenChange={(val) => !val && handleRequestCancel()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0 border-slate-200 overflow-hidden">
+          {/* Header Fixo */}
+          <div className="p-5 bg-gradient-to-r from-[#004C97] via-[#003870] to-slate-900 text-white rounded-t-lg shrink-0">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -817,8 +839,8 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             </DialogHeader>
           </div>
 
-          {/* Form Content */}
-          <div className="p-6 space-y-5 bg-slate-50">
+          {/* Form Content com Scroll Vertical */}
+          <div className="p-6 space-y-5 bg-slate-50 flex-1 overflow-y-auto">
             {/* Bloco 1: Status Operacional (Ativo / Inativo) */}
             <div className="p-4 bg-white rounded-lg border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -888,12 +910,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     onChange={(e) => {
                       const val = e.target.value.toUpperCase()
                       setFormData((prev) => ({ ...prev, code: val }))
+                      setIsDirty(true)
                       if (validationErrors.code) {
                         setValidationErrors((prev) => ({ ...prev, code: '' }))
                       }
                     }}
                     className={`h-8 text-xs font-mono font-bold bg-slate-50 uppercase ${
-                      validationErrors.code ? 'border-rose-500 focus:ring-rose-500' : ''
+                      validationErrors.code
+                        ? 'border-rose-500 focus:ring-rose-500'
+                        : 'border-slate-300'
                     }`}
                     placeholder="Ex.: L1, L2, ENF_L1"
                   />
@@ -911,12 +936,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     onChange={(e) => {
                       const val = e.target.value
                       setFormData((prev) => ({ ...prev, name: val }))
+                      setIsDirty(true)
                       if (validationErrors.name) {
                         setValidationErrors((prev) => ({ ...prev, name: '' }))
                       }
                     }}
                     className={`h-8 text-xs bg-slate-50 ${
-                      validationErrors.name ? 'border-rose-500 focus:ring-rose-500' : ''
+                      validationErrors.name
+                        ? 'border-rose-500 focus:ring-rose-500'
+                        : 'border-slate-300'
                     }`}
                     placeholder="Ex.: Enfornamento L1 / Laminação L1"
                   />
@@ -929,10 +957,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   <Label className="text-xs font-medium text-slate-700">Processo *</Label>
                   <Input
                     value={formData.processName}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, processName: e.target.value }))
-                    }
-                    className="h-8 text-xs bg-slate-50"
+                      setIsDirty(true)
+                    }}
+                    className="h-8 text-xs bg-slate-50 border-slate-300"
                     placeholder="Ex.: Conformação, Laminação, Aquecimento..."
                   />
                 </div>
@@ -941,12 +970,13 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   <Label className="text-xs font-medium text-slate-700">Tipo de Programação</Label>
                   <select
                     value={formData.programmingType}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({
                         ...prev,
                         programmingType: e.target.value as ProgrammingType,
                       }))
-                    }
+                      setIsDirty(true)
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     {PROGRAMMING_TYPES_CATALOG.map((t) => (
@@ -971,10 +1001,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   <Label className="text-xs font-medium text-slate-700">Centro SAP (Werk)</Label>
                   <Input
                     value={formData.sapPlantCode}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, sapPlantCode: e.target.value }))
-                    }
-                    className="h-8 text-xs font-mono bg-slate-50"
+                      setIsDirty(true)
+                    }}
+                    className="h-8 text-xs font-mono bg-slate-50 border-slate-300"
                     placeholder="Ex.: 1000"
                   />
                 </div>
@@ -985,10 +1016,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <Input
                     value={formData.sapWorkCenter}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, sapWorkCenter: e.target.value }))
-                    }
-                    className="h-8 text-xs font-mono bg-slate-50"
+                      setIsDirty(true)
+                    }}
+                    className="h-8 text-xs font-mono bg-slate-50 border-slate-300"
                     placeholder="Ex.: CRHD_LAM_L1"
                   />
                 </div>
@@ -1006,6 +1038,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       onChange={(e) => {
                         const val = Number(e.target.value)
                         setFormData((prev) => ({ ...prev, nominalCapacity: val }))
+                        setIsDirty(true)
                         if (validationErrors.nominalCapacity) {
                           setValidationErrors((prev) => ({ ...prev, nominalCapacity: '' }))
                         }
@@ -1013,14 +1046,15 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                       className={`h-8 text-xs font-mono font-bold bg-slate-50 flex-1 ${
                         validationErrors.nominalCapacity
                           ? 'border-rose-500 focus:ring-rose-500'
-                          : ''
+                          : 'border-slate-300'
                       }`}
                     />
                     <select
                       value={formData.capacityUnit}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData((prev) => ({ ...prev, capacityUnit: e.target.value }))
-                      }
+                        setIsDirty(true)
+                      }}
                       className="bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium"
                     >
                       <option value="t/h">t/h</option>
@@ -1045,10 +1079,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     min="1"
                     max="100"
                     value={formData.efficiency}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, efficiency: Number(e.target.value) }))
-                    }
-                    className="h-8 text-xs font-mono bg-slate-50"
+                      setIsDirty(true)
+                    }}
+                    className="h-8 text-xs font-mono bg-slate-50 border-slate-300"
                   />
                 </div>
               </div>
@@ -1061,6 +1096,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
               isDerived={isDerived}
               onToggleDerived={(val) => {
                 setIsDerived(val)
+                setIsDirty(true)
                 if (!val) setDerivationError(null)
               }}
               rules={derivationRules}
@@ -1134,9 +1170,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <select
                     value={formData.primaryManagerId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, primaryManagerId: e.target.value }))
-                    }
+                      setIsDirty(true)
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Titular...</option>
@@ -1152,9 +1189,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   <Label className="text-xs font-medium text-slate-700">Gestor Substituto</Label>
                   <select
                     value={formData.substituteManagerId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, substituteManagerId: e.target.value }))
-                    }
+                      setIsDirty(true)
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Substituto (opcional)...</option>
@@ -1172,9 +1210,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <select
                     value={formData.pcpApproverId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, pcpApproverId: e.target.value }))
-                    }
+                      setIsDirty(true)
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Aprovador PCP...</option>
@@ -1192,9 +1231,10 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                   </Label>
                   <select
                     value={formData.lineApproverId}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({ ...prev, lineApproverId: e.target.value }))
-                    }
+                      setIsDirty(true)
+                    }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
                     <option value="">Selecione o Gestor Homologador (opcional)...</option>
@@ -1209,35 +1249,91 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
             </div>
           </div>
 
-          {/* Rodapé com Ações */}
-          <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between text-xs">
-            <span className="text-slate-500 text-[11px]">
-              {loadingContext
-                ? 'Sincronizando Ficha Mestre...'
-                : 'Alterações preservam integridade e auditoria.'}
-            </span>
+          {/* Rodapé FIXO interno com [Cancelar] e [Salvar Centro] */}
+          <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between text-xs shrink-0 sticky bottom-0 z-10 shadow-sm">
+            <div className="flex items-center gap-2">
+              {isDirty ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Alterações não salvas
+                </span>
+              ) : lastSavedTime ? (
+                <span className="inline-flex items-center gap-1.5 text-emerald-700 text-[11px] font-medium">
+                  ✓ Alterações salvas ({lastSavedTime})
+                </span>
+              ) : (
+                <span className="text-slate-500 text-[11px]">
+                  {loadingContext
+                    ? 'Sincronizando Ficha Mestre...'
+                    : 'Alterações preservam integridade e auditoria.'}
+                </span>
+              )}
+            </div>
+
             <div className="flex items-center gap-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                onClick={onClose}
+                onClick={handleRequestCancel}
                 disabled={saving}
-                className="h-8 text-xs"
+                className="h-8 text-xs bg-white text-slate-700 hover:bg-slate-50"
               >
                 Cancelar
               </Button>
               <Button
+                type="button"
                 size="sm"
                 onClick={handleSave}
                 disabled={saving || loadingContext}
-                className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-xs h-8 gap-1.5"
+                className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-xs h-8 gap-1.5 shadow-xs"
               >
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
+                {saving ? 'Salvando Centro...' : 'Salvar Centro'}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo de Confirmação de Cancelar no Editar Centro */}
+      {showCancelConfirmDialog && (
+        <Dialog open={showCancelConfirmDialog} onOpenChange={setShowCancelConfirmDialog}>
+          <DialogContent className="max-w-md bg-white border border-slate-200 text-slate-800 p-4">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-slate-900">
+                Alterações não salvas
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-xs text-slate-600 py-2">
+              Existem alterações no cadastro deste Centro que ainda não foram salvas.
+            </p>
+            <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCancelConfirmDialog(false)}
+                className="text-xs"
+              >
+                Continuar editando
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setShowCancelConfirmDialog(false)
+                  setIsDirty(false)
+                  onClose()
+                }}
+                className="text-xs"
+              >
+                Descartar alterações
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Confirmação Estrita para Inativar Linha Produtiva */}
       <AlertDialog

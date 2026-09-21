@@ -144,7 +144,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
     if (!validation.isValid) {
       toast({
         variant: 'destructive',
-        title: 'Validação de Derivação',
+        title: 'Não foi possível salvar a Derivação',
         description: validation.error || 'A regra de derivação informada não é válida.',
       })
       throw new Error(validation.error)
@@ -154,27 +154,50 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
       const saved = await centerDerivationService.saveDerivationRule(rule, currentUser)
 
       let updatedList: CenterDerivationRule[]
+      const matklSummary = (saved.matkl_groups || []).map((m) => `MATKL ${m.matkl}`).join(', ')
+      const summaryText = `Centro origem: ${saved.source_center_code}; Centro destino: ${centerCode}; Grupos: ${matklSummary || 'Nenhum'}; Status: ${saved.status}`
+
       if (rule.id) {
         updatedList = rules.map((r) => (r.id === rule.id ? saved : r))
         toast({
-          title: 'Regra Atualizada',
-          description: 'Derivação atualizada com sucesso.',
+          title: 'Derivação salva com sucesso',
+          description: summaryText,
         })
       } else {
         updatedList = [saved, ...rules]
         toast({
-          title: 'Derivação salva com sucesso.',
-          description: `Regra de derivação do Centro de origem ${saved.source_center_code} para ${centerCode} (${saved.matkl_groups?.length || 0} MATKLs) foi persistida com sucesso.`,
+          title: 'Derivação salva com sucesso',
+          description: summaryText,
         })
       }
 
       onRulesChange(updatedList)
     } catch (err: any) {
+      const errMsg =
+        err?.message || 'Falha ao persistir a Regra de Derivação. Consulte Logs & Auditoria.'
       toast({
         variant: 'destructive',
-        title: 'Erro ao Salvar Derivação',
-        description: err.message || 'Falha ao persistir regra de derivação.',
+        title: 'Não foi possível salvar a Derivação',
+        description: errMsg,
       })
+
+      // Registrar auditoria de erro na tentativa de derivação
+      try {
+        await centerDerivationService.recordAuditLog({
+          center: centerCode,
+          action: rule.id ? 'edição' : 'criação',
+          rule_summary: `${rule.source_center_code} / MATKL ${(rule.matkl_groups || []).map((m) => m.matkl).join(',')}`,
+          previous_value: '-',
+          new_value: '-',
+          user_name: currentUser,
+          timestamp: centerDerivationService.formatDateTimePtBr(new Date()),
+          status: 'ERRO',
+          errorMessage: errMsg,
+        })
+      } catch {
+        /* ignore audit err */
+      }
+
       throw err
     }
   }
