@@ -1095,6 +1095,12 @@ const officialNavGroups: NavGroup[] = [
         icon: CalendarOff,
         permission: 'pcp.rules.view',
       },
+      {
+        title: 'Parâmetros de Programação',
+        href: '/pcp/cadastros/parametros-programacao',
+        icon: SlidersHorizontal,
+        permission: 'pcp.masterdata.view',
+      },
     ],
   },
   {

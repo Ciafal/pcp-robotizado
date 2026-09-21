@@ -97,8 +97,12 @@ export const FIELD_LABELS_PT_BR: Record<string, string> = {
   cycle_time_tolerance_pct: 'Tolerância de Ciclo (%)',
   stock_coverage_max_days: 'Cobertura Máxima (dias)',
   homologation_status: 'Status de Homologação',
+  parameter_type: 'Tipo de Parâmetro',
+  parameter_name: 'Nome do Parâmetro',
+  value: 'Valor do Parâmetro',
+  unit_of_measure: 'Unidade de Medida',
+  notes: 'Observações do Parâmetro',
 }
-
 export interface ComputeDiffOptions {
   usersMap?: Record<string, string>
 }

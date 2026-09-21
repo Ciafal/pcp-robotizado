@@ -844,6 +844,7 @@ export interface CompletenessItem {
       | 'ACERTOS'
       | 'SETUP_ACERTO_COMPATIBILITY'
       | 'IDEAL_GAUGE_SEQUENCE'
+      | 'PROGRAMMING_PARAMETERS'
     anchorId?: string
   }
 }

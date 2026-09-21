@@ -442,7 +442,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
     // Validação estrita da Derivação de Centro
     // Se "Centro derivado? = Sim", exigir pelo menos 1 regra válida e ativa
     if (isDerived) {
-      const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+      const activeRules = (derivationRules || []).filter((r) => !r.deleted && r.status === 'Ativa')
       if (activeRules.length === 0) {
         const msg = 'Existe uma Regra de Derivação incompleta.'
         setDerivationError(msg)
@@ -1102,10 +1102,11 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 setIsDirty(true)
                 if (!val) setDerivationError(null)
               }}
-              rules={derivationRules}
+              rules={derivationRules || []}
               onRulesChange={(newRules) => {
-                setDerivationRules(newRules)
-                if (newRules.some((r) => !r.deleted && r.status === 'Ativa')) {
+                const safeRules = Array.isArray(newRules) ? newRules : []
+                setDerivationRules(safeRules)
+                if (safeRules.some((r) => !r.deleted && r.status === 'Ativa')) {
                   setDerivationError(null)
                 }
               }}

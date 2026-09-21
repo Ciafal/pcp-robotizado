@@ -98,7 +98,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
 
   // Filtra regras que não sofreram soft delete
   const activeDisplayRules = useMemo(() => {
-    return rules.filter((r) => !r.deleted)
+    return (rules || []).filter((r) => !r.deleted)
   }, [rules])
 
   const totalPages = Math.ceil(activeDisplayRules.length / pageSize) || 1
@@ -446,7 +446,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {paginatedRules.map((rule) => {
+                      {(paginatedRules || []).map((rule) => {
                         const isRuleActive = rule.status === 'Ativa'
                         const matklList = rule.matkl_groups || []
 

@@ -206,7 +206,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       issues.push({ step: 1, stepTitle: 'Identificação', label: 'Linha Produtiva não selecionada' })
     }
     if (isDerived) {
-      const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+      const activeRules = (derivationRules || []).filter((r) => !r.deleted && r.status === 'Ativa')
       if (activeRules.length === 0) {
         issues.push({
           step: 1,
@@ -258,7 +258,9 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       }
       // Validação do Card Derivação de Centro: se Sim, exigir pelo menos 1 regra válida e ativa
       if (isDerived) {
-        const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+        const activeRules = (derivationRules || []).filter(
+          (r) => !r.deleted && r.status === 'Ativa',
+        )
         if (activeRules.length === 0) {
           const msg = 'Informe pelo menos uma derivação antes de salvar o Centro.'
           setDerivationError(msg)
@@ -725,8 +727,8 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       }
 
       // 8.2. Persistir Derivações de Centro configuradas no Wizard
-      if (isDerived && derivationRules.length > 0) {
-        for (const rule of derivationRules) {
+      if (isDerived && (derivationRules || []).length > 0) {
+        for (const rule of derivationRules || []) {
           try {
             await centerDerivationService.saveDerivationRule(
               {
@@ -1160,10 +1162,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   setIsDerived(val)
                   if (!val) setDerivationError(null)
                 }}
-                rules={derivationRules}
+                rules={derivationRules || []}
                 onRulesChange={(newRules) => {
-                  setDerivationRules(newRules)
-                  if (newRules.some((r) => !r.deleted && r.status === 'Ativa')) {
+                  const safeRules = Array.isArray(newRules) ? newRules : []
+                  setDerivationRules(safeRules)
+                  if (safeRules.some((r) => !r.deleted && r.status === 'Ativa')) {
                     setDerivationError(null)
                   }
                 }}

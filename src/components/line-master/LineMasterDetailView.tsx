@@ -58,6 +58,7 @@ import { SetupAcertoMatrixPanel } from '@/components/line-master/SetupAcertoMatr
 import { LineIdealSequencePanel } from '@/components/line-master/LineIdealSequencePanel'
 import { LineReferenceDocumentsPanel } from '@/components/line-master/LineReferenceDocumentsPanel'
 import { lineReferenceDocumentsService } from '@/services/line-reference-documents-service'
+import { LineProgrammingParametersPanel } from '@/components/line-master/LineProgrammingParametersPanel'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
   MULTIPLE_PROGRAMMING_STAGES_CATALOG,
@@ -307,6 +308,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'ACERTOS'
     | 'SETUP_ACERTO_COMPATIBILITY'
     | 'IDEAL_GAUGE_SEQUENCE'
+    | 'PROGRAMMING_PARAMETERS'
   >('CAPACITY')
 
   // Contagem de regras de acerto ativas
@@ -434,6 +436,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       setIsSavingProgType(false)
     }
   }
+
+  // Filtro de Status na aba Produtividade: Ativa (default), Inativa, Todas
+  const [productivityStatusFilter, setProductivityStatusFilter] = useState<
+    'Ativa' | 'Inativa' | 'Todas'
+  >('Ativa')
 
   // Modais de Criação Rápida
   const [isProdModalOpen, setIsProdModalOpen] = useState(false)
@@ -2104,108 +2111,128 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 6. CONTEÚDO: GRUPO 4 - FICHA MESTRE EXPANDIDA */}
       {mainGroup === 'MASTERDATA' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200 shadow-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200 shadow-xs">
             <Button
               size="sm"
               variant={masterSubTab === 'CAPACITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('CAPACITY')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'CAPACITY'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <TrendingUp className="w-3.5 h-3.5" /> Paradas Programadas
+              <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Paradas Programadas</span>
             </Button>
 
             <Button
               size="sm"
               variant={masterSubTab === 'SHIFTS_CREWS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('SHIFTS_CREWS')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'SHIFTS_CREWS'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" /> Turnos & Turmas ({shifts.length}T /{' '}
-              {overview.crews?.length || 0}E)
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
+                Turnos & Turmas ({shifts.length}T/{overview.crews?.length || 0}E)
+              </span>
             </Button>
 
             <Button
               size="sm"
               variant={masterSubTab === 'PRODUCTIVITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PRODUCTIVITY')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'PRODUCTIVITY'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Produtividade ({productivity.length})
+              <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Produtividade ({productivity.length})</span>
             </Button>
 
             <Button
               size="sm"
               variant={masterSubTab === 'RAW_MATERIALS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('RAW_MATERIALS')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'RAW_MATERIALS'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <Layers className="w-3.5 h-3.5" /> Prioridades de Matéria-Prima ({rawMaterials.length}
-              )
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Prioridades MP ({rawMaterials.length})</span>
             </Button>
 
             <Button
               size="sm"
               variant={masterSubTab === 'BLOCKED' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('BLOCKED')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'BLOCKED'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <Lock className="w-3.5 h-3.5" /> Produtos Bloqueados ({blockedProducts.length})
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Produtos Bloqueados ({blockedProducts.length})</span>
             </Button>
 
-            <div className="inline-flex items-center rounded-md p-0.5 bg-slate-200 border border-slate-300">
-              <Button
-                size="sm"
-                variant={
-                  masterSubTab === 'SETUP_MATRIX' ||
-                  masterSubTab === 'ACERTOS' ||
-                  masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
-                    ? 'default'
-                    : 'ghost'
-                }
-                onClick={() => setMasterSubTab('SETUP_MATRIX')}
-                className={`text-xs h-7 gap-1 font-bold ${
-                  masterSubTab === 'SETUP_MATRIX' ||
-                  masterSubTab === 'ACERTOS' ||
-                  masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
-                    ? 'bg-[#004C97] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5" /> Matriz Setup & Acerto
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant={
+                masterSubTab === 'SETUP_MATRIX' ||
+                masterSubTab === 'ACERTOS' ||
+                masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+                  ? 'default'
+                  : 'ghost'
+              }
+              onClick={() => setMasterSubTab('SETUP_MATRIX')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+                masterSubTab === 'SETUP_MATRIX' ||
+                masterSubTab === 'ACERTOS' ||
+                masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Matriz Setup & Acerto</span>
+            </Button>
 
             <Button
               size="sm"
               variant={masterSubTab === 'IDEAL_GAUGE_SEQUENCE' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('IDEAL_GAUGE_SEQUENCE')}
-              className={`text-xs h-7 gap-1 font-bold ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
                 masterSubTab === 'IDEAL_GAUGE_SEQUENCE'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
               }`}
             >
-              <ArrowDownUp className="w-3.5 h-3.5" /> Sequência Ideal
+              <ArrowDownUp className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Sequência Ideal</span>
+            </Button>
+
+            {/* Novo Item: Parâmetros de Programação */}
+            <Button
+              size="sm"
+              variant={masterSubTab === 'PROGRAMMING_PARAMETERS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('PROGRAMMING_PARAMETERS')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+                masterSubTab === 'PROGRAMMING_PARAMETERS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
+              }`}
+            >
+              <Settings2 className="w-3.5 h-3.5 shrink-0 text-[#004C97]" />
+              <span className="truncate">Parâmetros de Programação</span>
             </Button>
           </div>
 
@@ -2459,7 +2486,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           {/* Sub-aba: Produtividade */}
           {masterSubTab === 'PRODUCTIVITY' && (
             <Card className="bg-white border-slate-200 text-slate-900 shadow-sm">
-              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
+              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-[#004C97]" />
@@ -2470,13 +2497,52 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     m/h).
                   </CardDescription>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={handleOpenAddProductivity}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Cadastrar Produtividade
-                </Button>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Filtro de Status HUB Industrial */}
+                  <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50/80 p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setProductivityStatusFilter('Ativa')}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                        productivityStatusFilter === 'Ativa'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Ativa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductivityStatusFilter('Inativa')}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                        productivityStatusFilter === 'Inativa'
+                          ? 'bg-slate-700 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Inativa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductivityStatusFilter('Todas')}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                        productivityStatusFilter === 'Todas'
+                          ? 'bg-[#004C97] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Todas
+                    </button>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    onClick={handleOpenAddProductivity}
+                    className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 gap-1 font-bold shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Cadastrar Produtividade
+                  </Button>
+                </div>
               </CardHeader>
 
               <CardContent className="p-4 pt-2">
@@ -2496,16 +2562,34 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {productivity.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="p-6 text-center text-slate-400 italic text-xs">
-                            Nenhuma produtividade cadastrada para esta linha. Clique em "Cadastrar
-                            Produtividade" para adicionar.
-                          </td>
-                        </tr>
-                      ) : (
-                        productivity.map((p) => {
-                          const isItemActive = p.active !== false
+                      {(() => {
+                        const filteredProductivity = (productivity || []).filter((p) => {
+                          const isActive = p.active === true || p.active === undefined
+                          if (productivityStatusFilter === 'Ativa') return isActive
+                          if (productivityStatusFilter === 'Inativa') return p.active === false
+                          return true
+                        })
+
+                        if (filteredProductivity.length === 0) {
+                          return (
+                            <tr>
+                              <td
+                                colSpan={9}
+                                className="p-6 text-center text-slate-400 italic text-xs"
+                              >
+                                Nenhuma produtividade{' '}
+                                {productivityStatusFilter !== 'Todas'
+                                  ? `com status "${productivityStatusFilter}"`
+                                  : ''}{' '}
+                                cadastrada para esta linha. Clique em "Cadastrar Produtividade" para
+                                adicionar.
+                              </td>
+                            </tr>
+                          )
+                        }
+
+                        return filteredProductivity.map((p) => {
+                          const isItemActive = p.active === true || p.active === undefined
                           const vigenciaLabel = p.valid_from
                             ? `${new Date(p.valid_from).toLocaleDateString('pt-BR')} ${
                                 p.valid_until
@@ -2551,11 +2635,11 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               <td className="p-2.5 text-center whitespace-nowrap">
                                 {isItemActive ? (
                                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
-                                    Ativo
+                                    Ativa
                                   </Badge>
                                 ) : (
                                   <Badge className="bg-slate-100 text-slate-600 border-slate-300 text-[10px] font-semibold">
-                                    Inativo
+                                    Inativa
                                   </Badge>
                                 )}
                               </td>
@@ -2572,7 +2656,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                             </tr>
                           )
                         })
-                      )}
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -2813,6 +2897,18 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               productFamilies={productFamilies}
               onRefreshParent={onRefresh}
             />
+          )}
+
+          {/* Sub-aba: Parâmetros de Programação */}
+          {masterSubTab === 'PROGRAMMING_PARAMETERS' && (
+            <div id="section-programming-parameters">
+              <LineProgrammingParametersPanel
+                lineId={line.id}
+                centerCode={line.code}
+                centerName={line.name}
+                onRefreshParent={onRefresh}
+              />
+            </div>
           )}
         </div>
       )}

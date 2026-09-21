@@ -48,7 +48,11 @@ import { SapIntegrationCatalogModal } from '@/components/line-master/SapIntegrat
 import { LineMasterDetailView } from '@/components/line-master/LineMasterDetailView'
 import { MasterSheetNavigationTarget } from '@/types/line-master'
 
-export default function LineMasterPage() {
+interface LineMasterPageProps {
+  initialTab?: string
+}
+
+export default function LineMasterPage({ initialTab }: LineMasterPageProps = {}) {
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -91,7 +95,16 @@ export default function LineMasterPage() {
   const [activeCompletenessResult, setActiveCompletenessResult] =
     useState<MasterSheetCompletenessResult | null>(null)
   const [pendingNavigationTarget, setPendingNavigationTarget] =
-    useState<MasterSheetNavigationTarget | null>(null)
+    useState<MasterSheetNavigationTarget | null>(() => {
+      if (initialTab === 'PROGRAMMING_PARAMETERS') {
+        return {
+          mainGroup: 'MASTERDATA',
+          masterSubTab: 'PROGRAMMING_PARAMETERS',
+          anchorId: 'section-programming-parameters',
+        }
+      }
+      return null
+    })
   const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
 
   const normalizeLineRecord = (raw: any): ProductionLine => {

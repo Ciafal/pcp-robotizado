@@ -1416,6 +1416,16 @@ export const App: React.FC = () => {
                       </PermissionGuard>
                     }
                   />
+                  <Route
+                    path="/pcp/cadastros/parametros-programacao"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <ErrorBoundary moduleName="Parâmetros de Programação">
+                          <LineMasterPage initialTab="PROGRAMMING_PARAMETERS" />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
                   {/* REDIRECTS DE COMPATIBILIDADE PARA ROTAS ANTIGAS DE CADASTROS */}
                   <Route
                     path="/pcp/linhas/paradas-programadas"
