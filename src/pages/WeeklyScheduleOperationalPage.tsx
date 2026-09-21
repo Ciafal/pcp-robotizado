@@ -171,13 +171,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Estados de Filtro de Cabeçalho (Empresa, Centro, Linha, Ano, Semana) com Fuso Canônico da Planta
   const initialPlantWeek = useMemo(() => getCurrentPlantIsoWeek(), [])
-  const [companyCode, setCompanyCode] = useState<string>('CIAFAL')
+  const [companyCode, setCompanyCode] = useState<string>('')
   const [plantCode, setPlantCode] = useState<string>('PLANTA_1')
   const [programmingTypeFilter, setProgrammingTypeFilter] = useState<
     'ALL' | 'PRINCIPAL' | 'DERIVADA_TODAS' | 'DERIVADA_AUTOMATICA' | 'DERIVADA_MANUAL'
   >('ALL')
-  const [selectedProgrammingType, setSelectedProgrammingType] = useState<string>('ALL')
-  const [selectedLineCode, setSelectedLineCode] = useState<string>('L1')
+  const [selectedProgrammingType, setSelectedProgrammingType] = useState<string>('')
+  const [selectedLineCode, setSelectedLineCode] = useState<string>('')
   const [selectedYear, setSelectedYear] = useState<number>(initialPlantWeek.year)
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(initialPlantWeek.week)
 
@@ -201,7 +201,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [currentWorkflowState, setCurrentWorkflowState] =
     useState<WeeklyScheduleWorkflowState>('DRAFT')
   const [currentVersion, setCurrentVersion] = useState<number>(1)
-  const [selectedVersionFilter, setSelectedVersionFilter] = useState<number | 'LATEST'>('LATEST')
+  const [selectedVersionFilter, setSelectedVersionFilter] = useState<number | 'LATEST' | ''>('')
   const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false)
   const [draftToDelete, setDraftToDelete] = useState<WeeklyScheduleVersionRecord | null>(null)
 
@@ -273,32 +273,14 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [targetDay, setTargetDay] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
   )
-  const [targetShiftCode, setTargetShiftCode] = useState('T1_L1')
-  const [targetShiftName, setTargetShiftName] = useState('1º Turno Matutino')
-  const [targetCrewName, setTargetCrewName] = useState('Turma A')
+  const [targetShiftCode, setTargetShiftCode] = useState('')
+  const [targetShiftName, setTargetShiftName] = useState('')
+  const [targetCrewName, setTargetCrewName] = useState('')
 
-  // Sincronizar Turno/Turma padrão com base na Ficha Mestra
+  // Sincronizar Turno/Turma padrão com base na Ficha Mestra (removida auto-seleção forçada)
   useEffect(() => {
     if (currentLineOverview) {
-      const activeShifts = (currentLineOverview.shifts || []).filter((s) => s.active !== false)
-      if (activeShifts.length > 0) {
-        const firstShift = activeShifts[0]
-        setTargetShiftCode(firstShift.code)
-        setTargetShiftName(firstShift.name)
-
-        const matchedRel = (currentLineOverview.shiftCrews || []).find(
-          (sc) =>
-            (sc.shift_id === firstShift.code || sc.expand?.shift_id?.code === firstShift.code) &&
-            sc.active !== false,
-        )
-        const crewName =
-          matchedRel?.expand?.crew_id?.name ||
-          matchedRel?.expand?.crew_id?.code ||
-          (currentLineOverview.crews && currentLineOverview.crews.length > 0
-            ? currentLineOverview.crews[0].name
-            : 'Turma A')
-        setTargetCrewName(crewName)
-      }
+      // Auto-seleção desativada: o operador deve selecionar explicitamente turno e turma
     }
   }, [currentLineOverview])
 
@@ -377,8 +359,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       year: selectedYear,
       weekNumber: selectedWeekNumber,
       periodDisplay: weekRange.display,
+      programmingType: selectedProgrammingType,
     }),
-    [companyCode, plantCode, selectedLineCode, selectedYear, selectedWeekNumber, weekRange.display],
+    [
+      companyCode,
+      plantCode,
+      selectedLineCode,
+      selectedYear,
+      selectedWeekNumber,
+      weekRange.display,
+      selectedProgrammingType,
+    ],
   )
 
   // Carrega regras de derivação onde selectedLineCode é o CENTRO DE ORIGEM
@@ -486,10 +477,6 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         const lineList = await lineMasterService.listLines()
         if (lineList && lineList.length > 0) {
           setLines(lineList)
-          // Se selectedLineCode não estiver na lista, seleciona a primeira
-          if (!lineList.some((l) => l.code === selectedLineCode)) {
-            setSelectedLineCode(lineList[0].code)
-          }
         }
       } catch (err) {
         console.error('Erro ao buscar linhas produtivas:', err)
@@ -501,6 +488,16 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   // 2. Carrega Ficha Mestre da Linha Selecionada e Materiais Oficiais
   const loadLineData = useCallback(
     async (lineCodeToLoad: string) => {
+      // EDIÇÃO 3: Bloquear carregamento sem seleção completa
+      if (!lineCodeToLoad || !companyCode || !selectedProgrammingType) {
+        setItems([])
+        setSavedBaselineItems([])
+        setSelectedScheduleItem(null)
+        setCurrentLineOverview(null)
+        setIsLoadingLine(false)
+        return
+      }
+
       setIsLoadingLine(true)
       setLoadError(null)
       // Limpa dados anteriores imediatamente para evitar exibição residual de outra semana/linha
@@ -539,6 +536,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           year: selectedYear,
           weekNumber: selectedWeekNumber,
           periodDisplay: weekRange.display,
+          programmingType: selectedProgrammingType,
         }
         const rmContext = await weeklyScheduleService.loadRawMaterialContext(currentFilter)
         setRawMaterialContext(rmContext || {})
@@ -616,16 +614,29 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         setIsLoadingLine(false)
       }
     },
-    [lines, companyCode, plantCode, selectedYear, selectedWeekNumber, weekRange.display],
+    [
+      lines,
+      companyCode,
+      plantCode,
+      selectedProgrammingType,
+      selectedYear,
+      selectedWeekNumber,
+      weekRange.display,
+    ],
   )
 
   useEffect(() => {
-    if (selectedLineCode) {
+    if (selectedLineCode && companyCode && selectedProgrammingType) {
       loadLineData(selectedLineCode)
+    } else {
+      setItems([])
+      setSavedBaselineItems([])
+      setSelectedScheduleItem(null)
+      setIsLoadingLine(false)
     }
     // Visão Dia: se o dia focalizado não for segunda-feira ao trocar de semana, resetar para 'SEG'
     setSelectedDayOfWeek('SEG')
-  }, [selectedLineCode, selectedYear, selectedWeekNumber])
+  }, [selectedLineCode, companyCode, selectedProgrammingType, selectedYear, selectedWeekNumber])
 
   // Inicializa uma programação inicial estruturada fiel aos requisitos visuais com datas dinâmicas da semana selecionada
   const initializeDefaultWeekSchedule = (
@@ -911,17 +922,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }, [lines, selectedProgrammingType])
 
-  // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, atualiza para a primeira elegível
-  // Trava anti-reentrância: só atualiza se realmente for necessário trocar
+  // Quando o Tipo de Programação mudar, se a linha atual não for mais elegível, reseta seleção sem forçar autoseleção
   useEffect(() => {
-    if (eligibleLines.length > 0) {
+    if (selectedLineCode && eligibleLines.length > 0) {
       const isCurrentEligible = eligibleLines.some((l) => l.code === selectedLineCode)
-      if (
-        !isCurrentEligible &&
-        eligibleLines[0]?.code &&
-        eligibleLines[0].code !== selectedLineCode
-      ) {
-        setSelectedLineCode(eligibleLines[0].code)
+      if (!isCurrentEligible) {
+        setSelectedLineCode('')
       }
     }
   }, [eligibleLines, selectedLineCode])
@@ -1012,9 +1018,16 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   )
 
   // Recálculo Reativo em RASCUNHO / Congelado em APROVADA ou HISTÓRICO
-  // Guarda: !selectedLineCode || !currentLineOverview || !items?.length -> estruturas inertes
+  // Guarda: !selectedLineCode || !companyCode || !selectedProgrammingType || !currentLineOverview || !items?.length -> estruturas inertes
   const calculationResult = useMemo(() => {
-    if (!selectedLineCode || !currentLineOverview || !Array.isArray(items) || items.length === 0) {
+    if (
+      !selectedLineCode ||
+      !companyCode ||
+      !selectedProgrammingType ||
+      !currentLineOverview ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
       return {
         items: Array.isArray(items) ? items : [],
         indicators: emptyIndicators,
@@ -1058,6 +1071,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     rawMaterialContext,
     isScheduleApproved,
     isScheduleHistoricalLocked,
+    companyCode,
+    selectedProgrammingType,
     emptyIndicators,
     emptySummary,
   ])
@@ -3570,6 +3585,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 aria-label="Empresa"
                 className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
               >
+                <option value="" disabled>
+                  [ Selecione a empresa ]
+                </option>
                 <option value="CIAFAL">CIAFAL Matriz</option>
                 <option value="CIAFAL_SUL">CIAFAL Sul</option>
               </select>
@@ -3580,10 +3598,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               <span className="text-[11px] font-bold text-slate-600">Tipo de Programação:</span>
               <select
                 value={selectedProgrammingType}
-                onChange={(e) => setSelectedProgrammingType(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setSelectedProgrammingType(val)
+                  setItems([])
+                  setSavedBaselineItems([])
+                  setSelectedScheduleItem(null)
+                }}
                 aria-label="Tipo de Programação"
                 className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
               >
+                <option value="" disabled>
+                  [ Selecione o tipo ]
+                </option>
                 <option value="ALL">Todos</option>
                 {PROGRAMMING_TYPES_CATALOG.map((cat) => (
                   <option
@@ -3605,6 +3632,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 aria-label="Linha Produtiva"
                 className="text-xs bg-slate-50 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
               >
+                <option value="" disabled>
+                  [ Selecione o centro ]
+                </option>
                 {eligibleLines.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.code} - {l.name}
@@ -3703,6 +3733,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   aria-label="Empresa"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    [ Selecione a empresa ]
+                  </option>
                   <option value="CIAFAL">CIAFAL Matriz</option>
                   <option value="CIAFAL_SUL">CIAFAL Sul</option>
                 </select>
@@ -3713,10 +3746,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 <span className="text-[11px] font-bold text-slate-600">Tipo de Programação:</span>
                 <select
                   value={selectedProgrammingType}
-                  onChange={(e) => setSelectedProgrammingType(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setSelectedProgrammingType(val)
+                    setItems([])
+                    setSavedBaselineItems([])
+                    setSelectedScheduleItem(null)
+                  }}
                   aria-label="Tipo de Programação"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    [ Selecione o tipo ]
+                  </option>
                   <option value="ALL">Todos</option>
                   {PROGRAMMING_TYPES_CATALOG.map((cat) => (
                     <option
@@ -3738,6 +3780,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   aria-label="Linha Produtiva"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    [ Selecione o centro ]
+                  </option>
                   {eligibleLines.map((l) => (
                     <option key={l.code} value={l.code}>
                       {l.code} - {l.name}
@@ -3769,13 +3814,16 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                         matchedRel?.expand?.crew_id?.code ||
                         (currentLineOverview?.crews && currentLineOverview.crews.length > 0
                           ? currentLineOverview.crews[0].name
-                          : 'Turma A')
+                          : '')
                       setTargetCrewName(crewName)
                     }
                   }}
                   aria-label="Turno da Ficha Mestra"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    [ Selecione o turno ]
+                  </option>
                   {(currentLineOverview?.shifts || []).map((sh) => (
                     <option key={sh.code} value={sh.code}>
                       {sh.name}
@@ -3793,6 +3841,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   aria-label="Turma da Ficha Mestra"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    [ Selecione a turma ]
+                  </option>
                   {(currentLineOverview?.crews || []).map((cr) => (
                     <option key={cr.code || cr.id} value={cr.name}>
                       {cr.name}
@@ -3846,9 +3897,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   value={selectedVersionFilter}
                   onChange={async (e) => {
                     const val = e.target.value
+                    if (val === '') {
+                      setSelectedVersionFilter('')
+                      return
+                    }
                     if (val === 'LATEST') {
                       setSelectedVersionFilter('LATEST')
-                      loadLineData(selectedLineCode)
+                      if (selectedLineCode) loadLineData(selectedLineCode)
                       return
                     }
                     const vNum = Number(val)
@@ -3874,6 +3929,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   aria-label="Filtro Versão"
                   className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-mono font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
                 >
+                  <option value="" disabled>
+                    —
+                  </option>
                   <option value="LATEST">Atual (V{String(currentVersion).padStart(2, '0')})</option>
                   {Array.from(
                     new Set([

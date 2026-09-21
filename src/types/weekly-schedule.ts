@@ -372,6 +372,7 @@ export interface WeeklyHeaderFilter {
   year: number
   weekNumber: number
   periodDisplay: string
+  programmingType?: string
 }
 
 export interface WeeklyIndicators {
