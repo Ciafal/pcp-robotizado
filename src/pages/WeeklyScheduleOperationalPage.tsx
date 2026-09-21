@@ -4177,28 +4177,41 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 Dividir Qtd.
               </Button>
 
-              {/* Botão GERAR PROGRAMAÇÃO DERIVADA (Requisito d) */}
-              <Button
-                size="sm"
-                disabled={
-                  activeSourceDerivationRules.length === 0 ||
-                  derivationMetrics.pendingCount === 0 ||
-                  isScheduleHistoricalLocked
-                }
-                onClick={() => setIsDerivedModalOpen(true)}
-                title={
-                  derivationMetrics.pendingCount === 0
-                    ? 'Não há itens pendentes de derivação para esta semana'
-                    : `Gerar programação derivada para: ${derivationMetrics.uniqueTargetCenters.join(', ')}`
-                }
-                className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
-              >
-                <GitFork className="w-3.5 h-3.5" />
-                Gerar Programação Derivada
-                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-slate-900 text-amber-300 text-[10px] font-black">
-                  {derivationMetrics.pendingCount}
-                </span>
-              </Button>
+              {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}
+              {selectedCenterDerivation.isDerived && selectedCenterDerivation.hasSource && (
+                <Button
+                  size="sm"
+                  data-testid="btn-generate-derived-scheduling"
+                  disabled={isGeneratingDerivedSchedule || isScheduleHistoricalLocked}
+                  onClick={() => {
+                    handleGenerateDerivedFromSourceCenter()
+                  }}
+                  title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
+                  className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
+                >
+                  <GitFork className="w-3.5 h-3.5" />
+                  Gerar Programação Derivada
+                </Button>
+              )}
+
+              {/* Botão de Origem: abrir modal quando o centro atual é a ORIGEM de outros centros */}
+              {activeSourceDerivationRules.length > 0 &&
+                derivationMetrics.pendingCount > 0 &&
+                !selectedCenterDerivation.isDerived && (
+                  <Button
+                    size="sm"
+                    disabled={isScheduleHistoricalLocked}
+                    onClick={() => setIsDerivedModalOpen(true)}
+                    title={`Gerar programação derivada para centros destino: ${derivationMetrics.uniqueTargetCenters.join(', ')}`}
+                    className="h-7 px-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-amber-300 flex items-center gap-1 shadow-2xs"
+                  >
+                    <GitFork className="w-3.5 h-3.5 text-amber-400" />
+                    Derivar para Destinos
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
+                      {derivationMetrics.pendingCount}
+                    </span>
+                  </Button>
+                )}
             </div>
           </div>
         )}
