@@ -618,7 +618,7 @@ export default function LineMasterPage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredLines.map((l) => {
                 const isSelected = selectedLineId === l.id
 
@@ -626,23 +626,23 @@ export default function LineMasterPage() {
                   <Card
                     key={l.id}
                     onClick={() => loadLineOverview(l.id, l)}
-                    className="bg-white border-slate-200 hover:border-[#004C97] text-slate-900 transition-all cursor-pointer shadow-sm hover:shadow-md group relative overflow-hidden"
+                    className="min-w-0 bg-white border border-slate-200 hover:border-[#004C97] text-slate-900 transition-all cursor-pointer shadow-xs hover:shadow-md group relative rounded-lg flex flex-col justify-between overflow-hidden"
                   >
-                    {/* Barra de destaque no topo em Pantone 2945 */}
-                    <div className="h-1.5 bg-[#004C97] w-full" />
+                    {/* Barra superior institucional CIAFAL */}
+                    <div className="h-1 bg-[#004C97] w-full shrink-0" />
 
-                    <CardHeader className="p-4 pb-2">
+                    <div className="p-4 pb-2 shrink-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black text-xl text-slate-900 group-hover:text-[#004C97] transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-extrabold text-lg text-slate-900 group-hover:text-[#004C97] transition-colors truncate">
                               {l.code}
                             </span>
                             {l.is_derived && (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] bg-blue-50 text-[#004C97] border-blue-300 font-bold"
-                                title="Centro com regras de derivação ativas"
+                                className="text-[10px] bg-blue-50 text-[#004C97] border-blue-300 font-semibold px-1.5 py-0 shrink-0"
+                                title="Centro com derivação de programação ativa"
                               >
                                 Derivado
                               </Badge>
@@ -650,32 +650,35 @@ export default function LineMasterPage() {
                             {l.is_active === false ? (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] bg-slate-100 text-slate-600 border-slate-300 font-bold"
+                                className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 font-semibold px-1.5 py-0 shrink-0"
                               >
-                                ○ Inativa
+                                Inativo
                               </Badge>
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-300 font-bold"
+                                className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold px-1.5 py-0 shrink-0"
                               >
-                                ● Ativa
+                                Ativo
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-slate-500 block line-clamp-1">
+                          <span
+                            className="text-xs text-slate-500 block truncate mt-0.5"
+                            title={l.name}
+                          >
                             {l.name}
                           </span>
                         </div>
                         <Badge
-                          className={`text-[10px] font-bold ${
+                          className={`text-[10px] font-semibold px-2 py-0.5 shrink-0 ${
                             (l.status as string) === 'running' || l.status === 'ACTIVE'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                               : (l.status as string) === 'maintenance' || l.status === 'MAINTENANCE'
-                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                ? 'bg-rose-50 text-rose-800 border border-rose-300'
                                 : (l.status as string) === 'idle' || l.status === 'CONFIGURING'
-                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                  : 'bg-amber-100 text-amber-800 border-amber-300'
+                                  ? 'bg-blue-50 text-blue-800 border border-blue-300'
+                                  : 'bg-amber-50 text-amber-800 border border-amber-300'
                           }`}
                         >
                           {(l.status as string) === 'running' || l.status === 'ACTIVE'
@@ -689,136 +692,143 @@ export default function LineMasterPage() {
                                   : l.status || 'Disponível'}
                         </Badge>
                       </div>
-                    </CardHeader>
+                    </div>
 
-                    <CardContent className="p-4 pt-1 space-y-2.5 text-xs">
-                      {/* Resumo Operacional Compacto: Tipo de Programação, Turnos & Turmas */}
-                      <div className="bg-blue-50/60 border border-blue-100 rounded-md p-2 space-y-1.5 text-[11px]">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500 font-semibold flex items-center gap-1">
-                            <Sliders className="w-3 h-3 text-[#004C97]" /> Tipo:
-                          </span>
-                          <span className="font-bold text-[#004C97] bg-white px-1.5 py-0.5 rounded border border-blue-200">
-                            {l.programming_type || 'Laminação'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between pt-0.5 border-t border-blue-100/60">
-                          <span className="text-slate-500 font-semibold flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-500" /> Turnos:
-                          </span>
-                          <span className="font-mono font-bold text-slate-800">
-                            {l.shifts_summary && l.shifts_summary.length > 0
-                              ? l.shifts_summary.join(' • ')
-                              : 'T1 • T2 • T3'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between pt-0.5 border-t border-blue-100/60">
-                          <span className="text-slate-500 font-semibold flex items-center gap-1">
-                            <Users className="w-3 h-3 text-slate-500" /> Turmas:
-                          </span>
-                          <span className="font-mono font-bold text-slate-800">
-                            {l.crews_summary && l.crews_summary.length > 0
-                              ? l.crews_summary.join(' • ')
-                              : 'A • B • C'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded border border-slate-200 font-mono text-[11px]">
-                        <div>
-                          <span className="text-slate-500 block text-[9px] uppercase font-bold">
-                            Processo
-                          </span>
-                          <span className="text-slate-900 font-medium truncate block">
-                            {l.process || 'Conformação'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 block text-[9px] uppercase font-bold">
-                            Centro SAP
-                          </span>
-                          <span className="text-[#004C97] font-bold">
-                            {l.sap_plant_code || '1000'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 block text-[9px] uppercase font-bold">
-                            Cadência Nominal
-                          </span>
-                          <span className="text-slate-900 font-bold">
-                            {l.current_rate || 12} t/h
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 block text-[9px] uppercase font-bold">
-                            Eficiência OEE
-                          </span>
-                          <span className="text-emerald-600 font-bold">
-                            <OeeInteractiveValue
-                              value={l.efficiency || 90}
-                              target={85}
-                              unit="%"
-                              drilldownContext={{
-                                lineCode: l.code || `L${l.id}`,
-                                equipmentCode: `${l.code || `L${l.id}`}_LAM`,
-                              }}
-                            />
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Indicador de Preenchimento da Ficha Mestre no Card da Linha */}
-                      {(() => {
-                        const comp = completenessByLine[l.id]
-                        const pct = comp ? comp.percentage : 0
-                        const statusLabel = comp ? comp.status : 'Calculando...'
-                        const badgeColor =
-                          pct >= 100
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                            : pct >= 80
-                              ? 'bg-blue-50 text-[#004C97] border-blue-300'
-                              : pct >= 50
-                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                : 'bg-rose-50 text-rose-800 border-rose-300'
-
-                        return (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (comp) {
-                                setActiveCompletenessResult(comp)
-                                setIsCompletenessModalOpen(true)
-                              } else {
-                                loadLineOverview(l.id, l)
-                              }
-                            }}
-                            className="p-2 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-[#004C97]/50 rounded transition-all flex items-center justify-between gap-2"
-                            title="Clique para abrir o Painel de Completude da Ficha Mestre"
-                          >
-                            <div className="space-y-0.5">
-                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-                                Preenchimento da Ficha Mestre
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-bold text-xs text-slate-900">
-                                  Preenchimento: {pct}%
-                                </span>
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[9px] font-semibold ${badgeColor}`}
-                                >
-                                  {pct}% — {statusLabel}
-                                </Badge>
-                              </div>
-                            </div>
-                            <span className="text-[10px] text-[#004C97] font-semibold underline flex items-center gap-0.5 shrink-0">
-                              Detalhes &rarr;
+                    <CardContent className="p-4 pt-0 space-y-2.5 text-xs flex-1 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        {/* Resumo Operacional: Tipo, Turnos & Turmas */}
+                        <div className="bg-[#F8FAFC] border border-slate-200 rounded-md p-2 space-y-1 text-[11px]">
+                          <div className="flex items-center justify-between min-w-0 gap-2">
+                            <span className="text-slate-500 font-medium flex items-center gap-1 shrink-0">
+                              <Sliders className="w-3 h-3 text-[#004C97]" /> Tipo:
+                            </span>
+                            <span className="font-semibold text-[#004C97] bg-white px-1.5 py-0.5 rounded border border-slate-200 truncate">
+                              {l.programming_type || 'Laminação'}
                             </span>
                           </div>
-                        )
-                      })()}
+                          <div className="flex items-center justify-between min-w-0 gap-2 pt-0.5 border-t border-slate-200/60">
+                            <span className="text-slate-500 font-medium flex items-center gap-1 shrink-0">
+                              <Clock className="w-3 h-3 text-slate-500" /> Turnos:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800 truncate">
+                              {l.shifts_summary && l.shifts_summary.length > 0
+                                ? l.shifts_summary.join(' • ')
+                                : 'T1 • T2 • T3'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between min-w-0 gap-2 pt-0.5 border-t border-slate-200/60">
+                            <span className="text-slate-500 font-medium flex items-center gap-1 shrink-0">
+                              <Users className="w-3 h-3 text-slate-500" /> Turmas:
+                            </span>
+                            <span className="font-mono font-medium text-slate-800 truncate">
+                              {l.crews_summary && l.crews_summary.length > 0
+                                ? l.crews_summary.join(' • ')
+                                : 'A • B • C'}
+                            </span>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center justify-between pt-1 text-[11px] border-t border-slate-100">
+                        {/* Dados SAP & Produtividade */}
+                        <div className="grid grid-cols-2 gap-2 p-2 bg-[#F8FAFC] rounded-md border border-slate-200 text-[11px]">
+                          <div className="min-w-0">
+                            <span className="text-slate-500 block text-[10px] font-semibold uppercase">
+                              Processo
+                            </span>
+                            <span
+                              className="text-slate-800 font-medium truncate block"
+                              title={l.process || 'Conformação'}
+                            >
+                              {l.process || 'Conformação'}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-slate-500 block text-[10px] font-semibold uppercase">
+                              Centro SAP
+                            </span>
+                            <span className="text-[#004C97] font-mono font-bold truncate block">
+                              {l.sap_plant_code || '1000'}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-slate-500 block text-[10px] font-semibold uppercase">
+                              Capacidade Nominal
+                            </span>
+                            <span className="text-slate-800 font-mono font-semibold">
+                              {l.current_rate || 12} t/h
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-slate-500 block text-[10px] font-semibold uppercase">
+                              Eficiência OEE
+                            </span>
+                            <span className="text-emerald-700 font-mono font-bold">
+                              <OeeInteractiveValue
+                                value={l.efficiency || 90}
+                                target={85}
+                                unit="%"
+                                drilldownContext={{
+                                  lineCode: l.code || `L${l.id}`,
+                                  equipmentCode: `${l.code || `L${l.id}`}_LAM`,
+                                }}
+                              />
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Indicador de Preenchimento da Ficha Mestre */}
+                        {(() => {
+                          const comp = completenessByLine[l.id]
+                          const pct = comp ? comp.percentage : 0
+                          const statusLabel = comp ? comp.status : 'Calculando...'
+                          const badgeColor =
+                            pct >= 100
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : pct >= 80
+                                ? 'bg-blue-50 text-[#004C97] border-blue-300'
+                                : pct >= 50
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                  : 'bg-rose-50 text-rose-800 border-rose-300'
+
+                          return (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (comp) {
+                                  setActiveCompletenessResult(comp)
+                                  setIsCompletenessModalOpen(true)
+                                } else {
+                                  loadLineOverview(l.id, l)
+                                }
+                              }}
+                              className="p-2 bg-white hover:bg-blue-50/50 border border-slate-200 hover:border-[#004C97] rounded-md transition-all flex items-center justify-between gap-2 min-w-0"
+                              title="Clique para abrir a Ficha Mestre"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide block truncate">
+                                  Ficha Mestre
+                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono font-bold text-xs text-slate-800">
+                                    {pct}%
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] font-medium px-1 py-0 ${badgeColor} truncate`}
+                                  >
+                                    {statusLabel}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <span className="text-[11px] text-[#004C97] font-semibold flex items-center gap-0.5 shrink-0 hover:underline">
+                                Detalhes &rarr;
+                              </span>
+                            </div>
+                          )
+                        })()}
+                      </div>
+
+                      {/* Footer do Card */}
+                      <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 text-[11px] shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -827,11 +837,11 @@ export default function LineMasterPage() {
                             setLineEditTarget(l)
                             setIsEditLineModalOpen(true)
                           }}
-                          className="h-6 px-2 text-[11px] text-slate-700 hover:text-[#004C97] hover:bg-blue-50 font-semibold"
+                          className="h-7 px-2 text-[11px] text-slate-700 hover:text-[#004C97] hover:bg-blue-50 font-medium"
                         >
-                          <Edit3 className="w-3 h-3 mr-1" /> Editar Centro
+                          <Edit3 className="w-3.5 h-3.5 mr-1 text-[#004C97]" /> Editar Centro
                         </Button>
-                        <span className="text-[#004C97] font-semibold group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                        <span className="text-[#004C97] font-medium group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
                           Abrir Gestão <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       </div>

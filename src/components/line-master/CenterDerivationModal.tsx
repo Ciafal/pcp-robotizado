@@ -52,7 +52,10 @@ interface CenterDerivationModalProps {
   currentCenterName?: string
   availableCenters: ProductionLine[]
   existingRule?: CenterDerivationRule | null
-  onSaveRule: (rule: CenterDerivationRule) => Promise<boolean | void>
+  onSaveRule: (
+    rule: CenterDerivationRule,
+    options?: { signal?: AbortSignal },
+  ) => Promise<boolean | void>
 }
 
 export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
@@ -248,29 +251,28 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
     setter(formatted)
   }
 
-  // Validação e submissão
+  // Validação e submissão com bloqueio de duplo clique e timeout de 15s
   const handleSave = async () => {
+    if (saving) return
     setErrorMessage(null)
 
     // 1. Centro de origem obrigatório
     if (!sourceCenterCode.trim()) {
-      setErrorMessage('Não foi possível salvar a derivação: selecione o Centro de Origem.')
+      setErrorMessage('Centro de Origem não informado.')
       return
     }
 
     // 2. Autorrelacionamento
     if (sourceCenterCode.trim().toUpperCase() === currentCenterCode.trim().toUpperCase()) {
       setErrorMessage(
-        'O Centro não pode ser derivado dele mesmo. Selecione outro Centro de Origem.',
+        'Esta relação gera uma dependência circular: o Centro não pode derivar dele mesmo.',
       )
       return
     }
 
     // 3. Grupo de Mercadorias: exigir pelo menos 1
     if (selectedMatklGroups.length === 0) {
-      setErrorMessage(
-        'Não foi possível salvar a Derivação: selecione pelo menos um Grupo de Mercadorias.',
-      )
+      setErrorMessage('Selecione pelo menos um MATKL.')
       return
     }
 
@@ -288,61 +290,85 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
       const eDate = new Date(eY, eM - 1, eD)
 
       if (eDate < sDate) {
-        setErrorMessage('A Data Fim não pode ser anterior à Data Início.')
+        setErrorMessage('A Data Fim deve ser maior ou igual à Data Início.')
         return
       }
     }
 
     setSaving(true)
+
+    // Timeout de 15 segundos com AbortController
+    const controller = new AbortController()
+    const timeoutTimer = setTimeout(() => {
+      controller.abort()
+    }, 15000)
+
     try {
+      // Resolver IDs relacionais
+      const currentCenterObj = availableCenters.find(
+        (c) => c.code.trim().toUpperCase() === currentCenterCode.trim().toUpperCase(),
+      )
+      const srcLine = selectedCenterObj
+
       const ruleToSave: CenterDerivationRule = {
         id: existingRule?.id,
         center_code: currentCenterCode,
+        center_id: currentCenterObj?.id || (existingRule as any)?.center_id,
         source_center_code: sourceCenterCode.trim().toUpperCase(),
-        source_center_name: selectedCenterObj?.name || existingRule?.source_center_name || '',
+        source_center_id: srcLine?.id || (existingRule as any)?.source_center_id,
+        source_center_name: srcLine?.name || existingRule?.source_center_name || '',
         source_center_sap:
-          selectedCenterObj?.sap_work_center ||
-          selectedCenterObj?.sap_plant_code ||
+          srcLine?.sap_work_center ||
+          srcLine?.sap_plant_code ||
           existingRule?.source_center_sap ||
           '',
         source_center_company:
-          selectedCenterObj?.company_name || existingRule?.source_center_company || 'CIAFAL',
+          srcLine?.company_name || existingRule?.source_center_company || 'CIAFAL',
         source_center_werks:
-          selectedWerks ||
-          selectedCenterObj?.sap_plant_code ||
-          existingRule?.source_center_werks ||
-          '1000',
-        source_center_line:
-          selectedCenterObj?.linha_produtiva_nome || existingRule?.source_center_line || '',
+          selectedWerks || srcLine?.sap_plant_code || existingRule?.source_center_werks || '1000',
+        source_center_line: srcLine?.linha_produtiva_nome || existingRule?.source_center_line || '',
         matkl_groups: selectedMatklGroups,
         start_date: startDate.trim(),
         end_date: endDate.trim() ? endDate.trim() : undefined,
         status: status,
       }
 
-      const res = await onSaveRule(ruleToSave)
+      const res = await onSaveRule(ruleToSave, { signal: controller.signal })
+      clearTimeout(timeoutTimer)
       if (res !== false) {
         setIsDirty(false)
         onClose()
       }
     } catch (err: any) {
+      clearTimeout(timeoutTimer)
       const rawMsg = err?.message || ''
-      if (rawMsg.includes('circular')) {
-        setErrorMessage('Esta configuração gera relação circular entre Centros.')
+      if (
+        controller.signal.aborted ||
+        rawMsg.includes('tempo de resposta') ||
+        rawMsg.includes('excedeu')
+      ) {
+        setErrorMessage(
+          'Não foi possível salvar a Derivação — A operação excedeu o tempo de resposta. Tente novamente ou consulte os Logs de Integração.',
+        )
+      } else if (rawMsg.includes('circular') || rawMsg.includes('dependência')) {
+        setErrorMessage('Esta relação gera uma dependência circular.')
       } else if (
         rawMsg.includes('combinação') ||
         rawMsg.includes('duplicada') ||
-        rawMsg.includes('duplicidade')
+        rawMsg.includes('duplicidade') ||
+        rawMsg.includes('Já existe')
       ) {
-        setErrorMessage('Já existe uma Regra de Derivação com esta combinação.')
+        setErrorMessage('Já existe uma Derivação com esta combinação.')
       } else if (rawMsg.includes('Data Fim') || rawMsg.includes('Data de Término')) {
-        setErrorMessage('A Data Fim não pode ser anterior à Data Início.')
+        setErrorMessage('A Data Fim deve ser maior ou igual à Data Início.')
       } else if (rawMsg.includes('Centro de Origem') || rawMsg.includes('dele mesmo')) {
         setErrorMessage(rawMsg)
+      } else if (rawMsg.includes('MATKL') || rawMsg.includes('Mercadorias')) {
+        setErrorMessage('Selecione pelo menos um MATKL.')
       } else if (rawMsg) {
-        setErrorMessage(`Não foi possível salvar a Derivação: ${rawMsg}`)
+        setErrorMessage(rawMsg)
       } else {
-        setErrorMessage('Falha ao persistir a Regra de Derivação. Consulte Logs & Auditoria.')
+        setErrorMessage('Falha ao persistir a Derivação no banco de dados.')
       }
     } finally {
       setSaving(false)

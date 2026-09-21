@@ -313,21 +313,94 @@ export class CenterDerivationService {
   /**
    * Salva (cria ou atualiza) uma regra de derivação
    */
+  /**
+   * Resolve o ID e metadados de uma linha de produção por código ou ID
+   */
+  async resolveLineInfo(codeOrId: string): Promise<{
+    id?: string
+    code: string
+    name?: string
+    sap_plant_code?: string
+  }> {
+    const clean = (codeOrId || '').trim()
+    if (!clean) return { code: '' }
+
+    try {
+      // 1. Tentar busca direta por ID se formato for 15 caracteres
+      if (clean.length === 15) {
+        try {
+          const rec = await pb.collection('production_lines').getOne(clean)
+          if (rec) {
+            return {
+              id: rec.id,
+              code: rec.code || clean,
+              name: rec.name,
+              sap_plant_code: rec.sap_plant_code,
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // 2. Busca por código exato
+      const rec = await pb
+        .collection('production_lines')
+        .getFirstListItem(`code = '${clean}'`)
+        .catch(() => null)
+      if (rec) {
+        return {
+          id: rec.id,
+          code: rec.code,
+          name: rec.name,
+          sap_plant_code: rec.sap_plant_code,
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return { code: clean }
+  }
+
+  /**
+   * Salva (cria ou atualiza) uma regra de derivação garantindo resolução de IDs relacionais
+   * e timeout de requisição
+   */
   async saveDerivationRule(
     rule: CenterDerivationRule,
     currentUser: string = 'Engenharia PCP',
+    options?: { signal?: AbortSignal },
   ): Promise<CenterDerivationRule> {
     const isEdit = Boolean(rule.id)
     const nowIso = new Date().toISOString()
     const nowFormatted = this.formatDateTimePtBr(new Date())
 
+    // Resolver center_id e source_center_id caso não tenham sido passados
+    let resolvedCenterId = rule.center_id
+    let resolvedSourceCenterId = rule.source_center_id
+    let resolvedSourceName = rule.source_center_name
+    let resolvedSourceSap = rule.source_center_sap
+
+    if (!resolvedCenterId && rule.center_code) {
+      const cInfo = await this.resolveLineInfo(rule.center_code)
+      if (cInfo.id) resolvedCenterId = cInfo.id
+    }
+
+    if ((!resolvedSourceCenterId || !resolvedSourceName) && rule.source_center_code) {
+      const sInfo = await this.resolveLineInfo(rule.source_center_code)
+      if (sInfo.id) resolvedSourceCenterId = sInfo.id
+      if (!resolvedSourceName && sInfo.name) resolvedSourceName = sInfo.name
+      if (!resolvedSourceSap && sInfo.sap_plant_code) resolvedSourceSap = sInfo.sap_plant_code
+    }
+
     const payload: any = {
       center_code: rule.center_code,
-      center_id: rule.center_id || null,
+      center_id: resolvedCenterId || null,
       source_center_code: rule.source_center_code,
-      source_center_id: rule.source_center_id || null,
-      source_center_name: rule.source_center_name || '',
-      source_center_sap: rule.source_center_sap || '',
+      source_center_id: resolvedSourceCenterId || null,
+      source_center_name: resolvedSourceName || rule.source_center_name || '',
+      source_center_sap: resolvedSourceSap || rule.source_center_sap || '',
       source_center_company: rule.source_center_company || '',
       source_center_werks: rule.source_center_werks || '',
       source_center_line: rule.source_center_line || '',
@@ -349,18 +422,32 @@ export class CenterDerivationService {
     try {
       if (isEdit && rule.id) {
         try {
-          const prev = await pb.collection('pcp_center_derivations').getOne(rule.id)
+          const prev = await pb
+            .collection('pcp_center_derivations')
+            .getOne(rule.id, { signal: options?.signal })
           previousRule = prev as any
         } catch {
           /* intentionally ignored */
         }
-        const updated = await pb.collection('pcp_center_derivations').update(rule.id, payload)
+        const updated = await pb
+          .collection('pcp_center_derivations')
+          .update(rule.id, payload, { signal: options?.signal })
         savedId = updated.id
       } else {
-        const created = await pb.collection('pcp_center_derivations').create(payload)
+        const created = await pb
+          .collection('pcp_center_derivations')
+          .create(payload, { signal: options?.signal })
         savedId = created.id
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Se for abort/timeout, propagar o erro para que o caller trate amigavelmente
+      if (
+        err?.name === 'AbortError' ||
+        err?.message?.includes('aborted') ||
+        options?.signal?.aborted
+      ) {
+        throw new Error('A operação excedeu o tempo de resposta.')
+      }
       console.warn('Persistindo derivação em memória (fallback backend):', err)
       if (isEdit && rule.id) {
         const idx = inMemoryDerivations.findIndex((r) => r.id === rule.id)
@@ -509,6 +596,13 @@ export class CenterDerivationService {
       field?: string
       status?: 'SUCESSO' | 'ERRO'
       errorMessage?: string
+      source?: string
+      target?: string
+      payload?: any
+      endpoint?: string
+      httpStatus?: number
+      technicalMessage?: string
+      userMessage?: string
     },
   ): Promise<void> {
     const isSuccess = entry.status !== 'ERRO'
@@ -523,7 +617,8 @@ export class CenterDerivationService {
           center: entry.center,
           recordId: entry.center,
           errorMessage: entry.errorMessage || 'Falha na operação de derivação',
-          reason: 'Falha de validação ou persistência na Regra de Derivação',
+          reason:
+            entry.technicalMessage || 'Falha de validação ou persistência na Regra de Derivação',
           justification: entry.rule_summary,
         })
       } else {
@@ -539,11 +634,18 @@ export class CenterDerivationService {
           details: {
             center_code: entry.center,
             action: entry.action,
+            source_center: entry.source || entry.rule_summary?.split('/')[0]?.trim(),
+            target_center: entry.target || entry.center,
+            endpoint: entry.endpoint || '/api/collections/pcp_center_derivations/records',
+            http_status: entry.httpStatus || 200,
+            payload: entry.payload,
             field_name: entry.field || 'regra_derivacao',
             rule_summary: entry.rule_summary,
             previous_value: entry.previous_value,
             new_value: entry.new_value,
             formatted_log: logTitle,
+            technical_message: entry.technicalMessage || 'Operação persistida com sucesso',
+            user_message: entry.userMessage || 'Derivação salva com sucesso',
           },
         })
       }

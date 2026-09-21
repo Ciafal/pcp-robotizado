@@ -189,6 +189,63 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
   if (!open) return null
 
+  // Lista de pendências calculada dinamicamente com atalhos para cada etapa
+  const getValidationIssues = (): Array<{ step: number; stepTitle: string; label: string }> => {
+    const issues: Array<{ step: number; stepTitle: string; label: string }> = []
+
+    if (!code.trim()) {
+      issues.push({ step: 1, stepTitle: 'Identificação', label: 'Código Interno não informado' })
+    }
+    if (!name.trim()) {
+      issues.push({ step: 1, stepTitle: 'Identificação', label: 'Nome do Centro não informado' })
+    }
+    if (!companyId) {
+      issues.push({ step: 1, stepTitle: 'Identificação', label: 'Empresa não selecionada' })
+    }
+    if (!hierarchyLineId) {
+      issues.push({ step: 1, stepTitle: 'Identificação', label: 'Linha Produtiva não selecionada' })
+    }
+    if (isDerived) {
+      const activeRules = derivationRules.filter((r) => !r.deleted && r.status === 'Ativa')
+      if (activeRules.length === 0) {
+        issues.push({
+          step: 1,
+          stepTitle: 'Identificação',
+          label: 'Centro derivado ativado sem nenhuma regra ativa',
+        })
+      }
+    }
+
+    if (!primaryManagerId) {
+      issues.push({
+        step: 3,
+        stepTitle: 'Gestores & Aprovadores',
+        label: 'Gestor Titular da Linha não atribuído',
+      })
+    }
+    if (!pcpApproverId) {
+      issues.push({
+        step: 3,
+        stepTitle: 'Gestores & Aprovadores',
+        label: 'Aprovador PCP não informado',
+      })
+    }
+
+    if (!nominalHourlyCapacity || Number(nominalHourlyCapacity) <= 0) {
+      issues.push({
+        step: 5,
+        stepTitle: 'Ficha Mestre',
+        label: 'Capacidade Horária Nominal deve ser maior que zero',
+      })
+    }
+
+    return issues
+  }
+
+  const [validationIssuesList, setValidationIssuesList] = useState<
+    Array<{ step: number; stepTitle: string; label: string }>
+  >([])
+
   const validateStep = (step: number): boolean => {
     if (step === 1) {
       if (!code.trim()) {
@@ -319,20 +376,21 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   }
 
   const handleSave = async () => {
-    // Validação preventiva antes de submeter
-    if (!validateStep(1)) {
-      setCurrentStep(1)
-      return
-    }
-    if (!validateStep(3)) {
-      setCurrentStep(3)
-      return
-    }
-    if (!validateStep(5)) {
-      setCurrentStep(5)
+    // Validação completa de todas as etapas e exibição de pendências navegáveis
+    const issues = getValidationIssues()
+    if (issues.length > 0) {
+      setValidationIssuesList(issues)
+      toast({
+        variant: 'destructive',
+        title: 'Não foi possível salvar o Centro',
+        description: `Existem ${issues.length} pendências para concluir o cadastro. Veja a lista abaixo para navegar diretamente ao campo.`,
+      })
+      // Navegar para o passo da primeira pendência
+      setCurrentStep(issues[0].step)
       return
     }
 
+    setValidationIssuesList([])
     setSaving(true)
     let createdLineId: string | null = null
 
@@ -786,24 +844,24 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-slate-950 border border-slate-800 rounded-xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header do Wizard em Pantone 2945 (#004C97) */}
-        <div className="bg-[#004C97] p-5 text-white flex items-center justify-between border-b border-blue-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-lg max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header do Wizard com identidade CIAFAL (#004C97) */}
+        <div className="bg-[#004C97] p-4 sm:p-5 text-white flex items-center justify-between border-b border-blue-900 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-950/60 rounded-lg border border-blue-400/30">
-              <Building2 className="w-6 h-6 text-cyan-300" />
+            <div className="p-2 bg-white/10 rounded-lg border border-white/20">
+              <Building2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
                 Adicionar Novo Centro de Produção
-                <Badge className="bg-blue-900 text-blue-200 border-blue-400/40 text-[10px]">
+                <Badge className="bg-white/20 text-white border-white/30 text-[10px] font-medium">
                   Etapa {currentStep} de 6
                 </Badge>
               </h2>
-              <p className="text-xs text-blue-100/80">
-                Cadastro estruturado do centro de produção, vínculo com empresa e linha produtiva,
-                parâmetros técnicos e Ficha Mestra.
+              <p className="text-xs text-blue-100">
+                Cadastro estruturado do centro de produção, vínculo hierárquico e parâmetros
+                técnicos.
               </p>
             </div>
           </div>
@@ -811,92 +869,139 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-white hover:bg-blue-800 h-8 text-xs font-semibold"
+            className="text-white hover:bg-blue-800 hover:text-white h-8 text-xs font-medium"
           >
             Fechar [ESC]
           </Button>
         </div>
 
-        {/* Stepper Progress Bar */}
-        <div className="bg-slate-900/90 border-b border-slate-800 p-3 grid grid-cols-6 gap-2 text-center text-xs">
-          {STEPS.map((s) => {
+        {/* Stepper Progress Bar sem truncamento e com navegação direta */}
+        <div className="bg-[#F8FAFC] border-b border-slate-200 p-2.5 flex items-center justify-between gap-1 overflow-x-auto text-xs shrink-0">
+          {STEPS.map((s, idx) => {
             const Icon = s.icon
             const isActive = currentStep === s.id
             const isDone = currentStep > s.id
             return (
-              <div
+              <button
                 key={s.id}
-                className={`flex items-center justify-center gap-1.5 p-2 rounded-md transition-colors ${
+                type="button"
+                onClick={() => {
+                  if (s.id < currentStep || validateStep(currentStep)) {
+                    setCurrentStep(s.id)
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs transition-all shrink-0 whitespace-nowrap ${
                   isActive
-                    ? 'bg-[#004C97]/40 text-cyan-300 border border-blue-500 font-bold'
+                    ? 'bg-[#004C97] text-white font-bold shadow-xs'
                     : isDone
-                      ? 'text-emerald-400 font-semibold'
-                      : 'text-slate-500'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                 }`}
+                title={s.title}
               >
-                {isDone ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
-                <span className="hidden md:inline text-[11px] truncate">{s.title}</span>
-              </div>
+                <div
+                  className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    isActive
+                      ? 'bg-white text-[#004C97]'
+                      : isDone
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {isDone ? <Check className="w-2.5 h-2.5" /> : s.id}
+                </div>
+                <span>{s.title}</span>
+                {idx < STEPS.length - 1 && <ChevronRight className="w-3 h-3 text-slate-400 ml-1" />}
+              </button>
             )
           })}
         </div>
 
+        {/* Resumo de Pendências Navegável por Etapa */}
+        {validationIssuesList.length > 0 && (
+          <div className="mx-6 mt-3 p-3 bg-rose-50 border border-rose-200 rounded-md text-xs text-rose-900 shrink-0">
+            <div className="flex items-center gap-1.5 font-bold mb-1 text-rose-800">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              Existem {validationIssuesList.length} pendências para concluir o cadastro. Clique em
+              um item para corrigir:
+            </div>
+            <ul className="space-y-1 mt-1.5 pl-2">
+              {validationIssuesList.map((issue, idx) => (
+                <li key={idx}>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(issue.step)}
+                    className="text-left font-medium text-rose-700 hover:text-[#004C97] hover:underline flex items-center gap-1.5"
+                  >
+                    <span className="font-bold bg-rose-200/80 text-rose-900 px-1 py-0.5 rounded text-[10px]">
+                      Etapa {issue.step} - {issue.stepTitle}
+                    </span>
+                    <span>&rarr; {issue.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Body com Scroll */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-5 text-slate-200">
+        <div className="p-6 overflow-y-auto flex-1 space-y-5 text-slate-800 bg-white">
           {/* ETAPA 1: Identificação */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-cyan-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#004C97]" />
                   Identificação Básica da Linha & Processo
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Preencha os códigos internos e dados operacionais base.
+                <p className="text-xs text-slate-500">
+                  Preencha os códigos internos e dados operacionais base do novo Centro.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">
-                    Código Interno <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Código Interno <span className="text-rose-500">*</span>
                   </Label>
                   <Input
                     placeholder="Ex: L3, CORTE_02, SOLDA_04"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    className="bg-slate-900 border-slate-700 text-white font-mono uppercase font-bold"
+                    className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus:border-[#004C97]"
                   />
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs text-slate-300">
-                    Nome da Linha <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Nome da Linha <span className="text-rose-500">*</span>
                   </Label>
                   <Input
                     placeholder="Ex: Linha de Conformação de Tubos Quadrados III"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="bg-slate-900 border-slate-700 text-white"
+                    className="bg-white border-slate-300 text-slate-900 focus:border-[#004C97]"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs text-slate-300">Descrição / Finalidade Produtiva</Label>
+                <Label className="text-xs text-slate-700 font-medium">
+                  Descrição / Finalidade Produtiva
+                </Label>
                 <Input
                   placeholder="Ex: Produção contínua de perfis leves e médios soldados por indução de alta frequência."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-white border-slate-300 text-slate-900 focus:border-[#004C97]"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Select Empresa */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
-                    Empresa <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-semibold text-[#004C97]">
+                    Empresa <span className="text-rose-500">*</span>
                   </Label>
                   <select
                     value={companyId}
@@ -912,7 +1017,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                         }
                       }
                     }}
-                    className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-cyan-200 font-bold p-2"
+                    className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97]"
                   >
                     <option value="">Selecione a empresa...</option>
                     {availableCompanies.map((c) => (
@@ -930,12 +1035,12 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
                 {/* Select Linha Produtiva (Filtrada por Empresa) */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
-                    Linha Produtiva <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-semibold text-[#004C97]">
+                    Linha Produtiva <span className="text-rose-500">*</span>
                   </Label>
                   {companyId &&
                   availableHierarchyLines.filter((l) => l.company_id === companyId).length === 0 ? (
-                    <div className="p-2 bg-amber-950/40 border border-amber-600/40 rounded-md text-[11px] text-amber-200 space-y-1.5">
+                    <div className="p-2 bg-amber-50 border border-amber-200 rounded-md text-[11px] text-amber-900 space-y-1.5">
                       <p>
                         Nenhuma Linha Produtiva cadastrada para esta empresa. Cadastre primeiro a
                         Linha Produtiva em Hierarquia de Linhas.
@@ -947,7 +1052,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                           onClose()
                           navigate('/pcp/linhas/capacidades')
                         }}
-                        className="h-6 text-[10px] bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-2 w-full"
+                        className="h-6 text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold px-2 w-full"
                       >
                         Ir para Hierarquia de Linhas
                       </Button>
@@ -957,7 +1062,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                       value={hierarchyLineId}
                       onChange={(e) => setHierarchyLineId(e.target.value)}
                       disabled={!companyId}
-                      className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-white p-2 disabled:opacity-50"
+                      className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 disabled:opacity-50 focus:border-[#004C97]"
                     >
                       <option value="">
                         {!companyId
@@ -976,13 +1081,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300 font-bold text-cyan-300">
-                    Tipo de Programação <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-semibold text-[#004C97]">
+                    Tipo de Programação <span className="text-rose-500">*</span>
                   </Label>
                   <select
                     value={programmingType}
                     onChange={(e) => setProgrammingType(e.target.value)}
-                    className="w-full bg-slate-900 border border-cyan-700 rounded-md text-xs text-cyan-300 font-bold p-2"
+                    className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97]"
                   >
                     <option value="Enfornamento">Enfornamento</option>
                     <option value="Laminação">Laminação</option>
@@ -999,48 +1104,48 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Centro SAP (Werk)</Label>
+                  <Label className="text-xs text-slate-700 font-medium">Centro SAP (Werk)</Label>
                   <Input
                     value={sapPlantCode}
                     onChange={(e) => setSapPlantCode(e.target.value)}
-                    className="bg-slate-900 border-slate-700 text-white font-mono text-xs"
+                    className="bg-white border-slate-300 text-slate-900 font-mono text-xs focus:border-[#004C97]"
                   />
                 </div>
               </div>
 
               {/* Campos SAP / MES Futuros (Regra 5) */}
-              <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 space-y-3">
-                <span className="text-[11px] font-bold text-slate-400 uppercase block tracking-wider">
+              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 space-y-3">
+                <span className="text-[11px] font-bold text-slate-700 uppercase block tracking-wider">
                   Mapeamento de Integração SAP / MES (Opcional - Regra 5)
                 </span>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-400">
+                    <Label className="text-[11px] text-slate-600">
                       Centro de Trabalho SAP (Arbpl)
                     </Label>
                     <Input
                       placeholder="Ex: CT_LAM_03"
                       value={sapWorkCenter}
                       onChange={(e) => setSapWorkCenter(e.target.value)}
-                      className="bg-slate-950 border-slate-800 text-xs text-cyan-300 font-mono"
+                      className="bg-white border-slate-300 text-xs text-slate-900 font-mono"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-400">Equipamento SAP (Equnr)</Label>
+                    <Label className="text-[11px] text-slate-600">Equipamento SAP (Equnr)</Label>
                     <Input
                       placeholder="Ex: EQ-200941"
                       value={sapEquipmentId}
                       onChange={(e) => setSapEquipmentId(e.target.value)}
-                      className="bg-slate-950 border-slate-800 text-xs text-cyan-300 font-mono"
+                      className="bg-white border-slate-300 text-xs text-slate-900 font-mono"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-400">ID de Telemetria MES</Label>
+                    <Label className="text-[11px] text-slate-600">ID de Telemetria MES</Label>
                     <Input
                       placeholder="Ex: MES_PLC_L3_NODE"
                       value={mesIdentifier}
                       onChange={(e) => setMesIdentifier(e.target.value)}
-                      className="bg-slate-950 border-slate-800 text-xs text-cyan-300 font-mono"
+                      className="bg-white border-slate-300 text-xs text-slate-900 font-mono"
                     />
                   </div>
                 </div>
@@ -1072,31 +1177,31 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           {/* ETAPA 2: Hierarquia Organizacional */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-cyan-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#004C97]" />
                   Hierarquia Organizacional Associada à Linha
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Associação com a estrutura corporativa do HUB CIAFAL (Diretoria, Gerência,
                   Supervisão).
                 </p>
               </div>
 
               <div className="space-y-3">
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-between">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-white block">
+                    <span className="text-xs font-bold text-slate-900 block">
                       Nível 1: Diretoria Industrial
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-slate-500">
                       Diretoria de Operações e Manufatura
                     </span>
                   </div>
                   <select
                     value={orgDirectorId}
                     onChange={(e) => setOrgDirectorId(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 rounded text-xs text-white p-2 min-w-[240px]"
+                    className="bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 min-w-[240px] focus:border-[#004C97]"
                   >
                     <option value="">Selecione o Diretor...</option>
                     {users.map((u) => (
@@ -1107,19 +1212,19 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </select>
                 </div>
 
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-between">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-white block">
+                    <span className="text-xs font-bold text-slate-900 block">
                       Nível 2: Gerência de Produção
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-slate-500">
                       Gerência Industrial de Laminação
                     </span>
                   </div>
                   <select
                     value={orgManagerId}
                     onChange={(e) => setOrgManagerId(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 rounded text-xs text-white p-2 min-w-[240px]"
+                    className="bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 min-w-[240px] focus:border-[#004C97]"
                   >
                     <option value="">Selecione o Gerente...</option>
                     {users.map((u) => (
@@ -1130,19 +1235,19 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </select>
                 </div>
 
-                <div className="p-3 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-between">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-white block">
+                    <span className="text-xs font-bold text-slate-900 block">
                       Nível 3: Supervisão de Linha
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-slate-500">
                       Supervisão Técnica e Operacional
                     </span>
                   </div>
                   <select
                     value={orgSupervisorId}
                     onChange={(e) => setOrgSupervisorId(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 rounded text-xs text-white p-2 min-w-[240px]"
+                    className="bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 min-w-[240px] focus:border-[#004C97]"
                   >
                     <option value="">Selecione o Supervisor...</option>
                     {users.map((u) => (
@@ -1159,28 +1264,30 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           {/* ETAPA 3: Gestores e Aprovadores */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Users className="w-4 h-4 text-cyan-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#004C97]" />
                   Gestores Operacionais & Matriz de Aprovadores
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Defina o gestor titular responsável e os homologadores da linha.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Gestor Titular */}
-                <div className="p-4 bg-slate-900/70 border border-cyan-900/60 rounded-lg space-y-3">
-                  <span className="text-xs font-bold text-cyan-400 uppercase block">
-                    Gestor Titular da Linha (Fase 2)
+                <div className="p-4 bg-[#F8FAFC] border border-slate-200 rounded-lg space-y-3">
+                  <span className="text-xs font-bold text-[#004C97] uppercase block">
+                    Gestor Titular da Linha
                   </span>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Usuário Responsável Principal</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Usuário Responsável Principal <span className="text-rose-500">*</span>
+                    </Label>
                     <select
                       value={primaryManagerId}
                       onChange={(e) => setPrimaryManagerId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Selecione o gestor...</option>
                       {users.map((u) => (
@@ -1192,11 +1299,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Gestor Substituto Imediato</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Gestor Substituto Imediato
+                    </Label>
                     <select
                       value={substituteManagerId}
                       onChange={(e) => setSubstituteManagerId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Selecione o substituto...</option>
                       {users.map((u) => (
@@ -1209,16 +1318,18 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
 
                 {/* Aprovadores */}
-                <div className="p-4 bg-slate-900/70 border border-blue-900/60 rounded-lg space-y-3">
-                  <span className="text-xs font-bold text-blue-400 uppercase block">
+                <div className="p-4 bg-[#F8FAFC] border border-slate-200 rounded-lg space-y-3">
+                  <span className="text-xs font-bold text-[#004C97] uppercase block">
                     Matriz de Aprovação (PCP & Linha)
                   </span>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Aprovador PCP (Etapa 1)</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Aprovador PCP (Etapa 1) <span className="text-rose-500">*</span>
+                    </Label>
                     <select
                       value={pcpApproverId}
                       onChange={(e) => setPcpApproverId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Selecione aprovador PCP...</option>
                       {users.map((u) => (
@@ -1230,11 +1341,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Aprovador da Linha (Etapa 2)</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Aprovador da Linha (Etapa 2)
+                    </Label>
                     <select
                       value={lineApproverId}
                       onChange={(e) => setLineApproverId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Selecione aprovador de linha...</option>
                       {users.map((u) => (
@@ -1246,11 +1359,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Regra de Aprovação</Label>
+                    <Label className="text-xs text-slate-700 font-medium">Regra de Aprovação</Label>
                     <select
                       value={approvalRequirement}
                       onChange={(e) => setApprovalRequirement(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="MANDATORY">MANDATÓRIA (Plano só roda após aprovação)</option>
                       <option value="OPTIONAL">OPCIONAL (Aprovação recomendada)</option>
@@ -1264,36 +1377,38 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           {/* ETAPA 4: Sequenciamento */}
           {currentStep === 4 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <GitCommit className="w-4 h-4 text-cyan-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <GitCommit className="w-4 h-4 text-[#004C97]" />
                   Sequenciamento & Dependências Estruturais do Processo
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Cadastre a posição da linha no fluxo da fábrica (predecessores e sucessores).
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-900/60 rounded-lg border border-slate-800 space-y-3">
-                  <span className="text-xs font-bold text-amber-400 uppercase block">
+                <div className="p-4 bg-[#F8FAFC] rounded-lg border border-slate-200 space-y-3">
+                  <span className="text-xs font-bold text-amber-700 uppercase block">
                     Etapa Anterior (Predecessor)
                   </span>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Processo Anterior</Label>
+                    <Label className="text-xs text-slate-700 font-medium">Processo Anterior</Label>
                     <Input
                       placeholder="Ex: Corte Slitter / Pátio de Matéria-Prima"
                       value={prevProcess}
                       onChange={(e) => setPrevProcess(e.target.value)}
-                      className="bg-slate-950 border-slate-800 text-xs text-white"
+                      className="bg-white border-slate-300 text-xs text-slate-900 focus:border-[#004C97]"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Linha Anterior Direta</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Linha Anterior Direta
+                    </Label>
                     <select
                       value={prevLineId}
                       onChange={(e) => setPrevLineId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Nenhuma / Origem Externa</option>
                       {existingLines.map((l) => (
@@ -1305,25 +1420,27 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-900/60 rounded-lg border border-slate-800 space-y-3">
-                  <span className="text-xs font-bold text-emerald-400 uppercase block">
+                <div className="p-4 bg-[#F8FAFC] rounded-lg border border-slate-200 space-y-3">
+                  <span className="text-xs font-bold text-emerald-700 uppercase block">
                     Etapa Seguinte (Sucessor)
                   </span>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Processo Seguinte</Label>
+                    <Label className="text-xs text-slate-700 font-medium">Processo Seguinte</Label>
                     <Input
                       placeholder="Ex: Tratamento Térmico / Acabamento Final"
                       value={nextProcess}
                       onChange={(e) => setNextProcess(e.target.value)}
-                      className="bg-slate-950 border-slate-800 text-xs text-white"
+                      className="bg-white border-slate-300 text-xs text-slate-900 focus:border-[#004C97]"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-300">Linha Sucessora Direta</Label>
+                    <Label className="text-xs text-slate-700 font-medium">
+                      Linha Sucessora Direta
+                    </Label>
                     <select
                       value={nextLineId}
                       onChange={(e) => setNextLineId(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded text-xs text-white p-2"
+                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
                       <option value="">Nenhuma / Destino Expedição</option>
                       {existingLines.map((l) => (
@@ -1336,31 +1453,33 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-slate-900/40 rounded border border-slate-800 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-[#F8FAFC] rounded border border-slate-200 text-xs">
                 <div className="space-y-1">
-                  <Label className="text-slate-300">Lead Time Padrão (Minutos)</Label>
+                  <Label className="text-slate-700 font-medium">Lead Time Padrão (Minutos)</Label>
                   <Input
                     type="number"
                     value={leadTimeMinutes}
                     onChange={(e) => setLeadTimeMinutes(Number(e.target.value))}
-                    className="bg-slate-950 border-slate-700 text-cyan-300 font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-slate-300">Capacidade do Pulmão Intermediário</Label>
+                  <Label className="text-slate-700 font-medium">
+                    Capacidade do Pulmão Intermediário
+                  </Label>
                   <Input
                     type="number"
                     value={bufferCapacity}
                     onChange={(e) => setBufferCapacity(Number(e.target.value))}
-                    className="bg-slate-950 border-slate-700 text-cyan-300 font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-slate-300">Unidade do Pulmão</Label>
+                  <Label className="text-slate-700 font-medium">Unidade do Pulmão</Label>
                   <Input
                     value={bufferUnit}
                     onChange={(e) => setBufferUnit(e.target.value)}
-                    className="bg-slate-950 border-slate-700 text-white"
+                    className="bg-white border-slate-300 text-slate-900"
                   />
                 </div>
               </div>
@@ -1370,36 +1489,36 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           {/* ETAPA 5: Ficha Mestre Inicial */}
           {currentStep === 5 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-cyan-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#004C97]" />
                   Parâmetros de Capacidade & Ficha Mestre Inicial (v1)
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Defina as cadências nominais e tamanhos de lote.
+                <p className="text-xs text-slate-500">
+                  Defina as cadências nominais e tamanhos de lote do novo Centro.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">
-                    Capacidade Horária Nominal <span className="text-rose-400">*</span>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Capacidade Horária Nominal <span className="text-rose-500">*</span>
                   </Label>
                   <Input
                     type="number"
                     step="0.1"
                     value={nominalHourlyCapacity}
                     onChange={(e) => setNominalHourlyCapacity(Number(e.target.value))}
-                    className="bg-slate-900 border-slate-700 text-white font-mono font-bold"
+                    className="bg-white border-slate-300 text-slate-900 font-mono font-bold focus:border-[#004C97]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Unidade de Medida</Label>
+                  <Label className="text-xs text-slate-700 font-medium">Unidade de Medida</Label>
                   <select
                     value={capacityUnit}
                     onChange={(e) => setCapacityUnit(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                    className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                   >
                     <option value="t/h">t/h (Toneladas por Hora - Padrão Aço)</option>
                     <option value="peça/h">peça/h (Peças por Hora)</option>
@@ -1408,49 +1527,57 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Eficiência Planejada (%)</Label>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Eficiência Planejada (%)
+                  </Label>
                   <Input
                     type="number"
                     value={plannedEfficiencyPct}
                     onChange={(e) => setPlannedEfficiencyPct(Number(e.target.value))}
-                    className="bg-slate-900 border-slate-700 text-white font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Lote Mínimo de Produção</Label>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Lote Mínimo de Produção
+                  </Label>
                   <Input
                     type="number"
                     value={minBatchSize}
                     onChange={(e) => setMinBatchSize(Number(e.target.value))}
-                    className="bg-slate-900 border-slate-700 text-white font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Lote Máximo Recomendado</Label>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Lote Máximo Recomendado
+                  </Label>
                   <Input
                     type="number"
                     value={maxBatchSize}
                     onChange={(e) => setMaxBatchSize(Number(e.target.value))}
-                    className="bg-slate-900 border-slate-700 text-white font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-300">Duração Padrão do Turno (h)</Label>
+                  <Label className="text-xs text-slate-700 font-medium">
+                    Duração Padrão do Turno (h)
+                  </Label>
                   <Input
                     type="number"
                     value={shiftHours}
                     onChange={(e) => setShiftHours(Number(e.target.value))}
-                    className="bg-slate-900 border-slate-700 text-white font-mono"
+                    className="bg-white border-slate-300 text-slate-900 font-mono"
                   />
                 </div>
               </div>
 
-              {/* Seção Nova: Restrições Mínimas de Programação por Bitola (1:N) */}
+              {/* Seção Restrições Mínimas de Programação por Bitola */}
               <div className="pt-2">
                 <GaugeRestrictionsSection
                   lineCode={code || 'NOVO_CENTRO'}
@@ -1501,71 +1628,71 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           {/* ETAPA 6: Revisão & Conformidade */}
           {currentStep === 6 && (
             <div className="space-y-4">
-              <div className="border-b border-slate-800 pb-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <div className="border-b border-slate-200 pb-2">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   Revisão Geral e Validação do Cadastro
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   Confira todos os parâmetros antes de homologar e gravar no banco de dados.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800 space-y-2">
-                  <span className="font-bold text-cyan-300 uppercase block text-[11px]">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 space-y-2">
+                  <span className="font-bold text-[#004C97] uppercase block text-[11px]">
                     Identificação & Localização
                   </span>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Código da Linha:</span>
-                    <span className="font-bold text-white font-mono">
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Código da Linha:</span>
+                    <span className="font-bold text-slate-900 font-mono">
                       {code.toUpperCase() || 'N/A'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Nome:</span>
-                    <span className="text-white">{name || 'N/A'}</span>
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Nome:</span>
+                    <span className="text-slate-900 font-medium">{name || 'N/A'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Planta / Centro SAP:</span>
-                    <span className="text-white">
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Planta / Centro SAP:</span>
+                    <span className="text-slate-900">
                       {plant} ({sapPlantCode})
                     </span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-400">Status Inicial:</span>
-                    <Badge className="bg-emerald-950 text-emerald-300 border-emerald-700 text-[10px]">
+                    <span className="text-slate-500">Status Inicial:</span>
+                    <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px]">
                       {status}
                     </Badge>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800 space-y-2">
-                  <span className="font-bold text-blue-300 uppercase block text-[11px]">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-slate-200 space-y-2">
+                  <span className="font-bold text-[#004C97] uppercase block text-[11px]">
                     Governança & Capacidade
                   </span>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Gestor Titular:</span>
-                    <span className="text-white">
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Gestor Titular:</span>
+                    <span className="text-slate-900 font-medium">
                       {users.find((u) => u.id === primaryManagerId)?.name ||
                         'Pendente de Atribuição'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Aprovador PCP:</span>
-                    <span className="text-white">
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Aprovador PCP:</span>
+                    <span className="text-slate-900 font-medium">
                       {users.find((u) => u.id === pcpApproverId)?.name || 'Padrão Sistema'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800 py-1">
-                    <span className="text-slate-400">Capacidade Nominal:</span>
-                    <span className="text-cyan-300 font-mono font-bold">
+                  <div className="flex justify-between border-b border-slate-200 py-1">
+                    <span className="text-slate-500">Capacidade Nominal:</span>
+                    <span className="text-slate-900 font-mono font-bold">
                       {nominalHourlyCapacity} {capacityUnit}
                     </span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-400">Ficha Mestre:</span>
-                    <span className="text-emerald-400 font-semibold">
+                    <span className="text-slate-500">Ficha Mestre:</span>
+                    <span className="text-emerald-700 font-semibold">
                       Versão 1 (Pronta para Edição)
                     </span>
                   </div>
@@ -1575,13 +1702,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           )}
         </div>
 
-        {/* Footer com Navegação */}
-        <div className="bg-slate-900/90 border-t border-slate-800 p-4 flex items-center justify-between">
+        {/* Footer com Navegação CIAFAL */}
+        <div className="bg-[#F8FAFC] border-t border-slate-200 p-4 flex items-center justify-between shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={currentStep === 1 ? onClose : handlePrev}
-            className="border-slate-700 bg-slate-950 text-slate-300 text-xs"
+            className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs font-medium"
           >
             {currentStep === 1 ? 'Cancelar' : 'Voltar Etapa'}
           </Button>
@@ -1591,7 +1718,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
               <Button
                 size="sm"
                 onClick={handleNext}
-                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5"
+                className="bg-[#004C97] hover:bg-[#003870] text-white font-medium text-xs gap-1.5"
               >
                 Próxima Etapa <ChevronRight className="w-4 h-4" />
               </Button>
@@ -1600,13 +1727,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 size="sm"
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 px-6 shadow-lg shadow-emerald-950"
+                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5 px-6 shadow-sm"
               >
                 {saving ? (
-                  'Cadastrando...'
+                  'Salvando Centro...'
                 ) : (
                   <>
-                    <Save className="w-4 h-4" /> Concluir & Cadastrar Centro
+                    <Save className="w-4 h-4" /> Salvar Centro
                   </>
                 )}
               </Button>
@@ -1615,7 +1742,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         </div>
       </div>
 
-      {/* Diálogo de Sucesso com Ações de Continuidade */}
+      {/* Diálogo de Sucesso com Tema Clean CIAFAL */}
       <Dialog
         open={successDialogOpen}
         onOpenChange={(openState) => {
@@ -1626,21 +1753,21 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
           }
         }}
       >
-        <DialogContent className="sm:max-w-md bg-slate-950 border-slate-800 text-slate-100">
+        <DialogContent className="sm:max-w-md bg-white border border-slate-200 text-slate-900 shadow-xl">
           <DialogHeader>
-            <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-3">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <DialogTitle className="text-center text-lg font-bold text-white">
-              Centro de Produção Cadastrado com Sucesso!
+            <DialogTitle className="text-center text-base sm:text-lg font-bold text-slate-900">
+              Centro salvo com sucesso!
             </DialogTitle>
-            <DialogDescription className="text-center text-slate-400 text-xs mt-1">
+            <DialogDescription className="text-center text-slate-600 text-xs mt-1">
               O centro de produção{' '}
-              <span className="text-cyan-400 font-mono font-bold">
+              <span className="text-[#004C97] font-mono font-bold">
                 {createdLineRecord?.code} - {createdLineRecord?.name}
               </span>{' '}
-              foi persistido com sucesso e sua Ficha Mestre inicial (Versão 1 - Em preenchimento) já
-              está disponível.
+              foi cadastrado com sucesso no HUB CIAFAL e sua Ficha Mestre inicial (Versão 1) já está
+              disponível.
             </DialogDescription>
           </DialogHeader>
 
@@ -1653,7 +1780,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 if (line) onSuccess(line)
                 onClose()
               }}
-              className="w-full sm:w-auto border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 text-xs gap-1.5"
+              className="w-full sm:w-auto border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs gap-1.5"
             >
               <ArrowLeft className="w-4 h-4" /> Voltar para Centros
             </Button>
