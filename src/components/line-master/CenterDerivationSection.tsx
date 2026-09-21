@@ -667,7 +667,6 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
             currentCenterCode={centerCode}
             availableCenters={Array.isArray(availableCenters) ? availableCenters : []}
             existingRule={editingRule}
-            allRules={Array.isArray(rules) ? rules : []}
           />
         )}
         {/* Modal de Visualização Detalhada (Read-only) */}

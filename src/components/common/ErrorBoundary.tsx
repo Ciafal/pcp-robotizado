@@ -28,16 +28,6 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error, errorInfo: null }
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('PCP ErrorBoundary capturou erro não tratado:', error, errorInfo)
-    this.setState({ error, errorInfo })
-
-    // Se o erro for de chunk dinâmico desatualizado, tenta um reload automático único
-    if (isChunkLoadError(error)) {
-      triggerChunkReloadOnce()
-    }
-  }
-
   private generateOccurrenceCode = (): string => {
     const chars = '0123456789ABCDEF'
     let suffix = ''

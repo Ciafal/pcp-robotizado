@@ -187,6 +187,10 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   const [derivationRules, setDerivationRules] = useState<CenterDerivationRule[]>([])
   const [derivationError, setDerivationError] = useState<string | null>(null)
 
+  const [validationIssuesList, setValidationIssuesList] = useState<
+    Array<{ step: number; stepTitle: string; label: string }>
+  >([])
+
   if (!open) return null
 
   // Lista de pendências calculada dinamicamente com atalhos para cada etapa
@@ -241,10 +245,6 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
     return issues
   }
-
-  const [validationIssuesList, setValidationIssuesList] = useState<
-    Array<{ step: number; stepTitle: string; label: string }>
-  >([])
 
   const validateStep = (step: number): boolean => {
     if (step === 1) {

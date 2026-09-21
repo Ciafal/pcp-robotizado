@@ -10,6 +10,7 @@ import {
   BarChart3,
   Briefcase,
   Sliders,
+  SlidersHorizontal,
   History,
   Building2,
   FileSpreadsheet,
