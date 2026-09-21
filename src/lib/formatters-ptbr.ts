@@ -44,6 +44,20 @@ export function formatNumberPTBR(
  * Ex: formatQuantity(6.84, 't') -> "6,84 t"
  * Ex: formatQuantity(12540.75, 'kg') -> "12.540,75 kg"
  */
+/**
+ * Formata toneladas no padrão brasileiro/ABNT:
+ * 120 -> "120,00 t" ou com casasDecimais customizado
+ * Ex: formatTonsPtBr(120) -> "120,00 t"
+ * Ex: formatTonsPtBr(120, 1) -> "120,0 t"
+ */
+export function formatTonsPtBr(
+  valor: number | string | null | undefined,
+  casasDecimais: number = 2,
+  fallback: string = '0,00 t',
+): string {
+  return formatQuantity(valor, 't', casasDecimais, fallback)
+}
+
 export function formatQuantity(
   valor: number | string | null | undefined,
   unidade: 't' | 'kg' | 't/h' | 'mm' | 'm' | string = 't',

@@ -474,10 +474,63 @@ class WeeklyDerivationEngine {
    */
   async createDerivedScheduleItem(
     parentItem: WeeklyScheduleItem,
-    derivedData: Partial<WeeklyScheduleItem>,
-    tipoGeracao: 'MANUAL' | 'AUTOMATICA' = 'MANUAL',
-    currentUser: string = 'Engenharia PCP',
+    ruleOrData: CenterDerivationRule | Partial<WeeklyScheduleItem>,
+    derivedDataOrTipo?: any,
+    tipoGeracaoOrUser?: 'MANUAL' | 'AUTOMATICA' | string,
+    currentUserArg?: string,
   ): Promise<WeeklyScheduleItem> {
+    // Normalização polimórfica para suportar tanto a assinatura (parentItem, derivedData, tipoGeracao, currentUser)
+    // quanto (parentItem, matchedRule, candidateOptions, tipoGeracao, currentUser)
+    let derivedData: Partial<WeeklyScheduleItem> = {}
+    let matchedRule: CenterDerivationRule | undefined
+    let tipoGeracao: 'MANUAL' | 'AUTOMATICA' = 'MANUAL'
+    let currentUser = 'Engenharia PCP'
+
+    if ('center_code' in (ruleOrData || {}) && 'source_center_code' in (ruleOrData || {})) {
+      // Chamada com (parentItem, matchedRule, candidateOptions, tipoGeracao, currentUser)
+      matchedRule = ruleOrData as CenterDerivationRule
+      const opts = derivedDataOrTipo || {}
+      tipoGeracao = (tipoGeracaoOrUser as any) || 'MANUAL'
+      currentUser = currentUserArg || 'Engenharia PCP'
+
+      const targetCenter = opts.targetCenterCode || matchedRule.center_code
+      const qty = opts.suggestedQuantity ?? opts.derivedQuantity ?? parentItem.planned_quantity_tons
+      const dateStr = opts.suggestedDateStr ?? opts.derivedDate ?? parentItem.date_str
+      const hourStr = opts.suggestedHourStr ?? opts.derivedHour ?? '08:00'
+      const startDt = dateStr ? `${dateStr} ${hourStr}` : parentItem.start_datetime
+
+      derivedData = {
+        line_code: targetCenter,
+        planned_quantity_tons: qty,
+        date_str: dateStr,
+        start_datetime: startDt,
+        sequence_order: opts.sequenceOrder ?? (parentItem.sequence_order || 1) + 10,
+        shift_code: opts.shiftCode ?? parentItem.shift_code,
+        shift_name: opts.shiftName ?? parentItem.shift_name,
+        crew_name: opts.crewName ?? parentItem.crew_name,
+        setup_duration_minutes: opts.setupMinutes ?? 30,
+        regra_id: matchedRule.id,
+        matkl: (parentItem.family_code || parentItem.metadata?.matkl || '001').toString(),
+        derivation_metadata: {
+          regra_codigo: matchedRule.id || 'REG-DER',
+          regra_resumo: `${parentItem.line_code} → ${targetCenter}`,
+          linha_origem: parentItem.line_code,
+          data_hora_prevista: startDt,
+        },
+        metadata: {
+          ...parentItem.metadata,
+          editado_pcp: Boolean(opts.isEdited),
+          motivo_ajuste: opts.adjustmentReason,
+          observacao_ajuste: opts.adjustmentObservation,
+          analise_ia: opts.aiAnalysis,
+        },
+      }
+    } else {
+      // Chamada com (parentItem, derivedData, tipoGeracao, currentUser)
+      derivedData = ruleOrData as Partial<WeeklyScheduleItem>
+      tipoGeracao = (derivedDataOrTipo as any) || 'MANUAL'
+      currentUser = (tipoGeracaoOrUser as string) || 'Engenharia PCP'
+    }
     const newId = `der_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
     const nowPtBr = new Date().toLocaleDateString('pt-BR', {
       day: '2-digit',
