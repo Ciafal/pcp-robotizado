@@ -395,6 +395,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Token anti race condition para troca rápida de filtros
   const derivationRequestSeqRef = useRef<number>(0)
+  const generateDerivedSeqRef = useRef<number>(0)
 
   // PATCH 4: Consulta se o centro selecionado é DERIVADO e quem é seu centro de ORIGEM
   useEffect(() => {
@@ -2537,6 +2538,187 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     })
   }
 
+  // PATCH 7: Lógica de Geração de Programação Derivada a partir do Centro de Origem
+  const handleGenerateDerivedFromSourceCenter = async () => {
+    if (!selectedCenterDerivation.isDerived || !selectedCenterDerivation.hasSource) {
+      toast({
+        variant: 'destructive',
+        title: 'Operação não permitida',
+        description:
+          'O centro selecionado não está configurado como centro derivado com origem válida.',
+      })
+      return
+    }
+
+    const sourceCode = selectedCenterDerivation.sourceCenterCode || ''
+    if (!sourceCode) {
+      toast({
+        variant: 'destructive',
+        title: 'Centro de Origem Não Definido',
+        description:
+          'Não foi possível identificar o código do centro de origem na regra de derivação.',
+      })
+      return
+    }
+
+    const currentSeq = ++generateDerivedSeqRef.current
+    setIsGeneratingDerivedSchedule(true)
+    setDerivationNoticeMessage(null)
+
+    try {
+      // 1. Carregar a programação do centro de ORIGEM (ex.: L2)
+      const sourceFilter: WeeklyHeaderFilter = {
+        companyCode,
+        plantCode,
+        lineCode: sourceCode,
+        year: selectedYear,
+        weekNumber: selectedWeekNumber,
+        periodDisplay: weekRange.display,
+        programmingType: selectedProgrammingType,
+      }
+
+      const sourceItems = await weeklyScheduleService.loadWeeklySchedule(sourceFilter)
+
+      // Guard anti race condition: se os filtros mudaram enquanto buscava, ignora
+      if (currentSeq !== generateDerivedSeqRef.current) return
+
+      // 4. Caso origem sem programação para os parâmetros: SEM erro global; exibir aviso amigável
+      const productionSourceItems = (sourceItems || []).filter(
+        (it) => it.item_type === 'PRODUCTION' && it.status !== 'CANCELLED',
+      )
+
+      if (productionSourceItems.length === 0) {
+        setDerivationNoticeMessage({
+          type: 'empty_origin',
+          message: `Não foi encontrada programação do centro ${sourceCode} para os parâmetros selecionados.`,
+        })
+        toast({
+          title: 'Origem sem programação',
+          description: `Não foi encontrada programação do centro ${sourceCode} para os parâmetros selecionados.`,
+        })
+        return
+      }
+
+      // 2. Reutilizar o motor weeklyDerivationEngine para derivar os itens
+      // Usar candidate derivations baseados nas regras do centro de origem
+      const candidates = await weeklyDerivationEngine.buildCandidateDerivations(
+        sourceCode,
+        productionSourceItems,
+        items, // itens já existentes no destino
+      )
+
+      // Guard anti race condition
+      if (currentSeq !== generateDerivedSeqRef.current) return
+
+      // Filtra candidatos destinados ao centro atual selecionado
+      const targetCandidates = candidates.filter(
+        (cand) =>
+          cand.targetCenterCode.trim().toUpperCase() === selectedLineCode.trim().toUpperCase(),
+      )
+
+      // Se nenhum item deu match com regras do destino
+      if (targetCandidates.length === 0) {
+        // Se candidates tem regras mas para outros destinos ou se regras do MATKL não cobriram
+        setDerivationNoticeMessage({
+          type: 'empty_origin',
+          message: `Não foram encontrados itens com regras ativas de derivação para ${selectedLineCode} a partir de ${sourceCode} na semana selecionada.`,
+        })
+        toast({
+          title: 'Nenhum item elegível',
+          description: `Nenhum produto da linha ${sourceCode} atende às regras ativas de derivação para ${selectedLineCode}.`,
+        })
+        return
+      }
+
+      // Criar itens derivados reaplicando regras da Ficha Mestra do destino
+      const generatedItems: WeeklyScheduleItem[] = []
+      const userName = auth?.user?.name || 'PCP Programador'
+
+      for (let i = 0; i < targetCandidates.length; i++) {
+        const cand = targetCandidates[i]
+        const derivedItem = await weeklyDerivationEngine.createDerivedScheduleItem(
+          cand.parentItem,
+          cand.matchedRule,
+          {
+            targetCenterCode: selectedLineCode,
+            suggestedQuantity: cand.derivedQuantity,
+            suggestedDateStr: cand.derivedDate,
+            suggestedHourStr: cand.derivedHour,
+            sequenceOrder: i + 1,
+            shiftCode: cand.derivedShiftCode,
+            shiftName: cand.derivedShiftName,
+            crewName: cand.derivedCrewName,
+            setupMinutes: cand.setupMinutes,
+            tuningMinutes: cand.tuningMinutes,
+            isEdited: false,
+            aiAnalysis: cand.aiAnalysis,
+          },
+          'MANUAL',
+          userName,
+        )
+
+        // Assegurar metadados e integridade do centro de destino e rastreabilidade
+        derivedItem.line_code = selectedLineCode
+        derivedItem.company_code = companyCode
+        derivedItem.plant_code = plantCode
+        derivedItem.year = selectedYear
+        derivedItem.week_number = selectedWeekNumber
+        derivedItem.period_display = weekRange.display
+        derivedItem.status = 'DRAFT'
+        derivedItem.version = 1
+        derivedItem.centro_origem = sourceCode
+        derivedItem.centro_destino = selectedLineCode
+
+        generatedItems.push(derivedItem)
+      }
+
+      // Guard anti race condition
+      if (currentSeq !== generateDerivedSeqRef.current) return
+
+      // Recalcula cronograma operacional da linha destino com base na Ficha Mestra
+      const recalculated = WeeklyScheduleEngine.recalculateWeeklyTimeline(
+        generatedItems,
+        currentLineOverview,
+        headerFilter,
+        rawMaterialContext,
+      )
+
+      setItems(recalculated.items)
+      setSelectedScheduleItem(recalculated.items[0] || null)
+      setCurrentWorkflowState('DRAFT')
+      setCurrentVersion(1)
+      setDerivationNoticeMessage({
+        type: 'success',
+        message: `Programação derivada gerada com sucesso a partir de ${sourceCode} (${generatedItems.length} itens).`,
+      })
+
+      // 3. Persistir rascunho normal e editável
+      try {
+        await weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter)
+      } catch (saveErr) {
+        console.warn('Aviso ao persistir rascunho de programação derivada:', saveErr)
+      }
+
+      toast({
+        title: 'Programação Derivada Gerada',
+        description: `${generatedItems.length} item(ns) gerado(s) como rascunho editável a partir de ${sourceCode}.`,
+      })
+    } catch (err: any) {
+      if (currentSeq !== generateDerivedSeqRef.current) return
+      console.error('Erro ao gerar programação derivada:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha na Geração da Derivação',
+        description:
+          err?.message || 'Ocorreu um erro ao processar as regras de derivação da origem.',
+      })
+    } finally {
+      if (currentSeq === generateDerivedSeqRef.current) {
+        setIsGeneratingDerivedSchedule(false)
+      }
+    }
+  }
+
   // Manipulador de Aguardando Observações
   const handleOpenAwaitingObsModal = (item: WeeklyScheduleItem) => {
     setSelectedScheduleItem(item)
@@ -4075,6 +4257,46 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 </>
               )}
 
+              {/* PATCH 7.4: Aviso de Origem sem programação com ações amigáveis */}
+              {derivationNoticeMessage && derivationNoticeMessage.type === 'empty_origin' && (
+                <div
+                  data-testid="derivation-empty-origin-notice"
+                  className="flex items-center gap-2 px-2.5 py-1 rounded bg-amber-50 border border-amber-300 text-amber-900 text-xs shadow-xs"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{derivationNoticeMessage.message}</span>
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[11px] font-semibold border-amber-400 text-amber-900 bg-amber-100 hover:bg-amber-200"
+                      onClick={() => {
+                        setDerivationNoticeMessage(null)
+                        const periodEl = document.querySelector(
+                          '[data-testid="period-selector-btn"]',
+                        ) as HTMLElement | null
+                        if (periodEl) {
+                          periodEl.click()
+                          periodEl.focus()
+                        }
+                      }}
+                    >
+                      [Alterar período]
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[11px] font-semibold border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+                      onClick={() => {
+                        setDerivationNoticeMessage(null)
+                      }}
+                    >
+                      [Continuar programação manual]
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Status de Centro Origem para outros centros (quando houver destinos ativos) */}
               {activeSourceDerivationRules.length > 0 && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700">
@@ -4189,8 +4411,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
                   className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
                 >
-                  <GitFork className="w-3.5 h-3.5" />
-                  Gerar Programação Derivada
+                  {isGeneratingDerivedSchedule ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <GitFork className="w-3.5 h-3.5" />
+                  )}
+                  {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
                 </Button>
               )}
 
