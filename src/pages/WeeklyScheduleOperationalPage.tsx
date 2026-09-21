@@ -91,23 +91,10 @@ import {
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
-import {
-  weeklyDerivationEngine,
-  DerivationMatchResult,
-} from '@/services/weekly-derivation-engine'
+import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
 import { centerDerivationService } from '@/services/pcp-center-derivation-service'
-
-export interface CenterDerivationRule {
-  id: string
-  center_code: string
-  source_center?: string
-  status?: string
-  deleted?: boolean
-  start_date?: string
-  end_date?: string
-  matkl_groups?: Array<{ matkl: string }>
-  [key: string]: any
-}
+import type { CenterDerivationRule } from '@/types/center-derivation'
+export type { CenterDerivationRule }
 import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
@@ -857,18 +844,22 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   // Validações de Linha Inativa e Configuração Completa da Ficha Mestra
-  const isLineActive = currentLineOverview ? currentLineOverview.line.is_active !== false : true
+  const isLineActive = currentLineOverview?.line
+    ? currentLineOverview.line.is_active !== false
+    : false
 
   const lineConfigurationDeficits = useMemo(() => {
-    if (!currentLineOverview) return []
+    if (!selectedLineCode || !currentLineOverview?.line) return []
     const deficits: string[] = []
     const line = currentLineOverview.line
     const master = currentLineOverview.master
-    const shifts = currentLineOverview.shifts || []
-    const crews = currentLineOverview.crews || []
-    const shiftCrews = currentLineOverview.shiftCrews || []
+    const shifts = Array.isArray(currentLineOverview.shifts) ? currentLineOverview.shifts : []
+    const crews = Array.isArray(currentLineOverview.crews) ? currentLineOverview.crews : []
+    const shiftCrews = Array.isArray(currentLineOverview.shiftCrews)
+      ? currentLineOverview.shiftCrews
+      : []
 
-    if (line.is_active === false) {
+    if (line?.is_active === false) {
       deficits.push('Linha marcada como Inativa')
     }
     if (shifts.length === 0) {
@@ -880,17 +871,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     if (shiftCrews.length === 0 && shifts.length > 0 && crews.length > 0) {
       deficits.push('Vínculo Turno × Turma não configurado')
     }
-    const resolvedProgType = master?.programming_type || line.programming_type
+    const resolvedProgType = master?.programming_type || line?.programming_type
     if (!resolvedProgType) {
       deficits.push('Tipo de Programação não definido')
     }
-    const cap = master?.nominal_hourly_capacity || line.current_rate || 0
+    const cap = master?.nominal_hourly_capacity || line?.current_rate || 0
     if (cap <= 0) {
       deficits.push('Capacidade nominal horária não definida')
     }
 
     return deficits
-  }, [currentLineOverview])
+  }, [selectedLineCode, currentLineOverview])
 
   // Linhas Elegíveis filtradas por Tipo de Programação e Linha Ativa (ITEM 1 e ITEM 2)
   const eligibleLines = useMemo(() => {
@@ -953,10 +944,87 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     )
   }, [selectedYear, selectedWeekNumber, currentWorkflowState])
 
+  // Estruturas inertes canônicas para quando o contexto da linha/itens ainda não estiver selecionado
+  const emptyIndicators: WeeklyIndicators = useMemo(
+    () => ({
+      availableCapacityHours: 0,
+      programmedQuantityTons: 0,
+      programmedProductiveHours: 0,
+      setupHours: 0,
+      tuningHours: 0,
+      stoppedHours: 0,
+      maintenanceHours: 0,
+      coolingHours: 0,
+      freeHours: 0,
+      utilizationPct: 0,
+      setupsCount: 0,
+      avgSetupMinutes: 0,
+      capacityLossTons: 0,
+      programmedProductsCount: 0,
+      rawMaterialRequiredTons: 0,
+      rawMaterialAvailableTons: 0,
+      rawMaterialBalanceTons: 0,
+      rawMaterialGreenCount: 0,
+      rawMaterialYellowCount: 0,
+      rawMaterialRedCount: 0,
+      criticalAlertsCount: 0,
+      sequenceScore: 100,
+      sequenceScoreLabel: 'OTIMIZADA',
+    }),
+    [],
+  )
+
+  const emptySummary: WeeklyScheduleSummary = useMemo(
+    () => ({
+      capacity: {
+        calendarHours: 0,
+        availableHours: 0,
+        productionHours: 0,
+        setupHours: 0,
+        tuningHours: 0,
+        stoppedHours: 0,
+        maintenanceHours: 0,
+        coolingHours: 0,
+        freeHours: 0,
+        utilizationPct: 0,
+        setupsCount: 0,
+        avgSetupMinutes: 0,
+        capacityLossTons: 0,
+      },
+      production: {
+        totalTons: 0,
+        byFamily: {},
+        byMaterial: {},
+        byTurno: {},
+        byDay: {},
+      },
+      rawMaterials: [],
+      billetRequirements: [],
+      sapPurchaseOrders: [],
+      dualCommitments: [],
+      backlog: {
+        totalTons: null,
+        scheduledTons: 0,
+        remainingTons: null,
+      },
+    }),
+    [],
+  )
+
   // Recálculo Reativo em RASCUNHO / Congelado em APROVADA ou HISTÓRICO
-  // Em RASCUNHO: recálculo automático determinístico reativo.
-  // Em APROVADA ou HISTÓRICO/BLOQUEADO: recálculo automático suspenso (preserva snapshot salvo nos itens).
+  // Guarda: !selectedLineCode || !currentLineOverview || !items?.length -> estruturas inertes
   const calculationResult = useMemo(() => {
+    if (!selectedLineCode || !currentLineOverview || !Array.isArray(items) || items.length === 0) {
+      return {
+        items: Array.isArray(items) ? items : [],
+        indicators: emptyIndicators,
+        summary: emptySummary,
+        validations: [],
+        totalTons: 0,
+        totalHours: 0,
+      }
+    }
+
     // Se o estado for APROVADA ou HISTÓRICO/BLOQUEADO e os itens já tiverem horários preenchidos,
     // o recálculo automático fica suspenso e preserva o snapshot original.
     if (isScheduleApproved || isScheduleHistoricalLocked) {
@@ -985,10 +1053,13 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [
     items,
     currentLineOverview,
+    selectedLineCode,
     headerFilter,
     rawMaterialContext,
     isScheduleApproved,
     isScheduleHistoricalLocked,
+    emptyIndicators,
+    emptySummary,
   ])
 
   // Verificação de divergência da Ficha Mestra para programação APROVADA (Requisito b)
@@ -1080,20 +1151,41 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   // Validação Documental SGQ Automática (Requisitos 8, 9, 10)
-  // Roda em todas as mutações e utiliza as regras estruturadas já persistidas em interpreted_rules
+  // Guarda: se não houver centro/linha selecionada ou itens, retorna inerte
   const documentValidationResult: DocumentValidationResult = useMemo(() => {
+    if (
+      !selectedLineCode ||
+      !currentLineOverview ||
+      !Array.isArray(calculationResult.items) ||
+      calculationResult.items.length === 0
+    ) {
+      return {
+        passed: true,
+        blocking_violations_count: 0,
+        warnings_count: 0,
+        recommendations_count: 0,
+        rules_considered_count: 0,
+        considered_documents: [],
+        rules_satisfied: [],
+        mandatory_violations: [],
+        recommendations: [],
+        parameters_used: [],
+        conflicts: [],
+      }
+    }
+
     const rawResult = documentRulesEngine.validateDocumentRules(calculationResult.items, {
       lineCode: selectedLineCode,
       lineOverview: currentLineOverview,
-      lineDocs: lineReferenceDocs,
+      lineDocs: lineReferenceDocs || [],
       scheduleCode: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
-      versionNumber: currentVersion,
+      versionNumber: currentVersion || 1,
       userEmail: auth?.user?.email || 'operador@ciafal.com.br',
       userName: auth?.user?.name || 'Programador PCP',
     })
 
     // Filtrar recomendações já descartadas pelo usuário nesta sessão
-    const filteredRecs = rawResult.recommendations.filter(
+    const filteredRecs = (rawResult.recommendations || []).filter(
       (r) => !dismissedDocRecommendations.includes(r.rule_id),
     )
 
@@ -1474,35 +1566,37 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     }
 
     // 1. HARD BLOCK CHECK (VAL-02)
-    const block = WeeklyScheduleEngine.checkHardBlock(
-      newItemData.material_code,
-      currentLineOverview,
-    )
-    if (block) {
-      // Abre o Modal Vermelho e impede a inclusão
-      const lineObj = lines.find((l) => l.code === selectedLineCode)
-      setHardBlockData({
-        isOpen: true,
-        materialCode: newItemData.material_code,
-        materialDescription: newItemData.material_description || 'Material Bloqueado',
-        lineCode: selectedLineCode,
-        lineName: lineObj?.name || `Linha ${selectedLineCode}`,
-        reason: block.block_reason || 'Restrição técnica de laminação / Ficha Mestre CIAFAL.',
-        blockDate: block.valid_from
-          ? new Date(block.valid_from).toLocaleDateString('pt-BR')
-          : '2026-01-15',
-        responsibleName: 'Engenharia de Processos CIAFAL',
-      })
+    if (selectedLineCode && currentLineOverview) {
+      const block = WeeklyScheduleEngine.checkHardBlock(
+        newItemData.material_code,
+        currentLineOverview,
+      )
+      if (block) {
+        // Abre o Modal Vermelho e impede a inclusão
+        const lineObj = lines.find((l) => l.code === selectedLineCode)
+        setHardBlockData({
+          isOpen: true,
+          materialCode: newItemData.material_code,
+          materialDescription: newItemData.material_description || 'Material Bloqueado',
+          lineCode: selectedLineCode,
+          lineName: lineObj?.name || `Linha ${selectedLineCode}`,
+          reason: block.block_reason || 'Restrição técnica de laminação / Ficha Mestre CIAFAL.',
+          blockDate: block.valid_from
+            ? new Date(block.valid_from).toLocaleDateString('pt-BR')
+            : '2026-01-15',
+          responsibleName: 'Engenharia de Processos CIAFAL',
+        })
 
-      // Registra no log de auditoria oficial
-      weeklyScheduleService.logBlockedProductAttempt({
-        materialCode: newItemData.material_code,
-        materialDescription: newItemData.material_description || 'Material Bloqueado',
-        lineCode: selectedLineCode,
-        reason: block.block_reason,
-      })
+        // Registra no log de auditoria oficial
+        weeklyScheduleService.logBlockedProductAttempt({
+          materialCode: newItemData.material_code,
+          materialDescription: newItemData.material_description || 'Material Bloqueado',
+          lineCode: selectedLineCode,
+          reason: block.block_reason,
+        })
 
-      return
+        return
+      }
     }
 
     // 2. Validação de Conflito de Horário
