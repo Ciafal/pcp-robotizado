@@ -41,6 +41,7 @@ export type ScheduleGridFilter =
   | 'BLOQUEADOS'
   | 'MTO'
   | 'MTS'
+  | 'PRINCIPAL'
   | 'DERIVADA_TODAS'
   | 'DERIVADA_AUTOMATICA'
   | 'DERIVADA_MANUAL'
@@ -209,16 +210,24 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           isAwaiting ||
           isBlocked
 
+        const isDerived = Boolean(
+          item.is_derived || item.origem_programacao_id || item.centro_origem,
+        )
+        const isManualAdjusted = Boolean(
+          item.tipo_geracao === 'MANUAL' ||
+          (item as any).editado_pcp ||
+          (item as any).ajuste_manual,
+        )
+
         if (activeFilter === 'AGUARDANDO_OBSERVACOES') return isAwaiting
         if (activeFilter === 'ALERTAS') return hasAlerts
         if (activeFilter === 'BLOQUEADOS') return isBlocked
         if (activeFilter === 'MTO') return item.order_type === 'MTO'
         if (activeFilter === 'MTS') return item.order_type === 'MTS'
-        if (activeFilter === 'DERIVADA_TODAS') return Boolean(item.is_derived)
-        if (activeFilter === 'DERIVADA_AUTOMATICA')
-          return Boolean(item.is_derived && item.tipo_geracao === 'AUTOMATICA')
-        if (activeFilter === 'DERIVADA_MANUAL')
-          return Boolean(item.is_derived && item.tipo_geracao === 'MANUAL')
+        if (activeFilter === 'PRINCIPAL') return !isDerived
+        if (activeFilter === 'DERIVADA_TODAS') return isDerived
+        if (activeFilter === 'DERIVADA_AUTOMATICA') return isDerived && !isManualAdjusted
+        if (activeFilter === 'DERIVADA_MANUAL') return isDerived && isManualAdjusted
         return true
       })
   }, [items, activeFilter, lineOverview])
@@ -307,12 +316,13 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
             <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200 shadow-xs">
               {[
                 { key: 'ALL', label: 'Todos' },
+                { key: 'PRINCIPAL', label: 'Principal' },
                 { key: 'AGUARDANDO_OBSERVACOES', label: 'Aguardando Observações' },
                 { key: 'ALERTAS', label: 'Alertas' },
                 { key: 'BLOQUEADOS', label: 'Bloqueados' },
                 { key: 'MTO', label: 'MTO' },
                 { key: 'MTS', label: 'MTS' },
-                { key: 'DERIVADA_TODAS', label: 'Derivadas' },
+                { key: 'DERIVADA_TODAS', label: 'Derivada' },
                 { key: 'DERIVADA_AUTOMATICA', label: 'Derivada Auto' },
                 { key: 'DERIVADA_MANUAL', label: 'Derivada Manual' },
               ].map((f) => {

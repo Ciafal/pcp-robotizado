@@ -48,7 +48,7 @@ interface DerivedProgrammingModalProps {
   currentWeek: number
   currentVersion: number
   items: WeeklyScheduleItem[]
-  allScheduleItems: WeeklyScheduleItem[]
+  allScheduleItems?: WeeklyScheduleItem[]
   onSuccess: (
     generatedCount: number,
     targetCenters: string[],

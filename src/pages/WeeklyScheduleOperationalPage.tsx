@@ -91,9 +91,23 @@ import {
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
-import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
+import {
+  weeklyDerivationEngine,
+  DerivationMatchResult,
+} from '@/services/weekly-derivation-engine'
 import { centerDerivationService } from '@/services/pcp-center-derivation-service'
-import { CenterDerivationRule } from '@/types/line-center-derivation'
+
+export interface CenterDerivationRule {
+  id: string
+  center_code: string
+  source_center?: string
+  status?: string
+  deleted?: boolean
+  start_date?: string
+  end_date?: string
+  matkl_groups?: Array<{ matkl: string }>
+  [key: string]: any
+}
 import { EditProductModal } from '@/components/weekly-schedule/EditProductModal'
 import { OperationalKpiStrip } from '@/components/weekly-schedule/OperationalKpiStrip'
 import { OperationalTimelineGrid } from '@/components/weekly-schedule/OperationalTimelineGrid'
@@ -172,6 +186,9 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const initialPlantWeek = useMemo(() => getCurrentPlantIsoWeek(), [])
   const [companyCode, setCompanyCode] = useState<string>('CIAFAL')
   const [plantCode, setPlantCode] = useState<string>('PLANTA_1')
+  const [programmingTypeFilter, setProgrammingTypeFilter] = useState<
+    'ALL' | 'PRINCIPAL' | 'DERIVADA_TODAS' | 'DERIVADA_AUTOMATICA' | 'DERIVADA_MANUAL'
+  >('ALL')
   const [selectedProgrammingType, setSelectedProgrammingType] = useState<string>('ALL')
   const [selectedLineCode, setSelectedLineCode] = useState<string>('L1')
   const [selectedYear, setSelectedYear] = useState<number>(initialPlantWeek.year)
@@ -1131,6 +1148,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }, [calculationResult.items, headerFilter, currentLineOverview])
 
   const calculatedItems = calculationResult.items
+
+  // Filtragem operacional por Tipo de Programação (Principal vs Derivadas)
+  const tipoProgrammingFilteredItems = useMemo(() => {
+    return calculatedItems.filter((item) => {
+      const isDerived = Boolean(item.is_derived || item.origem_programacao_id || item.centro_origem)
+      const isManualAdjusted = Boolean(
+        (item as any).editado_pcp || (item as any).ajuste_manual || item.tipo_geracao === 'MANUAL',
+      )
+
+      if (programmingTypeFilter === 'PRINCIPAL') return !isDerived
+      if (programmingTypeFilter === 'DERIVADA_TODAS') return isDerived
+      if (programmingTypeFilter === 'DERIVADA_AUTOMATICA') return isDerived && !isManualAdjusted
+      if (programmingTypeFilter === 'DERIVADA_MANUAL') return isDerived && isManualAdjusted
+      return true
+    })
+  }, [calculatedItems, programmingTypeFilter])
+
   const indicators: WeeklyIndicators = calculationResult.indicators
   const summary: WeeklyScheduleSummary = calculationResult.summary
   const validations: ValidationResult[] = calculationResult.validations
@@ -3380,12 +3414,52 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         /* KPIs MENSAIS em UMA ÚNICA faixa horizontal compacta (REQUISITO 3) */
         <MonthlyKpiStrip kpis={monthlyKpis} lineCode={selectedLineCode} />
       ) : (
-        /* KPIs SEMANAIS (Faixa Única de 8 Indicadores com Drilldown de Setup) */
-        <OperationalKpiStrip
-          indicators={indicators}
-          lineCode={selectedLineCode}
-          onOpenSetupDrilldown={() => setIsSetupDrilldownOpen(true)}
-        />
+        /* KPIs SEMANAIS (Faixa Única de Indicadores com Drilldown de Setup + Card de Derivações) */
+        <div className="flex flex-col gap-1.5 w-full">
+          <OperationalKpiStrip
+            indicators={indicators}
+            lineCode={selectedLineCode}
+            onOpenSetupDrilldown={() => setIsSetupDrilldownOpen(true)}
+          />
+          {activeSourceDerivationRules.length > 0 && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50/70 border border-blue-200/80 rounded-lg text-xs">
+              <div
+                onClick={() => setProgrammingTypeFilter('DERIVADA_TODAS')}
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                title="Filtrar grade operacional para exibir apenas Derivadas"
+              >
+                <div className="w-5 h-5 rounded-full bg-[#004C97] text-white flex items-center justify-center">
+                  <GitFork className="w-3 h-3" />
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                  <span className="font-bold text-[#004C97] uppercase tracking-wide">
+                    Derivações:
+                  </span>
+                  <span className="text-amber-700 font-bold font-mono">
+                    {derivationMetrics.pendingCount} pendentes
+                  </span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-emerald-700 font-bold font-mono">
+                    {derivationMetrics.generatedCount} geradas
+                  </span>
+                  <span className="text-slate-400">•</span>
+                  <span
+                    className={`font-bold font-mono ${derivationMetrics.conflictCount > 0 ? 'text-rose-600' : 'text-slate-500'}`}
+                  >
+                    {derivationMetrics.conflictCount} com conflito
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProgrammingTypeFilter('DERIVADA_TODAS')}
+                className="text-[10px] font-bold text-[#004C97] hover:underline"
+              >
+                Ver Derivadas &rarr;
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* 3. BARRA DE AÇÕES DA PROGRAMAÇÃO & SELETOR DE VISÃO (REQUISITO 1) */}
@@ -3721,6 +3795,65 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                     ))}
                 </select>
               </div>
+
+              {/* Filtro: Tipo de Programação (Principal vs Derivadas) */}
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-600">Tipo:</span>
+                <select
+                  value={programmingTypeFilter}
+                  onChange={(e) =>
+                    setProgrammingTypeFilter(
+                      e.target.value as
+                        | 'ALL'
+                        | 'PRINCIPAL'
+                        | 'DERIVADA_TODAS'
+                        | 'DERIVADA_AUTOMATICA'
+                        | 'DERIVADA_MANUAL',
+                    )
+                  }
+                  aria-label="Filtro Tipo de Programação"
+                  className="text-xs bg-white border border-slate-300 rounded px-1.5 py-0.5 font-bold text-[#004C97] focus:outline-hidden focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todos</option>
+                  <option value="PRINCIPAL">Principal</option>
+                  <option value="DERIVADA_TODAS">Derivada</option>
+                  <option value="DERIVADA_AUTOMATICA">Derivada Automática</option>
+                  <option value="DERIVADA_MANUAL">Derivada c/ Ajuste Manual</option>
+                </select>
+              </div>
+
+              {/* Campo: Derivação do Centro */}
+              {activeSourceDerivationRules.length === 0 ? (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100/80 border border-slate-200 text-slate-500 text-[11px]">
+                  <GitFork className="w-3 h-3 text-slate-400" />
+                  <span>
+                    Derivação: <strong className="font-semibold">Não possui</strong>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-[11px] font-semibold text-[#004C97]">
+                  <GitFork className="w-3 h-3" />
+                  <span>
+                    Origem de Derivação • {derivationMetrics.uniqueTargetCenters.length}{' '}
+                    {derivationMetrics.uniqueTargetCenters.length === 1 ? 'Centro' : 'Centros'}
+                  </span>
+                </div>
+              )}
+
+              {/* Aviso discreto quando houver itens aguardando derivação (item 28) */}
+              {derivationMetrics.pendingCount > 0 && (
+                <div
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-bold"
+                  title="Itens da semana aguardando programação derivada nos centros destino"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>
+                    {derivationMetrics.pendingCount}{' '}
+                    {derivationMetrics.pendingCount === 1 ? 'item aguardando' : 'itens aguardando'}{' '}
+                    programação derivada
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Ações da Grade Operacional */}
@@ -3796,6 +3929,29 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               >
                 <Scissors className="w-3 h-3 mr-1 text-slate-500" />
                 Dividir Qtd.
+              </Button>
+
+              {/* Botão GERAR PROGRAMAÇÃO DERIVADA (Requisito d) */}
+              <Button
+                size="sm"
+                disabled={
+                  activeSourceDerivationRules.length === 0 ||
+                  derivationMetrics.pendingCount === 0 ||
+                  isScheduleHistoricalLocked
+                }
+                onClick={() => setIsDerivedModalOpen(true)}
+                title={
+                  derivationMetrics.pendingCount === 0
+                    ? 'Não há itens pendentes de derivação para esta semana'
+                    : `Gerar programação derivada para: ${derivationMetrics.uniqueTargetCenters.join(', ')}`
+                }
+                className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
+              >
+                <GitFork className="w-3.5 h-3.5" />
+                Gerar Programação Derivada
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-slate-900 text-amber-300 text-[10px] font-black">
+                  {derivationMetrics.pendingCount}
+                </span>
               </Button>
             </div>
           </div>
@@ -4195,7 +4351,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </div>
             ) : gridFormat === 'OPERATIONAL_TIMELINE' ? (
               <OperationalTimelineGrid
-                items={calculatedItems || []}
+                items={tipoProgrammingFilteredItems || []}
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
                 year={selectedYear}
@@ -4227,7 +4383,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               />
             ) : (
               <WeeklyScheduleGrid
-                items={calculatedItems || []}
+                items={tipoProgrammingFilteredItems || []}
                 lineOverview={currentLineOverview}
                 selectedItemId={selectedScheduleItem?.id}
                 year={selectedYear}
@@ -4425,29 +4581,19 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
       {/* 5.2 MODAL DE PROGRAMAÇÃO DERIVADA (Requisito C.7) */}
       <DerivedProgrammingModal
-        open={isDerivedModalOpen}
+        isOpen={isDerivedModalOpen}
         onClose={() => setIsDerivedModalOpen(false)}
-        matchResult={contextualDerivationMatch}
-        parentItem={pendingParentForDerivation}
-        currentUser={auth?.user?.name || 'Engenharia PCP'}
-        onConfirmDerive={(derivedCreated) => {
-          const listWithDerived = [...items, derivedCreated]
-          const finalRecalc = WeeklyScheduleEngine.recalculateWeeklyTimeline(
-            listWithDerived,
-            currentLineOverview,
-            headerFilter,
-            rawMaterialContext,
-          )
-          setItems(finalRecalc.items)
-          weeklyScheduleService
-            .saveWeeklyScheduleDraft(finalRecalc.items, headerFilter)
-            .catch(() => {})
-          setContextualDerivationMatch(null)
-          setPendingParentForDerivation(null)
-          toast({
-            title: 'Centro Derivado Programado',
-            description: `Programação no Centro ${derivedCreated.centro_destino} inserida com rastreabilidade mantida.`,
-          })
+        currentLineCode={selectedLineCode}
+        currentYear={selectedYear}
+        currentWeek={selectedWeekNumber}
+        currentVersion={currentVersion}
+        items={items}
+        onNavigateToCenter={(targetCenterCode) => {
+          setSelectedLineCode(targetCenterCode)
+          loadLineData(targetCenterCode)
+        }}
+        onSuccess={() => {
+          loadLineData(selectedLineCode)
         }}
       />
 

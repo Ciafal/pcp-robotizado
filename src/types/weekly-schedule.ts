@@ -99,6 +99,7 @@ export interface WeeklyScheduleItem {
   production_order?: string
   sales_order_mto?: string
   customer_name?: string
+  client_name?: string
   order_type: 'MTS' | 'MTO' | 'INDUSTRIALIZACAO'
   planned_quantity_tons: number
   productivity_rate_th: number
@@ -269,6 +270,7 @@ export interface WeeklyScheduleItem {
     regra_resumo?: string
     linha_origem?: string
     data_hora_prevista?: string
+    data_hora_geracao?: string
   }
 }
 
