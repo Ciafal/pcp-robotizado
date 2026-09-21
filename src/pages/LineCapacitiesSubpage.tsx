@@ -281,8 +281,8 @@ export default function LineCapacitiesSubpage() {
       const structured: HierarchyLineStructure[] = lineRecords.map((line) => {
         const company = resolveCompanyForLine(line)
 
-        // Centros associados via line_sequencing_dependencies
-        const centerDeps = allDeps.filter((d) => d.line_id === line.id)
+        // Centros associados via line_sequencing_dependencies com normalização defensiva
+        const centerDeps = allDeps.filter((d) => d && d.line_id === line.id)
 
         const centers: CenterSequenceItem[] = []
 
@@ -439,10 +439,15 @@ export default function LineCapacitiesSubpage() {
     loadData()
   }, [loadData])
 
-  // Filtragem por empresa
+  // Filtragem por empresa com normalização defensiva de centers
   const filteredHierarchy = useMemo(() => {
-    if (selectedCompanyId === 'ALL') return hierarchyLines
-    return hierarchyLines.filter((l) => l.companyId === selectedCompanyId)
+    const list = Array.isArray(hierarchyLines) ? hierarchyLines : []
+    const normalized = list.map((l) => ({
+      ...l,
+      centers: Array.isArray(l.centers) ? l.centers : [],
+    }))
+    if (selectedCompanyId === 'ALL') return normalized
+    return normalized.filter((l) => l.companyId === selectedCompanyId)
   }, [hierarchyLines, selectedCompanyId])
 
   // Tradução amigável de status operacional
@@ -1116,10 +1121,11 @@ export default function LineCapacitiesSubpage() {
   // Centros disponíveis para adição (existentes na coleção production_lines)
   const availableCentersToAdd = useMemo(() => {
     if (!targetLineIdForAdd) return []
-    const lineStruct = hierarchyLines.find((l) => l.id === targetLineIdForAdd)
+    const lineStruct = (hierarchyLines || []).find((l) => l.id === targetLineIdForAdd)
     if (!lineStruct) return []
-    const boundCenterIds = new Set(lineStruct.centers.map((c) => c.centerId))
-    return lines.filter((l) => !boundCenterIds.has(l.id))
+    const safeCenters = Array.isArray(lineStruct.centers) ? lineStruct.centers : []
+    const boundCenterIds = new Set(safeCenters.map((c) => c?.centerId).filter(Boolean))
+    return (Array.isArray(lines) ? lines : []).filter((l) => l && !boundCenterIds.has(l.id))
   }, [targetLineIdForAdd, hierarchyLines, lines])
 
   return (
@@ -1300,7 +1306,7 @@ export default function LineCapacitiesSubpage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-100 text-xs gap-2">
                   <span className="font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#004C97]" /> Sequência Operacional de
-                    Centros ({lineStruct.centers.length})
+                    Centros ({(lineStruct.centers || []).length})
                   </span>
                   <span className="text-[11px] text-slate-400 font-mono">
                     Saltos de sequência: 10 &bull; 20 &bull; 30... (utilize os controles para
@@ -1308,7 +1314,7 @@ export default function LineCapacitiesSubpage() {
                   </span>
                 </div>
 
-                {lineStruct.centers.length === 0 ? (
+                {!lineStruct.centers || lineStruct.centers.length === 0 ? (
                   <div className="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-300">
                     <p className="text-xs text-slate-600 font-medium">
                       Nenhum centro vinculado a esta linha produtiva.
@@ -1319,7 +1325,7 @@ export default function LineCapacitiesSubpage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {lineStruct.centers.map((center, idx) => {
+                    {(lineStruct.centers || []).map((center, idx) => {
                       const opDisplay = getOperationalStatusDisplay(center.operationalStatus)
                       return (
                         <div
@@ -1691,14 +1697,14 @@ export default function LineCapacitiesSubpage() {
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
                     <Sliders className="w-3.5 h-3.5 text-[#004C97]" /> Bloco 2 — Centros da Linha (
-                    {editingLineStruct.centers.length})
+                    {(editingLineStruct.centers || []).length})
                   </div>
                   <span className="text-[11px] text-slate-400 font-mono">
                     Ordem com saltos 10 / 20 / 30
                   </span>
                 </div>
 
-                {editingLineStruct.centers.length === 0 ? (
+                {!editingLineStruct.centers || editingLineStruct.centers.length === 0 ? (
                   <div className="p-6 text-center bg-slate-50 rounded border border-dashed border-slate-200">
                     <p className="text-xs text-slate-500">Nenhum centro vinculado a esta linha.</p>
                   </div>
@@ -1716,7 +1722,7 @@ export default function LineCapacitiesSubpage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {editingLineStruct.centers.map((c, idx) => (
+                        {(editingLineStruct.centers || []).map((c, idx) => (
                           <tr key={c.centerId} className="hover:bg-slate-50/70">
                             <td className="p-2.5 text-center font-mono font-bold text-[#004C97]">
                               {String(c.sequenceOrder).padStart(2, '0')}
@@ -1932,18 +1938,21 @@ export default function LineCapacitiesSubpage() {
           </DialogHeader>
 
           <div className="py-2 space-y-2 max-h-60 overflow-y-auto">
-            {blockingDependencies?.reasons.map((reason, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1"
-              >
-                <div className="font-bold text-rose-800 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                  {reason.title}
+            {Array.isArray(blockingDependencies?.reasons) &&
+              blockingDependencies.reasons.map((reason, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1"
+                >
+                  <div className="font-bold text-rose-800 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                    {reason?.title || 'Dependência'}
+                  </div>
+                  <p className="text-[11px] text-rose-700 leading-relaxed">
+                    {reason?.details || ''}
+                  </p>
                 </div>
-                <p className="text-[11px] text-rose-700 leading-relaxed">{reason.details}</p>
-              </div>
-            ))}
+              ))}
           </div>
 
           <DialogFooter className="pt-2 border-t border-slate-100">

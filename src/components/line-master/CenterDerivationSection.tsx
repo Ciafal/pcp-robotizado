@@ -159,7 +159,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
           httpStatus: 400,
           technicalMessage: vMsg,
           userMessage: vMsg,
-          rule_summary: `${rule.source_center_code} / MATKL ${(rule.matkl_groups || []).map((m) => m.matkl).join(',')}`,
+          rule_summary: `${rule.source_center_code} / MATKL ${(Array.isArray(rule.matkl_groups) ? rule.matkl_groups : []).map((m) => m?.matkl || '').join(',')}`,
           previous_value: '-',
           new_value: '-',
           user_name: currentUser,
@@ -177,13 +177,16 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
       const saved = await centerDerivationService.saveDerivationRule(rule, currentUser, options)
 
       let updatedList: CenterDerivationRule[]
-      const matklSummary = (saved.matkl_groups || []).map((m) => `MATKL ${m.matkl}`).join(', ')
+      const matklSummary = (Array.isArray(saved.matkl_groups) ? saved.matkl_groups : [])
+        .map((m) => `MATKL ${m?.matkl || ''}`)
+        .join(', ')
       const summaryText = `Origem: ${saved.source_center_code} | Destino: ${centerCode} | MATKL: ${matklSummary || 'Nenhum'} | Status: ${saved.status}`
 
+      const currentRules = Array.isArray(rules) ? rules : []
       if (rule.id) {
-        updatedList = rules.map((r) => (r.id === rule.id ? saved : r))
+        updatedList = currentRules.map((r) => (r.id === rule.id ? saved : r))
       } else {
-        updatedList = [saved, ...rules]
+        updatedList = [saved, ...currentRules]
       }
 
       toast({
@@ -204,7 +207,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
           technicalMessage:
             'Registro de derivação persistido com sucesso na coleção pcp_center_derivations',
           userMessage: 'Derivação salva com sucesso',
-          rule_summary: `${saved.source_center_code} / MATKL ${(saved.matkl_groups || []).map((m) => m.matkl).join(',')}`,
+          rule_summary: `${saved.source_center_code} / MATKL ${(Array.isArray(saved.matkl_groups) ? saved.matkl_groups : []).map((m) => m?.matkl || '').join(',')}`,
           previous_value: rule.id ? 'regra_anterior' : 'nenhuma',
           new_value: `${saved.source_center_code} -> ${centerCode} (${saved.status})`,
           user_name: currentUser,
@@ -244,7 +247,7 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
           httpStatus: isTimeout ? 408 : 500,
           technicalMessage: err?.message || 'Erro desconhecido na requisição',
           userMessage: userFriendlyMsg,
-          rule_summary: `${rule.source_center_code} / MATKL ${(rule.matkl_groups || []).map((m) => m.matkl).join(',')}`,
+          rule_summary: `${rule.source_center_code} / MATKL ${(Array.isArray(rule.matkl_groups) ? rule.matkl_groups : []).map((m) => m?.matkl || '').join(',')}`,
           previous_value: '-',
           new_value: '-',
           user_name: currentUser,
@@ -265,7 +268,8 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
     if (readOnly) return
     try {
       const updated = await centerDerivationService.toggleStatus(rule, currentUser)
-      const updatedList = rules.map((r) => (r.id === rule.id ? updated : r))
+      const currentRules = Array.isArray(rules) ? rules : []
+      const updatedList = currentRules.map((r) => (r.id === rule.id ? updated : r))
       onRulesChange(updatedList)
       toast({
         title: `Regra ${updated.status}`,
@@ -294,7 +298,8 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
       }
 
       // Remover visualmente da lista ativa
-      const updatedList = rules.filter((r) => r.id !== ruleToDelete.id)
+      const currentRules = Array.isArray(rules) ? rules : []
+      const updatedList = currentRules.filter((r) => r.id !== ruleToDelete.id)
       onRulesChange(updatedList)
 
       toast({
@@ -658,14 +663,13 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
           <CenterDerivationModal
             open={modalOpen}
             onClose={() => setModalOpen(false)}
-            currentCenterCode={centerCode}
-            currentCenterName={centerName}
-            availableCenters={availableCenters}
-            existingRule={editingRule}
             onSaveRule={handleSaveRule}
+            currentCenterCode={centerCode}
+            availableCenters={Array.isArray(availableCenters) ? availableCenters : []}
+            existingRule={editingRule}
+            allRules={Array.isArray(rules) ? rules : []}
           />
         )}
-
         {/* Modal de Visualização Detalhada (Read-only) */}
         {viewingRule && (
           <AlertDialog open={Boolean(viewingRule)} onOpenChange={() => setViewingRule(null)}>
@@ -732,20 +736,22 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
                     Grupos de Mercadorias (MATKL):
                   </span>
                   <div className="space-y-1 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded border border-slate-200">
-                    {(viewingRule.matkl_groups || []).map((m) => (
-                      <div
-                        key={m.matkl}
-                        className="flex items-center gap-2 p-1 bg-white rounded border border-slate-200 text-xs"
-                      >
-                        <Badge
-                          variant="outline"
-                          className="font-mono font-bold bg-blue-50 text-[#004C97]"
+                    {(Array.isArray(viewingRule.matkl_groups) ? viewingRule.matkl_groups : []).map(
+                      (m) => (
+                        <div
+                          key={m?.matkl || Math.random().toString()}
+                          className="flex items-center gap-2 p-1 bg-white rounded border border-slate-200 text-xs"
                         >
-                          MATKL {m.matkl}
-                        </Badge>
-                        <span className="text-slate-700">{m.description}</span>
-                      </div>
-                    ))}
+                          <Badge
+                            variant="outline"
+                            className="font-mono font-bold bg-blue-50 text-[#004C97]"
+                          >
+                            MATKL {m?.matkl || ''}
+                          </Badge>
+                          <span className="text-slate-700">{m?.description || ''}</span>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>
@@ -789,8 +795,9 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
                 </div>
                 <div className="text-[11px] text-slate-500">
                   Grupos:{' '}
-                  {(ruleToDelete.matkl_groups || []).map((m) => `MATKL ${m.matkl}`).join(', ') ||
-                    'Nenhum'}
+                  {(Array.isArray(ruleToDelete.matkl_groups) ? ruleToDelete.matkl_groups : [])
+                    .map((m) => `MATKL ${m?.matkl || ''}`)
+                    .join(', ') || 'Nenhum'}
                 </div>
               </div>
 

@@ -94,24 +94,65 @@ export default function LineMasterPage() {
     useState<MasterSheetNavigationTarget | null>(null)
   const [isCompletenessModalOpen, setIsCompletenessModalOpen] = useState(false)
 
+  const normalizeLineRecord = (raw: any): ProductionLine => {
+    if (!raw || typeof raw !== 'object') {
+      return {
+        id: 'unknown',
+        code: 'N/A',
+        name: 'Centro não identificado',
+        status: 'idle',
+        is_active: true,
+        is_derived: false,
+        programming_type: 'Laminação',
+        shifts_summary: ['T1', 'T2', 'T3'],
+        crews_summary: ['A', 'B', 'C'],
+        current_rate: 12,
+        efficiency: 90,
+      } as ProductionLine
+    }
+    return {
+      ...raw,
+      id: raw.id || '',
+      code: raw.code || '',
+      name: raw.name || raw.code || 'Centro de Produção',
+      status: raw.status || 'idle',
+      is_active: raw.is_active !== false,
+      is_derived: Boolean(raw.is_derived),
+      programming_type: raw.programming_type || 'Laminação',
+      shifts_summary: Array.isArray(raw.shifts_summary)
+        ? raw.shifts_summary.filter(Boolean)
+        : ['T1', 'T2', 'T3'],
+      crews_summary: Array.isArray(raw.crews_summary)
+        ? raw.crews_summary.filter(Boolean)
+        : ['A', 'B', 'C'],
+      current_rate: typeof raw.current_rate === 'number' ? raw.current_rate : 12,
+      efficiency: typeof raw.efficiency === 'number' ? raw.efficiency : 90,
+      sap_plant_code: raw.sap_plant_code || '1000',
+    }
+  }
+
   const loadData = async () => {
     setLoading(true)
     try {
       const [linesData, usersData, famsData, sapData] = await Promise.all([
-        lineMasterService.listLines(),
-        authService.listUsers(),
-        lineMasterService.listProductFamilies(),
-        sapIntegrationService.listCatalog(),
+        lineMasterService.listLines().catch((err) => {
+          console.error('Falha ao listar centros em lineMasterService.listLines:', err)
+          return []
+        }),
+        authService.listUsers().catch(() => []),
+        lineMasterService.listProductFamilies().catch(() => []),
+        sapIntegrationService.listCatalog().catch(() => []),
       ])
 
-      setLines(linesData)
-      setUsers(usersData)
-      setProductFamilies(famsData)
-      setSapCatalog(sapData)
+      const safeLines = (Array.isArray(linesData) ? linesData : []).map(normalizeLineRecord)
+      setLines(safeLines)
+      setUsers(Array.isArray(usersData) ? usersData : [])
+      setProductFamilies(Array.isArray(famsData) ? famsData : [])
+      setSapCatalog(Array.isArray(sapData) ? sapData : [])
 
       // FIX 2: Limitar paralelismo das completudes para evitar rajada de 200+ queries filhas.
       // Prioriza a linha selecionada na URL / estado inicial e calcula as demais em lotes controlados
-      const initialTargetId = selectedLineId || (linesData.length > 0 ? linesData[0].id : null)
+      const initialTargetId = selectedLineId || (safeLines.length > 0 ? safeLines[0].id : null)
       const map: Record<string, MasterSheetCompletenessResult> = {}
 
       if (initialTargetId) {
@@ -119,15 +160,17 @@ export default function LineMasterPage() {
           const initialComp = await lineMasterService.getMasterSheetCompleteness(initialTargetId, {
             forceRefresh: false,
           })
-          map[initialTargetId] = initialComp
-          setCompletenessByLine({ ...map })
-        } catch {
-          // segue em frente
+          if (initialComp) {
+            map[initialTargetId] = initialComp
+            setCompletenessByLine({ ...map })
+          }
+        } catch (err) {
+          console.warn(`Completude isolada indisponível para centro ${initialTargetId}:`, err)
         }
       }
 
       // Executa as demais completudes em background em pequenos lotes (concorrência = 2)
-      const remainingLines = linesData.filter((l) => l.id !== initialTargetId)
+      const remainingLines = safeLines.filter((l) => l.id !== initialTargetId)
       const batchSize = 2
       ;(async () => {
         for (let i = 0; i < remainingLines.length; i += batchSize) {
@@ -139,13 +182,14 @@ export default function LineMasterPage() {
                   forceRefresh: false,
                 })
                 return [l.id, comp] as const
-              } catch {
+              } catch (err) {
+                console.warn(`Completude do centro ${l.code} (${l.id}) indisponível:`, err)
                 return null
               }
             }),
           )
           results.forEach((entry) => {
-            if (entry) map[entry[0]] = entry[1]
+            if (entry && entry[1]) map[entry[0]] = entry[1]
           })
           setCompletenessByLine({ ...map })
         }
@@ -153,14 +197,15 @@ export default function LineMasterPage() {
 
       // Se houver uma linha já selecionada, recarrega o overview dela aproveitando a linha em memória
       if (selectedLineId) {
-        const found = linesData.find((l) => l.id === selectedLineId)
+        const found = safeLines.find((l) => l.id === selectedLineId)
         await loadLineOverview(selectedLineId, found)
       }
     } catch (err: any) {
+      console.error('Erro geral ao carregar dados em LineMasterPage:', err)
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar Centros e Ficha Mestra',
-        description: err.message,
+        description: err?.message || 'Falha na inicialização dos dados cadastrais.',
       })
     } finally {
       setLoading(false)
@@ -250,7 +295,7 @@ export default function LineMasterPage() {
       (line.process && line.process.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = statusFilter === 'ALL' || line.status === statusFilter
     const matchesPlant = plantFilter === 'ALL' || line.plant === plantFilter
-    const isLineActive = line.is_active === true // estrito booleano
+    const isLineActive = line.is_active !== false // padrão ativo para legados
     const matchesCadastral =
       activeCadastralFilter === 'ALL' ||
       (activeCadastralFilter === 'ACTIVE' && isLineActive) ||
@@ -711,8 +756,8 @@ export default function LineMasterPage() {
                               <Clock className="w-3 h-3 text-slate-500" /> Turnos:
                             </span>
                             <span className="font-mono font-medium text-slate-800 truncate">
-                              {l.shifts_summary && l.shifts_summary.length > 0
-                                ? l.shifts_summary.join(' • ')
+                              {Array.isArray(l.shifts_summary) && l.shifts_summary.length > 0
+                                ? l.shifts_summary.filter(Boolean).join(' • ')
                                 : 'T1 • T2 • T3'}
                             </span>
                           </div>
@@ -721,8 +766,8 @@ export default function LineMasterPage() {
                               <Users className="w-3 h-3 text-slate-500" /> Turmas:
                             </span>
                             <span className="font-mono font-medium text-slate-800 truncate">
-                              {l.crews_summary && l.crews_summary.length > 0
-                                ? l.crews_summary.join(' • ')
+                              {Array.isArray(l.crews_summary) && l.crews_summary.length > 0
+                                ? l.crews_summary.filter(Boolean).join(' • ')
                                 : 'A • B • C'}
                             </span>
                           </div>
@@ -778,8 +823,9 @@ export default function LineMasterPage() {
                         {/* Indicador de Preenchimento da Ficha Mestre */}
                         {(() => {
                           const comp = completenessByLine[l.id]
-                          const pct = comp ? comp.percentage : 0
-                          const statusLabel = comp ? comp.status : 'Calculando...'
+                          const pct =
+                            comp && typeof comp.percentage === 'number' ? comp.percentage : 0
+                          const statusLabel = comp && comp.status ? comp.status : 'Calculando...'
                           const badgeColor =
                             pct >= 100
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'

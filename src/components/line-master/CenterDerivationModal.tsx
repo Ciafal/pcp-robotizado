@@ -305,8 +305,9 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
 
     try {
       // Resolver IDs relacionais
-      const currentCenterObj = availableCenters.find(
-        (c) => c.code.trim().toUpperCase() === currentCenterCode.trim().toUpperCase(),
+      const currentCenterObj = (availableCenters || []).find(
+        (c) =>
+          c && c.code && c.code.trim().toUpperCase() === currentCenterCode.trim().toUpperCase(),
       )
       const srcLine = selectedCenterObj
 
@@ -327,7 +328,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
         source_center_werks:
           selectedWerks || srcLine?.sap_plant_code || existingRule?.source_center_werks || '1000',
         source_center_line: srcLine?.linha_produtiva_nome || existingRule?.source_center_line || '',
-        matkl_groups: selectedMatklGroups,
+        matkl_groups: Array.isArray(selectedMatklGroups) ? selectedMatklGroups : [],
         start_date: startDate.trim(),
         end_date: endDate.trim() ? endDate.trim() : undefined,
         status: status,
@@ -371,6 +372,7 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
         setErrorMessage('Falha ao persistir a Derivação no banco de dados.')
       }
     } finally {
+      // finally SEMPRE libera o loading mantendo modal aberto e campos preservados
       setSaving(false)
     }
   }
@@ -501,18 +503,20 @@ export const CenterDerivationModal: React.FC<CenterDerivationModalProps> = ({
                 className="w-full bg-white border border-slate-300 rounded-md p-2 text-xs font-medium text-slate-800 focus:ring-1 focus:ring-[#004C97]"
               >
                 <option value="">Selecione o Centro de Origem...</option>
-                {filteredSourceCenters.map((c) => {
-                  const isActive = c.is_active !== false && c.status !== 'stopped'
-                  const sapCode = c.sap_work_center || c.sap_plant_code || ''
-                  const sapPart = sapCode ? ` — SAP: ${sapCode}` : ''
-                  const inactivePart = !isActive ? ' — INATIVO' : ''
-                  const label = `${c.code} — ${c.name}${sapPart}${inactivePart}`
-                  return (
-                    <option key={c.id || c.code} value={c.code}>
-                      {label}
-                    </option>
-                  )
-                })}
+                {Array.isArray(filteredSourceCenters) &&
+                  filteredSourceCenters.map((c) => {
+                    if (!c) return null
+                    const isActive = c.is_active !== false && c.status !== 'stopped'
+                    const sapCode = c.sap_work_center || c.sap_plant_code || ''
+                    const sapPart = sapCode ? ` — SAP: ${sapCode}` : ''
+                    const inactivePart = !isActive ? ' — INATIVO' : ''
+                    const label = `${c.code || ''} — ${c.name || ''}${sapPart}${inactivePart}`
+                    return (
+                      <option key={c.id || c.code} value={c.code}>
+                        {label}
+                      </option>
+                    )
+                  })}
               </select>
 
               {/* Alerta de Centro Inativo */}

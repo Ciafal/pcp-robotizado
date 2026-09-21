@@ -464,62 +464,64 @@ export const MasterSheetCompletenessModal: React.FC<MasterSheetCompletenessModal
               </span>
             </div>
 
-            {completeness.pendencies.length === 0 ? (
-              <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-lg text-center space-y-1">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <p className="text-sm font-bold text-emerald-900">Ficha Mestre 100% Preenchida!</p>
-                <p className="text-xs text-emerald-700">
+            {!Array.isArray(completeness.pendencies) || completeness.pendencies.length === 0 ? (
+              <div className="p-8 text-center bg-emerald-50/50 rounded-xl border border-dashed border-emerald-200">
+                <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+                <h4 className="text-sm font-bold text-emerald-950">Ficha Mestre 100% Conforme</h4>
+                <p className="text-xs text-emerald-700 mt-1 max-w-sm mx-auto">
                   Todos os parâmetros obrigatórios da linha {completeness.lineCode} foram informados
                   e estão aptos para validação.
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {completeness.pendencies.map((pend) => {
-                  const blockTitle = completeness.blocks[pend.blockKey]?.title || 'Ficha Mestre'
-                  return (
-                    <div
-                      key={pend.id}
-                      className="p-3 bg-white rounded-lg border border-amber-200 hover:border-[#004C97] transition-all flex items-center justify-between gap-3 text-xs shadow-xs group"
-                    >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">{pend.label}</span>
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] bg-slate-50 text-slate-600 border-slate-200"
-                          >
-                            {blockTitle}
-                          </Badge>
+                {(Array.isArray(completeness.pendencies) ? completeness.pendencies : []).map(
+                  (pend) => {
+                    const blockTitle = completeness.blocks[pend.blockKey]?.title || 'Ficha Mestre'
+                    return (
+                      <div
+                        key={pend.id}
+                        className="p-3 bg-white rounded-lg border border-amber-200 hover:border-[#004C97] transition-all flex items-center justify-between gap-3 text-xs shadow-xs group"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">{pend.label}</span>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] bg-slate-50 text-slate-600 border-slate-200"
+                            >
+                              {blockTitle}
+                            </Badge>
+                          </div>
+                          <p className="text-rose-600 font-medium text-[11px]">
+                            {pend.missingMessage ||
+                              'Parâmetro obrigatório pendente de preenchimento.'}
+                          </p>
                         </div>
-                        <p className="text-rose-600 font-medium text-[11px]">
-                          {pend.missingMessage ||
-                            'Parâmetro obrigatório pendente de preenchimento.'}
-                        </p>
-                      </div>
 
-                      {pend.navigationTarget && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={savingPendencyId === pend.id}
-                          onClick={() => handleFixPendency(pend)}
-                          className="text-[#004C97] hover:bg-blue-50 font-semibold text-xs h-7 gap-1 shrink-0 group-hover:translate-x-0.5 transition-transform disabled:opacity-70"
-                        >
-                          {savingPendencyId === pend.id ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...
-                            </>
-                          ) : (
-                            <>
-                              Corrigir <ArrowRight className="w-3.5 h-3.5" />
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  )
-                })}
+                        {pend.navigationTarget && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={savingPendencyId === pend.id}
+                            onClick={() => handleFixPendency(pend)}
+                            className="text-[#004C97] hover:bg-blue-50 font-semibold text-xs h-7 gap-1 shrink-0 group-hover:translate-x-0.5 transition-transform disabled:opacity-70"
+                          >
+                            {savingPendencyId === pend.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...
+                              </>
+                            ) : (
+                              <>
+                                Corrigir <ArrowRight className="w-3.5 h-3.5" />
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  },
+                )}
               </div>
             )}
           </div>

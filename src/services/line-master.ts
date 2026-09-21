@@ -91,21 +91,35 @@ export const lineMasterService = {
       return lines.map((l) => {
         // Alimenta o cache em memória com o registro da listagem para evitar getOne posterior
         lineMemoryCache.set(l.id, { record: l, timestamp: Date.now() })
-        const lineShifts = allShifts.filter((s) => s.line_id === l.id).map((s) => s.code)
-        const lineCrews = allCrews.filter((c) => c.line_id === l.id).map((c) => c.code)
-        const activeMaster = allMasters.find((m) => m.line_id === l.id)
+        const lineShifts = Array.isArray(allShifts)
+          ? allShifts
+              .filter((s) => s && s.line_id === l.id)
+              .map((s) => s.code)
+              .filter(Boolean)
+          : []
+        const lineCrews = Array.isArray(allCrews)
+          ? allCrews
+              .filter((c) => c && c.line_id === l.id)
+              .map((c) => c.code)
+              .filter(Boolean)
+          : []
+        const activeMaster = Array.isArray(allMasters)
+          ? allMasters.find((m) => m && m.line_id === l.id)
+          : undefined
         // Fonte única de verdade: line_masters.programming_type com fallback para lines.programming_type
-        const resolvedProgrammingType = activeMaster?.programming_type || l.programming_type
+        const resolvedProgrammingType =
+          activeMaster?.programming_type || l.programming_type || 'Laminação'
         return {
           ...l,
+          is_derived: Boolean(l.is_derived),
           programming_type: resolvedProgrammingType,
           shifts_summary: lineShifts,
           crews_summary: lineCrews,
-          sap_plant_code: activeMaster?.sap_plant_code ?? (l as any).sap_plant_code,
+          sap_plant_code: activeMaster?.sap_plant_code ?? (l as any).sap_plant_code ?? '1000',
           nominal_hourly_capacity:
-            activeMaster?.nominal_hourly_capacity ?? (l as any).nominal_hourly_capacity,
+            activeMaster?.nominal_hourly_capacity ?? (l as any).nominal_hourly_capacity ?? 0,
           planned_efficiency_pct:
-            activeMaster?.planned_efficiency_pct ?? (l as any).planned_efficiency_pct,
+            activeMaster?.planned_efficiency_pct ?? (l as any).planned_efficiency_pct ?? 0,
         }
       })
     } catch (err) {

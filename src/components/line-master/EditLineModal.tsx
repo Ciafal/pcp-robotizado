@@ -327,13 +327,16 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
           setLoadingRestrictions(false)
         }
 
-        // Carregar Derivações de Centro cadastradas
+        // Carregar Derivações de Centro cadastradas com isolamento de falha
         try {
           const rules = await centerDerivationService.getDerivationsByCenter(line.code)
-          setDerivationRules(rules)
-          setIsDerived(Boolean(line.is_derived || rules.length > 0))
+          const safeRules = Array.isArray(rules) ? rules : []
+          setDerivationRules(safeRules)
+          setIsDerived(Boolean(line.is_derived || safeRules.length > 0))
         } catch (dErr) {
           console.warn('Erro ao carregar derivações do centro:', dErr)
+          setDerivationRules([])
+          setIsDerived(Boolean(line.is_derived))
         }
 
         setFormData((prev) => ({
