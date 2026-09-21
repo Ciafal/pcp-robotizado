@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Plus,
   Play,
@@ -371,6 +371,71 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       selectedProgrammingType,
     ],
   )
+
+  // Estado da Derivação do Centro Selecionado como DESTINO (PATCH 4, 5, 6, 7)
+  const [selectedCenterDerivation, setSelectedCenterDerivation] = useState<{
+    isDerived: boolean
+    hasSource: boolean
+    sourceCenterId?: string
+    sourceCenterCode?: string
+    sourceCenterName?: string
+    sourceCenterDisplay?: string
+    activeRules: CenterDerivationRule[]
+  }>({
+    isDerived: false,
+    hasSource: false,
+    activeRules: [],
+  })
+  const [isLoadingCenterDerivation, setIsLoadingCenterDerivation] = useState<boolean>(false)
+  const [isGeneratingDerivedSchedule, setIsGeneratingDerivedSchedule] = useState<boolean>(false)
+  const [derivationNoticeMessage, setDerivationNoticeMessage] = useState<{
+    type: 'empty_origin' | 'missing_source_config' | 'success'
+    message: string
+  } | null>(null)
+
+  // Token anti race condition para troca rápida de filtros
+  const derivationRequestSeqRef = useRef<number>(0)
+
+  // PATCH 4: Consulta se o centro selecionado é DERIVADO e quem é seu centro de ORIGEM
+  useEffect(() => {
+    const currentSeq = ++derivationRequestSeqRef.current
+
+    if (!selectedLineCode || !companyCode || !selectedProgrammingType) {
+      setSelectedCenterDerivation({
+        isDerived: false,
+        hasSource: false,
+        activeRules: [],
+      })
+      setDerivationNoticeMessage(null)
+      return
+    }
+
+    setIsLoadingCenterDerivation(true)
+    const refDateIso = weekRange.startDate.toISOString().split('T')[0]
+
+    centerDerivationService
+      .getCenterDerivationInfo(selectedLineCode, refDateIso)
+      .then((info) => {
+        // Proteção contra race condition: descarta resposta antiga
+        if (currentSeq !== derivationRequestSeqRef.current) return
+        setSelectedCenterDerivation(info)
+        setDerivationNoticeMessage(null)
+      })
+      .catch((err) => {
+        if (currentSeq !== derivationRequestSeqRef.current) return
+        console.warn('Erro ao consultar derivação do centro selecionado:', err)
+        setSelectedCenterDerivation({
+          isDerived: false,
+          hasSource: false,
+          activeRules: [],
+        })
+      })
+      .finally(() => {
+        if (currentSeq === derivationRequestSeqRef.current) {
+          setIsLoadingCenterDerivation(false)
+        }
+      })
+  }, [selectedLineCode, companyCode, selectedProgrammingType, weekRange.startDate])
 
   // Carrega regras de derivação onde selectedLineCode é o CENTRO DE ORIGEM
   useEffect(() => {

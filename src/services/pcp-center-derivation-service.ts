@@ -594,6 +594,154 @@ export class CenterDerivationService {
     }
     return null
   }
+
+  /**
+   * Obtém a informação de derivação de um centro produtivo selecionado:
+   * Retorna se é derivado (isDerived: boolean), regras ativas vigentes e centro de origem (id, código, descrição)
+   * Suporta chave real (ID/código interno) consultando production_lines e pcp_center_derivations
+   */
+  async getCenterDerivationInfo(
+    centerIdOrCode: string,
+    referenceDateIso: string = new Date().toISOString().split('T')[0],
+  ): Promise<{
+    isDerived: boolean
+    hasSource: boolean
+    sourceCenterId?: string
+    sourceCenterCode?: string
+    sourceCenterName?: string
+    sourceCenterDisplay?: string
+    activeRules: CenterDerivationRule[]
+    rawLine?: any
+  }> {
+    if (!centerIdOrCode || !centerIdOrCode.trim()) {
+      return { isDerived: false, hasSource: false, activeRules: [] }
+    }
+
+    const trimmed = centerIdOrCode.trim()
+    let lineRecord: any = null
+
+    // 1. Localiza a linha por ID ou por code no PocketBase ou cache
+    try {
+      if (trimmed.length === 15) {
+        // IDs do PocketBase normalmente têm 15 chars
+        try {
+          lineRecord = await pb.collection('production_lines').getOne(trimmed)
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+      if (!lineRecord) {
+        lineRecord = await pb
+          .collection('production_lines')
+          .getFirstListItem(`code = '${trimmed}'`)
+          .catch(() => null)
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+
+    const centerCode = lineRecord?.code || trimmed
+    const centerId = lineRecord?.id || undefined
+
+    // 2. Busca regras onde este centro é o destino (center_code ou center_id)
+    let rules: CenterDerivationRule[] = []
+    try {
+      let filter = `center_code = '${centerCode}' && deleted = false`
+      if (centerId) {
+        filter = `(center_code = '${centerCode}' || center_id = '${centerId}') && deleted = false`
+      }
+      const records = await pb.collection('pcp_center_derivations').getFullList<any>({
+        filter,
+        sort: '-created',
+      })
+      if (records && records.length > 0) {
+        rules = records.map((r: any) => ({
+          id: r.id,
+          center_id: r.center_id,
+          center_code: r.center_code,
+          source_center_id: r.source_center_id,
+          source_center_code: r.source_center_code,
+          source_center_name: r.source_center_name,
+          source_center_sap: r.source_center_sap,
+          source_center_company: r.source_center_company,
+          source_center_line: r.source_center_line,
+          matkl_groups: r.matkl_groups || [],
+          start_date: this.formatDatePtBr(r.start_date),
+          end_date: r.end_date ? this.formatDatePtBr(r.end_date) : undefined,
+          status: r.status as DerivationStatus,
+          deleted: r.deleted,
+          created_by: r.created_by,
+          updated_by: r.updated_by,
+          created: r.created,
+          updated: r.updated,
+        }))
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar regras de derivação para centro:', e)
+    }
+
+    // Fallback de memória se PB não retornar
+    if (rules.length === 0) {
+      rules = inMemoryDerivations.filter(
+        (r) =>
+          (r.center_code?.trim().toUpperCase() === centerCode.toUpperCase() ||
+            (centerId && r.center_id === centerId)) &&
+          !r.deleted,
+      )
+    }
+
+    // 3. Filtrar regras ativas e vigentes na data de referência
+    const activeRules = rules.filter((r) => {
+      if (r.deleted) return false
+      if (r.status !== 'Ativa' && (r.status as string) !== 'ATIVA') return false
+      const startIso = this.parsePtBrToIsoDate(r.start_date) || '1970-01-01'
+      const endIso = r.end_date ? this.parsePtBrToIsoDate(r.end_date) || '9999-12-31' : '9999-12-31'
+      return referenceDateIso >= startIso && referenceDateIso <= endIso
+    })
+
+    const isFlaggedDerived = Boolean(lineRecord?.is_derived)
+    const isDerived = isFlaggedDerived || activeRules.length > 0 || rules.length > 0
+
+    // Selecionar regra prioritária
+    const primaryRule = activeRules[0] || rules[0] || null
+
+    if (!isDerived) {
+      return {
+        isDerived: false,
+        hasSource: false,
+        activeRules: [],
+        rawLine: lineRecord,
+      }
+    }
+
+    if (!primaryRule || !primaryRule.source_center_code) {
+      return {
+        isDerived: true,
+        hasSource: false,
+        activeRules,
+        rawLine: lineRecord,
+      }
+    }
+
+    const sourceCode = primaryRule.source_center_code.trim()
+    const sourceId = primaryRule.source_center_id || undefined
+    const sourceName =
+      primaryRule.source_center_name?.trim() ||
+      (sourceCode === 'L2' ? 'Laminador 2' : `Linha ${sourceCode}`)
+
+    const sourceDisplay = `${sourceCode} - ${sourceName}`
+
+    return {
+      isDerived: true,
+      hasSource: true,
+      sourceCenterId: sourceId,
+      sourceCenterCode: sourceCode,
+      sourceCenterName: sourceName,
+      sourceCenterDisplay: sourceDisplay,
+      activeRules,
+      rawLine: lineRecord,
+    }
+  }
 }
 
 export const centerDerivationService = new CenterDerivationService()

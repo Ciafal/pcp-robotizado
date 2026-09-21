@@ -365,6 +365,16 @@ export interface WeeklyScheduleVersionRecord {
 
 export type WeeklyViewMode = 'MONTAGEM' | 'EXECUCAO' | 'PREVISTO_REALIZADO'
 
+export interface CenterDerivationHeaderState {
+  isDerived: boolean
+  hasSource: boolean
+  sourceCenterId?: string
+  sourceCenterCode?: string
+  sourceCenterName?: string
+  sourceCenterDisplay?: string
+  activeRules: any[]
+}
+
 export interface WeeklyHeaderFilter {
   companyCode: string
   plantCode: string
