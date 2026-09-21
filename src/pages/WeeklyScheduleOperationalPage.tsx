@@ -4400,25 +4400,28 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
               </Button>
 
               {/* PATCH 6: Botão "Gerar Programação Derivada" visível SOMENTE quando centroDerivado === true && centroOrigem != null */}
-              {selectedCenterDerivation.isDerived && selectedCenterDerivation.hasSource && (
-                <Button
-                  size="sm"
-                  data-testid="btn-generate-derived-scheduling"
-                  disabled={isGeneratingDerivedSchedule || isScheduleHistoricalLocked}
-                  onClick={() => {
-                    handleGenerateDerivedFromSourceCenter()
-                  }}
-                  title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
-                  className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
-                >
-                  {isGeneratingDerivedSchedule ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <GitFork className="w-3.5 h-3.5" />
-                  )}
-                  {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
-                </Button>
-              )}
+              {Boolean(selectedLineCode) &&
+                selectedCenterDerivation.isDerived === true &&
+                selectedCenterDerivation.hasSource === true &&
+                Boolean(selectedCenterDerivation.sourceCenterCode) && (
+                  <Button
+                    size="sm"
+                    data-testid="btn-generate-derived-scheduling"
+                    disabled={isGeneratingDerivedSchedule || isScheduleHistoricalLocked}
+                    onClick={() => {
+                      handleGenerateDerivedFromSourceCenter()
+                    }}
+                    title={`Buscar programação em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode} e gerar programação no centro destino ${selectedLineCode}`}
+                    className="h-7 px-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1 shadow-2xs"
+                  >
+                    {isGeneratingDerivedSchedule ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <GitFork className="w-3.5 h-3.5" />
+                    )}
+                    {isGeneratingDerivedSchedule ? 'Gerando...' : 'Gerar Programação Derivada'}
+                  </Button>
+                )}
 
               {/* Botão de Origem: abrir modal quando o centro atual é a ORIGEM de outros centros */}
               {activeSourceDerivationRules.length > 0 &&
