@@ -4039,17 +4039,46 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* Campo: Derivação do Centro */}
-              {activeSourceDerivationRules.length === 0 ? (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100/80 border border-slate-200 text-slate-500 text-[11px]">
-                  <GitFork className="w-3 h-3 text-slate-400" />
-                  <span>
-                    Derivação: <strong className="font-semibold">Não possui</strong>
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-[11px] font-semibold text-[#004C97]">
-                  <GitFork className="w-3 h-3" />
+              {/* PATCH 5: Indicador DISCRETO "↳ Derivada de:" — visível SOMENTE se centro selecionado for derivado */}
+              {selectedLineCode && selectedCenterDerivation.isDerived && (
+                <>
+                  {selectedCenterDerivation.hasSource ? (
+                    <div
+                      data-testid="derived-source-indicator"
+                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50/80 border border-blue-200/80 text-blue-900 text-[11px] font-medium"
+                      title={`Centro derivado cadastrado na Ficha Mestra com origem em ${selectedCenterDerivation.sourceCenterDisplay || selectedCenterDerivation.sourceCenterCode}`}
+                    >
+                      <span className="font-semibold text-[#004C97]">↳ Derivada de:</span>
+                      <strong className="font-bold text-slate-800">
+                        {selectedCenterDerivation.sourceCenterDisplay ||
+                          `${selectedCenterDerivation.sourceCenterCode} - ${selectedCenterDerivation.sourceCenterName || 'Origem'}`}
+                      </strong>
+                    </div>
+                  ) : (
+                    <div
+                      data-testid="derived-source-missing-warning"
+                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11px]"
+                    >
+                      <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>
+                        Centro configurado como derivado, porém não possui Centro de Origem definido
+                        na Ficha Mestra.
+                      </span>
+                      <a
+                        href="/cadastros/centros"
+                        className="underline font-bold text-[#004C97] hover:text-[#003d7a] ml-1"
+                      >
+                        [Abrir Cadastro do Centro]
+                      </a>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Status de Centro Origem para outros centros (quando houver destinos ativos) */}
+              {activeSourceDerivationRules.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700">
+                  <GitFork className="w-3 h-3 text-[#004C97]" />
                   <span>
                     Origem de Derivação • {derivationMetrics.uniqueTargetCenters.length}{' '}
                     {derivationMetrics.uniqueTargetCenters.length === 1 ? 'Centro' : 'Centros'}
