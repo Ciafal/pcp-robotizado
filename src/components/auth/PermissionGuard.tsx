@@ -108,6 +108,20 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentRoleUpper === 'LINE_MANAGER' ||
     currentRoleUpper === 'PCP_PLANNER'
 
+  // Liberar rotas /pcp/cadastros/* e subrecursos de cadastros para papéis operacionais PCP_PROGRAMMER e LINE_MANAGER
+  // mantendo o guard para quem não tem nenhum papel PCP
+  const hasAnyPcpRole =
+    currentRoleUpper === 'PCP_ADMIN' ||
+    currentRoleUpper === 'ADMIN' ||
+    currentRoleUpper === 'ADMINISTRADOR' ||
+    currentRoleUpper === 'PCP_PROGRAMMER' ||
+    currentRoleUpper === 'PPC_PROGRAMMER' ||
+    currentRoleUpper === 'LINE_MANAGER' ||
+    currentRoleUpper === 'PCP_PLANNER' ||
+    currentRoleUpper === 'PRODUCTION_VIEWER' ||
+    currentRoleUpper === 'EXECUTIVE_VIEWER' ||
+    currentRoleUpper === 'AUDITOR'
+
   if (
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.masterdata.view' ||
@@ -126,7 +140,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.includes('/pcp/controle-producao') ||
     currentPathname.includes('/pcp/producao') ||
-    (isPcpProgrammerOrLineManager && currentPathname.startsWith('/pcp/cadastros/'))
+    (hasAnyPcpRole &&
+      (currentPathname.startsWith('/pcp/cadastros') ||
+        currentPathname.includes('/ficha-mestre') ||
+        permission.startsWith('pcp.masterdata.')))
   ) {
     return <>{children}</>
   }
