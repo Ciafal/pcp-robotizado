@@ -124,6 +124,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission.startsWith('pcp.lines.') ||
     currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.includes('/centros-ficha-mestre') ||
@@ -133,10 +134,12 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
+    currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
+    currentPathname.startsWith('/pcp-robotizado') ||
     currentPathname.includes('/pcp/controle-producao') ||
     currentPathname.includes('/pcp/producao') ||
     isCadastrosOrMasterData
@@ -252,8 +255,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.weekly_schedule.edit' ||
       permission === 'pcp.carteira.view' ||
+      currentPathname === '/' ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+      currentPathname.startsWith('/pcp/ficha-mestre') ||
       currentPathname.includes('/ficha-mestre')
     ) {
       hasPerm = true
@@ -352,12 +357,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.production.view' ||
+    currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
+    currentPathname.startsWith('/pcp-robotizado') ||
     currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre')
   ) {
