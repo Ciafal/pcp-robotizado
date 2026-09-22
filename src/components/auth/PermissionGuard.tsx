@@ -123,6 +123,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission.startsWith('pcp.masterdata.') ||
     permission.startsWith('pcp.lines.') ||
     currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.includes('/centros-ficha-mestre') ||
@@ -251,7 +252,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.weekly_schedule.edit' ||
       permission === 'pcp.carteira.view' ||
-      currentPathname.startsWith('/pcp/cadastros')
+      currentPathname.startsWith('/pcp/cadastros') ||
+      currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+      currentPathname.includes('/ficha-mestre')
     ) {
       hasPerm = true
     }
@@ -271,7 +274,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
-      currentPathname.startsWith('/pcp/cadastros'))
+      currentPathname.startsWith('/pcp/cadastros') ||
+      currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+      currentPathname.includes('/ficha-mestre'))
   ) {
     hasPerm = true
   }
@@ -352,7 +357,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp/cadastros') ||
-    currentPathname.startsWith('/pcp/linhas')
+    currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/linhas') ||
+    currentPathname.includes('/ficha-mestre')
   ) {
     return <>{children}</>
   }

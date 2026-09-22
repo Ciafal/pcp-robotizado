@@ -632,7 +632,7 @@ export function Index() {
   }, [scopedLines])
 
   const handleOpenEdit = (line: ProductionLine) => {
-    navigate(`/pcp/ficha-mestre?lineId=${line.id}`)
+    navigate(`/pcp/cadastros/ficha-mestre?lineId=${line.id}`)
   }
 
   const handleAcknowledgeAlert = async (alertId: string) => {

@@ -621,7 +621,7 @@ const navSections: NavSectionItem[] = [
   },
   {
     title: 'Centros e Ficha Mestra',
-    href: '/pcp/ficha-mestre',
+    href: '/pcp/cadastros/ficha-mestre',
     icon: FileSpreadsheet,
     badge: 'SAP ECC',
     permission: 'pcp.masterdata.view',
@@ -1417,7 +1417,7 @@ export const PCPSidebar: React.FC = () => {
                   className="space-y-0.5 pl-0.5 h-auto min-h-fit opacity-100 visible"
                 >
                   {group.items.map((item) => {
-                    const ItemIcon = item.icon
+                    const ItemIcon = item.icon || LayoutDashboard
                     // Identifica seleção ativa
                     const isSelected =
                       item.href === '/pcp/cockpit'
