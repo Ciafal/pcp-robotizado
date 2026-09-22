@@ -190,6 +190,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   const [validationIssuesList, setValidationIssuesList] = useState<
     Array<{ step: number; stepTitle: string; label: string }>
   >([])
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   if (!open) return null
 
@@ -247,119 +248,115 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
   }
 
   const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {}
+
     if (step === 1) {
       if (!code.trim()) {
-        toast({
-          variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'O Código Interno do Centro é obrigatório.',
-        })
-        return false
+        errors.code = 'O Código Interno do Centro é obrigatório.'
+      } else {
+        const exists = existingLines.some((l) => l.code.toUpperCase() === code.trim().toUpperCase())
+        if (exists) {
+          errors.code = `Já existe um centro cadastrado com este código (${code.trim().toUpperCase()}).`
+        }
       }
-      // Validação do Card Derivação de Centro: se Sim, exigir pelo menos 1 regra válida e ativa
+
+      if (!name.trim()) {
+        errors.name = 'O Nome do Centro de Produção é obrigatório.'
+      }
+
+      if (!companyId) {
+        errors.companyId = 'A Empresa é obrigatória.'
+      }
+
+      if (!hierarchyLineId) {
+        errors.hierarchyLineId = 'A Linha Produtiva é obrigatória.'
+      } else if (companyId) {
+        const selectedLineObj = availableHierarchyLines.find((l) => l.id === hierarchyLineId)
+        if (
+          selectedLineObj &&
+          selectedLineObj.company_id &&
+          selectedLineObj.company_id !== companyId
+        ) {
+          errors.hierarchyLineId = 'A Linha Produtiva selecionada não pertence à Empresa informada.'
+        }
+      }
+
+      if (!programmingType) {
+        errors.programmingType = 'O Tipo de Programação é obrigatório.'
+      }
+
+      // Regras de derivação APENAS se isDerived === true
       if (isDerived) {
         const activeRules = (derivationRules || []).filter(
           (r) => !r.deleted && r.status === 'Ativa',
         )
         if (activeRules.length === 0) {
           const msg = 'Informe pelo menos uma derivação antes de salvar o Centro.'
+          errors.derivationRules = msg
           setDerivationError(msg)
-          toast({
-            variant: 'destructive',
-            title: 'Derivação Obrigatória',
-            description: msg,
-          })
-          return false
+        } else {
+          setDerivationError(null)
         }
+      } else {
+        setDerivationError(null)
       }
-      setDerivationError(null)
-      if (!name.trim()) {
+
+      setFieldErrors(errors)
+
+      if (Object.keys(errors).length > 0) {
         toast({
           variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'O Nome do Centro de Produção é obrigatório.',
+          title: 'Preencha os campos obrigatórios antes de avançar.',
+          description: Object.values(errors)[0],
         })
         return false
       }
-      const exists = existingLines.some((l) => l.code.toUpperCase() === code.trim().toUpperCase())
-      if (exists) {
-        toast({
-          variant: 'destructive',
-          title: 'Código já existente',
-          description: `Já existe um centro cadastrado com este código (${code.trim().toUpperCase()}).`,
-        })
-        return false
-      }
-      if (!companyId) {
-        toast({
-          variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'A Empresa é obrigatória.',
-        })
-        return false
-      }
-      if (!hierarchyLineId) {
-        toast({
-          variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'A Linha Produtiva é obrigatória.',
-        })
-        return false
-      }
-      // Validar consistência linha.empresa_id === empresa selecionada
-      const selectedLineObj = availableHierarchyLines.find((l) => l.id === hierarchyLineId)
-      if (
-        selectedLineObj &&
-        selectedLineObj.company_id &&
-        selectedLineObj.company_id !== companyId
-      ) {
-        toast({
-          variant: 'destructive',
-          title: 'Inconsistência de Hierarquia',
-          description: 'A Linha Produtiva selecionada não pertence à Empresa informada.',
-        })
-        return false
-      }
-      if (!programmingType) {
-        toast({
-          variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'O Tipo de Programação é obrigatório.',
-        })
-        return false
-      }
+
+      return true
     }
 
     if (step === 3) {
       if (!primaryManagerId) {
-        toast({
-          variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'O Gestor Titular da Linha é obrigatório antes de prosseguir.',
-        })
-        return false
+        errors.primaryManagerId = 'O Gestor Titular da Linha é obrigatório antes de prosseguir.'
       }
       if (!pcpApproverId) {
+        errors.pcpApproverId = 'O Aprovador PCP é obrigatório antes de prosseguir.'
+      }
+
+      setFieldErrors(errors)
+
+      if (Object.keys(errors).length > 0) {
         toast({
           variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'O Aprovador PCP é obrigatório antes de prosseguir.',
+          title: 'Preencha os campos obrigatórios antes de avançar.',
+          description: Object.values(errors)[0],
         })
         return false
       }
+
+      return true
     }
 
     if (step === 5) {
       if (!nominalHourlyCapacity || Number(nominalHourlyCapacity) <= 0) {
+        errors.nominalHourlyCapacity = 'A Capacidade Horária Nominal deve ser maior que zero.'
+      }
+
+      setFieldErrors(errors)
+
+      if (Object.keys(errors).length > 0) {
         toast({
           variant: 'destructive',
-          title: 'Campo Obrigatório',
-          description: 'A Capacidade Horária Nominal deve ser maior que zero.',
+          title: 'Preencha os campos obrigatórios antes de avançar.',
+          description: Object.values(errors)[0],
         })
         return false
       }
+
+      return true
     }
 
+    setFieldErrors({})
     return true
   }
 
@@ -373,6 +370,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
   const handlePrev = () => {
     if (currentStep > 1) {
+      setFieldErrors({})
       setCurrentStep((prev) => prev - 1)
     }
   }
@@ -878,28 +876,39 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         </div>
 
         {/* Stepper Progress Bar sem truncamento e com navegação direta */}
-        <div className="bg-[#F8FAFC] border-b border-slate-200 p-2.5 flex items-center justify-between gap-1 overflow-x-auto text-xs shrink-0">
+        <nav
+          aria-label="Etapas do Cadastro de Centro"
+          className="bg-[#F8FAFC] border-b border-slate-200 p-2.5 flex items-center gap-2 overflow-x-auto text-xs shrink-0 scrollbar-thin"
+        >
           {STEPS.map((s, idx) => {
-            const Icon = s.icon
             const isActive = currentStep === s.id
             const isDone = currentStep > s.id
             return (
               <button
                 key={s.id}
                 type="button"
+                aria-current={isActive ? 'step' : undefined}
                 onClick={() => {
-                  if (s.id < currentStep || validateStep(currentStep)) {
+                  if (s.id < currentStep) {
+                    setFieldErrors({})
                     setCurrentStep(s.id)
+                  } else if (s.id === currentStep) {
+                    // Já na etapa
+                  } else {
+                    // Validar etapa atual antes de ir para frente
+                    if (validateStep(currentStep)) {
+                      setCurrentStep(s.id)
+                    }
                   }
                 }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs transition-all shrink-0 whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all shrink-0 whitespace-nowrap cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#004C97] focus:ring-offset-1 ${
                   isActive
-                    ? 'bg-[#004C97] text-white font-bold shadow-xs'
+                    ? 'bg-[#004C97] text-white font-bold shadow-sm'
                     : isDone
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-semibold hover:bg-emerald-100'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
                 }`}
-                title={s.title}
+                title={`Ir para etapa ${s.id}: ${s.title}`}
               >
                 <div
                   className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -907,17 +916,19 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                       ? 'bg-white text-[#004C97]'
                       : isDone
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-200 text-slate-700'
+                        : 'bg-slate-300 text-slate-700'
                   }`}
                 >
                   {isDone ? <Check className="w-2.5 h-2.5" /> : s.id}
                 </div>
                 <span>{s.title}</span>
-                {idx < STEPS.length - 1 && <ChevronRight className="w-3 h-3 text-slate-400 ml-1" />}
+                {idx < STEPS.length - 1 && (
+                  <ChevronRight className="w-3 h-3 text-slate-400 ml-1 shrink-0" />
+                )}
               </button>
             )
           })}
-        </div>
+        </nav>
 
         {/* Resumo de Pendências Navegável por Etapa */}
         {validationIssuesList.length > 0 && (
@@ -969,9 +980,25 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   <Input
                     placeholder="Ex: L3, CORTE_02, SOLDA_04"
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus:border-[#004C97]"
+                    onChange={(e) => {
+                      setCode(e.target.value)
+                      if (fieldErrors.code) {
+                        setFieldErrors((prev) => {
+                          const n = { ...prev }
+                          delete n.code
+                          return n
+                        })
+                      }
+                    }}
+                    className={`bg-white text-slate-900 font-mono uppercase font-bold focus:border-[#004C97] ${
+                      fieldErrors.code ? 'border-rose-400 ring-1 ring-rose-300' : 'border-slate-300'
+                    }`}
                   />
+                  {fieldErrors.code && (
+                    <span className="text-[11px] text-rose-600 font-medium block">
+                      {fieldErrors.code}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
@@ -981,9 +1008,25 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   <Input
                     placeholder="Ex: Linha de Conformação de Tubos Quadrados III"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="bg-white border-slate-300 text-slate-900 focus:border-[#004C97]"
+                    onChange={(e) => {
+                      setName(e.target.value)
+                      if (fieldErrors.name) {
+                        setFieldErrors((prev) => {
+                          const n = { ...prev }
+                          delete n.name
+                          return n
+                        })
+                      }
+                    }}
+                    className={`bg-white text-slate-900 focus:border-[#004C97] ${
+                      fieldErrors.name ? 'border-rose-400 ring-1 ring-rose-300' : 'border-slate-300'
+                    }`}
                   />
+                  {fieldErrors.name && (
+                    <span className="text-[11px] text-rose-600 font-medium block">
+                      {fieldErrors.name}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1011,6 +1054,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                       const newCompanyId = e.target.value
                       setCompanyId(newCompanyId)
                       setHierarchyLineId('') // Limpar Linha ao trocar Empresa
+                      if (fieldErrors.companyId) {
+                        setFieldErrors((prev) => {
+                          const n = { ...prev }
+                          delete n.companyId
+                          return n
+                        })
+                      }
                       const matched = availableCompanies.find((c) => c.id === newCompanyId)
                       if (matched) {
                         setPlant(matched.name)
@@ -1019,7 +1069,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                         }
                       }
                     }}
-                    className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97]"
+                    className={`w-full bg-white rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97] ${
+                      fieldErrors.companyId
+                        ? 'border border-rose-400 ring-1 ring-rose-300'
+                        : 'border border-slate-300'
+                    }`}
                   >
                     <option value="">Selecione a empresa...</option>
                     {availableCompanies.map((c) => (
@@ -1033,6 +1087,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.companyId && (
+                    <span className="text-[11px] text-rose-600 font-medium block">
+                      {fieldErrors.companyId}
+                    </span>
+                  )}
                 </div>
 
                 {/* Select Linha Produtiva (Filtrada por Empresa) */}
@@ -1062,9 +1121,22 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   ) : (
                     <select
                       value={hierarchyLineId}
-                      onChange={(e) => setHierarchyLineId(e.target.value)}
+                      onChange={(e) => {
+                        setHierarchyLineId(e.target.value)
+                        if (fieldErrors.hierarchyLineId) {
+                          setFieldErrors((prev) => {
+                            const n = { ...prev }
+                            delete n.hierarchyLineId
+                            return n
+                          })
+                        }
+                      }}
                       disabled={!companyId}
-                      className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 disabled:opacity-50 focus:border-[#004C97]"
+                      className={`w-full bg-white rounded-md text-xs text-slate-900 p-2 disabled:opacity-50 focus:border-[#004C97] ${
+                        fieldErrors.hierarchyLineId
+                          ? 'border border-rose-400 ring-1 ring-rose-300'
+                          : 'border border-slate-300'
+                      }`}
                     >
                       <option value="">
                         {!companyId
@@ -1080,6 +1152,11 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                         ))}
                     </select>
                   )}
+                  {fieldErrors.hierarchyLineId && (
+                    <span className="text-[11px] text-rose-600 font-medium block">
+                      {fieldErrors.hierarchyLineId}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1088,8 +1165,21 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </Label>
                   <select
                     value={programmingType}
-                    onChange={(e) => setProgrammingType(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97]"
+                    onChange={(e) => {
+                      setProgrammingType(e.target.value)
+                      if (fieldErrors.programmingType) {
+                        setFieldErrors((prev) => {
+                          const n = { ...prev }
+                          delete n.programmingType
+                          return n
+                        })
+                      }
+                    }}
+                    className={`w-full bg-white rounded-md text-xs text-slate-900 font-medium p-2 focus:border-[#004C97] ${
+                      fieldErrors.programmingType
+                        ? 'border border-rose-400 ring-1 ring-rose-300'
+                        : 'border border-slate-300'
+                    }`}
                   >
                     <option value="Enfornamento">Enfornamento</option>
                     <option value="Laminação">Laminação</option>
@@ -1102,7 +1192,13 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     <option value="Argola">Argola</option>
                     <option value="Alto-Forno">Alto-Forno</option>
                     <option value="Aciaria">Aciaria</option>
+                    <option value="Retrabalho">Retrabalho</option>
                   </select>
+                  {fieldErrors.programmingType && (
+                    <span className="text-[11px] text-rose-600 font-medium block">
+                      {fieldErrors.programmingType}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

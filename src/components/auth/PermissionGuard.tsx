@@ -96,15 +96,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // BYPASS IMEDIATO:
   // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros
-  //    (pcp.masterdata.view / pcp.lines.view / pcp.rules.view) e Controle de Produção (pcp.production.view):
+  //    (pcp.masterdata.view / pcp.lines.view / pcp.rules.view), Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal)
+  //    e Controle de Produção (pcp.production.view):
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
   //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start.
   const currentPathname = typeof window !== 'undefined' ? window.location?.pathname || '' : ''
   if (
+    permission === 'pcp.cockpit.view' ||
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
+    currentPathname === '/pcp' ||
+    currentPathname === '/pcp/' ||
+    currentPathname.startsWith('/pcp/cockpit') ||
+    currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
@@ -307,11 +313,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Garantia adicional de exibição para Ficha Mestra, Cadastros, Regras e Carteira
   if (
+    permission === 'pcp.cockpit.view' ||
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.lines.view' ||
     permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.production.view' ||
+    currentPathname === '/pcp' ||
+    currentPathname === '/pcp/' ||
+    currentPathname.startsWith('/pcp/cockpit') ||
+    currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/linhas')
   ) {

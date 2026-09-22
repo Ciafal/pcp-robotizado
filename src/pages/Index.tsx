@@ -181,20 +181,31 @@ export function Index() {
   // Carregar riscos temporais padronizados das 7 carteiras com o motor central
   const carregarRiscosTemporais = useCallback(async () => {
     try {
-      const [resGerais, resSDC] = await Promise.all([
-        CarteiraService.carregarCarteiraAtual().catch(() => ({ itens: [], entradasFuturas: [] })),
-        CarteiraSDCService.carregarCarteiraSDC().catch(() => ({ itens: [] })),
-      ])
-      const itensGerais = resGerais?.itens || []
-      const entradasFuturas = resGerais?.entradasFuturas || []
-      const itensSDC = resSDC?.itens || []
+      let resGerais: any = { itens: [], entradasFuturas: [] }
+      let resSDC: any = { itens: [] }
+      try {
+        const [g, s] = await Promise.allSettled([
+          CarteiraService.carregarCarteiraAtual(),
+          CarteiraSDCService.carregarCarteiraSDC(),
+        ])
+        if (g.status === 'fulfilled' && g.value) resGerais = g.value
+        if (s.status === 'fulfilled' && s.value) resSDC = s.value
+      } catch (loadErr) {
+        console.warn('Falha resiliente ao carregar carteiras:', loadErr)
+      }
+      const itensGerais = Array.isArray(resGerais?.itens) ? resGerais.itens : []
+      const entradasFuturas = Array.isArray(resGerais?.entradasFuturas)
+        ? resGerais.entradasFuturas
+        : []
+      const itensSDC = Array.isArray(resSDC?.itens) ? resSDC.itens : []
 
       const novosAlertas: AlertaTemporal7Carteiras[] = []
 
       // 1. Linhas L1 e L2
-      const itensL1 = itensGerais.filter((i) => i.linha === 'L1')
+      const itensL1 = itensGerais.filter((i) => i && i.linha === 'L1')
       for (const it of itensL1) {
         try {
+          if (!it || !it.codigo_material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
             it,
             'L1',
@@ -202,21 +213,22 @@ export function Index() {
           )
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-L1-${it.codigo_material}`,
               carteira: 'Carteira L1',
-              material: it.codigo_material,
-              descricao: it.descricao_material,
+              material: String(it.codigo_material),
+              descricao: String(it.descricao_material || ''),
               severidade: 'CRÍTICO',
               mensagem: `ficará sem cobertura por ${diasGap} dias antes da próxima produção L1`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/l1?material=${it.codigo_material}`,
             })
           }
@@ -225,9 +237,10 @@ export function Index() {
         }
       }
 
-      const itensL2 = itensGerais.filter((i) => i.linha === 'L2')
+      const itensL2 = itensGerais.filter((i) => i && i.linha === 'L2')
       for (const it of itensL2) {
         try {
+          if (!it || !it.codigo_material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
             it,
             'L2',
@@ -235,21 +248,22 @@ export function Index() {
           )
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-L2-${it.codigo_material}`,
               carteira: 'Carteira L2',
-              material: it.codigo_material,
-              descricao: it.descricao_material,
+              material: String(it.codigo_material),
+              descricao: String(it.descricao_material || ''),
               severidade: 'CRÍTICO',
               mensagem: `previsão de ruptura antes da próxima programação L2`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/l2?material=${it.codigo_material}`,
             })
           }
@@ -260,10 +274,12 @@ export function Index() {
 
       // 2. MTO
       const itensMTO = itensGerais.filter(
-        (i) => i.tipo_ordem === 'ZPRM' || i.tipo_ordem === 'MTO' || (i.estoque_mto_tons || 0) > 0,
+        (i) =>
+          i && (i.tipo_ordem === 'ZPRM' || i.tipo_ordem === 'MTO' || (i.estoque_mto_tons || 0) > 0),
       )
       for (const it of itensMTO) {
         try {
+          if (!it || !it.codigo_material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
             it,
             'MTO',
@@ -271,21 +287,22 @@ export function Index() {
           )
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-MTO-${it.codigo_material}`,
               carteira: 'Carteira MTO',
-              material: it.codigo_material,
-              descricao: it.descricao_material,
+              material: String(it.codigo_material),
+              descricao: String(it.descricao_material || ''),
               severidade: 'CRÍTICO',
               mensagem: `necessidade anterior à conclusão prevista da OP`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/mto?material=${it.codigo_material}`,
             })
           }
@@ -295,9 +312,10 @@ export function Index() {
       }
 
       // 3. Revenda
-      const itensRevenda = itensGerais.filter((i) => i.origem_produto === 'REVENDA')
+      const itensRevenda = itensGerais.filter((i) => i && i.origem_produto === 'REVENDA')
       for (const it of itensRevenda) {
         try {
+          if (!it || !it.codigo_material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
             it,
             'REVENDA',
@@ -305,21 +323,22 @@ export function Index() {
           )
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-REV-${it.codigo_material}`,
               carteira: 'Carteira Revenda',
-              material: it.codigo_material,
-              descricao: it.descricao_material,
+              material: String(it.codigo_material),
+              descricao: String(it.descricao_material || ''),
               severidade: 'CRÍTICO',
               mensagem: `termina estoque antes do próximo recebimento`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/revenda?material=${it.codigo_material}`,
             })
           }
@@ -329,9 +348,10 @@ export function Index() {
       }
 
       // 4. Importado
-      const itensImportado = itensGerais.filter((i) => i.origem_produto === 'IMPORTADO')
+      const itensImportado = itensGerais.filter((i) => i && i.origem_produto === 'IMPORTADO')
       for (const it of itensImportado) {
         try {
+          if (!it || !it.codigo_material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraItemParaInput(
             it,
             'IMPORTADO',
@@ -339,21 +359,22 @@ export function Index() {
           )
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-IMP-${it.codigo_material}`,
               carteira: 'Carteira Importado',
-              material: it.codigo_material,
-              descricao: it.descricao_material,
+              material: String(it.codigo_material),
+              descricao: String(it.descricao_material || ''),
               severidade: 'CRÍTICO',
               mensagem: `estoque termina antes da disponibilidade prevista da importação`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/importado?material=${it.codigo_material}`,
             })
           }
@@ -365,24 +386,26 @@ export function Index() {
       // 5. SDC
       for (const it of itensSDC) {
         try {
+          if (!it || !it.material) continue
           const inp = CoberturaTemporalEngine.converterCarteiraSDCParaInput(it)
           const calc = CoberturaTemporalEngine.calcular(inp)
           if (
-            calc.temGapRuptura ||
-            calc.status === 'CRÍTICO' ||
-            calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO'
+            calc &&
+            (calc.temGapRuptura ||
+              calc.status === 'CRÍTICO' ||
+              calc.status === 'CRÍTICO — SEM ESTOQUE E SEM REPOSIÇÃO')
           ) {
             const diasGap = calc.diasEstoqueNegativo ?? calc.diasCobertura ?? 'Indeterminado'
             novosAlertas.push({
               id: `temp-SDC-${it.material}`,
               carteira: 'Carteira SDC',
-              material: it.material,
-              descricao: it.descricao,
+              material: String(it.material),
+              descricao: String(it.descricao || ''),
               severidade: 'CRÍTICO',
               mensagem: `ficará sem cobertura antes do retorno da industrialização`,
               diasSemCobertura: diasGap,
-              dataFimEstoque: calc.dataFimEstoqueFormatada,
-              dataReposicao: calc.proximaDataPrevistaFormatada,
+              dataFimEstoque: calc.dataFimEstoqueFormatada || '-',
+              dataReposicao: calc.proximaDataPrevistaFormatada || '-',
               link: `/pcp/analise-carteira/sdc?material=${it.material}`,
             })
           }
@@ -1139,343 +1162,356 @@ export function Index() {
 
             <div className="space-y-2.5">
               {/* 0. SEÇÃO DE RISCOS TEMPORAIS DAS 7 CARTEIRAS (Cobertura Temporal & Previsão) */}
-              {alertasTemporais
-                .filter((al) => {
-                  if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Riscos Temporais') return false
-                  if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade) return false
-                  if (
-                    filtroMaterial &&
-                    !al.material.toLowerCase().includes(filtroMaterial.toLowerCase())
-                  )
-                    return false
-                  return true
-                })
-                .map((al) => (
-                  <div
-                    key={al.id}
-                    className="p-3 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-950 transition-all text-xs shadow-xs"
-                  >
-                    <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                          <AlertCircle className="w-3 h-3" /> [CRÍTICO]
-                        </Badge>
-                        <span className="text-[11px] font-bold text-slate-800">
-                          {al.carteira || 'Carteira'} &bull; Cobertura Temporal
-                        </span>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1.5 py-0 font-semibold border-rose-300 text-rose-800 bg-white"
-                      >
-                        Ruptura Prevista
-                      </Badge>
-                    </div>
-
-                    {/* Formato padrão solicitado: CRÍTICO · Carteira L1 — Material X — Estoque termina 20/09, próxima produção 25/09 — N dias sem cobertura */}
-                    <div className="p-2 bg-white/95 rounded border border-rose-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
-                      <span className="font-bold">
-                        CRÍTICO &bull; {al.carteira || ''} — Material {al.material || '-'}
-                      </span>{' '}
-                      &bull;{' '}
-                      <span>
-                        Estoque termina {al.dataFimEstoque || '-'}, próxima reposição{' '}
-                        {al.dataReposicao || '-'} —{' '}
-                        <strong className="text-rose-700">
-                          {al.diasSemCobertura ?? 0} dias sem cobertura
-                        </strong>
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
-                      {al.material || '-'} ({al.descricao || ''}): {al.mensagem || ''}.
-                    </p>
-
-                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-rose-200/80">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="h-6 px-2 text-[10px] font-bold border-rose-300 text-rose-800 hover:bg-rose-100"
-                      >
-                        <Link to={al.link || '#'}>
-                          <ExternalLink className="w-3 h-3 mr-1" /> Ver análise na carteira
-                        </Link>
-                      </Button>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        Motor Cobertura Temporal CIAFAL
-                      </span>
-                    </div>
-                  </div>
-                ))}
-
-              {/* 1. SEÇÃO DE ALERTAS DA CARTEIRA SDC (Centro SDPL) */}
-              {alertasSDC
-                .filter((al) => {
-                  if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Carteira SDC') return false
-                  if (filtroCentro !== 'ALL' && al.empresa_centro !== filtroCentro) return false
-                  if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade) return false
-                  if (filtroTipo !== 'ALL' && al.tipo_alerta !== filtroTipo) return false
-                  if (filtroStatus !== 'ALL' && al.status !== filtroStatus) return false
-                  if (
-                    filtroMaterial &&
-                    !al.material.toLowerCase().includes(filtroMaterial.toLowerCase())
-                  )
-                    return false
-                  return true
-                })
-                .map((al) => {
-                  const isCritico = al.severidade === 'CRÍTICO'
-                  const isAlto = al.severidade === 'ALTO'
-                  const isMedio = al.severidade === 'MÉDIO'
-                  const isInfo = al.severidade === 'INFORMATIVO'
-                  const saldoAtualVal = Number(al?.saldo_atual ?? 0)
-                  const quantProgVal = Number(al?.quantidade_programada ?? 0)
-                  const saldoProjVal = Number(al?.saldo_projetado ?? 0)
-                  const deficitTxt = Math.abs(saldoAtualVal).toFixed(2).replace('.', ',')
-                  const progTxt = quantProgVal.toFixed(2).replace('.', ',')
-                  const residTxt = Math.abs(saldoProjVal).toFixed(2).replace('.', ',')
-
-                  return (
+              <ErrorBoundary moduleName="Alertas de Riscos Temporais" variant="compact">
+                {alertasTemporais
+                  .filter((al) => {
+                    if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Riscos Temporais') return false
+                    if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade)
+                      return false
+                    const termMat =
+                      typeof filtroMaterial === 'string' ? filtroMaterial.trim().toLowerCase() : ''
+                    if (termMat) {
+                      const matStr =
+                        typeof al?.material === 'string' ? al.material.toLowerCase() : ''
+                      if (!matStr.includes(termMat)) return false
+                    }
+                    return true
+                  })
+                  .map((al) => (
                     <div
                       key={al.id}
-                      className={`p-3 rounded-lg border transition-all text-xs shadow-xs ${
-                        !al?.ativo || al?.status === 'Resolvido' || al?.status === 'Encerrado'
-                          ? 'bg-slate-50 border-slate-200 opacity-60'
-                          : isCritico
-                            ? 'bg-rose-50 border-rose-200 text-rose-950'
-                            : isAlto
-                              ? 'bg-amber-50 border-amber-200 text-amber-950'
-                              : isMedio
-                                ? 'bg-yellow-50 border-yellow-200 text-yellow-950'
-                                : 'bg-blue-50 border-blue-200 text-blue-950'
-                      }`}
+                      className="p-3 rounded-lg border border-rose-200 bg-rose-50/70 text-rose-950 transition-all text-xs shadow-xs"
                     >
-                      {/* Header: Severidade com Ícone + Texto (não só cor) */}
                       <div className="flex items-start justify-between gap-1.5 mb-1.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {isCritico && (
-                            <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                              <AlertCircle className="w-3 h-3" /> [CRÍTICO]
-                            </Badge>
-                          )}
-                          {isAlto && (
-                            <Badge className="bg-amber-600 text-white border-amber-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                              <AlertTriangle className="w-3 h-3" /> [ALTO]
-                            </Badge>
-                          )}
-                          {isMedio && (
-                            <Badge className="bg-yellow-500 text-slate-900 border-yellow-600 text-[10px] font-bold flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> [MÉDIO]
-                            </Badge>
-                          )}
-                          {isInfo && (
-                            <Badge className="bg-blue-600 text-white border-blue-700 text-[10px] font-bold flex items-center gap-1">
-                              <Info className="w-3 h-3" /> [INFORMATIVO]
-                            </Badge>
-                          )}
-
+                          <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                            <AlertCircle className="w-3 h-3" /> [CRÍTICO]
+                          </Badge>
                           <span className="text-[11px] font-bold text-slate-800">
-                            {al.origem || 'Carteira SDC'} &bull; {al.empresa_centro || 'SDPL'}
+                            {al.carteira || 'Carteira'} &bull; Cobertura Temporal
                           </span>
                         </div>
-
                         <Badge
                           variant="outline"
-                          className={`text-[9px] px-1.5 py-0 font-semibold ${
-                            al.status === 'Resolvido'
-                              ? 'border-emerald-400 text-emerald-800 bg-emerald-50'
-                              : al.status === 'Em tratamento'
-                                ? 'border-blue-400 text-blue-800 bg-blue-50'
-                                : 'border-slate-300 text-slate-700 bg-white'
-                          }`}
+                          className="text-[9px] px-1.5 py-0 font-semibold border-rose-300 text-rose-800 bg-white"
                         >
-                          {al.status || 'Novo'}
+                          Ruptura Prevista
                         </Badge>
                       </div>
 
-                      {/* Exibição compacta exigida pelo usuário:
-                        "[CRÍTICO] Carteira SDC • SDPL — Material: XXXXX — Déficit: 19,16 t — Programado: 0 t — Sem cobertura produtiva."
-                    */}
-                      <div className="p-2 bg-white/90 rounded border border-slate-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
-                        <span className="font-bold">Material: {al.material || '-'}</span> &bull;
-                        Déficit: <span className="font-bold text-rose-700">{deficitTxt} t</span>{' '}
-                        &bull; Programado: <span className="font-semibold">{progTxt} t</span> &bull;{' '}
-                        <span className="text-slate-600 font-sans">
-                          {quantProgVal === 0
-                            ? 'Sem cobertura produtiva.'
-                            : saldoProjVal < 0
-                              ? `Déficit residual: ${residTxt} t.`
-                              : 'Cobertura integral programada.'}
+                      {/* Formato padrão solicitado: CRÍTICO · Carteira L1 — Material X — Estoque termina 20/09, próxima produção 25/09 — N dias sem cobertura */}
+                      <div className="p-2 bg-white/95 rounded border border-rose-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
+                        <span className="font-bold">
+                          CRÍTICO &bull; {al.carteira || ''} — Material {al.material || '-'}
+                        </span>{' '}
+                        &bull;{' '}
+                        <span>
+                          Estoque termina {al.dataFimEstoque || '-'}, próxima reposição{' '}
+                          {al.dataReposicao || '-'} —{' '}
+                          <strong className="text-rose-700">
+                            {al.diasSemCobertura ?? 0} dias sem cobertura
+                          </strong>
                         </span>
                       </div>
 
                       <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
-                        {al.descricao}
+                        {al.material || '-'} ({al.descricao || ''}): {al.mensagem || ''}.
                       </p>
 
-                      {/* Responsável e Decisão (Ciclo de Vida) */}
-                      {al.responsavel && (
-                        <div className="text-[10px] text-slate-600 mb-2 flex items-center gap-1">
-                          <UserCheck className="w-3 h-3 text-blue-600" />
-                          <span>
-                            Responsável: <strong>{al.responsavel}</strong>
-                          </span>
-                          {al.data_prevista_acao && (
-                            <span className="text-slate-500">
-                              (Prazo: {formatDatePTBR(al.data_prevista_acao)})
+                      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-rose-200/80">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                          className="h-6 px-2 text-[10px] font-bold border-rose-300 text-rose-800 hover:bg-rose-100"
+                        >
+                          <Link to={al.link || '#'}>
+                            <ExternalLink className="w-3 h-3 mr-1" /> Ver análise na carteira
+                          </Link>
+                        </Button>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Motor Cobertura Temporal CIAFAL
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </ErrorBoundary>
+
+              {/* 1. SEÇÃO DE ALERTAS DA CARTEIRA SDC (Centro SDPL) */}
+              <ErrorBoundary moduleName="Alertas da Carteira SDC" variant="compact">
+                {alertasSDC
+                  .filter((al) => {
+                    if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Carteira SDC') return false
+                    if (filtroCentro !== 'ALL' && al.empresa_centro !== filtroCentro) return false
+                    if (filtroSeveridade !== 'ALL' && al.severidade !== filtroSeveridade)
+                      return false
+                    if (filtroTipo !== 'ALL' && al.tipo_alerta !== filtroTipo) return false
+                    if (filtroStatus !== 'ALL' && al.status !== filtroStatus) return false
+                    const termMat =
+                      typeof filtroMaterial === 'string' ? filtroMaterial.trim().toLowerCase() : ''
+                    if (termMat) {
+                      const matStr =
+                        typeof al?.material === 'string' ? al.material.toLowerCase() : ''
+                      if (!matStr.includes(termMat)) return false
+                    }
+                    return true
+                  })
+                  .map((al) => {
+                    const isCritico = al.severidade === 'CRÍTICO'
+                    const isAlto = al.severidade === 'ALTO'
+                    const isMedio = al.severidade === 'MÉDIO'
+                    const isInfo = al.severidade === 'INFORMATIVO'
+                    const saldoAtualVal = Number(al?.saldo_atual ?? 0)
+                    const quantProgVal = Number(al?.quantidade_programada ?? 0)
+                    const saldoProjVal = Number(al?.saldo_projetado ?? 0)
+                    const deficitTxt = Math.abs(saldoAtualVal).toFixed(2).replace('.', ',')
+                    const progTxt = quantProgVal.toFixed(2).replace('.', ',')
+                    const residTxt = Math.abs(saldoProjVal).toFixed(2).replace('.', ',')
+
+                    return (
+                      <div
+                        key={al.id}
+                        className={`p-3 rounded-lg border transition-all text-xs shadow-xs ${
+                          !al?.ativo || al?.status === 'Resolvido' || al?.status === 'Encerrado'
+                            ? 'bg-slate-50 border-slate-200 opacity-60'
+                            : isCritico
+                              ? 'bg-rose-50 border-rose-200 text-rose-950'
+                              : isAlto
+                                ? 'bg-amber-50 border-amber-200 text-amber-950'
+                                : isMedio
+                                  ? 'bg-yellow-50 border-yellow-200 text-yellow-950'
+                                  : 'bg-blue-50 border-blue-200 text-blue-950'
+                        }`}
+                      >
+                        {/* Header: Severidade com Ícone + Texto (não só cor) */}
+                        <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isCritico && (
+                              <Badge className="bg-rose-600 text-white border-rose-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                                <AlertCircle className="w-3 h-3" /> [CRÍTICO]
+                              </Badge>
+                            )}
+                            {isAlto && (
+                              <Badge className="bg-amber-600 text-white border-amber-700 text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                                <AlertTriangle className="w-3 h-3" /> [ALTO]
+                              </Badge>
+                            )}
+                            {isMedio && (
+                              <Badge className="bg-yellow-500 text-slate-900 border-yellow-600 text-[10px] font-bold flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> [MÉDIO]
+                              </Badge>
+                            )}
+                            {isInfo && (
+                              <Badge className="bg-blue-600 text-white border-blue-700 text-[10px] font-bold flex items-center gap-1">
+                                <Info className="w-3 h-3" /> [INFORMATIVO]
+                              </Badge>
+                            )}
+
+                            <span className="text-[11px] font-bold text-slate-800">
+                              {al.origem || 'Carteira SDC'} &bull; {al.empresa_centro || 'SDPL'}
                             </span>
-                          )}
+                          </div>
+
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] px-1.5 py-0 font-semibold ${
+                              al.status === 'Resolvido'
+                                ? 'border-emerald-400 text-emerald-800 bg-emerald-50'
+                                : al.status === 'Em tratamento'
+                                  ? 'border-blue-400 text-blue-800 bg-blue-50'
+                                  : 'border-slate-300 text-slate-700 bg-white'
+                            }`}
+                          >
+                            {al.status || 'Novo'}
+                          </Badge>
                         </div>
-                      )}
-                      {/* Botões de Ação Obrigatórios:
+
+                        {/* Exibição compacta exigida pelo usuário:
+                        "[CRÍTICO] Carteira SDC • SDPL — Material: XXXXX — Déficit: 19,16 t — Programado: 0 t — Sem cobertura produtiva."
+                    */}
+                        <div className="p-2 bg-white/90 rounded border border-slate-200/80 mb-2 font-mono text-[11px] text-slate-900 leading-snug">
+                          <span className="font-bold">Material: {al.material || '-'}</span> &bull;
+                          Déficit: <span className="font-bold text-rose-700">{deficitTxt} t</span>{' '}
+                          &bull; Programado: <span className="font-semibold">{progTxt} t</span>{' '}
+                          &bull;{' '}
+                          <span className="text-slate-600 font-sans">
+                            {quantProgVal === 0
+                              ? 'Sem cobertura produtiva.'
+                              : saldoProjVal < 0
+                                ? `Déficit residual: ${residTxt} t.`
+                                : 'Cobertura integral programada.'}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
+                          {al.descricao}
+                        </p>
+
+                        {/* Responsável e Decisão (Ciclo de Vida) */}
+                        {al.responsavel && (
+                          <div className="text-[10px] text-slate-600 mb-2 flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-blue-600" />
+                            <span>
+                              Responsável: <strong>{al.responsavel}</strong>
+                            </span>
+                            {al.data_prevista_acao && (
+                              <span className="text-slate-500">
+                                (Prazo: {formatDatePTBR(al.data_prevista_acao)})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {/* Botões de Ação Obrigatórios:
                         [Ver análise], [Assumir tratamento] e [Analisar Impacto] (para críticos)
                     */}
-                      <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
-                        <div className="flex items-center gap-1">
-                          {/* Botão [Ver análise] -> navega para /pcp/analise-carteira/sdc?material=<código> */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                            className="h-6 px-2 text-[10px] font-bold border-blue-200 text-[#004C97] hover:bg-blue-50"
-                          >
-                            <Link to={al.link_detalhamento}>
-                              <ExternalLink className="w-3 h-3 mr-1" /> Ver análise
-                            </Link>
-                          </Button>
-
-                          {/* Botão [Assumir tratamento] */}
-                          {al.status !== 'Em tratamento' && al.status !== 'Resolvido' && (
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-200/80">
+                          <div className="flex items-center gap-1">
+                            {/* Botão [Ver análise] -> navega para /pcp/analise-carteira/sdc?material=<código> */}
                             <Button
                               size="sm"
-                              variant="ghost"
-                              onClick={async () => {
-                                const nome = user?.name || user?.email || 'Operador PCP'
-                                await CarteiraSDCService.assumirTratamento(al.id, nome)
-                                toast({
-                                  title: 'Tratamento Assumido',
-                                  description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
-                                })
-                                await carregarAlertasSDCSafe()
-                              }}
-                              className="h-6 px-2 text-[10px] text-indigo-700 hover:bg-indigo-50 font-semibold"
+                              variant="outline"
+                              asChild
+                              className="h-6 px-2 text-[10px] font-bold border-blue-200 text-[#004C97] hover:bg-blue-50"
                             >
-                              <UserCheck className="w-3 h-3 mr-1" /> Assumir tratamento
+                              <Link to={al.link_detalhamento}>
+                                <ExternalLink className="w-3 h-3 mr-1" /> Ver análise
+                              </Link>
+                            </Button>
+
+                            {/* Botão [Assumir tratamento] */}
+                            {al.status !== 'Em tratamento' && al.status !== 'Resolvido' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={async () => {
+                                  const nome = user?.name || user?.email || 'Operador PCP'
+                                  await CarteiraSDCService.assumirTratamento(al.id, nome)
+                                  toast({
+                                    title: 'Tratamento Assumido',
+                                    description: `Alerta atribuído a ${nome} com status 'Em tratamento'.`,
+                                  })
+                                  await carregarAlertasSDCSafe()
+                                }}
+                                className="h-6 px-2 text-[10px] text-indigo-700 hover:bg-indigo-50 font-semibold"
+                              >
+                                <UserCheck className="w-3 h-3 mr-1" /> Assumir tratamento
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Botão [Analisar Impacto] — obrigatório para críticos (e disponível para altos) */}
+                          {(isCritico || isAlto) && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setAlertaImpactoSelecionado(al)
+                                setIsModalImpactoOpen(true)
+                              }}
+                              className="h-6 px-2 text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs"
+                            >
+                              Analisar Impacto
                             </Button>
                           )}
                         </div>
-
-                        {/* Botão [Analisar Impacto] — obrigatório para críticos (e disponível para altos) */}
-                        {(isCritico || isAlto) && (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setAlertaImpactoSelecionado(al)
-                              setIsModalImpactoOpen(true)
-                            }}
-                            className="h-6 px-2 text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs"
-                          >
-                            Analisar Impacto
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+              </ErrorBoundary>
 
               {/* 2. ALERTAS OPERACIONAIS DAS LINHAS */}
-              {scopedAlerts
-                .filter((a) => {
-                  if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Operacional') return false
-                  if (filtroSeveridade !== 'ALL') {
-                    const s = a.severity.toLowerCase()
-                    if (filtroSeveridade === 'CRÍTICO' && s !== 'critical') return false
-                    if (filtroSeveridade === 'ALTO' && s !== 'warning') return false
-                    if (filtroSeveridade === 'INFORMATIVO' && s !== 'info' && s !== 'success')
-                      return false
-                  }
-                  if (filtroStatus !== 'ALL') {
-                    if (filtroStatus === 'Resolvido' && !a.acknowledged) return false
-                    if (filtroStatus === 'Novo' && a.acknowledged) return false
-                  }
-                  return true
-                })
-                .map((alert) => {
-                  const isCritical = alert.severity === 'critical'
-                  const isWarning = alert.severity === 'warning'
-                  const isSuccess = alert.severity === 'success'
+              <ErrorBoundary moduleName="Alertas Operacionais" variant="compact">
+                {scopedAlerts
+                  .filter((a) => {
+                    if (filtroOrigem !== 'ALL' && filtroOrigem !== 'Operacional') return false
+                    if (filtroSeveridade !== 'ALL') {
+                      const s = typeof a?.severity === 'string' ? a.severity.toLowerCase() : ''
+                      if (filtroSeveridade === 'CRÍTICO' && s !== 'critical') return false
+                      if (filtroSeveridade === 'ALTO' && s !== 'warning') return false
+                      if (filtroSeveridade === 'INFORMATIVO' && s !== 'info' && s !== 'success')
+                        return false
+                    }
+                    if (filtroStatus !== 'ALL') {
+                      if (filtroStatus === 'Resolvido' && !a?.acknowledged) return false
+                      if (filtroStatus === 'Novo' && a?.acknowledged) return false
+                    }
+                    return true
+                  })
+                  .map((alert) => {
+                    const isCritical = alert.severity === 'critical'
+                    const isWarning = alert.severity === 'warning'
+                    const isSuccess = alert.severity === 'success'
 
-                  return (
-                    <div
-                      key={alert.id}
-                      className={`p-3 rounded-lg border transition-all text-xs ${
-                        alert.acknowledged
-                          ? 'bg-slate-50 border-slate-200 opacity-60'
-                          : isCritical
-                            ? 'bg-rose-50 border-rose-200 text-rose-900'
-                            : isWarning
-                              ? 'bg-amber-50 border-amber-200 text-amber-900'
-                              : isSuccess
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                : 'bg-white border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5">
-                          {isCritical ? (
-                            <Badge className="bg-rose-600 text-white text-[9px] font-bold">
-                              [CRÍTICO]
-                            </Badge>
-                          ) : isWarning ? (
-                            <Badge className="bg-amber-600 text-white text-[9px] font-bold">
-                              [ALTO]
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-slate-500 text-white text-[9px] font-bold">
-                              [OPERACIONAL]
-                            </Badge>
-                          )}
-                          <span className="font-bold text-slate-900 text-xs">{alert.title}</span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="text-[9px] px-1 py-0 uppercase border-slate-300 text-slate-600 bg-slate-100"
-                        >
-                          {alert.category}
-                        </Badge>
-                      </div>
-
-                      <p className="text-[11px] text-slate-600 leading-snug mb-2">
-                        {alert.message}
-                      </p>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-200">
-                        <span className="text-[10px] text-slate-500">
-                          {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
-                          {formatDateTimePTBR(alert.created, false, '--:--')}
-                        </span>
-
-                        {!alert.acknowledged && (
-                          <Can
-                            permission="pcp.alert.manage"
-                            mode="disable"
-                            explainMessage="Apenas perfis com permissão pcp.alert.manage podem reconhecer alertas operacionais."
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`p-3 rounded-lg border transition-all text-xs ${
+                          alert.acknowledged
+                            ? 'bg-slate-50 border-slate-200 opacity-60'
+                            : isCritical
+                              ? 'bg-rose-50 border-rose-200 text-rose-900'
+                              : isWarning
+                                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                : isSuccess
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                  : 'bg-white border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            {isCritical ? (
+                              <Badge className="bg-rose-600 text-white text-[9px] font-bold">
+                                [CRÍTICO]
+                              </Badge>
+                            ) : isWarning ? (
+                              <Badge className="bg-amber-600 text-white text-[9px] font-bold">
+                                [ALTO]
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-slate-500 text-white text-[9px] font-bold">
+                                [OPERACIONAL]
+                              </Badge>
+                            )}
+                            <span className="font-bold text-slate-900 text-xs">{alert.title}</span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 py-0 uppercase border-slate-300 text-slate-600 bg-slate-100"
                           >
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAcknowledgeAlert(alert.id)}
-                              className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50"
+                            {alert.category}
+                          </Badge>
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 leading-snug mb-2">
+                          {alert.message}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                          <span className="text-[10px] text-slate-500">
+                            {alert.expand?.line_id?.code || 'Geral'} &bull;{' '}
+                            {formatDateTimePTBR(alert.created, false, '--:--')}
+                          </span>
+
+                          {!alert.acknowledged && (
+                            <Can
+                              permission="pcp.alert.manage"
+                              mode="disable"
+                              explainMessage="Apenas perfis com permissão pcp.alert.manage podem reconhecer alertas operacionais."
                             >
-                              <CheckCircle2 className="w-3 h-3 mr-1" /> Reconhecer
-                            </Button>
-                          </Can>
-                        )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAcknowledgeAlert(alert.id)}
+                                className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50"
+                              >
+                                <CheckCircle2 className="w-3 h-3 mr-1" /> Reconhecer
+                              </Button>
+                            </Can>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+              </ErrorBoundary>
             </div>
           </div>
         </ErrorBoundary>

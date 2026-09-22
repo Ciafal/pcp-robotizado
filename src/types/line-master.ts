@@ -55,6 +55,7 @@ export type ProgrammingType =
   | 'Argola'
   | 'Alto-Forno'
   | 'Aciaria'
+  | 'Retrabalho'
 
 export const PROGRAMMING_TYPES_CATALOG: ProgrammingType[] = [
   'Laminação',
@@ -73,6 +74,7 @@ export const PROGRAMMING_TYPES_CATALOG: ProgrammingType[] = [
   'Argola',
   'Alto-Forno',
   'Aciaria',
+  'Retrabalho',
 ]
 
 export const MULTIPLE_PROGRAMMING_STAGES_CATALOG: ProgrammingType[] = [
@@ -86,6 +88,7 @@ export const MULTIPLE_PROGRAMMING_STAGES_CATALOG: ProgrammingType[] = [
   'Argola',
   'Alto-Forno',
   'Aciaria',
+  'Retrabalho',
 ]
 
 // 1. Linha Produtiva (production_lines)
