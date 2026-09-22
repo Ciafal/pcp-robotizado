@@ -96,15 +96,25 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // BYPASS IMEDIATO:
   // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros
-  //    (pcp.masterdata.view / pcp.lines.view / pcp.rules.view), Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal)
-  //    e Controle de Produção (pcp.production.view):
+  //    (pcp.masterdata.view / pcp.masterdata.edit / pcp.masterdata.admin / pcp.lines.view / pcp.rules.view),
+  //    Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal) e Controle de Produção (pcp.production.view):
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
-  //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start.
+  //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start para usuários
+  //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, etc.
   const currentPathname = typeof window !== 'undefined' ? window.location?.pathname || '' : ''
+  const isPcpProgrammerOrLineManager =
+    currentRoleUpper === 'PCP_PROGRAMMER' ||
+    currentRoleUpper === 'PPC_PROGRAMMER' ||
+    currentRoleUpper === 'LINE_MANAGER' ||
+    currentRoleUpper === 'PCP_PLANNER'
+
   if (
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.masterdata.view' ||
+    permission === 'pcp.masterdata.edit' ||
+    permission === 'pcp.masterdata.admin' ||
     permission === 'pcp.lines.view' ||
+    permission === 'pcp.lines.manage' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
     currentPathname === '/pcp' ||
@@ -115,7 +125,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.includes('/pcp/controle-producao') ||
-    currentPathname.includes('/pcp/producao')
+    currentPathname.includes('/pcp/producao') ||
+    (isPcpProgrammerOrLineManager && currentPathname.startsWith('/pcp/cadastros/'))
   ) {
     return <>{children}</>
   }
@@ -219,6 +230,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.lines.manage' ||
       permission === 'pcp.masterdata.edit' ||
       permission === 'pcp.masterdata.view' ||
+      permission === 'pcp.masterdata.admin' ||
       permission === 'pcp.lines.view' ||
       permission === 'pcp.rules.view' ||
       permission === 'pcp.rules.edit' ||
@@ -226,7 +238,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.schedule.edit' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.weekly_schedule.edit' ||
-      permission === 'pcp.carteira.view'
+      permission === 'pcp.carteira.view' ||
+      currentPathname.startsWith('/pcp/cadastros')
     ) {
       hasPerm = true
     }
@@ -237,13 +250,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   if (
     !hasPerm &&
     (permission === 'pcp.masterdata.view' ||
+      permission === 'pcp.masterdata.edit' ||
+      permission === 'pcp.masterdata.admin' ||
       permission === 'pcp.lines.view' ||
       permission === 'pcp.rules.view' ||
       permission === 'pcp.carteira.view' ||
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
-      permission === 'pcp.production.view')
+      permission === 'pcp.production.view' ||
+      currentPathname.startsWith('/pcp/cadastros'))
   ) {
     hasPerm = true
   }
