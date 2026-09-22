@@ -76,6 +76,14 @@ describe('RBAC & Permission Guard Integration Verification', () => {
 
     const programmerPerms = authService.getPermissionsForRole('PCP_PROGRAMMER')
     expect(programmerPerms).toContain('pcp.lines.manage')
+    expect(programmerPerms).toContain('pcp.masterdata.admin')
+    expect(programmerPerms).toContain('pcp.masterdata.view')
+    expect(programmerPerms).toContain('pcp.masterdata.edit')
+
+    const lineManagerPerms = authService.getPermissionsForRole('LINE_MANAGER')
+    expect(lineManagerPerms).toContain('pcp.masterdata.admin')
+    expect(lineManagerPerms).toContain('pcp.masterdata.view')
+    expect(lineManagerPerms).toContain('pcp.masterdata.edit')
   })
 
   it('should verify AUDITOR role has view access to schedule or can view modules', () => {

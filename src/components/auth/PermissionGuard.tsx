@@ -100,17 +100,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   //    Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal) e Controle de Produção (pcp.production.view):
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
   //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start para usuários
-  //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, etc.
+  //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, PCP_PLANNER etc.
   const currentPathname = typeof window !== 'undefined' ? window.location?.pathname || '' : ''
-  const isPcpProgrammerOrLineManager =
-    currentRoleUpper === 'PCP_PROGRAMMER' ||
-    currentRoleUpper === 'PPC_PROGRAMMER' ||
-    currentRoleUpper === 'LINE_MANAGER' ||
-    currentRoleUpper === 'PCP_PLANNER'
-
-  // Liberar rotas /pcp/cadastros/* e subrecursos de cadastros para papéis operacionais PCP_PROGRAMMER e LINE_MANAGER
-  // mantendo o guard para quem não tem nenhum papel PCP
-  const hasAnyPcpRole =
+  const isOperationalPcpRole =
     currentRoleUpper === 'PCP_ADMIN' ||
     currentRoleUpper === 'ADMIN' ||
     currentRoleUpper === 'ADMINISTRADOR' ||
@@ -122,28 +114,31 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentRoleUpper === 'EXECUTIVE_VIEWER' ||
     currentRoleUpper === 'AUDITOR'
 
-  if (
-    permission === 'pcp.cockpit.view' ||
+  const isCadastrosOrMasterData =
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.masterdata.edit' ||
     permission === 'pcp.masterdata.admin' ||
     permission === 'pcp.lines.view' ||
     permission === 'pcp.lines.manage' ||
+    permission.startsWith('pcp.masterdata.') ||
+    permission.startsWith('pcp.lines.') ||
+    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname.startsWith('/pcp/linhas') ||
+    currentPathname.includes('/ficha-mestre') ||
+    currentPathname.includes('/centros-ficha-mestre') ||
+    currentPathname.includes('/linhas-ficha-mestre')
+
+  if (
+    permission === 'pcp.cockpit.view' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
-    currentPathname.startsWith('/pcp/linhas') ||
-    currentPathname.includes('/ficha-mestre') ||
     currentPathname.includes('/pcp/controle-producao') ||
     currentPathname.includes('/pcp/producao') ||
-    (hasAnyPcpRole &&
-      (currentPathname.startsWith('/pcp/cadastros') ||
-        currentPathname.includes('/ficha-mestre') ||
-        permission.startsWith('pcp.masterdata.')))
+    isCadastrosOrMasterData
   ) {
     return <>{children}</>
   }
