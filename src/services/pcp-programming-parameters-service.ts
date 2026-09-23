@@ -241,6 +241,17 @@ class PCPProgrammingParametersService {
     const actionType = isEditing ? 'ALTERACAO' : 'CRIACAO'
     const eventType = isEditing ? 'Alteração' : 'Criação'
 
+    let previousRecord: ProgrammingParameter | null = null
+
+    if (isEditing && input.id) {
+      try {
+        const existing = await pb.collection('pcp_programming_parameters').getOne(input.id)
+        previousRecord = this.mapRecord(existing)
+      } catch (e) {
+        console.warn('Registro anterior não encontrado para diff de auditoria:', e)
+      }
+    }
+
     // Validação obrigatória da Bitola em criação e edição
     const trimmedBitola = (input.bitola || '').trim()
     if (!trimmedBitola) {
@@ -259,15 +270,24 @@ class PCPProgrammingParametersService {
           user_name: currentUserInfo?.name,
           user_email: currentUserInfo?.email,
           status: 'Erro',
-          error_message: bitolaErrorMsg,
+          outcome: 'FAILED',
+          reason: 'Validação de Bitola obrigatória violada',
+          justification: bitolaErrorMsg,
           details: {
             parameter_id: input.id || null,
             parameter_name: input.name?.trim(),
             center_code: input.center_code.trim(),
+            operacao: actionType,
             action: actionType,
+            sucesso: false,
             bitola: '',
+            previous_bitola: previousRecord?.bitola ?? null,
+            new_bitola: '',
             tipo_aco: (input.tipo_aco || '').trim(),
+            previous_tipo_aco: previousRecord?.tipo_aco ?? null,
+            new_tipo_aco: (input.tipo_aco || '').trim(),
             validation_error: bitolaErrorMsg,
+            data_hora: new Date().toISOString(),
           },
           changes: [],
           source: 'Usuário',
@@ -276,17 +296,6 @@ class PCPProgrammingParametersService {
         console.warn('Falha ao registrar auditoria de erro de validação:', logErr)
       }
       throw new Error(bitolaErrorMsg)
-    }
-
-    let previousRecord: ProgrammingParameter | null = null
-
-    if (isEditing && input.id) {
-      try {
-        const existing = await pb.collection('pcp_programming_parameters').getOne(input.id)
-        previousRecord = this.mapRecord(existing)
-      } catch (e) {
-        console.warn('Registro anterior não encontrado para diff de auditoria:', e)
-      }
     }
 
     const officialType = normalizeParameterTypeToOfficial(input.parameter_type)
@@ -339,17 +348,25 @@ class PCPProgrammingParametersService {
           user_name: currentUserInfo?.name,
           user_email: currentUserInfo?.email,
           status: 'Erro',
-          error_message: saveError?.message || 'Falha ao salvar parâmetro no backend.',
+          outcome: 'FAILED',
+          reason: 'Falha de persistência no backend',
+          justification: saveError?.message || 'Falha ao salvar parâmetro no backend.',
           details: {
             parameter_id: input.id || null,
             parameter_name: input.name?.trim(),
             center_code: input.center_code.trim(),
+            operacao: actionType,
             action: actionType,
+            sucesso: false,
             bitola: trimmedBitola,
-            tipo_aco: (input.tipo_aco || '').trim(),
             previous_bitola: previousRecord?.bitola ?? null,
+            new_bitola: trimmedBitola,
+            tipo_aco: (input.tipo_aco || '').trim(),
             previous_tipo_aco: previousRecord?.tipo_aco ?? null,
+            new_tipo_aco: (input.tipo_aco || '').trim(),
             payload_attempt: payload,
+            error: saveError?.message || 'Falha ao salvar parâmetro no backend.',
+            data_hora: new Date().toISOString(),
           },
           changes: [],
           source: input.ai_analysis_metadata ? 'IA' : 'Usuário',
@@ -514,7 +531,9 @@ class PCPProgrammingParametersService {
         parameter_name: result.name,
         parameter_type: result.parameter_type,
         center_code: result.center_code,
+        operacao: actionType,
         action: actionType,
+        sucesso: true,
         bitola: result.bitola,
         tipo_aco: result.tipo_aco,
         previous_bitola: previousRecord?.bitola ?? null,
@@ -523,6 +542,7 @@ class PCPProgrammingParametersService {
         new_tipo_aco: result.tipo_aco ?? null,
         previous_value: previousRecord?.value ?? null,
         new_value: result.value ?? null,
+        data_hora: new Date().toISOString(),
         texto_parametro: result.textoParametro,
         impacto_consequencia: result.impactoConsequencia,
       }

@@ -896,7 +896,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         open={Boolean(viewingParameter)}
         onOpenChange={(open) => !open && setViewingParameter(null)}
       >
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-xl">
+        <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-xl p-4 sm:p-6">
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-[#004C97]" />
@@ -1091,7 +1091,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         }}
       >
         <DialogContent
-          className="max-w-2xl max-h-[92vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-2xl p-6"
+          className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-2xl p-4 sm:p-6"
           data-testid="parameter-form-modal"
         >
           <DialogHeader className="border-b border-slate-100 pb-3">
