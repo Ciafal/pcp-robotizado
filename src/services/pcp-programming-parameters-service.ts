@@ -238,6 +238,46 @@ class PCPProgrammingParametersService {
     currentUserInfo?: { id?: string; name?: string; email?: string },
   ): Promise<ProgrammingParameter> {
     const isEditing = Boolean(input.id)
+    const actionType = isEditing ? 'ALTERACAO' : 'CRIACAO'
+    const eventType = isEditing ? 'Alteração' : 'Criação'
+
+    // Validação obrigatória da Bitola em criação e edição
+    const trimmedBitola = (input.bitola || '').trim()
+    if (!trimmedBitola) {
+      const bitolaErrorMsg = "Selecione uma Bitola ou informe 'Não há'."
+      try {
+        await pcpAuditService.recordLog({
+          action: actionType,
+          event_type: eventType,
+          center: input.center_code.trim(),
+          line: input.center_code.trim(),
+          module: 'Cadastros',
+          screen: 'Parâmetros de Programação',
+          entity: 'pcp_programming_parameters',
+          record_id: input.id || undefined,
+          user_id: currentUserInfo?.id,
+          user_name: currentUserInfo?.name,
+          user_email: currentUserInfo?.email,
+          status: 'Erro',
+          error_message: bitolaErrorMsg,
+          details: {
+            parameter_id: input.id || null,
+            parameter_name: input.name?.trim(),
+            center_code: input.center_code.trim(),
+            action: actionType,
+            bitola: '',
+            tipo_aco: (input.tipo_aco || '').trim(),
+            validation_error: bitolaErrorMsg,
+          },
+          changes: [],
+          source: 'Usuário',
+        })
+      } catch (logErr) {
+        console.warn('Falha ao registrar auditoria de erro de validação:', logErr)
+      }
+      throw new Error(bitolaErrorMsg)
+    }
+
     let previousRecord: ProgrammingParameter | null = null
 
     if (isEditing && input.id) {
@@ -257,7 +297,7 @@ class PCPProgrammingParametersService {
       name: input.name.trim(),
       description: input.description?.trim() || '',
       parameter_type: officialType,
-      bitola: (input.bitola || '').trim(),
+      bitola: trimmedBitola,
       tipo_aco: (input.tipo_aco || '').trim(),
       codigo_sap: (input.codigo_sap || input.tipo_aco || '').trim(),
       sap_metadata: input.sap_metadata || null,
@@ -277,10 +317,47 @@ class PCPProgrammingParametersService {
     }
 
     let savedRec: any
-    if (isEditing && input.id) {
-      savedRec = await pb.collection('pcp_programming_parameters').update(input.id, payload)
-    } else {
-      savedRec = await pb.collection('pcp_programming_parameters').create(payload)
+    try {
+      if (isEditing && input.id) {
+        savedRec = await pb.collection('pcp_programming_parameters').update(input.id, payload)
+      } else {
+        savedRec = await pb.collection('pcp_programming_parameters').create(payload)
+      }
+    } catch (saveError: any) {
+      // Registrar falha de salvamento na auditoria
+      try {
+        await pcpAuditService.recordLog({
+          action: actionType,
+          event_type: eventType,
+          center: input.center_code.trim(),
+          line: input.center_code.trim(),
+          module: 'Cadastros',
+          screen: 'Parâmetros de Programação',
+          entity: 'pcp_programming_parameters',
+          record_id: input.id || undefined,
+          user_id: currentUserInfo?.id,
+          user_name: currentUserInfo?.name,
+          user_email: currentUserInfo?.email,
+          status: 'Erro',
+          error_message: saveError?.message || 'Falha ao salvar parâmetro no backend.',
+          details: {
+            parameter_id: input.id || null,
+            parameter_name: input.name?.trim(),
+            center_code: input.center_code.trim(),
+            action: actionType,
+            bitola: trimmedBitola,
+            tipo_aco: (input.tipo_aco || '').trim(),
+            previous_bitola: previousRecord?.bitola ?? null,
+            previous_tipo_aco: previousRecord?.tipo_aco ?? null,
+            payload_attempt: payload,
+          },
+          changes: [],
+          source: input.ai_analysis_metadata ? 'IA' : 'Usuário',
+        })
+      } catch (auditErr) {
+        console.warn('Falha ao auditar erro de persistência:', auditErr)
+      }
+      throw saveError
     }
 
     const result = this.mapRecord(savedRec)

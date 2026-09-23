@@ -243,6 +243,14 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setFormBitola(bitolaStr)
     setFormTipoAco(tipoAcoStr)
     setFormStatus(param.status)
+
+    // Se registro antigo não possui bitola cadastrada, exigir regularização imediata
+    if (!bitolaStr.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        bitola: "Selecione uma Bitola ou informe 'Não há'.",
+      }))
+    }
     setFormValue(param.value || '')
     setFormUnit(param.unit_of_measure || '')
     setFormValidFrom(validFromStr)
@@ -1234,6 +1242,15 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                     className="text-[11px] text-rose-600 font-medium mt-0.5"
                   >
                     {fieldErrors.bitola}
+                  </p>
+                )}
+                {editingParameter && !editingParameter.bitola && (
+                  <p
+                    data-testid="warning-bitola-regularizacao"
+                    className="text-[11px] text-amber-700 font-medium mt-0.5 flex items-center gap-1"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                    Registro anterior sem bitola. É obrigatório regularizar antes de salvar.
                   </p>
                 )}
               </div>

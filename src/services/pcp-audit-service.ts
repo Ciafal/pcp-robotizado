@@ -46,6 +46,11 @@ export interface FieldChange {
 }
 
 export const FIELD_LABELS_PT_BR: Record<string, string> = {
+  bitola: 'Bitola',
+  tipo_aco: 'Tipo de Aço',
+  codigo_sap: 'Código SAP',
+  texto_parametro: 'Texto do Parâmetro',
+  impacto_consequencia: 'Impacto / Consequência',
   name: 'Nome do Centro',
   code: 'Código do Centro',
   is_active: 'Status',
