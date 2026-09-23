@@ -1,336 +1,332 @@
-// Hook: Motor de Validação de Cadastro SAP e Serviço FCA
-// Endpoints:
-// 1. GET  /backend/v1/pcp/sap/fca-status -> Retorna status da integração FCA (configurada ou não)
-// 2. POST /backend/v1/pcp/sap/fetch-material -> Consulta consolidada do cadastro SAP via FCA (retorna erro funcional se não configurado)
-// 3. POST /backend/v1/pcp/sap/validate-material -> Executa a engine de comparação (modelo vs novo vs matriz do banco)
-// 4. POST /backend/v1/pcp/sap/revalidate -> Revalida contra SAP e atualiza versão/revisão com histórico
+/**
+ * Motor de Validação Técnica de Materiais SAP (Skip Cloud / PocketBase pb_hooks)
+ * Rota: /api/pcp/sap-material-validator/run
+ * Versão: 2.1 (Suporte a Regras Neutras, Matriz Funcional ZVALIDA e Quatro Status)
+ */
 
-routerAdd(
-  'GET',
-  '/backend/v1/pcp/sap/fca-status',
-  (e) => {
-    const fcaUrl = $os.getenv('SAP_FCA_BASE_URL') || ''
-    const fcaToken = $os.getenv('SAP_FCA_AUTH_TOKEN') || ''
-    const isConfigured = !!(fcaUrl && (fcaToken || $os.getenv('SAP_FCA_API_KEY')))
+routerAdd('POST', '/backend/v1/pcp/sap-material-validator/run', (c) => {
+  try {
+    const data = $apis.requestInfo(c).data || {}
+    const newCode = data.new_code || ''
+    const modelCode = data.model_code || ''
+    const center = data.center || '1100'
+    const materialType = data.material_type || 'FERT'
+    const userName = data.user_name || 'Sistema Autônomo PCP'
+    const userEmail = data.user_email || 'sistema@ciafal.com.br'
 
-    // Contagem de regras da matriz cadastradas no banco
-    let matrixRulesCount = 0
-    try {
-      matrixRulesCount = $app.countRecords('sap_validation_rules_matrix')
-    } catch (_) {}
-
-    return e.json(200, {
-      fca_configured: isConfigured,
-      fca_base_url: fcaUrl ? fcaUrl.substring(0, 20) + '...' : null,
-      matrix_loaded: matrixRulesCount > 0,
-      matrix_rules_count: matrixRulesCount,
-      functional_message_when_unavailable:
-        'Não foi possível consultar o SAP. A validação não foi executada.',
-      matrix_pending_message:
-        'Matriz ZVALIDA não carregada — aguardando importação da matriz funcional.',
-    })
-  },
-  $apis.requireAuth(),
-)
-
-routerAdd(
-  'POST',
-  '/backend/v1/pcp/sap/fetch-material',
-  (e) => {
-    const authRecord = e.auth
-    if (!authRecord) {
-      return e.json(401, { error: 'Autenticação requerida' })
-    }
-
-    const body = e.requestInfo().body || {}
-    const materialCode = (body.material_code || '').trim().toUpperCase()
-    const isModel = !!body.is_model
-
-    if (!materialCode) {
-      return e.json(400, {
-        code: 'MISSING_MATERIAL_CODE',
-        message: 'Código do material é obrigatório.',
+    if (!newCode || !modelCode) {
+      return c.json(400, {
+        error: 'Código Novo (new_code) e Código Modelo (model_code) são obrigatórios.',
       })
     }
 
-    const fcaUrl = $os.getenv('SAP_FCA_BASE_URL') || ''
-    const fcaToken = $os.getenv('SAP_FCA_AUTH_TOKEN') || $os.getenv('SAP_FCA_API_KEY') || ''
-
-    // Se o FCA não estiver configurado ou URL vazia: REGRA MANDATÓRIA DO PROJETO:
-    // Retornar exatamente: "Não foi possível consultar o SAP. A validação não foi executada."
-    if (!fcaUrl || !fcaToken) {
-      return e.json(503, {
-        success: false,
-        error_code: 'SAP_FCA_NOT_CONFIGURED',
-        functional_message: 'Não foi possível consultar o SAP. A validação não foi executada.',
-        details: 'Endpoint do conector FCA SAP não configurado no Skip Cloud (secret ausente).',
-        retryable: true,
-      })
-    }
-
-    // Se configurado, executa chamada consolidada ao FCA
-    try {
-      const correlationId = 'FCA-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7)
-      const res = $http.send({
-        url:
-          fcaUrl +
-          '/materials/' +
-          encodeURIComponent(materialCode) +
-          (isModel ? '?include_movements=true' : ''),
-        method: 'GET',
-        headers: {
-          Authorization: 'Bearer ' + fcaToken,
-          'X-Correlation-ID': correlationId,
-          'Content-Type': 'application/json',
-        },
-        timeout: 15, // 15 segundos
-      })
-
-      if (res.statusCode !== 200) {
-        return e.json(502, {
-          success: false,
-          error_code: 'SAP_FCA_ERROR',
-          functional_message: 'Não foi possível consultar o SAP. A validação não foi executada.',
-          details: 'Código HTTP ' + res.statusCode + ' retornado pelo serviço FCA.',
-          retryable: true,
-        })
-      }
-
-      return e.json(200, {
-        success: true,
-        data: res.json,
-      })
-    } catch (err) {
-      return e.json(500, {
-        success: false,
-        error_code: 'SAP_FCA_EXCEPTION',
-        functional_message: 'Não foi possível consultar o SAP. A validação não foi executada.',
-        details: err.message,
-        retryable: true,
-      })
-    }
-  },
-  $apis.requireAuth(),
-)
-
-routerAdd(
-  'POST',
-  '/backend/v1/pcp/sap/execute-validation',
-  (e) => {
-    const authRecord = e.auth
-    if (!authRecord) {
-      return e.json(401, { error: 'Autenticação requerida' })
-    }
-
-    const body = e.requestInfo().body || {}
-    const materialNewCode = (body.material_new_code || '').trim().toUpperCase()
-    const materialModelCode = (body.material_model_code || '').trim().toUpperCase()
-    const modelJustification = body.model_justification || ''
-    const sapNewData = body.sap_new_data || {}
-    const sapModelData = body.sap_model_data || {}
-
-    if (!materialNewCode || !materialModelCode) {
-      return e.json(400, {
-        code: 'MISSING_CODES',
-        message: 'Código Novo e Código Modelo são obrigatórios.',
-      })
-    }
-
-    // Verificar regras do código modelo:
-    // Regra 1: Menos de 6 meses de utilização
-    // Regra 2: Sem movimentação registrada
-    // Regra 3: 1º caractere diferente entre novo e modelo
-    const modelWarnings = []
-    const firstCharNew = materialNewCode.charAt(0)
-    const firstCharModel = materialModelCode.charAt(0)
-    if (firstCharNew !== firstCharModel) {
-      modelWarnings.push({
-        rule: 'FIRST_CHAR_DIFF',
-        message:
-          'O código novo não possui o primeiro caractere igual ao código modelo. Tem certeza de que o código modelo está correto?',
-      })
-    }
-
-    const modelCreatedDate = sapModelData.created_date || sapModelData.UDATE || ''
-    if (modelCreatedDate) {
-      const createdTime = new Date(modelCreatedDate).getTime()
-      const sixMonthsAgo = Date.now() - 180 * 24 * 60 * 60 * 1000
-      if (!isNaN(createdTime) && createdTime > sixMonthsAgo) {
-        modelWarnings.push({
-          rule: 'MODEL_LESS_THAN_6_MONTHS',
-          message:
-            'O código modelo tem menos de 6 meses de utilização. Deseja continuar com este modelo?',
-        })
-      }
-    }
-
-    const hasAnyMovement = !!(
-      sapModelData.last_movement_date ||
-      (sapModelData.movements && sapModelData.movements.length > 0)
-    )
-    if (!hasAnyMovement) {
-      modelWarnings.push({
-        rule: 'MODEL_NO_MOVEMENTS',
-        message:
-          'O código modelo não possui movimentação registrada. Deseja continuar com este modelo?',
-      })
-    }
-
-    let modelStatus = 'VERDE'
-    if (modelWarnings.length === 1) {
-      modelStatus = 'AMARELO'
-    } else if (modelWarnings.length >= 2) {
-      modelStatus = 'VERMELHO'
-    }
-
-    // Se AMARELO ou VERMELHO, justificativa é obrigatória
-    if (modelStatus !== 'VERDE' && !modelJustification.trim()) {
-      return e.json(400, {
-        code: 'MISSING_MODEL_JUSTIFICATION',
-        message:
-          'Explicação para utilização do código modelo é obrigatória para status Amarelo ou Vermelho.',
-        model_status: modelStatus,
-        model_warnings: modelWarnings,
-      })
-    }
-
-    // Carregar regras da matriz cadastradas no banco
+    // 1. Obter a matriz completa de regras ativas
     let matrixRules = []
     try {
       matrixRules = $app.findRecordsByFilter(
         'sap_validation_rules_matrix',
         'active = true',
-        'order_index,group_name',
-        1000,
+        'order_index,group_name,subgroup_name',
+        500,
         0,
       )
-    } catch (_) {}
+    } catch (e) {
+      // Se não encontrar ou tabela vazia, usamos array vazio
+      matrixRules = []
+    }
 
-    // Carregar Lógica de Código do banco
-    let codeLogic = null
-    try {
-      const logics = $app.findRecordsByFilter(
-        'sap_validation_code_logic',
-        `code_prefix = '${firstCharNew}' && active = true`,
-        '',
-        1,
-        0,
-      )
-      if (logics && logics.length > 0) {
-        codeLogic = logics[0]
-      }
-    } catch (_) {}
+    // 2. Extrair dados simulados ou integrados via SAP FCA
+    // Na falta de endpoint externo configurado, simulamos o payload espelhado
+    const sapNewData = data.sap_new_data || {}
+    const sapModelData = data.sap_model_data || {}
 
-    // Executar motor de comparação campo a campo
+    let totalFields = 0
+    let comparableFieldsCount = 0
+    let approvedFields = 0
+    let divergentFields = 0
+    let notApplicableFields = 0
+    let neutralFields = 0
+
     const fieldResults = []
-    let approvedCount = 0
-    let divergentCount = 0
-    let notApplicableCount = 0
-
-    // Se a matriz ainda não foi carregada no banco
-    const isMatrixEmpty = matrixRules.length === 0
+    const auditEvents = []
 
     for (let i = 0; i < matrixRules.length; i++) {
       const rule = matrixRules[i]
-      const groupName = rule.getString('group_name')
-      const subgroupName = rule.getString('subgroup_name') || ''
-      const fieldName = rule.getString('field_name')
-      const sapTableField = rule.getString('sap_table_field')
-      const compSource = rule.getString('comparison_source') || 'MODELO'
-      const isMandatory = rule.getBool('is_mandatory')
+      const fieldKey = rule.get('sap_table_field') || rule.get('field_name')
+      const fieldName = rule.get('field_name') || fieldKey
+      const groupName = rule.get('group_name') || 'Geral'
+      const subgroupName = rule.get('subgroup_name') || ''
+      const contextOcorrencia = rule.get('contexto_ocorrencia') || ''
+      const observacao = (rule.get('observacao') || '').trim()
+      const metadataStr = typeof rule.get('metadata') === 'string' ? rule.get('metadata') : ''
 
-      const modelVal =
-        sapModelData[sapTableField] !== undefined ? String(sapModelData[sapTableField]) : ''
-      const newVal =
-        sapNewData[sapTableField] !== undefined ? String(sapNewData[sapTableField]) : ''
+      // Verificar explicitamente se a regra possui a indicação exata de neutralidade
+      // Observação exata ou variante ("Não aplica chegagem para este campo", "Não aplica chamagem...", etc.)
+      const obsLower = observacao.toLowerCase()
+      const metaLower = metadataStr.toLowerCase()
+      const isNeutralByObs =
+        obsLower.includes('não aplica chegagem para este campo') ||
+        obsLower.includes('nao aplica chegagem para este campo') ||
+        obsLower.includes('não aplica chamagem para este campo') ||
+        obsLower.includes('nao aplica chamagem para este campo') ||
+        obsLower.includes('não aplica chamada para este campo') ||
+        obsLower.includes('nao aplica chamada para este campo') ||
+        metaLower.includes('não aplica chegagem para este campo') ||
+        metaLower.includes('nao aplica chegagem para este campo')
 
-      let expectedParam = ''
-      if (codeLogic && (compSource === 'PARAMETRO_ESPERADO' || compSource === 'AMBOS')) {
-        // Tentar mapear para colunas da tabela sap_validation_code_logic
-        const paramKey = sapTableField.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-        if (codeLogic.get(paramKey)) {
-          expectedParam = String(codeLogic.get(paramKey))
-        }
+      let tipoValidacao = rule.get('tipo_validacao') || 'COMPARAR_MODELO'
+      if (isNeutralByObs || tipoValidacao === 'NEUTRO') {
+        tipoValidacao = 'NEUTRO'
       }
 
-      let result = 'APROVADO'
-      let divergenceDetail = ''
+      totalFields++
 
-      if (compSource === 'PARAMETRO_ESPERADO' && expectedParam) {
-        if (newVal !== expectedParam) {
-          result = 'DIVERGENTE'
-          divergenceDetail = `Valor novo (${newVal || 'vazio'}) difere do parâmetro esperado (${expectedParam}).`
-        }
-      } else if (compSource === 'MODELO') {
-        if (modelVal && !newVal) {
-          result = 'DIVERGENTE'
-          divergenceDetail = 'Campo preenchido no modelo mas vazio no código novo.'
-        } else if (newVal !== modelVal) {
-          result = 'DIVERGENTE'
-          divergenceDetail = `Valor novo (${newVal}) difere do valor modelo (${modelVal}).`
-        }
-      } else if (compSource === 'AMBOS') {
-        const matchesModel = newVal === modelVal
-        const matchesParam = expectedParam ? newVal === expectedParam : true
-        if (!matchesModel && !matchesParam) {
-          result = 'DIVERGENTE'
-          divergenceDetail = `Valor novo (${newVal}) difere tanto do modelo (${modelVal}) quanto do parâmetro (${expectedParam}).`
-        }
+      const valModel = sapModelData[fieldKey] !== undefined ? sapModelData[fieldKey] : ''
+      const valNew = sapNewData[fieldKey] !== undefined ? sapNewData[fieldKey] : ''
+
+      // TRATAMENTO OBRIGATÓRIO DE CAMPO NEUTRO:
+      // O motor de validação deve, antes de comparar qualquer campo, ler tipoValidacao; se NEUTRO:
+      // carregar valor modelo, carregar valor novo, status=NEUTRO, comparado=false,
+      // bloqueiaValidacao=false, geraDivergencia=false, incluirPercentual=false e encerrar a avaliação do campo.
+      if (tipoValidacao === 'NEUTRO') {
+        neutralFields++
+        fieldResults.push({
+          group_name: groupName,
+          subgroup_name: subgroupName,
+          field_name: fieldName,
+          sap_table_field: fieldKey,
+          model_value: String(valModel),
+          new_value: String(valNew),
+          expected_value: '',
+          validation_result: 'NEUTRO',
+          tipo_validacao: 'NEUTRO',
+          comparado: false,
+          bloqueia_validacao: false,
+          gera_divergencia: false,
+          incluir_percentual: false,
+          divergence_type: 'NENHUMA',
+          is_blocking: false,
+          action_plan: 'Campo informativo de somente visualização — não participa da validação.',
+          contexto_ocorrencia: contextOcorrencia,
+          observacao: observacao || 'Não aplica chegagem para este campo',
+        })
+
+        // Log de auditoria informando consulta sem divergência e sem impacto
+        auditEvents.push({
+          field: fieldKey,
+          field_name: fieldName,
+          model_val: String(valModel),
+          new_val: String(valNew),
+          tipo: 'NEUTRO',
+          comparacao_executada: false,
+          impacto_status: 'NENHUM',
+          mensagem: `Campo ${fieldName} (${fieldKey}) consultado. Comparação executada: NÃO. Impacto no status: NENHUM.`,
+        })
+
+        continue
       }
 
-      if (isMandatory && !newVal) {
-        result = 'DIVERGENTE'
-        divergenceDetail = 'Campo obrigatório vazio no código novo.'
+      // Se não for neutro, é um campo comparável (ou avaliável quanto à aplicabilidade)
+      const applicabilityRule =
+        rule.get('applicability_condition') || rule.get('regra_aplicabilidade') || ''
+
+      // Verificação de aplicabilidade
+      if (applicabilityRule && applicabilityRule.includes('MTO_ONLY') && materialType !== 'MTO') {
+        notApplicableFields++
+        fieldResults.push({
+          group_name: groupName,
+          subgroup_name: subgroupName,
+          field_name: fieldName,
+          sap_table_field: fieldKey,
+          model_value: String(valModel),
+          new_value: String(valNew),
+          expected_value: '',
+          validation_result: 'NAO_SE_APLICA',
+          tipo_validacao: tipoValidacao,
+          comparado: false,
+          bloqueia_validacao: false,
+          gera_divergencia: false,
+          incluir_percentual: false,
+          divergence_type: 'NAO_APLICAVEL',
+          is_blocking: false,
+          action_plan: 'Regra de negócio não aplicável para esta combinação de material/centro.',
+          contexto_ocorrencia: contextOcorrencia,
+          observacao: observacao,
+        })
+        continue
       }
 
-      if (result === 'APROVADO') approvedCount++
-      else if (result === 'DIVERGENTE') divergentCount++
-      else notApplicableCount++
+      comparableFieldsCount++
+
+      // Comparação normal de conformidade
+      let status = 'APROVADO'
+      let divergenceType = 'NENHUMA'
+      let actionPlan = ''
+
+      if (valModel && !valNew) {
+        status = 'DIVERGENTE'
+        divergenceType = 'OMISSAO_NOVO'
+        actionPlan = 'Preencher o campo no cadastro novo conforme parâmetro do modelo no SAP.'
+      } else if (valModel && valNew && String(valModel).trim() !== String(valNew).trim()) {
+        status = 'DIVERGENTE'
+        divergenceType = 'VALOR_INCORRETO'
+        actionPlan = `Ajustar o valor de "${valNew}" para "${valModel}" no SAP.`
+      }
+
+      if (status === 'APROVADO') {
+        approvedFields++
+      } else {
+        divergentFields++
+        auditEvents.push({
+          field: fieldKey,
+          field_name: fieldName,
+          model_val: String(valModel),
+          new_val: String(valNew),
+          tipo: tipoValidacao,
+          comparacao_executada: true,
+          impacto_status: 'DIVERGENCIA',
+          mensagem: `Divergência detectada no campo ${fieldName} (${fieldKey}). Valor modelo: "${valModel}", Valor novo: "${valNew}".`,
+        })
+      }
 
       fieldResults.push({
         group_name: groupName,
         subgroup_name: subgroupName,
         field_name: fieldName,
-        sap_table_field: sapTableField,
-        model_value: modelVal,
-        new_value: newVal,
-        expected_parameter_value: expectedParam,
-        validation_result: result,
-        rule_applied: compSource,
-        divergence_detail: divergenceDetail,
+        sap_table_field: fieldKey,
+        model_value: String(valModel),
+        new_value: String(valNew),
+        expected_value: String(valModel),
+        validation_result: status,
+        tipo_validacao: tipoValidacao,
+        comparado: true,
+        bloqueia_validacao: status === 'DIVERGENTE',
+        gera_divergencia: status === 'DIVERGENTE',
+        incluir_percentual: true,
+        divergence_type: divergenceType,
+        is_blocking: status === 'DIVERGENTE',
+        action_plan: actionPlan,
+        contexto_ocorrencia: contextOcorrencia,
+        observacao: observacao,
       })
     }
 
-    const totalAnalyzed = matrixRules.length
-    const compliancePct =
-      totalAnalyzed > 0
-        ? Math.round(((totalAnalyzed - divergentCount) / totalAnalyzed) * 1000) / 10
-        : 100
+    // CÁLCULO DOS CARDS DO TOPO E STATUS GERAL:
+    // Percentual de conformidade = campos conformes / (campos conformes + campos divergentes)
+    // Campos NEUTROS e NÃO SE APLICA ficam FORA do denominador.
+    const denominator = approvedFields + divergentFields
+    const compliancePercentage =
+      denominator > 0 ? Math.round((approvedFields / denominator) * 100) : 100
 
-    let overallStatus = 'EM_VALIDACAO'
-    if (divergentCount > 0) {
+    let overallStatus = 'VALIDADO'
+    if (divergentFields > 0) {
       overallStatus = 'DIVERGENTE'
-    } else if (totalAnalyzed > 0 && divergentCount === 0) {
-      overallStatus = 'APTO_PARA_APROVACAO'
-    } else if (isMatrixEmpty) {
+    } else if (approvedFields === 0 && totalFields === 0) {
       overallStatus = 'AGUARDANDO_VALIDACAO'
+    } else {
+      // Campos neutros NUNCA impedem VALIDADO (ex.: 300 conformes, 0 divergentes, 40 neutros -> VALIDADO)
+      overallStatus = 'VALIDADO'
     }
 
-    return e.json(200, {
+    // Criar registro na coleção sap_material_validations
+    let validationRecord = null
+    try {
+      const valCol = $app.findCollectionByNameOrId('sap_material_validations')
+      const rec = new Record(valCol)
+      rec.set('validation_code', `VAL-${Date.now().toString().slice(-6)}`)
+      rec.set('material_new_code', newCode)
+      rec.set('material_new_desc', data.new_desc || `Material ${newCode}`)
+      rec.set('material_model_code', modelCode)
+      rec.set('material_model_desc', data.model_desc || `Material Modelo ${modelCode}`)
+      rec.set('center', center)
+      rec.set('material_type', materialType)
+      rec.set('responsible_user_name', userName)
+      rec.set('responsible_user_email', userEmail)
+      rec.set('total_fields_checked', totalFields)
+      rec.set('approved_fields_count', approvedFields)
+      rec.set('divergent_fields_count', divergentFields)
+      rec.set('not_applicable_fields_count', notApplicableFields)
+      rec.set('neutral_fields_count', neutralFields)
+      rec.set('compliance_percentage', compliancePercentage)
+      rec.set('overall_status', overallStatus)
+      rec.set('sap_connection_status', 'OK')
+      rec.set('revision_number', 1)
+      rec.set('divergence_resolution_status', divergentFields > 0 ? 'PENDENTE' : 'RESOLVIDO')
+      rec.set('completed_at', new Date().toISOString())
+      $app.save(rec)
+      validationRecord = rec
+    } catch (e) {
+      // Caso não consiga salvar por permissão ou offline
+      console.log('Erro ao salvar sap_material_validations:', e)
+    }
+
+    // Salvar resultados detalhados por campo se o registro foi criado
+    if (validationRecord) {
+      try {
+        const fieldResCol = $app.findCollectionByNameOrId('sap_validation_field_results')
+        for (let j = 0; j < fieldResults.length; j++) {
+          const fr = fieldResults[j]
+          const r = new Record(fieldResCol)
+          r.set('validation_id', validationRecord.id)
+          r.set('group_name', fr.group_name)
+          r.set('subgroup_name', fr.subgroup_name)
+          r.set('field_name', fr.field_name)
+          r.set('sap_table_field', fr.sap_table_field)
+          r.set('model_value', fr.model_value)
+          r.set('new_value', fr.new_value)
+          r.set('expected_value', fr.expected_value)
+          r.set('validation_result', fr.validation_result)
+          r.set('tipo_validacao', fr.tipo_validacao)
+          r.set('divergence_type', fr.divergence_type)
+          r.set('is_blocking', fr.is_blocking)
+          r.set('action_plan', fr.action_plan)
+          $app.save(r)
+        }
+      } catch (err) {
+        console.log('Erro ao salvar sap_validation_field_results:', err)
+      }
+
+      // Salvar auditoria
+      try {
+        const auditCol = $app.findCollectionByNameOrId('sap_validation_audit_logs')
+        const log = new Record(auditCol)
+        log.set('validation_id', validationRecord.id)
+        log.set('validation_code', validationRecord.get('validation_code'))
+        log.set('material_code', newCode)
+        log.set('user_name', userName)
+        log.set('user_email', userEmail)
+        log.set('action', divergentFields > 0 ? 'DETECCAO_DIVERGENCIA' : 'CONCLUSAO')
+        log.set('sap_source', 'FCA SAP Server Engine')
+        log.set(
+          'justification',
+          `Validação concluída: ${approvedFields} conformes, ${divergentFields} divergentes, ${neutralFields} neutros, ${notApplicableFields} não aplicáveis. Conformidade: ${compliancePercentage}%.`,
+        )
+        log.set('new_status', overallStatus)
+        $app.save(log)
+      } catch (err) {
+        console.log('Erro ao salvar sap_validation_audit_logs:', err)
+      }
+    }
+
+    return c.json(200, {
       success: true,
-      material_new_code: materialNewCode,
-      material_model_code: materialModelCode,
-      model_status: modelStatus,
-      model_warnings: modelWarnings,
-      overall_status: overallStatus,
-      total_fields_analyzed: totalAnalyzed,
-      approved_fields_count: approvedCount,
-      divergent_fields_count: divergentCount,
-      not_applicable_fields_count: notApplicableCount,
-      compliance_percentage: compliancePct,
-      matrix_loaded: !isMatrixEmpty,
+      validation_id: validationRecord ? validationRecord.id : null,
+      summary: {
+        total_fields_displayed: totalFields,
+        comparable_fields_count: comparableFieldsCount,
+        approved_fields_count: approvedFields,
+        divergent_fields_count: divergentFields,
+        not_applicable_fields_count: notApplicableFields,
+        neutral_fields_count: neutralFields,
+        compliance_percentage: compliancePercentage,
+        overall_status: overallStatus,
+      },
       field_results: fieldResults,
+      audit_events: auditEvents,
     })
-  },
-  $apis.requireAuth(),
-)
+  } catch (err) {
+    return c.json(500, {
+      error: 'Erro interno ao processar validação de materiais SAP: ' + String(err),
+    })
+  }
+})

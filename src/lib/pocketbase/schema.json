@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T15:03:15.482Z",
+  "generatedAt": "2026-09-23T16:48:30.391Z",
   "collections": [
     {
       "name": "users",
@@ -23743,6 +23743,48 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "tipo_validacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "COMPARAR_MODELO",
+            "COMPARAR_PARAMETRO",
+            "COMPARAR_MODELO_PARAMETRO",
+            "NEUTRO"
+          ]
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "somente_leitura",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parametro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "regra_aplicabilidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contexto_ocorrencia",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -24354,6 +24396,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "neutral_fields_count",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -24440,7 +24488,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["APROVADO", "DIVERGENTE", "NAO_SE_APLICA"]
+          "selectValues": ["APROVADO", "DIVERGENTE", "NAO_SE_APLICA", "NEUTRO"]
         },
         {
           "name": "rule_applied",
@@ -24467,6 +24515,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "tipo_validacao",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "COMPARAR_MODELO",
+            "COMPARAR_PARAMETRO",
+            "COMPARAR_MODELO_PARAMETRO",
+            "NEUTRO"
+          ]
         }
       ],
       "indexes": [
