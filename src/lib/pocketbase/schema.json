@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T13:07:44.948Z",
+  "generatedAt": "2026-09-23T13:38:20.854Z",
   "collections": [
     {
       "name": "users",
@@ -23536,6 +23536,75 @@
         "CREATE INDEX idx_ppp_status ON pcp_programming_parameters (status)",
         "CREATE INDEX idx_ppp_valid_from ON pcp_programming_parameters (valid_from)",
         "CREATE INDEX idx_ppp_valid_until ON pcp_programming_parameters (valid_until)"
+      ]
+    },
+    {
+      "name": "pcp_lesson_feedback",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "lesson_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "feedback_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["UTIL", "NAO_APLICAVEL", "VALIDAR_MELHOR_PRATICA", "DESCARTAR"]
+        },
+        {
+          "name": "user_comment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_plf_center_code ON pcp_lesson_feedback (center_code)",
+        "CREATE INDEX idx_plf_lesson_key ON pcp_lesson_feedback (lesson_key)",
+        "CREATE INDEX idx_plf_feedback_type ON pcp_lesson_feedback (feedback_type)"
       ]
     }
   ]

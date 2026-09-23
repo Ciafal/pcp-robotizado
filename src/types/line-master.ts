@@ -837,6 +837,7 @@ export interface CompletenessItem {
       | 'MASTERDATA'
       | 'BOTTLENECK_MATRIX'
       | 'GOVERNANCE'
+      | 'LESSONS_LEARNED'
     masterSubTab?:
       | 'CAPACITY'
       | 'SHIFTS_CREWS'

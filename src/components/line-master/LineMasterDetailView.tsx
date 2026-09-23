@@ -12,6 +12,7 @@ import {
   FileText,
   GitCommit,
   Layers,
+  Lightbulb,
   Lock,
   PauseCircle,
   Plus,
@@ -59,6 +60,7 @@ import { LineIdealSequencePanel } from '@/components/line-master/LineIdealSequen
 import { LineReferenceDocumentsPanel } from '@/components/line-master/LineReferenceDocumentsPanel'
 import { lineReferenceDocumentsService } from '@/services/line-reference-documents-service'
 import { LineProgrammingParametersPanel } from '@/components/line-master/LineProgrammingParametersPanel'
+import { LineLessonsLearnedPanel } from '@/components/line-master/LineLessonsLearnedPanel'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
   MULTIPLE_PROGRAMMING_STAGES_CATALOG,
@@ -280,6 +282,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'MASTERDATA'
     | 'BOTTLENECK_MATRIX'
     | 'GOVERNANCE'
+    | 'LESSONS_LEARNED'
   >('OVERVIEW')
 
   // Contagem de documentos de referência do SGQ vinculados
@@ -1465,14 +1468,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </button>
 
         <button
-          onClick={() => setMainGroup('GOVERNANCE')}
-          className={`px-4 py-2 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            mainGroup === 'GOVERNANCE'
+          onClick={() => setMainGroup('LESSONS_LEARNED')}
+          className={`px-4 py-2 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            mainGroup === 'LESSONS_LEARNED'
               ? 'bg-[#004C97] text-white shadow-md'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
           }`}
         >
-          <ShieldCheck className="w-3.5 h-3.5" /> GOVERNANÇA & FONTES SAP ({sapCatalog.length})
+          <Lightbulb className="w-3.5 h-3.5" /> LIÇÕES APRENDIDAS IA
         </button>
       </div>
 
@@ -1654,7 +1657,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       setMainGroup('MASTERDATA')
                       setMasterSubTab('PRODUCTIVITY')
                     } else if (alt.id === 'alt_sap_untested') {
-                      setMainGroup('GOVERNANCE')
+                      setMainGroup('LESSONS_LEARNED')
                     }
                   }
 
@@ -2928,124 +2931,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         />
       )}
 
-      {/* 7. CONTEÚDO: GRUPO 5 - GOVERNANÇA & FONTES SAP */}
-      {mainGroup === 'GOVERNANCE' && (
-        <div className="space-y-6">
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                  <Database className="w-4 h-4 text-cyan-400" />
-                  Fontes de Dados Conectadas à Linha (SAP vs MANUAL)
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
-                  Governança das integrações RFC/BAPI e trilha auditável de alteração de origem.
-                </CardDescription>
-              </div>
-              <Button
-                size="sm"
-                onClick={onOpenSapCatalog}
-                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 font-bold gap-1.5"
-              >
-                <Server className="w-3.5 h-3.5" /> Abrir Catálogo Central SAP
-              </Button>
-            </CardHeader>
-
-            <CardContent className="p-4 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                <div className="p-4 bg-slate-900/80 rounded-lg border border-slate-800 space-y-2">
-                  <span className="font-bold text-cyan-300 uppercase block text-[11px]">
-                    Extrator de Produtividade SAP
-                  </span>
-                  <p className="text-slate-400 text-[11px]">
-                    Sincronização de cadências e tempos de roteiro a partir do módulo standard RFC.
-                  </p>
-                  <div className="pt-2 flex items-center justify-between">
-                    <Badge className="bg-blue-950 text-cyan-300 border-blue-700 font-mono text-[10px]">
-                      BAPI_ROUTING_GET_DETAIL
-                    </Badge>
-                    <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">CONECTADO</Badge>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-900/80 rounded-lg border border-slate-800 space-y-2">
-                  <span className="font-bold text-amber-300 uppercase block text-[11px]">
-                    Extrator Customizado CIAFAL (Z)
-                  </span>
-                  <p className="text-slate-400 text-[11px]">
-                    Prioridades de bobinas e matérias-primas homologadas no SAP ECC.
-                  </p>
-                  <div className="pt-2 flex items-center justify-between">
-                    <Badge className="bg-amber-950 text-amber-300 border-amber-700 font-mono text-[10px]">
-                      Z_CIAFAL_PCP_RAW_MAT_PRIORITY
-                    </Badge>
-                    <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">
-                      CUSTOM CIAFAL
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-900/80 rounded-lg border border-slate-800 space-y-2">
-                  <span className="font-bold text-rose-300 uppercase block text-[11px]">
-                    Bloqueios de Qualidade QM/PP
-                  </span>
-                  <p className="text-slate-400 text-[11px]">
-                    Restrições fortes e bloqueios de engenharia importados do SAP.
-                  </p>
-                  <div className="pt-2 flex items-center justify-between">
-                    <Badge className="bg-rose-950 text-rose-300 border-rose-700 font-mono text-[10px]">
-                      Z_CIAFAL_PP_BLOCKED_MATERIALS
-                    </Badge>
-                    <Badge className="bg-emerald-950 text-emerald-300 text-[10px]">
-                      CUSTOM CIAFAL
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Histórico & Trilha de Versões */}
-          <Card className="bg-slate-950 border-slate-800 text-slate-100">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-cyan-400" />
-                Histórico de Versões & Auditoria da Linha
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-2">
-              <div className="space-y-2">
-                {history.length === 0 ? (
-                  <span className="text-xs text-slate-500">Nenhum histórico registrado ainda.</span>
-                ) : (
-                  history.map((h) => (
-                    <div
-                      key={h.id}
-                      className="p-3 bg-slate-900/70 rounded-lg border border-slate-800 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Badge className="bg-[#004C97] text-white font-mono text-[10px]">
-                          v{h.version}
-                        </Badge>
-                        <div>
-                          <span className="font-bold text-white block">{h.action}</span>
-                          <span className="text-[11px] text-slate-400">{h.change_reason}</span>
-                        </div>
-                      </div>
-                      <div className="text-right text-[11px] text-slate-400">
-                        <span className="block font-medium text-slate-300">
-                          {h.expand?.changed_by?.name || 'Sistema'}
-                        </span>
-                        <span>{new Date(h.created).toLocaleString('pt-BR')}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* 7. CONTEÚDO: GRUPO 5 - LIÇÕES APRENDIDAS IA */}
+      {mainGroup === 'LESSONS_LEARNED' && <LineLessonsLearnedPanel line={line} />}
 
       {/* MODAL: Cadastrar / Editar Produtividade */}
       <Dialog open={isProdModalOpen} onOpenChange={setIsProdModalOpen}>

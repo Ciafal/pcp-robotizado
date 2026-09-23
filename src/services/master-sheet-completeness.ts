@@ -363,7 +363,7 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: line.sap_work_center || line.code,
       missingMessage: 'Centro de Trabalho SAP não preenchido',
-      navigationTarget: { mainGroup: 'GOVERNANCE' },
+      navigationTarget: { mainGroup: 'OVERVIEW', anchorId: 'sap-center' },
     },
     {
       id: 'int_sap_plant',
@@ -373,7 +373,7 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: line.sap_plant_code || master?.sap_plant_code,
       missingMessage: 'Vínculo do centro produtivo SAP não definido',
-      navigationTarget: { mainGroup: 'GOVERNANCE' },
+      navigationTarget: { mainGroup: 'OVERVIEW', anchorId: 'target-sap-plant' },
     },
     {
       id: 'int_mes',
@@ -383,7 +383,7 @@ export function calculateCompletenessFromOverview(
       applicable: true,
       valueDescription: line.mes_identifier || `${line.code}_MES`,
       missingMessage: 'Identificador MES de chão de fábrica ausente',
-      navigationTarget: { mainGroup: 'GOVERNANCE' },
+      navigationTarget: { mainGroup: 'OVERVIEW', anchorId: 'sap-center' },
     },
   ]
 

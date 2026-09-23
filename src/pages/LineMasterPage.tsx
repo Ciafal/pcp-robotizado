@@ -515,137 +515,166 @@ export default function LineMasterPage({ initialTab }: LineMasterPageProps = {})
       ) : (
         <div className="space-y-5">
           {/* Barra de Filtros & Métricas Rápidas */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm items-center">
-            <div className="relative md:col-span-2">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <Input
-                placeholder="Filtrar por código, nome do centro ou processo"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-slate-50 border-slate-300 text-xs text-slate-900 h-8 placeholder:text-slate-400"
-              />
+          <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm space-y-3">
+            {/* Linha 1: Buscar centro | Ativos-Inativos-Todos | Status Operacional | Contador */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+              {/* Buscar centro: maior área disponível, placeholder específico, ícone perfeitamente centralizado verticalmente */}
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Input
+                  placeholder="Filtrar por código, nome do centro ou processo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 bg-slate-50 border-slate-300 text-xs text-slate-900 h-10 rounded-md placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#004C97]"
+                />
+              </div>
+
+              {/* [ Ativos | Inativos | Todos ] — UM ÚNICO controle segmentado com mesma altura ~40px, botões perfeitamente proporcionais */}
+              <div className="inline-flex h-10 p-1 bg-slate-100 rounded-md border border-slate-200 shrink-0 self-stretch sm:self-auto items-center">
+                <button
+                  type="button"
+                  onClick={() => setActiveCadastralFilter('ACTIVE')}
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all ${
+                    activeCadastralFilter === 'ACTIVE'
+                      ? 'bg-[#004C97] text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] leading-none ${activeCadastralFilter === 'ACTIVE' ? 'text-white' : 'text-[#004C97]'}`}
+                  >
+                    ●
+                  </span>
+                  <span>Ativos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCadastralFilter('INACTIVE')}
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all ml-1 ${
+                    activeCadastralFilter === 'INACTIVE'
+                      ? 'bg-[#004C97] text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] leading-none ${activeCadastralFilter === 'INACTIVE' ? 'text-white' : 'text-slate-400'}`}
+                  >
+                    ○
+                  </span>
+                  <span>Inativos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCadastralFilter('ALL')}
+                  className={`flex-1 sm:flex-initial h-full px-3.5 rounded text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all ml-1 ${
+                    activeCadastralFilter === 'ALL'
+                      ? 'bg-[#004C97] text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
+                  }`}
+                >
+                  <span>Todos</span>
+                </button>
+              </div>
+
+              {/* Status Operacional — largura confortável (220-260px), altura 40px, sem truncamento */}
+              <div className="w-full sm:w-[240px] shrink-0">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md text-xs text-slate-800 px-3 h-10 font-medium focus:outline-none focus:ring-1 focus:ring-[#004C97] cursor-pointer"
+                  title="Filtrar por Status Operacional"
+                >
+                  <option value="ALL">Todos os Status</option>
+                  <option value="running">Em produção</option>
+                  <option value="idle">Disponível</option>
+                  <option value="stopped">Indisponível</option>
+                  <option value="maintenance">Manutenção</option>
+                  <option value="ACTIVE">Ativo</option>
+                </select>
+              </div>
+
+              {/* Contador de Centros exibidos — discreto, fonte padrão do HUB, sem mono, sem azul neon, alinhado verticalmente */}
+              <div className="flex items-center justify-center lg:justify-end shrink-0 px-2 h-10">
+                <span className="text-xs sm:text-[13px] font-medium text-slate-600">
+                  Exibindo{' '}
+                  <strong className="text-[#004C97] font-semibold">{filteredLines.length}</strong>{' '}
+                  {filteredLines.length === 1 ? 'centro' : 'centros'}
+                </span>
+              </div>
             </div>
 
-            {/* Filtro Cadastral: Ativos / Inativos / Todos (Padrão: Ativos) */}
-            <div className="flex rounded-md border border-slate-300 p-0.5 bg-slate-50 text-[11px] font-semibold">
-              <button
-                type="button"
-                onClick={() => setActiveCadastralFilter('ACTIVE')}
-                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
-                  activeCadastralFilter === 'ACTIVE'
-                    ? 'bg-[#004C97] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ● Ativos
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveCadastralFilter('INACTIVE')}
-                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
-                  activeCadastralFilter === 'INACTIVE'
-                    ? 'bg-amber-600 text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                ○ Inativos
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveCadastralFilter('ALL')}
-                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
-                  activeCadastralFilter === 'ALL'
-                    ? 'bg-slate-700 text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Todos
-              </button>
-            </div>
+            {/* Linha 2: Empresa | Linha | Processo | Tipo de Programação em grade perfeitamente uniforme */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 border-t border-slate-100">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide block">
+                  Empresa
+                </label>
+                <select
+                  value={companyFilter}
+                  onChange={(e) => setCompanyFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 h-9 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todas as Empresas</option>
+                  <option value="CIAFAL">CIAFAL Wilson Santos</option>
+                  <option value="KS">KS - Ferradura / Ciafal</option>
+                </select>
+              </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 px-2 h-8 font-medium focus:outline-none focus:ring-1 focus:ring-[#004C97]"
-            >
-              <option value="ALL">Status Operacional: Todos</option>
-              <option value="running">running (Em Produção)</option>
-              <option value="idle">idle (Disponível)</option>
-              <option value="stopped">stopped (Parada)</option>
-              <option value="maintenance">maintenance (Manutenção)</option>
-              <option value="ACTIVE">ACTIVE (Ativa)</option>
-            </select>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide block">
+                  Linha
+                </label>
+                <select
+                  value={lineFilter}
+                  onChange={(e) => setLineFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 h-9 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todas as Linhas</option>
+                  <option value="L1">Linha L1</option>
+                  <option value="L2">Linha L2</option>
+                  <option value="KS">Linhas KS</option>
+                </select>
+              </div>
 
-            <div className="flex items-center justify-end text-xs text-slate-500 font-mono">
-              <strong className="text-[#004C97]">Exibindo: {filteredLines.length} Centros</strong>
-            </div>
-          </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide block">
+                  Processo
+                </label>
+                <select
+                  value={processFilter}
+                  onChange={(e) => setProcessFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 h-9 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todos os Processos</option>
+                  <option value="Laminação">Laminação</option>
+                  <option value="Enfornamento">Enfornamento</option>
+                  <option value="Conformação">Conformação</option>
+                  <option value="Acabamento">Acabamento</option>
+                  <option value="Endireitadeira">Endireitadeira</option>
+                  <option value="Preparação">Preparação</option>
+                </select>
+              </div>
 
-          {/* Segunda linha de filtros: Empresa, Linha, Processo, Tipo de Programação */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-50/80 p-2.5 rounded-lg border border-slate-200 text-xs">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-600 uppercase">Empresa</label>
-              <select
-                value={companyFilter}
-                onChange={(e) => setCompanyFilter(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
-              >
-                <option value="ALL">Todas as Empresas</option>
-                <option value="CIAFAL">CIAFAL Wilson Santos</option>
-                <option value="KS">KS - Ferradura / Ciafal</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-600 uppercase">Linha</label>
-              <select
-                value={lineFilter}
-                onChange={(e) => setLineFilter(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
-              >
-                <option value="ALL">Todas as Linhas</option>
-                <option value="L1">Linha L1</option>
-                <option value="L2">Linha L2</option>
-                <option value="KS">Linhas KS</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-600 uppercase">Processo</label>
-              <select
-                value={processFilter}
-                onChange={(e) => setProcessFilter(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
-              >
-                <option value="ALL">Todos os Processos</option>
-                <option value="Laminação">Laminação</option>
-                <option value="Enfornamento">Enfornamento</option>
-                <option value="Conformação">Conformação</option>
-                <option value="Acabamento">Acabamento</option>
-                <option value="Endireitadeira">Endireitadeira</option>
-                <option value="Preparação">Preparação</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-600 uppercase">
-                Tipo de Programação
-              </label>
-              <select
-                value={programmingTypeFilter}
-                onChange={(e) => setProgrammingTypeFilter(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded px-2 h-7 text-xs font-medium text-slate-800"
-              >
-                <option value="ALL">Todos os Tipos</option>
-                <option value="Laminação">Laminação</option>
-                <option value="Enfornamento">Enfornamento</option>
-                <option value="Acabamento">Acabamento</option>
-                <option value="Preparação">Preparação</option>
-                <option value="Múltiplo">Múltiplo</option>
-                <option value="Endireitadeira">Endireitadeira</option>
-                <option value="Envio">Envio</option>
-                <option value="Inspeção">Inspeção</option>
-              </select>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide block">
+                  Tipo de Programação
+                </label>
+                <select
+                  value={programmingTypeFilter}
+                  onChange={(e) => setProgrammingTypeFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 h-9 text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                >
+                  <option value="ALL">Todos os Tipos</option>
+                  <option value="Laminação">Laminação</option>
+                  <option value="Enfornamento">Enfornamento</option>
+                  <option value="Acabamento">Acabamento</option>
+                  <option value="Preparação">Preparação</option>
+                  <option value="Múltiplo">Múltiplo</option>
+                  <option value="Endireitadeira">Endireitadeira</option>
+                  <option value="Envio">Envio</option>
+                  <option value="Inspeção">Inspeção</option>
+                </select>
+              </div>
             </div>
           </div>
 
