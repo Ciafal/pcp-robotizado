@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   Layers,
   ChevronDown,
+  Eye,
+  Info,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -367,6 +369,186 @@ export const RelatoriosValidacaoTab: React.FC<RelatoriosValidacaoTabProps> = ({
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      {/* SEÇÃO: NEUTRO — SOMENTE VISUALIZAÇÃO */}
+      <Card className="border-slate-200 shadow-xs bg-slate-50/50">
+        <CardHeader className="bg-slate-100/70 border-b border-slate-200 py-3 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-slate-700" />
+              <CardTitle className="text-xs font-bold text-slate-900 tracking-wide">
+                NEUTRO — SOMENTE VISUALIZAÇÃO
+              </CardTitle>
+            </div>
+            <Badge
+              variant="outline"
+              className="bg-sky-50 text-sky-800 border-sky-300 text-[10px] font-semibold flex items-center gap-1"
+            >
+              <Info className="w-3 h-3 text-sky-600" />
+              Sem Bloqueio / Sem Divergência
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Campos canônicos e componentes com classificação <strong>NEUTRO</strong> na Matriz
+            ZVALIDA. Estes campos são apenas consultados para conferência visual pelo analista de
+            PCP e não geram impedimento ou apontamento de não conformidade no cadastro do material.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 4 Campos Canônicos da Versão de Produção 1 */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800">
+                  Versão de Produção 1 (Dados Mestres MM03)
+                </span>
+                <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px]">
+                  4 Campos Canônicos
+                </Badge>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">Válido desde</span>
+                    <span className="text-[10px] text-slate-500 font-mono">MKAL-ADATU</span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Data da última verificação
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">MKAL-PRDAT</span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">Status verificação F</span>
+                    <span className="text-[10px] text-slate-500 font-mono">MKAL_AMPEL_F</span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">Status verificação S</span>
+                    <span className="text-[10px] text-slate-500 font-mono">MKAL_AMPEL_S</span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Componentes Neutros de Roteiro e Lista Técnica */}
+            <div className="p-3.5 bg-white rounded-lg border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800">
+                  Roteiro (CA01) e Lista Técnica (CS01)
+                </span>
+                <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px]">
+                  Componentes Informativos
+                </Badge>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Item da Lista Técnica
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      RC29P-POSNR / RC29P-DATUV / DATUB
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Numerador & Descrição do Roteiro
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      PLKOD-PLNAL / PLKOD-KTEXT
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Faixa de Lotes (Desde / Até)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      PLKOD-LOSVN / PLKOD-LOSBS
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Datas e Criação de Cabeçalho
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      PLKOD-DATUV / DATUB / ANDAT / ANNAM
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-white text-slate-600 border-slate-300"
+                  >
+                    NEUTRO
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -98,6 +98,7 @@ export interface SapMaterialValidationRecord {
   completed_at?: string
   created_at_sap?: string
   model_created_at_sap?: string
+  sap_last_queried_at?: string
   sap_sync_alert?: string
   notes?: string
   created: string
@@ -109,6 +110,7 @@ export interface SapValidationAuditLog {
   validation_id: string
   validation_code: string
   material_code: string
+  revision_number?: number
   user_name: string
   user_email: string
   action:
@@ -138,3 +140,124 @@ export interface SapValidationSummaryCards {
   compliancePercentage: number
   overallStatus: ValidationStatus
 }
+
+export type ValidationOverallStatus = ValidationStatus
+
+export type ModelVisualStatus = 'VERDE' | 'AMARELO' | 'VERMELHO'
+
+export type ModelWarningRule = 'MODEL_LESS_THAN_6_MONTHS' | 'MODEL_NO_MOVEMENTS' | 'FIRST_CHAR_DIFF'
+
+export interface ModelWarning {
+  rule: ModelWarningRule | string
+  message: string
+  detail?: string
+}
+
+export interface FcaIntegrationStatus {
+  fca_configured: boolean
+  matrix_loaded: boolean
+  matrix_rules_count?: number
+  fca_base_url?: string
+  status_message?: string
+}
+
+export interface SapMovementSummary {
+  last_movement_date?: string
+  last_stock_entry?: { date: string; doc?: string }
+  last_stock_consumption?: { date: string; doc?: string }
+  last_stock_transfer?: { date: string; doc?: string }
+  last_invoicing?: { date: string; doc?: string }
+  last_send_industrialization?: { date: string; doc?: string }
+  last_return_industrialization?: { date: string; doc?: string }
+}
+
+export interface SapFetchedMaterialData {
+  material_code?: string
+  description?: string
+  center?: string
+  material_type?: string
+  price_control?: string
+  created_at_sap?: string
+  created_by_sap?: string
+  modified_at_sap?: string
+  modified_by_sap?: string
+  raw_fields?: Record<string, unknown>
+  movements_summary?: SapMovementSummary
+}
+
+export interface FieldComparisonItem extends SapValidationFieldResult {
+  expected_parameter_value?: string
+  divergence_detail?: string
+  rule_applied?: string
+}
+
+export interface OfficialValidationGroup {
+  id: string
+  title: string
+  transactionCode: string
+  subgroups: string[]
+}
+
+export const OFFICIAL_VALIDATION_GROUPS: OfficialValidationGroup[] = [
+  {
+    id: 'MM03',
+    title: 'DADOS MESTRES (MM03)',
+    transactionCode: 'MM03',
+    subgroups: [
+      'Dados básicos 1',
+      'Dados básicos 2',
+      'Classificação',
+      'Vendas: dados org.vendas 1',
+      'Vendas: dados org.vendas 2',
+      'Vendas: dados gerais/centro',
+      'Comércio exterior: exportação',
+      'Texto de vendas',
+      'Compras',
+      'Texto pedido compras',
+      'Comércio exterior: importação',
+      'MRP 1',
+      'MRP 2',
+      'MRP 3',
+      'MRP 4',
+      'Previsão',
+      'Dados de centro / armazenagem 1',
+      'Dados de centro / armazenagem 2',
+      'Gestão de qualidade',
+      'Contabilidade 1',
+      'Contabilidade 2',
+      'Cálculo do preço 1',
+      'Cálculo do preço 2',
+      'Versões de produção',
+    ],
+  },
+  {
+    id: 'CS01',
+    title: 'LISTA TÉCNICA (CS01)',
+    transactionCode: 'CS01',
+    subgroups: ['Cabeçalho da lista', 'Componentes aplicáveis', 'Posições do item'],
+  },
+  {
+    id: 'CA01',
+    title: 'ROTEIRO (CA01)',
+    transactionCode: 'CA01',
+    subgroups: ['Detalhes do cabeçalho', 'Sequências de operações', 'Operações e tempos'],
+  },
+  {
+    id: 'MMSC',
+    title: 'DEPÓSITOS (MMSC)',
+    transactionCode: 'MMSC',
+    subgroups: ['Depósitos autorizados', 'Estoque de centro', 'Estoque especial'],
+  },
+  {
+    id: 'CUSTEIO',
+    title: 'CUSTEIO E PREÇOS',
+    transactionCode: 'CK11N / CK24',
+    subgroups: ['Cálculo de custos planejados', 'Liberação de preço padrão', 'Variância'],
+  },
+  {
+    id: 'COMPLEMENTARES',
+    title: 'INFORMAÇÕES COMPLEMENTARES',
+    transactionCode: 'DIVERSOS',
+    subgroups: ['Parâmetros complementares', 'Campos de usuário Z', 'Observações técnicas'],
+  },
+]

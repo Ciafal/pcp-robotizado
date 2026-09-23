@@ -82,7 +82,9 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
   const [overallStatus, setOverallStatus] =
     useState<ValidationOverallStatus>('AGUARDANDO_VALIDACAO')
   const [fieldResults, setFieldResults] = useState<FieldComparisonItem[]>([])
-  const [filterDivergentOnly, setFilterDivergentOnly] = useState(false)
+  const [filterCategory, setFilterCategory] = useState<
+    'TODOS' | 'DIVERGENTES' | 'CONFORMES' | 'NEUTROS' | 'NAO_APLICAVEIS'
+  >('TODOS')
   const [selectedFieldForDetail, setSelectedFieldForDetail] = useState<FieldComparisonItem | null>(
     null,
   )
@@ -217,14 +219,23 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
   const approvedCount = fieldResults.filter((f) => f.validation_result === 'APROVADO').length
   const divergentCount = fieldResults.filter((f) => f.validation_result === 'DIVERGENTE').length
   const naCount = fieldResults.filter((f) => f.validation_result === 'NAO_SE_APLICA').length
-  const compliancePct =
-    totalAnalyzed > 0
-      ? Math.round(((totalAnalyzed - divergentCount) / totalAnalyzed) * 1000) / 10
-      : 100
+  const neutralCount = fieldResults.filter(
+    (f) => f.validation_result === 'NEUTRO' || f.tipo_validacao === 'NEUTRO',
+  ).length
 
-  const visibleFieldResults = filterDivergentOnly
-    ? fieldResults.filter((f) => f.validation_result === 'DIVERGENTE')
-    : fieldResults
+  // Percentual = aprovados / (aprovados + divergentes) — neutros e não aplicáveis FORA do denominador
+  const denominator = approvedCount + divergentCount
+  const compliancePct =
+    denominator > 0 ? Math.round((approvedCount / denominator) * 1000) / 10 : 100
+
+  const visibleFieldResults = fieldResults.filter((f) => {
+    if (filterCategory === 'DIVERGENTES') return f.validation_result === 'DIVERGENTE'
+    if (filterCategory === 'CONFORMES') return f.validation_result === 'APROVADO'
+    if (filterCategory === 'NEUTROS')
+      return f.validation_result === 'NEUTRO' || f.tipo_validacao === 'NEUTRO'
+    if (filterCategory === 'NAO_APLICAVEIS') return f.validation_result === 'NAO_SE_APLICA'
+    return true
+  })
 
   return (
     <div className="space-y-6">
@@ -688,12 +699,12 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
 
       {/* CARDS DE RESUMO NO TOPO (CLICÁVEIS) */}
       {validationRun && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Total Analisados */}
           <Card
-            onClick={() => setFilterDivergentOnly(false)}
+            onClick={() => setFilterCategory('TODOS')}
             className={`cursor-pointer transition-all border-slate-200 ${
-              !filterDivergentOnly ? 'ring-2 ring-[#004C97]' : 'hover:border-slate-300'
+              filterCategory === 'TODOS' ? 'ring-2 ring-[#004C97]' : 'hover:border-slate-300'
             }`}
           >
             <CardContent className="p-3.5">
@@ -706,7 +717,14 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
           </Card>
 
           {/* Aprovados */}
-          <Card className="border-emerald-200 bg-emerald-50/20">
+          <Card
+            onClick={() => setFilterCategory('CONFORMES')}
+            className={`cursor-pointer transition-all border-emerald-200 bg-emerald-50/20 ${
+              filterCategory === 'CONFORMES'
+                ? 'ring-2 ring-emerald-600'
+                : 'hover:border-emerald-300'
+            }`}
+          >
             <CardContent className="p-3.5">
               <span className="text-[10px] uppercase font-bold text-emerald-800">Aprovados</span>
               <div className="text-xl font-black text-emerald-700 mt-1">{approvedCount}</div>
@@ -714,11 +732,11 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
             </CardContent>
           </Card>
 
-          {/* Divergentes (Clicável -> Filtra só divergentes) */}
+          {/* Divergentes */}
           <Card
-            onClick={() => setFilterDivergentOnly(!filterDivergentOnly)}
+            onClick={() => setFilterCategory('DIVERGENTES')}
             className={`cursor-pointer transition-all border-red-200 bg-red-50/30 ${
-              filterDivergentOnly ? 'ring-2 ring-red-600' : 'hover:border-red-300'
+              filterCategory === 'DIVERGENTES' ? 'ring-2 ring-red-600' : 'hover:border-red-300'
             }`}
           >
             <CardContent className="p-3.5">
@@ -728,7 +746,7 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
                   variant="outline"
                   className="bg-red-100 text-red-800 text-[9px] border-red-300"
                 >
-                  {filterDivergentOnly ? 'Filtrado' : 'Filtrar'}
+                  {filterCategory === 'DIVERGENTES' ? 'Filtrado' : 'Filtrar'}
                 </Badge>
               </div>
               <div className="text-xl font-black text-red-700 mt-1">{divergentCount}</div>
@@ -736,8 +754,39 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
             </CardContent>
           </Card>
 
+          {/* Campos Neutros */}
+          <Card
+            onClick={() => setFilterCategory('NEUTROS')}
+            className={`cursor-pointer transition-all border-slate-300 bg-slate-50/70 ${
+              filterCategory === 'NEUTROS' ? 'ring-2 ring-slate-600' : 'hover:border-slate-400'
+            }`}
+          >
+            <CardContent className="p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-700">
+                  Campos Neutros
+                </span>
+                <Badge
+                  variant="outline"
+                  className="bg-slate-100 text-slate-700 text-[9px] border-slate-300"
+                >
+                  {filterCategory === 'NEUTROS' ? 'Filtrado' : 'Neutro'}
+                </Badge>
+              </div>
+              <div className="text-xl font-black text-slate-800 mt-1">{neutralCount}</div>
+              <span className="text-[10px] text-slate-500">Visualização (sem bloqueio)</span>
+            </CardContent>
+          </Card>
+
           {/* Não Aplicáveis */}
-          <Card className="border-slate-200 bg-slate-50/50">
+          <Card
+            onClick={() => setFilterCategory('NAO_APLICAVEIS')}
+            className={`cursor-pointer transition-all border-slate-200 bg-slate-50/40 ${
+              filterCategory === 'NAO_APLICAVEIS'
+                ? 'ring-2 ring-slate-500'
+                : 'hover:border-slate-300'
+            }`}
+          >
             <CardContent className="p-3.5">
               <span className="text-[10px] uppercase font-bold text-slate-600">Não Aplicáveis</span>
               <div className="text-xl font-black text-slate-700 mt-1">{naCount}</div>
@@ -751,7 +800,7 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
               <span className="text-[10px] uppercase font-bold text-blue-900">% Conformidade</span>
               <div className="text-xl font-black text-blue-800 mt-1">{compliancePct}%</div>
               <span className="text-[10px] text-blue-600">
-                {totalAnalyzed - divergentCount}/{totalAnalyzed} conformes
+                {approvedCount}/{denominator} comparáveis
               </span>
             </CardContent>
           </Card>
@@ -760,16 +809,78 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
 
       {/* MATRIZ DE COMPARAÇÃO EM ACCORDIONS POR GRUPO */}
       <Card className="border-slate-200 shadow-xs">
-        <CardHeader className="bg-slate-50/70 border-b border-slate-200 py-3.5 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <CardHeader className="bg-slate-50/70 border-b border-slate-200 py-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#004C97]" />
-            Matriz de Comparação Estrutural SAP
-          </CardTitle>
-          {filterDivergentOnly && (
-            <Badge className="bg-red-600 text-white text-xs">
-              Exibindo apenas campos divergentes ({divergentCount})
-            </Badge>
-          )}
+            <CardTitle className="text-sm font-bold text-slate-800">
+              Matriz de Comparação Estrutural SAP
+            </CardTitle>
+          </div>
+
+          {/* Barra de Filtros por Categoria */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-slate-500 mr-1">Filtrar:</span>
+            <Button
+              size="sm"
+              variant={filterCategory === 'TODOS' ? 'default' : 'outline'}
+              className={`h-7 px-2.5 text-xs ${
+                filterCategory === 'TODOS'
+                  ? 'bg-[#004C97] text-white hover:bg-[#003870]'
+                  : 'text-slate-700 border-slate-300 hover:bg-slate-100'
+              }`}
+              onClick={() => setFilterCategory('TODOS')}
+            >
+              Todos ({totalAnalyzed})
+            </Button>
+            <Button
+              size="sm"
+              variant={filterCategory === 'DIVERGENTES' ? 'default' : 'outline'}
+              className={`h-7 px-2.5 text-xs ${
+                filterCategory === 'DIVERGENTES'
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'text-red-700 border-red-200 hover:bg-red-50'
+              }`}
+              onClick={() => setFilterCategory('DIVERGENTES')}
+            >
+              Divergentes ({divergentCount})
+            </Button>
+            <Button
+              size="sm"
+              variant={filterCategory === 'CONFORMES' ? 'default' : 'outline'}
+              className={`h-7 px-2.5 text-xs ${
+                filterCategory === 'CONFORMES'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+              }`}
+              onClick={() => setFilterCategory('CONFORMES')}
+            >
+              Conformes ({approvedCount})
+            </Button>
+            <Button
+              size="sm"
+              variant={filterCategory === 'NEUTROS' ? 'default' : 'outline'}
+              className={`h-7 px-2.5 text-xs ${
+                filterCategory === 'NEUTROS'
+                  ? 'bg-slate-700 text-white hover:bg-slate-800'
+                  : 'text-slate-700 border-slate-300 hover:bg-slate-100'
+              }`}
+              onClick={() => setFilterCategory('NEUTROS')}
+            >
+              Neutros ({neutralCount})
+            </Button>
+            <Button
+              size="sm"
+              variant={filterCategory === 'NAO_APLICAVEIS' ? 'default' : 'outline'}
+              className={`h-7 px-2.5 text-xs ${
+                filterCategory === 'NAO_APLICAVEIS'
+                  ? 'bg-slate-600 text-white hover:bg-slate-700'
+                  : 'text-slate-600 border-slate-300 hover:bg-slate-100'
+              }`}
+              onClick={() => setFilterCategory('NAO_APLICAVEIS')}
+            >
+              Não aplicáveis ({naCount})
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-4">
           {visibleFieldResults.length === 0 ? (
@@ -854,17 +965,27 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
                               </div>
 
                               <div className="flex items-center gap-3 shrink-0">
-                                <Badge
-                                  className={
-                                    item.validation_result === 'APROVADO'
-                                      ? 'bg-emerald-600 text-white'
-                                      : item.validation_result === 'DIVERGENTE'
-                                        ? 'bg-red-600 text-white'
-                                        : 'bg-slate-400 text-white'
-                                  }
-                                >
-                                  {item.validation_result}
-                                </Badge>
+                                {item.validation_result === 'NEUTRO' ||
+                                item.tipo_validacao === 'NEUTRO' ? (
+                                  <Badge
+                                    title="Somente visualização — campo não comparado"
+                                    className="bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-[11px] hover:bg-slate-200"
+                                  >
+                                    NEUTRO
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    className={
+                                      item.validation_result === 'APROVADO'
+                                        ? 'bg-emerald-600 text-white'
+                                        : item.validation_result === 'DIVERGENTE'
+                                          ? 'bg-red-600 text-white'
+                                          : 'bg-slate-400 text-white'
+                                    }
+                                  >
+                                    {item.validation_result}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -985,18 +1106,41 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
               <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-slate-500">Resultado:</span>
-                  <Badge
-                    className={
-                      selectedFieldForDetail.validation_result === 'APROVADO'
-                        ? 'bg-emerald-600 text-white'
-                        : selectedFieldForDetail.validation_result === 'DIVERGENTE'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-slate-400 text-white'
-                    }
-                  >
-                    {selectedFieldForDetail.validation_result}
-                  </Badge>
+                  {selectedFieldForDetail.validation_result === 'NEUTRO' ||
+                  selectedFieldForDetail.tipo_validacao === 'NEUTRO' ? (
+                    <Badge className="bg-slate-100 text-slate-700 border border-slate-300 font-semibold">
+                      NEUTRO
+                    </Badge>
+                  ) : (
+                    <Badge
+                      className={
+                        selectedFieldForDetail.validation_result === 'APROVADO'
+                          ? 'bg-emerald-600 text-white'
+                          : selectedFieldForDetail.validation_result === 'DIVERGENTE'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-slate-400 text-white'
+                      }
+                    >
+                      {selectedFieldForDetail.validation_result}
+                    </Badge>
+                  )}
                 </div>
+
+                {selectedFieldForDetail.validation_result === 'NEUTRO' ||
+                selectedFieldForDetail.tipo_validacao === 'NEUTRO' ? (
+                  <div className="p-2.5 rounded bg-sky-50 border border-sky-200 text-sky-900 text-xs mt-2 space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5 text-sky-800">
+                      <Info className="w-3.5 h-3.5 text-sky-600" />
+                      Somente visualização — campo não comparado
+                    </div>
+                    <p className="text-[11px] text-sky-800 leading-relaxed">
+                      Este campo é classificado como <strong>NEUTRO</strong> na matriz funcional
+                      ZVALIDA. Não gera bloqueio, não gera divergência e fica fora do percentual de
+                      conformidade.
+                    </p>
+                  </div>
+                ) : null}
+
                 {selectedFieldForDetail.divergence_detail && (
                   <p className="text-slate-700 mt-1 font-medium">
                     {selectedFieldForDetail.divergence_detail}
@@ -1004,7 +1148,10 @@ export const NovaValidacaoTab: React.FC<NovaValidacaoTabProps> = ({
                 )}
                 <div className="text-[10px] text-slate-400 pt-1">
                   Regra aplicada:{' '}
-                  {selectedFieldForDetail.rule_applied || 'Comparação Modelo x Novo'}
+                  {selectedFieldForDetail.rule_applied ||
+                    (selectedFieldForDetail.validation_result === 'NEUTRO'
+                      ? 'Somente Leitura / Informativo'
+                      : 'Comparação Modelo x Novo')}
                 </div>
               </div>
             </div>

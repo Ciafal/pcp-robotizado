@@ -62,6 +62,8 @@ export const HistoricoAuditoriaTab: React.FC<HistoricoAuditoriaTabProps> = ({
         return 'bg-blue-600 text-white'
       case 'CRIACAO_REVISAO':
         return 'bg-purple-600 text-white'
+      case 'CONSULTA_CAMPO_NEUTRO':
+        return 'bg-slate-100 text-slate-700 border border-slate-300'
       default:
         return 'bg-slate-600 text-white'
     }
@@ -174,7 +176,11 @@ export const HistoricoAuditoriaTab: React.FC<HistoricoAuditoriaTabProps> = ({
                       {log.justification || log.rule_result || '—'}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-[11px]">
-                      {log.previous_status || log.new_status ? (
+                      {log.action === 'CONSULTA_CAMPO_NEUTRO' ? (
+                        <Badge className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px]">
+                          NEUTRO
+                        </Badge>
+                      ) : log.previous_status || log.new_status ? (
                         <div className="flex items-center gap-1 font-mono">
                           <span className="text-slate-400">{log.previous_status || '—'}</span>
                           <ArrowRight className="w-2.5 h-2.5 text-slate-300" />
