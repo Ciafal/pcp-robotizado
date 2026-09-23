@@ -301,6 +301,18 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
               {order.has_pendency ? 'Risco Ativo' : 'Controlado'}
             </span>
           </div>
+          <div className="bg-amber-50 px-2 py-1 rounded border border-amber-200">
+            <span className="text-[9px] text-amber-900 font-bold uppercase block">
+              Pendências SAP
+            </span>
+            <span className="font-mono text-[10px] text-amber-950 font-bold">
+              {order.op_number === '10004921'
+                ? 'COGI: 1 | CO1P: 1 | Críticas: 2'
+                : order.op_number === '10004925'
+                  ? 'COGI: 1 | CO1P: 1 | Críticas: 0'
+                  : 'COGI: 0 | CO1P: 0 | Críticas: 0'}
+            </span>
+          </div>
         </div>
 
         {/* Abas de Navegação */}

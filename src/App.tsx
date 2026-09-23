@@ -620,6 +620,20 @@ const ProductionAIAnalysisPage = lazyWithRetry(
     })),
   'ProductionAIAnalysisPage',
 )
+const CogiPendenciesPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
+      default: m.default ?? m.CogiPendenciesPage,
+    })),
+  'CogiPendenciesPage',
+)
+const Co1pPendenciesPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/Co1pPendenciesPage').then((m) => ({
+      default: m.default ?? m.Co1pPendenciesPage,
+    })),
+  'Co1pPendenciesPage',
+)
 const ProductionHistoryPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/ProductionHistoryPage').then((m) => ({
@@ -1625,6 +1639,26 @@ export const App: React.FC = () => {
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Análise de Ordens">
                           <ProductionAIAnalysisPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/controle-producao/cogi"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Pendências - COGI">
+                          <CogiPendenciesPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/controle-producao/co1p"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Pendências - CO1P">
+                          <Co1pPendenciesPage />
                         </ErrorBoundary>
                       </PermissionGuard>
                     }

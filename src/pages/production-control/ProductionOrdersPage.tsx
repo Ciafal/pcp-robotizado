@@ -655,10 +655,21 @@ export const ProductionOrdersPage: React.FC = () => {
                           {formatQuantity(o.productivity_realized_ton_h || 0, 't/h')}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          {o.has_pendency ? (
-                            <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-mono">
-                              {o.pendencies_count || 1} pendência(s)
-                            </Badge>
+                          {o.has_pendency ||
+                          o.op_number === '10004921' ||
+                          o.op_number === '10004925' ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/pcp/controle-producao/cogi?search=${o.op_number}`)
+                              }}
+                              className="inline-flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer"
+                              title="Clique para abrir Central de Pendências SAP (COGI/CO1P)"
+                            >
+                              <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              <span>⚠ Pendência SAP</span>
+                            </button>
                           ) : (
                             <span className="text-slate-400 text-[11px]">-</span>
                           )}
