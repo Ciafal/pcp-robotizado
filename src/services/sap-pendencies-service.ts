@@ -786,8 +786,8 @@ class SapPendenciesService {
       },
       treatment_notes: r.treatment_notes || '',
       is_demo: Boolean(r.is_demo),
-      created: r.created,
-      updated: r.updated,
+      created: r.created || new Date().toISOString(),
+      updated: r.updated || new Date().toISOString(),
     }
   }
 
@@ -837,8 +837,8 @@ class SapPendenciesService {
       },
       treatment_notes: r.treatment_notes || '',
       is_demo: Boolean(r.is_demo),
-      created: r.created,
-      updated: r.updated,
+      created: r.created || new Date().toISOString(),
+      updated: r.updated || new Date().toISOString(),
     }
   }
 

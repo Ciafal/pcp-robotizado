@@ -94,8 +94,8 @@ export interface SapCogiPendency {
   }
   treatment_notes?: string
   is_demo?: boolean
-  created?: string
-  updated?: string
+  created: string
+  updated: string
 }
 
 export interface SapCo1pPendency {
@@ -142,8 +142,8 @@ export interface SapCo1pPendency {
   }
   treatment_notes?: string
   is_demo?: boolean
-  created?: string
-  updated?: string
+  created: string
+  updated: string
 }
 
 export interface SapPendencyAuditLog {
