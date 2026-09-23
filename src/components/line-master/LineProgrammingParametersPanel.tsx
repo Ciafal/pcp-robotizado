@@ -49,6 +49,9 @@ import {
   ParameterAiAnalysisResult,
   normalizeParameterTypeToOfficial,
 } from '@/services/pcp-programming-parameters-service'
+import { BitolaSelector } from '@/components/line-master/BitolaSelector'
+import { TipoAcoSelector } from '@/components/line-master/TipoAcoSelector'
+import { OPCAO_FIXA_NAO_HA } from '@/services/sap-parameters-master-data-service'
 import { formatDatePTBR } from '@/lib/formatters-ptbr'
 
 interface LineProgrammingParametersPanelProps {
@@ -85,6 +88,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   const [formName, setFormName] = useState<string>('')
   const [formDescription, setFormDescription] = useState<string>('')
   const [formType, setFormType] = useState<string>('')
+  const [formBitola, setFormBitola] = useState<string>('')
+  const [formTipoAco, setFormTipoAco] = useState<string>('')
   const [formStatus, setFormStatus] = useState<ProgrammingParameterStatus>('Ativo')
   const [formValue, setFormValue] = useState<string>('')
   const [formUnit, setFormUnit] = useState<string>('')
@@ -141,6 +146,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     name: string
     description: string
     type: string
+    bitola: string
+    tipoAco: string
     status: string
     value: string
     unit: string
@@ -156,6 +163,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
       name: formName,
       description: formDescription,
       type: formType,
+      bitola: formBitola,
+      tipoAco: formTipoAco,
       status: formStatus,
       value: formValue,
       unit: formUnit,
@@ -181,6 +190,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setFormName('')
     setFormDescription('')
     setFormType('')
+    setFormBitola('')
+    setFormTipoAco('')
     setFormStatus('Ativo')
     setFormValue('')
     setFormUnit('t')
@@ -194,6 +205,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         name: '',
         description: '',
         type: '',
+        bitola: '',
+        tipoAco: '',
         status: 'Ativo',
         value: '',
         unit: 't',
@@ -221,10 +234,14 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     const validUntilStr = param.valid_until ? param.valid_until.slice(0, 10) : ''
     const textoStr = param.textoParametro || ''
     const impactoStr = param.impactoConsequencia || param.notes || ''
+    const bitolaStr = param.bitola || ''
+    const tipoAcoStr = param.tipo_aco || param.codigo_sap || ''
 
     setFormName(param.name || '')
     setFormDescription(param.description || '')
     setFormType(normalizedType)
+    setFormBitola(bitolaStr)
+    setFormTipoAco(tipoAcoStr)
     setFormStatus(param.status)
     setFormValue(param.value || '')
     setFormUnit(param.unit_of_measure || '')
@@ -238,6 +255,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         name: param.name || '',
         description: param.description || '',
         type: normalizedType,
+        bitola: bitolaStr,
+        tipoAco: tipoAcoStr,
         status: param.status,
         value: param.value || '',
         unit: param.unit_of_measure || '',
@@ -395,6 +414,11 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
       errors.type = 'Informe o Tipo de Parâmetro.'
     }
 
+    // Validação estrita da Bitola (obrigatória em todos os cadastros/atualizações)
+    if (!formBitola || !formBitola.trim()) {
+      errors.bitola = "Selecione uma Bitola ou informe 'Não há'."
+    }
+
     if (!formValidFrom.trim()) {
       errors.validFrom = 'Informe a Vigência Inicial.'
     }
@@ -460,6 +484,9 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
           name: formName.trim(),
           description: formDescription.trim(),
           parameter_type: formType,
+          bitola: formBitola.trim(),
+          tipo_aco: formTipoAco.trim(),
+          codigo_sap: formTipoAco.trim(),
           value: formValue.trim(),
           unit_of_measure: formUnit.trim(),
           valid_from: formValidFrom,
@@ -477,7 +504,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
 
       toast({
         title: '✅ Parâmetro salvo com sucesso.',
-        description: `O parâmetro "${formName.trim()}" foi registrado para o Centro ${centerCode}.`,
+        description: 'Parâmetro de programação salvo com sucesso.',
       })
 
       setIsModalOpen(false)
@@ -545,7 +572,18 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         const matchTexto = (p.textoParametro || '').toLowerCase().includes(term)
         const matchImpacto = (p.impactoConsequencia || '').toLowerCase().includes(term)
         const matchNotes = (p.notes || '').toLowerCase().includes(term)
-        if (!matchName && !matchDesc && !matchVal && !matchTexto && !matchImpacto && !matchNotes)
+        const matchBitola = (p.bitola || '').toLowerCase().includes(term)
+        const matchTipoAco = (p.tipo_aco || '').toLowerCase().includes(term)
+        if (
+          !matchName &&
+          !matchDesc &&
+          !matchVal &&
+          !matchTexto &&
+          !matchImpacto &&
+          !matchNotes &&
+          !matchBitola &&
+          !matchTipoAco
+        )
           return false
       }
 
@@ -699,6 +737,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 <tr>
                   <th className="p-2.5">Nome do Parâmetro</th>
                   <th className="p-2.5 text-center">Tipo</th>
+                  <th className="p-2.5">Bitola / Aço</th>
                   <th className="p-2.5">Valor Configurado</th>
                   <th className="p-2.5 text-center">Unidade</th>
                   <th className="p-2.5">Vigência</th>
@@ -709,13 +748,13 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 italic text-xs">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 italic text-xs">
                       Carregando parâmetros de programação do Centro {centerCode}...
                     </td>
                   </tr>
                 ) : filteredParameters.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 italic text-xs">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 italic text-xs">
                       {parameters.length === 0
                         ? `Nenhum parâmetro de programação cadastrado para o Centro ${centerCode}. Clique em "+ Cadastrar Parâmetro" para adicionar.`
                         : 'Nenhum parâmetro encontrado com os filtros aplicados.'}
@@ -753,8 +792,25 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                             {p.parameter_type}
                           </Badge>
                         </td>
+                        <td className="p-2.5 text-xs whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-slate-800 text-[11px]">
+                              Bitola:{' '}
+                              {p.bitola || (
+                                <span className="text-amber-600 font-normal italic">
+                                  Não definida
+                                </span>
+                              )}
+                            </span>
+                            {p.tipo_aco && (
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                Aço: {p.tipo_aco}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td
-                          className="p-2.5 font-mono font-medium text-slate-900 max-w-[200px] truncate"
+                          className="p-2.5 font-mono font-medium text-slate-900 max-w-[180px] truncate"
                           title={p.value || '-'}
                         >
                           {p.value || '—'}
@@ -880,6 +936,24 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                     {viewingParameter.unit_of_measure
                       ? `(${viewingParameter.unit_of_measure})`
                       : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">Bitola:</span>
+                  <span className="font-semibold text-slate-900">
+                    {viewingParameter.bitola || (
+                      <span className="text-amber-600 italic">
+                        Não informada (regularização pendente)
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Tipo de Aço (SAP ZPPT002):
+                  </span>
+                  <span className="font-semibold text-slate-900 font-mono">
+                    {viewingParameter.tipo_aco || viewingParameter.codigo_sap || '—'}
                   </span>
                 </div>
                 <div className="col-span-2">
@@ -1085,7 +1159,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 />
               </div>
 
-              {/* 3. Linha dupla: Tipo de Parâmetro * | Status */}
+              {/* LINHA 1: [Tipo de Parâmetro / Matéria-prima | Bitola *] */}
               <div className="space-y-1">
                 <Label htmlFor="form-param-type" className="text-xs font-semibold text-slate-700">
                   Tipo de Parâmetro <span className="text-rose-500">*</span>
@@ -1129,6 +1203,57 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                     {fieldErrors.type}
                   </p>
                 )}
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="form-param-bitola"
+                  className="text-xs font-semibold text-slate-700 flex items-center justify-between"
+                >
+                  <span>
+                    Bitola <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    ZPPT052 / &quot;Não há&quot;
+                  </span>
+                </Label>
+                <BitolaSelector
+                  value={formBitola}
+                  onChange={(val) => {
+                    setFormBitola(val)
+                    if (fieldErrors.bitola) {
+                      setFieldErrors((prev) => ({ ...prev, bitola: '' }))
+                    }
+                  }}
+                  centerCode={centerCode}
+                  hasError={Boolean(fieldErrors.bitola)}
+                />
+                {fieldErrors.bitola && (
+                  <p
+                    data-testid="error-bitola"
+                    className="text-[11px] text-rose-600 font-medium mt-0.5"
+                  >
+                    {fieldErrors.bitola}
+                  </p>
+                )}
+              </div>
+
+              {/* LINHA 2: [Tipo de Aço | Status] */}
+              <div className="space-y-1">
+                <Label
+                  htmlFor="form-param-tipo-aco"
+                  className="text-xs font-semibold text-slate-700 flex items-center justify-between"
+                >
+                  <span>Tipo de Aço</span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    ZPPT002-MATNR (Opcional)
+                  </span>
+                </Label>
+                <TipoAcoSelector
+                  value={formTipoAco}
+                  onChange={(val) => setFormTipoAco(val)}
+                  centerCode={centerCode}
+                />
               </div>
 
               <div className="space-y-1">
