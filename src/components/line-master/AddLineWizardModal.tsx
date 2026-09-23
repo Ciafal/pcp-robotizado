@@ -207,9 +207,6 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
     if (!companyId) {
       issues.push({ step: 1, stepTitle: 'Identificação', label: 'Empresa não selecionada' })
     }
-    if (!hierarchyLineId) {
-      issues.push({ step: 1, stepTitle: 'Identificação', label: 'Linha Produtiva não selecionada' })
-    }
     if (isDerived) {
       const activeRules = (derivationRules || []).filter((r) => !r.deleted && r.status === 'Ativa')
       if (activeRules.length === 0) {
@@ -232,7 +229,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
       issues.push({
         step: 3,
         stepTitle: 'Gestores & Aprovadores',
-        label: 'Aprovador PCP não informado',
+        label: 'Programador PCP não informado',
       })
     }
 
@@ -268,9 +265,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         errors.companyId = 'A Empresa é obrigatória.'
       }
 
-      if (!hierarchyLineId) {
-        errors.hierarchyLineId = 'A Linha Produtiva é obrigatória.'
-      } else if (companyId) {
+      if (hierarchyLineId && companyId) {
         const selectedLineObj = availableHierarchyLines.find((l) => l.id === hierarchyLineId)
         if (
           selectedLineObj &&
@@ -320,7 +315,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
         errors.primaryManagerId = 'O Gestor Titular da Linha é obrigatório antes de prosseguir.'
       }
       if (!pcpApproverId) {
-        errors.pcpApproverId = 'O Aprovador PCP é obrigatório antes de prosseguir.'
+        errors.pcpApproverId = 'O Programador PCP é obrigatório antes de prosseguir.'
       }
 
       setFieldErrors(errors)
@@ -1097,7 +1092,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                 {/* Select Linha Produtiva (Filtrada por Empresa) */}
                 <div className="space-y-1.5">
                   <Label className="text-xs text-slate-700 font-semibold text-[#004C97]">
-                    Linha Produtiva <span className="text-rose-500">*</span>
+                    Linha Produtiva
                   </Label>
                   {companyId &&
                   availableHierarchyLines.filter((l) => l.company_id === companyId).length === 0 ? (
@@ -1423,14 +1418,14 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                   </span>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-slate-700 font-medium">
-                      Aprovador PCP (Etapa 1) <span className="text-rose-500">*</span>
+                      Programador PCP <span className="text-rose-500">*</span>
                     </Label>
                     <select
                       value={pcpApproverId}
                       onChange={(e) => setPcpApproverId(e.target.value)}
                       className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
-                      <option value="">Selecione aprovador PCP...</option>
+                      <option value="">Selecione o Programador PCP...</option>
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.role})
@@ -1441,14 +1436,14 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
 
                   <div className="space-y-1.5">
                     <Label className="text-xs text-slate-700 font-medium">
-                      Aprovador da Linha (Etapa 2)
+                      Programador Substituto
                     </Label>
                     <select
                       value={lineApproverId}
                       onChange={(e) => setLineApproverId(e.target.value)}
                       className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:border-[#004C97]"
                     >
-                      <option value="">Selecione aprovador de linha...</option>
+                      <option value="">Selecione o Programador Substituto...</option>
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.role})
@@ -1778,7 +1773,7 @@ export const AddLineWizardModal: React.FC<AddLineWizardModalProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200 py-1">
-                    <span className="text-slate-500">Aprovador PCP:</span>
+                    <span className="text-slate-500">Programador PCP:</span>
                     <span className="text-slate-900 font-medium">
                       {users.find((u) => u.id === pcpApproverId)?.name || 'Padrão Sistema'}
                     </span>

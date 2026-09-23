@@ -90,8 +90,8 @@ const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
 }
 
 const APPROVAL_STAGE_LABELS: Record<string, string> = {
-  STAGE_1_PCP: 'Estágio 1 — PCP',
-  STAGE_2_LINE_MANAGER: 'Estágio 2 — Gestor de Linha',
+  STAGE_1_PCP: 'Programador PCP',
+  STAGE_2_LINE_MANAGER: 'Programador Substituto',
   STAGE_3_QUALITY: 'Estágio 3 — Qualidade',
   STAGE_4_DIRECTOR: 'Estágio 4 — Diretoria',
 }
@@ -1728,7 +1728,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             <Card className="bg-slate-950 border-slate-800 text-slate-100">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                  Aprovador Homologador
+                  Programador PCP
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
@@ -1740,12 +1740,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     <span className="text-[11px] text-cyan-400 font-mono">
                       {approvers[0]?.role_title
                         ? `${approvers[0].role_title} (${approvers[0]?.requirement_type || 'MANDATORY'})`
-                        : 'Aprovação Não Requerida / Opcional'}
+                        : 'Programação Não Requerida / Opcional'}
                     </span>
                   </div>
                 ) : (
                   <span className="text-xs text-amber-400 italic">
-                    Aprovação Não Requerida / Opcional
+                    Programação Não Requerida / Opcional
                   </span>
                 )}
               </CardContent>
@@ -2050,8 +2050,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     <tr>
                       <th className="p-2.5">Ordem</th>
                       <th className="p-2.5">Estágio / Tipo</th>
-                      <th className="p-2.5">Aprovador Homologador</th>
-                      <th className="p-2.5">Substituto Homologado</th>
+                      <th className="p-2.5">Programador PCP / Homologador</th>
+                      <th className="p-2.5">Programador Substituto</th>
                       <th className="p-2.5">Exigência</th>
                       <th className="p-2.5">Status</th>
                     </tr>

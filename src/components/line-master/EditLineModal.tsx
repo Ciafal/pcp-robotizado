@@ -1209,9 +1209,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-slate-700">
-                    Aprovador Homologador PCP *
-                  </Label>
+                  <Label className="text-xs font-medium text-slate-700">Programador PCP *</Label>
                   <select
                     value={formData.pcpApproverId}
                     onChange={(e) => {
@@ -1220,7 +1218,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
-                    <option value="">Selecione o Aprovador PCP...</option>
+                    <option value="">Selecione o Programador PCP...</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.name} ({u.role})
@@ -1231,7 +1229,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-slate-700">
-                    Aprovador do Gestor da Linha
+                    Programador Substituto
                   </Label>
                   <select
                     value={formData.lineApproverId}
@@ -1241,7 +1239,7 @@ export const EditLineModal: React.FC<EditLineModalProps> = ({
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2 h-8 text-xs text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
                   >
-                    <option value="">Selecione o Gestor Homologador (opcional)...</option>
+                    <option value="">Selecione o Programador Substituto...</option>
                     {users.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.name} ({u.role})
