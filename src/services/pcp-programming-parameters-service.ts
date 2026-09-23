@@ -63,6 +63,9 @@ export interface ProgrammingParameter {
   description?: string
   parameter_type: OfficialProgrammingParameterType
   raw_parameter_type?: string
+  bitola?: string
+  tipo_aco?: string
+  codigo_sap?: string
   value?: string
   unit_of_measure?: string
   valid_from: string
@@ -84,6 +87,10 @@ export interface CreateOrUpdateParameterInput {
   name: string
   description?: string
   parameter_type: string
+  bitola: string
+  tipo_aco?: string
+  codigo_sap?: string
+  sap_metadata?: Record<string, unknown>
   value?: string
   unit_of_measure?: string
   valid_from: string
@@ -250,6 +257,10 @@ class PCPProgrammingParametersService {
       name: input.name.trim(),
       description: input.description?.trim() || '',
       parameter_type: officialType,
+      bitola: (input.bitola || '').trim(),
+      tipo_aco: (input.tipo_aco || '').trim(),
+      codigo_sap: (input.codigo_sap || input.tipo_aco || '').trim(),
+      sap_metadata: input.sap_metadata || null,
       value: input.value != null ? String(input.value).trim() : '',
       unit_of_measure: input.unit_of_measure?.trim() || '',
       valid_from: input.valid_from ? input.valid_from.slice(0, 10) : '',
@@ -260,6 +271,9 @@ class PCPProgrammingParametersService {
       notes: input.impactoConsequencia.trim() || input.notes?.trim() || '',
       ai_analysis_metadata: input.ai_analysis_metadata || null,
       user_decision: input.user_decision || '',
+      ...(isEditing
+        ? { updated_by_user: currentUserInfo?.name || currentUserInfo?.email || 'Usuário PCP' }
+        : { created_by_user: currentUserInfo?.name || currentUserInfo?.email || 'Usuário PCP' }),
     }
 
     let savedRec: any
@@ -291,6 +305,22 @@ class PCPProgrammingParametersService {
             fieldNamePt: 'Tipo de Parâmetro',
             before: previousRecord.parameter_type,
             after: result.parameter_type,
+          })
+        }
+        if (previousRecord.bitola !== result.bitola) {
+          changes.push({
+            field: 'bitola',
+            fieldNamePt: 'Bitola',
+            before: previousRecord.bitola || '—',
+            after: result.bitola || '—',
+          })
+        }
+        if (previousRecord.tipo_aco !== result.tipo_aco) {
+          changes.push({
+            field: 'tipo_aco',
+            fieldNamePt: 'Tipo de Aço',
+            before: previousRecord.tipo_aco || '—',
+            after: result.tipo_aco || '—',
           })
         }
         if (previousRecord.value !== result.value) {
@@ -363,6 +393,18 @@ class PCPProgrammingParametersService {
           after: result.parameter_type,
         })
         changes.push({
+          field: 'bitola',
+          fieldNamePt: 'Bitola',
+          before: null,
+          after: result.bitola || '—',
+        })
+        changes.push({
+          field: 'tipo_aco',
+          fieldNamePt: 'Tipo de Aço',
+          before: null,
+          after: result.tipo_aco || '—',
+        })
+        changes.push({
           field: 'value',
           fieldNamePt: 'Valor do Parâmetro',
           before: null,
@@ -396,6 +438,12 @@ class PCPProgrammingParametersService {
         parameter_type: result.parameter_type,
         center_code: result.center_code,
         action: actionType,
+        bitola: result.bitola,
+        tipo_aco: result.tipo_aco,
+        previous_bitola: previousRecord?.bitola ?? null,
+        new_bitola: result.bitola ?? null,
+        previous_tipo_aco: previousRecord?.tipo_aco ?? null,
+        new_tipo_aco: result.tipo_aco ?? null,
         previous_value: previousRecord?.value ?? null,
         new_value: result.value ?? null,
         texto_parametro: result.textoParametro,
@@ -522,6 +570,9 @@ class PCPProgrammingParametersService {
       description: rec.description || '',
       parameter_type: officialType,
       raw_parameter_type: rawType,
+      bitola: rec.bitola || '',
+      tipo_aco: rec.tipo_aco || '',
+      codigo_sap: rec.codigo_sap || '',
       value: rec.value || '',
       unit_of_measure: rec.unit_of_measure || '',
       valid_from: rec.valid_from ? rec.valid_from.slice(0, 10) : '',

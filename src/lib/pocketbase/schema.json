@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T17:28:13.221Z",
+  "generatedAt": "2026-09-23T18:01:31.365Z",
   "collections": [
     {
       "name": "users",
@@ -23571,6 +23571,42 @@
         },
         {
           "name": "user_decision",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bitola",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_aco",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_user",
           "type": "text",
           "required": false,
           "system": false
