@@ -23,6 +23,8 @@ export interface ProgrammingParameter {
   valid_from: string
   valid_until?: string
   status: ProgrammingParameterStatus
+  textoParametro: string
+  impactoConsequencia: string
   notes?: string
   created?: string
   updated?: string
@@ -40,6 +42,8 @@ export interface CreateOrUpdateParameterInput {
   valid_from: string
   valid_until?: string
   status: ProgrammingParameterStatus
+  textoParametro: string
+  impactoConsequencia: string
   notes?: string
 }
 
@@ -128,7 +132,9 @@ class PCPProgrammingParametersService {
       valid_from: input.valid_from ? input.valid_from.slice(0, 10) : '',
       valid_until: input.valid_until ? input.valid_until.slice(0, 10) : null,
       status: input.status,
-      notes: input.notes?.trim() || '',
+      texto_parametro: input.textoParametro.trim(),
+      impacto_consequencia: input.impactoConsequencia.trim(),
+      notes: input.impactoConsequencia.trim() || input.notes?.trim() || '',
     }
 
     let savedRec: any
@@ -202,6 +208,22 @@ class PCPProgrammingParametersService {
             after: result.status,
           })
         }
+        if (previousRecord.textoParametro !== result.textoParametro) {
+          changes.push({
+            field: 'texto_parametro',
+            fieldNamePt: 'Texto do Parâmetro',
+            before: previousRecord.textoParametro || '—',
+            after: result.textoParametro || '—',
+          })
+        }
+        if (previousRecord.impactoConsequencia !== result.impactoConsequencia) {
+          changes.push({
+            field: 'impacto_consequencia',
+            fieldNamePt: 'Impacto / Consequência',
+            before: previousRecord.impactoConsequencia || '—',
+            after: result.impactoConsequencia || '—',
+          })
+        }
       } else {
         changes.push({
           field: 'name',
@@ -220,6 +242,18 @@ class PCPProgrammingParametersService {
           fieldNamePt: 'Status',
           before: null,
           after: result.status,
+        })
+        changes.push({
+          field: 'texto_parametro',
+          fieldNamePt: 'Texto do Parâmetro',
+          before: null,
+          after: result.textoParametro,
+        })
+        changes.push({
+          field: 'impacto_consequencia',
+          fieldNamePt: 'Impacto / Consequência',
+          before: null,
+          after: result.impactoConsequencia,
         })
       }
 
@@ -243,6 +277,10 @@ class PCPProgrammingParametersService {
           action: actionType,
           previous_value: previousRecord?.value ?? null,
           new_value: result.value ?? null,
+          texto_parametro: result.textoParametro,
+          impacto_consequencia: result.impactoConsequencia,
+          previous_texto_parametro: previousRecord?.textoParametro ?? null,
+          previous_impacto_consequencia: previousRecord?.impactoConsequencia ?? null,
         },
         changes,
         status: 'Concluída',
@@ -326,7 +364,9 @@ class PCPProgrammingParametersService {
       valid_from: rec.valid_from ? rec.valid_from.slice(0, 10) : '',
       valid_until: rec.valid_until ? rec.valid_until.slice(0, 10) : undefined,
       status: rec.status === 'Inativo' || rec.status === 'INATIVO' ? 'Inativo' : 'Ativo',
-      notes: rec.notes || '',
+      textoParametro: rec.texto_parametro || '',
+      impactoConsequencia: rec.impacto_consequencia || rec.notes || '',
+      notes: rec.notes || rec.impacto_consequencia || '',
       created: rec.created,
       updated: rec.updated,
     }

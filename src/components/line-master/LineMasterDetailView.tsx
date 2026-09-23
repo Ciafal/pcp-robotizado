@@ -2111,12 +2111,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       {/* 6. CONTEÚDO: GRUPO 4 - FICHA MESTRE EXPANDIDA */}
       {mainGroup === 'MASTERDATA' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200 shadow-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200 shadow-xs">
             <Button
               size="sm"
               variant={masterSubTab === 'CAPACITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('CAPACITY')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'CAPACITY'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -2130,7 +2130,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               variant={masterSubTab === 'SHIFTS_CREWS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('SHIFTS_CREWS')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'SHIFTS_CREWS'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -2146,7 +2146,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               variant={masterSubTab === 'PRODUCTIVITY' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PRODUCTIVITY')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'PRODUCTIVITY'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -2160,7 +2160,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               variant={masterSubTab === 'RAW_MATERIALS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('RAW_MATERIALS')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'RAW_MATERIALS'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -2174,7 +2174,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               variant={masterSubTab === 'BLOCKED' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('BLOCKED')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'BLOCKED'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -2194,7 +2194,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   : 'ghost'
               }
               onClick={() => setMasterSubTab('SETUP_MATRIX')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'SETUP_MATRIX' ||
                 masterSubTab === 'ACERTOS' ||
                 masterSubTab === 'SETUP_ACERTO_COMPATIBILITY'
@@ -2210,7 +2210,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               variant={masterSubTab === 'IDEAL_GAUGE_SEQUENCE' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('IDEAL_GAUGE_SEQUENCE')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
                 masterSubTab === 'IDEAL_GAUGE_SEQUENCE'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
@@ -2220,19 +2220,25 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               <span className="truncate">Sequência Ideal</span>
             </Button>
 
-            {/* Novo Item: Parâmetros de Programação */}
+            {/* Novo Item: Parâmetros de Programação - título integral sem truncamento */}
             <Button
               size="sm"
+              data-testid="tab-programming-parameters"
               variant={masterSubTab === 'PROGRAMMING_PARAMETERS' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('PROGRAMMING_PARAMETERS')}
-              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 truncate ${
+              className={`text-xs h-9 gap-1.5 font-bold justify-start px-2.5 min-w-[210px] whitespace-nowrap ${
                 masterSubTab === 'PROGRAMMING_PARAMETERS'
                   ? 'bg-[#004C97] text-white shadow-xs'
                   : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
               }`}
+              title="Parâmetros de Programação"
             >
-              <Settings2 className="w-3.5 h-3.5 shrink-0 text-[#004C97]" />
-              <span className="truncate">Parâmetros de Programação</span>
+              <Settings2
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  masterSubTab === 'PROGRAMMING_PARAMETERS' ? 'text-white' : 'text-[#004C97]'
+                }`}
+              />
+              <span className="whitespace-nowrap font-bold">Parâmetros de Programação</span>
             </Button>
           </div>
 

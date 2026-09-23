@@ -3,14 +3,14 @@ import {
   SlidersHorizontal,
   Plus,
   Edit2,
+  Eye,
   Power,
   Search,
   AlertCircle,
   FileText,
+  AlertTriangle,
   Clock,
-  Layers,
   CheckCircle2,
-  Info,
   Calendar,
 } from 'lucide-react'
 import {
@@ -67,19 +67,29 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   // Estado do Modal de Cadastro / Edição
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false)
   const [editingParameter, setEditingParameter] = useState<ProgrammingParameter | null>(null)
+  const [viewingParameter, setViewingParameter] = useState<ProgrammingParameter | null>(null)
   const [isSaving, setIsSaving] = useState<boolean>(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [initialSnapshot, setInitialSnapshot] = useState<string>('')
 
   // Campos do formulário
   const [formName, setFormName] = useState<string>('')
   const [formDescription, setFormDescription] = useState<string>('')
-  const [formType, setFormType] = useState<ProgrammingParameterType>('NUMERICO')
+  const [formType, setFormType] = useState<ProgrammingParameterType>('Restrição')
+  const [formStatus, setFormStatus] = useState<ProgrammingParameterStatus>('Ativo')
   const [formValue, setFormValue] = useState<string>('')
   const [formUnit, setFormUnit] = useState<string>('')
   const [formValidFrom, setFormValidFrom] = useState<string>('')
   const [formValidUntil, setFormValidUntil] = useState<string>('')
-  const [formStatus, setFormStatus] = useState<ProgrammingParameterStatus>('Ativo')
-  const [formNotes, setFormNotes] = useState<string>('')
+  const [formTextoParametro, setFormTextoParametro] = useState<string>('')
+  const [formImpactoConsequencia, setFormImpactoConsequencia] = useState<string>('')
+
+  // Refs de foco para primeiro campo com erro
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  const textoTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const impactoTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const validFromInputRef = useRef<HTMLInputElement | null>(null)
 
   // Carrega parâmetros do centro estritamente
   const loadParameters = useCallback(async () => {
@@ -111,19 +121,85 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     loadParameters()
   }, [loadParameters])
 
+  // Normalizador de tipos compatível com legado e novos
+  const normalizeType = (raw: string): ProgrammingParameterType => {
+    const upper = (raw || '').toUpperCase()
+    if (upper === 'RESTRICAO' || upper === 'RESTRIÇÃO') return 'Restrição'
+    if (upper === 'REGRA') return 'Regra'
+    if (upper === 'ALERTA') return 'Alerta'
+    if (upper === 'CONDICAO' || upper === 'CONDIÇÃO') return 'Condição'
+    if (upper === 'LIMITE') return 'Limite'
+    if (upper === 'PRIORIDADE') return 'Prioridade'
+    if (upper === 'NUMERICO' || upper === 'NUMÉRICO') return 'Numérico'
+    if (upper === 'TEXTO') return 'Texto'
+    if (upper === 'BOOLEANO') return 'Booleano'
+    if (upper === 'PERCENTUAL') return 'Percentual'
+    if (upper === 'TEMPO') return 'Tempo'
+    return 'Restrição'
+  }
+
+  // Cria snapshot para detectar alterações não salvas
+  const buildSnapshot = (data: {
+    name: string
+    description: string
+    type: string
+    status: string
+    value: string
+    unit: string
+    validFrom: string
+    validUntil: string
+    texto: string
+    impacto: string
+  }) => JSON.stringify(data)
+
+  // Verifica se houve modificação no formulário
+  const hasUnsavedChanges = () => {
+    const current = buildSnapshot({
+      name: formName,
+      description: formDescription,
+      type: formType,
+      status: formStatus,
+      value: formValue,
+      unit: formUnit,
+      validFrom: formValidFrom,
+      validUntil: formValidUntil,
+      texto: formTextoParametro,
+      impacto: formImpactoConsequencia,
+    })
+    return current !== initialSnapshot
+  }
+
   // Abertura de modal para NOVO cadastro
   const handleOpenCreate = () => {
     setEditingParameter(null)
     setFormError(null)
+    setFieldErrors({})
+    const defaultValidFrom = new Date().toISOString().slice(0, 10)
     setFormName('')
     setFormDescription('')
-    setFormType('NUMERICO')
-    setFormValue('')
-    setFormUnit('')
-    setFormValidFrom(new Date().toISOString().slice(0, 10))
-    setFormValidUntil('')
+    setFormType('Restrição')
     setFormStatus('Ativo')
-    setFormNotes('')
+    setFormValue('')
+    setFormUnit('t')
+    setFormValidFrom(defaultValidFrom)
+    setFormValidUntil('')
+    setFormTextoParametro('')
+    setFormImpactoConsequencia('')
+
+    setInitialSnapshot(
+      buildSnapshot({
+        name: '',
+        description: '',
+        type: 'Restrição',
+        status: 'Ativo',
+        value: '',
+        unit: 't',
+        validFrom: defaultValidFrom,
+        validUntil: '',
+        texto: '',
+        impacto: '',
+      }),
+    )
     setIsModalOpen(true)
   }
 
@@ -131,53 +207,105 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   const handleOpenEdit = (param: ProgrammingParameter) => {
     setEditingParameter(param)
     setFormError(null)
+    setFieldErrors({})
+    const normalizedType = normalizeType(param.parameter_type)
+    const validFromStr = param.valid_from ? param.valid_from.slice(0, 10) : ''
+    const validUntilStr = param.valid_until ? param.valid_until.slice(0, 10) : ''
+    const textoStr = param.textoParametro || ''
+    const impactoStr = param.impactoConsequencia || param.notes || ''
+
     setFormName(param.name || '')
     setFormDescription(param.description || '')
-    setFormType(param.parameter_type || 'NUMERICO')
+    setFormType(normalizedType)
+    setFormStatus(param.status)
     setFormValue(param.value || '')
     setFormUnit(param.unit_of_measure || '')
-    setFormValidFrom(param.valid_from ? param.valid_from.slice(0, 10) : '')
-    setFormValidUntil(param.valid_until ? param.valid_until.slice(0, 10) : '')
-    setFormStatus(param.status)
-    setFormNotes(param.notes || '')
+    setFormValidFrom(validFromStr)
+    setFormValidUntil(validUntilStr)
+    setFormTextoParametro(textoStr)
+    setFormImpactoConsequencia(impactoStr)
+
+    setInitialSnapshot(
+      buildSnapshot({
+        name: param.name || '',
+        description: param.description || '',
+        type: normalizedType,
+        status: param.status,
+        value: param.value || '',
+        unit: param.unit_of_measure || '',
+        validFrom: validFromStr,
+        validUntil: validUntilStr,
+        texto: textoStr,
+        impacto: impactoStr,
+      }),
+    )
     setIsModalOpen(true)
+  }
+
+  // Abertura de modal para VISUALIZAÇÃO integral
+  const handleOpenView = (param: ProgrammingParameter) => {
+    setViewingParameter(param)
+  }
+
+  // Cancelamento com verificação de alterações não salvas
+  const handleCancel = () => {
+    if (hasUnsavedChanges()) {
+      const confirmLeave = window.confirm(
+        'Existem alterações não salvas. Deseja realmente cancelar?',
+      )
+      if (!confirmLeave) return
+    }
+    setIsModalOpen(false)
+    setFieldErrors({})
+    setFormError(null)
   }
 
   // Salvar Parâmetro
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setFormError(null)
+    const errors: Record<string, string> = {}
 
-    // Validações obrigatórias
+    // Validações obrigatórias com mensagens específicas sem mensagens nativas
     if (!formName.trim()) {
-      setFormError('O Nome do Parâmetro é obrigatório.')
-      return
+      errors.name = 'Informe o Nome do Parâmetro.'
     }
 
     if (!formType) {
-      setFormError('Selecione o Tipo de Parâmetro.')
-      return
+      errors.type = 'Informe o Tipo de Parâmetro.'
     }
 
-    if (!formValidFrom) {
-      setFormError('A Vigência Inicial (De) é obrigatória.')
-      return
+    if (!formValidFrom.trim()) {
+      errors.validFrom = 'Informe a Vigência Inicial.'
+    }
+
+    if (!formTextoParametro.trim()) {
+      errors.textoParametro = 'Informe o Texto do Parâmetro.'
+    }
+
+    if (!formImpactoConsequencia.trim()) {
+      errors.impactoConsequencia = 'Informe o Impacto / Consequência.'
     }
 
     if (formValidUntil && formValidFrom && formValidUntil < formValidFrom) {
-      setFormError('A Vigência Final não pode ser anterior à Vigência Inicial.')
-      return
+      errors.validUntil = 'A Vigência Final não pode ser anterior à Vigência Inicial.'
     }
 
-    // Validação de tipo numérico/percentual/tempo
-    if (formType === 'NUMERICO' || formType === 'PERCENTUAL' || formType === 'TEMPO') {
-      if (formValue.trim() !== '') {
-        const normalized = formValue.replace(/\./g, '').replace(',', '.')
-        if (isNaN(Number(normalized))) {
-          setFormError(`O valor informado para o tipo "${formType}" deve ser um número válido.`)
-          return
-        }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setFormError('Por favor, preencha todos os campos obrigatórios destacados.')
+
+      // Foco no primeiro campo pendente
+      if (errors.name) {
+        nameInputRef.current?.focus()
+      } else if (errors.validFrom) {
+        validFromInputRef.current?.focus()
+      } else if (errors.textoParametro) {
+        textoTextareaRef.current?.focus()
+      } else if (errors.impactoConsequencia) {
+        impactoTextareaRef.current?.focus()
       }
+      return
     }
 
     setIsSaving(true)
@@ -204,24 +332,30 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
           valid_from: formValidFrom,
           valid_until: formValidUntil || undefined,
           status: formStatus,
-          notes: formNotes.trim(),
+          textoParametro: formTextoParametro.trim(),
+          impactoConsequencia: formImpactoConsequencia.trim(),
+          notes: formImpactoConsequencia.trim(),
         },
         userInfo,
       )
 
-      // Toast exato exigido na especificação
+      // Confirmação de persistência realizada com sucesso
       toast({
-        title: 'Parâmetro salvo com sucesso.',
+        title: '✅ Parâmetro salvo com sucesso.',
         description: `O parâmetro "${formName.trim()}" foi registrado para o Centro ${centerCode}.`,
       })
 
-      // Fecha modal somente após sucesso e atualiza listagem imediatamente
+      // Fecha modal somente após sucesso e atualiza listagem automaticamente
       setIsModalOpen(false)
+      setFieldErrors({})
       await loadParameters()
+      if (onRefreshParent) {
+        onRefreshParent()
+      }
     } catch (err: any) {
       console.error('Erro ao salvar parâmetro:', err)
-      // Mantém popup aberto, preserva dados e exibe mensagem objetiva com a causa
-      setFormError(err?.message || 'Falha ao salvar o parâmetro. Tente novamente.')
+      // Mantém popup aberto, preserva dados e exibe mensagem objetiva
+      setFormError(err?.message || 'Falha ao salvar o parâmetro no backend. Tente novamente.')
       toast({
         variant: 'destructive',
         title: 'Não foi possível salvar o parâmetro',
@@ -275,8 +409,11 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         const matchName = p.name.toLowerCase().includes(term)
         const matchDesc = (p.description || '').toLowerCase().includes(term)
         const matchVal = (p.value || '').toLowerCase().includes(term)
+        const matchTexto = (p.textoParametro || '').toLowerCase().includes(term)
+        const matchImpacto = (p.impactoConsequencia || '').toLowerCase().includes(term)
         const matchNotes = (p.notes || '').toLowerCase().includes(term)
-        if (!matchName && !matchDesc && !matchVal && !matchNotes) return false
+        if (!matchName && !matchDesc && !matchVal && !matchTexto && !matchImpacto && !matchNotes)
+          return false
       }
 
       return true
@@ -340,12 +477,17 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 </SelectTrigger>
                 <SelectContent className="text-xs">
                   <SelectItem value="TODOS">Todos os Tipos</SelectItem>
-                  <SelectItem value="NUMERICO">Numérico</SelectItem>
-                  <SelectItem value="TEXTO">Texto</SelectItem>
-                  <SelectItem value="BOOLEANO">Booleano</SelectItem>
-                  <SelectItem value="PERCENTUAL">Percentual</SelectItem>
-                  <SelectItem value="TEMPO">Tempo</SelectItem>
-                  <SelectItem value="RESTRICAO">Restrição</SelectItem>
+                  <SelectItem value="Restrição">Restrição</SelectItem>
+                  <SelectItem value="Regra">Regra</SelectItem>
+                  <SelectItem value="Alerta">Alerta</SelectItem>
+                  <SelectItem value="Condição">Condição</SelectItem>
+                  <SelectItem value="Limite">Limite</SelectItem>
+                  <SelectItem value="Prioridade">Prioridade</SelectItem>
+                  <SelectItem value="Numérico">Numérico</SelectItem>
+                  <SelectItem value="Texto">Texto</SelectItem>
+                  <SelectItem value="Booleano">Booleano</SelectItem>
+                  <SelectItem value="Percentual">Percentual</SelectItem>
+                  <SelectItem value="Tempo">Tempo</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -480,6 +622,16 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleOpenView(p)}
+                              className="h-7 px-2 text-xs font-semibold text-slate-600 hover:text-[#004C97] hover:bg-blue-50"
+                              title="Visualizar Parâmetro Completo"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                              Ver
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleToggleStatus(p)}
                               className={`h-7 px-2 text-xs font-semibold ${
                                 isItemActive
@@ -513,9 +665,154 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
         </CardContent>
       </Card>
 
+      {/* MODAL: Visualizar Parâmetro de Programação Integral */}
+      <Dialog
+        open={Boolean(viewingParameter)}
+        onOpenChange={(open) => !open && setViewingParameter(null)}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-xl">
+          <DialogHeader className="border-b border-slate-100 pb-3">
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#004C97]" />
+              Visualização de Parâmetro de Programação
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Centro de Produção: <span className="font-semibold text-slate-800">{centerCode}</span>
+              {centerName ? ` • ${centerName}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingParameter && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Nome do Parâmetro:
+                  </span>
+                  <span className="font-bold text-slate-900 text-sm">{viewingParameter.name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">Status:</span>
+                  <Badge
+                    className={
+                      viewingParameter.status === 'Ativo'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-slate-100 text-slate-600'
+                    }
+                  >
+                    {viewingParameter.status}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">Tipo:</span>
+                  <span className="font-semibold text-slate-800">
+                    {viewingParameter.parameter_type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px] font-medium">
+                    Valor Configurado / Unidade:
+                  </span>
+                  <span className="font-mono font-semibold text-slate-800">
+                    {viewingParameter.value || '—'}{' '}
+                    {viewingParameter.unit_of_measure
+                      ? `(${viewingParameter.unit_of_measure})`
+                      : ''}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-500 block text-[11px] font-medium">Vigência:</span>
+                  <span className="text-slate-700">
+                    {viewingParameter.valid_from
+                      ? formatDatePTBR(viewingParameter.valid_from)
+                      : 'Indeterminada'}{' '}
+                    a{' '}
+                    {viewingParameter.valid_until
+                      ? formatDatePTBR(viewingParameter.valid_until)
+                      : 'em diante'}
+                  </span>
+                </div>
+                {viewingParameter.description && (
+                  <div className="col-span-2">
+                    <span className="text-slate-500 block text-[11px] font-medium">
+                      Descrição / Finalidade:
+                    </span>
+                    <span className="text-slate-700">{viewingParameter.description}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Texto do Parâmetro */}
+              <div className="space-y-1.5 p-3 rounded-lg border border-blue-200 bg-blue-50/40">
+                <Label className="text-xs font-bold text-[#004C97] flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#004C97]" />
+                  Texto do Parâmetro (Regra Operacional Completa)
+                </Label>
+                <div className="p-3 bg-white rounded border border-blue-100 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  {viewingParameter.textoParametro || (
+                    <span className="text-slate-400 italic">Não informado</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Impacto / Consequência */}
+              <div className="space-y-1.5 p-3 rounded-lg border border-slate-200 bg-slate-50/70">
+                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-slate-600" />
+                  Impacto / Consequência
+                </Label>
+                <div className="p-3 bg-white rounded border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  {viewingParameter.impactoConsequencia || (
+                    <span className="text-slate-400 italic">Não informado</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-slate-100 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setViewingParameter(null)}
+              className="border-slate-300 text-slate-700"
+            >
+              Fechar
+            </Button>
+            {viewingParameter && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const p = viewingParameter
+                  setViewingParameter(null)
+                  handleOpenEdit(p)
+                }}
+                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold gap-1.5"
+              >
+                <Edit2 className="w-3.5 h-3.5" /> Editar Parâmetro
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* MODAL: Cadastrar / Editar Parâmetro */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl bg-white text-slate-900 border-slate-200">
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancel()
+          } else {
+            setIsModalOpen(true)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[92vh] overflow-y-auto bg-white text-slate-900 border-slate-200 shadow-2xl p-6"
+          data-testid="parameter-form-modal"
+        >
           <DialogHeader className="border-b border-slate-100 pb-3">
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <SlidersHorizontal className="w-5 h-5 text-[#004C97]" />
@@ -524,15 +821,18 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 : 'Cadastrar Parâmetro de Programação'}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Centro de Trabalho: <span className="font-semibold text-slate-800">{centerCode}</span>
+              Centro de Produção: <span className="font-semibold text-slate-800">{centerCode}</span>
               {centerName ? ` (${centerName})` : ''} • As alterações serão registradas no relatório
               de logs de auditoria.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="space-y-4 py-2">
+          <form onSubmit={handleSave} noValidate className="space-y-4 py-2">
             {formError && (
-              <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+              <div
+                role="alert"
+                className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2"
+              >
                 <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <span className="font-semibold block">Erro de validação:</span>
@@ -541,67 +841,106 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
               </div>
             )}
 
+            {/* ESTRUTURA FINAL DO FORMULÁRIO (ordem solicitada) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Nome do Parâmetro (Obrigatório) */}
+              {/* 1. Nome do Parâmetro * (texto, largura total) */}
               <div className="space-y-1 md:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label htmlFor="form-param-name" className="text-xs font-semibold text-slate-700">
                   Nome do Parâmetro <span className="text-rose-500">*</span>
                 </Label>
                 <Input
+                  id="form-param-name"
+                  ref={nameInputRef}
                   type="text"
-                  placeholder="Ex: Tempo Mínimo de Resfriamento, Sequência Crítica, Lote Máximo"
+                  placeholder="Ex: Não programar quantidade inferior a 1 tonelada"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white"
-                  required
+                  onChange={(e) => {
+                    setFormName(e.target.value)
+                    if (fieldErrors.name) {
+                      setFieldErrors((prev) => ({ ...prev, name: '' }))
+                    }
+                  }}
+                  className={`h-8 text-xs bg-white text-slate-900 ${
+                    fieldErrors.name
+                      ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                      : 'border-slate-300 focus-visible:ring-[#004C97]'
+                  }`}
                 />
+                {fieldErrors.name && (
+                  <p className="text-[11px] text-rose-600 font-medium mt-0.5">{fieldErrors.name}</p>
+                )}
               </div>
 
-              {/* Descrição */}
+              {/* 2. Descrição / Finalidade (texto, largura total) */}
               <div className="space-y-1 md:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label htmlFor="form-param-desc" className="text-xs font-semibold text-slate-700">
                   Descrição / Finalidade
                 </Label>
                 <Input
+                  id="form-param-desc"
                   type="text"
                   placeholder="Finalidade do parâmetro para o cálculo do sequenciamento ou validações"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white"
+                  className="h-8 text-xs border-slate-300 bg-white text-slate-900 focus-visible:ring-[#004C97]"
                 />
               </div>
 
-              {/* Tipo de Parâmetro (Obrigatório) */}
+              {/* 3. Linha dupla: Tipo de Parâmetro * | Status */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label htmlFor="form-param-type" className="text-xs font-semibold text-slate-700">
                   Tipo de Parâmetro <span className="text-rose-500">*</span>
                 </Label>
                 <Select
                   value={formType}
-                  onValueChange={(val: ProgrammingParameterType) => setFormType(val)}
+                  onValueChange={(val: ProgrammingParameterType) => {
+                    setFormType(val)
+                    if (fieldErrors.type) {
+                      setFieldErrors((prev) => ({ ...prev, type: '' }))
+                    }
+                  }}
                 >
-                  <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+                  <SelectTrigger
+                    id="form-param-type"
+                    className={`h-8 text-xs bg-white text-slate-900 ${
+                      fieldErrors.type
+                        ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                        : 'border-slate-300 focus-visible:ring-[#004C97]'
+                    }`}
+                  >
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent className="text-xs">
-                    <SelectItem value="NUMERICO">Numérico</SelectItem>
-                    <SelectItem value="TEXTO">Texto</SelectItem>
-                    <SelectItem value="BOOLEANO">Booleano</SelectItem>
-                    <SelectItem value="PERCENTUAL">Percentual</SelectItem>
-                    <SelectItem value="TEMPO">Tempo</SelectItem>
-                    <SelectItem value="RESTRICAO">Restrição</SelectItem>
+                    <SelectItem value="Restrição">Restrição</SelectItem>
+                    <SelectItem value="Regra">Regra</SelectItem>
+                    <SelectItem value="Alerta">Alerta</SelectItem>
+                    <SelectItem value="Condição">Condição</SelectItem>
+                    <SelectItem value="Limite">Limite</SelectItem>
+                    <SelectItem value="Prioridade">Prioridade</SelectItem>
+                    <SelectItem value="Numérico">Numérico</SelectItem>
+                    <SelectItem value="Texto">Texto</SelectItem>
+                    <SelectItem value="Booleano">Booleano</SelectItem>
+                    <SelectItem value="Percentual">Percentual</SelectItem>
+                    <SelectItem value="Tempo">Tempo</SelectItem>
                   </SelectContent>
                 </Select>
+                {fieldErrors.type && (
+                  <p className="text-[11px] text-rose-600 font-medium mt-0.5">{fieldErrors.type}</p>
+                )}
               </div>
 
-              {/* Status (Ativo / Inativo) */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Status</Label>
+                <Label htmlFor="form-param-status" className="text-xs font-semibold text-slate-700">
+                  Status
+                </Label>
                 <Select
                   value={formStatus}
                   onValueChange={(val: ProgrammingParameterStatus) => setFormStatus(val)}
                 >
-                  <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+                  <SelectTrigger
+                    id="form-param-status"
+                    className="h-8 text-xs border-slate-300 bg-white text-slate-900 focus-visible:ring-[#004C97]"
+                  >
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="text-xs">
@@ -611,97 +950,214 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 </Select>
               </div>
 
-              {/* Valor Configurado */}
+              {/* 4. Valor Configurado | Unidade de Medida */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label htmlFor="form-param-value" className="text-xs font-semibold text-slate-700">
                   Valor Configurado
-                  {formType === 'NUMERICO' && ' (Ex: 12,50 ou 100)'}
-                  {formType === 'PERCENTUAL' && ' (Ex: 85 ou 92,5)'}
-                  {formType === 'TEMPO' && ' (Ex: 30)'}
-                  {formType === 'BOOLEANO' && ' (Ex: TRUE ou FALSE)'}
                 </Label>
                 <Input
+                  id="form-param-value"
                   type="text"
-                  placeholder={
-                    formType === 'BOOLEANO'
-                      ? 'TRUE / FALSE'
-                      : formType === 'NUMERICO'
-                        ? '0,00'
-                        : 'Valor do parâmetro'
-                  }
+                  placeholder="Ex: 1, 10, 85, TRUE, Bloqueado"
                   value={formValue}
                   onChange={(e) => setFormValue(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white font-mono"
+                  className="h-8 text-xs border-slate-300 bg-white font-mono text-slate-900 focus-visible:ring-[#004C97]"
                 />
               </div>
 
-              {/* Unidade de Medida */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Unidade de Medida (Opcional)
+                <Label htmlFor="form-param-unit" className="text-xs font-semibold text-slate-700">
+                  Unidade de Medida
                 </Label>
-                <Input
-                  type="text"
-                  placeholder="Ex: min, h, t, %, mm, dias"
-                  value={formUnit}
-                  onChange={(e) => setFormUnit(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white"
-                />
+                <Select
+                  value={formUnit || 'NONE'}
+                  onValueChange={(val) => setFormUnit(val === 'NONE' ? '' : val)}
+                >
+                  <SelectTrigger
+                    id="form-param-unit"
+                    className="h-8 text-xs border-slate-300 bg-white text-slate-900 focus-visible:ring-[#004C97]"
+                  >
+                    <SelectValue placeholder="Selecione ou deixe em branco" />
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    <SelectItem value="NONE">Nenhuma (Sem unidade)</SelectItem>
+                    <SelectItem value="t">t (Toneladas)</SelectItem>
+                    <SelectItem value="kg">kg (Quilogramas)</SelectItem>
+                    <SelectItem value="peça">peça</SelectItem>
+                    <SelectItem value="h">h (Horas)</SelectItem>
+                    <SelectItem value="min">min (Minutos)</SelectItem>
+                    <SelectItem value="dia">dia</SelectItem>
+                    <SelectItem value="%">% (Percentual)</SelectItem>
+                    <SelectItem value="mm">mm (Milímetros)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Vigência Inicial (Obrigatória) */}
+              {/* 5. Vigência Inicial * | Vigência Final */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Vigência Inicial (De) <span className="text-rose-500">*</span>
+                <Label
+                  htmlFor="form-param-valid-from"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Vigência Inicial <span className="text-rose-500">*</span>
                 </Label>
                 <Input
+                  id="form-param-valid-from"
+                  ref={validFromInputRef}
                   type="date"
                   value={formValidFrom}
-                  onChange={(e) => setFormValidFrom(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white"
-                  required
+                  onChange={(e) => {
+                    setFormValidFrom(e.target.value)
+                    if (fieldErrors.validFrom) {
+                      setFieldErrors((prev) => ({ ...prev, validFrom: '' }))
+                    }
+                  }}
+                  className={`h-8 text-xs bg-white text-slate-900 font-mono ${
+                    fieldErrors.validFrom
+                      ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                      : 'border-slate-300 focus-visible:ring-[#004C97]'
+                  }`}
                 />
+                {fieldErrors.validFrom && (
+                  <p className="text-[11px] text-rose-600 font-medium mt-0.5">
+                    {fieldErrors.validFrom}
+                  </p>
+                )}
               </div>
 
-              {/* Vigência Final (Opcional) */}
               <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Vigência Final (Até)</Label>
+                <Label
+                  htmlFor="form-param-valid-until"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Vigência Final
+                </Label>
                 <Input
+                  id="form-param-valid-until"
                   type="date"
+                  placeholder="dd/mm/aaaa"
                   value={formValidUntil}
-                  onChange={(e) => setFormValidUntil(e.target.value)}
-                  className="h-8 text-xs border-slate-200 bg-white"
+                  onChange={(e) => {
+                    setFormValidUntil(e.target.value)
+                    if (fieldErrors.validUntil) {
+                      setFieldErrors((prev) => ({ ...prev, validUntil: '' }))
+                    }
+                  }}
+                  className={`h-8 text-xs bg-white text-slate-900 font-mono ${
+                    fieldErrors.validUntil
+                      ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                      : 'border-slate-300 focus-visible:ring-[#004C97]'
+                  }`}
                 />
+                {fieldErrors.validUntil && (
+                  <p className="text-[11px] text-rose-600 font-medium mt-0.5">
+                    {fieldErrors.validUntil}
+                  </p>
+                )}
               </div>
 
-              {/* Observações / Notas */}
+              {/* 6. Texto do Parâmetro * (textarea, largura total) */}
               <div className="space-y-1 md:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">Observações / Notas</Label>
+                <Label
+                  htmlFor="form-param-texto"
+                  className="text-xs font-semibold text-slate-700 flex items-center justify-between"
+                >
+                  <span>
+                    Texto do Parâmetro <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">
+                    Regra operacional completa aplicada ao Centro
+                  </span>
+                </Label>
                 <Textarea
-                  placeholder="Informações adicionais sobre o comportamento esperado na programação..."
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="text-xs border-slate-200 bg-white min-h-[60px]"
+                  id="form-param-texto"
+                  ref={textoTextareaRef}
+                  data-testid="input-texto-parametro"
+                  placeholder="Ex: Não programar quantidade inferior a 1 tonelada de produção para este Centro."
+                  value={formTextoParametro}
+                  onChange={(e) => {
+                    setFormTextoParametro(e.target.value)
+                    if (fieldErrors.textoParametro) {
+                      setFieldErrors((prev) => ({ ...prev, textoParametro: '' }))
+                    }
+                  }}
+                  className={`text-xs bg-white text-slate-900 min-h-[75px] leading-relaxed resize-y ${
+                    fieldErrors.textoParametro
+                      ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                      : 'border-slate-300 focus-visible:ring-[#004C97]'
+                  }`}
                 />
+                {fieldErrors.textoParametro && (
+                  <p
+                    data-testid="error-texto-parametro"
+                    className="text-[11px] text-rose-600 font-medium mt-0.5"
+                  >
+                    {fieldErrors.textoParametro}
+                  </p>
+                )}
+              </div>
+
+              {/* 7. Impacto / Consequência * (textarea, largura total) */}
+              <div className="space-y-1 md:col-span-2">
+                <Label
+                  htmlFor="form-param-impacto"
+                  className="text-xs font-semibold text-slate-700 flex items-center justify-between"
+                >
+                  <span>
+                    Impacto / Consequência <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">
+                    O que ocorre quando a condição é atingida ou violada
+                  </span>
+                </Label>
+                <Textarea
+                  id="form-param-impacto"
+                  ref={impactoTextareaRef}
+                  data-testid="input-impacto-consequencia"
+                  placeholder="Ex: Bloquear a inclusão da atividade e informar ao programador."
+                  value={formImpactoConsequencia}
+                  onChange={(e) => {
+                    setFormImpactoConsequencia(e.target.value)
+                    if (fieldErrors.impactoConsequencia) {
+                      setFieldErrors((prev) => ({ ...prev, impactoConsequencia: '' }))
+                    }
+                  }}
+                  className={`text-xs bg-white text-slate-900 min-h-[75px] leading-relaxed resize-y ${
+                    fieldErrors.impactoConsequencia
+                      ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
+                      : 'border-slate-300 focus-visible:ring-[#004C97]'
+                  }`}
+                />
+                {fieldErrors.impactoConsequencia && (
+                  <p
+                    data-testid="error-impacto-consequencia"
+                    className="text-[11px] text-rose-600 font-medium mt-0.5"
+                  >
+                    {fieldErrors.impactoConsequencia}
+                  </p>
+                )}
               </div>
             </div>
 
-            <DialogFooter className="border-t border-slate-100 pt-3 flex items-center justify-end gap-2">
+            {/* 8. Rodapé Cancelar | Salvar */}
+            <DialogFooter className="border-t border-slate-200 pt-3 flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsModalOpen(false)}
+                data-testid="btn-cancelar-parametro"
+                onClick={handleCancel}
                 disabled={isSaving}
-                className="h-8 text-xs border-slate-200"
+                className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 size="sm"
+                data-testid="btn-salvar-parametro"
                 disabled={isSaving}
-                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 font-bold gap-1.5"
+                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 font-bold gap-1.5 shadow-xs"
               >
                 {isSaving ? (
                   <>
