@@ -55,6 +55,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   lineId,
   centerCode,
   centerName,
+  onRefreshParent,
 }) => {
   const { toast } = useToast()
 

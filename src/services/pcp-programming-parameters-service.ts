@@ -8,6 +8,17 @@ export type ProgrammingParameterType =
   | 'PERCENTUAL'
   | 'TEMPO'
   | 'RESTRICAO'
+  | 'Restrição'
+  | 'Regra'
+  | 'Alerta'
+  | 'Condição'
+  | 'Limite'
+  | 'Prioridade'
+  | 'Numérico'
+  | 'Texto'
+  | 'Booleano'
+  | 'Percentual'
+  | 'Tempo'
 
 export type ProgrammingParameterStatus = 'Ativo' | 'Inativo'
 
