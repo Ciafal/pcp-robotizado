@@ -183,40 +183,45 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
   // Carrega opções de MP quando a linha mudar ou modal abrir
   useEffect(() => {
-    if (isOpen) {
-      MpProgrammingEngine.fetchOfficialMpOptions(lineCode, lineOverview).then((opts) => {
-        setMpOptions(opts)
-        if (opts.length > 0) {
-          setRawMaterialRows((prev) => {
-            if (prev.length === 0) {
-              return [
-                {
-                  id: 'mp-row-1',
-                  mpType: opts[0].mpType,
-                  materialCode: opts[0].code,
-                  yieldPct: opts[0].defaultYieldPct,
-                  quantityTons: 102.56,
-                },
-              ]
-            }
-            // Preserva a MP já informada se houver código; senão inicializa com a padrão
-            return prev.map((row, idx) => {
-              if (idx === 0 && !row.materialCode) {
-                return {
-                  ...row,
-                  materialCode: opts[0].code,
-                  mpType: opts[0].mpType,
-                  yieldPct: opts[0].defaultYieldPct,
-                }
+    if (isOpen && lineCode) {
+      MpProgrammingEngine.fetchOfficialMpOptions(lineCode, lineOverview)
+        .then((opts) => {
+          const safeOpts = opts || []
+          setMpOptions(safeOpts)
+          if (safeOpts.length > 0) {
+            setRawMaterialRows((prev) => {
+              if (prev.length === 0) {
+                return [
+                  {
+                    id: 'mp-row-1',
+                    mpType: safeOpts[0].mpType,
+                    materialCode: safeOpts[0].code,
+                    yieldPct: safeOpts[0].defaultYieldPct,
+                    quantityTons: 102.56,
+                  },
+                ]
               }
-              return row
+              // Preserva a MP já informada se houver código; senão inicializa com a padrão
+              return prev.map((row, idx) => {
+                if (idx === 0 && !row.materialCode) {
+                  return {
+                    ...row,
+                    materialCode: safeOpts[0].code,
+                    mpType: safeOpts[0].mpType,
+                    yieldPct: safeOpts[0].defaultYieldPct,
+                  }
+                }
+                return row
+              })
             })
-          })
-        }
-      })
+          }
+        })
+        .catch((err) => {
+          console.warn('[AddProductModal] Erro ao carregar opções de MP:', err)
+          setMpOptions([])
+        })
     }
   }, [isOpen, lineCode, lineOverview])
-
   // 1. Extração de Famílias Únicas Homologadas para esta linha
   const homologatedFamilies = useMemo(() => {
     const map = new Map<string, { code: string; name: string; count: number }>()
@@ -253,7 +258,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
   // PARTE 4: Busca de produtividade ativa com base no enfornamento
   useEffect(() => {
-    if (isLaminacao && selectedMaterial) {
+    if (isLaminacao && selectedMaterial && lineOverview) {
       EnfornamentoLaminacaoEngine.resolveActiveProductivity({
         lineCode,
         lineOverview,
@@ -261,14 +266,18 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         gaugeDimension: selectedMaterial.dimension_spec,
         enfornamentoType,
         targetDate: new Date(),
-      }).then((match) => {
-        setProductivityMatch(match)
       })
+        .then((match) => {
+          setProductivityMatch(match)
+        })
+        .catch((err) => {
+          console.warn('[AddProductModal] Erro ao resolver produtividade de enfornamento:', err)
+          setProductivityMatch(null)
+        })
     } else {
       setProductivityMatch(null)
     }
   }, [isLaminacao, selectedMaterial, enfornamentoType, lineCode, lineOverview])
-
   // 3. Cadência Oficial Ficha Mestra (com ajuste de enfornamento quando aplicável)
   const materialCadence = useMemo(() => {
     if (!selectedMaterial) return null
@@ -606,14 +615,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     if (!calculationResult || !calculationResult.isValid) return
     if (overlapValidation.hasConflict) return
 
-    const shifts = lineOverview?.shifts || []
-    const shiftObj = shifts.find((s) => s.code === selectedShift)
+    const shifts = lineOverview?.shifts?.length
+      ? lineOverview.shifts
+      : [{ code: 'T1_L1', name: '1º Turno', start_time: '06:00', end_time: '14:20' }]
+    const shiftObj = shifts.find((s) => s.code === selectedShift) || shifts[0]
 
     // Formata o turno no padrão institucional CIAFAL T1 · Turma X
     const formattedShiftName = WeeklyScheduleEngine.formatShiftDisplay(
-      shiftObj?.name || targetShiftName,
-      selectedShift,
-      targetCrewName,
+      shiftObj?.name || targetShiftName || '1º Turno Matutino',
+      shiftObj?.code || selectedShift || 'T1_L1',
+      targetCrewName || 'Turma A',
     )
 
     // BLOCO B: Status do MP persistido no item salvo (não só toast — alertas NÃO podem desaparecer após salvar)
@@ -1973,10 +1984,17 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(lineOverview?.shifts || []).map((s) => (
+                  {(lineOverview?.shifts?.length
+                    ? lineOverview.shifts
+                    : [{ code: 'T1_L1', name: '1º Turno', start_time: '06:00', end_time: '14:20' }]
+                  ).map((s) => (
                     <SelectItem key={s.code} value={s.code} className="text-xs">
-                      {WeeklyScheduleEngine.formatShiftDisplay(s.name, s.code, targetCrewName)} (
-                      {s.start_time} - {s.end_time})
+                      {WeeklyScheduleEngine.formatShiftDisplay(
+                        s.name || '1º Turno',
+                        s.code || 'T1_L1',
+                        targetCrewName || 'Turma A',
+                      )}{' '}
+                      ({s.start_time || '06:00'} - {s.end_time || '14:20'})
                     </SelectItem>
                   ))}
                 </SelectContent>

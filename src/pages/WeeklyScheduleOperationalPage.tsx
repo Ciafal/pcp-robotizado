@@ -90,6 +90,7 @@ import {
 } from '@/types/line-master'
 import { BlockedProductModal } from '@/components/weekly-schedule/BlockedProductModal'
 import { AddProductModal } from '@/components/weekly-schedule/AddProductModal'
+import { WeeklyScheduleModalErrorBoundary } from '@/components/weekly-schedule/WeeklyScheduleModalErrorBoundary'
 import { DerivedProgrammingModal } from '@/components/weekly-schedule/DerivedProgrammingModal'
 import { weeklyDerivationEngine, DerivationMatchResult } from '@/services/weekly-derivation-engine'
 import { centerDerivationService } from '@/services/pcp-center-derivation-service'
@@ -1633,6 +1634,31 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     applyNewActiveDate(nextDate)
   }
 
+  // Centralização com null-guard da abertura do modal de inserção de produto/atividade
+  const handleOpenAddModal = (
+    day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' = 'SEG',
+    shiftCode?: string,
+  ) => {
+    if (!selectedLineCode || !currentLineOverview) {
+      toast({
+        title: 'Aguarde o carregamento do centro',
+        description: 'Os dados operacionais da linha estão sendo sincronizados.',
+      })
+      return
+    }
+
+    const shifts = currentLineOverview.shifts || []
+    const fallbackShift = shifts[0]?.code || 'T1_L1'
+    const activeShift = shifts.find((s) => s.code === shiftCode)?.code || fallbackShift
+    const shiftObj = shifts.find((s) => s.code === activeShift)
+
+    setTargetDay(day)
+    setTargetShiftCode(activeShift)
+    setTargetShiftName(shiftObj?.name || '1º Turno')
+    setTargetCrewName('Turma A')
+    setIsAddModalOpen(true)
+  }
+
   // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
   const handleAddProduct = (newItemData: Partial<WeeklyScheduleItem>) => {
     if (!newItemData.material_code) return
@@ -1780,13 +1806,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
     )
     setItems(recalculated.items)
 
-    // Persiste imediatamente
+    // Persiste imediatamente com tratamento de erro resiliente
     weeklyScheduleService.saveWeeklyScheduleDraft(recalculated.items, headerFilter).catch((err) => {
       console.error('Erro ao persistir novo item:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar programação',
+        description:
+          err?.message ||
+          'Não foi possível salvar no servidor. Os dados continuam disponíveis na tela para nova tentativa.',
+      })
     })
 
     toast({
-      title: 'Produto Adicionado',
+      title: 'Atividade incluída com sucesso.',
       description: `Material ${itemToAdd.material_code} (${itemToAdd.planned_quantity_tons} t) inserido na sequência. Grade recalculada.`,
     })
 
@@ -4338,10 +4371,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                     })
                     return
                   }
-                  const firstShift = (currentLineOverview?.shifts || [])[0]
-                  setTargetDay('SEG')
-                  setTargetShiftCode(firstShift?.code || 'T1_L1')
-                  setIsAddModalOpen(true)
+                  handleOpenAddModal('SEG')
                 }}
                 className={`h-7 text-xs font-bold flex items-center gap-1 shadow-2xs ${
                   !isLineActive
@@ -4690,9 +4720,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                     }
                   }}
                   onAddItem={(day, shift) => {
-                    setTargetDay(day)
-                    setTargetShiftCode(shift)
-                    setIsAddModalOpen(true)
+                    handleOpenAddModal(day as any, shift)
                   }}
                   onOpenAwaitingModal={handleOpenAwaitingObsModal}
                   onOpenSetupDetail={(item) => {
@@ -4720,9 +4748,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                     }
                   }}
                   onOpenAddModal={(d, s) => {
-                    setTargetDay(d)
-                    setTargetShiftCode(s)
-                    setIsAddModalOpen(true)
+                    handleOpenAddModal(d as any, s)
                   }}
                   onMoveItem={(from, to) => handleReorderItems(from, to)}
                   onTransferDayShift={handleTransferDayShift}
@@ -4827,10 +4853,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   size="sm"
                   disabled={!isLineActive || isCurrentWeekHistorical}
                   onClick={() => {
-                    const firstShift = (currentLineOverview?.shifts || [])[0]
-                    setTargetDay('SEG')
-                    setTargetShiftCode(firstShift?.code || 'T1_L1')
-                    setIsAddModalOpen(true)
+                    handleOpenAddModal('SEG')
                   }}
                   className="bg-[#004C97] hover:bg-[#003d7a] text-white font-bold text-xs h-8"
                 >
@@ -4859,9 +4882,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   }
                 }}
                 onAddItem={(day, shift) => {
-                  setTargetDay(day)
-                  setTargetShiftCode(shift)
-                  setIsAddModalOpen(true)
+                  handleOpenAddModal(day as any, shift)
                 }}
                 onOpenAwaitingModal={handleOpenAwaitingObsModal}
                 onOpenSetupDetail={(item) => {
@@ -4889,9 +4910,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
                   }
                 }}
                 onOpenAddModal={(d, s) => {
-                  setTargetDay(d)
-                  setTargetShiftCode(s)
-                  setIsAddModalOpen(true)
+                  handleOpenAddModal(d as any, s)
                 }}
                 onMoveItem={(from, to) => handleReorderItems(from, to)}
                 onTransferDayShift={handleTransferDayShift}
@@ -5086,19 +5105,21 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       />
 
       {/* 6. MODAL DE ADICIONAR PRODUTO */}
-      <AddProductModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddProduct}
-        lineCode={selectedLineCode}
-        officialMaterials={officialMaterials}
-        lineOverview={currentLineOverview}
-        existingItems={items}
-        targetDay={targetDay}
-        targetShiftCode={targetShiftCode}
-        targetShiftName={targetShiftName}
-        targetCrewName={targetCrewName}
-      />
+      <WeeklyScheduleModalErrorBoundary onReset={() => setIsAddModalOpen(false)}>
+        <AddProductModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddProduct}
+          lineCode={selectedLineCode}
+          officialMaterials={officialMaterials}
+          lineOverview={currentLineOverview}
+          existingItems={items}
+          targetDay={targetDay || 'SEG'}
+          targetShiftCode={targetShiftCode || 'T1_L1'}
+          targetShiftName={targetShiftName || '1º Turno Matutino'}
+          targetCrewName={targetCrewName || 'Turma A'}
+        />
+      </WeeklyScheduleModalErrorBoundary>
 
       {/* 6.1 MODAL DE EDIÇÃO DE PRODUTO */}
       <EditProductModal
