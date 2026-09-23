@@ -555,6 +555,13 @@ const RulesEnginePage = lazyWithRetry(
     })),
   'RulesEnginePage',
 )
+const SapValidationPage = lazyWithRetry(
+  () =>
+    import('@/pages/SapValidationPage').then((m) => ({
+      default: m.default ?? m.SapValidationPage,
+    })),
+  'SapValidationPage',
+)
 
 // Módulo CONTROLE DE PRODUÇÃO (9 Telas Reais Homologadas)
 const ProductionOverviewPage = lazyWithRetry(
@@ -1425,6 +1432,20 @@ export const App: React.FC = () => {
                         </ErrorBoundary>
                       </PermissionGuard>
                     }
+                  />
+                  <Route
+                    path="/pcp/cadastros/validacao-sap"
+                    element={
+                      <PermissionGuard permission="pcp.masterdata.view">
+                        <ErrorBoundary moduleName="Validação de Cadastro SAP">
+                          <SapValidationPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/validacao-sap"
+                    element={<Navigate to="/pcp/cadastros/validacao-sap" replace />}
                   />
                   {/* REDIRECTS DE COMPATIBILIDADE PARA ROTAS ANTIGAS DE CADASTROS */}
                   <Route

@@ -1102,6 +1102,12 @@ const officialNavGroups: NavGroup[] = [
         icon: SlidersHorizontal,
         permission: 'pcp.masterdata.view',
       },
+      {
+        title: 'Validação de Cadastro SAP',
+        href: '/pcp/cadastros/validacao-sap',
+        icon: ShieldCheck,
+        permission: 'pcp.masterdata.view',
+      },
     ],
   },
   {

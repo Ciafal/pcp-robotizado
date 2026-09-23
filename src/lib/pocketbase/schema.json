@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T14:41:02.236Z",
+  "generatedAt": "2026-09-23T15:03:15.482Z",
   "collections": [
     {
       "name": "users",
@@ -23650,6 +23650,983 @@
         "CREATE INDEX idx_plf_center_code ON pcp_lesson_feedback (center_code)",
         "CREATE INDEX idx_plf_lesson_key ON pcp_lesson_feedback (lesson_key)",
         "CREATE INDEX idx_plf_feedback_type ON pcp_lesson_feedback (feedback_type)"
+      ]
+    },
+    {
+      "name": "sap_validation_rules_matrix",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "group_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subgroup_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "field_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_table_field",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "comparison_source",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["MODELO", "PARAMETRO_ESPERADO", "AMBOS", "REGRA_CUSTOM"]
+        },
+        {
+          "name": "expected_value_rule",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_mandatory",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applicability_condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "order_index",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_svrm_group ON sap_validation_rules_matrix (group_name)",
+        "CREATE INDEX idx_svrm_field ON sap_validation_rules_matrix (sap_table_field)",
+        "CREATE INDEX idx_svrm_active ON sap_validation_rules_matrix (active)"
+      ]
+    },
+    {
+      "name": "sap_validation_code_logic",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "code_prefix",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "product_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_material_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valuation_class",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "price_determination",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "price_control",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acct_assignment_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "item_category_group",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "division",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "availability_check",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cfop",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "explosion_backflush",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "batch_management",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "storage_condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "internal_production",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "utilization",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sales_org",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "additional_params",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_svcl_prefix ON sap_validation_code_logic (code_prefix)",
+        "CREATE INDEX idx_svcl_active ON sap_validation_code_logic (active)"
+      ]
+    },
+    {
+      "name": "sap_validation_price_control",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "valuation_class",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "price_determination",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "price_control",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_svpc_lookup ON sap_validation_price_control (valuation_class, material_type)"
+      ]
+    },
+    {
+      "name": "sap_validation_procurement_type",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "procurement_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "special_procurement",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "applies_to_material_types",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_svpt_type ON sap_validation_procurement_type (procurement_type)"
+      ]
+    },
+    {
+      "name": "sap_validation_complementary_rules",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "rule_key",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ZBITOLAS", "ZPPT_08", "ZPPMP", "CU41", "ZCOIND", "VD53", "OUTRAS"]
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applicable_material_types",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applicable_centers",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "condition_logic",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "parameters",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_svcr_key ON sap_validation_complementary_rules (rule_key)"]
+    },
+    {
+      "name": "sap_material_validations",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "validation_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_new_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_model_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "center",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_new_desc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_model_desc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "price_control",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_at_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modified_at_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "modified_by_sap",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "model_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["VERDE", "AMARELO", "VERMELHO"]
+        },
+        {
+          "name": "model_warnings",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "model_justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "overall_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "AGUARDANDO_VALIDACAO",
+            "EM_VALIDACAO",
+            "DIVERGENTE",
+            "AGUARDANDO_CORRECAO_SAP",
+            "APTO_PARA_APROVACAO",
+            "VALIDADO"
+          ]
+        },
+        {
+          "name": "total_fields_analyzed",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approved_fields_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergent_fields_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "not_applicable_fields_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "compliance_percentage",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "model_movement_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_raw_new",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_raw_model",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_last_queried_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_last_queried_by",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "started_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "completed_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_latest_revision",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_validation_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_smv_code_rev ON sap_material_validations (validation_code, revision_number)",
+        "CREATE INDEX idx_smv_new_code ON sap_material_validations (material_new_code)",
+        "CREATE INDEX idx_smv_model_code ON sap_material_validations (material_model_code)",
+        "CREATE INDEX idx_smv_status ON sap_material_validations (overall_status)",
+        "CREATE INDEX idx_smv_center ON sap_material_validations (center)"
+      ]
+    },
+    {
+      "name": "sap_validation_field_results",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "validation_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "validation_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "group_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "subgroup_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "field_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sap_table_field",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "model_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_parameter_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validation_result",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["APROVADO", "DIVERGENTE", "NAO_SE_APLICA"]
+        },
+        {
+          "name": "rule_applied",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_detail",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_svfr_val_id ON sap_validation_field_results (validation_id)",
+        "CREATE INDEX idx_svfr_result ON sap_validation_field_results (validation_result)",
+        "CREATE INDEX idx_svfr_group ON sap_validation_field_results (group_name)"
+      ]
+    },
+    {
+      "name": "sap_validation_audit_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "validation_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validation_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revision_number",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_role",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "INICIO_VALIDACAO",
+            "SELECAO_CODIGO_MODELO",
+            "CONSULTA_SAP",
+            "ADVERTENCIA_MODELO",
+            "JUSTIFICATIVA_MODELO",
+            "COMPARACAO_EXECUTADA",
+            "DETECCAO_DIVERGENCIA",
+            "RECONSULTA_SAP",
+            "APROVACAO",
+            "CONCLUSAO",
+            "CRIACAO_REVISAO"
+          ]
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sap_source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rule_result",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "justification",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "details",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "correlation_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sval_val_code ON sap_validation_audit_logs (validation_code)",
+        "CREATE INDEX idx_sval_mat_code ON sap_validation_audit_logs (material_code)",
+        "CREATE INDEX idx_sval_action ON sap_validation_audit_logs (action)",
+        "CREATE INDEX idx_sval_created ON sap_validation_audit_logs (created DESC)"
       ]
     }
   ]
