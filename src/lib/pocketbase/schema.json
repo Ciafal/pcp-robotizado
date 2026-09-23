@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T14:05:12.250Z",
+  "generatedAt": "2026-09-23T14:41:02.236Z",
   "collections": [
     {
       "name": "users",
@@ -23465,7 +23465,40 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["NUMERICO", "TEXTO", "BOOLEANO", "PERCENTUAL", "TEMPO", "RESTRICAO"]
+          "selectValues": [
+            "Matéria-prima dimensional",
+            "Matéria-prima aço",
+            "Matéria-prima fornecedor",
+            "Redução",
+            "Produtividade",
+            "Restrição técnica",
+            "Restrição equipamento",
+            "Qualidade",
+            "Operador",
+            "Mecânica",
+            "Elétrica",
+            "Automação",
+            "PCP",
+            "Comprimento",
+            "Outros",
+            "NUMERICO",
+            "TEXTO",
+            "BOOLEANO",
+            "PERCENTUAL",
+            "TEMPO",
+            "RESTRICAO",
+            "Restrição",
+            "Regra",
+            "Alerta",
+            "Condição",
+            "Limite",
+            "Prioridade",
+            "Numérico",
+            "Texto",
+            "Booleano",
+            "Percentual",
+            "Tempo"
+          ]
         },
         {
           "name": "value",
@@ -23526,6 +23559,18 @@
         },
         {
           "name": "impacto_consequencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_analysis_metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_decision",
           "type": "text",
           "required": false,
           "system": false

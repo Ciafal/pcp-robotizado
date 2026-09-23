@@ -12,6 +12,10 @@ import {
   Clock,
   CheckCircle2,
   Calendar,
+  Sparkles,
+  ArrowRight,
+  ShieldAlert,
+  Loader2,
 } from 'lucide-react'
 import {
   Dialog,
@@ -39,8 +43,11 @@ import pb from '@/lib/pocketbase/client'
 import {
   pcpProgrammingParametersService,
   ProgrammingParameter,
-  ProgrammingParameterType,
+  OfficialProgrammingParameterType,
   ProgrammingParameterStatus,
+  OFFICIAL_PROGRAMMING_PARAMETER_TYPES,
+  ParameterAiAnalysisResult,
+  normalizeParameterTypeToOfficial,
 } from '@/services/pcp-programming-parameters-service'
 import { formatDatePTBR } from '@/lib/formatters-ptbr'
 
@@ -77,7 +84,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   // Campos do formulário
   const [formName, setFormName] = useState<string>('')
   const [formDescription, setFormDescription] = useState<string>('')
-  const [formType, setFormType] = useState<ProgrammingParameterType>('Restrição')
+  const [formType, setFormType] = useState<string>('')
   const [formStatus, setFormStatus] = useState<ProgrammingParameterStatus>('Ativo')
   const [formValue, setFormValue] = useState<string>('')
   const [formUnit, setFormUnit] = useState<string>('')
@@ -85,6 +92,13 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   const [formValidUntil, setFormValidUntil] = useState<string>('')
   const [formTextoParametro, setFormTextoParametro] = useState<string>('')
   const [formImpactoConsequencia, setFormImpactoConsequencia] = useState<string>('')
+
+  // Estado da Análise com IA
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState<boolean>(false)
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<ParameterAiAnalysisResult | null>(null)
+  const [aiAnalysisError, setAiAnalysisError] = useState<string | null>(null)
+  const [initialTypeAnalyzed, setInitialTypeAnalyzed] = useState<string>('')
+  const [userDecision, setUserDecision] = useState<'APLICOU' | 'MANTEVE' | ''>('')
 
   // Refs de foco para primeiro campo com erro
   const nameInputRef = useRef<HTMLInputElement | null>(null)
@@ -122,23 +136,6 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     loadParameters()
   }, [loadParameters])
 
-  // Normalizador de tipos compatível com legado e novos
-  const normalizeType = (raw: string): ProgrammingParameterType => {
-    const upper = (raw || '').toUpperCase()
-    if (upper === 'RESTRICAO' || upper === 'RESTRIÇÃO') return 'Restrição'
-    if (upper === 'REGRA') return 'Regra'
-    if (upper === 'ALERTA') return 'Alerta'
-    if (upper === 'CONDICAO' || upper === 'CONDIÇÃO') return 'Condição'
-    if (upper === 'LIMITE') return 'Limite'
-    if (upper === 'PRIORIDADE') return 'Prioridade'
-    if (upper === 'NUMERICO' || upper === 'NUMÉRICO') return 'Numérico'
-    if (upper === 'TEXTO') return 'Texto'
-    if (upper === 'BOOLEANO') return 'Booleano'
-    if (upper === 'PERCENTUAL') return 'Percentual'
-    if (upper === 'TEMPO') return 'Tempo'
-    return 'Restrição'
-  }
-
   // Cria snapshot para detectar alterações não salvas
   const buildSnapshot = (data: {
     name: string
@@ -175,10 +172,15 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setEditingParameter(null)
     setFormError(null)
     setFieldErrors({})
+    setAiAnalysisResult(null)
+    setAiAnalysisError(null)
+    setInitialTypeAnalyzed('')
+    setUserDecision('')
+
     const defaultValidFrom = new Date().toISOString().slice(0, 10)
     setFormName('')
     setFormDescription('')
-    setFormType('Restrição')
+    setFormType('')
     setFormStatus('Ativo')
     setFormValue('')
     setFormUnit('t')
@@ -191,7 +193,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
       buildSnapshot({
         name: '',
         description: '',
-        type: 'Restrição',
+        type: '',
         status: 'Ativo',
         value: '',
         unit: 't',
@@ -209,7 +211,12 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setEditingParameter(param)
     setFormError(null)
     setFieldErrors({})
-    const normalizedType = normalizeType(param.parameter_type)
+    setAiAnalysisResult(param.ai_analysis_metadata || null)
+    setAiAnalysisError(null)
+    setInitialTypeAnalyzed(param.ai_analysis_metadata?.tipo_atual || param.parameter_type)
+    setUserDecision((param.user_decision as any) || '')
+
+    const normalizedType = normalizeParameterTypeToOfficial(param.parameter_type)
     const validFromStr = param.valid_from ? param.valid_from.slice(0, 10) : ''
     const validUntilStr = param.valid_until ? param.valid_until.slice(0, 10) : ''
     const textoStr = param.textoParametro || ''
@@ -259,6 +266,117 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setIsModalOpen(false)
     setFieldErrors({})
     setFormError(null)
+    setAiAnalysisResult(null)
+    setAiAnalysisError(null)
+  }
+
+  // Executar "Analisar com IA"
+  const handleAnalyzeWithAI = async () => {
+    setAiAnalysisError(null)
+
+    // Validações obrigatórias antes de chamar a IA com mensagens EXATAS solicitadas
+    if (!formType || !formType.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        type: 'Selecione o Tipo de Parâmetro antes de realizar a análise.',
+      }))
+      toast({
+        variant: 'destructive',
+        title: 'Atenção',
+        description: 'Selecione o Tipo de Parâmetro antes de realizar a análise.',
+      })
+      return
+    }
+
+    if (!formTextoParametro || !formTextoParametro.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        textoParametro: 'Informe o Texto do Parâmetro antes de realizar a análise.',
+      }))
+      textoTextareaRef.current?.focus()
+      toast({
+        variant: 'destructive',
+        title: 'Atenção',
+        description: 'Informe o Texto do Parâmetro antes de realizar a análise.',
+      })
+      return
+    }
+
+    if (!formImpactoConsequencia || !formImpactoConsequencia.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        impactoConsequencia: 'Informe o Impacto / Consequência antes de realizar a análise.',
+      }))
+      impactoTextareaRef.current?.focus()
+      toast({
+        variant: 'destructive',
+        title: 'Atenção',
+        description: 'Informe o Impacto / Consequência antes de realizar a análise.',
+      })
+      return
+    }
+
+    setIsAnalyzingAi(true)
+    setInitialTypeAnalyzed(formType)
+    setUserDecision('')
+
+    try {
+      const result = await pcpProgrammingParametersService.analyzeWithAI({
+        centro: centerCode,
+        linha: centerCode,
+        nome_parametro: formName.trim(),
+        descricao: formDescription.trim(),
+        tipo_parametro: formType,
+        valor_configurado: formValue.trim(),
+        unidade_medida: formUnit.trim(),
+        texto_parametro: formTextoParametro.trim(),
+        impacto_consequencia: formImpactoConsequencia.trim(),
+      })
+
+      setAiAnalysisResult(result)
+      setAiAnalysisError(null)
+      toast({
+        title: 'Análise concluída com sucesso',
+        description: 'O parecer da IA sobre a classificação foi calculado.',
+      })
+    } catch (err: any) {
+      console.error('Erro na análise de IA:', err)
+      // Mensagem exata exigida pelo item 12
+      const userMessage =
+        'Não foi possível concluir a análise com IA neste momento. Você pode tentar novamente ou continuar o cadastro manualmente.'
+      setAiAnalysisError(userMessage)
+      toast({
+        variant: 'destructive',
+        title: 'Indisponibilidade temporária da IA',
+        description: userMessage,
+      })
+    } finally {
+      setIsAnalyzingAi(false)
+    }
+  }
+
+  // Ação de Aplicar Sugestão da IA
+  const handleApplyAiSuggestion = () => {
+    if (aiAnalysisResult?.tipo_sugerido) {
+      setFormType(aiAnalysisResult.tipo_sugerido)
+      setUserDecision('APLICOU')
+      if (fieldErrors.type) {
+        setFieldErrors((prev) => ({ ...prev, type: '' }))
+      }
+      toast({
+        title: 'Sugestão aplicada',
+        description: `Tipo alterado para "${aiAnalysisResult.tipo_sugerido}".`,
+      })
+    }
+  }
+
+  // Ação de Manter Classificação Atual
+  const handleKeepCurrentClassification = () => {
+    setUserDecision('MANTEVE')
+    toast({
+      title: 'Classificação mantida',
+      description: 'A classificação atual foi preservada pelo usuário.',
+    })
   }
 
   // Salvar Parâmetro
@@ -267,12 +385,13 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     setFormError(null)
     const errors: Record<string, string> = {}
 
-    // Validações obrigatórias com mensagens específicas sem mensagens nativas
+    // Validações obrigatórias
     if (!formName.trim()) {
       errors.name = 'Informe o Nome do Parâmetro.'
     }
 
-    if (!formType) {
+    if (!formType || !formType.trim()) {
+      // Validação própria solicitada no item 2
       errors.type = 'Informe o Tipo de Parâmetro.'
     }
 
@@ -315,10 +434,23 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
       const userInfo = currentUser
         ? {
             id: currentUser.id,
-            name: currentUser.name || currentUser.email,
-            email: currentUser.email,
+            name: (currentUser as any).name || (currentUser as any).email,
+            email: (currentUser as any).email,
           }
         : undefined
+
+      // Registrar decisão do usuário se houve sugestão divergente da IA
+      let calculatedUserDecision = userDecision
+      if (
+        aiAnalysisResult?.tipo_sugerido &&
+        aiAnalysisResult.tipo_sugerido !== (initialTypeAnalyzed || aiAnalysisResult.tipo_atual)
+      ) {
+        if (formType === aiAnalysisResult.tipo_sugerido) {
+          calculatedUserDecision = 'APLICOU'
+        } else {
+          calculatedUserDecision = 'MANTEVE'
+        }
+      }
 
       await pcpProgrammingParametersService.saveParameter(
         {
@@ -336,17 +468,18 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
           textoParametro: formTextoParametro.trim(),
           impactoConsequencia: formImpactoConsequencia.trim(),
           notes: formImpactoConsequencia.trim(),
+          ai_analysis_metadata: aiAnalysisResult || undefined,
+          user_decision: calculatedUserDecision,
+          initial_type_analyzed: initialTypeAnalyzed,
         },
         userInfo,
       )
 
-      // Confirmação de persistência realizada com sucesso
       toast({
         title: '✅ Parâmetro salvo com sucesso.',
         description: `O parâmetro "${formName.trim()}" foi registrado para o Centro ${centerCode}.`,
       })
 
-      // Fecha modal somente após sucesso e atualiza listagem automaticamente
       setIsModalOpen(false)
       setFieldErrors({})
       await loadParameters()
@@ -355,7 +488,6 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
       }
     } catch (err: any) {
       console.error('Erro ao salvar parâmetro:', err)
-      // Mantém popup aberto, preserva dados e exibe mensagem objetiva
       setFormError(err?.message || 'Falha ao salvar o parâmetro no backend. Tente novamente.')
       toast({
         variant: 'destructive',
@@ -374,8 +506,8 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
     const userInfo = currentUser
       ? {
           id: currentUser.id,
-          name: currentUser.name || currentUser.email,
-          email: currentUser.email,
+          name: (currentUser as any).name || (currentUser as any).email,
+          email: (currentUser as any).email,
         }
       : undefined
 
@@ -424,6 +556,40 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
   const totalAtivos = (parameters || []).filter((p) => p.status === 'Ativo').length
   const totalInativos = (parameters || []).filter((p) => p.status === 'Inativo').length
 
+  // Helper para renderizar badge de adequação IA
+  const renderAdequacaoBadge = (classificacao: string) => {
+    if (classificacao === 'compatible') {
+      return (
+        <span
+          data-testid="badge-analise-compativel"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />✓ Classificação coerente
+        </span>
+      )
+    }
+    if (classificacao === 'partially_compatible') {
+      return (
+        <span
+          data-testid="badge-analise-parcial"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />⚠ Classificação parcialmente
+          coerente
+        </span>
+      )
+    }
+    return (
+      <span
+        data-testid="badge-analise-incompativel"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-300"
+      >
+        <AlertCircle className="w-3.5 h-3.5 text-rose-600" />⚠ O Tipo de Parâmetro selecionado não
+        parece representar esta regra.
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* Cabeçalho da Seção com Identidade HUB Industrial */}
@@ -446,6 +612,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
           <div className="flex items-center gap-2">
             <Button
               size="sm"
+              data-testid="btn-abrir-cadastrar-parametro"
               onClick={handleOpenCreate}
               className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-8 gap-1.5 font-bold shadow-xs transition-colors"
             >
@@ -473,22 +640,16 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
             <div className="flex items-center gap-2 flex-wrap">
               {/* Filtro por Tipo */}
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 w-36">
+                <SelectTrigger className="h-8 text-xs bg-white border-slate-200 w-48">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
-                <SelectContent className="text-xs">
+                <SelectContent className="text-xs max-h-72">
                   <SelectItem value="TODOS">Todos os Tipos</SelectItem>
-                  <SelectItem value="Restrição">Restrição</SelectItem>
-                  <SelectItem value="Regra">Regra</SelectItem>
-                  <SelectItem value="Alerta">Alerta</SelectItem>
-                  <SelectItem value="Condição">Condição</SelectItem>
-                  <SelectItem value="Limite">Limite</SelectItem>
-                  <SelectItem value="Prioridade">Prioridade</SelectItem>
-                  <SelectItem value="Numérico">Numérico</SelectItem>
-                  <SelectItem value="Texto">Texto</SelectItem>
-                  <SelectItem value="Booleano">Booleano</SelectItem>
-                  <SelectItem value="Percentual">Percentual</SelectItem>
-                  <SelectItem value="Tempo">Tempo</SelectItem>
+                  {OFFICIAL_PROGRAMMING_PARAMETER_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -587,7 +748,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                         <td className="p-2.5 text-center whitespace-nowrap">
                           <Badge
                             variant="outline"
-                            className="text-[10px] font-mono border-slate-300 bg-slate-50 text-slate-700"
+                            className="text-[10px] font-mono border-blue-200 bg-blue-50/70 text-[#004C97] font-semibold"
                           >
                             {p.parameter_type}
                           </Badge>
@@ -768,6 +929,43 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                   )}
                 </div>
               </div>
+
+              {/* Metadado de Análise IA (se houver sido avaliado) */}
+              {viewingParameter.ai_analysis_metadata && (
+                <div className="p-3 rounded-lg border border-blue-200 bg-blue-50/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#004C97] flex items-center gap-1.5 text-xs">
+                      <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
+                      Registro de Auditoria da Análise IA
+                    </span>
+                    {renderAdequacaoBadge(viewingParameter.ai_analysis_metadata.classificacao)}
+                  </div>
+                  <div className="text-[11px] text-slate-700 bg-white p-2.5 rounded border border-blue-100 space-y-1">
+                    <p>
+                      <strong className="text-slate-900">Tipo analisado:</strong>{' '}
+                      {viewingParameter.ai_analysis_metadata.tipo_atual}
+                    </p>
+                    {viewingParameter.ai_analysis_metadata.tipo_sugerido && (
+                      <p>
+                        <strong className="text-slate-900">Sugestão da IA:</strong>{' '}
+                        {viewingParameter.ai_analysis_metadata.tipo_sugerido}
+                      </p>
+                    )}
+                    {viewingParameter.user_decision && (
+                      <p>
+                        <strong className="text-slate-900">Decisão do Usuário:</strong>{' '}
+                        {viewingParameter.user_decision === 'APLICOU'
+                          ? 'Aplicou sugestão'
+                          : 'Manteve classificação original'}
+                      </p>
+                    )}
+                    <p>
+                      <strong className="text-slate-900">Análise:</strong>{' '}
+                      {viewingParameter.ai_analysis_metadata.analise}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -842,7 +1040,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
               </div>
             )}
 
-            {/* ESTRUTURA FINAL DO FORMULÁRIO (ordem solicitada) */}
+            {/* ESTRUTURA FINAL DO FORMULÁRIO */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* 1. Nome do Parâmetro * (texto, largura total) */}
               <div className="space-y-1 md:col-span-2">
@@ -894,7 +1092,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 </Label>
                 <Select
                   value={formType}
-                  onValueChange={(val: ProgrammingParameterType) => {
+                  onValueChange={(val: string) => {
                     setFormType(val)
                     if (fieldErrors.type) {
                       setFieldErrors((prev) => ({ ...prev, type: '' }))
@@ -903,30 +1101,33 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                 >
                   <SelectTrigger
                     id="form-param-type"
+                    data-testid="select-tipo-parametro"
                     className={`h-8 text-xs bg-white text-slate-900 ${
                       fieldErrors.type
                         ? 'border-rose-500 focus-visible:ring-rose-500 ring-1 ring-rose-500'
                         : 'border-slate-300 focus-visible:ring-[#004C97]'
                     }`}
                   >
-                    <SelectValue placeholder="Selecione o tipo" />
+                    <SelectValue placeholder="Selecione o tipo oficial" />
                   </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    <SelectItem value="Restrição">Restrição</SelectItem>
-                    <SelectItem value="Regra">Regra</SelectItem>
-                    <SelectItem value="Alerta">Alerta</SelectItem>
-                    <SelectItem value="Condição">Condição</SelectItem>
-                    <SelectItem value="Limite">Limite</SelectItem>
-                    <SelectItem value="Prioridade">Prioridade</SelectItem>
-                    <SelectItem value="Numérico">Numérico</SelectItem>
-                    <SelectItem value="Texto">Texto</SelectItem>
-                    <SelectItem value="Booleano">Booleano</SelectItem>
-                    <SelectItem value="Percentual">Percentual</SelectItem>
-                    <SelectItem value="Tempo">Tempo</SelectItem>
+                  <SelectContent
+                    className="text-xs max-h-64"
+                    data-testid="select-options-container"
+                  >
+                    {OFFICIAL_PROGRAMMING_PARAMETER_TYPES.map((opt) => (
+                      <SelectItem key={opt} value={opt} data-testid={`option-${opt}`}>
+                        {opt}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {fieldErrors.type && (
-                  <p className="text-[11px] text-rose-600 font-medium mt-0.5">{fieldErrors.type}</p>
+                  <p
+                    data-testid="error-tipo-parametro"
+                    className="text-[11px] text-rose-600 font-medium mt-0.5"
+                  >
+                    {fieldErrors.type}
+                  </p>
                 )}
               </div>
 
@@ -1074,7 +1275,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                   id="form-param-texto"
                   ref={textoTextareaRef}
                   data-testid="input-texto-parametro"
-                  placeholder="Ex: Não programar quantidade inferior a 1 tonelada de produção para este Centro."
+                  placeholder="Ex: Não programar palanquilha com seção inferior a 130 mm."
                   value={formTextoParametro}
                   onChange={(e) => {
                     setFormTextoParametro(e.target.value)
@@ -1115,7 +1316,7 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                   id="form-param-impacto"
                   ref={impactoTextareaRef}
                   data-testid="input-impacto-consequencia"
-                  placeholder="Ex: Bloquear a inclusão da atividade e informar ao programador."
+                  placeholder="Ex: Bloquear a programação e informar o Programador PCP."
                   value={formImpactoConsequencia}
                   onChange={(e) => {
                     setFormImpactoConsequencia(e.target.value)
@@ -1138,9 +1339,207 @@ export const LineProgrammingParametersPanel: React.FC<LineProgrammingParametersP
                   </p>
                 )}
               </div>
+
+              {/* 8. BOTÃO "ANALISAR COM IA" (Posicionado DEPOIS de Impacto e ANTES dos botões finais) */}
+              <div className="md:col-span-2 pt-1">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-200">
+                  <div className="text-xs text-slate-600">
+                    <span className="font-semibold text-[#004C97] block flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
+                      Assistente de Análise de Parâmetro
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Valida se o Tipo de Parâmetro representa fielmente a regra operacional e sua
+                      consequência.
+                    </span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    data-testid="btn-analisar-com-ia"
+                    onClick={handleAnalyzeWithAI}
+                    disabled={isAnalyzingAi || isSaving}
+                    variant="outline"
+                    className="h-9 px-3.5 text-xs font-semibold bg-white text-[#004C97] border-[#004C97]/30 hover:bg-blue-50/80 hover:text-[#003870] shadow-xs gap-1.5 transition-colors shrink-0"
+                  >
+                    {isAnalyzingAi ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                        <span>Analisando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
+                        <span>Analisar com IA</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* MENSAGEM DE ERRO/INDISPONIBILIDADE DA IA */}
+              {aiAnalysisError && (
+                <div
+                  role="alert"
+                  data-testid="ai-analysis-error-message"
+                  className="md:col-span-2 p-3 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5"
+                >
+                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1 flex-1">
+                    <p className="font-semibold text-amber-950">Aviso da Análise</p>
+                    <p className="leading-relaxed">{aiAnalysisError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 9. PAINEL "ANÁLISE IA" (Clean, abaixo do botão, resultado da análise) */}
+              {aiAnalysisResult && (
+                <div
+                  data-testid="painel-analise-ia"
+                  className="md:col-span-2 p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3.5 animate-in fade-in duration-200"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#004C97]" />
+                      <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wide">
+                        Análise IA
+                      </h4>
+                    </div>
+                    {renderAdequacaoBadge(aiAnalysisResult.classificacao)}
+                  </div>
+
+                  {/* Metadados estruturados */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <div className="p-2 rounded bg-white border border-slate-200">
+                      <span className="text-[11px] text-slate-500 block">Tipo atual:</span>
+                      <span className="font-semibold text-slate-900">
+                        {aiAnalysisResult.tipo_atual}
+                      </span>
+                    </div>
+
+                    <div className="p-2 rounded bg-white border border-slate-200">
+                      <span className="text-[11px] text-slate-500 block">Adequação:</span>
+                      <span className="font-semibold text-slate-900 capitalize">
+                        {aiAnalysisResult.classificacao === 'compatible'
+                          ? 'Compatível'
+                          : aiAnalysisResult.classificacao === 'partially_compatible'
+                            ? 'Parcialmente compatível'
+                            : 'Incompatível'}
+                      </span>
+                    </div>
+
+                    {aiAnalysisResult.tipo_sugerido && (
+                      <div className="p-2 rounded bg-blue-50/70 border border-blue-200">
+                        <span className="text-[11px] text-[#004C97] block font-semibold">
+                          Tipo sugerido:
+                        </span>
+                        <span className="font-bold text-[#004C97]">
+                          {aiAnalysisResult.tipo_sugerido}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="p-2 rounded bg-white border border-slate-200">
+                      <span className="text-[11px] text-slate-500 block">
+                        Coerência Regra × Impacto:
+                      </span>
+                      <span
+                        className={`font-semibold inline-flex items-center gap-1 ${
+                          aiAnalysisResult.coerencia_regra_impacto === 'compatible'
+                            ? 'text-emerald-700'
+                            : aiAnalysisResult.coerencia_regra_impacto === 'incompatible'
+                              ? 'text-rose-700'
+                              : 'text-amber-700'
+                        }`}
+                      >
+                        {aiAnalysisResult.coerencia_regra_impacto === 'compatible'
+                          ? '✓ Compatível'
+                          : aiAnalysisResult.coerencia_regra_impacto === 'incompatible'
+                            ? '⚠ Incompatível'
+                            : '⚠ Parcial'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Texto de Análise (máx 2-3 frases) */}
+                  <div className="p-2.5 rounded bg-white border border-slate-200 text-xs space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700 block">Análise:</span>
+                    <p className="text-slate-800 leading-relaxed">{aiAnalysisResult.analise}</p>
+                  </div>
+
+                  {/* Justificativa */}
+                  {aiAnalysisResult.justificativa && (
+                    <div className="p-2.5 rounded bg-white border border-slate-200 text-xs space-y-1">
+                      <span className="text-[11px] font-bold text-slate-700 block">
+                        Justificativa:
+                      </span>
+                      <p className="text-slate-800 leading-relaxed">
+                        {aiAnalysisResult.justificativa}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Alerta de Coerência Regra x Impacto se houver divergência */}
+                  {aiAnalysisResult.coerencia_regra_impacto === 'incompatible' && (
+                    <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                      <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                      <span>
+                        ⚠ O impacto informado não parece corresponder à regra descrita. Reavalie a
+                        relação de causa e efeito operacional.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* AÇÕES DE SUGESTÃO: O usuário decide aplicar ou manter (NUNCA altera automaticamente) */}
+                  {aiAnalysisResult.tipo_sugerido &&
+                    aiAnalysisResult.tipo_sugerido !== formType && (
+                      <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="text-xs">
+                          <span className="text-slate-600 block text-[11px]">
+                            Recomendação da IA:
+                          </span>
+                          <span className="font-bold text-[#004C97] flex items-center gap-1">
+                            Sugestão da IA: {aiAnalysisResult.tipo_sugerido}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            data-testid="btn-manter-classificacao"
+                            variant="outline"
+                            onClick={handleKeepCurrentClassification}
+                            className={`h-7 px-2.5 text-xs font-semibold ${
+                              userDecision === 'MANTEVE'
+                                ? 'bg-slate-200 text-slate-900 border-slate-400'
+                                : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+                            }`}
+                          >
+                            Manter classificação atual
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            data-testid="btn-aplicar-sugestao"
+                            onClick={handleApplyAiSuggestion}
+                            className={`h-7 px-2.5 text-xs font-bold gap-1 shadow-xs ${
+                              userDecision === 'APLICOU'
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-[#004C97] hover:bg-[#003870] text-white'
+                            }`}
+                          >
+                            <ArrowRight className="w-3 h-3" />
+                            Aplicar sugestão
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
             </div>
 
-            {/* 8. Rodapé Cancelar | Salvar */}
+            {/* 10. Rodapé Cancelar | Salvar */}
             <DialogFooter className="border-t border-slate-200 pt-3 flex items-center justify-end gap-2">
               <Button
                 type="button"
