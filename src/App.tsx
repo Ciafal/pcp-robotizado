@@ -620,6 +620,13 @@ const ProductionAIAnalysisPage = lazyWithRetry(
     })),
   'ProductionAIAnalysisPage',
 )
+const ProductionReferenceDocumentsPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ProductionReferenceDocumentsPage').then((m) => ({
+      default: m.default ?? m.ProductionReferenceDocumentsPage,
+    })),
+  'ProductionReferenceDocumentsPage',
+)
 const CogiPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
@@ -1659,6 +1666,16 @@ export const App: React.FC = () => {
                       <PermissionGuard permission="pcp.production.view">
                         <ErrorBoundary moduleName="Pendências - CO1P">
                           <Co1pPendenciesPage />
+                        </ErrorBoundary>
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/controle-producao/documentos-referencia"
+                    element={
+                      <PermissionGuard permission="pcp.production.view">
+                        <ErrorBoundary moduleName="Documentos de Referência — Controle de Produção">
+                          <ProductionReferenceDocumentsPage />
                         </ErrorBoundary>
                       </PermissionGuard>
                     }

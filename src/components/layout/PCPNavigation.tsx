@@ -915,6 +915,12 @@ const officialNavGroups: NavGroup[] = [
         icon: FileCheck2,
         permission: 'pcp.production.view',
       },
+      {
+        title: 'Documentos de Referência',
+        href: '/pcp/controle-producao/documentos-referencia',
+        icon: FileText,
+        permission: 'pcp.production.view',
+      },
     ],
   },
   {

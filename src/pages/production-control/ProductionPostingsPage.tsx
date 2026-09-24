@@ -14,7 +14,10 @@ import {
   Layers,
   ArrowRight,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ProposedAiActionSection } from '@/components/production-control/ProposedAiActionSection'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -87,6 +90,11 @@ export const ProductionPostingsPage: React.FC = () => {
 
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+
+  // Modal Analisar com IA para Apontamento
+  const [aiAnalysisModalOpen, setAiAnalysisModalOpen] = useState(false)
+  const [selectedPostingForAi, setSelectedPostingForAi] = useState<ProductionPosting | null>(null)
+  const [selectedPendenciaForAi, setSelectedPendenciaForAi] = useState<any | null>(null)
 
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -803,6 +811,23 @@ export const ProductionPostingsPage: React.FC = () => {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-center gap-1">
+                              {/* Botão Analisar com IA quando houver inconsistência/rejeição */}
+                              {(p.status_sap === 'REJEITADO_SAP' || p.sap_message) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPostingForAi(p)
+                                    setSelectedPendenciaForAi(null)
+                                    setAiAnalysisModalOpen(true)
+                                  }}
+                                  className="h-7 text-[10px] bg-blue-50/70 border-blue-200 text-blue-700 hover:bg-blue-100 flex items-center gap-1 font-semibold"
+                                >
+                                  <Sparkles className="w-3 h-3 text-blue-600" />
+                                  Analisar com IA
+                                </Button>
+                              )}
+
                               {p.status_sap === 'REJEITADO_SAP' ? (
                                 <Button
                                   variant="outline"
@@ -952,14 +977,30 @@ export const ProductionPostingsPage: React.FC = () => {
                             className="py-2.5 px-3 text-center whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenOrder(it.op_number)}
-                              className="h-7 text-xs text-[#004C97] hover:text-[#003870]"
-                            >
-                              Abrir OP &rarr;
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPendenciaForAi(it)
+                                  setSelectedPostingForAi(null)
+                                  setAiAnalysisModalOpen(true)
+                                }}
+                                className="h-7 text-[10px] bg-blue-50/70 border-blue-200 text-blue-700 hover:bg-blue-100 flex items-center gap-1 font-semibold"
+                              >
+                                <Sparkles className="w-3 h-3 text-blue-600" />
+                                Analisar com IA
+                              </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenOrder(it.op_number)}
+                                className="h-7 text-xs text-[#004C97] hover:text-[#003870]"
+                              >
+                                Abrir OP &rarr;
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -979,6 +1020,59 @@ export const ProductionPostingsPage: React.FC = () => {
         onOpenChange={setDetailModalOpen}
         onOrderUpdated={loadData}
       />
+
+      {/* MODAL ANALISAR COM IA (APONTAMENTOS) */}
+      {(selectedPostingForAi || selectedPendenciaForAi) && (
+        <Dialog open={aiAnalysisModalOpen} onOpenChange={setAiAnalysisModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto bg-white p-6">
+            <DialogHeader className="border-b border-slate-100 pb-3">
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-700" />
+                Ação Proposta por IA — Apontamento de Produção
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="py-2">
+              <ProposedAiActionSection
+                context={{
+                  occurrence_id:
+                    selectedPostingForAi?.id || selectedPendenciaForAi?.id || `apt-${Date.now()}`,
+                  occurrence_type: 'APONTAMENTO',
+                  op_number: selectedPostingForAi?.op_number || selectedPendenciaForAi?.op_number,
+                  material_code:
+                    selectedPostingForAi?.material_code || selectedPendenciaForAi?.material_code,
+                  material_description:
+                    selectedPostingForAi?.material_description ||
+                    selectedPendenciaForAi?.material_description,
+                  centro_code:
+                    selectedPostingForAi?.centro_code || selectedPendenciaForAi?.centro_code,
+                  linha_code: selectedPostingForAi?.linha_code,
+                  work_center: selectedPostingForAi?.operation_code,
+                  quantidade:
+                    selectedPostingForAi?.quantity_tons || selectedPendenciaForAi?.difference_tons,
+                  unidade_medida: 't',
+                  sap_msg_code: selectedPostingForAi?.status_sap || 'APONTAMENTO_ERR',
+                  sap_message:
+                    selectedPostingForAi?.sap_message ||
+                    selectedPendenciaForAi?.motivo ||
+                    'Inconsistência identificada na conciliação física vs contábil de apontamento.',
+                  categoria_ia: 'Apontamento',
+                  criticality: selectedPendenciaForAi?.criticidade || 'ATENCAO',
+                  current_status:
+                    selectedPostingForAi?.status_sap || selectedPendenciaForAi?.status,
+                }}
+                onOpenReferenceDocuments={() => {
+                  setAiAnalysisModalOpen(false)
+                  navigate('/pcp/controle-producao/documentos-referencia')
+                }}
+                onTreatmentCompleted={() => {
+                  loadData()
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

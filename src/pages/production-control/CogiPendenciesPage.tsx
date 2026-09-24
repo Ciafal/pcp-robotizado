@@ -55,6 +55,7 @@ export const CogiPendenciesPage: React.FC = () => {
   // Modais
   const [selectedRecord, setSelectedRecord] = useState<SapCogiPendency | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [detailInitialTab, setDetailInitialTab] = useState('dados-sap')
   const [summaryModalOpen, setSummaryModalOpen] = useState(false)
   const [aiSummary, setAiSummary] = useState<AiAnalysisSummary | null>(null)
   const [sgqModalOpen, setSgqModalOpen] = useState(false)
@@ -145,8 +146,9 @@ export const CogiPendenciesPage: React.FC = () => {
     }
   }
 
-  const handleOpenDetail = (record: SapCogiPendency) => {
+  const handleOpenDetail = (record: SapCogiPendency, tab: string = 'dados-sap') => {
     setSelectedRecord(record)
+    setDetailInitialTab(tab)
     setDetailModalOpen(true)
   }
 
@@ -474,27 +476,62 @@ export const CogiPendenciesPage: React.FC = () => {
                             className="flex items-center justify-end gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenSimilar(item)}
-                              className="h-7 text-[10px] text-[#004C97] hover:text-[#003870] px-2"
-                              title="Ver ocorrências semelhantes"
-                            >
-                              <History className="w-3 h-3 mr-1" />
-                              Similares
-                            </Button>
+                            {/* Ação IA */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(item, 'acao-recomendada')}
+                                  className="h-7 text-[10px] text-blue-700 bg-blue-50/70 hover:bg-blue-100 hover:text-blue-900 px-2 font-semibold flex items-center gap-1 border border-blue-200"
+                                >
+                                  <Sparkles className="w-3 h-3 text-blue-600" />
+                                  Ação IA
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">
+                                Ver ação recomendada pela IA baseada nos procedimentos oficiais
+                              </TooltipContent>
+                            </Tooltip>
 
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenDetail(item)}
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-800"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </Button>
+                            {/* Similares */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenSimilar(item)}
+                                  className="h-7 text-[10px] text-slate-700 hover:bg-slate-100 px-2"
+                                >
+                                  <History className="w-3 h-3 mr-1 text-slate-500" />
+                                  Similares
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">
+                                Ver ocorrências semelhantes no histórico
+                              </TooltipContent>
+                            </Tooltip>
+
+                            {/* Detalhar */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenDetail(item, 'dados-sap')}
+                                  className="h-7 text-[10px] text-slate-700 hover:bg-slate-100 px-2 flex items-center gap-1"
+                                >
+                                  Detalhar
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">
+                                Abrir ficha técnica completa
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </td>
                       </tr>
@@ -513,6 +550,7 @@ export const CogiPendenciesPage: React.FC = () => {
         onOpenChange={setDetailModalOpen}
         record={selectedRecord}
         type="COGI"
+        initialTab={detailInitialTab}
         onStatusUpdated={loadData}
         onFindSimilar={handleOpenSimilar}
       />

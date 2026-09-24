@@ -39,6 +39,7 @@ import type {
   SimilarOccurrencesResult,
 } from '@/types/sap-pendencies'
 import { sapPendenciesService } from '@/services/sap-pendencies-service'
+import { ProposedAiActionSection } from './ProposedAiActionSection'
 
 interface SapPendencyDetailModalProps {
   open: boolean
@@ -50,7 +51,9 @@ interface SapPendencyDetailModalProps {
   onOpenSgqModal?: () => void
 }
 
-export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
+export const SapPendencyDetailModal: React.FC<
+  SapPendencyDetailModalProps & { initialTab?: string }
+> = ({
   open,
   onOpenChange,
   record,
@@ -58,8 +61,15 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
   onStatusUpdated,
   onFindSimilar,
   onOpenSgqModal,
+  initialTab = 'dados-sap',
 }) => {
-  const [activeTab, setActiveTab] = useState('dados-sap')
+  const [activeTab, setActiveTab] = useState(initialTab)
+
+  useEffect(() => {
+    if (open && initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [open, initialTab])
   const [treatmentStatus, setTreatmentStatus] = useState<SapTreatmentStatus>('Nova')
   const [assignedName, setAssignedName] = useState('')
   const [treatmentComment, setTreatmentComment] = useState('')
@@ -216,7 +226,7 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
                 value="acao-recomendada"
                 className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                3 Ação recomendada
+                3 Ação proposta por IA
               </TabsTrigger>
               <TabsTrigger
                 value="documento-sgq"
@@ -536,80 +546,46 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
               </div>
             </TabsContent>
 
-            {/* ABA 3: AÇÃO RECOMENDADA */}
+            {/* ABA 3: AÇÃO PROPOSTA POR IA */}
             <TabsContent
               value="acao-recomendada"
               className="space-y-4 m-0 focus-visible:outline-none"
             >
-              <div className="bg-white p-4 rounded-lg border border-blue-200 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-blue-700" />
-                    <h4 className="font-bold text-xs uppercase text-slate-800 tracking-wide">
-                      Roteiro de Tratamento Operacional
-                    </h4>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Guia Normativo Integrado
-                  </span>
-                </div>
-
-                <div className="text-xs space-y-2">
-                  <div>
-                    <span className="font-bold text-slate-700 block">Problema identificado:</span>
-                    <p className="text-slate-800 bg-slate-50 p-2 rounded border border-slate-200 font-mono">
-                      {record.ai_recommended_action?.problema_identificado || record.sap_message}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="font-bold text-slate-700 block">Possível impacto:</span>
-                    <p className="text-slate-800 bg-slate-50 p-2 rounded border border-slate-200">
-                      {record.ai_recommended_action?.possivel_impacto ||
-                        'Bloqueio de ordens e divergência contábil de estoques.'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="font-bold text-slate-700 block mb-1">
-                      Passos de Verificação Recomendados:
-                    </span>
-                    <div className="bg-blue-50/60 p-3 rounded border border-blue-100 space-y-1 font-mono text-[11px] text-blue-950">
-                      {record.ai_recommended_action?.verificar &&
-                      record.ai_recommended_action.verificar.length > 0 ? (
-                        record.ai_recommended_action.verificar.map((step, idx) => (
-                          <div key={idx} className="flex items-start gap-1.5">
-                            <span>{step}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div>
-                          1. Consultar procedimento SGQ correspondente; 2. Verificar estoque físico
-                          e status do lote.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Trava Absoluta: NUNCA executa correções SAP automaticamente */}
-                <div className="bg-slate-100 border border-slate-300 rounded p-3 text-[11px] text-slate-600 space-y-1">
-                  <span className="font-bold text-slate-800 uppercase block">
-                    Diretriz de Segurança do HUB CIAFAL (Ações Restritas):
-                  </span>
-                  <p>
-                    A inteligência artificial atua exclusivamente como ferramenta consultiva de
-                    análise, orientação e correlação.
-                    <strong>
-                      {' '}
-                      É expressamente proibida a execução automática de movimentações, desbloqueios
-                      de lote, estornos ou reprocessamentos no SAP.
-                    </strong>
-                    Todas as correções físicas ou transacionais devem ser efetuadas pelos usuários
-                    autorizados no SAP ECC conforme aprovação da área competente.
-                  </p>
-                </div>
-              </div>
+              <ProposedAiActionSection
+                context={{
+                  occurrence_id: record.id,
+                  occurrence_type: type,
+                  op_number: record.op_number,
+                  material_code: record.material_code,
+                  material_description: record.material_description,
+                  centro_code: record.centro_code,
+                  linha_code: record.linha_code,
+                  work_center: record.work_center,
+                  deposito: 'deposito' in record ? (record as any).deposito : undefined,
+                  lote: 'lote' in record ? (record as any).lote : undefined,
+                  tipo_movimento:
+                    'tipo_movimento' in record ? (record as any).tipo_movimento : undefined,
+                  quantidade: 'quantidade' in record ? (record as any).quantidade : undefined,
+                  unidade_medida:
+                    'unidade_medida' in record ? (record as any).unidade_medida : undefined,
+                  confirmation_number:
+                    'confirmation_number' in record
+                      ? (record as any).confirmation_number
+                      : undefined,
+                  reservation_number:
+                    'reservation_number' in record ? (record as any).reservation_number : undefined,
+                  sap_msg_code: record.sap_msg_code,
+                  sap_message: record.sap_message,
+                  categoria_ia: record.categoria_ia,
+                  criticality: record.criticality,
+                  current_status: record.treatment_status,
+                }}
+                onOpenReferenceDocuments={onOpenSgqModal}
+                onTreatmentCompleted={() => {
+                  onStatusUpdated?.()
+                  loadAuditAndGuidance(record)
+                }}
+              />
             </TabsContent>
 
             {/* ABA 4: DOCUMENTO SGQ (INTEGRAÇÃO OBRIGATÓRIA) */}
