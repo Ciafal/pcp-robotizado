@@ -1110,6 +1110,45 @@ class ProductionControlReferenceDocsService {
     }
   }
 
+  /**
+   * Consulta documentos de referência aplicáveis a uma ordem de produção
+   */
+  async getDocumentsForOrder(order: {
+    op_number?: string
+    centro_code?: string
+    linha_code?: string
+    work_center?: string
+    material_code?: string
+    process?: string
+  }): Promise<ProductionReferenceDocument[]> {
+    const all = await this.listReferenceDocuments()
+    const active = all.filter((d) => d.active && d.status === 'VIGENTE')
+    return active.filter((d) => {
+      // Pertence à aplicação de Ordens de Produção ou Análise de Ordens
+      const hasOrderApp = d.applications.some(
+        (app) =>
+          app === 'Ordens de Produção' ||
+          app === 'Análise de Ordens' ||
+          app === 'COGI' ||
+          app === 'CO1P' ||
+          app === 'Apontamentos',
+      )
+      if (!hasOrderApp) return false
+
+      // Se houver critério de centro, verificar compatibilidade
+      if (d.criteria?.centro && order.centro_code && d.criteria.centro !== order.centro_code) {
+        return false
+      }
+
+      // Se houver critério de linha, verificar
+      if (d.criteria?.linha && order.linha_code && d.criteria.linha !== order.linha_code) {
+        return false
+      }
+
+      return true
+    })
+  }
+
   private determineResponsibleArea(
     catOrArea?: string,
   ): ProductionProposedAiAction['area_sugerida'] {

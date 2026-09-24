@@ -3,6 +3,7 @@ import {
   Sparkles,
   ShieldCheck,
   AlertTriangle,
+  AlertCircle,
   FileText,
   ExternalLink,
   BookOpen,

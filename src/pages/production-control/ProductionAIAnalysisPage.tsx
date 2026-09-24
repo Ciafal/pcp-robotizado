@@ -13,6 +13,10 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  BookOpen,
+  ShieldCheck,
+  Building2,
+  ArrowRight,
 } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +39,9 @@ import {
 import type { ProductionOrder } from '@/types/pcp-production'
 import { formatQuantity, formatPercentagePTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { productionControlReferenceDocsService } from '@/services/production-control-reference-docs-service'
+import type { ProductionReferenceDocument } from '@/types/production-reference-documents'
+import { ProposedAiActionSection } from '@/components/production-control/ProposedAiActionSection'
 
 interface StructuredAIAnalysis {
   fato: string
@@ -70,6 +77,10 @@ export const ProductionAIAnalysisPage: React.FC = () => {
   const [selectedOp, setSelectedOp] = useState<ProductionOrder | null>(null)
   const [selectedOpComparison, setSelectedOpComparison] = useState<string>('')
   const [comparisonData, setComparisonData] = useState<HistoricalComparisonData | null>(null)
+
+  // Documentos de Referência aplicáveis à OP selecionada
+  const [applicableDocs, setApplicableDocs] = useState<ProductionReferenceDocument[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
 
   const [aiGenerating, setAiGenerating] = useState(false)
   const [summaryReport, setSummaryReport] = useState<string | null>(null)
@@ -190,6 +201,37 @@ export const ProductionAIAnalysisPage: React.FC = () => {
   const [activeSubSection, setActiveSubSection] = useState<
     'ATUAIS' | 'CRITICAS' | 'DESVIOS' | 'COMPARATIVO' | 'IA'
   >('CRITICAS')
+
+  // Carrega documentos aplicáveis quando a OP selecionada mudar
+  useEffect(() => {
+    if (!selectedOp) {
+      setApplicableDocs([])
+      return
+    }
+    let isCurrent = true
+    setLoadingDocs(true)
+    productionControlReferenceDocsService
+      .getDocumentsForOrder({
+        op_number: selectedOp.op_number,
+        centro_code: selectedOp.centro_code,
+        linha_code: selectedOp.linha_code,
+        work_center: selectedOp.work_center,
+        material_code: selectedOp.material_code,
+      })
+      .then((docs) => {
+        if (isCurrent) setApplicableDocs(docs)
+      })
+      .catch(() => {
+        if (isCurrent) setApplicableDocs([])
+      })
+      .finally(() => {
+        if (isCurrent) setLoadingDocs(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [selectedOp?.op_number, selectedOp?.centro_code, selectedOp?.linha_code])
 
   const calculateComparison = (targetOp: ProductionOrder, allOrders: ProductionOrder[]) => {
     // Busca OPs semelhantes por material, família, centro ou linha
@@ -791,6 +833,149 @@ export const ProductionAIAnalysisPage: React.FC = () => {
                       </table>
                     </div>
                   )}
+                </div>
+              </ErrorBoundary>
+
+              {/* SEÇÃO 1: DOCUMENTOS APLICÁVEIS DA ORDEM */}
+              <ErrorBoundary moduleName="Documentos Aplicáveis da Ordem" variant="compact">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-[#004C97]" />
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Documentos Aplicáveis (SGQ Oficial)
+                      </h3>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/pcp/controle-producao/documentos-referencia')}
+                      className="h-7 text-xs text-[#004C97] border-blue-200 hover:bg-blue-50"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 mr-1" />
+                      Gerenciar Associações
+                    </Button>
+                  </div>
+
+                  {loadingDocs ? (
+                    <div className="py-6 text-center text-xs text-slate-500">
+                      Consultando catálogo oficial de documentos associados...
+                    </div>
+                  ) : applicableDocs.length === 0 ? (
+                    <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs text-amber-950 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        Nenhum Documento de Referência vigente associado especificamente a esta
+                        ordem.
+                      </div>
+                      <p className="text-[11px] text-amber-800">
+                        O parecer da IA utilizará critérios preliminares sem substituir os
+                        procedimentos oficiais da CIAFAL.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                      {applicableDocs.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-50 transition-colors flex flex-col justify-between text-xs space-y-1.5"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold font-mono text-[#004C97] text-xs">
+                                {doc.document_code}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[9px] font-mono">
+                                  Rev. {doc.revision}
+                                </Badge>
+                                <Badge className="bg-emerald-600 text-white text-[9px] px-1 py-0">
+                                  {doc.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="font-medium text-slate-800 line-clamp-1 mt-0.5">
+                              {doc.title}
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-1">
+                              <span>Área: {doc.responsible_area}</span>
+                              <span>&bull;</span>
+                              <span>Prioridade: {doc.priority}</span>
+                            </div>
+                          </div>
+
+                          {doc.extractable_content && (
+                            <div className="text-[10px] text-slate-600 bg-white p-1.5 rounded border border-slate-200 font-mono line-clamp-2">
+                              {doc.extractable_content}
+                            </div>
+                          )}
+
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-200/60">
+                            <span className="text-[10px] text-slate-400">Origem: {doc.source}</span>
+                            {doc.original_url && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(doc.original_url, '_blank')}
+                                className="h-6 text-[10px] px-2 text-blue-700 hover:bg-blue-50"
+                              >
+                                Visualizar
+                                <ExternalLink className="w-2.5 h-2.5 ml-1" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ErrorBoundary>
+
+              {/* SEÇÃO 2: AÇÕES PROPOSTAS POR IA (MOTOR OFICIAL COM 6 SEÇÕES E RASTREABILIDADE) */}
+              <ErrorBoundary moduleName="Ação Proposta por IA" variant="compact">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#004C97]" />
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        Ação Proposta por IA & Governança da Ordem
+                      </h3>
+                    </div>
+                    <Badge className="bg-[#004C97] text-white text-[10px] font-mono">
+                      ciafal-reference-engine
+                    </Badge>
+                  </div>
+
+                  <ProposedAiActionSection
+                    context={{
+                      occurrence_id: `ordem-${selectedOp.id}-${selectedOp.op_number}`,
+                      occurrence_type: 'ORDEM',
+                      op_number: selectedOp.op_number,
+                      material_code: selectedOp.material_code,
+                      material_description: selectedOp.material_description,
+                      centro_code: selectedOp.centro_code,
+                      categoria_ia:
+                        selectedOp.criticality === 'CRITICA' ||
+                        selectedOp.status_sap.includes('ERRO')
+                          ? 'Estoque'
+                          : 'Confirmação',
+                      criticality:
+                        selectedOp.criticality === 'CRITICA'
+                          ? 'CRITICA'
+                          : selectedOp.criticality === 'ALTA'
+                            ? 'URGENTE'
+                            : 'ATENCAO',
+                      sap_message:
+                        selectedOp.ai_risk_reason ||
+                        `Análise consolidada da ordem ${selectedOp.op_number} (status SAP: ${selectedOp.status_sap}, MES: ${selectedOp.status_mes}).`,
+                      quantidade: selectedOp.quantity_produced_tons,
+                      unidade_medida: 'TO',
+                    }}
+                    onOpenReferenceDocuments={() =>
+                      navigate('/pcp/controle-producao/documentos-referencia')
+                    }
+                    onTreatmentCompleted={loadData}
+                  />
                 </div>
               </ErrorBoundary>
 
