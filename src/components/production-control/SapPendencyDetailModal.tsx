@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { useToast } from '@/hooks/use-toast'
 import type {
   SapCogiPendency,
   SapCo1pPendency,
@@ -46,6 +47,7 @@ interface SapPendencyDetailModalProps {
   type: 'COGI' | 'CO1P'
   onStatusUpdated?: () => void
   onFindSimilar?: (record: SapCogiPendency | SapCo1pPendency) => void
+  onOpenSgqModal?: () => void
 }
 
 export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
@@ -55,6 +57,7 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
   type,
   onStatusUpdated,
   onFindSimilar,
+  onOpenSgqModal,
 }) => {
   const [activeTab, setActiveTab] = useState('dados-sap')
   const [treatmentStatus, setTreatmentStatus] = useState<SapTreatmentStatus>('Nova')
@@ -62,6 +65,7 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
   const [treatmentComment, setTreatmentComment] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [auditLogs, setAuditLogs] = useState<SapPendencyAuditLog[]>([])
+  const { toast } = useToast()
   const [sgqGuidance, setSgqGuidance] = useState<SgqProcedureGuidance | null>(null)
   const [similarResult, setSimilarResult] = useState<SimilarOccurrencesResult | null>(null)
 
@@ -868,7 +872,9 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
                       Data/Hora de Criação
                     </span>
                     <span className="font-mono text-slate-800 font-semibold">
-                      {record.data_criacao || (record as any).data_hora_geracao_pendencia || '-'}
+                      {'data_criacao' in record
+                        ? record.data_criacao
+                        : (record as SapCo1pPendency).data_hora_geracao_pendencia || '-'}
                     </span>
                   </div>
                   <div>
@@ -900,8 +906,9 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
                         Geração da Pendência no SAP
                       </div>
                       <div className="text-[11px] text-slate-500 font-mono">
-                        {record.data_erro ||
-                          (record as any).data_hora_confirmacao ||
+                        {('data_erro' in record
+                          ? record.data_erro
+                          : (record as SapCo1pPendency).data_hora_confirmacao) ||
                           'Registro inicial'}{' '}
                         &bull; Centro {record.centro_code}
                       </div>

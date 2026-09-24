@@ -10,10 +10,11 @@ import {
   History,
   ChevronRight,
   ArrowRight,
+  ClipboardList,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { useToast } from '@/hooks/use-toast'
@@ -39,8 +40,8 @@ export const Co1pPendenciesPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDemo, setIsDemo] = useState(false)
-  const [lastUpdate, setLastUpdate] = useState<string>(
-    () => new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+  const [lastUpdate, setLastUpdate] = useState<string>(() =>
+    new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
   )
   const [timeoutNotice, setTimeoutNotice] = useState<string | null>(null)
   const [list, setList] = useState<SapCo1pPendency[]>([])
@@ -77,7 +78,9 @@ export const Co1pPendenciesPage: React.FC = () => {
     try {
       const res = await sapPendenciesService.refreshFromSap('CO1P')
       if (res.success) {
-        setLastUpdate(new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }))
+        setLastUpdate(
+          new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+        )
         toast({
           title: 'Sincronização SAP',
           description: res.message || 'Dados atualizados com sucesso.',
@@ -172,7 +175,7 @@ export const Co1pPendenciesPage: React.FC = () => {
   }
 
   return (
-    <TooltipProvider delayDuration={150}>
+    <div>
       <div className="space-y-3.5">
         {/* Cabeçalho Oficial CIAFAL */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
@@ -182,7 +185,9 @@ export const Co1pPendenciesPage: React.FC = () => {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Pendências - CO1P</h1>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                  Pendências - CO1P
+                </h1>
                 <span className="text-xs text-slate-400">|</span>
                 <span className="text-xs text-slate-600 font-mono">
                   Última atualização: {lastUpdate}
@@ -353,7 +358,10 @@ export const Co1pPendenciesPage: React.FC = () => {
                       >
                         {/* Status */}
                         <td className="py-2 px-3 whitespace-nowrap">
-                          <Badge variant="outline" className="text-[10px] font-medium bg-slate-50 text-slate-700">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-medium bg-slate-50 text-slate-700"
+                          >
                             {item.treatment_status}
                           </Badge>
                         </td>
@@ -431,7 +439,9 @@ export const Co1pPendenciesPage: React.FC = () => {
                               </div>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-md font-mono text-xs p-2 bg-slate-900 text-slate-100">
-                              <p className="font-bold text-amber-300 mb-1">Cód: {item.sap_msg_code}</p>
+                              <p className="font-bold text-amber-300 mb-1">
+                                Cód: {item.sap_msg_code}
+                              </p>
                               <p>{item.sap_message}</p>
                             </TooltipContent>
                           </Tooltip>

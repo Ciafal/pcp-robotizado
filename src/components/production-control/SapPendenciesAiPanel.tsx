@@ -38,7 +38,8 @@ export const SapPendenciesAiPanel: React.FC<SapPendenciesAiPanelProps> = ({
               </Badge>
             </h3>
             <p className="text-[11px] text-slate-500">
-              Análise consultiva com separação estrita de Fatos, Hipóteses e Orientações baseadas no SGQ.
+              Análise consultiva com separação estrita de Fatos, Hipóteses e Orientações baseadas no
+              SGQ.
             </p>
           </div>
         </div>
@@ -69,7 +70,11 @@ export const SapPendenciesAiPanel: React.FC<SapPendenciesAiPanelProps> = ({
             <p className="text-slate-700 leading-relaxed text-[11px]">
               {criticalCount > 0 ? (
                 <>
-                  <strong className="text-rose-700 font-bold">{criticalCount} ocorrências críticas</strong> requerem atenção imediata por impacto direto em encerramento técnico (TECO) e programação vigente.
+                  <strong className="text-rose-700 font-bold">
+                    {criticalCount} ocorrências críticas
+                  </strong>{' '}
+                  requerem atenção imediata por impacto direto em encerramento técnico (TECO) e
+                  programação vigente.
                 </>
               ) : (
                 'Nenhuma pendência crítica imediata detectada. O fluxo de ordens e apontamentos permanece estável.'
@@ -92,15 +97,17 @@ export const SapPendenciesAiPanel: React.FC<SapPendenciesAiPanelProps> = ({
               Principal concentração
             </div>
             <p className="text-slate-700 leading-relaxed text-[11px]">
-              Maior volume localizado no <strong>Centro {topCentro}</strong>, concentrado na categoria{' '}
-              <strong className="text-slate-900">{topCategory}</strong>.
+              Maior volume localizado no <strong>Centro {topCentro}</strong>, concentrado na
+              categoria <strong className="text-slate-900">{topCategory}</strong>.
             </p>
           </div>
           <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500 font-mono">
             <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
               FATO
             </span>
-            <span>Centro {topCentro} &bull; {topCategory}</span>
+            <span>
+              Centro {topCentro} &bull; {topCategory}
+            </span>
           </div>
         </div>
 
@@ -114,7 +121,10 @@ export const SapPendenciesAiPanel: React.FC<SapPendenciesAiPanelProps> = ({
             <p className="text-slate-700 leading-relaxed text-[11px]">
               {recurrentCount > 0 ? (
                 <>
-                  <strong className="text-amber-800 font-bold">{recurrentCount} ocorrências reincidentes</strong> com a mesma chave técnica SAP, indicando padrão recorrente.
+                  <strong className="text-amber-800 font-bold">
+                    {recurrentCount} ocorrências reincidentes
+                  </strong>{' '}
+                  com a mesma chave técnica SAP, indicando padrão recorrente.
                 </>
               ) : (
                 'Sem recorrência repetida detectada nas chaves técnicas dos registros analisados.'
@@ -141,18 +151,22 @@ export const SapPendenciesAiPanel: React.FC<SapPendenciesAiPanelProps> = ({
                 <div className="text-slate-700">
                   <span className="font-semibold text-slate-900">Documento:</span>{' '}
                   {selectedRecord.sgq_document_code ? (
-                    <span className="font-mono text-[#004C97] font-semibold">{selectedRecord.sgq_document_code}</span>
+                    <span className="font-mono text-[#004C97] font-semibold">
+                      {selectedRecord.sgq_document_code}
+                    </span>
                   ) : (
                     <span className="text-slate-500 italic">Nenhum procedimento SGQ vinculado</span>
                   )}
                 </div>
                 <p className="text-slate-600 line-clamp-2">
-                  {selectedRecord.ai_recommended_action?.verificar?.[0] || 'Seguir instrução normativa formal.'}
+                  {selectedRecord.ai_recommended_action?.verificar?.[0] ||
+                    'Seguir instrução normativa formal.'}
                 </p>
               </div>
             ) : (
               <p className="text-slate-600 leading-relaxed text-[11px]">
-                Selecione uma pendência na tabela para visualizar a orientação referenciada no procedimento SGQ oficial.
+                Selecione uma pendência na tabela para visualizar a orientação referenciada no
+                procedimento SGQ oficial.
               </p>
             )}
           </div>

@@ -188,16 +188,16 @@ class SapPendenciesService {
 
         return {
           has_sgq_document: true,
-          sgq_document_code: mapping.sgq_document_code,
-          sgq_document_title: mapping.sgq_document_title,
-          sgq_document_revision: mapping.sgq_document_revision,
+          sgq_document_code: matched.sgq_document_code,
+          sgq_document_title: matched.sgq_document_title,
+          sgq_document_revision: matched.sgq_document_revision,
           sgq_document_date: '10/01/2025',
           sgq_document_status: 'Vigente',
-          sgq_applicable_procedure: mapping.sgq_applicable_procedure,
-          sgq_recommended_step: mapping.sgq_recommended_step,
-          sgq_procedure_responsible: mapping.sgq_procedure_responsible,
-          sgq_restrictions: mapping.sgq_restrictions,
-          sgq_notes: mapping.sgq_notes,
+          sgq_applicable_procedure: matched.sgq_applicable_procedure,
+          sgq_recommended_step: matched.sgq_recommended_step,
+          sgq_procedure_responsible: matched.sgq_procedure_responsible,
+          sgq_restrictions: matched.sgq_restrictions,
+          sgq_notes: matched.sgq_notes,
         }
       }
     } catch {
