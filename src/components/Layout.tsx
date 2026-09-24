@@ -4,6 +4,7 @@ import { PCPNavbar, PCPSidebar } from './layout/PCPNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -51,7 +52,9 @@ export const Layout: React.FC = () => {
           className="flex-1 min-w-0 min-h-0 w-full max-w-full p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-slate-50 relative outline-none scrollbar-thin scrollbar-thumb-slate-300"
         >
           <ErrorBoundary moduleName="Conteúdo da Rota">
-            <Outlet />
+            <TooltipProvider delayDuration={150}>
+              <Outlet />
+            </TooltipProvider>
           </ErrorBoundary>
         </main>
       </div>

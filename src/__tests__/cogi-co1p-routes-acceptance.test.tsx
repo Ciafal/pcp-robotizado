@@ -31,7 +31,7 @@ describe('Rotas e Telas de Pendências SAP (COGI / CO1P)', () => {
 
     expect(await screen.findByText('Pendências - COGI')).toBeInTheDocument()
     expect(
-      screen.getByText(/Central Inteligente de Falhas de Movimentação de Mercadorias/i),
+      screen.getByText(/Processamento posterior de movimentos de mercadorias SAP/i),
     ).toBeInTheDocument()
     expect(screen.getByText('Atualizar SAP')).toBeInTheDocument()
     expect(screen.getByText('Gerar Resumo IA')).toBeInTheDocument()
@@ -50,7 +50,7 @@ describe('Rotas e Telas de Pendências SAP (COGI / CO1P)', () => {
 
     expect(await screen.findByText('Pendências - CO1P')).toBeInTheDocument()
     expect(
-      screen.getByText(/Processamento Posterior das Confirmações de Produção/i),
+      screen.getByText(/Processamento posterior de confirmações de produção SAP/i),
     ).toBeInTheDocument()
     expect(screen.getByText('Atualizar SAP')).toBeInTheDocument()
     expect(screen.getByText('Gerar Resumo IA')).toBeInTheDocument()

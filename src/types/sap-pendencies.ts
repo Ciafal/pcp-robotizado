@@ -40,6 +40,8 @@ export interface SgqProcedureGuidance {
   sgq_document_code: string
   sgq_document_title: string
   sgq_document_revision: string
+  sgq_document_date?: string
+  sgq_document_status?: string
   sgq_applicable_procedure: string
   sgq_recommended_step?: string
   sgq_procedure_responsible?: string
@@ -189,6 +191,8 @@ export interface SapPendenciesFilters {
   centro?: string
   linha?: string
   work_center?: string
+  confirmation_number?: string
+  reservation_number?: string
   op_number?: string
   material?: string
   deposito?: string
@@ -196,6 +200,7 @@ export interface SapPendenciesFilters {
   tipo_movimento?: string
   categoria?: string
   criticality?: string
+  responsavel?: string
   area_responsavel?: string
   treatment_status?: string
   data_inicial?: string

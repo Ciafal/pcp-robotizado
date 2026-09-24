@@ -135,7 +135,7 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[92vw] sm:max-w-4xl md:max-w-5xl h-[88vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50">
+      <DialogContent className="max-w-[92vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50">
         {/* Header Institucional CIAFAL */}
         <div className="bg-slate-900 text-white px-5 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -195,42 +195,48 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
         {/* Corpo com as 6 Abas */}
         <div className="flex-1 overflow-y-auto p-5">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="bg-white border border-slate-200 p-1 w-full justify-start gap-1 h-auto shrink-0 mb-4 rounded-lg">
+            <TabsList className="bg-white border border-slate-200 p-1 w-full justify-start gap-1 h-auto shrink-0 mb-4 rounded-lg flex-wrap">
               <TabsTrigger
                 value="dados-sap"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                1. Dados SAP
+                1 Dados SAP
               </TabsTrigger>
               <TabsTrigger
                 value="diagnostico-ia"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                2. Diagnóstico IA
+                2 Diagnóstico IA
               </TabsTrigger>
               <TabsTrigger
                 value="acao-recomendada"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                3. Ação Recomendada
+                3 Ação recomendada
               </TabsTrigger>
               <TabsTrigger
                 value="documento-sgq"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                4. Documento SGQ
+                4 Documento SGQ
+              </TabsTrigger>
+              <TabsTrigger
+                value="ocorrencias-semelhantes"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
+              >
+                5 Ocorrências semelhantes ({similarResult?.total_encontradas || 0})
               </TabsTrigger>
               <TabsTrigger
                 value="historico"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                5. Histórico ({similarResult?.total_encontradas || 0})
+                6 Histórico
               </TabsTrigger>
               <TabsTrigger
                 value="auditoria"
-                className="text-xs py-1.5 px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:font-bold"
+                className="text-xs py-1.5 px-2.5 sm:px-3 data-[state=active]:bg-blue-50 data-[state=active]:text-[#004C97] data-[state=active]:font-bold"
               >
-                6. Auditoria ({auditLogs.length})
+                7 Auditoria ({auditLogs.length})
               </TabsTrigger>
             </TabsList>
 
@@ -628,18 +634,18 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
 
                 {sgqGuidance?.has_sgq_document ? (
                   <div className="space-y-3 text-xs">
-                    <div className="bg-slate-50 p-3 rounded border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="bg-slate-50 p-3 rounded border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
                       <div>
                         <span className="text-slate-400 text-[10px] font-bold uppercase block">
-                          Código Documento
+                          Código
                         </span>
-                        <span className="font-mono font-bold text-blue-700 text-sm">
+                        <span className="font-mono font-bold text-[#004C97] text-sm">
                           {sgqGuidance.sgq_document_code}
                         </span>
                       </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <span className="text-slate-400 text-[10px] font-bold uppercase block">
-                          Título da Norma / Procedimento
+                          Título
                         </span>
                         <span className="font-semibold text-slate-800">
                           {sgqGuidance.sgq_document_title}
@@ -647,11 +653,42 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-400 text-[10px] font-bold uppercase block">
-                          Revisão Vigente
+                          Revisão / Data
                         </span>
-                        <span className="font-mono text-slate-700">
-                          {sgqGuidance.sgq_document_revision}
+                        <span className="font-mono text-slate-700 text-xs">
+                          {sgqGuidance.sgq_document_revision}{' '}
+                          {sgqGuidance.sgq_document_date
+                            ? `(${sgqGuidance.sgq_document_date})`
+                            : ''}
                         </span>
+                      </div>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="text-slate-400 text-[10px] font-bold uppercase block">
+                          Status
+                        </span>
+                        <div className="flex items-center gap-1.5 w-full justify-between">
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                            {sgqGuidance.sgq_document_status || 'Vigente'}
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (onOpenSgqModal) {
+                                onOpenSgqModal()
+                              } else {
+                                toast({
+                                  title: 'Documento SGQ',
+                                  description: `Consulta ao procedimento ${sgqGuidance.sgq_document_code} - ${sgqGuidance.sgq_document_title}`,
+                                })
+                              }
+                            }}
+                            className="h-6 text-[10px] px-2 border-[#004C97] text-[#004C97] hover:bg-blue-50"
+                          >
+                            Consultar documento
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -700,26 +737,28 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded p-4 text-xs text-amber-900 space-y-2">
                     <p className="font-semibold">
-                      Não existe procedimento SGQ associado a esta ocorrência. Encaminhar para
-                      análise do responsável.
+                      Nenhum procedimento SGQ está associado a esta categoria de ocorrência.
                     </p>
                     <p className="text-[11px] text-amber-800">
-                      O administrador do HUB pode associar um novo documento oficial do SGQ a este
-                      tipo de erro/categoria acessando a Matriz de Procedimentos SGQ.
+                      O HUB CIAFAL não inventa procedimentos internos. Consulte o administrador do
+                      SGQ ou acesse a Matriz de Procedimentos SGQ para vinculação oficial.
                     </p>
                   </div>
                 )}
               </div>
             </TabsContent>
 
-            {/* ABA 5: HISTÓRICO E OCORRÊNCIAS SEMELHANTES */}
-            <TabsContent value="historico" className="space-y-4 m-0 focus-visible:outline-none">
+            {/* ABA 5: OCORRÊNCIAS SEMELHANTES */}
+            <TabsContent
+              value="ocorrencias-semelhantes"
+              className="space-y-4 m-0 focus-visible:outline-none"
+            >
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
                     <History className="w-4 h-4 text-blue-700" />
                     <h4 className="font-bold text-xs uppercase text-slate-800 tracking-wide">
-                      Histórico e Ocorrências Semelhantes no SAP
+                      Ocorrências Semelhantes no SAP (Mesmo Material / Mensagem / Chave)
                     </h4>
                   </div>
                   {onFindSimilar && (
@@ -772,7 +811,7 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
 
                     <div>
                       <span className="font-bold text-slate-700 block mb-1">
-                        Registros Similares Recentes:
+                        Registros Similares Identificados:
                       </span>
                       <div className="space-y-1.5">
                         {similarResult.registros_similares.map((sim) => (
@@ -808,7 +847,86 @@ export const SapPendencyDetailModal: React.FC<SapPendencyDetailModalProps> = ({
               </div>
             </TabsContent>
 
-            {/* ABA 6: AUDITORIA IMUTÁVEL */}
+            {/* ABA 6: HISTÓRICO DA PENDÊNCIA */}
+            <TabsContent value="historico" className="space-y-4 m-0 focus-visible:outline-none">
+              <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-700" />
+                    <h4 className="font-bold text-xs uppercase text-slate-800 tracking-wide">
+                      Histórico e Ciclo de Vida da Ocorrência
+                    </h4>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    ID: {record.id}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-slate-50 p-3 rounded border border-slate-200">
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block">
+                      Data/Hora de Criação
+                    </span>
+                    <span className="font-mono text-slate-800 font-semibold">
+                      {record.data_criacao || (record as any).data_hora_geracao_pendencia || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block">
+                      Idade Atual da Pendência
+                    </span>
+                    <span className="font-mono text-slate-800 font-semibold">
+                      {record.idade_horas} horas em aberto
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-bold uppercase block">
+                      Status Atual
+                    </span>
+                    <Badge className="bg-blue-100 text-[#004C97] border-blue-200 text-[10px] font-medium mt-0.5">
+                      {record.treatment_status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <span className="font-bold text-slate-700 block">
+                    Linha do Tempo da Ocorrência:
+                  </span>
+                  <div className="border-l-2 border-blue-200 pl-3 space-y-3">
+                    <div className="relative">
+                      <span className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-blue-700" />
+                      <div className="font-semibold text-slate-800">
+                        Geração da Pendência no SAP
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        {record.data_erro ||
+                          (record as any).data_hora_confirmacao ||
+                          'Registro inicial'}{' '}
+                        &bull; Centro {record.centro_code}
+                      </div>
+                      <p className="text-slate-600 text-[11px] mt-0.5 bg-slate-50 p-2 rounded border border-slate-200 font-mono">
+                        {record.sap_message}
+                      </p>
+                    </div>
+
+                    {record.treatment_notes && (
+                      <div className="relative">
+                        <span className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                        <div className="font-semibold text-slate-800">
+                          Notas de Tratamento Registradas
+                        </div>
+                        <p className="text-slate-700 text-[11px] mt-0.5 bg-emerald-50/70 p-2 rounded border border-emerald-200 whitespace-pre-wrap">
+                          {record.treatment_notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ABA 7: AUDITORIA IMUTÁVEL */}
             <TabsContent value="auditoria" className="space-y-4 m-0 focus-visible:outline-none">
               <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">

@@ -26,13 +26,13 @@ export const SapPendenciesExecutiveCards: React.FC<SapPendenciesExecutiveCardsPr
   const cards = [
     {
       key: 'TOTAL',
-      label: 'Total de Pendências',
+      label: 'Total',
       value: stats.total,
       subtext: 'Registros ativos',
       icon: Layers,
       color: 'blue',
       borderClass: 'border-blue-200 hover:border-blue-400',
-      activeClass: 'bg-blue-50 ring-2 ring-blue-500',
+      activeClass: 'bg-blue-50 ring-2 ring-[#004C97]',
     },
     {
       key: 'CRITICAS',
@@ -56,7 +56,7 @@ export const SapPendenciesExecutiveCards: React.FC<SapPendenciesExecutiveCardsPr
     },
     {
       key: 'MAIOR_24H',
-      label: 'Pendências >24h',
+      label: '> 24 h',
       value: stats.maior_24h,
       subtext: 'Idade > 24 horas',
       icon: Clock,
@@ -65,54 +65,14 @@ export const SapPendenciesExecutiveCards: React.FC<SapPendenciesExecutiveCardsPr
       activeClass: 'bg-amber-50 ring-2 ring-amber-500',
     },
     {
-      key: 'MAIOR_48H',
-      label: 'Pendências >48h',
-      value: stats.maior_48h,
-      subtext: 'Idade > 48 horas',
-      icon: Clock,
-      color: 'rose',
-      borderClass: 'border-rose-200 hover:border-rose-400',
-      activeClass: 'bg-rose-50 ring-2 ring-rose-500',
-    },
-    {
       key: 'ORDENS_IMPACTADAS',
-      label: 'Ordens Impactadas',
+      label: 'Ordens impactadas',
       value: stats.ordens_impactadas,
       subtext: 'OPs com restrição',
       icon: TrendingUp,
-      color: 'indigo',
-      borderClass: 'border-indigo-200 hover:border-indigo-400',
-      activeClass: 'bg-indigo-50 ring-2 ring-indigo-500',
-    },
-    {
-      key: 'TONELADAS',
-      label: 'Qtd / Toneladas',
-      value: `${stats.quantidade_toneladas} t`,
-      subtext: 'Volume afetado',
-      icon: Boxes,
-      color: 'slate',
-      borderClass: 'border-slate-200 hover:border-slate-400',
-      activeClass: 'bg-slate-100 ring-2 ring-slate-600',
-    },
-    {
-      key: 'CENTRO_TOP',
-      label: 'Centro + Pendências',
-      value: stats.centro_top.centro !== '-' ? `C${stats.centro_top.centro}` : '-',
-      subtext: `${stats.centro_top.count} ocorrências`,
-      icon: Factory,
-      color: 'cyan',
-      borderClass: 'border-cyan-200 hover:border-cyan-400',
-      activeClass: 'bg-cyan-50 ring-2 ring-cyan-500',
-    },
-    {
-      key: 'CATEGORIA_TOP',
-      label: 'Principal Categoria',
-      value: stats.categoria_top.categoria,
-      subtext: `${stats.categoria_top.count} registros`,
-      icon: CheckCircle2,
-      color: 'teal',
-      borderClass: 'border-teal-200 hover:border-teal-400',
-      activeClass: 'bg-teal-50 ring-2 ring-teal-500',
+      color: 'blue',
+      borderClass: 'border-blue-200 hover:border-blue-400',
+      activeClass: 'bg-blue-50 ring-2 ring-[#004C97]',
     },
     {
       key: 'REINCIDENTES',
@@ -122,12 +82,12 @@ export const SapPendenciesExecutiveCards: React.FC<SapPendenciesExecutiveCardsPr
       icon: RotateCcw,
       color: 'purple',
       borderClass: 'border-purple-200 hover:border-purple-400',
-      activeClass: 'bg-purple-50 ring-2 ring-purple-500',
+      activeClass: 'bg-purple-50 ring-2 ring-purple-600',
     },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-2.5">
       {cards.map((c) => {
         const Icon = c.icon
         const isActive = activeFilterKey === c.key
@@ -136,21 +96,21 @@ export const SapPendenciesExecutiveCards: React.FC<SapPendenciesExecutiveCardsPr
             key={c.key}
             type="button"
             onClick={() => onCardClick?.(c.key)}
-            className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer bg-white shadow-2xs flex flex-col justify-between min-h-[82px] ${c.borderClass} ${
+            className={`p-2.5 sm:p-3 rounded-lg border text-left transition-all cursor-pointer bg-white shadow-2xs flex flex-col justify-between min-h-[76px] sm:min-h-[80px] ${c.borderClass} ${
               isActive ? c.activeClass : ''
             }`}
             title={`Filtrar por: ${c.label}`}
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight truncate">
+            <div className="flex items-center justify-between gap-1 w-full">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-tight truncate">
                 {c.label}
               </span>
               <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </div>
-            <div className="font-mono font-bold text-base text-slate-900 truncate my-0.5">
+            <div className="font-mono font-bold text-lg text-slate-900 truncate my-0.5">
               {c.value}
             </div>
-            <div className="text-[9px] text-slate-400 truncate">{c.subtext}</div>
+            <div className="text-[10px] text-slate-500 truncate">{c.subtext}</div>
           </button>
         )
       })}

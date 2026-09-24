@@ -187,15 +187,17 @@ class SapPendenciesService {
           records[0]
 
         return {
-          sgq_document_code: matched.sgq_document_code,
-          sgq_document_title: matched.sgq_document_title,
-          sgq_document_revision: matched.sgq_document_revision,
-          sgq_applicable_procedure: matched.sgq_applicable_procedure,
-          sgq_recommended_step: matched.sgq_recommended_step,
-          sgq_procedure_responsible: matched.sgq_procedure_responsible,
-          sgq_restrictions: matched.sgq_restrictions,
-          sgq_notes: matched.sgq_notes,
           has_sgq_document: true,
+          sgq_document_code: mapping.sgq_document_code,
+          sgq_document_title: mapping.sgq_document_title,
+          sgq_document_revision: mapping.sgq_document_revision,
+          sgq_document_date: '10/01/2025',
+          sgq_document_status: 'Vigente',
+          sgq_applicable_procedure: mapping.sgq_applicable_procedure,
+          sgq_recommended_step: mapping.sgq_recommended_step,
+          sgq_procedure_responsible: mapping.sgq_procedure_responsible,
+          sgq_restrictions: mapping.sgq_restrictions,
+          sgq_notes: mapping.sgq_notes,
         }
       }
     } catch {
@@ -207,7 +209,7 @@ class SapPendenciesService {
       sgq_document_title: '',
       sgq_document_revision: '',
       sgq_applicable_procedure:
-        'Não existe procedimento SGQ associado a esta ocorrência. Encaminhar para análise do responsável.',
+        'Nenhum procedimento SGQ está associado a esta categoria de ocorrência.',
       has_sgq_document: false,
     }
   }
@@ -847,10 +849,12 @@ class SapPendenciesService {
       if (f.empresa && f.empresa !== 'TODAS' && item.empresa_code !== f.empresa) return false
       if (f.centro && f.centro !== 'TODOS' && item.centro_code !== f.centro) return false
       if (f.linha && f.linha !== 'TODAS' && item.linha_code !== f.linha) return false
-      if (f.op_number && !item.op_number?.includes(f.op_number)) return false
-      if (f.material && !item.material_code.includes(f.material)) return false
+      if (f.op_number && !item.op_number?.toLowerCase().includes(f.op_number.toLowerCase()))
+        return false
+      if (f.material && !item.material_code.toLowerCase().includes(f.material.toLowerCase()))
+        return false
       if (f.deposito && f.deposito !== 'TODOS' && item.deposito !== f.deposito) return false
-      if (f.lote && !item.lote?.includes(f.lote)) return false
+      if (f.lote && !item.lote?.toLowerCase().includes(f.lote.toLowerCase())) return false
       if (
         f.tipo_movimento &&
         f.tipo_movimento !== 'TODOS' &&
@@ -867,11 +871,20 @@ class SapPendenciesService {
       )
         return false
       if (
+        f.responsavel &&
+        f.responsavel !== 'TODOS' &&
+        item.responsavel_tratamento_nome !== f.responsavel &&
+        item.area_responsavel_sugerida !== f.responsavel
+      )
+        return false
+      if (
         f.treatment_status &&
         f.treatment_status !== 'TODOS' &&
         item.treatment_status !== f.treatment_status
       )
         return false
+      if (f.data_inicial && item.data_erro && item.data_erro < f.data_inicial) return false
+      if (f.data_final && item.data_erro && item.data_erro > f.data_final) return false
       if (f.somente_criticas && item.criticality !== 'CRITICA') return false
       if (f.somente_reincidentes && !item.reincidente) return false
       if (f.somente_impactam_programacao && !item.impacta_programacao) return false
@@ -883,7 +896,9 @@ class SapPendenciesService {
           item.material_code.toLowerCase().includes(q) ||
           item.material_description.toLowerCase().includes(q) ||
           item.sap_message.toLowerCase().includes(q) ||
-          item.sap_msg_code.toLowerCase().includes(q)
+          item.sap_msg_code.toLowerCase().includes(q) ||
+          item.deposito?.toLowerCase().includes(q) ||
+          item.lote?.toLowerCase().includes(q)
         if (!match) return false
       }
       return true
@@ -895,8 +910,22 @@ class SapPendenciesService {
       if (f.empresa && f.empresa !== 'TODAS' && item.empresa_code !== f.empresa) return false
       if (f.centro && f.centro !== 'TODOS' && item.centro_code !== f.centro) return false
       if (f.linha && f.linha !== 'TODAS' && item.linha_code !== f.linha) return false
-      if (f.op_number && !item.op_number.includes(f.op_number)) return false
-      if (f.material && !item.material_code.includes(f.material)) return false
+      if (f.work_center && f.work_center !== 'TODOS' && item.work_center !== f.work_center)
+        return false
+      if (f.op_number && !item.op_number.toLowerCase().includes(f.op_number.toLowerCase()))
+        return false
+      if (
+        f.confirmation_number &&
+        !item.confirmation_number.toLowerCase().includes(f.confirmation_number.toLowerCase())
+      )
+        return false
+      if (
+        f.reservation_number &&
+        !item.reservation_number?.toLowerCase().includes(f.reservation_number.toLowerCase())
+      )
+        return false
+      if (f.material && !item.material_code.toLowerCase().includes(f.material.toLowerCase()))
+        return false
       if (f.categoria && f.categoria !== 'TODAS' && item.categoria_ia !== f.categoria) return false
       if (f.criticality && f.criticality !== 'TODAS' && item.criticality !== f.criticality)
         return false
@@ -907,9 +936,28 @@ class SapPendenciesService {
       )
         return false
       if (
+        f.responsavel &&
+        f.responsavel !== 'TODOS' &&
+        item.responsavel_tratamento_nome !== f.responsavel &&
+        item.area_responsavel_sugerida !== f.responsavel
+      )
+        return false
+      if (
         f.treatment_status &&
         f.treatment_status !== 'TODOS' &&
         item.treatment_status !== f.treatment_status
+      )
+        return false
+      if (
+        f.data_inicial &&
+        item.data_hora_confirmacao &&
+        item.data_hora_confirmacao.slice(0, 10) < f.data_inicial
+      )
+        return false
+      if (
+        f.data_final &&
+        item.data_hora_confirmacao &&
+        item.data_hora_confirmacao.slice(0, 10) > f.data_final
       )
         return false
       if (f.somente_criticas && item.criticality !== 'CRITICA') return false
@@ -921,6 +969,7 @@ class SapPendenciesService {
         const match =
           item.op_number.toLowerCase().includes(q) ||
           item.confirmation_number.toLowerCase().includes(q) ||
+          item.reservation_number?.toLowerCase().includes(q) ||
           item.material_code.toLowerCase().includes(q) ||
           item.material_description.toLowerCase().includes(q) ||
           item.sap_message.toLowerCase().includes(q) ||
