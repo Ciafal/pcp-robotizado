@@ -81,6 +81,16 @@ import { OFFICIAL_MP_TYPES_CATALOG, OFFICIAL_MP_TYPES } from '@/services/mp-prog
 import { ENFORNAMENTO_OPTIONS, EnfornamentoType } from '@/services/enfornamento-laminacao-engine'
 import { UserProfile } from '@/types/pcp-auth'
 import { MasterSheetCompletenessModal } from '@/components/line-master/MasterSheetCompletenessModal'
+import { RawMaterialPrioritiesPanel } from '@/components/line-master/RawMaterialPrioritiesPanel'
+import {
+  RawMaterialPriorityModal,
+  RawMaterialPriorityFormData,
+} from '@/components/line-master/RawMaterialPriorityModal'
+import {
+  RawMaterialPriorityConflictModal,
+  HierarchyImpactItem,
+} from '@/components/line-master/RawMaterialPriorityConflictModal'
+import { LineRawMaterialPriority } from '@/types/line-master'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -465,14 +475,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [prodActive, setProdActive] = useState<boolean>(true)
   const [isSavingProd, setIsSavingProd] = useState<boolean>(false)
 
-  const [rawCode, setRawCode] = useState('')
-  const [rawDesc, setRawDesc] = useState('')
-  const [rawGroup, setRawGroup] = useState('Bobinas BQ')
-  const [rawOrigin, setRawOrigin] = useState('CSN')
-  const [rawPriority, setRawPriority] = useState<number>(1)
-  const [rawCond, setRawCond] = useState('')
-  const [rawSource, setRawSource] = useState<'MANUAL' | 'SAP'>('MANUAL')
-  const [rawSapId, setRawSapId] = useState('')
+  // Estados dedicados a Prioridades de Matéria-Prima
+  const [editingRawPriority, setEditingRawPriority] = useState<LineRawMaterialPriority | null>(null)
+  const [isSavingRawMaterial, setIsSavingRawMaterial] = useState<boolean>(false)
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false)
+  const [conflictImpactList, setConflictImpactList] = useState<HierarchyImpactItem[]>([])
+  const [pendingRawPayload, setPendingRawPayload] = useState<RawMaterialPriorityFormData | null>(
+    null,
+  )
 
   const [editingBlockedProduct, setEditingBlockedProduct] = useState<any | null>(null)
   const [blkCode, setBlkCode] = useState('')
@@ -805,48 +815,193 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     }
   }
 
-  const handleSaveRawMaterial = async () => {
-    if (!rawCode || !rawDesc) {
-      toast({
-        variant: 'destructive',
-        title: 'Campos obrigatórios',
-        description: 'Informe código e descrição do material.',
-      })
-      return
-    }
-    if (rawSource === 'SAP' && !rawSapId) {
-      toast({
-        variant: 'destructive',
-        title: 'Origem SAP exige configuração',
-        description: 'Vincule uma integração BAPI/Z do Catálogo SAP.',
-      })
-      return
-    }
+  // Handlers para Prioridades de Matéria-Prima
+  const handleOpenAddRawMaterial = () => {
+    setEditingRawPriority(null)
+    setIsRawModalOpen(true)
+  }
 
+  const handleOpenEditRawMaterial = (item: LineRawMaterialPriority) => {
+    setEditingRawPriority(item)
+    setIsRawModalOpen(true)
+  }
+
+  const handleToggleRawMaterialStatus = async (item: LineRawMaterialPriority) => {
+    const newActive = item.active === false
     try {
-      await lineMasterService.saveRawMaterialPriority({
-        line_id: line.id,
-        line_master_id: master?.id,
-        material_code: rawCode.trim().toUpperCase(),
-        material_description: rawDesc.trim(),
-        material_group: rawGroup,
-        material_origin: rawOrigin,
-        priority_order: Number(rawPriority),
-        condition_rule: rawCond,
-        source_mode: rawSource,
-        sap_integration_id: rawSource === 'SAP' ? rawSapId : undefined,
-        active: true,
-      })
-
+      await lineMasterService.setRawMaterialPriorityActive(item.id, newActive)
       toast({
-        title: 'Prioridade de Matéria-Prima Cadastrada',
-        description: `Material ${rawCode} cadastrado com prioridade #${rawPriority}.`,
+        title: 'Status da prioridade atualizado com sucesso.',
+        description: `Matéria-prima ${item.material_code} agora está ${newActive ? 'ativa' : 'inativa'}.`,
       })
-      setIsRawModalOpen(false)
       onRefresh()
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message })
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao alterar status',
+        description: err.message || 'Falha ao atualizar status da matéria-prima.',
+      })
     }
+  }
+
+  // Helper para verificar conflito no front-end antes de salvar
+  const calculateConflictImpact = (
+    formData: RawMaterialPriorityFormData,
+  ): HierarchyImpactItem[] | null => {
+    // Apenas prioridades ativas
+    if (!formData.active) return null
+
+    const reqFrom = formData.valid_from
+    const reqUntil = formData.valid_until || '9999-12-31'
+    const targetOrder = formData.priority_order
+    const currentId = formData.id
+
+    // Checar se existe item ativo no mesmo centro com mesma ordem e vigência coincidente
+    const hasOverlap = rawMaterials.some((item) => {
+      if (item.active === false) return false
+      if (currentId && item.id === currentId) return false
+      if (item.priority_order !== targetOrder) return false
+
+      const itemFrom = (item.valid_from || '').slice(0, 10) || '1970-01-01'
+      const itemUntil = (item.valid_until || '').slice(0, 10) || '9999-12-31'
+      return reqFrom <= itemUntil && reqUntil >= itemFrom
+    })
+
+    if (!hasOverlap) return null
+
+    // Calcular alteração prevista na hierarquia
+    const impact: HierarchyImpactItem[] = []
+
+    // O item alvo
+    impact.push({
+      id: currentId,
+      material_code: formData.material_code,
+      material_description: formData.material_description,
+      current_priority: editingRawPriority?.priority_order ?? null,
+      new_priority: targetOrder,
+      is_target: true,
+    })
+
+    // Itens ativos existentes que serão empurrados (priority >= targetOrder)
+    const activeExisting = rawMaterials
+      .filter((m) => m.active !== false && (!currentId || m.id !== currentId))
+      .sort((a, b) => (a.priority_order ?? 0) - (b.priority_order ?? 0))
+
+    let shift = targetOrder + 1
+    for (const item of activeExisting) {
+      if ((item.priority_order ?? 0) >= targetOrder) {
+        impact.push({
+          id: item.id,
+          material_code: item.material_code,
+          material_description: item.material_description,
+          current_priority: item.priority_order ?? null,
+          new_priority: shift,
+          is_target: false,
+        })
+        shift++
+      }
+    }
+
+    return impact
+  }
+
+  const executeSaveRawMaterial = async (
+    formData: RawMaterialPriorityFormData,
+    reorganize = false,
+  ) => {
+    setIsSavingRawMaterial(true)
+    try {
+      const isEditing = Boolean(formData.id)
+
+      const result = await lineMasterService.saveRawMaterialPriority({
+        id: formData.id,
+        line_id: line.id,
+        line_master_id: master?.id,
+        material_code: formData.material_code,
+        material_description: formData.material_description,
+        bitola: formData.bitola,
+        material_group: formData.material_group,
+        priority_order: formData.priority_order,
+        valid_from: formData.valid_from,
+        valid_until: formData.valid_until || null,
+        criterio_prioridade: formData.criterio_prioridade as any,
+        descricao_outro_criterio: formData.descricao_outro_criterio,
+        active: formData.active,
+        idempotency_key: formData.idempotency_key,
+        reorganize_hierarchy: reorganize,
+      })
+
+      if (reorganize) {
+        const count = result.reorganizedCount || conflictImpactList.length
+        toast({
+          title: 'Prioridade salva com sucesso.',
+          description: `A hierarquia foi reorganizada automaticamente. ${count} prioridades foram atualizadas.`,
+        })
+      } else if (isEditing) {
+        toast({
+          title: 'Prioridade de MP atualizada com sucesso.',
+          description: `Material ${formData.material_code} atualizado na prioridade #${formData.priority_order}.`,
+        })
+      } else {
+        toast({
+          title: 'Prioridade de MP salva com sucesso.',
+          description: `Material ${formData.material_code} cadastrado na prioridade #${formData.priority_order}.`,
+        })
+      }
+      setIsConflictModalOpen(false)
+      setIsRawModalOpen(false)
+      setPendingRawPayload(null)
+      setEditingRawPriority(null)
+      onRefresh()
+    } catch (err: any) {
+      // Se o backend responder com conflito de prioridade (409 ou erro explícito)
+      if (
+        err.status === 409 ||
+        err.message?.includes('PRIORITY_CONFLICT') ||
+        err.message?.includes('sobreposição')
+      ) {
+        const impact = calculateConflictImpact(formData) || [
+          {
+            material_code: formData.material_code,
+            material_description: formData.material_description,
+            current_priority: editingRawPriority?.priority_order ?? null,
+            new_priority: formData.priority_order,
+            is_target: true,
+          },
+        ]
+        setConflictImpactList(impact)
+        setPendingRawPayload(formData)
+        setIsConflictModalOpen(true)
+        return
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar prioridade',
+        description: err.message || 'Falha ao processar salvamento de prioridade.',
+      })
+    } finally {
+      setIsSavingRawMaterial(false)
+    }
+  }
+
+  const handleRawFormSubmit = async (formData: RawMaterialPriorityFormData) => {
+    // 1. Checagem prévia de conflito no front-end para abrir o popup de conflito
+    const impact = calculateConflictImpact(formData)
+    if (impact && impact.length > 1) {
+      setConflictImpactList(impact)
+      setPendingRawPayload(formData)
+      setIsConflictModalOpen(true)
+      return
+    }
+
+    // 2. Se sem conflito detectado no front, dispara normalmente
+    await executeSaveRawMaterial(formData, false)
+  }
+
+  const handleConfirmReorganize = async () => {
+    if (!pendingRawPayload) return
+    await executeSaveRawMaterial(pendingRawPayload, true)
   }
 
   const handleOpenAddBlockedProduct = () => {
@@ -2675,86 +2830,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
           {/* Sub-aba: Prioridades de MP */}
           {masterSubTab === 'RAW_MATERIALS' && (
-            <Card
-              id="section-raw-materials"
-              data-target-id="raw-materials"
-              className="bg-white border-slate-200 text-slate-900 shadow-sm transition-all duration-500"
-            >
-              <CardHeader className="p-4 pb-2 border-b border-slate-100 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#004C97]" />
-                    Prioridades de Matéria-Prima & Bobinas
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    Materiais preferenciais para a programação (1 = Prioridade Máxima).
-                  </CardDescription>
-                </div>
-                <Button
-                  id="target-add-raw-material-btn"
-                  size="sm"
-                  onClick={() => setIsRawModalOpen(true)}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs h-7 gap-1 font-bold shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Matéria-Prima
-                </Button>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-2">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-700">
-                    <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
-                      <tr>
-                        <th className="p-2.5">Prioridade</th>
-                        <th className="p-2.5">Material</th>
-                        <th className="p-2.5">Origem / Fornecedor</th>
-                        <th className="p-2.5">Regra / Condição</th>
-                        <th className="p-2.5">Fonte</th>
-                        <th className="p-2.5">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {rawMaterials.map((r) => (
-                        <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-2.5">
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-mono font-bold text-xs">
-                              #{r.priority_order}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5">
-                            <span className="font-mono font-bold text-slate-900 block">
-                              {r.material_code}
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              {r.material_description}
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-slate-700 font-medium">
-                            {r.material_origin || 'CSN / Gerdau'}
-                          </td>
-                          <td className="p-2.5 text-[11px] text-slate-500">
-                            {r.condition_rule || 'Uso Padrão'}
-                          </td>
-                          <td className="p-2.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-slate-200 bg-slate-50 text-slate-600"
-                            >
-                              {r.source_mode}
-                            </Badge>
-                          </td>
-                          <td className="p-2.5">
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
-                              Ativo
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <RawMaterialPrioritiesPanel
+              rawMaterials={rawMaterials}
+              onAddClick={handleOpenAddRawMaterial}
+              onEditClick={handleOpenEditRawMaterial}
+              onToggleStatusClick={handleToggleRawMaterialStatus}
+            />
           )}
 
           {/* Sub-aba: Produtos Bloqueados */}
@@ -3158,127 +3239,35 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: Cadastrar Prioridade de Matéria-Prima */}
-      <Dialog open={isRawModalOpen} onOpenChange={setIsRawModalOpen}>
-        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-lg shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#004C97]" />
-              Cadastrar Prioridade de Matéria-Prima
-            </DialogTitle>
-          </DialogHeader>
+      {/* MODAL: Cadastrar / Editar Prioridade de Matéria-Prima */}
+      <RawMaterialPriorityModal
+        open={isRawModalOpen}
+        lineId={line.id}
+        lineMasterId={master?.id}
+        initialData={editingRawPriority}
+        isSubmitting={isSavingRawMaterial}
+        onClose={() => {
+          setIsRawModalOpen(false)
+          setEditingRawPriority(null)
+        }}
+        onSubmit={handleRawFormSubmit}
+      />
 
-          <div className="space-y-3 py-2 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">
-                  Código do Material (Bobina/Aço)
-                </Label>
-                <Input
-                  placeholder="Ex: BOB_CSN_BQ_1012"
-                  value={rawCode}
-                  onChange={(e) => setRawCode(e.target.value)}
-                  className="bg-white border-slate-300 text-slate-900 font-mono uppercase font-bold focus-visible:ring-[#004C97]"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">
-                  Ordem de Prioridade (1 = Máx)
-                </Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={rawPriority}
-                  onChange={(e) => setRawPriority(Number(e.target.value))}
-                  className="bg-white border-slate-300 text-amber-800 font-mono font-bold focus-visible:ring-[#004C97]"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-medium">Descrição do Material</Label>
-              <Input
-                placeholder="Ex: Bobina Laminada a Quente SAE 1012"
-                value={rawDesc}
-                onChange={(e) => setRawDesc(e.target.value)}
-                className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">
-                  Origem / Usina Fornecedora
-                </Label>
-                <Input
-                  placeholder="Ex: CSN Volta Redonda"
-                  value={rawOrigin}
-                  onChange={(e) => setRawOrigin(e.target.value)}
-                  className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Grupo do Material</Label>
-                <Input
-                  value={rawGroup}
-                  onChange={(e) => setRawGroup(e.target.value)}
-                  className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
-                />
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-[#004C97]">Origem do Cadastro</Label>
-                <select
-                  value={rawSource}
-                  onChange={(e) => setRawSource(e.target.value as any)}
-                  className="bg-white border border-slate-300 rounded text-xs text-slate-900 p-1 focus:ring-1 focus:ring-[#004C97]"
-                >
-                  <option value="MANUAL">MANUAL</option>
-                  <option value="SAP">SAP</option>
-                </select>
-              </div>
-
-              {rawSource === 'SAP' && (
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-slate-600">Integração SAP</Label>
-                  <select
-                    value={rawSapId}
-                    onChange={(e) => setRawSapId(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded text-xs text-[#004C97] p-2 focus:ring-1 focus:ring-[#004C97]"
-                  >
-                    <option value="">Selecione a BAPI / Função Z...</option>
-                    {sapCatalog.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.code} ({s.function_name})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 border-t border-slate-200 pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsRawModalOpen(false)}
-              className="border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveRawMaterial}
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs shadow-xs"
-            >
-              Salvar Prioridade
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* MODAL: Conflito de Prioridade & Reorganização da Hierarquia */}
+      <RawMaterialPriorityConflictModal
+        open={isConflictModalOpen}
+        isEditing={Boolean(pendingRawPayload?.id)}
+        targetPriority={pendingRawPayload?.priority_order ?? 1}
+        targetMaterialCode={pendingRawPayload?.material_code ?? ''}
+        targetMaterialDescription={pendingRawPayload?.material_description}
+        impactList={conflictImpactList}
+        isSubmitting={isSavingRawMaterial}
+        onCancel={() => {
+          setIsConflictModalOpen(false)
+          setPendingRawPayload(null)
+        }}
+        onConfirmReorganize={handleConfirmReorganize}
+      />
 
       {/* MODAL: Cadastrar / Editar Produto Bloqueado */}
       <Dialog open={isBlockModalOpen} onOpenChange={setIsBlockModalOpen}>
