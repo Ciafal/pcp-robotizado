@@ -51,6 +51,8 @@ import {
 } from '@/types/production-reference-documents'
 import { productionControlReferenceDocsService } from '@/services/production-control-reference-docs-service'
 import { SgqDocument, HOMOLOGATION_MOCK_DOCUMENTS } from '@/services/sgq-document-provider'
+import { SgqDocumentMultiSelect } from '@/components/production-control/SgqDocumentMultiSelect'
+import { Edit3 } from 'lucide-react'
 
 export const ProductionReferenceDocumentsPage: React.FC = () => {
   const [documents, setDocuments] = useState<ProductionReferenceDocument[]>([])
@@ -75,7 +77,8 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
   // Modal 4 Etapas de Associação
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1)
   const [sgqSearchTerm, setSgqSearchTerm] = useState('')
-  const [selectedSgqDoc, setSelectedSgqDoc] = useState<SgqDocument | null>(null)
+  // Substituído de singular (selectedSgqDoc) para coleção multi-seleção de ponta a ponta (selectedSgqDocs)
+  const [selectedSgqDocs, setSelectedSgqDocs] = useState<SgqDocument[]>([])
   const [selectedApplications, setSelectedApplications] = useState<
     ProductionReferenceApplication[]
   >([])
@@ -246,7 +249,7 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
   const handleOpenAddModal = () => {
     setWizardStep(1)
     setSgqSearchTerm('')
-    setSelectedSgqDoc(null)
+    setSelectedSgqDocs([])
     setSelectedApplications([])
     setSelectedAiCategories([])
     setCriteriaCompany('')
@@ -263,12 +266,51 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
     setIsAddModalOpen(true)
   }
 
-  // Submissão do Wizard
+  // Abrir Modal de Edição preservando todos os documentos vinculados
+  const handleOpenEditModal = (doc: ProductionReferenceDocument) => {
+    // Localizar documento correspondente no catálogo do SGQ
+    const matchingSgq = HOMOLOGATION_MOCK_DOCUMENTS.find(
+      (s) => s.code === doc.document_code || s.id === doc.document_ref,
+    ) || {
+      id: doc.document_ref || doc.id,
+      code: doc.document_code,
+      title: doc.title,
+      revision: doc.revision,
+      status: doc.status,
+      documentType: doc.document_type || 'Procedimento',
+      process: doc.process || 'Controle de Produção',
+      responsibleArea: doc.responsible_area || 'PCP',
+      validityDateStart: doc.validity_date_start,
+      validityDateEnd: doc.validity_date_end,
+      extractableContent: doc.extractable_content,
+      isDemo: doc.is_demo,
+    }
+
+    // Modo edição: carrega todos os documentos previamente associados
+    setSelectedSgqDocs([matchingSgq])
+    setSelectedApplications(doc.applications || [])
+    setSelectedAiCategories(doc.ai_categories || [])
+    setCriteriaCompany(doc.criteria?.empresa || '')
+    setCriteriaCenter(doc.criteria?.centro || '')
+    setCriteriaLine(doc.criteria?.linha || '')
+    setCriteriaWorkCenter(doc.criteria?.centro_trabalho || '')
+    setCriteriaMaterial(doc.criteria?.material || '')
+    setCriteriaMovement(doc.criteria?.tipo_movimento || '')
+    setCriteriaSapMsg(doc.criteria?.codigo_mensagem_sap || '')
+    setCriteriaProcess(doc.criteria?.processo || '')
+    setPriority(doc.priority || 'ALTA')
+    setIsPrimary(doc.is_primary)
+    setIsActive(doc.active)
+    setWizardStep(1)
+    setIsAddModalOpen(true)
+  }
+
+  // Submissão do Wizard com suporte à coleção multi-seleção N:N
   const handleSaveAssociation = async () => {
-    if (!selectedSgqDoc) {
+    if (selectedSgqDocs.length === 0) {
       toast({
-        title: 'Selecione um documento',
-        description: 'É necessário selecionar um documento oficial do SGQ na Etapa 1.',
+        title: 'Selecione pelo menos um documento',
+        description: 'É necessário selecionar um ou mais documentos oficiais do SGQ na Etapa 1.',
         variant: 'destructive',
       })
       setWizardStep(1)
@@ -287,35 +329,54 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
 
     try {
       setIsSaving(true)
-      const created = await productionControlReferenceDocsService.createReferenceDocument({
-        sgq_doc: selectedSgqDoc,
-        applications: selectedApplications,
-        ai_categories: selectedAiCategories,
-        criteria: {
-          empresa: criteriaCompany || undefined,
-          centro: criteriaCenter || undefined,
-          linha: criteriaLine || undefined,
-          centro_trabalho: criteriaWorkCenter || undefined,
-          material: criteriaMaterial || undefined,
-          tipo_movimento: criteriaMovement || undefined,
-          codigo_mensagem_sap: criteriaSapMsg || undefined,
-          processo: criteriaProcess || undefined,
-        },
-        priority,
-        is_primary: isPrimary,
-        active: isActive,
+      const payloadCriteria = {
+        empresa: criteriaCompany || undefined,
+        centro: criteriaCenter || undefined,
+        linha: criteriaLine || undefined,
+        centro_trabalho: criteriaWorkCenter || undefined,
+        material: criteriaMaterial || undefined,
+        tipo_movimento: criteriaMovement || undefined,
+        codigo_mensagem_sap: criteriaSapMsg || undefined,
+        processo: criteriaProcess || undefined,
+      }
+
+      // Payload enviado ao backend com coleção múltipla (documentosReferenciaIds)
+      const createdDocs =
+        await productionControlReferenceDocsService.saveMultipleReferenceDocuments({
+          sgq_docs: selectedSgqDocs,
+          documentosReferenciaIds: selectedSgqDocs.map((d) => d.id),
+          applications: selectedApplications,
+          ai_categories: selectedAiCategories,
+          criteria: payloadCriteria,
+          priority,
+          is_primary: isPrimary,
+          active: isActive,
+        })
+
+      // Atualiza estado de documentos mesclando os salvos sem duplicar
+      setDocuments((prev) => {
+        const map = new Map<string, ProductionReferenceDocument>()
+        // Adiciona os novos primeiro
+        createdDocs.forEach((d) => map.set(d.id, d))
+        // Preserva os anteriores que não foram alterados
+        prev.forEach((d) => {
+          if (!map.has(d.id)) {
+            map.set(d.id, d)
+          }
+        })
+        return Array.from(map.values())
       })
 
-      setDocuments((prev) => [created, ...prev.filter((d) => d.id !== created.id)])
       setIsAddModalOpen(false)
+      const docCodesStr = selectedSgqDocs.map((d) => d.code).join(', ')
       toast({
-        title: 'Documento de Referência associado com sucesso.',
-        description: `Documento ${created.document_code} vinculado oficialmente às operações da IA.`,
+        title: 'Documentos de Referência associados com sucesso.',
+        description: `${selectedSgqDocs.length} documento(s) (${docCodesStr}) vinculados oficialmente às operações do PCP.`,
       })
     } catch (e: any) {
       toast({
         title: 'Erro ao salvar associação',
-        description: e.message || 'Ocorreu uma falha ao registrar o documento no banco de dados.',
+        description: e.message || 'Ocorreu uma falha ao registrar os documentos no banco de dados.',
         variant: 'destructive',
       })
     } finally {
@@ -784,6 +845,21 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                             </Tooltip>
                           )}
 
+                          {/* Editar Associação */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditModal(doc)}
+                                className="h-8 w-8 p-0 text-slate-600 hover:text-blue-700 hover:bg-slate-100"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs">Editar associação</TooltipContent>
+                          </Tooltip>
+
                           {/* Consultar Documento */}
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -886,7 +962,7 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
             {/* Stepper horizontal */}
             <div className="grid grid-cols-4 gap-2 pt-4">
               {[
-                { step: 1, label: '1. Documento SGQ' },
+                { step: 1, label: '1. Documentos SGQ' },
                 { step: 2, label: '2. Aplicação' },
                 { step: 3, label: '3. Critérios' },
                 { step: 4, label: '4. Governança' },
@@ -894,8 +970,8 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                 <div
                   key={s.step}
                   onClick={() => {
-                    // Navegação se já selecionou o doc
-                    if (s.step === 1 || selectedSgqDoc) {
+                    // Navegação se já selecionou ao menos um doc
+                    if (s.step === 1 || selectedSgqDocs.length > 0) {
                       setWizardStep(s.step as any)
                     }
                   }}
@@ -914,86 +990,44 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
           </DialogHeader>
 
           <div className="py-4 space-y-4">
-            {/* ETAPA 1: SELEÇÃO NO CATÁLOGO DO SGQ */}
+            {/* ETAPA 1: COMBOBOX MULTI-SELECT DE DOCUMENTOS SGQ OFICIAIS */}
             {wizardStep === 1 && (
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700">
-                    Pesquisar no Catálogo Oficial do SGQ
+                  <Label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-700" />
+                    Documentos Oficiais do SGQ (Múltipla Seleção) *
                   </Label>
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <Input
-                      placeholder="Filtrar por código (PO, IT, NO), título, processo..."
-                      value={sgqSearchTerm}
-                      onChange={(e) => setSgqSearchTerm(e.target.value)}
-                      className="pl-9 text-xs"
-                    />
-                  </div>
                   <p className="text-[11px] text-slate-500">
-                    Nenhum upload paralelo é permitido. Todos os procedimentos derivam diretamente
-                    do SGQ homologado da CIAFAL.
+                    Selecione um ou mais procedimentos do SGQ. Todos os documentos derivam
+                    diretamente da base SGQ homologada CIAFAL (sem uploads locais).
                   </p>
                 </div>
 
-                <div className="border border-slate-200 rounded-md divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                  {availableSgqDocs.map((doc) => {
-                    const isSelected = selectedSgqDoc?.id === doc.id
-                    const isObsolete = doc.status === 'OBSOLETO' || doc.status === 'CANCELADO'
-                    return (
-                      <div
-                        key={doc.id}
-                        onClick={() => !isObsolete && setSelectedSgqDoc(doc)}
-                        className={`p-3 text-xs flex items-center justify-between transition-colors ${
-                          isObsolete
-                            ? 'opacity-40 bg-slate-50 cursor-not-allowed'
-                            : isSelected
-                              ? 'bg-blue-50/80 border-l-4 border-l-blue-700 cursor-pointer'
-                              : 'hover:bg-slate-50 cursor-pointer'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-blue-900">{doc.code}</span>
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">
-                              {doc.revision}
-                            </Badge>
-                            <span
-                              className={`text-[10px] px-1.5 py-0 rounded ${
-                                doc.status === 'VIGENTE'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {doc.status}
-                            </span>
-                          </div>
-                          <p className="font-medium text-slate-800">{doc.title}</p>
-                          <p className="text-[11px] text-slate-500">
-                            Área: {doc.responsibleArea || 'PCP'} • Processo:{' '}
-                            {doc.process || 'Geral'}
-                          </p>
-                        </div>
+                {/* Componente Multi-Select Combobox com Chips, Busca, Checkboxes e Contador */}
+                <SgqDocumentMultiSelect
+                  availableDocs={HOMOLOGATION_MOCK_DOCUMENTS}
+                  selectedDocs={selectedSgqDocs}
+                  onChange={(docs) => setSelectedSgqDocs(docs)}
+                  placeholder="Pesquisar e selecionar documentos SGQ oficiais..."
+                  id="wizard-sgq-docs-multi-select"
+                />
 
-                        {isSelected && (
-                          <div className="flex items-center text-blue-700 font-semibold gap-1 text-xs">
-                            <CheckCircle2 className="w-4 h-4" /> Selecionado
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-md text-xs text-blue-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-700" />
+                    <span>
+                      {selectedSgqDocs.length === 0
+                        ? 'Nenhum documento selecionado ainda.'
+                        : `${selectedSgqDocs.length} documento(s) selecionado(s) para vinculação conjunta.`}
+                    </span>
+                  </div>
+                  {selectedSgqDocs.length > 0 && (
+                    <span className="font-mono font-semibold text-[11px] text-blue-950">
+                      {selectedSgqDocs.map((d) => d.code).join(', ')}
+                    </span>
+                  )}
                 </div>
-
-                {selectedSgqDoc && (
-                  <Card className="bg-blue-50/50 border-blue-200 p-3">
-                    <p className="text-xs font-semibold text-blue-950 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-blue-700" />
-                      Documento selecionado: {selectedSgqDoc.code} ({selectedSgqDoc.revision})
-                    </p>
-                    <p className="text-xs text-blue-900 mt-1">{selectedSgqDoc.title}</p>
-                  </Card>
-                )}
               </div>
             )}
 
@@ -1227,12 +1261,14 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
                     <div>
-                      <span className="font-medium text-slate-700">Documento:</span>{' '}
-                      {selectedSgqDoc?.code} ({selectedSgqDoc?.revision})
+                      <span className="font-medium text-slate-700">Documentos:</span>{' '}
+                      {selectedSgqDocs.length > 0
+                        ? selectedSgqDocs.map((d) => `${d.code} (${d.revision})`).join(', ')
+                        : 'Nenhum'}
                     </div>
                     <div>
-                      <span className="font-medium text-slate-700">Status SGQ:</span>{' '}
-                      {selectedSgqDoc?.status}
+                      <span className="font-medium text-slate-700">Quantidade:</span>{' '}
+                      {selectedSgqDocs.length} documento(s)
                     </div>
                     <div>
                       <span className="font-medium text-slate-700">Aplicações:</span>{' '}
@@ -1280,10 +1316,11 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={() => {
-                    if (wizardStep === 1 && !selectedSgqDoc) {
+                    if (wizardStep === 1 && selectedSgqDocs.length === 0) {
                       toast({
                         title: 'Selecione um documento',
-                        description: 'Escolha um documento oficial do SGQ para prosseguir.',
+                        description:
+                          'Escolha pelo menos um documento oficial do SGQ para prosseguir.',
                         variant: 'destructive',
                       })
                       return
@@ -1310,7 +1347,9 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                   disabled={isSaving}
                   className="bg-blue-800 hover:bg-blue-900 text-white text-xs font-semibold"
                 >
-                  {isSaving ? 'Salvando Associação...' : 'Salvar Associação'}
+                  {isSaving
+                    ? 'Salvando Associações...'
+                    : `Salvar ${selectedSgqDocs.length} Associação(ões)`}
                 </Button>
               )}
             </div>

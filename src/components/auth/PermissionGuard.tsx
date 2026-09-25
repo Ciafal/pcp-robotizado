@@ -31,22 +31,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const currentPathname =
     location.pathname || (typeof window !== 'undefined' ? window.location?.pathname : '') || ''
 
-  // BYPASS IMEDIATO (0ms) no topo absoluto antes de qualquer loading / timeout / authStore:
-  // Libera rotas operacionais, cadastrais e de controle de produção
-  if (
-    permission === 'pcp.production.view' ||
-    currentPathname.startsWith('/pcp/controle-producao') ||
-    currentPathname.startsWith('/pcp/producao') ||
-    currentPathname === '/' ||
-    currentPathname === '/pcp' ||
-    currentPathname === '/pcp/' ||
-    currentPathname.startsWith('/pcp/cockpit') ||
-    currentPathname.startsWith('/pcp/principal') ||
-    currentPathname.startsWith('/pcp-robotizado')
-  ) {
-    return <>{children}</>
-  }
-
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -94,7 +78,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const hasAvailableAuthContext = Boolean(user || hasValidAuthStore)
 
   // Timeout de segurança: nunca prender o guard em loading indefinidamente
-  // Apenas arma o timer se ainda estiver em loading e não tiver contexto de auth disponível
+  // Chamada incondicional de hook respeitando rules-of-hooks
   React.useEffect(() => {
     if (!isLoading && !isRetrying) {
       setTimedOut(false)
@@ -112,6 +96,22 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
     return () => window.clearTimeout(timer)
   }, [isLoading, isRetrying, hasAvailableAuthContext])
+
+  // BYPASS IMEDIATO:
+  // Libera rotas operacionais, cadastrais e de controle de produção
+  if (
+    permission === 'pcp.production.view' ||
+    currentPathname.startsWith('/pcp/controle-producao') ||
+    currentPathname.startsWith('/pcp/producao') ||
+    currentPathname === '/' ||
+    currentPathname === '/pcp' ||
+    currentPathname === '/pcp/' ||
+    currentPathname.startsWith('/pcp/cockpit') ||
+    currentPathname.startsWith('/pcp/principal') ||
+    currentPathname.startsWith('/pcp-robotizado')
+  ) {
+    return <>{children}</>
+  }
 
   // BYPASS IMEDIATO:
   // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros

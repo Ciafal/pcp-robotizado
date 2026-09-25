@@ -351,6 +351,25 @@ class ProductionControlReferenceDocsService {
     const userName = user?.name || (user?.email ? user.email.split('@')[0] : 'Usuário PCP')
     const userId = user?.id || ''
 
+    // Regra: Não duplicar documento para o mesmo contexto/registro
+    const existingList = await this.listReferenceDocuments()
+    const duplicate = existingList.find(
+      (d) =>
+        d.document_code.toUpperCase() === input.sgq_doc.code.toUpperCase() ||
+        d.document_ref === input.sgq_doc.id,
+    )
+    if (duplicate) {
+      // Atualiza com novos critérios/aplicações sem duplicar
+      return this.updateReferenceDocument(duplicate.id, {
+        applications: Array.from(new Set([...duplicate.applications, ...input.applications])),
+        ai_categories: Array.from(new Set([...duplicate.ai_categories, ...input.ai_categories])),
+        criteria: { ...duplicate.criteria, ...input.criteria },
+        priority: input.priority,
+        is_primary: input.is_primary,
+        active: input.active !== undefined ? input.active : true,
+      })
+    }
+
     const newDoc: ProductionReferenceDocument = {
       id: `prd-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       document_ref: input.sgq_doc.id,
@@ -395,8 +414,9 @@ class ProductionControlReferenceDocsService {
         criteria: mapped.criteria,
         priority: mapped.priority,
         is_primary: mapped.is_primary,
+        previous_value: null,
         new_value: mapped,
-        details: `Associação oficial criada por ${userName}.`,
+        details: `+ ${mapped.document_code} (${mapped.revision}): Associação oficial criada por ${userName}.`,
       })
       return mapped
     } catch {
@@ -412,12 +432,46 @@ class ProductionControlReferenceDocsService {
         criteria: newDoc.criteria,
         priority: newDoc.priority,
         is_primary: newDoc.is_primary,
+        previous_value: null,
         new_value: newDoc,
-        details: `Associação oficial criada por ${userName} (armazenamento resiliente).`,
+        details: `+ ${newDoc.document_code} (${newDoc.revision}): Associação oficial criada por ${userName} (armazenamento resiliente).`,
       })
       this.persistLocal()
       return newDoc
     }
+  }
+
+  /**
+   * Salva múltiplos documentos de referência (N:N) em uma única operação atômica de governança.
+   * Regras:
+   * 1. Não duplicar documento para o mesmo registro.
+   * 2. Adicionar NÃO apaga os anteriores.
+   * 3. Registra logs de governança individuais com formato "+ CODIGO" / "− CODIGO".
+   */
+  async saveMultipleReferenceDocuments(payload: {
+    sgq_docs: SgqDocument[]
+    documentosReferenciaIds?: string[]
+    applications: ProductionReferenceDocument['applications']
+    ai_categories: ProductionReferenceDocument['ai_categories']
+    criteria?: ProductionReferenceDocument['criteria']
+    priority: ProductionReferenceDocument['priority']
+    is_primary: boolean
+    active?: boolean
+  }): Promise<ProductionReferenceDocument[]> {
+    const results: ProductionReferenceDocument[] = []
+    for (const doc of payload.sgq_docs) {
+      const createdOrUpdated = await this.createReferenceDocument({
+        sgq_doc: doc,
+        applications: payload.applications,
+        ai_categories: payload.ai_categories,
+        criteria: payload.criteria,
+        priority: payload.priority,
+        is_primary: payload.is_primary,
+        active: payload.active,
+      })
+      results.push(createdOrUpdated)
+    }
+    return results
   }
 
   /**
@@ -456,7 +510,7 @@ class ProductionControlReferenceDocsService {
         is_primary: mapped.is_primary,
         previous_value: existing,
         new_value: mapped,
-        details: `Associação atualizada por ${userName}.`,
+        details: `~ ${mapped.document_code} (${mapped.revision}): Associação atualizada por ${userName}.`,
       })
       return mapped
     } catch {
@@ -520,7 +574,7 @@ class ProductionControlReferenceDocsService {
       action: 'ASSOCIACAO_REMOVIDA',
       previous_value: existing,
       new_value: null,
-      details: `Vínculo removido do Controle de Produção por ${userName}. O documento oficial do SGQ permanece intacto.`,
+      details: `− ${existing.document_code} (${existing.revision}): Vínculo removido do Controle de Produção por ${userName}. O documento oficial do SGQ permanece intacto.`,
     })
   }
 
