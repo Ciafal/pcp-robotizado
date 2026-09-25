@@ -376,12 +376,21 @@ export interface LineProductivityRate {
   }
 }
 // 9. Prioridades de Matéria-Prima (line_raw_material_priorities)
+export type RawMaterialPriorityCriterion =
+  | 'Rotativa'
+  | 'Cíclica'
+  | 'Fixa'
+  | 'Rígida'
+  | 'Flexível'
+  | 'Outro'
+
 export interface LineRawMaterialPriority {
   id: string
   line_id: string
   line_master_id?: string
   material_code: string
   material_description: string
+  bitola?: string
   material_group?: string
   product_family_id?: string
   material_origin?: string
@@ -391,6 +400,11 @@ export interface LineRawMaterialPriority {
   sap_integration_id?: string
   valid_from?: string
   valid_until?: string
+  criterio_prioridade?: RawMaterialPriorityCriterion | string
+  descricao_outro_criterio?: string
+  idempotency_key?: string
+  criado_por?: string
+  atualizado_por?: string
   active: boolean
   created?: string
   updated?: string

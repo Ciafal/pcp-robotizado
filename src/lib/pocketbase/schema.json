@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T21:57:29.428Z",
+  "generatedAt": "2026-09-25T22:13:32.722Z",
   "collections": [
     {
       "name": "users",
@@ -3142,6 +3142,42 @@
         },
         {
           "name": "priority_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "bitola",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criterio_prioridade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "descricao_outro_criterio",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "idempotency_key",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criado_por",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "atualizado_por",
           "type": "text",
           "required": false,
           "system": false

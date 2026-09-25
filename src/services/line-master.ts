@@ -1301,16 +1301,259 @@ export const lineMasterService = {
   // ==========================================
   // 7. PRIORIDADES DE MATÉRIA-PRIMA (CRUD)
   // ==========================================
-  async saveRawMaterialPriority(
-    data: Partial<LineRawMaterialPriority>,
-  ): Promise<LineRawMaterialPriority> {
-    invalidateCompletenessCache(data.line_id)
-    if (data.id) {
-      return await pb
-        .collection('line_raw_material_priorities')
-        .update<LineRawMaterialPriority>(data.id, data)
+  async checkRawMaterialPriorityConflict(
+    lineId: string,
+    priorityOrder: number,
+    validFrom: string,
+    validUntil?: string | null,
+    currentId?: string,
+  ): Promise<{
+    hasConflict: boolean
+    conflictingRecord?: LineRawMaterialPriority
+    impactList: Array<{
+      id?: string
+      material_code: string
+      material_description: string
+      current_priority: number | null
+      new_priority: number
+      is_target?: boolean
+    }>
+  }> {
+    const fromStr = (validFrom || '').slice(0, 10) || '1970-01-01'
+    const untilStr = (validUntil || '').slice(0, 10) || '9999-12-31'
+
+    const activeList = await pb
+      .collection('line_raw_material_priorities')
+      .getFullList<LineRawMaterialPriority>({
+        filter: `line_id = '${lineId}' && active = true`,
+        sort: 'priority_order',
+      })
+      .catch(() => [])
+
+    const isOverlap = (sA: string, eA: string, sB: string, eB: string) => sA <= eB && eA >= sB
+
+    const conflicting = activeList.filter((rec) => {
+      if (currentId && rec.id === currentId) return false
+      if (rec.priority_order !== priorityOrder) return false
+      const rFrom = (rec.valid_from || '').slice(0, 10) || '1970-01-01'
+      const rUntil = (rec.valid_until || '').slice(0, 10) || '9999-12-31'
+      return isOverlap(fromStr, untilStr, rFrom, rUntil)
+    })
+
+    if (conflicting.length === 0) {
+      return { hasConflict: false, impactList: [] }
     }
-    return await pb.collection('line_raw_material_priorities').create<LineRawMaterialPriority>(data)
+
+    // Calcular impacto de reorganização
+    const currentTarget = currentId ? activeList.find((r) => r.id === currentId) : null
+    const oldPrio = currentTarget ? currentTarget.priority_order : null
+
+    const impactList: Array<{
+      id?: string
+      material_code: string
+      material_description: string
+      current_priority: number | null
+      new_priority: number
+      is_target?: boolean
+    }> = []
+
+    if (!currentId) {
+      // Inserção nova: quem tem prio >= priorityOrder sobreposto vai +1
+      const toShift = activeList.filter((rec) => {
+        if (rec.priority_order < priorityOrder) return false
+        const rFrom = (rec.valid_from || '').slice(0, 10) || '1970-01-01'
+        const rUntil = (rec.valid_until || '').slice(0, 10) || '9999-12-31'
+        return isOverlap(fromStr, untilStr, rFrom, rUntil)
+      })
+
+      toShift.forEach((c) => {
+        impactList.push({
+          id: c.id,
+          material_code: c.material_code,
+          material_description: c.material_description,
+          current_priority: c.priority_order,
+          new_priority: c.priority_order + 1,
+          is_target: false,
+        })
+      })
+    } else if (oldPrio !== null && oldPrio !== priorityOrder) {
+      if (oldPrio > priorityOrder) {
+        // Exemplo 4 para 2: quem está entre 2 e 3 sobe +1 (2->3, 3->4)
+        const toShift = activeList.filter((rec) => {
+          if (rec.id === currentId) return false
+          if (rec.priority_order < priorityOrder || rec.priority_order >= oldPrio) return false
+          const rFrom = (rec.valid_from || '').slice(0, 10) || '1970-01-01'
+          const rUntil = (rec.valid_until || '').slice(0, 10) || '9999-12-31'
+          return isOverlap(fromStr, untilStr, rFrom, rUntil)
+        })
+        toShift.forEach((c) => {
+          impactList.push({
+            id: c.id,
+            material_code: c.material_code,
+            material_description: c.material_description,
+            current_priority: c.priority_order,
+            new_priority: c.priority_order + 1,
+            is_target: false,
+          })
+        })
+      } else {
+        // Exemplo 2 para 4: quem está entre 3 e 4 desce -1 (3->2, 4->3)
+        const toShift = activeList.filter((rec) => {
+          if (rec.id === currentId) return false
+          if (rec.priority_order <= oldPrio || rec.priority_order > priorityOrder) return false
+          const rFrom = (rec.valid_from || '').slice(0, 10) || '1970-01-01'
+          const rUntil = (rec.valid_until || '').slice(0, 10) || '9999-12-31'
+          return isOverlap(fromStr, untilStr, rFrom, rUntil)
+        })
+        toShift.forEach((c) => {
+          impactList.push({
+            id: c.id,
+            material_code: c.material_code,
+            material_description: c.material_description,
+            current_priority: c.priority_order,
+            new_priority: c.priority_order - 1,
+            is_target: false,
+          })
+        })
+      }
+    }
+
+    return {
+      hasConflict: true,
+      conflictingRecord: conflicting[0],
+      impactList,
+    }
+  },
+
+  async saveRawMaterialPriority(
+    data: Partial<LineRawMaterialPriority> & {
+      reorganize_hierarchy?: boolean
+      idempotency_key?: string
+    },
+  ): Promise<{
+    record: LineRawMaterialPriority
+    reorganizedCount: number
+    message: string
+  }> {
+    if (data.line_id) {
+      invalidateCompletenessCache(data.line_id)
+    }
+
+    // 1. Tentar endpoint atômico do backend com transação e auditoria
+    try {
+      const response = await pb.send<{
+        success: boolean
+        record: LineRawMaterialPriority
+        reorganizedCount: number
+        message: string
+        conflict?: boolean
+        impactList?: any[]
+      }>('/backend/v1/pcp/raw-material-priorities/save', {
+        method: 'POST',
+        body: data,
+      })
+
+      if (response && response.record) {
+        return {
+          record: response.record,
+          reorganizedCount: response.reorganizedCount || 0,
+          message: response.message || 'Prioridade de MP salva com sucesso.',
+        }
+      }
+    } catch (endpointErr: any) {
+      // Se for conflito 409 lançado pelo endpoint
+      if (endpointErr?.status === 409 || endpointErr?.data?.conflict) {
+        const conflictData = endpointErr.data || {}
+        const err = new Error(conflictData.message || 'Conflito de prioridade')
+        ;(err as any).conflict = true
+        ;(err as any).conflictingRecord = conflictData.conflictingRecord
+        ;(err as any).impactList = conflictData.impactList || []
+        throw err
+      }
+      // Se for validação 400
+      if (endpointErr?.status === 400 && endpointErr?.data?.error) {
+        throw new Error(endpointErr.data.error)
+      }
+      // Se o endpoint não estiver disponível por algum motivo ou em ambiente mock de testes, fallback cliente
+      console.warn(
+        'Endpoint /raw-material-priorities/save falhou, utilizando fallback cliente:',
+        endpointErr,
+      )
+    }
+
+    // Fallback cliente caso backend custom endpoint não responda
+    const cleanPayload: Record<string, any> = { ...data }
+    delete cleanPayload.reorganize_hierarchy
+
+    let savedRecord: LineRawMaterialPriority
+    if (data.id) {
+      savedRecord = await pb
+        .collection('line_raw_material_priorities')
+        .update<LineRawMaterialPriority>(data.id, cleanPayload)
+    } else {
+      savedRecord = await pb
+        .collection('line_raw_material_priorities')
+        .create<LineRawMaterialPriority>(cleanPayload)
+    }
+
+    return {
+      record: savedRecord,
+      reorganizedCount: 0,
+      message: data.id
+        ? 'Prioridade de MP atualizada com sucesso.'
+        : 'Prioridade de MP salva com sucesso.',
+    }
+  },
+
+  async setRawMaterialPriorityActive(
+    id: string,
+    active: boolean,
+  ): Promise<LineRawMaterialPriority> {
+    const previous = await pb
+      .collection('line_raw_material_priorities')
+      .getOne<LineRawMaterialPriority>(id)
+    if (previous?.line_id) {
+      invalidateCompletenessCache(previous.line_id)
+    }
+
+    const updated = await pb
+      .collection('line_raw_material_priorities')
+      .update<LineRawMaterialPriority>(id, { active })
+
+    const currentUser = pb.authStore.record
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: (currentUser as any)?.email || '',
+        user_name: (currentUser as any)?.name || (currentUser as any)?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: active ? 'ACTIVATE_RAW_MATERIAL_PRIORITY' : 'DEACTIVATE_RAW_MATERIAL_PRIORITY',
+        resource: 'line_raw_material_priorities',
+        resource_id: updated.id,
+        permission_required: 'pcp.lines.manage',
+        company: 'CIAFAL',
+        line: updated.line_id,
+        center: updated.line_id,
+        module: 'Centros e Ficha Mestra',
+        screen: 'Ficha Mestre Expandida > Prioridades MP',
+        entity: 'line_raw_material_priorities',
+        record_id: updated.id,
+        outcome: 'SUCCESS',
+        reason: `MP ${updated.material_code} — status alterado de ${previous.active ? 'Ativo' : 'Inativo'} para ${updated.active ? 'Ativo' : 'Inativo'}`,
+        details: {
+          line_id: updated.line_id,
+          material_code: updated.material_code,
+          material_description: updated.material_description,
+          previous_status: previous.active ? 'Ativo' : 'Inativo',
+          new_status: updated.active ? 'Ativo' : 'Inativo',
+        },
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    return updated
   },
 
   async deleteRawMaterialPriority(id: string): Promise<boolean> {
