@@ -1,7 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import { pcpAuditService } from '@/services/pcp-audit-service'
 import { cancelledOrdersService } from '@/services/cancelled-orders-service'
-import { MOTIVOS_CATEGORIZADOS } from '@/data/cancellation-reasons-catalog'
+import { OFFICIAL_CANCELLATION_CATALOG } from '@/data/cancellation-reasons-catalog'
 
 export interface DailySnapshotRecord {
   id?: string
@@ -305,7 +305,9 @@ export function calculateAbcDistribution(itensPorCurva: { A: number; B: number; 
 // Reutiliza os mesmos motivos do catálogo existente
 // -------------------------------------------------------------
 export const MOTIVOS_PCP_PLANEJAMENTO: string[] = [
-  ...MOTIVOS_CATEGORIZADOS['PCP / Planejamento'],
+  ...OFFICIAL_CANCELLATION_CATALOG.filter((i) => i.category === 'PCP/Planejamento').map(
+    (i) => i.reason,
+  ),
   'Sem estoque em pronta entrega',
   'Falta de data de programação',
   'Sem data de laminação',

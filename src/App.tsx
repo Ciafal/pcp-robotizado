@@ -125,6 +125,13 @@ const PedidosCanceladosPage = lazyWithRetry(
     })),
   'PedidosCanceladosPage',
 )
+const KpisCarteiraPage = lazyWithRetry(
+  () =>
+    import('@/pages/KpisCarteiraPage').then((m) => ({
+      default: m.default ?? m.KpisCarteiraPage,
+    })),
+  'KpisCarteiraPage',
+)
 const ScenariosPage = lazyWithRetry(
   () => import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
   'ScenariosPage',
@@ -951,6 +958,14 @@ export const App: React.FC = () => {
                     element={
                       <PermissionGuard permission="pcp.carteira.view">
                         <AnaliseCarteiraPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/kpis"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <KpisCarteiraPage />
                       </PermissionGuard>
                     }
                   />

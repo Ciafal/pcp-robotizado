@@ -98,15 +98,20 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais e de controle de produção sem timeout ou flicker
+  // Libera rotas operacionais, cadastrais, análise de carteira e controle de produção sem timeout ou flicker
   const isCarteiraRouteOrPerm =
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
+    currentPathname.includes('analise-carteira') ||
+    currentPathname.includes('carteira') ||
+    currentPathname.includes('cancelados') ||
+    currentPathname.includes('kpis') ||
     currentPathname.startsWith('/pcp/analise-carteira') ||
     currentPathname.startsWith('/pcp-robotizado/analise-carteira') ||
     currentPathname.startsWith('/analise-carteira') ||
     currentPathname.startsWith('/carteira-analise') ||
-    currentPathname.startsWith('/pcp/pedidos-cancelados')
+    currentPathname.startsWith('/pcp/pedidos-cancelados') ||
+    currentPathname.includes('/pedidos-cancelados')
 
   if (
     isCarteiraRouteOrPerm ||
@@ -177,6 +182,20 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // 2) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
   if (isAdminUser) {
+    return <>{children}</>
+  }
+
+  // 3) Rotas de Análise de Carteira (/pcp/analise-carteira/*, /analise-carteira/*) e permissões de carteira
+  // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
+  if (
+    permission === 'pcp.carteira.view' ||
+    permission.startsWith('pcp.carteira.') ||
+    currentPathname.includes('analise-carteira') ||
+    currentPathname.includes('carteira') ||
+    currentPathname.includes('cancelados') ||
+    currentPathname.includes('kpis') ||
+    currentPathname.includes('/pedidos-cancelados')
+  ) {
     return <>{children}</>
   }
 
