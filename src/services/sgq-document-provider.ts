@@ -10,6 +10,8 @@
  *   última atualização, indicadores de vigente e aprovado.
  */
 
+import { pb } from '@/lib/pocketbase/client'
+
 export type SgqDocumentStatus = 'VIGENTE' | 'OBSOLETO' | 'CANCELADO' | 'SUBSTITUIDO'
 
 export type SgqInterferenceCategory =
@@ -253,7 +255,33 @@ export class SgqDocumentAdapter implements ISgqDocumentProvider {
       }
     }
 
-    // 2. Modo de Homologação / Simulado ativado explicitamente
+    // 2. Coleção oficial sgq_documented_information no PocketBase
+    try {
+      if (pb) {
+        const count = await pb
+          .collection('sgq_documented_information')
+          .getList(1, 1, { requestKey: null })
+        if (count && count.totalItems > 0) {
+          return {
+            connected: true,
+            state: 'CONECTADO',
+            title: 'SGQ Oficial Integrado',
+            message:
+              'Comunicação ativa com o repositório oficial de Informação Documentada do SGQ.',
+            description: `Repositório oficial ativo com ${count.totalItems} documentos vigentes catalogados.`,
+            lastSyncAt: this.lastSyncTimestamp || new Date().toISOString(),
+            endpoint: 'pocketbase://sgq_documented_information',
+            sourceLabel: 'SGQ > Informação Documentada',
+            isSimulatedHomologation: false,
+            totalAvailable: count.totalItems,
+          }
+        }
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+
+    // 3. Modo de Homologação / Simulado ativado explicitamente
     if (this.config.enableHomologationMock) {
       return {
         connected: true,
@@ -270,7 +298,7 @@ export class SgqDocumentAdapter implements ISgqDocumentProvider {
       }
     }
 
-    // 3. Não configurado — mensagem exata requerida pelo item 5 do briefing:
+    // 4. Não configurado
     return {
       connected: false,
       state: 'NAO_CONFIGURADO',
@@ -284,7 +312,64 @@ export class SgqDocumentAdapter implements ISgqDocumentProvider {
   }
 
   async searchDocuments(filters: SgqSearchFilters): Promise<SgqDocument[]> {
-    // Se há endpoint real configurado, chama via fetch com timeout
+    // 1. Tentar consultar coleção oficial de Informação Documentada do SGQ no banco de dados
+    try {
+      if (pb) {
+        const filterParts: string[] = []
+        if (filters.status) {
+          filterParts.push(`status = "${filters.status}"`)
+        }
+        if (filters.code) {
+          filterParts.push(`code ~ "${filters.code}"`)
+        }
+        if (filters.name) {
+          filterParts.push(`title ~ "${filters.name}"`)
+        }
+        if (filters.documentType) {
+          filterParts.push(`document_type ~ "${filters.documentType}"`)
+        }
+        if (filters.process) {
+          filterParts.push(`process ~ "${filters.process}"`)
+        }
+        if (filters.responsibleArea) {
+          filterParts.push(`responsible_area ~ "${filters.responsibleArea}"`)
+        }
+
+        const records = await pb.collection('sgq_documented_information').getFullList({
+          filter: filterParts.length > 0 ? filterParts.join(' && ') : undefined,
+          sort: 'code',
+          requestKey: null,
+        })
+
+        if (records && records.length > 0) {
+          this.lastSyncTimestamp = new Date().toISOString()
+          return records.map((r: any) => ({
+            id: r.id,
+            code: r.code,
+            title: r.title,
+            revision: r.revision || 'Rev.01',
+            status: (r.status as SgqDocumentStatus) || 'VIGENTE',
+            documentType: r.document_type || '',
+            responsibleArea: r.responsible_area || '',
+            process: r.process || '',
+            validityDateStart: r.validity_date_start || '',
+            validityDateEnd: r.validity_date_end || '',
+            validityDate: r.validity_date_end || '',
+            originalUrl: r.original_url || '',
+            activeRevisionRef: r.active_revision_ref || `${r.code}-${r.revision}`,
+            extractableContent: r.extractable_content || '',
+            lastUpdatedAt: r.updated || r.created,
+            isCurrentValid: r.status === 'VIGENTE',
+            isApproved: true,
+            isSimulatedHomologation: false,
+          }))
+        }
+      }
+    } catch (dbErr) {
+      console.warn('Coleção sgq_documented_information não disponível ou erro no banco:', dbErr)
+    }
+
+    // 2. Se há endpoint real configurado, chama via fetch com timeout
     if (this.config.endpointUrl) {
       try {
         const url = new URL(`${this.config.endpointUrl.replace(/\/$/, '')}/documents`)
@@ -329,7 +414,7 @@ export class SgqDocumentAdapter implements ISgqDocumentProvider {
       }
     }
 
-    // Se homologação mock está permitida
+    // 3. Se homologação mock está permitida
     if (this.config.enableHomologationMock) {
       let filtered = [...HOMOLOGATION_MOCK_DOCUMENTS]
       if (filters.code) {
@@ -376,6 +461,52 @@ export class SgqDocumentAdapter implements ISgqDocumentProvider {
   }
 
   async getDocumentById(id: string): Promise<SgqDocument | null> {
+    // 1. Consultar primeiro na coleção oficial sgq_documented_information
+    try {
+      if (pb) {
+        let record = null
+        try {
+          record = await pb
+            .collection('sgq_documented_information')
+            .getOne(id, { requestKey: null })
+        } catch {
+          // Pode ser o code em vez do id
+          try {
+            record = await pb
+              .collection('sgq_documented_information')
+              .getFirstListItem(`code = "${id}"`, { requestKey: null })
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+
+        if (record) {
+          return {
+            id: record.id,
+            code: record.code,
+            title: record.title,
+            revision: record.revision || 'Rev.01',
+            status: (record.status as SgqDocumentStatus) || 'VIGENTE',
+            documentType: record.document_type || '',
+            responsibleArea: record.responsible_area || '',
+            process: record.process || '',
+            validityDateStart: record.validity_date_start || '',
+            validityDateEnd: record.validity_date_end || '',
+            validityDate: record.validity_date_end || '',
+            originalUrl: record.original_url || '',
+            activeRevisionRef: record.active_revision_ref || `${record.code}-${record.revision}`,
+            extractableContent: record.extractable_content || '',
+            lastUpdatedAt: record.updated || record.created,
+            isCurrentValid: record.status === 'VIGENTE',
+            isApproved: true,
+            isSimulatedHomologation: false,
+          }
+        }
+      }
+    } catch {
+      /* intentionally ignored */
+    }
+
     if (this.config.endpointUrl) {
       try {
         const res = await fetch(

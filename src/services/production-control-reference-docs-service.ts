@@ -325,14 +325,19 @@ class ProductionControlReferenceDocsService {
     try {
       const records = await pb.collection('pcp_production_reference_documents').getFullList({
         sort: '-is_primary,-priority,document_code',
+        requestKey: null,
       })
-      if (records && records.length > 0) {
-        return records.map(this.mapRecordToDoc)
+      if (records) {
+        const mapped = records.map(this.mapRecordToDoc)
+        this.inMemoryDocs = mapped
+        this.persistLocal()
+        return mapped
       }
-    } catch {
-      // Backend offline / coleção ainda não provisionada: fallback para memória local resiliente
+      return []
+    } catch (err) {
+      console.warn('Falha ao consultar pcp_production_reference_documents do banco:', err)
+      return [...this.inMemoryDocs]
     }
-    return [...this.inMemoryDocs]
   }
 
   /**
@@ -370,40 +375,50 @@ class ProductionControlReferenceDocsService {
       })
     }
 
-    const newDoc: ProductionReferenceDocument = {
-      id: `prd-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    const nowIso = new Date().toISOString()
+    const payloadForPb = {
       document_ref: input.sgq_doc.id,
       document_code: input.sgq_doc.code,
       title: input.sgq_doc.title,
       revision: input.sgq_doc.revision,
       revision_date: input.sgq_doc.validityDateStart || input.sgq_doc.lastUpdatedAt || '2024-01-01',
-      status: input.sgq_doc.status,
+      status: input.sgq_doc.status === 'EM_REVISAO' ? 'VIGENTE' : input.sgq_doc.status || 'VIGENTE',
       document_type: input.sgq_doc.documentType || 'Procedimento',
       process: input.sgq_doc.process || 'Controle de Produção',
       responsible_area: input.sgq_doc.responsibleArea || 'PCP',
-      validity_date_start: input.sgq_doc.validityDateStart,
-      validity_date_end: input.sgq_doc.validityDateEnd,
+      validity_date_start: input.sgq_doc.validityDateStart || '',
+      validity_date_end: input.sgq_doc.validityDateEnd || '',
       document_author: input.sgq_doc.responsibleArea || 'Gestão da Qualidade',
       source: 'SGQ > Informação Documentada (Oficial)',
       original_url: input.sgq_doc.originalUrl || '',
-      last_sync_at: new Date().toISOString(),
-      applications: input.applications,
-      ai_categories: input.ai_categories,
-      criteria: input.criteria,
-      priority: input.priority,
-      is_primary: input.is_primary,
+      last_sync_at: nowIso,
+      applications: input.applications || [],
+      ai_categories: input.ai_categories || [],
+      criteria: input.criteria || {},
+      priority: input.priority || 'ALTA',
+      is_primary: Boolean(input.is_primary),
       active: input.active !== undefined ? input.active : true,
       has_new_revision_available: false,
+      new_revision_details: null,
       extractable_content: input.sgq_doc.extractableContent || '',
       created_by_user_id: userId,
       created_by_user_name: userName,
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
     }
 
     try {
-      const record = await pb.collection('pcp_production_reference_documents').create(newDoc)
+      const record = await pb
+        .collection('pcp_production_reference_documents')
+        .create(payloadForPb, {
+          requestKey: null,
+        })
       const mapped = this.mapRecordToDoc(record)
+      // Mantém memória e cache local sincronizados com o backend
+      this.inMemoryDocs = this.inMemoryDocs.filter(
+        (d) => d.id !== mapped.id && d.document_code !== mapped.document_code,
+      )
+      this.inMemoryDocs.unshift(mapped)
+      this.persistLocal()
+
       await this.recordGovernanceLog({
         reference_document_id: mapped.id,
         document_code: mapped.document_code,
@@ -419,25 +434,15 @@ class ProductionControlReferenceDocsService {
         details: `+ ${mapped.document_code} (${mapped.revision}): Associação oficial criada por ${userName}.`,
       })
       return mapped
-    } catch {
-      // Fallback local
-      this.inMemoryDocs.unshift(newDoc)
-      await this.recordGovernanceLog({
-        reference_document_id: newDoc.id,
-        document_code: newDoc.document_code,
-        revision: newDoc.revision,
-        action: 'ASSOCIACAO_CRIADA',
-        applications: newDoc.applications,
-        categories: newDoc.ai_categories,
-        criteria: newDoc.criteria,
-        priority: newDoc.priority,
-        is_primary: newDoc.is_primary,
-        previous_value: null,
-        new_value: newDoc,
-        details: `+ ${newDoc.document_code} (${newDoc.revision}): Associação oficial criada por ${userName} (armazenamento resiliente).`,
-      })
-      this.persistLocal()
-      return newDoc
+    } catch (createErr: any) {
+      console.error('Erro na criação de pcp_production_reference_documents no backend:', createErr)
+      const errorMsg =
+        createErr?.response?.message ||
+        createErr?.message ||
+        'Falha de comunicação com o servidor ao persistir associação.'
+      throw new Error(
+        `Não foi possível salvar a associação de ${input.sgq_doc.code}. Motivo: ${errorMsg}`,
+      )
     }
   }
 
@@ -495,9 +500,25 @@ class ProductionControlReferenceDocsService {
       updated: new Date().toISOString(),
     }
 
+    // Prepara payload de update limpando id/created/updated
+    const payloadForUpdate: any = { ...updates }
+    delete payloadForUpdate.id
+    delete payloadForUpdate.created
+    delete payloadForUpdate.updated
+
     try {
-      const record = await pb.collection('pcp_production_reference_documents').update(id, updates)
+      const record = await pb
+        .collection('pcp_production_reference_documents')
+        .update(id, payloadForUpdate, { requestKey: null })
       const mapped = this.mapRecordToDoc(record)
+      const idx = this.inMemoryDocs.findIndex((d) => d.id === id)
+      if (idx !== -1) {
+        this.inMemoryDocs[idx] = mapped
+      } else {
+        this.inMemoryDocs.unshift(mapped)
+      }
+      this.persistLocal()
+
       await this.recordGovernanceLog({
         reference_document_id: id,
         document_code: mapped.document_code,
@@ -513,27 +534,13 @@ class ProductionControlReferenceDocsService {
         details: `~ ${mapped.document_code} (${mapped.revision}): Associação atualizada por ${userName}.`,
       })
       return mapped
-    } catch {
-      const idx = this.inMemoryDocs.findIndex((d) => d.id === id)
-      if (idx !== -1) {
-        this.inMemoryDocs[idx] = updated
-        this.persistLocal()
-      }
-      await this.recordGovernanceLog({
-        reference_document_id: id,
-        document_code: updated.document_code,
-        revision: updated.revision,
-        action: 'ASSOCIACAO_ATUALIZADA',
-        applications: updated.applications,
-        categories: updated.ai_categories,
-        criteria: updated.criteria,
-        priority: updated.priority,
-        is_primary: updated.is_primary,
-        previous_value: existing,
-        new_value: updated,
-        details: `Associação atualizada por ${userName} (armazenamento resiliente).`,
-      })
-      return updated
+    } catch (updateErr: any) {
+      console.error('Erro ao atualizar pcp_production_reference_documents no backend:', updateErr)
+      const errorMsg =
+        updateErr?.response?.message ||
+        updateErr?.message ||
+        'Falha ao atualizar associação no backend.'
+      throw new Error(`Não foi possível salvar as alterações da associação. Motivo: ${errorMsg}`)
     }
   }
 
@@ -561,8 +568,11 @@ class ProductionControlReferenceDocsService {
     const userName = user?.name || 'Usuário PCP'
 
     try {
-      await pb.collection('pcp_production_reference_documents').delete(id)
-    } catch {
+      await pb.collection('pcp_production_reference_documents').delete(id, { requestKey: null })
+      this.inMemoryDocs = this.inMemoryDocs.filter((d) => d.id !== id)
+      this.persistLocal()
+    } catch (deleteErr: any) {
+      console.error('Erro ao deletar do backend:', deleteErr)
       this.inMemoryDocs = this.inMemoryDocs.filter((d) => d.id !== id)
       this.persistLocal()
     }
@@ -679,18 +689,42 @@ class ProductionControlReferenceDocsService {
     log: Omit<ProductionReferenceGovernanceLog, 'id' | 'created'>,
   ): Promise<void> {
     const user = pb.authStore.record
-    const fullLog: ProductionReferenceGovernanceLog = {
-      ...log,
-      id: `gov-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    const payloadForPb = {
+      reference_document_id: log.reference_document_id,
+      document_code: log.document_code,
+      revision: log.revision || '',
+      action: log.action,
+      applications: log.applications || [],
+      categories: log.categories || [],
+      criteria: log.criteria || {},
+      priority: log.priority || 'ALTA',
+      is_primary: Boolean(log.is_primary),
+      previous_value: log.previous_value || null,
+      new_value: log.new_value || null,
       user_id: log.user_id || user?.id || '',
       user_name: log.user_name || user?.name || 'Usuário PCP',
       user_email: log.user_email || user?.email || '',
-      created: new Date().toISOString(),
+      details: log.details || '',
     }
 
     try {
-      await pb.collection('pcp_production_reference_governance_logs').create(fullLog)
-    } catch {
+      const rec = await pb
+        .collection('pcp_production_reference_governance_logs')
+        .create(payloadForPb)
+      const persistedLog: ProductionReferenceGovernanceLog = {
+        ...payloadForPb,
+        id: rec.id,
+        created: rec.created,
+      }
+      this.inMemoryLogs.unshift(persistedLog)
+      this.persistLocal()
+    } catch (logErr) {
+      console.warn('Erro ao persistir log de governança no backend:', logErr)
+      const fullLog: ProductionReferenceGovernanceLog = {
+        ...payloadForPb,
+        id: `gov-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        created: new Date().toISOString(),
+      }
       this.inMemoryLogs.unshift(fullLog)
       this.persistLocal()
     }
@@ -1235,16 +1269,16 @@ class ProductionControlReferenceDocsService {
       validity_date_start: rec.validity_date_start,
       validity_date_end: rec.validity_date_end,
       document_author: rec.document_author,
-      source: rec.source || 'SGQ > Informação Documentada (Oficial)',
+      source: rec.source,
       original_url: rec.original_url,
       last_sync_at: rec.last_sync_at,
-      applications: Array.isArray(rec.applications) ? rec.applications : [],
-      ai_categories: Array.isArray(rec.ai_categories) ? rec.ai_categories : [],
+      applications: rec.applications || [],
+      ai_categories: rec.ai_categories || [],
       criteria: rec.criteria || {},
       priority: rec.priority || 'ALTA',
-      is_primary: Boolean(rec.is_primary),
-      active: rec.active !== undefined ? Boolean(rec.active) : true,
-      has_new_revision_available: Boolean(rec.has_new_revision_available),
+      is_primary: rec.is_primary ?? false,
+      active: rec.active ?? true,
+      has_new_revision_available: rec.has_new_revision_available ?? false,
       new_revision_details: rec.new_revision_details,
       extractable_content: rec.extractable_content,
       created_by_user_id: rec.created_by_user_id,

@@ -286,8 +286,42 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
       isDemo: doc.is_demo,
     }
 
+    // Identificar se há outros documentos compartilhando o mesmo contexto de critérios/aplicação
+    const relatedDocs = documents
+      .filter((d) => {
+        if (d.id === doc.id) return true
+        const sameApp =
+          JSON.stringify(d.applications.sort()) === JSON.stringify(doc.applications.sort())
+        const sameCrit = JSON.stringify(d.criteria || {}) === JSON.stringify(doc.criteria || {})
+        return sameApp && sameCrit
+      })
+      .map((d) => {
+        const found = HOMOLOGATION_MOCK_DOCUMENTS.find(
+          (s) => s.code === d.document_code || s.id === d.document_ref,
+        )
+        return (
+          found || {
+            id: d.document_ref || d.id,
+            code: d.document_code,
+            title: d.title,
+            revision: d.revision,
+            status: d.status,
+            documentType: d.document_type || 'Procedimento',
+            process: d.process || 'Controle de Produção',
+            responsibleArea: d.responsible_area || 'PCP',
+            validityDateStart: d.validity_date_start,
+            validityDateEnd: d.validity_date_end,
+            extractableContent: d.extractable_content,
+            isDemo: d.is_demo,
+          }
+        )
+      })
+
+    // Garante que o documento selecionado está incluso
+    const allToLoad = relatedDocs.length > 0 ? relatedDocs : [matchingSgq]
+
     // Modo edição: carrega todos os documentos previamente associados
-    setSelectedSgqDocs([matchingSgq])
+    setSelectedSgqDocs(allToLoad)
     setSelectedApplications(doc.applications || [])
     setSelectedAiCategories(doc.ai_categories || [])
     setCriteriaCompany(doc.criteria?.empresa || '')
@@ -307,6 +341,9 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
 
   // Submissão do Wizard com suporte à coleção multi-seleção N:N
   const handleSaveAssociation = async () => {
+    // Evita submissão concorrente/clique duplo rápido
+    if (isSaving) return
+
     if (selectedSgqDocs.length === 0) {
       toast({
         title: 'Selecione pelo menos um documento',
@@ -340,7 +377,10 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
         processo: criteriaProcess || undefined,
       }
 
-      // Payload enviado ao backend com coleção múltipla (documentosReferenciaIds)
+      const count = selectedSgqDocs.length
+      const docCodesStr = selectedSgqDocs.map((d) => `${d.code} (${d.revision})`).join(', ')
+
+      // 1. Enviar payload ao backend com coleção múltipla (documentosReferenciaIds)
       const createdDocs =
         await productionControlReferenceDocsService.saveMultipleReferenceDocuments({
           sgq_docs: selectedSgqDocs,
@@ -353,30 +393,38 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
           active: isActive,
         })
 
-      // Atualiza estado de documentos mesclando os salvos sem duplicar
-      setDocuments((prev) => {
-        const map = new Map<string, ProductionReferenceDocument>()
-        // Adiciona os novos primeiro
-        createdDocs.forEach((d) => map.set(d.id, d))
-        // Preserva os anteriores que não foram alterados
-        prev.forEach((d) => {
-          if (!map.has(d.id)) {
-            map.set(d.id, d)
-          }
-        })
-        return Array.from(map.values())
-      })
+      // 2. Validação rigorosa: backend deve retornar registros válidos
+      if (!createdDocs || createdDocs.length === 0) {
+        throw new Error('Nenhum registro retornado pelo serviço de persistência.')
+      }
 
+      // 3. Recarregar lista diretamente da consulta oficial (sem window.location.reload)
+      // e atualizar estado local para exibição imediata na grade
+      const freshDocs = await productionControlReferenceDocsService.listReferenceDocuments()
+      setDocuments(freshDocs)
+
+      // 4. Fechar o modal SOMENTE após sucesso confirmado da persistência
       setIsAddModalOpen(false)
-      const docCodesStr = selectedSgqDocs.map((d) => d.code).join(', ')
-      toast({
-        title: 'Documentos de Referência associados com sucesso.',
-        description: `${selectedSgqDocs.length} documento(s) (${docCodesStr}) vinculados oficialmente às operações do PCP.`,
-      })
+
+      // 5. Exibir mensagem de sucesso seguindo estritamente as regras de negócio CIAFAL / HUB Industrial
+      if (count === 1) {
+        toast({
+          title: 'Documento de referência associado com sucesso.',
+          description: `✓ Associação salva com sucesso — ${docCodesStr} foi associado ao Controle de Produção.`,
+        })
+      } else {
+        toast({
+          title: `${count} documentos de referência associados com sucesso.`,
+          description: `✓ Associações salvas com sucesso — ${count} documentos (${docCodesStr}) foram associados ao Controle de Produção.`,
+        })
+      }
     } catch (e: any) {
+      // NÃO fecha o modal, NÃO mostra sucesso, mantém dados preenchidos no modal
+      const rawErrorMsg =
+        e?.message || e?.data?.message || 'Falha ao conectar com o serviço de persistência.'
       toast({
-        title: 'Erro ao salvar associação',
-        description: e.message || 'Ocorreu uma falha ao registrar os documentos no banco de dados.',
+        title: 'Não foi possível salvar as associações.',
+        description: `Motivo: ${rawErrorMsg}`,
         variant: 'destructive',
       })
     } finally {
@@ -1344,12 +1392,14 @@ export const ProductionReferenceDocumentsPage: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={handleSaveAssociation}
-                  disabled={isSaving}
+                  disabled={isSaving || selectedSgqDocs.length === 0}
                   className="bg-blue-800 hover:bg-blue-900 text-white text-xs font-semibold"
                 >
                   {isSaving
-                    ? 'Salvando Associações...'
-                    : `Salvar ${selectedSgqDocs.length} Associação(ões)`}
+                    ? 'Salvando...'
+                    : selectedSgqDocs.length === 1
+                      ? 'Salvar 1 associação'
+                      : `Salvar ${selectedSgqDocs.length} associações`}
                 </Button>
               )}
             </div>
