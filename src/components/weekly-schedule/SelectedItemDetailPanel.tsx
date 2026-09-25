@@ -54,6 +54,7 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
     )
   }
 
+  const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
   const isMto = item.order_type === 'MTO'
   const isAwaiting =
     item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
@@ -90,6 +91,144 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
 
   const scoreLabel =
     sequenceScore >= 85 ? 'Otimizada' : sequenceScore >= 60 ? 'Melhorável' : 'Crítica'
+
+  if (isTestIndustrial) {
+    const testCode = item.test_code || item.material_code || 'TESTE-000123'
+    const objectivesList = Array.isArray(item.test_objectives)
+      ? item.test_objectives
+      : typeof item.test_objectives === 'string' && item.test_objectives
+        ? [item.test_objectives]
+        : []
+
+    return (
+      <TooltipProvider delayDuration={150}>
+        <div className="w-[300px] xl:w-[320px] bg-white border-2 border-purple-300 rounded-lg shadow-xs flex flex-col shrink-0 text-xs overflow-hidden">
+          {/* TOPO TESTE INDUSTRIAL */}
+          <div className="p-3 bg-purple-50/90 border-b border-purple-200">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase text-purple-700 tracking-wider flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                Teste Industrial (Seq. {sequenceIndex})
+              </span>
+              <Badge className="bg-purple-600 text-white font-mono text-[9px] font-bold">
+                {testCode}
+              </Badge>
+            </div>
+
+            <div className="mt-2">
+              <h3 className="font-mono font-bold text-sm text-purple-950">
+                {item.material_description || testCode}
+              </h3>
+              <p className="text-[11px] text-purple-800 mt-0.5 font-medium">{item.material_code}</p>
+            </div>
+
+            <div className="mt-2 pt-2 border-t border-purple-200 grid grid-cols-2 gap-1 text-[10px]">
+              <div>
+                <span className="text-purple-600 block">Responsável Técnico:</span>
+                <span className="font-bold text-slate-800">
+                  {item.test_technical_lead || 'Engenharia / PCP'}
+                </span>
+              </div>
+              <div>
+                <span className="text-purple-600 block">Status:</span>
+                <span className="font-bold text-purple-900">{item.status || 'SCHEDULED'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CORPO INFORMATIVO COM BLOQUEIO */}
+          <div className="p-3 space-y-3 flex-1 overflow-y-auto no-scrollbar">
+            {/* Aviso de Bloqueio e Origem */}
+            <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-md text-[11px] text-purple-900 leading-relaxed">
+              <div className="flex items-start gap-1.5 font-semibold text-purple-950 mb-1">
+                <AlertCircle className="w-3.5 h-3.5 text-purple-700 shrink-0 mt-0.5" />
+                <span>Bloqueio de Edição</span>
+              </div>
+              <p className="text-[10px] text-purple-800">
+                Programação originada em <strong>Programação de Testes</strong>. Para alterar este
+                registro, edite o teste na origem.
+              </p>
+              <div className="mt-2 pt-2 border-t border-purple-200">
+                <Button
+                  size="sm"
+                  asChild
+                  className="w-full h-7 text-xs bg-purple-700 hover:bg-purple-800 text-white font-bold"
+                >
+                  <a
+                    href={`/pcp/sequenciamento/programacao-testes?testId=${encodeURIComponent(testCode)}`}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                    Abrir Programação de Teste
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            {/* Período e Duração */}
+            <div>
+              <div className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-1 flex items-center justify-between">
+                <span>Período e Duração</span>
+                <Clock className="w-3 h-3 text-slate-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-2 rounded-md border border-slate-200 text-[11px]">
+                <div>
+                  <span className="text-[10px] text-slate-500 block">Início:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    {item.start_datetime
+                      ? item.start_datetime.split(' ')[1] || item.start_datetime
+                      : '--:--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block">Fim:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    {item.end_datetime
+                      ? item.end_datetime.split(' ')[1] || item.end_datetime
+                      : '--:--'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block">Duração Prevista:</span>
+                  <span className="font-mono font-bold text-purple-700">
+                    {(item.production_hours || item.duration_hours || 0).toFixed(2)} h
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block">Capacidade Consumida:</span>
+                  <span className="font-mono font-bold text-emerald-700">
+                    {(item.production_hours || item.duration_hours || 0).toFixed(2)} h reais
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Objetivos Industriais Vinculados */}
+            <div>
+              <div className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-1">
+                Objetivos Industriais
+              </div>
+              <div className="bg-slate-50 p-2 rounded-md border border-slate-200 space-y-1">
+                {objectivesList.length > 0 ? (
+                  objectivesList.map((obj, i) => (
+                    <div
+                      key={i}
+                      className="text-[10px] text-slate-800 bg-white border border-slate-200 px-2 py-1 rounded font-medium"
+                    >
+                      • {obj}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[10px] text-slate-500 italic">
+                    Objetivos industriais definidos no teste.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </TooltipProvider>
+    )
+  }
 
   return (
     <TooltipProvider delayDuration={150}>

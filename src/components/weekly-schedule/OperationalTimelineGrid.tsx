@@ -383,6 +383,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
    * - BLOQUEIO / CRÍTICO = vermelho claro
    */
   const getBlockStyle = (item: WeeklyScheduleItem, isSelected: boolean) => {
+    const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
     const isAwaiting =
       item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
     const isStop = item.item_type === 'SCHEDULED_STOP'
@@ -399,7 +400,9 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
 
     let bgClass = 'bg-emerald-50/90 text-emerald-950 border-emerald-300 hover:bg-emerald-100'
 
-    if (isCritical) {
+    if (isTestIndustrial) {
+      bgClass = 'bg-purple-100 text-purple-950 border-purple-400 hover:bg-purple-200 font-bold'
+    } else if (isCritical) {
       bgClass = 'bg-rose-100 text-rose-950 border-rose-400 hover:bg-rose-200'
     } else if (isAwaiting) {
       bgClass =
@@ -688,6 +691,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                             totalSegmentParts,
                           } = seg
                           const isSelected = selectedItemId === item.id
+                          const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
+                          const isLockedExternally = Boolean(
+                            item.is_locked_externally ||
+                            item.is_origin_test_programming ||
+                            isTestIndustrial,
+                          )
                           const isStop = item.item_type === 'SCHEDULED_STOP'
                           const isAwaiting =
                             item.status === 'AGUARDANDO_OBSERVACOES' ||
@@ -700,8 +709,10 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                           return (
                             <div
                               key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, originalIndex)}
+                              draggable={!isLockedExternally}
+                              onDragStart={(e) =>
+                                !isLockedExternally && handleDragStart(e, originalIndex)
+                              }
                               onDragOver={(e) => handleDragOver(e, originalIndex)}
                               onDrop={(e) => {
                                 e.preventDefault()
@@ -779,12 +790,28 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                               {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky) */}
                               <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
                                 <div className="flex items-center gap-0.5">
-                                  <div
-                                    className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
-                                    title="Clique e arraste para alterar a sequência"
-                                  >
-                                    <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
-                                  </div>
+                                  {isLockedExternally ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="p-1 cursor-not-allowed">
+                                          <Lock className="w-3.5 h-3.5 text-purple-600" />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="bg-slate-900 text-white text-xs max-w-xs"
+                                      >
+                                        Teste Industrial controlado pela Programação de Testes.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <div
+                                      className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
+                                      title="Clique e arraste para alterar a sequência"
+                                    >
+                                      <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+                                    </div>
+                                  )}
                                   <span className="font-black text-slate-900 text-[11px]">
                                     {item.sequence_order || originalIndex + 1}
                                   </span>
@@ -1153,6 +1180,12 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                     >
                                       {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
                                       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
+                                        {isTestIndustrial && (
+                                          <span className="text-[9px] bg-purple-600 text-white font-black px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap flex items-center gap-1">
+                                            <Lock className="w-2.5 h-2.5" />
+                                            {item.test_code || 'TESTE'}
+                                          </span>
+                                        )}
                                         {isCoolingViolated && (
                                           <span
                                             className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
@@ -1312,31 +1345,43 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                         <span className="shrink-0">
                                           {startStr} &rarr; {endStr}
                                         </span>
-                                        {onEditItem && !isItemInPast(item) && !isWeekPast && (
-                                          <button
-                                            type="button"
-                                            title="Editar item da programação"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              onEditItem(item)
-                                            }}
-                                            className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                        {isLockedExternally ? (
+                                          <span
+                                            title="Teste Industrial controlado pela Programação de Testes."
+                                            className="text-[9px] text-purple-700 bg-purple-100 px-1 py-0.2 rounded border border-purple-300 font-sans flex items-center gap-0.5"
                                           >
-                                            ✏️
-                                          </button>
-                                        )}
-                                        {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
-                                          <button
-                                            type="button"
-                                            title="Eliminar"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              onRemoveItem(item)
-                                            }}
-                                            className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
-                                          >
-                                            <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
-                                          </button>
+                                            <Lock className="w-2.5 h-2.5 text-purple-600" />{' '}
+                                            Controlado na Origem
+                                          </span>
+                                        ) : (
+                                          <>
+                                            {onEditItem && !isItemInPast(item) && !isWeekPast && (
+                                              <button
+                                                type="button"
+                                                title="Editar item da programação"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  onEditItem(item)
+                                                }}
+                                                className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                              >
+                                                ✏️
+                                              </button>
+                                            )}
+                                            {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
+                                              <button
+                                                type="button"
+                                                title="Eliminar"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  onRemoveItem(item)
+                                                }}
+                                                className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
+                                              >
+                                                <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
+                                              </button>
+                                            )}
+                                          </>
                                         )}
                                         {(isItemInPast(item) || isWeekPast) && (
                                           <span

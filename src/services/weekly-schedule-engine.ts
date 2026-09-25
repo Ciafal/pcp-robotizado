@@ -2770,7 +2770,12 @@ export const WeeklyScheduleEngine = {
     const maintenanceHours = Number((maintenanceMin / 60).toFixed(1))
     const coolingHoursTotal = Number((coolingMin / 60).toFixed(1))
 
-    const totalCommittedHours = programmedProductiveHours + totalSetupHours + stoppedHours
+    // Testes Industriais consomem capacidade real (horas contam em ocupação/disponibilidade)
+    const testItems = processedItems.filter((it) => it.item_type === 'TEST_INDUSTRIAL')
+    const testHours = testItems.reduce((acc, it) => acc + (it.production_hours || 0), 0)
+
+    const totalCommittedHours =
+      programmedProductiveHours + totalSetupHours + stoppedHours + testHours
     const freeHours = Math.max(0, nominalAvailableHours - totalCommittedHours)
     const utilizationPct =
       nominalAvailableHours > 0
@@ -3068,7 +3073,12 @@ export const WeeklyScheduleEngine = {
     const maintenanceHours = Number((maintenanceMin / 60).toFixed(1))
     const coolingHoursTotal = Number((coolingMin / 60).toFixed(1))
 
-    const totalCommittedHours = programmedProductiveHours + totalSetupHours + stoppedHours
+    // Testes Industriais consomem capacidade real (horas contam em ocupação/disponibilidade)
+    const testItems = activeItems.filter((it) => it.item_type === 'TEST_INDUSTRIAL')
+    const testHours = testItems.reduce((acc, it) => acc + (it.production_hours || 0), 0)
+
+    const totalCommittedHours =
+      programmedProductiveHours + totalSetupHours + stoppedHours + testHours
     const freeHours = Math.max(0, nominalAvailableHours - totalCommittedHours)
     const utilizationPct =
       nominalAvailableHours > 0

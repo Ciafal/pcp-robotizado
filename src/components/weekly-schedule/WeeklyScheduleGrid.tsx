@@ -244,6 +244,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
    * - Contorno azul: item atualmente selecionado
    */
   const getItemRowClasses = (item: WeeklyScheduleItem, isSelected: boolean) => {
+    const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
     const isAwaiting =
       item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
     const isStop = item.item_type === 'SCHEDULED_STOP'
@@ -260,7 +261,11 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
     let bgClass = 'bg-white'
 
-    if (isCriticalCondition) {
+    if (isTestIndustrial) {
+      // Roxo/Índigo com borda destacada: Teste Industrial originado na Programação de Testes
+      bgClass =
+        'bg-purple-50/90 hover:bg-purple-100/90 text-purple-950 border-purple-300 font-medium'
+    } else if (isCriticalCondition) {
       // Vermelho: Bloqueio / condição crítica
       bgClass = 'bg-rose-50/80 hover:bg-rose-100/80 text-rose-950'
     } else if (isAwaiting) {
@@ -320,6 +325,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 { key: 'AGUARDANDO_OBSERVACOES', label: 'Aguardando Observações' },
                 { key: 'ALERTAS', label: 'Alertas' },
                 { key: 'BLOQUEADOS', label: 'Bloqueados' },
+                { key: 'TEST_INDUSTRIAL', label: 'Testes Industriais' },
                 { key: 'MTO', label: 'MTO' },
                 { key: 'MTS', label: 'MTS' },
                 { key: 'DERIVADA_TODAS', label: 'Derivada' },
@@ -419,12 +425,18 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                 </tr>
               ) : (
                 filteredItemsWithIndex.map(({ item, originalIndex }) => {
+                  const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
                   const isStop = item.item_type === 'SCHEDULED_STOP'
                   const isMto = item.order_type === 'MTO'
                   const isAwaiting =
                     item.status === 'AGUARDANDO_OBSERVACOES' ||
                     item.awaiting_observations?.is_awaiting
                   const isSelected = currentSelectedId === item.id
+                  const isLockedExternally = Boolean(
+                    item.is_locked_externally ||
+                    item.is_origin_test_programming ||
+                    isTestIndustrial,
+                  )
                   const startHour = item.start_datetime
                     ? item.start_datetime.split(' ')[1] || item.start_datetime
                     : '--:--'
@@ -437,9 +449,9 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                   return (
                     <tr
                       key={item.id || originalIndex}
-                      draggable
+                      draggable={!isLockedExternally && !isPast}
                       onClick={() => handleRowClick(item)}
-                      onDragStart={(e) => handleDragStart(e, originalIndex)}
+                      onDragStart={(e) => !isLockedExternally && handleDragStart(e, originalIndex)}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, originalIndex)}
                       className={getItemRowClasses(item, isSelected)}
@@ -447,7 +459,24 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       {/* Coluna 1 Fixa: Sequência */}
                       <td className="py-2 px-2 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
                         <div className="flex items-center justify-center gap-0.5">
-                          <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
+                          {isLockedExternally ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="p-0.5 cursor-not-allowed">
+                                  <Lock className="w-3.5 h-3.5 text-purple-600" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="right"
+                                className="bg-slate-900 text-white text-xs max-w-xs"
+                              >
+                                Teste Industrial controlado pela Programação de Testes. Bloqueado
+                                para edição ou reordenação direta na Montagem Semanal.
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
+                          )}
                           <span>{item.sequence_order || originalIndex + 1}</span>
                         </div>
                       </td>
@@ -499,7 +528,12 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
                       {/* Tipo */}
                       <td className="py-2 px-3 whitespace-nowrap">
-                        {isStop ? (
+                        {isTestIndustrial ? (
+                          <Badge className="bg-purple-100 text-purple-950 border-purple-300 text-[10px] font-black flex items-center gap-1 shadow-xs">
+                            <FlaskConical className="w-3 h-3 text-purple-700" />
+                            TESTE IND.
+                          </Badge>
+                        ) : isStop ? (
                           <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-bold">
                             <Wrench className="w-2.5 h-2.5 mr-1" />
                             Parada
@@ -519,6 +553,11 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                       <td className="py-2 px-3">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {isTestIndustrial && (
+                              <Badge className="bg-purple-600 text-white font-mono text-[10px] font-black px-1.5 py-0">
+                                {item.test_code || item.material_code}
+                              </Badge>
+                            )}
                             <span className="font-mono font-bold text-slate-900 text-xs">
                               {item.material_code}
                             </span>
@@ -1011,106 +1050,125 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                           className="flex items-center justify-center gap-1"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            type="button"
-                            disabled={originalIndex === 0}
-                            onClick={() => onMoveUp(originalIndex)}
-                            title="Mover para Cima (Recalcular)"
-                            className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={originalIndex === items.length - 1}
-                            onClick={() => onMoveDown(originalIndex)}
-                            title="Mover para Baixo (Recalcular)"
-                            className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
-                          {onEditItem && !isPast && (
-                            <button
-                              type="button"
-                              onClick={() => onEditItem(item)}
-                              title="Editar"
-                              className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {!isPast ? (
-                            <button
-                              type="button"
-                              onClick={() => onRemove(item)}
-                              title="Eliminar"
-                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          {isLockedExternally ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded flex items-center gap-1 cursor-help">
+                                  <Lock className="w-3 h-3 text-purple-600" /> Controlado na Origem
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                className="bg-slate-900 text-white text-xs max-w-xs"
+                              >
+                                Teste Industrial controlado pela Programação de Testes. Alterações
+                                devem ser feitas na tela de Programação de Testes.
+                              </TooltipContent>
+                            </Tooltip>
                           ) : (
-                            <span
-                              title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
-                              className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
-                            >
-                              🔒 Bloqueado
-                            </span>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200">
-                                <MoreVertical className="w-3.5 h-3.5" />
+                            <>
+                              <button
+                                type="button"
+                                disabled={originalIndex === 0}
+                                onClick={() => onMoveUp(originalIndex)}
+                                title="Mover para Cima (Recalcular)"
+                                className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
                               </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="text-xs bg-white border-slate-200 text-slate-800 shadow-xl"
-                            >
-                              {onOpenAwaitingObservationsModal && (
-                                <DropdownMenuItem
-                                  onClick={() => onOpenAwaitingObservationsModal(item)}
-                                  className="text-amber-800 focus:text-amber-900 focus:bg-amber-50 font-semibold"
-                                >
-                                  <AlertTriangle className="w-3.5 h-3.5 mr-2 text-amber-600" />
-                                  {isAwaiting
-                                    ? 'Editar Aguardando Observações'
-                                    : 'Aguardando Observações...'}
-                                </DropdownMenuItem>
-                              )}
+                              <button
+                                type="button"
+                                disabled={originalIndex === items.length - 1}
+                                onClick={() => onMoveDown(originalIndex)}
+                                title="Mover para Baixo (Recalcular)"
+                                className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
                               {onEditItem && !isPast && (
-                                <DropdownMenuItem
+                                <button
+                                  type="button"
                                   onClick={() => onEditItem(item)}
-                                  className="text-[#004C97] font-semibold"
+                                  title="Editar"
+                                  className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
                                 >
-                                  <Edit3 className="w-3.5 h-3.5 mr-2" />
-                                  Editar Parâmetros / Horários
-                                </DropdownMenuItem>
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
                               )}
-                              {!isPast && (
-                                <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
-                                  <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                                  Duplicar Atividade
-                                </DropdownMenuItem>
-                              )}
-                              {!isPast && <DropdownMenuSeparator />}
-                              {!isPast && (
-                                <DropdownMenuItem
-                                  onClick={() => onRemove(originalIndex)}
-                                  className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                              {!isPast ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onRemove(item)}
+                                  title="Eliminar"
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                  Remover da Programação
-                                </DropdownMenuItem>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <span
+                                  title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                  className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                                >
+                                  🔒 Bloqueado
+                                </span>
                               )}
-                              {isPast && (
-                                <div className="p-2 text-[10px] text-amber-700 italic">
-                                  {TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
-                                </div>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200">
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="text-xs bg-white border-slate-200 text-slate-800 shadow-xl"
+                                >
+                                  {onOpenAwaitingObservationsModal && (
+                                    <DropdownMenuItem
+                                      onClick={() => onOpenAwaitingObservationsModal(item)}
+                                      className="text-amber-800 focus:text-amber-900 focus:bg-amber-50 font-semibold"
+                                    >
+                                      <AlertTriangle className="w-3.5 h-3.5 mr-2 text-amber-600" />
+                                      {isAwaiting
+                                        ? 'Editar Aguardando Observações'
+                                        : 'Aguardando Observações...'}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onEditItem && !isPast && (
+                                    <DropdownMenuItem
+                                      onClick={() => onEditItem(item)}
+                                      className="text-[#004C97] font-semibold"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 mr-2" />
+                                      Editar Parâmetros / Horários
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!isPast && (
+                                    <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
+                                      <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                                      Duplicar Atividade
+                                    </DropdownMenuItem>
+                                  )}
+                                  {!isPast && <DropdownMenuSeparator />}
+                                  {!isPast && (
+                                    <DropdownMenuItem
+                                      onClick={() => onRemove(originalIndex)}
+                                      className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                      Remover da Programação
+                                    </DropdownMenuItem>
+                                  )}
+                                  {isPast && (
+                                    <div className="p-2 text-[10px] text-amber-700 italic">
+                                      {TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                    </div>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1153,6 +1211,10 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
               <div className="flex items-center gap-1.5">
                 <span className="w-3.5 h-3.5 rounded border border-sky-300 bg-sky-100 shrink-0" />
                 <span>Azul claro: Manutenção</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-purple-300 bg-purple-100 shrink-0" />
+                <span>Roxo: Teste Industrial (Controlado na Origem)</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-3.5 h-3.5 rounded border border-rose-300 bg-rose-100 shrink-0" />

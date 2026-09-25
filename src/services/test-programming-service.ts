@@ -118,9 +118,55 @@ export function formatTestId(sequenceNumber: number): string {
 
 export function parseTestIdSequence(testId: string): number {
   if (!testId) return 0
-  const match = testId.match(/^TESTE?-(\d+)$/i)
+  const match = testId.match(/^TESTE-(\d+)$/i) || testId.match(/^TEST-(\d+)$/i)
   if (!match) return 0
   return parseInt(match[1], 10)
+}
+
+/**
+ * Função requerida pelo design técnico: getNextSequentialTestCode
+ * Busca o maior código casando /^TESTE-(\d+)$/ e gera max+1 com padStart(6, '0')
+ * Ex: vazio -> TESTE-000001; TESTE-000123 -> TESTE-000124.
+ * Imutável na edição (gerado somente na 1ª gravação válida).
+ */
+export async function getNextSequentialTestCode(): Promise<string> {
+  try {
+    const records = await pb.collection('test_programming').getFullList<{ test_id: string }>({
+      fields: 'test_id',
+    })
+    if (!records || records.length === 0) {
+      return 'TESTE-000001'
+    }
+    let maxSeq = 0
+    for (const item of records) {
+      if (!item.test_id) continue
+      const match = item.test_id.match(/^TESTE-(\d+)$/) || item.test_id.match(/^TEST-(\d+)$/)
+      if (match) {
+        const val = parseInt(match[1], 10)
+        if (val > maxSeq) maxSeq = val
+      }
+    }
+    const nextSeq = maxSeq + 1
+    return `TESTE-${String(nextSeq).padStart(6, '0')}`
+  } catch (err) {
+    console.warn('Erro ao obter próximo código sequencial, fallback:', err)
+    return 'TESTE-000001'
+  }
+}
+
+export interface ConflictCheckItem {
+  id?: string
+  title: string
+  item_type: string
+  start: string
+  end: string
+  details?: string
+}
+
+export interface ConflictCheckResult {
+  hasConflict: boolean
+  message?: string
+  conflicts: ConflictCheckItem[]
 }
 
 export class TestProgrammingService {
@@ -128,23 +174,284 @@ export class TestProgrammingService {
    * Obtém o próximo código sequencial pesquisando os registros existentes no PocketBase
    */
   async getNextTestId(): Promise<string> {
+    return getNextSequentialTestCode()
+  }
+
+  /**
+   * Busca os objetivos industriais padronizados ativos da coleção
+   */
+  async listActiveIndustrialObjectives(): Promise<IndustrialTestObjective[]> {
     try {
-      const records = await pb.collection('test_programming').getList(1, 100, {
-        sort: '-created',
-        fields: 'test_id',
-      })
-      if (records.items.length === 0) {
-        return formatTestId(1)
-      }
-      let maxSeq = 0
-      for (const item of records.items) {
-        const seq = parseTestIdSequence(item.test_id)
-        if (seq > maxSeq) maxSeq = seq
-      }
-      return formatTestId(maxSeq + 1)
+      return await pb
+        .collection('industrial_test_objectives')
+        .getFullList<IndustrialTestObjective>({
+          filter: 'active = true',
+          sort: '+code',
+        })
     } catch (err) {
-      console.warn('Erro ao calcular próximo test_id, usando sequencial fallback:', err)
-      return `TESTE-${String(Date.now()).slice(-6)}`
+      console.warn('Erro ao carregar industrial_test_objectives:', err)
+      return []
+    }
+  }
+
+  /**
+   * Verifica conflito de horário no mesmo centro com outros eventos da Montagem Semanal
+   * (produtos, outros testes, setup, acerto e paradas).
+   */
+  async checkScheduleConflicts(params: {
+    center: string
+    startDate: string
+    startTime: string
+    endDate: string
+    endTime: string
+    ignoreTestProgrammingId?: string
+  }): Promise<ConflictCheckResult> {
+    const { center, startDate, startTime, endDate, endTime, ignoreTestProgrammingId } = params
+    const startIso = `${startDate} ${startTime}:00`
+    const endIso = `${endDate} ${endTime}:00`
+    const startMs = new Date(startIso.replace(' ', 'T')).getTime()
+    const endMs = new Date(endIso.replace(' ', 'T')).getTime()
+
+    if (isNaN(startMs) || isNaN(endMs) || startMs >= endMs) {
+      return { hasConflict: false, conflicts: [] }
+    }
+
+    try {
+      // Busca itens da weekly_schedules com status diferente de CANCELLED no mesmo centro/linha
+      const allSchedules = await pb.collection('weekly_schedules').getFullList<{
+        id: string
+        production_line_id: string
+        status: string
+        schedule_data?: {
+          items?: Array<{
+            id?: string
+            test_programming_id?: string
+            test_code?: string
+            item_type?: string
+            material_code?: string
+            material_description?: string
+            start_datetime?: string
+            end_datetime?: string
+            status?: string
+          }>
+        }
+      }>()
+
+      const conflicts: ConflictCheckItem[] = []
+
+      for (const sched of allSchedules) {
+        if (sched.status === 'CANCELLED') continue
+        const items = sched.schedule_data?.items || []
+        for (const it of items) {
+          if (it.status === 'CANCELLED') continue
+          if (ignoreTestProgrammingId && it.test_programming_id === ignoreTestProgrammingId) {
+            continue
+          }
+          if (!it.start_datetime || !it.end_datetime) continue
+
+          const itStartMs = new Date(it.start_datetime.replace(' ', 'T')).getTime()
+          const itEndMs = new Date(it.end_datetime.replace(' ', 'T')).getTime()
+          if (isNaN(itStartMs) || isNaN(itEndMs)) continue
+
+          // Verifica sobreposição no tempo
+          const overlaps = Math.max(startMs, itStartMs) < Math.min(endMs, itEndMs)
+          if (overlaps) {
+            const label =
+              it.item_type === 'TEST_INDUSTRIAL'
+                ? `Teste Industrial ${it.test_code || ''}`
+                : it.item_type === 'SCHEDULED_STOP'
+                  ? `Parada Programada: ${it.material_description || it.material_code}`
+                  : it.item_type === 'SETUP'
+                    ? `Setup / Acerto: ${it.material_code}`
+                    : `Produção: ${it.material_code} (${it.material_description || ''})`
+
+            conflicts.push({
+              id: it.id,
+              title: label,
+              item_type: it.item_type || 'PRODUCTION',
+              start: it.start_datetime,
+              end: it.end_datetime,
+              details: it.material_description || '',
+            })
+          }
+        }
+      }
+
+      if (conflicts.length > 0) {
+        return {
+          hasConflict: true,
+          message: `Conflito de programação identificado no centro ${center} entre ${startTime} e ${endTime}.`,
+          conflicts,
+        }
+      }
+
+      return { hasConflict: false, conflicts: [] }
+    } catch (err) {
+      console.warn('Erro ao verificar conflitos de programação:', err)
+      return { hasConflict: false, conflicts: [] }
+    }
+  }
+
+  /**
+   * Sincroniza o Teste Industrial na Montagem Semanal (weekly_schedules).
+   * Localiza o item pelo test_programming_id (imutável) e atualiza o mesmo registro.
+   * Não duplica em múltiplos cliques ou alterações de centro/horário.
+   */
+  async syncWeeklyScheduleItem(
+    testRecord: TestProgrammingRecord,
+    options?: { isCancellation?: boolean },
+  ): Promise<{ success: boolean; weeklyScheduleItemId?: string; message: string }> {
+    const center = testRecord.center_name || 'L1'
+    const durationHours = testRecord.duration_hours || 2.5
+    const startDate = testRecord.expected_start_date || testRecord.expected_date
+    const startTime = testRecord.expected_start_time || '08:00'
+    const endDate = testRecord.expected_end_date || testRecord.expected_date
+    const endTime = testRecord.expected_end_time || '10:30'
+    const startDatetime = `${startDate} ${startTime}`
+    const endDatetime = `${endDate} ${endTime}`
+
+    try {
+      // 1. Localizar se já existe registro em qualquer weekly_schedules com esse test_programming_id
+      const allSchedules = await pb.collection('weekly_schedules').getFullList<{
+        id: string
+        production_line_id: string
+        year: number
+        week_number: number
+        status: string
+        schedule_data?: {
+          items?: any[]
+        }
+      }>()
+
+      let foundSchedId: string | null = null
+      let foundItemIndex = -1
+      let existingItem: any = null
+
+      for (const s of allSchedules) {
+        const items = s.schedule_data?.items || []
+        const idx = items.findIndex(
+          (it: any) =>
+            it.test_programming_id === testRecord.id ||
+            (it.test_code && it.test_code === testRecord.test_id),
+        )
+        if (idx !== -1) {
+          foundSchedId = s.id
+          foundItemIndex = idx
+          existingItem = items[idx]
+          break
+        }
+      }
+
+      const isCancelled = options?.isCancellation || testRecord.status === 'Cancelado'
+      const itemStatus = isCancelled ? 'CANCELLED' : 'SCHEDULED'
+
+      const testItemPayload = {
+        id: existingItem?.id || `test-item-${testRecord.id}`,
+        item_type: 'TEST_INDUSTRIAL',
+        test_programming_id: testRecord.id,
+        test_code: testRecord.test_id,
+        is_origin_test_programming: true,
+        is_locked_externally: true,
+        test_technical_lead: testRecord.technical_lead || testRecord.requester_name || '',
+        test_objectives: testRecord.objectives_list || [testRecord.objective],
+        material_code: testRecord.test_id,
+        material_description: `${testRecord.title} (${testRecord.objective})`,
+        steel_grade: 'TESTE',
+        dimensions: testRecord.steel_type || 'TESTE',
+        target_date: startDate,
+        start_datetime: startDatetime,
+        end_datetime: endDatetime,
+        duration_hours: durationHours,
+        production_hours: durationHours,
+        setup_duration_minutes: 0,
+        tuning_duration_minutes: 0,
+        scheduled_tons: testRecord.sample_quantity_tons || 0,
+        planned_quantity_tons: testRecord.sample_quantity_tons || 0,
+        status: itemStatus,
+        sequence_order: existingItem?.sequence_order || 1,
+      }
+
+      // Se já existia em alguma programação:
+      if (foundSchedId && foundItemIndex !== -1) {
+        const currentSched = allSchedules.find((s) => s.id === foundSchedId)!
+        // Se mudou de centro, remove da anterior e insere na nova
+        if (currentSched.production_line_id !== center) {
+          const oldItems = [...(currentSched.schedule_data?.items || [])]
+          oldItems.splice(foundItemIndex, 1)
+          await pb.collection('weekly_schedules').update(currentSched.id, {
+            schedule_data: {
+              ...(currentSched.schedule_data || {}),
+              items: oldItems,
+            },
+          })
+
+          // Inserir na nova grade do centro novo
+          let targetSched = allSchedules.find((s) => s.production_line_id === center)
+          if (!targetSched) {
+            // Cria container para o centro
+            targetSched = await pb.collection('weekly_schedules').create({
+              production_line_id: center,
+              year: new Date().getFullYear(),
+              week_number: 39,
+              status: 'DRAFT',
+              schedule_data: { items: [testItemPayload] },
+            })
+          } else {
+            const newItems = [...(targetSched.schedule_data?.items || []), testItemPayload]
+            await pb.collection('weekly_schedules').update(targetSched.id, {
+              schedule_data: {
+                ...(targetSched.schedule_data || {}),
+                items: newItems,
+              },
+            })
+          }
+        } else {
+          // Mesmo centro: atualiza O MESMO registro
+          const updatedItems = [...(currentSched.schedule_data?.items || [])]
+          updatedItems[foundItemIndex] = {
+            ...updatedItems[foundItemIndex],
+            ...testItemPayload,
+          }
+          await pb.collection('weekly_schedules').update(currentSched.id, {
+            schedule_data: {
+              ...(currentSched.schedule_data || {}),
+              items: updatedItems,
+            },
+          })
+        }
+      } else {
+        // Novo item na Montagem Semanal
+        let targetSched = allSchedules.find((s) => s.production_line_id === center)
+        if (!targetSched) {
+          targetSched = await pb.collection('weekly_schedules').create({
+            production_line_id: center,
+            year: new Date().getFullYear(),
+            week_number: 39,
+            status: 'DRAFT',
+            schedule_data: { items: [testItemPayload] },
+          })
+        } else {
+          const newItems = [...(targetSched.schedule_data?.items || []), testItemPayload]
+          await pb.collection('weekly_schedules').update(targetSched.id, {
+            schedule_data: {
+              ...(targetSched.schedule_data || {}),
+              items: newItems,
+            },
+          })
+        }
+      }
+
+      return {
+        success: true,
+        weeklyScheduleItemId: testItemPayload.id,
+        message: `Programação integrada à Montagem Semanal do centro [${center}].`,
+      }
+    } catch (err: any) {
+      console.warn('Erro ao sincronizar Montagem Semanal:', err)
+      return {
+        success: false,
+        message: `Aviso: Falha ao integrar com a Montagem Semanal: ${err.message || 'Erro desconhecido'}`,
+      }
     }
   }
 
@@ -234,7 +541,18 @@ export class TestProgrammingService {
       .collection('test_programming')
       .create<TestProgrammingRecord>(payload)
 
-    // Log de auditoria de criação
+    // Etapa 3 & 4: Sincronização obrigatória com a Montagem Semanal
+    let syncResult = await this.syncWeeklyScheduleItem(createdRecord)
+    if (syncResult.success && syncResult.weeklyScheduleItemId) {
+      await pb.collection('test_programming').update(createdRecord.id, {
+        weekly_schedule_item_id: syncResult.weeklyScheduleItemId,
+        weekly_schedule_status: 'INTEGRADO',
+      })
+      createdRecord.weekly_schedule_item_id = syncResult.weeklyScheduleItemId
+      createdRecord.weekly_schedule_status = 'INTEGRADO'
+    }
+
+    // Log de auditoria de criação append-only com centro, datas e resultado da sincronização
     await this.logAction({
       test_programming_id: createdRecord.id,
       test_id: createdRecord.test_id,
@@ -242,10 +560,15 @@ export class TestProgrammingService {
       field_changed: 'registro_completo',
       previous_value: '',
       new_value: `Status: ${createdRecord.status}; Período: ${createdRecord.expected_start_date} ${createdRecord.expected_start_time} - ${createdRecord.expected_end_date} ${createdRecord.expected_end_time}`,
+      center_previous: '',
+      center_new: createdRecord.center_name || '',
+      schedule_previous: '',
+      schedule_new: `${createdRecord.expected_start_date} ${createdRecord.expected_start_time} -> ${createdRecord.expected_end_date} ${createdRecord.expected_end_time}`,
+      sync_result: syncResult.message,
       origin,
       integration_name: 'PCP Robotizado',
-      operation_result: 'Sucesso',
-      reason: 'Solicitação inicial da Programação de Teste criada',
+      operation_result: syncResult.success ? 'Sucesso' : 'Falha na Sincronização Semanal',
+      reason: 'Solicitação inicial da Programação de Teste criada e integrada',
       user_id: userContext.id,
       user_name: userContext.name,
       user_role: userContext.role,
@@ -301,6 +624,18 @@ export class TestProgrammingService {
       .collection('test_programming')
       .update<TestProgrammingRecord>(id, updates)
 
+    // Sincronização com Montagem Semanal
+    let syncResult = await this.syncWeeklyScheduleItem(updatedRecord, {
+      isCancellation: updatedRecord.status === 'Cancelado',
+    })
+    if (syncResult.success) {
+      await pb.collection('test_programming').update(updatedRecord.id, {
+        weekly_schedule_status: updatedRecord.status === 'Cancelado' ? 'CANCELADO' : 'SINCRONIZADO',
+      })
+      updatedRecord.weekly_schedule_status =
+        updatedRecord.status === 'Cancelado' ? 'CANCELADO' : 'SINCRONIZADO'
+    }
+
     // Identificar campos alterados para auditoria antes/depois
     const changedKeys = Object.keys(updates).filter(
       (k) => (updates as any)[k] !== (current as any)[k],
@@ -319,9 +654,14 @@ export class TestProgrammingService {
         field_changed: key,
         previous_value: prevVal.length > 500 ? prevVal.slice(0, 500) + '...' : prevVal,
         new_value: nextVal.length > 500 ? nextVal.slice(0, 500) + '...' : nextVal,
+        center_previous: current.center_name,
+        center_new: updatedRecord.center_name,
+        schedule_previous: `${current.expected_start_date} ${current.expected_start_time}`,
+        schedule_new: `${updatedRecord.expected_start_date} ${updatedRecord.expected_start_time}`,
+        sync_result: syncResult.message,
         origin,
         integration_name: origin === 'MES 4.0' ? 'MES 4.0' : 'PCP Robotizado',
-        operation_result: 'Sucesso',
+        operation_result: syncResult.success ? 'Sucesso' : 'Falha na Sincronização Semanal',
         reason:
           reason || (statusChanged ? 'Alteração de status no fluxo' : 'Atualização de campos'),
         user_id: userContext.id,

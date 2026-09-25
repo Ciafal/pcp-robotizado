@@ -32,6 +32,7 @@ import {
   ScheduleImpactData,
   EfficacyCriteria,
   RevisionDetails,
+  IndustrialTestObjective,
 } from '@/types/test-programming'
 import {
   testProgrammingService,
@@ -105,6 +106,11 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
   const [testType, setTestType] = useState('Homologação Operacional')
   const [title, setTitle] = useState('')
   const [objective, setObjective] = useState('')
+  const [availableObjectives, setAvailableObjectives] = useState<IndustrialTestObjective[]>([])
+  const [selectedObjectiveCodes, setSelectedObjectiveCodes] = useState<string[]>([])
+  const [objectiveSearchTerm, setObjectiveSearchTerm] = useState('')
+  const [otherObjectiveDesc, setOtherObjectiveDesc] = useState('')
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [justification, setJustification] = useState('')
 
@@ -198,6 +204,10 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         // Empresas
         const compRecs = await pb.collection('companies').getFullList({ sort: 'name' })
         setCompanies(compRecs.map((c: any) => ({ code: c.code, name: c.name || c.corporate_name })))
+
+        // Objetivos Industriais Padronizados
+        const objs = await testProgrammingService.listActiveIndustrialObjectives()
+        setAvailableObjectives(objs)
 
         // Linhas de produção
         const lineRecs = await pb
@@ -356,6 +366,12 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setTestType(initialItem.test_type)
       setTitle(initialItem.title)
       setObjective(initialItem.objective)
+      if (initialItem.objectives_list && Array.isArray(initialItem.objectives_list)) {
+        setSelectedObjectiveCodes(initialItem.objectives_list)
+      } else if (initialItem.objective) {
+        setSelectedObjectiveCodes([initialItem.objective])
+      }
+      setOtherObjectiveDesc(initialItem.other_objective_description || '')
       setDescription(initialItem.description || '')
       setJustification(initialItem.justification)
       setTestCategory(initialItem.test_category)
@@ -442,6 +458,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       // Reset básico
       setTitle('')
       setObjective('')
+      setSelectedObjectiveCodes([])
+      setOtherObjectiveDesc('')
+      setConflictWarning(null)
       setDescription('')
       setJustification('')
       setTechnicalLead(user?.name || 'Carlos Mendes')
@@ -552,11 +571,27 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setActiveTab('geral')
       return
     }
-    if (!objective.trim()) {
-      setErrorMessage('O objetivo do teste é obrigatório.')
+
+    if (selectedObjectiveCodes.length === 0) {
+      setErrorMessage('Selecione pelo menos 1 Objetivo Industrial Padronizado.')
       setActiveTab('geral')
       return
     }
+
+    const hasOtherObj = selectedObjectiveCodes.some(
+      (code) =>
+        code === 'OBJ-35' ||
+        code === 'Outro objetivo industrial' ||
+        availableObjectives.find((o) => o.code === code)?.is_custom_trigger,
+    )
+    if (hasOtherObj && !otherObjectiveDesc.trim()) {
+      setErrorMessage(
+        'O campo "Descrever outro objetivo" é obrigatório quando "Outro objetivo industrial" está selecionado.',
+      )
+      setActiveTab('geral')
+      return
+    }
+
     if (!justification.trim()) {
       setErrorMessage('A justificativa do teste é obrigatória.')
       setActiveTab('geral')
@@ -700,8 +735,29 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
 
     setIsSubmitting(true)
     setErrorMessage(null)
+    setConflictWarning(null)
 
     try {
+      // Etapa 1: Checagem de Conflitos na Montagem Semanal
+      const conflictCheck = await testProgrammingService.checkScheduleConflicts({
+        center: productionLine,
+        startDate: expectedStartDate,
+        startTime: expectedStartTime,
+        endDate: expectedEndDate,
+        endTime: expectedEndTime,
+        ignoreTestProgrammingId: initialItem?.id,
+      })
+
+      if (conflictCheck.hasConflict) {
+        setConflictWarning(conflictCheck.message || 'Conflito de programação identificado.')
+      }
+
+      // Montar nomes legíveis dos objetivos
+      const primaryObjectiveName =
+        availableObjectives.find((o) => o.code === selectedObjectiveCodes[0])?.name ||
+        selectedObjectiveCodes[0] ||
+        'Objetivo Industrial'
+
       const payload: any = {
         company,
         production_line: productionLine,
@@ -720,7 +776,9 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         technical_lead: technicalLead,
         test_type: testType,
         title: title.trim(),
-        objective: objective.trim(),
+        objective: primaryObjectiveName,
+        objectives_list: selectedObjectiveCodes,
+        other_objective_description: hasOtherObj ? otherObjectiveDesc.trim() : '',
         description: description.trim(),
         justification: justification.trim(),
         test_category: testCategory,
@@ -736,7 +794,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       }
 
       if (initialItem?.id) {
-        await testProgrammingService.update(
+        const updated = await testProgrammingService.update(
           initialItem.id,
           payload,
           { id: user?.id, name: user?.name || user?.email || 'Usuário', role: user?.role },
@@ -745,8 +803,8 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
             : 'Edição de dados da programação de teste',
         )
         toast({
-          title: 'Programação de Teste Atualizada',
-          description: `O teste ${initialItem.test_id} foi gravado no backend com sucesso.`,
+          title: 'Teste Atualizado',
+          description: `✅ Teste ${updated.test_id} atualizado com sucesso. A Montagem Semanal foi sincronizada automaticamente.`,
         })
       } else {
         const created = await testProgrammingService.create(payload, {
@@ -755,8 +813,8 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
           role: user?.role,
         })
         toast({
-          title: 'Programação de Teste Criada',
-          description: `Novo teste ${created.test_id} criado no sistema (${submitStatus}).`,
+          title: 'Teste Salvo',
+          description: `Teste ${created.test_id} salvo com sucesso. Programação integrada à Montagem Semanal do centro [${created.production_line || productionLine}].`,
         })
       }
 
@@ -1039,27 +1097,106 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Objetivo *</Label>
-                <Textarea
-                  rows={2}
-                  value={objective}
-                  onChange={(e) => setObjective(e.target.value)}
-                  placeholder="Descreva a meta técnica / operacional esperada..."
-                  className="text-xs resize-none"
-                />
+            {/* Seletor Pesquisável Multi-seleção de Objetivos Industriais Padronizados */}
+            <div className="space-y-2 p-3 bg-purple-50/50 border border-purple-200/80 rounded-lg">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                  Objetivo Industrial *
+                </Label>
+                <span className="text-[11px] font-semibold text-purple-800">
+                  {selectedObjectiveCodes.length} selecionado(s)
+                </span>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-700">Justificativa *</Label>
-                <Textarea
-                  rows={2}
-                  value={justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  placeholder="Motivo industrial, redução de custo, desvio de qualidade..."
-                  className="text-xs resize-none"
-                />
+
+              {/* Input de busca rápida */}
+              <Input
+                placeholder="Pesquisar entre os 35 objetivos industriais..."
+                value={objectiveSearchTerm}
+                onChange={(e) => setObjectiveSearchTerm(e.target.value)}
+                className="text-xs h-7 bg-white"
+              />
+
+              {/* Grid / Lista rolável de objetivos ativos */}
+              <div className="max-h-36 overflow-y-auto space-y-1 p-2 bg-white rounded border border-purple-200">
+                {availableObjectives
+                  .filter(
+                    (obj) =>
+                      obj.active &&
+                      (obj.name.toLowerCase().includes(objectiveSearchTerm.toLowerCase()) ||
+                        obj.code.toLowerCase().includes(objectiveSearchTerm.toLowerCase())),
+                  )
+                  .map((obj) => {
+                    const isSelected = selectedObjectiveCodes.includes(obj.code)
+                    return (
+                      <div
+                        key={obj.code}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedObjectiveCodes(
+                              selectedObjectiveCodes.filter((c) => c !== obj.code),
+                            )
+                          } else {
+                            setSelectedObjectiveCodes([...selectedObjectiveCodes, obj.code])
+                          }
+                        }}
+                        className={`flex items-center justify-between p-1.5 rounded text-xs cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-purple-100/90 text-purple-950 font-bold border border-purple-300'
+                            : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          />
+                          <span className="font-mono text-[11px] text-slate-500">{obj.code}</span>
+                          <span>{obj.name}</span>
+                        </div>
+                        {obj.is_custom_trigger && (
+                          <Badge className="text-[9px] bg-purple-600 text-white py-0 px-1">
+                            Complementar
+                          </Badge>
+                        )}
+                      </div>
+                    )
+                  })}
               </div>
+
+              {/* Campo complementar obrigatório apenas se "Outro objetivo industrial" estiver marcado */}
+              {selectedObjectiveCodes.some(
+                (code) =>
+                  code === 'OBJ-35' ||
+                  code === 'Outro objetivo industrial' ||
+                  availableObjectives.find((o) => o.code === code)?.is_custom_trigger,
+              ) && (
+                <div className="pt-2 border-t border-purple-200 space-y-1">
+                  <Label className="text-xs font-bold text-purple-900">
+                    Descrever outro objetivo *
+                  </Label>
+                  <Input
+                    value={otherObjectiveDesc}
+                    onChange={(e) => setOtherObjectiveDesc(e.target.value)}
+                    placeholder="Descreva detalhadamente o objetivo industrial específico..."
+                    className="text-xs h-8 bg-white border-purple-300 focus:border-purple-600"
+                    required
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700">Justificativa *</Label>
+              <Textarea
+                rows={2}
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                placeholder="Motivo industrial, redução de custo, desvio de qualidade..."
+                className="text-xs resize-none"
+              />
             </div>
 
             <div className="space-y-1">

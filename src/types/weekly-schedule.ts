@@ -90,7 +90,13 @@ export interface WeeklyScheduleItem {
   shift_name: string
   crew_name: string
   sequence_order: number
-  item_type: 'PRODUCTION' | 'SETUP' | 'SCHEDULED_STOP'
+  item_type: 'PRODUCTION' | 'SETUP' | 'SCHEDULED_STOP' | 'TEST_INDUSTRIAL'
+  test_programming_id?: string
+  test_code?: string
+  is_origin_test_programming?: boolean
+  is_locked_externally?: boolean
+  test_technical_lead?: string
+  test_objectives?: string[] | string
   material_code: string
   material_description: string
   family_code?: string

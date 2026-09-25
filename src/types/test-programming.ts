@@ -313,6 +313,12 @@ export interface TestProgrammingRecord {
   mes_last_sync?: string
   mes_sync_message?: string
 
+  // Objetivos Industriais Padronizados & Integração Montagem Semanal
+  objectives_list?: string[] // Lista de códigos ou nomes dos objetivos
+  other_objective_description?: string
+  weekly_schedule_item_id?: string
+  weekly_schedule_status?: 'INTEGRADO' | 'SINCRONIZADO' | 'DESVINCULADO' | 'CANCELADO'
+
   // Análise Previsto x Realizado & IA (Requisitos 6, 12, 13)
   deviation_metrics?: CalculatedDeviations
   ai_analysis_data?: TestAiAnalysisResult
@@ -326,6 +332,19 @@ export interface TestProgrammingRecord {
 }
 
 export type AuditLogOrigin = 'usuário' | 'PCP Robotizado' | 'MES 4.0' | 'integração automática'
+
+export interface IndustrialTestObjective {
+  id: string
+  code: string // OBJ-01 .. OBJ-35
+  name: string
+  description?: string
+  is_custom_trigger: boolean
+  active: boolean
+  created_by?: string
+  updated_by?: string
+  created?: string
+  updated?: string
+}
 
 export interface TestProgrammingLogRecord {
   id?: string
@@ -343,6 +362,11 @@ export interface TestProgrammingLogRecord {
   origin?: AuditLogOrigin
   integration_name?: string
   operation_result?: string
+  center_previous?: string
+  center_new?: string
+  schedule_previous?: string
+  schedule_new?: string
+  sync_result?: string
   reason?: string
   metadata?: Record<string, unknown>
   created?: string

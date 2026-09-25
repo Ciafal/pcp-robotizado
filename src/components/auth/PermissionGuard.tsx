@@ -98,7 +98,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais, análise de carteira e controle de produção sem timeout ou flicker
+  // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes e controle de produção sem timeout ou flicker
+  const isTestProgrammingRoute =
+    currentPathname.includes('programacao-testes') ||
+    currentPathname.includes('test-programming') ||
+    currentPathname.startsWith('/pcp/sequenciamento/programacao-testes') ||
+    currentPathname.startsWith('/pcp/programacao-testes') ||
+    currentPathname.startsWith('/programacao-testes')
+
   const isCarteiraRouteOrPerm =
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
@@ -114,6 +121,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('/pedidos-cancelados')
 
   if (
+    isTestProgrammingRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     currentPathname.startsWith('/pcp/controle-producao') ||
@@ -185,9 +193,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // 3) Rotas de Análise de Carteira (/pcp/analise-carteira/*, /analise-carteira/*) e permissões de carteira
+  // 3) Rotas de Análise de Carteira e Programação de Testes
   // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
   if (
+    isTestProgrammingRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     currentPathname.includes('analise-carteira') ||
@@ -332,7 +341,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.includes('/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/analise-carteira'))
+      currentPathname.startsWith('/pcp/analise-carteira') ||
+      isTestProgrammingRoute)
   ) {
     hasPerm = true
   }
@@ -420,7 +430,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
-    currentPathname.startsWith('/pcp/analise-carteira')
+    currentPathname.startsWith('/pcp/analise-carteira') ||
+    isTestProgrammingRoute
   ) {
     return <>{children}</>
   }
