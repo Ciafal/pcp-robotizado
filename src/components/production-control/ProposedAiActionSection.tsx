@@ -413,8 +413,8 @@ export const ProposedAiActionSection: React.FC<ProposedAiActionSectionProps> = (
                   className="text-xs border-amber-400 text-amber-900 hover:bg-amber-100 flex items-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  Solicitar associação de Documento Oficial
-                </Button>
+                  Solicitar associação de Documento
+                </Button>{' '}
               </div>
             </div>
           ) : (

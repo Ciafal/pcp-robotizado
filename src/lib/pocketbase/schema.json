@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T14:37:23.468Z",
+  "generatedAt": "2026-09-25T11:44:27.358Z",
   "collections": [
     {
       "name": "users",
@@ -25583,6 +25583,649 @@
         "CREATE INDEX idx_spal_op ON sap_pendencies_audit_logs (op_number)",
         "CREATE INDEX idx_spal_created ON sap_pendencies_audit_logs (created DESC)"
       ]
+    },
+    {
+      "name": "pcp_production_reference_documents",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": "@request.auth.id != '' || @request.auth.id = ''"
+      },
+      "fields": [
+        {
+          "name": "document_ref",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "document_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["VIGENTE", "OBSOLETO", "CANCELADO", "SUBSTITUIDO"]
+        },
+        {
+          "name": "document_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "process",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "responsible_area",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validity_date_start",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validity_date_end",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document_author",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "original_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_sync_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applications",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_categories",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criteria",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ALTA", "MEDIA", "BAIXA"]
+        },
+        {
+          "name": "is_primary",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_new_revision_available",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_revision_details",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "extractable_content",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "updated_by_user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_ref_doc_code ON pcp_production_reference_documents (document_code)",
+        "CREATE INDEX idx_pcp_ref_status ON pcp_production_reference_documents (status)",
+        "CREATE INDEX idx_pcp_ref_active ON pcp_production_reference_documents (active)",
+        "CREATE INDEX idx_pcp_ref_priority ON pcp_production_reference_documents (priority)"
+      ]
+    },
+    {
+      "name": "pcp_production_reference_governance_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "reference_document_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "document_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revision",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "action",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ASSOCIACAO_CRIADA",
+            "ASSOCIACAO_ATUALIZADA",
+            "ASSOCIACAO_INATIVADA",
+            "ASSOCIACAO_REATIVADA",
+            "ASSOCIACAO_REMOVIDA",
+            "NOVA_REVISAO_DETECTADA",
+            "NOVA_REVISAO_APLICADA"
+          ]
+        },
+        {
+          "name": "applications",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "categories",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "criteria",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "priority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_primary",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "details",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_gov_ref_id ON pcp_production_reference_governance_logs (reference_document_id)",
+        "CREATE INDEX idx_gov_doc_code ON pcp_production_reference_governance_logs (document_code)",
+        "CREATE INDEX idx_gov_action ON pcp_production_reference_governance_logs (action)",
+        "CREATE INDEX idx_gov_created ON pcp_production_reference_governance_logs (created DESC)"
+      ]
+    },
+    {
+      "name": "pcp_production_treatment_history",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": "@request.auth.id != '' || @request.auth.id = ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "occurrence_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "occurrence_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "op_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document_revision",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "proposed_action",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "actual_action_taken",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "responsible_area",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "outcome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reprocessing_done",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "resolved",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_identified",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_traceability_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pth_occ ON pcp_production_treatment_history (occurrence_id)",
+        "CREATE INDEX idx_pth_op ON pcp_production_treatment_history (op_number)",
+        "CREATE INDEX idx_pth_doc ON pcp_production_treatment_history (document_code)",
+        "CREATE INDEX idx_pth_created ON pcp_production_treatment_history (created DESC)"
+      ]
+    },
+    {
+      "name": "pcp_production_ai_traceability",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' || @request.auth.id = ''",
+        "view": "@request.auth.id != '' || @request.auth.id = ''",
+        "create": "@request.auth.id != '' || @request.auth.id = ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "occurrence_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "occurrence_type",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "analysis_timestamp",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "documents_consulted",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisions_consulted",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rules_and_excerpts_used",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "identified_category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_sap_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result_facts",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result_hypotheses",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result_proposed_action",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_divergence_with_history",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "divergence_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_ait_occ ON pcp_production_ai_traceability (occurrence_id)",
+        "CREATE INDEX idx_ait_created ON pcp_production_ai_traceability (created DESC)"
+      ]
+    },
+    {
+      "name": "pcp_prod_ref_docs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "document_code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
     }
   ]
 }

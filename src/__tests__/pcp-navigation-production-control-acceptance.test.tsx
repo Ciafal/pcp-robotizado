@@ -95,6 +95,10 @@ function renderSidebarWithRole(initialRoute = '/pcp/cockpit', role: string = 'PC
                       path="/pcp/controle-producao/analise"
                       element={<ProductionAIAnalysisPage />}
                     />
+                    <Route
+                      path="/pcp/controle-producao/documentos-referencia"
+                      element={<div>Documentos de Referência — Controle de Produção</div>}
+                    />
                   </Routes>
                 </div>
               </div>
@@ -130,11 +134,14 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
     // Clica para expandir caso colapsado
     fireEvent.click(header)
 
-    // Todos os 4 itens devem estar no DOM e visíveis
+    // Todos os 7 itens devem estar no DOM e visíveis
     expect(screen.getByText('Controle de Ordens de Produção')).toBeInTheDocument()
     expect(screen.getByText('Apontamentos')).toBeInTheDocument()
     expect(screen.getByText('Histórico de Ordens de Produção')).toBeInTheDocument()
     expect(screen.getByText('Análise de Ordens')).toBeInTheDocument()
+    expect(screen.getByText('Pendências - COGI')).toBeInTheDocument()
+    expect(screen.getByText('Pendências - CO1P')).toBeInTheDocument()
+    expect(screen.getByText('Documentos de Referência')).toBeInTheDocument()
 
     // Verifica links corretos
     const linkOrdens = screen.getByText('Controle de Ordens de Produção').closest('a')
@@ -148,6 +155,9 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
 
     const linkAnalise = screen.getByText('Análise de Ordens').closest('a')
     expect(linkAnalise).toHaveAttribute('href', '/pcp/controle-producao/analise')
+
+    const linkDocRef = screen.getByText('Documentos de Referência').closest('a')
+    expect(linkDocRef).toHaveAttribute('href', '/pcp/controle-producao/documentos-referencia')
 
     // Verifica estilos dos filhos: recuo pl-6 e quebra de linha whitespace-normal break-words
     expect(linkOrdens).toHaveClass('pl-6')
@@ -222,6 +232,14 @@ describe('PCPNavigation — Controle de Produção Submenu Acceptance Suite', ()
     fireEvent.click(screen.getByText('Análise de Ordens'))
     await waitFor(() => {
       expect(screen.getByText(/Análise de Ordens com Inteligência Artificial/i)).toBeInTheDocument()
+    })
+
+    // Clica em Documentos de Referência
+    fireEvent.click(screen.getByText('Documentos de Referência'))
+    await waitFor(() => {
+      expect(
+        screen.getByText('Documentos de Referência — Controle de Produção'),
+      ).toBeInTheDocument()
     })
 
     // Clica de volta em Controle de Ordens de Produção

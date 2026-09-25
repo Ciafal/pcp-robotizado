@@ -759,7 +759,7 @@ class ProductionControlReferenceDocsService {
 
     // 3. Consultar histórico de tratamentos prévios para detectar recorrência e divergências
     const historyTreatments = await this.getTreatmentHistoryByOccurrence(context.occurrence_id)
-    let divergence: ProductionProposedAiAction['divergenciacao_historico'] = undefined
+    let divergence: ProductionProposedAiAction['divergencia_historico'] = undefined
 
     if (historyTreatments.length > 0 && bestMatch) {
       const lastTreatment = historyTreatments[0]
