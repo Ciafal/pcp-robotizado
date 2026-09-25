@@ -18,6 +18,11 @@ import { getPopulatedDemoOrders } from '@/data/cancelled-orders-seed'
 import { OFFICIAL_CANCELLATION_CATALOG } from '@/data/cancellation-reasons-catalog'
 import { pcpAuditService } from '@/services/pcp-audit-service'
 import { CancelledOrdersAIEngine } from '@/services/cancelled-orders-ai-engine'
+import {
+  crmRevisionIntegrationService,
+  CreateRevisionRequestParams,
+  RespondRevisionParams,
+} from '@/services/crm-revision-integration-service'
 
 class CancelledOrdersService {
   private memoryOrders: CancelledOrderRecord[] = []
@@ -156,6 +161,45 @@ class CancelledOrdersService {
 
   public async getOrders(filters?: CancelledOrdersFilterState): Promise<CancelledOrderRecord[]> {
     await this.init()
+    await crmRevisionIntegrationService.init()
+
+    // Sincroniza estado das solicitações de revisão CRM na lista
+    const crmPendencies = await crmRevisionIntegrationService.getAllPendencies()
+    if (crmPendencies.length > 0) {
+      this.memoryOrders.forEach((order) => {
+        const lastPendency = crmPendencies.find(
+          (p) =>
+            p.order_id === order.id ||
+            (p.ordem_venda === order.ordem_venda && p.item_ordem === order.item_ordem),
+        )
+        if (lastPendency) {
+          order.crm_protocolo = lastPendency.protocolo
+          order.crm_data_solicitacao = lastPendency.data_solicitacao
+          order.crm_responsavel = lastPendency.responsavel_destino
+          order.crm_status = lastPendency.status_crm
+          order.crm_motivo_solicitacao = lastPendency.motivo_solicitacao
+          order.motivo_validado_apos_revisao = lastPendency.motivo_validado_apos_revisao
+          order.crm_observacao = lastPendency.observacao_crm
+          order.crm_responsavel_validacao = lastPendency.responsavel_validacao_crm
+          order.crm_pendency_id = lastPendency.id
+
+          if (lastPendency.status_crm === 'Em análise') {
+            order.analysis_status = 'Revisão solicitada'
+          } else if (
+            lastPendency.status_crm === 'Motivo corrigido' ||
+            lastPendency.status_crm === 'Motivo confirmado'
+          ) {
+            order.analysis_status = 'Revisado'
+          } else if (
+            lastPendency.status_crm === 'Concluído' ||
+            lastPendency.status_crm === 'Improcedente'
+          ) {
+            order.analysis_status = 'Concluído'
+          }
+        }
+      })
+    }
+
     let list = [...this.memoryOrders]
 
     if (!filters) return list
@@ -482,6 +526,89 @@ class CancelledOrdersService {
   public async getActionPlans(): Promise<ActionPlan5W2H[]> {
     await this.init()
     return this.memoryActionPlans
+  }
+
+  /**
+   * Solicita revisão ao CRM 360º para um pedido cancelado
+   */
+  public async requestCrmRevision(
+    params: Omit<CreateRevisionRequestParams, 'order'> & { orderId: string },
+  ): Promise<{ order: CancelledOrderRecord; pendency: any }> {
+    await this.init()
+    const order = await this.getOrderById(params.orderId)
+    if (!order) {
+      throw new Error(`Pedido com ID ${params.orderId} não encontrado.`)
+    }
+
+    const pendency = await crmRevisionIntegrationService.createRevisionRequest({
+      order,
+      motivoSolicitacao: params.motivoSolicitacao,
+      justificativa: params.justificativa,
+      prioridade: params.prioridade,
+      responsavelDestino: params.responsavelDestino,
+      prazoRetorno: params.prazoRetorno,
+      solicitanteNome: params.solicitanteNome,
+    })
+
+    const idx = this.memoryOrders.findIndex((o) => o.id === order.id)
+    if (idx !== -1) {
+      this.memoryOrders[idx] = {
+        ...this.memoryOrders[idx],
+        analysis_status: 'Revisão solicitada',
+        crm_protocolo: pendency.protocolo,
+        crm_data_solicitacao: pendency.data_solicitacao,
+        crm_responsavel: pendency.responsavel_destino,
+        crm_status: pendency.status_crm,
+        crm_motivo_solicitacao: pendency.motivo_solicitacao,
+        crm_pendency_id: pendency.id,
+      }
+    }
+
+    return {
+      order: this.memoryOrders[idx !== -1 ? idx : 0],
+      pendency,
+    }
+  }
+
+  /**
+   * Responde solicitação de revisão via CRM 360º
+   */
+  public async respondCrmRevision(
+    params: RespondRevisionParams,
+  ): Promise<{ order: CancelledOrderRecord | null; pendency: any }> {
+    await this.init()
+    const pendency = await crmRevisionIntegrationService.respondRevision(params)
+
+    let updatedOrder: CancelledOrderRecord | null = null
+    const idx = this.memoryOrders.findIndex(
+      (o) =>
+        o.id === pendency.order_id ||
+        (o.ordem_venda === pendency.ordem_venda && o.item_ordem === pendency.item_ordem),
+    )
+
+    if (idx !== -1) {
+      let newAnalysisStatus: any = 'Revisado'
+      if (params.statusCrm === 'Concluído' || params.statusCrm === 'Improcedente') {
+        newAnalysisStatus = 'Concluído'
+      } else if (params.statusCrm === 'Em análise') {
+        newAnalysisStatus = 'Em análise CRM'
+      }
+
+      this.memoryOrders[idx] = {
+        ...this.memoryOrders[idx],
+        analysis_status: newAnalysisStatus,
+        crm_status: pendency.status_crm,
+        motivo_validado_apos_revisao: pendency.motivo_validado_apos_revisao,
+        crm_observacao: pendency.observacao_crm,
+        crm_responsavel_validacao: pendency.responsavel_validacao_crm,
+      }
+      updatedOrder = this.memoryOrders[idx]
+    }
+
+    return {
+      order: updatedOrder,
+      pendency,
+    }
   }
 
   public triggerAIReanalysis(order: CancelledOrderRecord): CancelledOrderRecord {

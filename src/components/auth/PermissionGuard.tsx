@@ -101,6 +101,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Libera rotas operacionais, cadastrais e de controle de produção
   if (
     permission === 'pcp.production.view' ||
+    permission === 'pcp.carteira.view' ||
+    currentPathname.startsWith('/pcp/analise-carteira') ||
+    currentPathname.startsWith('/pcp/pedidos-cancelados') ||
     currentPathname.startsWith('/pcp/controle-producao') ||
     currentPathname.startsWith('/pcp/producao') ||
     currentPathname === '/' ||

@@ -34,7 +34,78 @@ export type AvoidableClassification =
   | 'Provavelmente não evitável'
   | 'Necessita investigação'
 
-export type AnalysisStatus = 'Pendente' | 'Em Análise' | 'Validado' | 'Discordado' | 'Ação Criada'
+export type AnalysisStatus =
+  | 'Pendente'
+  | 'Revisão solicitada'
+  | 'Em análise CRM'
+  | 'Revisado'
+  | 'Concluído'
+  | 'Em Análise'
+  | 'Validado'
+  | 'Discordado'
+  | 'Ação Criada'
+
+export type CrmRevisionReason =
+  | 'Motivo do cancelamento possivelmente incorreto'
+  | 'Existia estoque disponível'
+  | 'Existia produção disponível'
+  | 'Existia programação prevista'
+  | 'Divergência de quantidade'
+  | 'Divergência de prazo'
+  | 'Divergência comercial'
+  | 'Divergência de cadastro'
+  | 'Necessidade de confirmação do cliente'
+  | 'Necessidade de confirmação do vendedor'
+  | 'Outros'
+
+export type CrmRevisionStatus =
+  | 'Em análise'
+  | 'Motivo confirmado'
+  | 'Motivo corrigido'
+  | 'Improcedente'
+  | 'Concluído'
+
+export interface CrmRevisionPendencyRecord {
+  id: string
+  protocolo: string
+  order_id: string
+  origem: string
+  tipo_pendencia: string
+  empresa: string
+  centro: string
+  linha: string
+  ordem_venda: string
+  item_ordem: string
+  cliente_codigo: string
+  cliente_nome: string
+  representante_vendedor: string
+  material_codigo: string
+  material_descricao: string
+  quantidade_t: number
+  valor_brl: number
+  data_ordem: string
+  data_desejada: string
+  motivo_sap_original: string
+  categoria_motivo: string
+  analise_ia: string
+  evidencias_ia: string
+  responsabilidade_provavel: string
+  motivo_solicitacao: CrmRevisionReason
+  justificativa: string
+  prioridade: PriorityLevel
+  responsavel_destino: string
+  prazo_retorno: string
+  solicitante_nome: string
+  data_solicitacao: string
+  status_crm: CrmRevisionStatus
+  motivo_validado_apos_revisao?: string
+  observacao_crm?: string
+  responsavel_validacao_crm?: string
+  data_conclusao_crm?: string
+  payload_completo?: Record<string, any>
+  created?: string
+  updated?: string
+}
 
 export type PriorityLevel = 'Crítica' | 'Alta' | 'Média' | 'Baixa'
 
@@ -127,7 +198,7 @@ export interface CancelledOrderRecord {
   ai_action_suggested: string
   ai_analysis_payload?: AIAnalysisResult
 
-  // Governança humana
+  // Governança humana & Integração CRM 360º
   analysis_status: AnalysisStatus
   validated_cause?: string
   validated_responsibility?: ProbableResponsibility
@@ -135,6 +206,17 @@ export interface CancelledOrderRecord {
   validated_at?: string
   human_notes?: string
   action_plan_id?: string
+
+  // Dados da Solicitação de Revisão CRM
+  crm_protocolo?: string
+  crm_data_solicitacao?: string
+  crm_responsavel?: string
+  crm_status?: CrmRevisionStatus
+  crm_motivo_solicitacao?: string
+  motivo_validado_apos_revisao?: string
+  crm_observacao?: string
+  crm_responsavel_validacao?: string
+  crm_pendency_id?: string
 
   // Dados de contexto para IA (quando integrados com SAP/PCP)
   context_data?: HistoricalContextData

@@ -28,6 +28,8 @@ import { CancelledOrdersParetoAndAnalytics } from '@/components/cancelled-orders
 import { CancelledOrderDetailModal } from '@/components/cancelled-orders/CancelledOrderDetailModal'
 import { ExecutiveCardDrilldownModal } from '@/components/cancelled-orders/ExecutiveCardDrilldownModal'
 import { CancelledOrdersReportModal } from '@/components/cancelled-orders/CancelledOrdersReportModal'
+import { SolicitarRevisaoModal } from '@/components/cancelled-orders/SolicitarRevisaoModal'
+import { ConsultarRevisaoCrmModal } from '@/components/cancelled-orders/ConsultarRevisaoCrmModal'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
@@ -74,6 +76,11 @@ export const PedidosCanceladosPage: React.FC = () => {
 
   // Relatório Executivo
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+
+  // Modais de Revisão CRM 360º
+  const [isSolicitarRevisaoOpen, setIsSolicitarRevisaoOpen] = useState(false)
+  const [isConsultarRevisaoOpen, setIsConsultarRevisaoOpen] = useState(false)
+  const [revisaoOrderTarget, setRevisaoOrderTarget] = useState<CancelledOrderRecord | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -148,11 +155,73 @@ export const PedidosCanceladosPage: React.FC = () => {
     setSelectedOrder(updated)
   }
 
-  // Abertura de modal do card do topo
+  // Abertura de modal do card do topo ou aplicação de filtro direto
   const handleCardClick = (cardKey: string, cardTitle: string) => {
+    // Filtro contextual conforme especificação
+    if (cardKey === 'inconsistencia_ia') {
+      const nextVal = filters.comInconsistenciaIA === 'sim' ? 'todos' : 'sim'
+      const updated = { ...filters, comInconsistenciaIA: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'cancelamentos_pcp') {
+      const nextVal = filters.responsabilidadeProvavel === 'PCP' ? 'todas' : 'PCP'
+      const updated = { ...filters, responsabilidadeProvavel: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'cancelamentos_comerciais') {
+      const nextVal = filters.categoriaMotivo === 'Comercial' ? 'todas' : 'Comercial'
+      const updated = { ...filters, categoriaMotivo: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'principal_motivo' && kpis.principalMotivoNome) {
+      const nextVal =
+        filters.motivoCancelamento === kpis.principalMotivoNome
+          ? undefined
+          : kpis.principalMotivoNome
+      const updated = { ...filters, motivoCancelamento: nextVal }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'cancelamentos_reincidentes') {
+      const nextVal = filters.recorrencia === 'recorrente' ? 'todos' : 'recorrente'
+      const updated = { ...filters, recorrencia: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+    if (cardKey === 'potencialmente_evitaveis') {
+      const nextVal = filters.evitabilidade === 'evitavel' ? 'todos' : 'evitavel'
+      const updated = { ...filters, evitabilidade: nextVal as any }
+      setFilters(updated)
+      cancelledOrdersService.getOrders(updated).then(setOrders)
+      return
+    }
+
     setSelectedCardKey(cardKey)
     setSelectedCardTitle(cardTitle)
     setIsCardModalOpen(true)
+  }
+
+  // Ações de Revisão CRM
+  const handleOpenSolicitarRevisao = (order: CancelledOrderRecord) => {
+    setRevisaoOrderTarget(order)
+    setIsSolicitarRevisaoOpen(true)
+  }
+
+  const handleOpenConsultarRevisao = (order: CancelledOrderRecord) => {
+    setRevisaoOrderTarget(order)
+    setIsConsultarRevisaoOpen(true)
+  }
+
+  const handleRevisaoCreated = (updatedOrder: CancelledOrderRecord) => {
+    handleOrderUpdated(updatedOrder)
   }
 
   const handleFilterByReason = (reason: string) => {
@@ -231,12 +300,16 @@ export const PedidosCanceladosPage: React.FC = () => {
         </div>
 
         {/* 1. Cards Executivos Clicáveis (Requisito 3) */}
-        <CancelledOrdersExecutiveCards kpis={kpis} onCardClick={handleCardClick} />
+        <CancelledOrdersExecutiveCards
+          kpis={kpis}
+          onCardClick={handleCardClick}
+          activeCardKey={selectedCardKey}
+        />
 
         {/* 2. Barra de Filtros Combinados (Requisito 4) */}
         <CancelledOrdersFilterBar
           filters={filters}
-          onChange={setFilters}
+          onFiltersChange={setFilters}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onExport={handleExportData}
@@ -253,14 +326,38 @@ export const PedidosCanceladosPage: React.FC = () => {
           onFilterByReason={handleFilterByReason}
         />
 
-        {/* 4. Tabela Detalhada com Colunas Oficiais (Requisito 5) */}
-        <CancelledOrdersTable orders={orders} onSelectOrder={handleOpenOrderDetail} />
+        {/* 4. Tabela Detalhada com Colunas Oficiais e Ação Solicitar Revisão (Requisitos 1 e 7) */}
+        <CancelledOrdersTable
+          orders={orders}
+          selectedOrderId={selectedOrder?.id}
+          onSelectOrder={handleOpenOrderDetail}
+          onRequestRevision={handleOpenSolicitarRevisao}
+          onViewRevisionHistory={handleOpenConsultarRevisao}
+        />
 
         {/* Modais */}
         <CancelledOrderDetailModal
           order={selectedOrder}
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
+          onOrderUpdated={handleOrderUpdated}
+          onRequestRevision={handleOpenSolicitarRevisao}
+          onViewRevisionHistory={handleOpenConsultarRevisao}
+        />
+
+        {/* Modal de Solicitação de Revisão ao CRM 360º */}
+        <SolicitarRevisaoModal
+          order={revisaoOrderTarget}
+          isOpen={isSolicitarRevisaoOpen}
+          onClose={() => setIsSolicitarRevisaoOpen(false)}
+          onSuccess={handleRevisaoCreated}
+        />
+
+        {/* Modal de Histórico e Retorno da Revisão CRM */}
+        <ConsultarRevisaoCrmModal
+          order={revisaoOrderTarget}
+          isOpen={isConsultarRevisaoOpen}
+          onClose={() => setIsConsultarRevisaoOpen(false)}
           onOrderUpdated={handleOrderUpdated}
         />
 

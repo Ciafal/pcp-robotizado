@@ -21,6 +21,8 @@ import {
   Calendar,
   Layers,
   ArrowRight,
+  ExternalLink,
+  Send,
 } from 'lucide-react'
 import {
   CancelledOrderRecord,
@@ -47,6 +49,8 @@ interface ModalProps {
   isOpen: boolean
   onClose: () => void
   onOrderUpdated: (updated: CancelledOrderRecord) => void
+  onRequestRevision?: (order: CancelledOrderRecord) => void
+  onViewRevisionHistory?: (order: CancelledOrderRecord) => void
 }
 
 const RESPONSABILIDADES: ProbableResponsibility[] = [
@@ -69,6 +73,8 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   onOrderUpdated,
+  onRequestRevision,
+  onViewRevisionHistory,
 }) => {
   const { toast } = useToast()
 
@@ -771,7 +777,7 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
         </div>
 
         {/* Rodapé do Modal */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-100/80 flex items-center justify-between text-xs text-slate-600">
+        <div className="px-6 py-3 border-t border-slate-200 bg-slate-100/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
           <div>
             Ordem registrada em: <span className="font-mono">{order.data_ordem}</span> • Usuário do
             apontamento:{' '}
@@ -780,15 +786,46 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
             </span>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="text-xs h-8"
-          >
-            Fechar Modal
-          </Button>
+          <div className="flex items-center space-x-2">
+            {order.crm_protocolo ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onClose()
+                  onViewRevisionHistory?.(order)
+                }}
+                className="text-xs h-8 border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100"
+              >
+                <ExternalLink className="w-3.5 h-3.5 mr-1 text-blue-700" />
+                Ver Revisão CRM ({order.crm_protocolo})
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  onClose()
+                  onRequestRevision?.(order)
+                }}
+                className="text-xs h-8 bg-[#004C97] hover:bg-[#003d7a] text-white font-medium"
+              >
+                <Send className="w-3.5 h-3.5 mr-1" />
+                Solicitar revisão ao CRM 360º
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="text-xs h-8"
+            >
+              Fechar Modal
+            </Button>
+          </div>
         </div>
       </div>
     </div>
