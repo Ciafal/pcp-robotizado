@@ -395,9 +395,9 @@ class CancelledOrdersService {
             status: updated.analysis_status,
             validated_cause: updated.validated_cause,
             validated_responsibility: updated.validated_responsibility,
-            human_notes: updated.human_notes
-          }
-        }
+            human_notes: updated.human_notes,
+          },
+        },
       })
     } catch {
       // Auditoria resiliente
@@ -471,7 +471,7 @@ class CancelledOrdersService {
         center: plan.centro_linha,
         reason: newPlan.code,
         justification: `Plano de ação ${newPlan.code} criado para OV ${newPlan.ordem_venda}: ${newPlan.what_acao}`,
-        details: { plan: newPlan }
+        details: { plan: newPlan },
       })
     } catch {
       // silencia
