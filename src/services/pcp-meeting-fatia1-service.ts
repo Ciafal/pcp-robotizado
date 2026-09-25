@@ -16,7 +16,9 @@ import {
   AtaSectionData,
   PreviaEnvioInfo,
   ParticipantStatus,
+  PendencyUpdateHistoryEntry,
 } from '@/types/pcp-meeting'
+import { NotificationAdapter } from './pcp-adapters-service'
 import { getIsoWeekAndYear, getPlantNow } from '@/lib/temporal-utils'
 import { testProgrammingService } from './test-programming-service'
 import { CarteiraService } from './carteira-service'
@@ -1509,10 +1511,81 @@ export class PcpMeetingFatia1Service {
     data: Omit<PCPMeetingPendencyRecord, 'id' | 'pendency_code' | 'created' | 'updated'>,
     userContext: { id?: string; name: string },
   ): Promise<PCPMeetingPendencyRecord> {
+    // REGRA DE GOVERNANÇA: Pendência originada no tópico Reunião PCP NUNCA é salva sem id_reuniao + id_ata
+    if (!data.meeting_id || data.meeting_id === 'REUNIAO_MANUAL' || data.meeting_id === 'MANUAL') {
+      throw new Error(
+        'Rastreabilidade obrigatória: Selecione uma Reunião de origem válida para registrar a pendência.',
+      )
+    }
+
+    // Se ata_id não fornecido diretamente, tentar obter a ATA da reunião
+    let finalAtaId = data.ata_id || ''
+    let finalAtaCode = data.ata_code || ''
+    let finalMeetingCode = data.meeting_code || ''
+    let finalMeetingDate = data.meeting_date || ''
+    let finalCompany = data.company || 'CIAFAL'
+    let finalWeek = data.origin_week
+    let finalYear = data.origin_year
+
+    try {
+      const meetingRec = await pb
+        .collection('pcp_meeting')
+        .getOne<PCPMeetingRecord>(data.meeting_id)
+      finalMeetingCode = meetingRec.meeting_code || finalMeetingCode
+      finalMeetingDate = meetingRec.meeting_date || finalMeetingDate
+      finalCompany = meetingRec.company || finalCompany
+      finalWeek = meetingRec.week || finalWeek
+      finalYear = meetingRec.year || finalYear
+
+      if (!finalAtaId) {
+        const atas = await pb.collection('pcp_meeting_ata').getList<PCPMeetingAtaRecord>(1, 1, {
+          filter: `meeting_id = '${data.meeting_id}'`,
+          sort: '-version',
+        })
+        if (atas.items.length > 0) {
+          finalAtaId = atas.items[0].id || ''
+          finalAtaCode = `ATA-${finalMeetingCode}-V${atas.items[0].version}`
+        }
+      }
+    } catch {
+      // Se não for possível ler a reunião via SDK (ex: teste mockado), mantemos os dados informados
+    }
+
+    if (!finalAtaId && !data.ata_id) {
+      throw new Error(
+        'Rastreabilidade obrigatória: A reunião de origem precisa ter uma ATA vinculada para registrar pendências.',
+      )
+    }
+
     const code = await this.getNextPendencyCode()
-    const payload = {
+
+    const initialHistory: PendencyUpdateHistoryEntry[] = [
+      {
+        id: `hist_init_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        user_name: userContext.name,
+        user_id: userContext.id,
+        status_anterior: data.status,
+        status_novo: data.status,
+        nota: data.last_update_note || 'Registro inicial da pendência',
+        evidencia: data.evidence || '',
+        origem_atualizacao: data.origin || 'Reunião PCP',
+      },
+    ]
+
+    const payload: Partial<PCPMeetingPendencyRecord> = {
       ...data,
       pendency_code: code,
+      meeting_id: data.meeting_id,
+      meeting_code: finalMeetingCode,
+      meeting_date: finalMeetingDate,
+      company: finalCompany,
+      ata_id: finalAtaId,
+      ata_code: finalAtaCode,
+      origin_week: finalWeek,
+      origin_year: finalYear,
+      origem_pendente_regularizacao: false,
+      update_history: initialHistory,
     }
 
     const created = await pb
@@ -1521,12 +1594,21 @@ export class PcpMeetingFatia1Service {
 
     await this.logAction({
       meeting_id: data.meeting_id,
+      meeting_code: finalMeetingCode,
+      week: finalWeek,
+      year: finalYear,
       user_id: userContext.id,
       user_name: userContext.name,
       action: 'CRIACAO_PENDENCIA',
       target_object: 'pcp_meeting_pendency',
       new_value: `${code}: ${data.subject}`,
-      reason: 'Registro de pendência na Reunião PCP',
+      reason: `Registro de pendência na Reunião ${finalMeetingCode} vinculada à ATA ${finalAtaCode || finalAtaId}`,
+      metadata: {
+        pendency_code: code,
+        ata_id: finalAtaId,
+        ata_code: finalAtaCode,
+        meeting_code: finalMeetingCode,
+      },
     })
 
     return created
@@ -1539,22 +1621,193 @@ export class PcpMeetingFatia1Service {
     reason?: string,
   ): Promise<PCPMeetingPendencyRecord> {
     const current = await pb.collection('pcp_meeting_pendency').getOne<PCPMeetingPendencyRecord>(id)
+
+    // Preservar integridade do histórico acumulativo sem sobrescrever entradas prévias
+    const existingHistory = Array.isArray(current.update_history) ? [...current.update_history] : []
+
+    const newStatus = updates.status || current.status
+    const newNote =
+      updates.last_update_note !== undefined
+        ? updates.last_update_note
+        : current.last_update_note || ''
+    const newEvidence = updates.evidence !== undefined ? updates.evidence : current.evidence || ''
+
+    const historyEntry: PendencyUpdateHistoryEntry = {
+      id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      user_name: userContext.name,
+      user_id: userContext.id,
+      status_anterior: current.status,
+      status_novo: newStatus,
+      nota: newNote || reason || 'Atualização de pendência',
+      evidencia: newEvidence,
+      origem_atualizacao: updates.origin || current.origin || 'Painel de Pendências e Ações',
+    }
+
+    const updatedHistory = [historyEntry, ...existingHistory]
+
+    // Garantir que vínculos obrigatórios sejam mantidos
+    const payloadToSave: Partial<PCPMeetingPendencyRecord> = {
+      ...updates,
+      update_history: updatedHistory,
+      meeting_id: updates.meeting_id || current.meeting_id,
+      meeting_code: updates.meeting_code || current.meeting_code,
+      ata_id: updates.ata_id || current.ata_id,
+      ata_code: updates.ata_code || current.ata_code,
+      company: updates.company || current.company,
+      origin_week: updates.origin_week || current.origin_week,
+      origin_year: updates.origin_year || current.origin_year,
+      performance_action_id: updates.performance_action_id || current.performance_action_id,
+    }
+
     const updated = await pb
       .collection('pcp_meeting_pendency')
-      .update<PCPMeetingPendencyRecord>(id, updates)
+      .update<PCPMeetingPendencyRecord>(id, payloadToSave)
 
     await this.logAction({
       meeting_id: updated.meeting_id,
+      meeting_code: updated.meeting_code,
+      week: updated.origin_week,
+      year: updated.origin_year,
       user_id: userContext.id,
       user_name: userContext.name,
       action: 'ATUALIZACAO_PENDENCIA',
       target_object: 'pcp_meeting_pendency',
       previous_value: current.status,
       new_value: updated.status,
-      reason: reason || 'Atualização de status/responsável da pendência',
+      reason: reason || newNote || 'Atualização de status/responsável da pendência',
+      metadata: {
+        pendency_code: updated.pendency_code,
+        changes: Object.keys(updates),
+      },
     })
 
     return updated
+  }
+
+  /**
+   * Envia Alerta da Pendência:
+   * (1) Notificação interna no HUB via NotificationAdapter
+   * (2) Tentativa de e-mail ao responsável corporativo
+   * (3) Registro em auditoria pcp_meeting_log
+   */
+  async sendPendencyAlert(
+    pendency: PCPMeetingPendencyRecord,
+    userContext: { id?: string; name: string },
+    options?: {
+      responsibleEmail?: string
+      customNote?: string
+    },
+  ): Promise<{
+    hubNotificationSuccess: boolean
+    emailSuccess: boolean
+    emailStatus: string
+    recipient: string
+    message: string
+  }> {
+    const pendencyCode = pendency.pendency_code
+    const subject = pendency.subject
+    const responsible = pendency.responsible
+    const deadline = pendency.deadline
+    const meetingRef = pendency.meeting_code || pendency.meeting_id || 'Reunião PCP'
+    const ataRef = pendency.ata_code || pendency.ata_id || 'ATA Vinculada'
+
+    // 1. Notificação interna HUB
+    let hubOk = false
+    try {
+      await NotificationAdapter.sendInternalNotification({
+        target_audience: 'PCP',
+        type: 'RISCO_ATRASO',
+        title: `Pendência PCP em aberto: ${pendencyCode}`,
+        message: `${pendencyCode} — ${subject} — Prazo: ${deadline} — Reunião: ${meetingRef} — ATA: ${ataRef} — Resp: ${responsible}`,
+        action_url: `/pcp/reunioes/pendencias?code=${pendencyCode}`,
+        severity: pendency.priority === 'CRITICA' ? 'CRITICAL' : 'WARNING',
+      })
+      hubOk = true
+    } catch (err) {
+      console.warn('Erro ao disparar notificação interna no HUB:', err)
+    }
+
+    // 2. E-mail ao responsável corporativo
+    // Identificar e-mail corporativo: fornecido ou busca nos usuários
+    let targetEmail = options?.responsibleEmail || ''
+    if (!targetEmail) {
+      try {
+        const users = await pb.collection('users').getList(1, 10, {
+          filter: `name ~ '${responsible}'`,
+        })
+        if (users.items.length > 0 && users.items[0].email) {
+          targetEmail = users.items[0].email
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+    }
+    if (!targetEmail) {
+      targetEmail = `${responsible.toLowerCase().replace(/\s+/g, '.')}@ciafal.com.br`
+    }
+
+    // Verificar se existe backend de e-mail / SMTP configurado
+    let emailSuccess = false
+    let emailStatus = 'SEM_PROVEDOR_CONFIGURADO'
+    let treatedReason = 'e-mail registrado como pendente por ausência de servidor SMTP configurado'
+
+    try {
+      // Tenta chamar endpoint de envio se disponível
+      const emailPayload = {
+        summary_code: pendencyCode,
+        recipients: [targetEmail],
+        subject: `[PCP] Pendência ${pendencyCode} aguardando ação`,
+        message: `Olá, ${responsible}.\n\nPendência: ${pendencyCode}\nAssunto: ${subject}\nAção: ${pendency.action}\nPrioridade: ${pendency.priority}\nPrazo: ${deadline}\nStatus: ${pendency.status}\n\nOrigem:\nReunião: ${meetingRef}\nATA: ${ataRef}\nSemana: S${pendency.origin_week}/${pendency.origin_year}\nData: ${pendency.meeting_date || ''}\n\nAcessar pendência no HUB: /pcp/reunioes/pendencias?code=${pendencyCode}`,
+      }
+
+      const res = await pb.send('/backend/v1/pcp/summaries/send-email', {
+        method: 'POST',
+        body: emailPayload,
+      })
+      if (res?.success) {
+        emailSuccess = true
+        emailStatus = 'ENVIADO'
+        treatedReason = 'E-mail enviado com sucesso'
+      }
+    } catch {
+      // Sem SMTP/API key nas secrets: padrão tratado e honesto
+      emailSuccess = false
+      emailStatus = 'SEM_PROVEDOR_CONFIGURADO'
+      treatedReason = 'e-mail registrado como pendente por ausência de servidor SMTP configurado'
+    }
+
+    // 3. Auditoria pcp_meeting_log
+    await this.logAction({
+      meeting_id: pendency.meeting_id,
+      meeting_code: pendency.meeting_code,
+      week: pendency.origin_week,
+      year: pendency.origin_year,
+      user_id: userContext.id,
+      user_name: userContext.name,
+      action: 'ALERTA_PENDENCIA_DISPARADO',
+      target_object: 'pcp_meeting_pendency',
+      new_value: `Alerta enviado: ${pendencyCode}`,
+      reason: `Envio de lembrete da pendência ${pendencyCode} para ${responsible} (${targetEmail}). HUB: ${hubOk ? 'OK' : 'FALHA'}, E-mail: ${treatedReason}`,
+      metadata: {
+        pendency_code: pendencyCode,
+        responsible,
+        target_email: targetEmail,
+        hub_notification_success: hubOk,
+        email_status: emailStatus,
+        email_reason: treatedReason,
+      },
+    })
+
+    return {
+      hubNotificationSuccess: hubOk,
+      emailSuccess,
+      emailStatus,
+      recipient: `${responsible} (${targetEmail})`,
+      message: emailSuccess
+        ? `Alerta da pendência ${pendencyCode} enviado com sucesso para ${responsible}.`
+        : `Alerta da pendência ${pendencyCode} gerado no HUB para ${responsible}. Notificação corporativa: ${treatedReason}.`,
+    }
   }
 
   /**

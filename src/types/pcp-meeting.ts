@@ -173,12 +173,31 @@ export interface PCPMeetingParticipantRecord {
   updated?: string
 }
 
+export interface PendencyUpdateHistoryEntry {
+  id: string
+  timestamp: string
+  user_name: string
+  user_id?: string
+  status_anterior: PendencyStatus
+  status_novo: PendencyStatus
+  nota: string
+  evidencia?: string
+  origem_atualizacao: string
+}
+
 export interface PCPMeetingPendencyRecord {
   id?: string
   pendency_code: string // Ex: PEND-000001
   origin_week: number
   origin_year: number
   meeting_id: string
+  meeting_code?: string // Ex: REUNIAO-000004
+  meeting_date?: string // Ex: 2026-10-14
+  company?: string // Ex: CIAFAL
+  ata_id?: string // Relação pcp_meeting_ata
+  ata_code?: string // Ex: ATA-REUNIAO-000004-V1
+  origem_pendente_regularizacao?: boolean
+  update_history?: PendencyUpdateHistoryEntry[]
   area: string
   subject: string
   action: string

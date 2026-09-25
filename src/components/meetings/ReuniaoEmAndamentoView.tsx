@@ -445,6 +445,9 @@ export const ReuniaoEmAndamentoView: React.FC<ReuniaoEmAndamentoViewProps> = ({
       const pend = await pcpMeetingFatia1Service.createPendency(
         {
           meeting_id: meetingId,
+          meeting_code: meeting?.meeting_code,
+          meeting_date: meeting?.meeting_date,
+          company: meeting?.company || 'CIAFAL',
           area: newPendencyData.area,
           subject: newPendencyData.subject,
           action: newPendencyData.action,
@@ -452,7 +455,7 @@ export const ReuniaoEmAndamentoView: React.FC<ReuniaoEmAndamentoViewProps> = ({
           deadline: newPendencyData.deadline || '',
           priority: newPendencyData.priority,
           status: 'ABERTA',
-          origin: `Reunião PCP S${meeting?.week || ''}`,
+          origin: `Reunião PCP ${meeting?.meeting_code || ''} S${meeting?.week || ''}`,
           ata_section_id: newPendencyData.ata_section_id,
           origin_week: meeting?.week || 1,
           origin_year: meeting?.year || 2025,
@@ -1505,6 +1508,35 @@ export const ReuniaoEmAndamentoView: React.FC<ReuniaoEmAndamentoViewProps> = ({
               Ação com acompanhamento formal pelo PCP.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Bloco somente leitura de Origem Obrigatória */}
+          <div className="bg-slate-50 p-2.5 rounded border border-slate-200 text-xs space-y-1">
+            <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wide block">
+              Origem da Pendência
+            </span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-slate-600">
+              <div>
+                <span className="text-slate-400 block">Reunião:</span>
+                <strong className="text-slate-900 font-mono">
+                  {meeting?.meeting_code || 'REUNIAO'}
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block">Semana:</span>
+                <span className="font-semibold text-slate-800">
+                  S{meeting?.week}/{meeting?.year}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">Data:</span>
+                <span>{meeting?.meeting_date || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">Empresa:</span>
+                <span className="font-semibold">{meeting?.company || 'CIAFAL'}</span>
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-3 py-2 text-xs">
             <div>
