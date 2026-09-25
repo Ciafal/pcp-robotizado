@@ -382,7 +382,10 @@ class ProductionControlReferenceDocsService {
       title: input.sgq_doc.title,
       revision: input.sgq_doc.revision,
       revision_date: input.sgq_doc.validityDateStart || input.sgq_doc.lastUpdatedAt || '2024-01-01',
-      status: input.sgq_doc.status === 'EM_REVISAO' ? 'VIGENTE' : input.sgq_doc.status || 'VIGENTE',
+      status:
+        (input.sgq_doc.status as string) === 'EM_REVISAO'
+          ? 'VIGENTE'
+          : input.sgq_doc.status || 'VIGENTE',
       document_type: input.sgq_doc.documentType || 'Procedimento',
       process: input.sgq_doc.process || 'Controle de Produção',
       responsible_area: input.sgq_doc.responsibleArea || 'PCP',

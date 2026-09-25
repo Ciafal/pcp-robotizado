@@ -118,6 +118,13 @@ const AnaliseCarteiraPage = lazyWithRetry(
     })),
   'AnaliseCarteiraPage',
 )
+const PedidosCanceladosPage = lazyWithRetry(
+  () =>
+    import('@/pages/PedidosCanceladosPage').then((m) => ({
+      default: m.default ?? m.PedidosCanceladosPage,
+    })),
+  'PedidosCanceladosPage',
+)
 const ScenariosPage = lazyWithRetry(
   () => import('@/pages/ScenariosPage').then((m) => ({ default: m.ScenariosPage || m.default })),
   'ScenariosPage',
@@ -946,6 +953,18 @@ export const App: React.FC = () => {
                         <AnaliseCarteiraPage />
                       </PermissionGuard>
                     }
+                  />
+                  <Route
+                    path="/pcp/analise-carteira/cancelados"
+                    element={
+                      <PermissionGuard permission="pcp.carteira.view">
+                        <PedidosCanceladosPage />
+                      </PermissionGuard>
+                    }
+                  />
+                  <Route
+                    path="/pcp/pedidos-cancelados"
+                    element={<Navigate to="/pcp/analise-carteira/cancelados" replace />}
                   />
                   <Route
                     path="/pcp-robotizado/analise-carteira"

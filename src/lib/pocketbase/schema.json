@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T14:24:07.095Z",
+  "generatedAt": "2026-09-25T14:54:55.030Z",
   "collections": [
     {
       "name": "users",
@@ -26335,6 +26335,558 @@
       "indexes": [
         "CREATE UNIQUE INDEX idx_sgq_doc_code ON sgq_documented_information (code)",
         "CREATE INDEX idx_sgq_status ON sgq_documented_information (status)"
+      ]
+    },
+    {
+      "name": "pcp_cancellation_reasons_catalog",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "category",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "default_probable_responsibility",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sort_order",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_canc_reasons_cat ON pcp_cancellation_reasons_catalog (category)",
+        "CREATE INDEX idx_canc_reasons_reason ON pcp_cancellation_reasons_catalog (reason)"
+      ]
+    },
+    {
+      "name": "pcp_cancelled_orders",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "empresa",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "centro",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "linha",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ordem_venda",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_ordem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_ordem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cliente_codigo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente_nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "representante_vendedor",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "material_descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "familia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "curva_abc",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_carteira",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_original_ov_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_faturada_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_cancelado_t",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "unidade_medida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_disponivel_data_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preco_liquido",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_cancelado_brl",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "condicao_pagamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_faturamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_desejada_cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_prevista_producao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_efetiva_producao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_recusa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_original_sap",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "categoria_motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_hora_cancelamento",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "usuario_operacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_demo",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "has_ai_inconsistency",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_verification_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_probable_cause",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_suggested_responsibility",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_confidence_level",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_avoidable_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_priority",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_action_suggested",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_analysis_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "analysis_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_cause",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_responsibility",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_by_user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validated_at",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "human_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "action_plan_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_canc_orders_num ON pcp_cancelled_orders (ordem_venda, item_ordem)",
+        "CREATE INDEX idx_canc_orders_mat ON pcp_cancelled_orders (material_codigo)",
+        "CREATE INDEX idx_canc_orders_cli ON pcp_cancelled_orders (cliente_codigo)",
+        "CREATE INDEX idx_canc_orders_line ON pcp_cancelled_orders (linha, centro)",
+        "CREATE INDEX idx_canc_orders_dt ON pcp_cancelled_orders (data_ordem)"
+      ]
+    },
+    {
+      "name": "pcp_cancelled_action_plans",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "code",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "order_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "ordem_venda",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "item_ordem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "cliente_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_codigo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "motivo_original",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "causa_provavel",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "evidencias",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro_linha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacto_toneladas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "impacto_financeiro_brl",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "what_acao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "why_motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "who_responsavel",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "when_prazo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "where_local",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "how_como",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "how_much_custo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_canc_action_code ON pcp_cancelled_action_plans (code)",
+        "CREATE INDEX idx_canc_action_order ON pcp_cancelled_action_plans (ordem_venda)"
       ]
     }
   ]

@@ -396,6 +396,13 @@ export const AnaliseCarteiraPage: React.FC = () => {
         >
           7. Carteira SDC
         </button>
+
+        <button
+          onClick={() => navigate('/pcp/analise-carteira/cancelados')}
+          className="px-3.5 py-2 rounded-t-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 border-b-2 border-transparent text-rose-700 hover:text-rose-900 hover:bg-rose-50/50"
+        >
+          8. Pedidos Cancelados
+        </button>
       </div>
 
       <div className="pt-1">

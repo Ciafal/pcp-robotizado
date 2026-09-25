@@ -308,3 +308,8 @@ export const PTBR_LABELS = {
   quilogramaUnidade: 'kg',
   naoDisponivel: DADO_NAO_DISPONIVEL,
 } as const
+
+// Aliases padronizados para conveniência e conformidade ABNT no HUB CIAFAL
+export const formatTons = formatTonnagePTBR
+export const formatCurrencyPtBr = formatCurrencyPTBR
+export const formatPercentPtBr = formatPercentagePTBR

@@ -57,6 +57,7 @@ import {
   Route,
   Gauge,
   CalendarOff,
+  XCircle,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -506,6 +507,13 @@ const navSections: NavSectionItem[] = [
         title: 'Carteira SDC',
         href: '/pcp/analise-carteira/sdc',
         icon: Building2,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Pedidos Cancelados',
+        href: '/pcp/analise-carteira/cancelados',
+        icon: XCircle,
+        badge: 'Novo',
         permission: 'pcp.carteira.view',
       },
     ],
@@ -997,6 +1005,13 @@ const officialNavGroups: NavGroup[] = [
         icon: Building2,
         permission: 'pcp.carteira.view',
       },
+      {
+        title: 'Pedidos Cancelados',
+        href: '/pcp/analise-carteira/cancelados',
+        icon: XCircle,
+        badge: 'Novo',
+        permission: 'pcp.carteira.view',
+      },
     ],
   },
   {
@@ -1482,22 +1497,28 @@ export const PCPSidebar: React.FC = () => {
                                               '/pcp/analise-carteira/importado'
                                             : item.href === '/pcp/analise-carteira/sdc'
                                               ? location.pathname === '/pcp/analise-carteira/sdc'
-                                              : item.href === '/pcp/motivos-justificativas'
-                                                ? location.pathname.startsWith('/pcp/motivos') ||
+                                              : item.href === '/pcp/analise-carteira/cancelados'
+                                                ? location.pathname ===
+                                                    '/pcp/analise-carteira/cancelados' ||
                                                   location.pathname.startsWith(
-                                                    '/pcp/justificativas',
+                                                    '/pcp/pedidos-cancelados',
                                                   )
-                                                : item.href === '/pcp/admin/acessos'
-                                                  ? location.pathname.startsWith('/pcp/admin') ||
+                                                : item.href === '/pcp/motivos-justificativas'
+                                                  ? location.pathname.startsWith('/pcp/motivos') ||
                                                     location.pathname.startsWith(
-                                                      '/pcp/configuracoes',
+                                                      '/pcp/justificativas',
                                                     )
-                                                  : group.groupTitle === 'CADASTROS'
-                                                    ? location.pathname === item.href
-                                                    : location.pathname === item.href ||
-                                                      (item.href.includes('?') &&
-                                                        location.pathname + location.search ===
-                                                          item.href)
+                                                  : item.href === '/pcp/admin/acessos'
+                                                    ? location.pathname.startsWith('/pcp/admin') ||
+                                                      location.pathname.startsWith(
+                                                        '/pcp/configuracoes',
+                                                      )
+                                                    : group.groupTitle === 'CADASTROS'
+                                                      ? location.pathname === item.href
+                                                      : location.pathname === item.href ||
+                                                        (item.href.includes('?') &&
+                                                          location.pathname + location.search ===
+                                                            item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 
