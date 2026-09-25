@@ -25,6 +25,7 @@ import {
   Calendar,
   User,
   Filter,
+  Activity,
 } from 'lucide-react'
 import {
   TestProgrammingRecord,
@@ -36,6 +37,8 @@ import { testProgrammingService } from '@/services/test-programming-service'
 import { TestProgrammingFormModal } from '@/components/test-programming/TestProgrammingFormModal'
 import { IndustrialApprovalModal } from '@/components/test-programming/IndustrialApprovalModal'
 import { TestHistoryModal } from '@/components/test-programming/TestHistoryModal'
+import { PlannedVsRealizedView } from '@/components/test-programming/PlannedVsRealizedView'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
 import { CiafalPageHeader } from '@/components/common/CiafalDesignSystem'
@@ -46,6 +49,7 @@ export const TestProgrammingPage: React.FC = () => {
 
   const [items, setItems] = useState<TestProgrammingRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [mainTab, setMainTab] = useState<'geral' | 'previsto_realizado'>('geral')
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('')
@@ -363,430 +367,467 @@ export const TestProgrammingPage: React.FC = () => {
         }
       />
 
-      {/* Cards Compactos e Clicáveis com Contadores */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">
-        {[
-          {
-            key: 'programados',
-            label: 'Programados',
-            count: metrics.programados,
-            color: 'text-indigo-700',
-            bg: 'hover:bg-indigo-50/70',
-          },
-          {
-            key: 'estaSemana',
-            label: 'Esta Semana',
-            count: metrics.estaSemana,
-            color: 'text-blue-700',
-            bg: 'hover:bg-blue-50/70',
-          },
-          {
-            key: 'aguardandoIndustria',
-            label: 'Aguard. Indústria',
-            count: metrics.aguardandoIndustria,
-            color: 'text-amber-700',
-            bg: 'hover:bg-amber-50/70',
-          },
-          {
-            key: 'aguardandoPcp',
-            label: 'Aguard. PCP',
-            count: metrics.aguardandoPcp,
-            color: 'text-[#004C97]',
-            bg: 'hover:bg-sky-50/70',
-          },
-          {
-            key: 'emExecucao',
-            label: 'Em Execução',
-            count: metrics.emExecucao,
-            color: 'text-purple-700',
-            bg: 'hover:bg-purple-50/70',
-          },
-          {
-            key: 'aguardandoResultado',
-            label: 'Aguard. Resultado',
-            count: metrics.aguardandoResultado,
-            color: 'text-teal-700',
-            bg: 'hover:bg-teal-50/70',
-          },
-          {
-            key: 'aguardandoEficacia',
-            label: 'Aguard. Eficácia',
-            count: metrics.aguardandoEficacia,
-            color: 'text-cyan-700',
-            bg: 'hover:bg-cyan-50/70',
-          },
-          {
-            key: 'eficazes',
-            label: 'Eficazes',
-            count: metrics.eficazes,
-            color: 'text-emerald-700',
-            bg: 'hover:bg-emerald-50/70',
-          },
-          {
-            key: 'ineficazes',
-            label: 'Ineficazes',
-            count: metrics.ineficazes,
-            color: 'text-red-700',
-            bg: 'hover:bg-red-50/70',
-          },
-          {
-            key: 'necessitamNovoTeste',
-            label: 'Novo Teste Nec.',
-            count: metrics.necessitamNovoTeste,
-            color: 'text-orange-700',
-            bg: 'hover:bg-orange-50/70',
-          },
-          {
-            key: 'comAcaoAberta',
-            label: 'Com Ação Aberta',
-            count: metrics.comAcaoAberta,
-            color: 'text-rose-700',
-            bg: 'hover:bg-rose-50/70',
-          },
-          {
-            key: 'acoesVencidas',
-            label: 'Ações Vencidas',
-            count: metrics.acoesVencidas,
-            color: 'text-red-800',
-            bg: 'hover:bg-red-50/70',
-          },
-        ].map((c) => {
-          const isSelected = activeCardFilter === c.key
-          return (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => handleCardClick(c.key)}
-              className={`p-2.5 rounded-lg border text-left transition-all duration-150 flex flex-col justify-between ${
-                isSelected
-                  ? 'bg-blue-50 border-[#004C97] ring-2 ring-[#004C97]/30 shadow-sm'
-                  : `bg-white border-slate-200 ${c.bg} shadow-xs`
-              }`}
+      {/* Abas Principais: Programação Geral vs Previsto x Realizado */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+        <Tabs value={mainTab} onValueChange={(v: any) => setMainTab(v)} className="w-auto">
+          <TabsList className="bg-slate-200/80 p-1 h-9">
+            <TabsTrigger value="geral" className="text-xs font-bold gap-1.5 px-3">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Programações & Aprovações</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="previsto_realizado"
+              className="text-xs font-bold gap-1.5 px-3 data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
             >
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate block">
-                {c.label}
-              </span>
-              <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-lg font-bold ${c.color}`}>{c.count}</span>
-                {isSelected && (
-                  <span className="text-[9px] font-bold text-[#004C97] bg-white px-1 rounded border border-[#004C97]/20">
-                    Ativo
+              <Activity className="w-3.5 h-3.5" />
+              <span>Previsto x Realizado (MES 4.0)</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <span className="text-xs text-slate-500 hidden sm:inline">
+          {mainTab === 'geral'
+            ? 'Visualização operacional e aprovações PCP'
+            : 'Análise de aderência, desvios MES 4.0 e IA'}
+        </span>
+      </div>
+
+      {mainTab === 'previsto_realizado' ? (
+        /* ÁREA PREVISTO X REALIZADO (REQUISITOS 7 A 14) */
+        <PlannedVsRealizedView tests={items} onRefresh={loadData} isRefreshing={loading} />
+      ) : (
+        <>
+          {/* Cards Compactos e Clicáveis com Contadores */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">
+            {[
+              {
+                key: 'programados',
+                label: 'Programados',
+                count: metrics.programados,
+                color: 'text-indigo-700',
+                bg: 'hover:bg-indigo-50/70',
+              },
+              {
+                key: 'estaSemana',
+                label: 'Esta Semana',
+                count: metrics.estaSemana,
+                color: 'text-blue-700',
+                bg: 'hover:bg-blue-50/70',
+              },
+              {
+                key: 'aguardandoIndustria',
+                label: 'Aguard. Indústria',
+                count: metrics.aguardandoIndustria,
+                color: 'text-amber-700',
+                bg: 'hover:bg-amber-50/70',
+              },
+              {
+                key: 'aguardandoPcp',
+                label: 'Aguard. PCP',
+                count: metrics.aguardandoPcp,
+                color: 'text-[#004C97]',
+                bg: 'hover:bg-sky-50/70',
+              },
+              {
+                key: 'emExecucao',
+                label: 'Em Execução',
+                count: metrics.emExecucao,
+                color: 'text-purple-700',
+                bg: 'hover:bg-purple-50/70',
+              },
+              {
+                key: 'aguardandoResultado',
+                label: 'Aguard. Resultado',
+                count: metrics.aguardandoResultado,
+                color: 'text-teal-700',
+                bg: 'hover:bg-teal-50/70',
+              },
+              {
+                key: 'aguardandoEficacia',
+                label: 'Aguard. Eficácia',
+                count: metrics.aguardandoEficacia,
+                color: 'text-cyan-700',
+                bg: 'hover:bg-cyan-50/70',
+              },
+              {
+                key: 'eficazes',
+                label: 'Eficazes',
+                count: metrics.eficazes,
+                color: 'text-emerald-700',
+                bg: 'hover:bg-emerald-50/70',
+              },
+              {
+                key: 'ineficazes',
+                label: 'Ineficazes',
+                count: metrics.ineficazes,
+                color: 'text-red-700',
+                bg: 'hover:bg-red-50/70',
+              },
+              {
+                key: 'necessitamNovoTeste',
+                label: 'Novo Teste Nec.',
+                count: metrics.necessitamNovoTeste,
+                color: 'text-orange-700',
+                bg: 'hover:bg-orange-50/70',
+              },
+              {
+                key: 'comAcaoAberta',
+                label: 'Com Ação Aberta',
+                count: metrics.comAcaoAberta,
+                color: 'text-rose-700',
+                bg: 'hover:bg-rose-50/70',
+              },
+              {
+                key: 'acoesVencidas',
+                label: 'Ações Vencidas',
+                count: metrics.acoesVencidas,
+                color: 'text-red-800',
+                bg: 'hover:bg-red-50/70',
+              },
+            ].map((c) => {
+              const isSelected = activeCardFilter === c.key
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => handleCardClick(c.key)}
+                  className={`p-2.5 rounded-lg border text-left transition-all duration-150 flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-blue-50 border-[#004C97] ring-2 ring-[#004C97]/30 shadow-sm'
+                      : `bg-white border-slate-200 ${c.bg} shadow-xs`
+                  }`}
+                >
+                  <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider truncate block">
+                    {c.label}
                   </span>
-                )}
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className={`text-lg font-bold ${c.color}`}>{c.count}</span>
+                    {isSelected && (
+                      <span className="text-[9px] font-bold text-[#004C97] bg-white px-1 rounded border border-[#004C97]/20">
+                        Ativo
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Barra de Filtros e Busca */}
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center justify-between">
+            <div className="flex-1 relative min-w-[240px]">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Pesquisar por ID, título, solicitante, responsável..."
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Filtro Empresa */}
+              <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                <SelectTrigger className="text-xs h-9 w-[130px]">
+                  <SelectValue placeholder="Empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    Todas Empresas
+                  </SelectItem>
+                  <SelectItem value="CIAFAL" className="text-xs">
+                    CIAFAL
+                  </SelectItem>
+                  <SelectItem value="SIDER" className="text-xs">
+                    SIDER
+                  </SelectItem>
+                  <SelectItem value="STEEL" className="text-xs">
+                    STEEL
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filtro Linha */}
+              <Select value={selectedLine} onValueChange={setSelectedLine}>
+                <SelectTrigger className="text-xs h-9 w-[110px]">
+                  <SelectValue placeholder="Linha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    Todas Linhas
+                  </SelectItem>
+                  <SelectItem value="L1" className="text-xs">
+                    Linha L1
+                  </SelectItem>
+                  <SelectItem value="L2" className="text-xs">
+                    Linha L2
+                  </SelectItem>
+                  <SelectItem value="L3" className="text-xs">
+                    Linha L3
+                  </SelectItem>
+                  <SelectItem value="L4" className="text-xs">
+                    Linha L4
+                  </SelectItem>
+                  <SelectItem value="L5" className="text-xs">
+                    Linha L5
+                  </SelectItem>
+                  <SelectItem value="L6" className="text-xs">
+                    Linha L6
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filtro Categoria */}
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="text-xs h-9 w-[150px]">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    Todas Categorias
+                  </SelectItem>
+                  <SelectItem value="EQUIPAMENTO" className="text-xs">
+                    Equipamento
+                  </SelectItem>
+                  <SelectItem value="MATERIA_PRIMA" className="text-xs">
+                    Matéria-Prima
+                  </SelectItem>
+                  <SelectItem value="RECEITA_LAMINACAO" className="text-xs">
+                    Receita Laminação
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filtro Status */}
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="text-xs h-9 w-[160px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    Todos os Status
+                  </SelectItem>
+                  <SelectItem value="Rascunho" className="text-xs">
+                    Rascunho
+                  </SelectItem>
+                  <SelectItem value="Enviado para Aprovação Industrial" className="text-xs">
+                    Enviado Ap. Industrial
+                  </SelectItem>
+                  <SelectItem value="Aguardando Aprovação PCP" className="text-xs">
+                    Aguardando PCP
+                  </SelectItem>
+                  <SelectItem value="Programado" className="text-xs">
+                    Programado
+                  </SelectItem>
+                  <SelectItem value="Em Execução" className="text-xs">
+                    Em Execução
+                  </SelectItem>
+                  <SelectItem value="Executado" className="text-xs">
+                    Executado
+                  </SelectItem>
+                  <SelectItem value="Concluído" className="text-xs">
+                    Concluído
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {activeCardFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveCardFilter(null)}
+                  className="text-xs h-9 text-slate-500 hover:text-slate-800"
+                >
+                  Limpar Filtro Card
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Tabela de Programações de Testes */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-bold text-slate-800">
+                  Registros Encontrados: {filteredItems.length}
+                </span>
               </div>
-            </button>
-          )
-        })}
-      </div>
+              <span className="text-[11px] text-slate-400">Ficha Mestra & SAP Integrados</span>
+            </div>
 
-      {/* Barra de Filtros e Busca */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center justify-between">
-        <div className="flex-1 relative min-w-[240px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Pesquisar por ID, título, solicitante, responsável..."
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Filtro Empresa */}
-          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-            <SelectTrigger className="text-xs h-9 w-[130px]">
-              <SelectValue placeholder="Empresa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL" className="text-xs">
-                Todas Empresas
-              </SelectItem>
-              <SelectItem value="CIAFAL" className="text-xs">
-                CIAFAL
-              </SelectItem>
-              <SelectItem value="SIDER" className="text-xs">
-                SIDER
-              </SelectItem>
-              <SelectItem value="STEEL" className="text-xs">
-                STEEL
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Filtro Linha */}
-          <Select value={selectedLine} onValueChange={setSelectedLine}>
-            <SelectTrigger className="text-xs h-9 w-[110px]">
-              <SelectValue placeholder="Linha" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL" className="text-xs">
-                Todas Linhas
-              </SelectItem>
-              <SelectItem value="L1" className="text-xs">
-                Linha L1
-              </SelectItem>
-              <SelectItem value="L2" className="text-xs">
-                Linha L2
-              </SelectItem>
-              <SelectItem value="L3" className="text-xs">
-                Linha L3
-              </SelectItem>
-              <SelectItem value="L4" className="text-xs">
-                Linha L4
-              </SelectItem>
-              <SelectItem value="L5" className="text-xs">
-                Linha L5
-              </SelectItem>
-              <SelectItem value="L6" className="text-xs">
-                Linha L6
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Filtro Categoria */}
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="text-xs h-9 w-[150px]">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL" className="text-xs">
-                Todas Categorias
-              </SelectItem>
-              <SelectItem value="EQUIPAMENTO" className="text-xs">
-                Equipamento
-              </SelectItem>
-              <SelectItem value="MATERIA_PRIMA" className="text-xs">
-                Matéria-Prima
-              </SelectItem>
-              <SelectItem value="RECEITA_LAMINACAO" className="text-xs">
-                Receita Laminação
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Filtro Status */}
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="text-xs h-9 w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL" className="text-xs">
-                Todos os Status
-              </SelectItem>
-              <SelectItem value="Rascunho" className="text-xs">
-                Rascunho
-              </SelectItem>
-              <SelectItem value="Enviado para Aprovação Industrial" className="text-xs">
-                Enviado Ap. Industrial
-              </SelectItem>
-              <SelectItem value="Aguardando Aprovação PCP" className="text-xs">
-                Aguardando PCP
-              </SelectItem>
-              <SelectItem value="Programado" className="text-xs">
-                Programado
-              </SelectItem>
-              <SelectItem value="Em Execução" className="text-xs">
-                Em Execução
-              </SelectItem>
-              <SelectItem value="Executado" className="text-xs">
-                Executado
-              </SelectItem>
-              <SelectItem value="Concluído" className="text-xs">
-                Concluído
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {activeCardFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveCardFilter(null)}
-              className="text-xs h-9 text-slate-500 hover:text-slate-800"
-            >
-              Limpar Filtro Card
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabela de Programações de Testes */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-bold text-slate-800">
-              Registros Encontrados: {filteredItems.length}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">Ficha Mestra & SAP Integrados</span>
-        </div>
-
-        {loading ? (
-          <div className="py-16 text-center text-xs text-slate-400">
-            Carregando programações de testes do servidor...
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <p className="text-sm font-semibold text-slate-700">Nenhum teste encontrado.</p>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Utilize o botão "+ Nova Programação de Teste" para registrar uma nova solicitação
-              técnica para a linha fabril.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                  <th className="py-2.5 px-3">ID / Título</th>
-                  <th className="py-2.5 px-3">Linha / Empresa</th>
-                  <th className="py-2.5 px-3">Categoria</th>
-                  <th className="py-2.5 px-3">Impacto Linha</th>
-                  <th className="py-2.5 px-3">Data Prevista</th>
-                  <th className="py-2.5 px-3">Responsáveis</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredItems.map((item) => {
-                  const canIndustrialApprove =
-                    item.status === 'Enviado para Aprovação Industrial' ||
-                    item.status === 'Em Aprovação Industrial'
-
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* ID e Título */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-[#004C97]">{item.test_id}</span>
-                        </div>
-                        <p className="font-semibold text-slate-800 line-clamp-1 max-w-[260px] mt-0.5">
-                          {item.title}
-                        </p>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">{item.objective}</p>
-                      </td>
-
-                      {/* Linha / Empresa */}
-                      <td className="py-3 px-3">
-                        <Badge variant="outline" className="font-semibold text-[11px]">
-                          {item.production_line}
-                        </Badge>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          {item.company}
-                        </span>
-                      </td>
-
-                      {/* Categoria */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1 font-medium text-slate-700">
-                          {getCategoryIcon(item.test_category)}
-                          <span className="text-[11px]">{item.test_category}</span>
-                        </div>
-                      </td>
-
-                      {/* Impacto */}
-                      <td className="py-3 px-3">
-                        {getImpactBadge(item.schedule_impact_type)}
-                        {item.schedule_impact_type === 'PARADA_TOTAL' && item.impact_data?.data && (
-                          <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
-                            {(item.impact_data.data as any).startTime} -{' '}
-                            {(item.impact_data.data as any).calculatedEndTime} (
-                            {(item.impact_data.data as any).expectedDurationMinutes}m)
-                          </span>
-                        )}
-                        {item.schedule_impact_type === 'REDUCAO_RITMO' &&
-                          item.impact_data?.data && (
-                            <span className="text-[10px] text-amber-700 font-bold block mt-0.5 font-mono">
-                              -{(item.impact_data.data as any).calculatedReductionPercent}% (
-                              {(item.impact_data.data as any).expectedProductivity} t/h)
-                            </span>
-                          )}
-                      </td>
-
-                      {/* Data Prevista */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1 text-slate-700 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{item.expected_date}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Req: {item.request_date}
-                        </span>
-                      </td>
-
-                      {/* Responsáveis */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1 text-slate-700 text-[11px]">
-                          <User className="w-3 h-3 text-slate-400" />
-                          <span className="font-medium truncate max-w-[120px]">
-                            {item.technical_lead}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[120px]">
-                          Por: {item.requester_name}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-3">{getStatusBadge(item.status)}</td>
-
-                      {/* Ações */}
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Botão de Aprovação Industrial */}
-                          {canIndustrialApprove && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => {
-                                setSelectedForApproval(item)
-                                setIsApprovalOpen(true)
-                              }}
-                              className="text-xs h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                              Avaliar Indústria
-                            </Button>
-                          )}
-
-                          {/* Botão Editar */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedForEdit(item)
-                              setIsFormOpen(true)
-                            }}
-                            className="text-xs h-7 px-2 text-slate-600 hover:text-slate-900"
-                          >
-                            Editar
-                          </Button>
-
-                          {/* Botão Histórico / Log */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedForHistory(item)
-                              setIsHistoryOpen(true)
-                            }}
-                            className="text-xs h-7 px-2 text-slate-500 hover:text-[#004C97]"
-                            title="Ver histórico de auditoria"
-                          >
-                            <History className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </td>
+            {loading ? (
+              <div className="py-16 text-center text-xs text-slate-400">
+                Carregando programações de testes do servidor...
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="py-16 text-center space-y-2">
+                <p className="text-sm font-semibold text-slate-700">Nenhum teste encontrado.</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Utilize o botão "+ Nova Programação de Teste" para registrar uma nova solicitação
+                  técnica para a linha fabril.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                      <th className="py-2.5 px-3">ID / Título</th>
+                      <th className="py-2.5 px-3">Linha / Empresa</th>
+                      <th className="py-2.5 px-3">Categoria</th>
+                      <th className="py-2.5 px-3">Impacto Linha</th>
+                      <th className="py-2.5 px-3">Data Prevista</th>
+                      <th className="py-2.5 px-3">Responsáveis</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3 text-right">Ações</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredItems.map((item) => {
+                      const canIndustrialApprove =
+                        item.status === 'Enviado para Aprovação Industrial' ||
+                        item.status === 'Em Aprovação Industrial'
+
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                          {/* ID e Título */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-[#004C97]">
+                                {item.test_id}
+                              </span>
+                            </div>
+                            <p className="font-semibold text-slate-800 line-clamp-1 max-w-[260px] mt-0.5">
+                              {item.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 line-clamp-1">
+                              {item.objective}
+                            </p>
+                          </td>
+
+                          {/* Linha / Empresa */}
+                          <td className="py-3 px-3">
+                            <Badge variant="outline" className="font-semibold text-[11px]">
+                              {item.production_line}
+                            </Badge>
+                            <span className="text-[11px] text-slate-500 block mt-0.5">
+                              {item.company}
+                            </span>
+                          </td>
+
+                          {/* Categoria */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1 font-medium text-slate-700">
+                              {getCategoryIcon(item.test_category)}
+                              <span className="text-[11px]">{item.test_category}</span>
+                            </div>
+                          </td>
+
+                          {/* Impacto */}
+                          <td className="py-3 px-3">
+                            {getImpactBadge(item.schedule_impact_type)}
+                            {item.schedule_impact_type === 'PARADA_TOTAL' &&
+                              item.impact_data?.data && (
+                                <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
+                                  {(item.impact_data.data as any).startTime} -{' '}
+                                  {(item.impact_data.data as any).calculatedEndTime} (
+                                  {(item.impact_data.data as any).expectedDurationMinutes}m)
+                                </span>
+                              )}
+                            {item.schedule_impact_type === 'REDUCAO_RITMO' &&
+                              item.impact_data?.data && (
+                                <span className="text-[10px] text-amber-700 font-bold block mt-0.5 font-mono">
+                                  -{(item.impact_data.data as any).calculatedReductionPercent}% (
+                                  {(item.impact_data.data as any).expectedProductivity} t/h)
+                                </span>
+                              )}
+                          </td>
+
+                          {/* Data Prevista */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1 text-slate-700 font-medium">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{item.expected_date}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Req: {item.request_date}
+                            </span>
+                          </td>
+
+                          {/* Responsáveis */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1 text-slate-700 text-[11px]">
+                              <User className="w-3 h-3 text-slate-400" />
+                              <span className="font-medium truncate max-w-[120px]">
+                                {item.technical_lead}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[120px]">
+                              Por: {item.requester_name}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3">{getStatusBadge(item.status)}</td>
+
+                          {/* Ações */}
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Botão de Aprovação Industrial */}
+                              {canIndustrialApprove && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => {
+                                    setSelectedForApproval(item)
+                                    setIsApprovalOpen(true)
+                                  }}
+                                  className="text-xs h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                  Avaliar Indústria
+                                </Button>
+                              )}
+
+                              {/* Botão Editar */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedForEdit(item)
+                                  setIsFormOpen(true)
+                                }}
+                                className="text-xs h-7 px-2 text-slate-600 hover:text-slate-900"
+                              >
+                                Editar
+                              </Button>
+
+                              {/* Botão Histórico / Log */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedForHistory(item)
+                                  setIsHistoryOpen(true)
+                                }}
+                                className="text-xs h-7 px-2 text-slate-500 hover:text-[#004C97]"
+                                title="Ver histórico de auditoria"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Modais */}
       <TestProgrammingFormModal

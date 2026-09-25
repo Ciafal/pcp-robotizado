@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T20:15:10.756Z",
+  "generatedAt": "2026-09-25T20:58:08.272Z",
   "collections": [
     {
       "name": "users",
@@ -19118,13 +19118,94 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "expected_start_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_start_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_end_date",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_end_time",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_duration_minutes",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expected_duration_formatted",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_integration_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": [
+            "Aguardando execução",
+            "Aguardando dados MES",
+            "Sincronizado",
+            "Sincronização parcial",
+            "Erro de integração"
+          ]
+        },
+        {
+          "name": "mes_execution_data",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_last_sync",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mes_sync_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deviation_metrics",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ai_analysis_data",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE UNIQUE INDEX idx_tp_test_id ON test_programming (test_id)",
         "CREATE INDEX idx_tp_status ON test_programming (status)",
         "CREATE INDEX idx_tp_line ON test_programming (production_line)",
-        "CREATE INDEX idx_tp_category ON test_programming (test_category)"
+        "CREATE INDEX idx_tp_category ON test_programming (test_category)",
+        "CREATE INDEX `idx_tp_mes_status` ON `test_programming` (mes_integration_status)",
+        "CREATE INDEX `idx_tp_expected_start` ON `test_programming` (expected_start_date)"
       ]
     },
     {
@@ -19223,6 +19304,31 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "field_changed",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origin",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["usuário", "PCP Robotizado", "MES 4.0", "integração automática"]
+        },
+        {
+          "name": "integration_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operation_result",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

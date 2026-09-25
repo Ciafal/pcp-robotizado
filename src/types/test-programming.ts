@@ -1,7 +1,9 @@
 /**
  * Tipos Oficiais para o Módulo de Programação de Testes Industriais (PCP Robotizado CIAFAL)
- * Ciclo: SOLICITAÇÃO → ANÁLISE → APROVAÇÃO INDUSTRIAL → APROVAÇÃO PCP → PROGRAMAÇÃO → EXECUÇÃO → RESULTADO → RETORNO → AVALIAÇÃO DE EFICÁCIA → REVISÕES → PLANO DE AÇÃO → GESTÃO DE PERFORMANCE → ENCERRAMENTO
+ * Ciclo: PROGRAMAÇÃO → Período Previsto → Aprovação → Execução MES 4.0 → Previsto x Realizado → Análise IA → Eficácia → Histórico
  */
+
+import { CalculatedDeviations } from '@/lib/test-programming-calculations'
 
 export const TEST_PROGRAMMING_STATUSES = [
   'Rascunho',
@@ -62,6 +64,13 @@ export type RecipeChangeType =
   | 'Ajuste de Receita'
   | 'Validação de Receita'
 
+export type MesIntegrationStatus =
+  | 'Aguardando execução'
+  | 'Aguardando dados MES'
+  | 'Sincronizado'
+  | 'Sincronização parcial'
+  | 'Erro de integração'
+
 export interface EquipmentDynamicData {
   sapEquipmentCode: string
   sapEquipmentDescription: string
@@ -77,14 +86,12 @@ export interface EquipmentDynamicData {
 }
 
 export interface RawMaterialDynamicData {
-  // Matéria-prima a testar
   rawMaterialCode: string
   rawMaterialDescription: string
   rawMaterialQuantity: number
   rawMaterialUnit: string
   batchNumber: string
   supplier: string
-  // Material produzido
   producedMaterialCode: string
   producedMaterialDescription: string
   plannedQuantity: number
@@ -127,7 +134,7 @@ export interface RhythmReductionImpactData {
   nominalProductivity: number // t/h
   expectedProductivity: number // t/h
   unit: string // 't/h'
-  calculatedReductionPercent: number // CALCULADO automaticamente: ((nominal - expected) / nominal) * 100
+  calculatedReductionPercent: number // CALCULADO automaticamente
   startDateTime: string
   endDateTime: string
 }
@@ -198,13 +205,83 @@ export interface EfficacyEvaluationData {
   actionPlanDescription?: string
   evaluatedBy?: string
   evaluatedAt?: string
+  observation?: string
+}
+
+/**
+ * Dados de Execução Real fornecidos pelo MES 4.0
+ */
+export interface MesProductionStopItem {
+  id?: string
+  start_time: string
+  end_time: string
+  duration_minutes: number
+  reason_code: string
+  reason_description: string
+  impact_level?: 'LEVE' | 'MODERADO' | 'CRITICO'
+}
+
+export interface MesExecutionData {
+  actual_start_date: string // YYYY-MM-DD
+  actual_start_time: string // HH:mm
+  actual_end_date: string // YYYY-MM-DD
+  actual_end_time: string // HH:mm
+  actual_duration_minutes: number
+  actual_duration_formatted: string // "2 h 30 min"
+  production_line: string
+  work_center: string
+  production_order: string // Ordem de produção relacionada
+  material_code: string
+  material_description: string
+  quantity_produced: number
+  quantity_unit: string
+  production_speed?: number // t/h ou m/min
+  operator_id?: string
+  operator_name?: string
+  occurrences: string[] // ocorrências/paradas do período
+  stops: MesProductionStopItem[]
+  main_stop_reason?: string
+  raw_payload?: Record<string, unknown>
+}
+
+/**
+ * Estrutura da Análise IA para Testes Industriais (Requisito 13)
+ * As 7 seções exatas:
+ * 1. Principais desvios
+ * 2. Evidências
+ * 3. Possíveis causas (SEMPRE como hipótese quando não houver causa registrada)
+ * 4. Impacto produtivo
+ * 5. Recorrência
+ * 6. Aprendizados
+ * 7. Ações sugeridas
+ */
+export interface TestAiAnalysisResult {
+  principais_desvios: string[]
+  evidencias: string[]
+  possiveis_causas: string[] // hipóteses
+  impacto_produtivo: string[]
+  recorrencia: string[]
+  aprendizados: string[]
+  acoes_sugeridas: string[]
+  has_sufficient_data: boolean
+  warning_note?: string
+  generated_at: string
 }
 
 export interface TestProgrammingRecord {
   id: string
-  test_id: string // TEST-000001
+  test_id: string // TEST-000123
   request_date: string // YYYY-MM-DD
-  expected_date: string // YYYY-MM-DD
+  expected_date: string // YYYY-MM-DD (mantido para retrocompatibilidade)
+
+  // Período Previsto do Teste (Requisito 1)
+  expected_start_date: string // YYYY-MM-DD
+  expected_start_time: string // HH:mm
+  expected_end_date: string // YYYY-MM-DD
+  expected_end_time: string // HH:mm
+  expected_duration_minutes?: number
+  expected_duration_formatted?: string // "2 h 30 min"
+
   company: string
   production_line: string
   work_center?: string
@@ -229,6 +306,17 @@ export interface TestProgrammingRecord {
   doc_or_target_revision?: RevisionType
   revision_details?: RevisionDetails
   status: TestProgrammingStatus
+
+  // Execução Real - MES 4.0 (Requisito 4)
+  mes_integration_status?: MesIntegrationStatus
+  mes_execution_data?: MesExecutionData
+  mes_last_sync?: string
+  mes_sync_message?: string
+
+  // Análise Previsto x Realizado & IA (Requisitos 6, 12, 13)
+  deviation_metrics?: CalculatedDeviations
+  ai_analysis_data?: TestAiAnalysisResult
+
   industrial_approval_decision?: IndustrialApprovalDecision
   pcp_approval_decision?: PcpApprovalDecision
   execution_result?: ExecutionResultData
@@ -236,6 +324,8 @@ export interface TestProgrammingRecord {
   created?: string
   updated?: string
 }
+
+export type AuditLogOrigin = 'usuário' | 'PCP Robotizado' | 'MES 4.0' | 'integração automática'
 
 export interface TestProgrammingLogRecord {
   id?: string
@@ -247,8 +337,12 @@ export interface TestProgrammingLogRecord {
   user_id?: string
   user_role?: string
   action: string
+  field_changed?: string
   previous_value?: string
   new_value?: string
+  origin?: AuditLogOrigin
+  integration_name?: string
+  operation_result?: string
   reason?: string
   metadata?: Record<string, unknown>
   created?: string
@@ -268,4 +362,23 @@ export interface TestProgrammingSummaryCardMetrics {
   necessitamNovoTeste: number
   comAcaoAberta: number
   acoesVencidas: number
+}
+
+/**
+ * Métricas para os Cards da Área Previsto x Realizado (Requisito 8)
+ */
+export interface PlannedVsRealizedCardMetrics {
+  testesConcluidos: number
+  dentroDoPrevistoCount: number
+  dentroDoPrevistoPct: number
+  comDesvioCount: number
+  comDesvioPct: number
+  atrasoMedioInicioMinutes: number
+  atrasoMedioInicioFormatted: string
+  desvioMedioDuracaoMinutes: number
+  desvioMedioDuracaoFormatted: string
+  tempoExcedenteAcumuladoMinutes: number
+  tempoExcedenteAcumuladoFormatted: string
+  totalProduzidoPeriodoTons: number
+  totalProduzidoPeriodoFormatted: string
 }

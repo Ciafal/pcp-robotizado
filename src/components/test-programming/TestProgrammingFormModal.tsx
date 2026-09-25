@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
   calculateEndTime,
   calculateReductionPercent,
 } from '@/services/test-programming-service'
+import { calculatePeriodDuration, MSG_REGRA_1_DATA_HORA } from '@/lib/test-programming-calculations'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
@@ -90,6 +91,14 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
   const [workCenter, setWorkCenter] = useState('')
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0])
   const [expectedDate, setExpectedDate] = useState(new Date().toISOString().split('T')[0])
+
+  // Agrupamento "Período Previsto do Teste" (Requisito 1 & 2)
+  const [expectedStartDate, setExpectedStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [expectedStartTime, setExpectedStartTime] = useState('08:00')
+  const [expectedEndDate, setExpectedEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [expectedEndTime, setExpectedEndTime] = useState('10:30')
+  const [periodValidationMessage, setPeriodValidationMessage] = useState<string | null>(null)
+
   const [requestingSector, setRequestingSector] = useState('Engenharia de Processos')
   const [requesterName, setRequesterName] = useState(user?.name || user?.email || 'Lucas Ferreira')
   const [technicalLead, setTechnicalLead] = useState('')
@@ -337,6 +346,10 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setWorkCenter(initialItem.work_center || '')
       setRequestDate(initialItem.request_date)
       setExpectedDate(initialItem.expected_date)
+      setExpectedStartDate(initialItem.expected_start_date || initialItem.expected_date)
+      setExpectedStartTime(initialItem.expected_start_time || '08:00')
+      setExpectedEndDate(initialItem.expected_end_date || initialItem.expected_date)
+      setExpectedEndTime(initialItem.expected_end_time || '10:30')
       setRequestingSector(initialItem.requesting_sector)
       setRequesterName(initialItem.requester_name)
       setTechnicalLead(initialItem.technical_lead)
@@ -432,9 +445,25 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
       setDescription('')
       setJustification('')
       setTechnicalLead(user?.name || 'Carlos Mendes')
+      const todayStr = new Date().toISOString().split('T')[0]
+      setExpectedStartDate(todayStr)
+      setExpectedStartTime('08:00')
+      setExpectedEndDate(todayStr)
+      setExpectedEndTime('10:30')
+      setPeriodValidationMessage(null)
       setErrorMessage(null)
     }
   }, [initialItem, isOpen, user])
+
+  // Duração prevista calculada automaticamente e validação em tempo real (Requisitos 1 e 2)
+  const computedPeriod = useMemo(() => {
+    return calculatePeriodDuration(
+      expectedStartDate,
+      expectedStartTime,
+      expectedEndDate,
+      expectedEndTime,
+    )
+  }, [expectedStartDate, expectedStartTime, expectedEndDate, expectedEndTime])
 
   // Hora fim calculada automaticamente
   const calculatedEndTime = calculateEndTime(stopStartTime, stopDurationMinutes)
@@ -487,6 +516,36 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
   }
 
   const handleSubmit = async (submitStatus: 'Rascunho' | 'Enviado para Aprovação Industrial') => {
+    // Validações do Período Previsto (Regras 1, 2 e 3)
+    if (!expectedStartDate) {
+      setErrorMessage('Informe a Data de Início no Período Previsto do Teste.')
+      setActiveTab('geral')
+      return
+    }
+    if (!expectedStartTime) {
+      setErrorMessage('Informe a Hora de Início no Período Previsto do Teste.')
+      setActiveTab('geral')
+      return
+    }
+    if (!expectedEndDate) {
+      setErrorMessage('Informe a Data de Fim no Período Previsto do Teste.')
+      setActiveTab('geral')
+      return
+    }
+    if (!expectedEndTime) {
+      setErrorMessage('Informe a Hora de Fim no Período Previsto do Teste.')
+      setActiveTab('geral')
+      return
+    }
+
+    if (!computedPeriod.isValid) {
+      const msg = computedPeriod.errorMessage || MSG_REGRA_1_DATA_HORA
+      setErrorMessage(msg)
+      setPeriodValidationMessage(msg)
+      setActiveTab('geral')
+      return
+    }
+
     // Validações obrigatórias
     if (!title.trim()) {
       setErrorMessage('O título do teste é obrigatório.')
@@ -648,7 +707,13 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         production_line: productionLine,
         work_center: workCenter || lines.find((l) => l.code === productionLine)?.work_center || '',
         request_date: requestDate,
-        expected_date: expectedDate,
+        expected_date: expectedStartDate || expectedDate,
+        expected_start_date: expectedStartDate,
+        expected_start_time: expectedStartTime,
+        expected_end_date: expectedEndDate,
+        expected_end_time: expectedEndTime,
+        expected_duration_minutes: computedPeriod.totalMinutes,
+        expected_duration_formatted: computedPeriod.formatted,
         requesting_sector: requestingSector,
         requester_name: requesterName,
         requester_user_id: user?.id || '',
@@ -821,18 +886,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
                   className="text-xs h-8"
                 />
               </div>
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">
-                  Data Prevista do Teste *
-                </Label>
-                <Input
-                  type="date"
-                  value={expectedDate}
-                  onChange={(e) => setExpectedDate(e.target.value)}
-                  className="text-xs h-8"
-                />
-              </div>
-              <div>
+              <div className="col-span-2">
                 <Label className="text-xs font-semibold text-slate-700">Setor Solicitante *</Label>
                 <Input
                   value={requestingSector}
@@ -841,6 +895,106 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
                   className="text-xs h-8"
                 />
               </div>
+            </div>
+
+            {/* Agrupamento "Período Previsto do Teste" (Requisito 1: substitui o campo único anterior) */}
+            <div className="p-3 bg-blue-50/50 border border-blue-200/80 rounded-lg space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-[#004C97]" />
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    Período Previsto do Teste *
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    Duração prevista do teste:
+                  </span>
+                  <Badge
+                    data-testid="expected-duration-badge"
+                    className={`font-mono text-xs font-bold px-2 py-0.5 ${
+                      computedPeriod.isValid
+                        ? 'bg-[#004C97] text-white hover:bg-[#003974]'
+                        : 'bg-red-100 text-red-800 border-red-300'
+                    }`}
+                  >
+                    {computedPeriod.isValid ? computedPeriod.formatted : 'Inválida'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                <div>
+                  <Label className="text-[11px] font-semibold text-slate-700">
+                    Data Início (dd/mm/aaaa) *
+                  </Label>
+                  <Input
+                    type="date"
+                    data-testid="expected-start-date"
+                    value={expectedStartDate}
+                    onChange={(e) => {
+                      setExpectedStartDate(e.target.value)
+                      setPeriodValidationMessage(null)
+                    }}
+                    className="text-xs h-8 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-semibold text-slate-700">
+                    Hora Início (HH:mm) *
+                  </Label>
+                  <Input
+                    type="time"
+                    data-testid="expected-start-time"
+                    value={expectedStartTime}
+                    onChange={(e) => {
+                      setExpectedStartTime(e.target.value)
+                      setPeriodValidationMessage(null)
+                    }}
+                    className="text-xs h-8 bg-white font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-semibold text-slate-700">
+                    Data Fim (dd/mm/aaaa) *
+                  </Label>
+                  <Input
+                    type="date"
+                    data-testid="expected-end-date"
+                    value={expectedEndDate}
+                    onChange={(e) => {
+                      setExpectedEndDate(e.target.value)
+                      setPeriodValidationMessage(null)
+                    }}
+                    className="text-xs h-8 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] font-semibold text-slate-700">
+                    Hora Fim (HH:mm) *
+                  </Label>
+                  <Input
+                    type="time"
+                    data-testid="expected-end-time"
+                    value={expectedEndTime}
+                    onChange={(e) => {
+                      setExpectedEndTime(e.target.value)
+                      setPeriodValidationMessage(null)
+                    }}
+                    className="text-xs h-8 bg-white font-mono"
+                  />
+                </div>
+              </div>
+
+              {!computedPeriod.isValid && (
+                <div
+                  data-testid="period-error-message"
+                  className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-center gap-1.5"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+                  <span>{computedPeriod.errorMessage || MSG_REGRA_1_DATA_HORA}</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
