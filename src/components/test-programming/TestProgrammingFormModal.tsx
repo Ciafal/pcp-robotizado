@@ -853,6 +853,21 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
           </div>
         )}
 
+        {conflictWarning && (
+          <div
+            data-testid="conflict-warning-banner"
+            className="p-3 bg-amber-50 border border-amber-300 rounded text-xs text-amber-900 flex items-start gap-2"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-bold">
+                Aviso de Sobreposição de Horário / Conflito na Montagem Semanal:
+              </p>
+              <p className="text-amber-800">{conflictWarning}</p>
+            </div>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-1">
           <TabsList className="grid grid-cols-4 h-9 bg-slate-100 p-1">
             <TabsTrigger value="geral" className="text-xs font-semibold">

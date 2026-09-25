@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   Edit3,
   GitFork,
+  Lock,
+  FlaskConical,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

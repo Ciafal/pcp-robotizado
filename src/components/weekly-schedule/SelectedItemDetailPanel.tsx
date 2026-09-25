@@ -190,13 +190,14 @@ export const SelectedItemDetailPanel: React.FC<SelectedItemDetailPanelProps> = (
                 <div>
                   <span className="text-[10px] text-slate-500 block">Duração Prevista:</span>
                   <span className="font-mono font-bold text-purple-700">
-                    {(item.production_hours || item.duration_hours || 0).toFixed(2)} h
+                    {(item.production_hours || (item as any).duration_hours || 0).toFixed(2)} h
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-500 block">Capacidade Consumida:</span>
                   <span className="font-mono font-bold text-emerald-700">
-                    {(item.production_hours || item.duration_hours || 0).toFixed(2)} h reais
+                    {(item.production_hours || (item as any).duration_hours || 0).toFixed(2)} h
+                    reais
                   </span>
                 </div>
               </div>

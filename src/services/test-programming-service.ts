@@ -8,6 +8,7 @@ import {
   TestProgrammingSummaryCardMetrics,
   PlannedVsRealizedCardMetrics,
   AuditLogOrigin,
+  IndustrialTestObjective,
 } from '@/types/test-programming'
 import { calculateTestDeviations, formatDurationPCP } from '@/lib/test-programming-calculations'
 import { formatTonsPtBr } from '@/lib/formatters-ptbr'
@@ -301,8 +302,10 @@ export class TestProgrammingService {
     testRecord: TestProgrammingRecord,
     options?: { isCancellation?: boolean },
   ): Promise<{ success: boolean; weeklyScheduleItemId?: string; message: string }> {
-    const center = testRecord.center_name || 'L1'
-    const durationHours = testRecord.duration_hours || 2.5
+    const center = testRecord.production_line || (testRecord as any).center_name || 'L1'
+    const durationHours =
+      (testRecord as any).duration_hours ||
+      (testRecord.expected_duration_minutes ? testRecord.expected_duration_minutes / 60 : 2.5)
     const startDate = testRecord.expected_start_date || testRecord.expected_date
     const startTime = testRecord.expected_start_time || '08:00'
     const endDate = testRecord.expected_end_date || testRecord.expected_date
@@ -357,7 +360,7 @@ export class TestProgrammingService {
         material_code: testRecord.test_id,
         material_description: `${testRecord.title} (${testRecord.objective})`,
         steel_grade: 'TESTE',
-        dimensions: testRecord.steel_type || 'TESTE',
+        dimensions: (testRecord as any).steel_type || 'TESTE',
         target_date: startDate,
         start_datetime: startDatetime,
         end_datetime: endDatetime,
@@ -365,8 +368,8 @@ export class TestProgrammingService {
         production_hours: durationHours,
         setup_duration_minutes: 0,
         tuning_duration_minutes: 0,
-        scheduled_tons: testRecord.sample_quantity_tons || 0,
-        planned_quantity_tons: testRecord.sample_quantity_tons || 0,
+        scheduled_tons: (testRecord as any).sample_quantity_tons || 0,
+        planned_quantity_tons: (testRecord as any).sample_quantity_tons || 0,
         status: itemStatus,
         sequence_order: existingItem?.sequence_order || 1,
       }
@@ -561,7 +564,7 @@ export class TestProgrammingService {
       previous_value: '',
       new_value: `Status: ${createdRecord.status}; Período: ${createdRecord.expected_start_date} ${createdRecord.expected_start_time} - ${createdRecord.expected_end_date} ${createdRecord.expected_end_time}`,
       center_previous: '',
-      center_new: createdRecord.center_name || '',
+      center_new: createdRecord.production_line || (createdRecord as any).center_name || '',
       schedule_previous: '',
       schedule_new: `${createdRecord.expected_start_date} ${createdRecord.expected_start_time} -> ${createdRecord.expected_end_date} ${createdRecord.expected_end_time}`,
       sync_result: syncResult.message,
@@ -654,8 +657,8 @@ export class TestProgrammingService {
         field_changed: key,
         previous_value: prevVal.length > 500 ? prevVal.slice(0, 500) + '...' : prevVal,
         new_value: nextVal.length > 500 ? nextVal.slice(0, 500) + '...' : nextVal,
-        center_previous: current.center_name,
-        center_new: updatedRecord.center_name,
+        center_previous: current.production_line || (current as any).center_name || '',
+        center_new: updatedRecord.production_line || (updatedRecord as any).center_name || '',
         schedule_previous: `${current.expected_start_date} ${current.expected_start_time}`,
         schedule_new: `${updatedRecord.expected_start_date} ${updatedRecord.expected_start_time}`,
         sync_result: syncResult.message,
