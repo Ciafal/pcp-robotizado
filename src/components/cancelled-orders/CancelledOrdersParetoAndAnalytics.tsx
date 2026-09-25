@@ -318,7 +318,10 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
                   }
                   fill="#4f46e5"
                   radius={[4, 4, 0, 0]}
-                  onClick={(entry) => onFilterByReason && onFilterByReason(entry.reason)}
+                  onClick={(entry: any) => {
+                    const r = entry?.reason || entry?.payload?.reason
+                    if (onFilterByReason && r) onFilterByReason(r)
+                  }}
                   className="cursor-pointer"
                 />
                 <Line

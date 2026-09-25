@@ -310,6 +310,59 @@ export const PTBR_LABELS = {
 } as const
 
 // Aliases padronizados para conveniência e conformidade ABNT no HUB CIAFAL
-export const formatTons = formatTonnagePTBR
+export function formatTons(
+  valor: number | string | null | undefined,
+  casasDecimais?: number,
+  fallback: string = '0,00 t',
+): string {
+  if (valor === null || valor === undefined || valor === '') return fallback
+  let raw = valor
+  if (typeof raw === 'string') {
+    const cleaned = raw.replace(/[^\d.,-]/g, '').trim()
+    raw = parseFloat(cleaned.replace(',', '.'))
+  }
+  if (isNaN(raw as number)) return fallback
+
+  const numVal = raw as number
+  // Se casasDecimais não for passado, preserva até 3 decimais se existirem (ex: 1234.567 -> 1.234,567 t), senão default 2
+  let dec = casasDecimais
+  if (dec === undefined) {
+    const strVal = numVal.toString()
+    if (strVal.includes('.')) {
+      const frac = strVal.split('.')[1]
+      dec = Math.min(Math.max(frac.length, 2), 3)
+    } else {
+      dec = 2
+    }
+  }
+
+  return `${formatNumberPTBR(numVal, dec)} t`
+}
+
 export const formatCurrencyPtBr = formatCurrencyPTBR
-export const formatPercentPtBr = formatPercentagePTBR
+export function formatPercentPtBr(
+  valor: number | string | null | undefined,
+  casasDecimais?: number,
+  fallback: string = '0,0%',
+): string {
+  if (valor === null || valor === undefined || valor === '') return fallback
+  let num = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(',', '.'))
+  if (isNaN(num)) return fallback
+
+  if (num > 0 && num < 1.0) {
+    num = num * 100
+  }
+
+  let dec = casasDecimais
+  if (dec === undefined) {
+    const strVal = num.toString()
+    if (strVal.includes('.')) {
+      const frac = strVal.split('.')[1]
+      dec = Math.min(frac.length, 2)
+    } else {
+      dec = 0
+    }
+  }
+
+  return `${formatNumberPTBR(num, dec)}%`
+}
