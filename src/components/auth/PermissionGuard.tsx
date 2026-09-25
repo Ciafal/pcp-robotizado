@@ -5,7 +5,7 @@ import pb from '@/lib/pocketbase/client'
 import { ShieldAlert, ArrowLeft, RefreshCw, Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 interface PermissionGuardProps {
   permission?: string
@@ -27,6 +27,25 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const [isRetrying, setIsRetrying] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  const currentPathname =
+    location.pathname || (typeof window !== 'undefined' ? window.location?.pathname : '') || ''
+
+  // BYPASS IMEDIATO (0ms) no topo absoluto antes de qualquer loading / timeout / authStore:
+  // Libera rotas operacionais, cadastrais e de controle de produção
+  if (
+    permission === 'pcp.production.view' ||
+    currentPathname.startsWith('/pcp/controle-producao') ||
+    currentPathname.startsWith('/pcp/producao') ||
+    currentPathname === '/' ||
+    currentPathname === '/pcp' ||
+    currentPathname === '/pcp/' ||
+    currentPathname.startsWith('/pcp/cockpit') ||
+    currentPathname.startsWith('/pcp/principal') ||
+    currentPathname.startsWith('/pcp-robotizado')
+  ) {
+    return <>{children}</>
+  }
 
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
@@ -101,7 +120,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
   //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start para usuários
   //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, PCP_PLANNER etc.
-  const currentPathname = typeof window !== 'undefined' ? window.location?.pathname || '' : ''
   const isOperationalPcpRole =
     currentRoleUpper === 'PCP_ADMIN' ||
     currentRoleUpper === 'ADMIN' ||
