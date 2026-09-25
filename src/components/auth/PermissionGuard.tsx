@@ -98,12 +98,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais e de controle de produção
-  if (
-    permission === 'pcp.production.view' ||
+  // Libera rotas operacionais, cadastrais e de controle de produção sem timeout ou flicker
+  const isCarteiraRouteOrPerm =
     permission === 'pcp.carteira.view' ||
+    permission.startsWith('pcp.carteira.') ||
     currentPathname.startsWith('/pcp/analise-carteira') ||
-    currentPathname.startsWith('/pcp/pedidos-cancelados') ||
+    currentPathname.startsWith('/pcp-robotizado/analise-carteira') ||
+    currentPathname.startsWith('/analise-carteira') ||
+    currentPathname.startsWith('/carteira-analise') ||
+    currentPathname.startsWith('/pcp/pedidos-cancelados')
+
+  if (
+    isCarteiraRouteOrPerm ||
+    permission === 'pcp.production.view' ||
     currentPathname.startsWith('/pcp/controle-producao') ||
     currentPathname.startsWith('/pcp/producao') ||
     currentPathname === '/' ||
@@ -276,11 +283,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.weekly_schedule.edit' ||
       permission === 'pcp.carteira.view' ||
+      permission.startsWith('pcp.carteira.') ||
       currentPathname === '/' ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/ficha-mestre') ||
-      currentPathname.includes('/ficha-mestre')
+      currentPathname.includes('/ficha-mestre') ||
+      currentPathname.startsWith('/pcp/analise-carteira')
     ) {
       hasPerm = true
     }
@@ -296,13 +305,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.lines.view' ||
       permission === 'pcp.rules.view' ||
       permission === 'pcp.carteira.view' ||
+      permission.startsWith('pcp.carteira.') ||
       permission === 'pcp.schedule.view' ||
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
-      currentPathname.includes('/ficha-mestre'))
+      currentPathname.includes('/ficha-mestre') ||
+      currentPathname.startsWith('/pcp/analise-carteira'))
   ) {
     hasPerm = true
   }
@@ -377,6 +388,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.lines.view' ||
     permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
+    permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.production.view' ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
@@ -388,7 +400,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
-    currentPathname.includes('/ficha-mestre')
+    currentPathname.includes('/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/analise-carteira')
   ) {
     return <>{children}</>
   }

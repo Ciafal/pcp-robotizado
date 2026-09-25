@@ -29,7 +29,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import { CancelledOrderRecord } from '@/types/cancelled-orders'
-import { formatTons, formatCurrencyPtBr, formatPercentPtBr } from '@/lib/formatters-ptbr'
+import { formatTons, formatPercentPtBr } from '@/lib/formatters-ptbr'
 import { Button } from '@/components/ui/button'
 
 interface ViewsProps {
@@ -54,35 +54,30 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
   onFilterByReason,
 }) => {
   const [activeTab, setActiveTab] = useState<'pareto' | 'mensal' | 'anual' | 'abc'>('pareto')
-  const [paretoMetric, setParetoMetric] = useState<'toneladas' | 'pedidos' | 'valor'>('toneladas')
+  const [paretoMetric, setParetoMetric] = useState<'toneladas' | 'pedidos'>('toneladas')
 
   // Agrupamento por Motivo para Pareto
-  const reasonMap: Record<string, { count: number; tons: number; value: number }> = {}
+  const reasonMap: Record<string, { count: number; tons: number }> = {}
   orders.forEach((o) => {
     const key = o.motivo_original_sap || 'Outros'
     if (!reasonMap[key]) {
-      reasonMap[key] = { count: 0, tons: 0, value: 0 }
+      reasonMap[key] = { count: 0, tons: 0 }
     }
     reasonMap[key].count += 1
     reasonMap[key].tons += o.saldo_cancelado_t || 0
-    reasonMap[key].value += o.valor_cancelado_brl || 0
   })
 
   const totalTons = orders.reduce((acc, o) => acc + (o.saldo_cancelado_t || 0), 0)
   const totalCount = orders.length
-  const totalValue = orders.reduce((acc, o) => acc + (o.valor_cancelado_brl || 0), 0)
 
   let paretoData = Object.entries(reasonMap).map(([reason, stats]) => {
-    let metricValue = stats.tons
-    if (paretoMetric === 'pedidos') metricValue = stats.count
-    if (paretoMetric === 'valor') metricValue = stats.value
+    const metricValue = paretoMetric === 'pedidos' ? stats.count : stats.tons
 
     return {
       reason,
       metricValue,
       tons: stats.tons,
       count: stats.count,
-      value: stats.value,
     }
   })
 
@@ -91,8 +86,7 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
 
   // Calcula percentual acumulado
   let cumSum = 0
-  const grandTotalMetric =
-    paretoMetric === 'toneladas' ? totalTons : paretoMetric === 'pedidos' ? totalCount : totalValue
+  const grandTotalMetric = paretoMetric === 'toneladas' ? totalTons : totalCount
 
   const paretoChartData = paretoData.map((item) => {
     cumSum += item.metricValue
@@ -140,9 +134,7 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
         .filter((o) => o.curva_abc === 'A')
         .reduce((a, b) => a + (b.saldo_cancelado_t || 0), 0),
       count: orders.filter((o) => o.curva_abc === 'A').length,
-      value: orders
-        .filter((o) => o.curva_abc === 'A')
-        .reduce((a, b) => a + (b.valor_cancelado_brl || 0), 0),
+      value: orders.filter((o) => o.curva_abc === 'A'),
     },
     {
       curva: 'Curva B',
@@ -150,9 +142,6 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
         .filter((o) => o.curva_abc === 'B')
         .reduce((a, b) => a + (b.saldo_cancelado_t || 0), 0),
       count: orders.filter((o) => o.curva_abc === 'B').length,
-      value: orders
-        .filter((o) => o.curva_abc === 'B')
-        .reduce((a, b) => a + (b.valor_cancelado_brl || 0), 0),
     },
     {
       curva: 'Curva C',
@@ -160,9 +149,6 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
         .filter((o) => o.curva_abc === 'C')
         .reduce((a, b) => a + (b.saldo_cancelado_t || 0), 0),
       count: orders.filter((o) => o.curva_abc === 'C').length,
-      value: orders
-        .filter((o) => o.curva_abc === 'C')
-        .reduce((a, b) => a + (b.valor_cancelado_brl || 0), 0),
     },
   ]
 
@@ -238,15 +224,6 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
             >
               Qtd. Pedidos
             </Button>
-            <Button
-              type="button"
-              variant={paretoMetric === 'valor' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setParetoMetric('valor')}
-              className="text-xs h-7"
-            >
-              Valor (R$)
-            </Button>
           </div>
         )}
       </div>
@@ -256,18 +233,14 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
         <div className="pt-4">
           <div className="flex items-center justify-between mb-3 text-xs text-slate-600">
             <div>
-              Distribuição 80/20 dos principais motivos que impactam o faturamento.
+              Distribuição 80/20 dos principais motivos de cancelamento físico.
               <span className="font-semibold text-slate-800 ml-1">
                 Clique nas barras para filtrar os pedidos correspondentes.
               </span>
             </div>
             <div className="text-slate-500 font-mono">
               Total base:{' '}
-              {paretoMetric === 'toneladas'
-                ? formatTons(totalTons)
-                : paretoMetric === 'pedidos'
-                  ? `${totalCount} itens`
-                  : formatCurrencyPtBr(totalValue)}
+              {paretoMetric === 'toneladas' ? formatTons(totalTons) : `${totalCount} itens`}
             </div>
           </div>
 
@@ -301,21 +274,14 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
                   formatter={(val: any, name: string) => {
                     if (name === 'Acumulado (%)') return [`${val}%`, name]
                     if (paretoMetric === 'toneladas') return [formatTons(Number(val)), 'Toneladas']
-                    if (paretoMetric === 'pedidos') return [`${val} pedidos`, 'Quantidade']
-                    return [formatCurrencyPtBr(Number(val)), 'Valor Financeiro']
+                    return [`${val} pedidos`, 'Quantidade']
                   }}
                   labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
                 />
                 <Bar
                   yAxisId="left"
                   dataKey="metricValue"
-                  name={
-                    paretoMetric === 'toneladas'
-                      ? 'Toneladas'
-                      : paretoMetric === 'pedidos'
-                        ? 'Pedidos'
-                        : 'Valor'
-                  }
+                  name={paretoMetric === 'toneladas' ? 'Toneladas' : 'Pedidos'}
                   fill="#4f46e5"
                   radius={[4, 4, 0, 0]}
                   onClick={(entry: any) => {
@@ -518,14 +484,11 @@ export const CancelledOrdersParetoAndAnalytics: React.FC<ViewsProps> = ({
                 <div className="text-base font-bold text-slate-900 font-mono mb-1">
                   {formatTons(item.tons)}
                 </div>
-                <div className="text-xs font-semibold text-indigo-700 font-mono">
-                  {formatCurrencyPtBr(item.value)}
-                </div>
                 <div className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-200">
                   {item.curva === 'Curva A' &&
-                    'Itens críticos de alto faturamento. Cancelamentos aqui demandam 5W2H.'}
+                    'Itens críticos de alto volume e impacto. Cancelamentos aqui demandam 5W2H.'}
                   {item.curva === 'Curva B' &&
-                    'Itens de giro moderado com possibilidade de remanejamento.'}
+                    'Itens de giro intermediário com possibilidade de remanejamento.'}
                   {item.curva === 'Curva C' && 'Itens de cauda longa sob demanda pontual.'}
                 </div>
               </div>

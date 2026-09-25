@@ -26,7 +26,6 @@ import React from 'react'
 import {
   XCircle,
   Scale,
-  DollarSign,
   Percent,
   Factory,
   Briefcase,
@@ -37,7 +36,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { CancellationExecutiveKPIs } from '@/types/cancelled-orders'
-import { formatTons, formatCurrencyPtBr, formatPercentPtBr } from '@/lib/formatters-ptbr'
+import { formatTons, formatPercentPtBr } from '@/lib/formatters-ptbr'
 
 interface ExecutiveCardsProps {
   kpis: CancellationExecutiveKPIs
@@ -63,7 +62,7 @@ export const CancelledOrdersExecutiveCards: React.FC<ExecutiveCardsProps> = ({
       borderColor: 'border-l-rose-600',
       tagColor: 'bg-rose-50 text-rose-700 border-rose-200',
       activeRing: 'ring-2 ring-rose-500',
-      fullTooltip: `${kpis.totalPedidosQtd} pedidos cancelados somando ${formatTons(kpis.totalVolumeToneladas)} e ${formatCurrencyPtBr(kpis.totalValorBrl)}`,
+      fullTooltip: `${kpis.totalPedidosQtd} pedidos cancelados somando ${formatTons(kpis.totalVolumeToneladas)}`,
     },
     {
       key: 'volume_cancelado',
@@ -77,19 +76,6 @@ export const CancelledOrdersExecutiveCards: React.FC<ExecutiveCardsProps> = ({
       tagColor: 'bg-amber-50 text-amber-800 border-amber-200',
       activeRing: 'ring-2 ring-amber-500',
       fullTooltip: `Total de ${formatTons(kpis.totalVolumeToneladas)} de produtos acabados cancelados`,
-    },
-    {
-      key: 'valor_cancelado',
-      title: 'Valor cancelado',
-      valuePrimary: formatCurrencyPtBr(kpis.totalValorBrl),
-      valueSecondary: 'Impacto financeiro',
-      description: 'Faturamento bruto impactado',
-      tag: 'Financeiro',
-      icon: DollarSign,
-      borderColor: 'border-l-red-600',
-      tagColor: 'bg-red-50 text-red-700 border-red-200',
-      activeRing: 'ring-2 ring-red-500',
-      fullTooltip: `Impacto financeiro total de ${formatCurrencyPtBr(kpis.totalValorBrl)} na carteira`,
     },
     {
       key: 'percentual_carteira',

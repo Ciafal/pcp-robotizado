@@ -6,7 +6,7 @@
 import React from 'react'
 import { X, Sparkles, AlertCircle, FileSpreadsheet, Scale, DollarSign } from 'lucide-react'
 import { CancelledOrderRecord, CancellationExecutiveKPIs } from '@/types/cancelled-orders'
-import { formatTons, formatCurrencyPtBr } from '@/lib/formatters-ptbr'
+import { formatTons } from '@/lib/formatters-ptbr'
 import { Button } from '@/components/ui/button'
 
 interface ExecutiveDrilldownModalProps {
@@ -71,7 +71,6 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
   }
 
   const subtotalTons = filtered.reduce((acc, o) => acc + (o.saldo_cancelado_t || 0), 0)
-  const subtotalValue = filtered.reduce((acc, o) => acc + (o.valor_cancelado_brl || 0), 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
@@ -102,9 +101,6 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
           </div>
           <div className="flex items-center space-x-4 font-mono">
             <span className="text-rose-700 font-bold">Volume: {formatTons(subtotalTons)}</span>
-            <span className="text-slate-900 font-bold">
-              Valor: {formatCurrencyPtBr(subtotalValue)}
-            </span>
           </div>
         </div>
 
@@ -119,7 +115,6 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
                 <th className="py-2 px-3">Cliente</th>
                 <th className="py-2 px-3">Material</th>
                 <th className="py-2 px-3 text-right">Saldo (t)</th>
-                <th className="py-2 px-3 text-right">Valor (R$)</th>
                 <th className="py-2 px-3">Motivo SAP</th>
                 <th className="py-2 px-3 text-center">Ação</th>
               </tr>
@@ -144,11 +139,8 @@ export const ExecutiveCardDrilldownModal: React.FC<ExecutiveDrilldownModalProps>
                   <td className="py-2 px-3 text-right font-mono font-bold text-rose-700">
                     {formatTons(o.saldo_cancelado_t)}
                   </td>
-                  <td className="py-2 px-3 text-right font-mono text-slate-900">
-                    {formatCurrencyPtBr(o.valor_cancelado_brl)}
-                  </td>
                   <td
-                    className="py-2 px-3 text-slate-700 truncate max-w-[160px]"
+                    className="py-2 px-3 text-slate-700 truncate max-w-[180px]"
                     title={o.motivo_original_sap}
                   >
                     {o.motivo_original_sap}

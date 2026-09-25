@@ -20,7 +20,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { CancelledOrderRecord, CrmRevisionReason, PriorityLevel } from '@/types/cancelled-orders'
-import { formatTons, formatCurrencyPtBr } from '@/lib/formatters-ptbr'
+import { formatTons } from '@/lib/formatters-ptbr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -325,12 +325,12 @@ export const SolicitarRevisaoModal: React.FC<SolicitarRevisaoModalProps> = ({
               </div>
 
               <div>
-                <span className="text-[11px] text-slate-500 block">Qtd & Valor Cancelado</span>
+                <span className="text-[11px] text-slate-500 block">Quantidade Cancelada</span>
                 <span className="font-bold text-rose-700 font-mono block">
                   {formatTons(order.saldo_cancelado_t)}
                 </span>
-                <span className="text-[10px] text-slate-700 font-mono block font-semibold">
-                  {formatCurrencyPtBr(order.valor_cancelado_brl)}
+                <span className="text-[10px] text-slate-500 font-mono block">
+                  OV: {formatTons(order.quantidade_original_ov_t)}
                 </span>
               </div>
             </div>

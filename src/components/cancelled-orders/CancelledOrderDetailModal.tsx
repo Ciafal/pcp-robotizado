@@ -273,7 +273,8 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                   <FileText className="w-4 h-4 mr-1.5 text-slate-500" />
                   Dados do Pedido (SAP ECC)
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                  {/* 1. Cliente */}
                   <div>
                     <span className="text-slate-500 block text-[11px]">Cliente</span>
                     <span
@@ -283,10 +284,11 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                       {order.cliente_nome}
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono">
-                      {order.cliente_codigo}
+                      {order.cliente_codigo} {order.curva_abc ? `• Curva ${order.curva_abc}` : ''}
                     </span>
                   </div>
 
+                  {/* 2. Material */}
                   <div>
                     <span className="text-slate-500 block text-[11px]">Material</span>
                     <span
@@ -303,6 +305,7 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                     </span>
                   </div>
 
+                  {/* 3. Quantidade Cancelada */}
                   <div>
                     <span className="text-slate-500 block text-[11px]">Quantidade Cancelada</span>
                     <span className="font-bold text-rose-700 font-mono text-sm block">
@@ -313,24 +316,23 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">Valor Financeiro</span>
-                    <span className="font-bold text-slate-900 font-mono text-sm block">
-                      {formatCurrencyPtBr(order.valor_cancelado_brl)}
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      Líq: {formatCurrencyPtBr(order.preco_liquido)}/t
-                    </span>
-                  </div>
-
+                  {/* 4. Datas Relevantes */}
                   <div>
                     <span className="text-slate-500 block text-[11px]">Datas Relevantes</span>
-                    <span className="text-slate-800 block">Ordem: {order.data_ordem}</span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-slate-800 block font-mono text-xs">
+                      Ordem: {order.data_ordem}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
                       Desejada: {order.data_desejada_cliente || '-'}
                     </span>
+                    {order.data_prevista_producao && (
+                      <span className="text-[10px] text-slate-500 block">
+                        Prev: {order.data_prevista_producao}
+                      </span>
+                    )}
                   </div>
 
+                  {/* 5. Linha / Vendedor */}
                   <div>
                     <span className="text-slate-500 block text-[11px]">Linha / Vendedor</span>
                     <span className="font-semibold text-slate-800 block">
@@ -757,8 +759,7 @@ export const CancelledOrderDetailModal: React.FC<ModalProps> = ({
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <div className="text-slate-500 font-mono text-[11px]">
-                  Impacto Físico: {formatTons(order.saldo_cancelado_t)} • Impacto Financeiro:{' '}
-                  {formatCurrencyPtBr(order.valor_cancelado_brl)}
+                  Impacto Físico: {formatTons(order.saldo_cancelado_t)}
                 </div>
 
                 <Button

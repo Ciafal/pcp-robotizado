@@ -122,9 +122,70 @@ export const PedidosCanceladosPage: React.FC = () => {
   }
 
   const handleExportData = () => {
+    if (orders.length === 0) {
+      toast({
+        title: 'Sem dados para exportar',
+        description: 'Nenhum pedido cancelado encontrado com os filtros atuais.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Exportação em formato CSV sem campos financeiros (apenas dados operacionais do PCP)
+    const headers = [
+      'Ordem/Item',
+      'Data Ordem',
+      'Centro',
+      'Linha',
+      'Cliente Código',
+      'Cliente Nome',
+      'Curva ABC',
+      'Material Código',
+      'Material Descrição',
+      'Saldo Cancelado (t)',
+      'Qtd Original OV (t)',
+      'Motivo Original SAP',
+      'Categoria',
+      'Status Análise',
+      'Responsabilidade Provável IA',
+    ]
+
+    const rows = orders.map((o) => [
+      `"${o.ordem_venda}/${o.item_ordem}"`,
+      `"${o.data_ordem}"`,
+      `"${o.centro}"`,
+      `"${o.linha || ''}"`,
+      `"${o.cliente_codigo || ''}"`,
+      `"${o.cliente_nome.replace(/"/g, '""')}"`,
+      `"${o.curva_abc || ''}"`,
+      `"${o.material_codigo}"`,
+      `"${o.material_descricao.replace(/"/g, '""')}"`,
+      o.saldo_cancelado_t,
+      o.quantidade_original_ov_t,
+      `"${o.motivo_original_sap.replace(/"/g, '""')}"`,
+      `"${o.categoria_motivo}"`,
+      `"${o.analysis_status}"`,
+      `"${o.ai_suggested_responsibility || ''}"`,
+    ])
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n')
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute(
+      'download',
+      `pedidos_cancelados_pcp_${new Date().toISOString().slice(0, 10)}.csv`,
+    )
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
     toast({
-      title: 'Exportação Iniciada',
-      description: 'Gerando arquivo CSV/Excel estruturado dos pedidos cancelados.',
+      title: 'Exportação Concluída',
+      description: `CSV operacional gerado com sucesso com ${orders.length} pedidos cancelados (sem dados financeiros).`,
       duration: 3000,
     })
   }

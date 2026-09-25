@@ -12,7 +12,7 @@
 import React, { useState } from 'react'
 import { X, FileText, Printer, Mail, Sparkles, Edit3, CheckCircle2, Building2 } from 'lucide-react'
 import { CancelledOrderRecord, CancellationExecutiveKPIs } from '@/types/cancelled-orders'
-import { formatTons, formatCurrencyPtBr, formatPercentPtBr } from '@/lib/formatters-ptbr'
+import { formatTons, formatPercentPtBr } from '@/lib/formatters-ptbr'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
@@ -176,9 +176,9 @@ export const CancelledOrdersReportModal: React.FC<ReportModalProps> = ({
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                <span className="text-slate-500 block text-[11px]">4. Valor Financeiro Total</span>
+                <span className="text-slate-500 block text-[11px]">4. Centros Envolvidos</span>
                 <span className="text-base font-bold font-mono text-slate-900">
-                  {formatCurrencyPtBr(kpis.totalValorBrl)}
+                  Operações Industriais CIAFAL
                 </span>
               </div>
               <div className="p-3 bg-slate-50 rounded border border-slate-200">
