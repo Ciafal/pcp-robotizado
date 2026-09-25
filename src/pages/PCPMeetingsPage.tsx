@@ -165,8 +165,16 @@ export const PCPMeetingsPage: React.FC = () => {
           />
         )}
 
-        {activeTab === 'pendencias' && <PendenciasReuniaoView />}
-
+        {activeTab === 'pendencias' && (
+          <PendenciasReuniaoView
+            onNavigateTab={(tab, meetingId) => {
+              setActiveTab(tab)
+              if (meetingId) {
+                setSelectedMeetingId(meetingId)
+              }
+            }}
+          />
+        )}
         {activeTab === 'configuracoes' && <ConfiguracoesReuniaoView />}
 
         {/* Subtópicos Operacionais da Fatia 2 */}
