@@ -442,12 +442,18 @@ export const ReuniaoEmAndamentoView: React.FC<ReuniaoEmAndamentoViewProps> = ({
     }
 
     try {
+      const ataCode = currentAta
+        ? `ATA-${meeting?.meeting_code || 'REUNIAO'}-V${currentAta.version}`
+        : undefined
+
       const pend = await pcpMeetingFatia1Service.createPendency(
         {
           meeting_id: meetingId,
           meeting_code: meeting?.meeting_code,
           meeting_date: meeting?.meeting_date,
           company: meeting?.company || 'CIAFAL',
+          ata_id: currentAta?.id,
+          ata_code: ataCode,
           area: newPendencyData.area,
           subject: newPendencyData.subject,
           action: newPendencyData.action,

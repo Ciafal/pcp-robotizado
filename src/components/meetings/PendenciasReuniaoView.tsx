@@ -48,9 +48,7 @@ interface PendenciasReuniaoViewProps {
   onNavigateTab?: (tab: string, meetingId?: string) => void
 }
 
-export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
-  onNavigateTab,
-}) => {
+export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({ onNavigateTab }) => {
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -126,7 +124,9 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
     try {
       const meetings = await pcpMeetingFatia1Service.listMeetings()
       setAvailableMeetings(meetings)
-    } catch { /* intentionally ignored */ }
+    } catch {
+      /* intentionally ignored */
+    }
   }
 
   useEffect(() => {
@@ -174,7 +174,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
     if (!selectedMeetingId) {
       toast({
         title: 'Reunião de Origem Obrigatória',
-        description: 'Toda pendência do PCP deve obrigatoriamente originar-se de uma Reunião existente.',
+        description:
+          'Toda pendência do PCP deve obrigatoriamente originar-se de uma Reunião existente.',
         variant: 'destructive',
       })
       return
@@ -183,7 +184,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
     if (!selectedAtaId) {
       toast({
         title: 'ATA de Origem Obrigatória',
-        description: 'Toda pendência deve estar formalmente vinculada à ATA da reunião selecionada.',
+        description:
+          'Toda pendência deve estar formalmente vinculada à ATA da reunião selecionada.',
         variant: 'destructive',
       })
       return
@@ -286,13 +288,9 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
     if (!alertTarget) return
     try {
       setSendingAlert(true)
-      const res = await pcpMeetingFatia1Service.sendPendencyAlert(
-        alertTarget,
-        userContext,
-        {
-          responsibleEmail: alertRecipientEmail.trim() || undefined,
-        },
-      )
+      const res = await pcpMeetingFatia1Service.sendPendencyAlert(alertTarget, userContext, {
+        responsibleEmail: alertRecipientEmail.trim() || undefined,
+      })
 
       if (res.hubNotificationSuccess) {
         toast({
@@ -426,8 +424,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
               Pendências e Ações das Reuniões de PCP
             </h2>
             <p className="text-xs text-slate-500">
-              Rastreabilidade formal obrigatória Reunião ➔ ATA ➔ Pendência, alertas corporativos HUB e
-              histórico de atualizações cronológico e imutável.
+              Rastreabilidade formal obrigatória Reunião ➔ ATA ➔ Pendência, alertas corporativos HUB
+              e histórico de atualizações cronológico e imutável.
             </p>
           </div>
 
@@ -529,8 +527,10 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                     (p.status === 'ABERTA' || p.status === 'EM_ANDAMENTO') &&
                     new Date(p.deadline + 'T23:59:59') < getPlantNow()
 
-                  const meetingDisplayCode = p.meeting_code || (p.meeting_id !== 'REUNIAO_MANUAL' ? p.meeting_id : null)
-                  const ataDisplayCode = p.ata_code || (p.ata_id ? `ATA-${p.ata_id.slice(0, 8)}` : null)
+                  const meetingDisplayCode =
+                    p.meeting_code || (p.meeting_id !== 'REUNIAO_MANUAL' ? p.meeting_id : null)
+                  const ataDisplayCode =
+                    p.ata_code || (p.ata_id ? `ATA-${p.ata_id.slice(0, 8)}` : null)
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/70">
@@ -567,7 +567,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                                 className="hover:underline text-slate-700 hover:text-[#004C97]"
                                 title="Abrir ATA correspondente"
                               >
-                                {ataDisplayCode || 'ATA Sem Registro'} &bull; S{p.origin_week}/{p.origin_year}
+                                {ataDisplayCode || 'ATA Sem Registro'} &bull; S{p.origin_week}/
+                                {p.origin_year}
                               </button>
                             </div>
                           </div>
@@ -685,7 +686,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
               Registrar Nova Pendência da Reunião
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Governança SGQ: Toda pendência deve possuir vínculo obrigatório com Reunião e ATA existentes.
+              Governança SGQ: Toda pendência deve possuir vínculo obrigatório com Reunião e ATA
+              existentes.
             </DialogDescription>
           </DialogHeader>
 
@@ -716,9 +718,7 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
-                    ATA de Origem *
-                  </label>
+                  <label className="font-semibold text-slate-700 block mb-1">ATA de Origem *</label>
                   <select
                     value={selectedAtaId}
                     onChange={(e) => setSelectedAtaId(e.target.value)}
@@ -745,11 +745,15 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-[11px] text-slate-600">
                   <div>
                     <span className="text-slate-400 block">Código Reunião:</span>
-                    <strong className="text-slate-900 font-mono">{selectedMeetingObj.meeting_code}</strong>
+                    <strong className="text-slate-900 font-mono">
+                      {selectedMeetingObj.meeting_code}
+                    </strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Semana:</span>
-                    <span className="font-semibold text-slate-800">S{selectedMeetingObj.week}/{selectedMeetingObj.year}</span>
+                    <span className="font-semibold text-slate-800">
+                      S{selectedMeetingObj.week}/{selectedMeetingObj.year}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Data Reunião:</span>
@@ -905,13 +909,17 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                       }}
                       className="font-mono font-bold text-[#004C97] hover:underline"
                     >
-                      {editingTarget.ata_code || (editingTarget.ata_id ? `ATA-${editingTarget.ata_id.slice(0, 8)}` : 'Não informada')}
+                      {editingTarget.ata_code ||
+                        (editingTarget.ata_id
+                          ? `ATA-${editingTarget.ata_id.slice(0, 8)}`
+                          : 'Não informada')}
                     </button>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Semana / Data:</span>
                     <span>
-                      S{editingTarget.origin_week}/{editingTarget.origin_year} &bull; {formatDatePtBr(editingTarget.meeting_date)}
+                      S{editingTarget.origin_week}/{editingTarget.origin_year} &bull;{' '}
+                      {formatDatePtBr(editingTarget.meeting_date)}
                     </span>
                   </div>
                   <div>
@@ -939,7 +947,9 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Nota de Atualização</label>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Nota de Atualização
+                </label>
                 <Textarea
                   value={editNote}
                   onChange={(e) => setEditNote(e.target.value)}
@@ -993,7 +1003,9 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                         >
                           <div className="flex items-center justify-between text-slate-500">
                             <span className="font-semibold text-slate-700">{hist.user_name}</span>
-                            <span className="font-mono text-[10px]">{formatDateTimePtBr(hist.timestamp)}</span>
+                            <span className="font-mono text-[10px]">
+                              {formatDateTimePtBr(hist.timestamp)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-slate-400">Status:</span>
@@ -1008,7 +1020,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                           )}
                           {hist.evidencia && (
                             <div className="text-[10px] text-slate-500 font-mono">
-                              Evidência: <span className="font-semibold text-slate-700">{hist.evidencia}</span>
+                              Evidência:{' '}
+                              <span className="font-semibold text-slate-700">{hist.evidencia}</span>
                             </div>
                           )}
                         </div>
@@ -1064,7 +1077,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
               <Bell className="w-4 h-4 text-amber-600" /> Enviar Lembrete da Pendência
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              O responsável receberá uma notificação no HUB e um e-mail com os dados desta pendência.
+              O responsável receberá uma notificação no HUB e um e-mail com os dados desta
+              pendência.
             </DialogDescription>
           </DialogHeader>
 
@@ -1072,7 +1086,9 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
             <div className="space-y-3 py-2 text-xs">
               <div className="bg-slate-50 p-3 rounded border border-slate-200 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-slate-900 text-xs">{alertTarget.pendency_code}</span>
+                  <span className="font-mono font-bold text-slate-900 text-xs">
+                    {alertTarget.pendency_code}
+                  </span>
                   <Badge variant="outline" className="text-[10px] font-bold">
                     {alertTarget.status}
                   </Badge>
@@ -1085,15 +1101,21 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-400 block">Prazo:</span>
-                    <strong className="text-slate-900 font-mono">{formatDatePtBr(alertTarget.deadline)}</strong>
+                    <strong className="text-slate-900 font-mono">
+                      {formatDatePtBr(alertTarget.deadline)}
+                    </strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Reunião de Origem:</span>
-                    <span className="font-mono">{alertTarget.meeting_code || alertTarget.meeting_id}</span>
+                    <span className="font-mono">
+                      {alertTarget.meeting_code || alertTarget.meeting_id}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block">ATA de Origem:</span>
-                    <span className="font-mono">{alertTarget.ata_code || alertTarget.ata_id || '-'}</span>
+                    <span className="font-mono">
+                      {alertTarget.ata_code || alertTarget.ata_id || '-'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1117,7 +1139,12 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
           )}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setAlertTarget(null)} disabled={sendingAlert}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAlertTarget(null)}
+              disabled={sendingAlert}
+            >
               Cancelar
             </Button>
             <Button
@@ -1140,7 +1167,8 @@ export const PendenciasReuniaoView: React.FC<PendenciasReuniaoViewProps> = ({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold text-blue-900 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-blue-700" /> Gerar Ação na Gestão de Performance (5W2H)
+              <ShieldCheck className="w-4 h-4 text-blue-700" /> Gerar Ação na Gestão de Performance
+              (5W2H)
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
               <strong>Regra SGQ:</strong> Exige confirmação humana expressa. Vincula a pendência
