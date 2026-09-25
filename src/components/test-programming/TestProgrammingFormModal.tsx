@@ -1126,7 +1126,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
 
               {/* Input de busca rápida */}
               <Input
-                placeholder="Pesquisar entre os 35 objetivos industriais..."
+                placeholder="Pesquisar objetivo industrial (ex: parada anual, parada programada)..."
                 value={objectiveSearchTerm}
                 onChange={(e) => setObjectiveSearchTerm(e.target.value)}
                 className="text-xs h-7 bg-white"

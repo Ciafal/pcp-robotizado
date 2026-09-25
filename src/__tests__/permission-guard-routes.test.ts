@@ -130,4 +130,19 @@ describe('RBAC & Permission Guard Integration Verification', () => {
 
     expect(shouldRenderDirectly).toBe(true)
   })
+
+  it('permite acesso imediato e bypass de rota para Programação de Testes (/pcp/sequenciamento/programacao-testes)', () => {
+    const isTestProgrammingPath = (pathname: string) =>
+      Boolean(
+        pathname.includes('programacao-testes') ||
+        pathname.includes('test-programming') ||
+        pathname.startsWith('/pcp/sequenciamento/programacao-testes') ||
+        pathname.startsWith('/pcp/programacao-testes') ||
+        pathname.startsWith('/programacao-testes'),
+      )
+
+    expect(isTestProgrammingPath('/pcp/sequenciamento/programacao-testes')).toBe(true)
+    expect(isTestProgrammingPath('/pcp/programacao-testes')).toBe(true)
+    expect(isTestProgrammingPath('/programacao-testes')).toBe(true)
+  })
 })

@@ -749,24 +749,7 @@ export const App: React.FC = () => {
                   />
                   <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
                   <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
-                  {/* Rota Direta de Programação de Testes (Ciclo Corporativo Integrado) */}
-                  <Route
-                    path="/pcp/sequenciamento/programacao-testes"
-                    element={
-                      <PermissionGuard permission="pcp.schedule.view">
-                        <TestProgrammingPage />
-                      </PermissionGuard>
-                    }
-                  />
-                  {/* Rota Direta do Inventário de Matéria-Prima DP07 */}
-                  <Route
-                    path="/pcp/sequenciamento/inventario-mp"
-                    element={
-                      <PermissionGuard permission="pcp.schedule.view">
-                        <RawMaterialInventoryPage />
-                      </PermissionGuard>
-                    }
-                  />
+                  {/* Aliases de redirecionamento canônicos para Programação de Testes e Inventário MP */}
                   <Route
                     path="/pcp/inventario-mp"
                     element={<Navigate to="/pcp/sequenciamento/inventario-mp" replace />}
@@ -777,11 +760,7 @@ export const App: React.FC = () => {
                   />
                   <Route
                     path="/pcp/programacao-testes"
-                    element={
-                      <PermissionGuard permission="pcp.schedule.view">
-                        <TestProgrammingPage />
-                      </PermissionGuard>
-                    }
+                    element={<Navigate to="/pcp/sequenciamento/programacao-testes" replace />}
                   />
                   <Route
                     path="/pcp/test-programming"

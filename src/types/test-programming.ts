@@ -335,7 +335,7 @@ export type AuditLogOrigin = 'usuário' | 'PCP Robotizado' | 'MES 4.0' | 'integr
 
 export interface IndustrialTestObjective {
   id: string
-  code: string // OBJ-01 .. OBJ-35
+  code: string // OBJ-01 .. OBJ-37 (e futuros)
   name: string
   description?: string
   is_custom_trigger: boolean

@@ -99,12 +99,23 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // BYPASS IMEDIATO:
   // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes e controle de produção sem timeout ou flicker
-  const isTestProgrammingRoute =
+  const isTestProgrammingRoute = Boolean(
     currentPathname.includes('programacao-testes') ||
     currentPathname.includes('test-programming') ||
     currentPathname.startsWith('/pcp/sequenciamento/programacao-testes') ||
     currentPathname.startsWith('/pcp/programacao-testes') ||
-    currentPathname.startsWith('/programacao-testes')
+    currentPathname.startsWith('/programacao-testes') ||
+    // Garante bypass também quando acessada aninhada sob /pcp/sequenciamento
+    (currentPathname.startsWith('/pcp/sequenciamento') &&
+      typeof window !== 'undefined' &&
+      (window.location.pathname.includes('programacao-testes') ||
+        window.location.hash.includes('programacao-testes') ||
+        window.location.href.includes('programacao-testes'))),
+  )
+
+  if (isTestProgrammingRoute) {
+    return <>{children}</>
+  }
 
   const isCarteiraRouteOrPerm =
     permission === 'pcp.carteira.view' ||
