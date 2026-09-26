@@ -1,4 +1,4 @@
-import { ComponentType, lazy, LazyExoticComponent, createElement } from 'react'
+import React, { ComponentType, lazy, LazyExoticComponent } from 'react'
 
 /**
  * Utilitário central de Lazy Loading Resiliente para o PCP Robotizado.
@@ -71,7 +71,7 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
   moduleName: string,
   error: unknown,
 ): { default: T } {
-  const FallbackComponent = () => {
+  const FallbackComponent: React.FC = () => {
     const handleReload = () => {
       clearChunkReloadFlag()
       if (typeof window !== 'undefined') {
@@ -81,25 +81,25 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
 
     const message = error instanceof Error ? error.message : String(error || '')
 
-    return createElement(
+    return React.createElement(
       'div',
       {
         className: 'min-h-[50vh] flex items-center justify-center p-6 bg-slate-50 text-slate-800',
         'data-testid': 'chunk-error-fallback',
       },
-      createElement(
+      React.createElement(
         'div',
         {
           className:
             'max-w-md w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xl text-center space-y-5',
         },
-        createElement(
+        React.createElement(
           'div',
           {
             className:
               'w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 shadow-xs',
           },
-          createElement(
+          React.createElement(
             'svg',
             {
               className: 'w-7 h-7',
@@ -108,7 +108,7 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
               viewBox: '0 0 24 24',
               xmlns: 'http://www.w3.org/2000/svg',
             },
-            createElement('path', {
+            React.createElement('path', {
               strokeLinecap: 'round',
               strokeLinejoin: 'round',
               strokeWidth: 2,
@@ -116,23 +116,23 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
             }),
           ),
         ),
-        createElement(
+        React.createElement(
           'div',
           { className: 'space-y-2' },
-          createElement(
+          React.createElement(
             'h2',
             { className: 'text-lg font-bold text-slate-900 tracking-tight' },
             'Nova Versão do Sistema Disponível',
           ),
-          createElement(
+          React.createElement(
             'p',
             { className: 'text-xs text-slate-600 leading-relaxed max-w-sm mx-auto' },
             'O módulo ',
-            createElement('strong', { className: 'text-slate-800' }, moduleName),
+            React.createElement('strong', { className: 'text-slate-800' }, moduleName),
             ' foi atualizado no servidor. Clique no botão abaixo para recarregar e obter a versão mais recente.',
           ),
           message
-            ? createElement(
+            ? React.createElement(
                 'p',
                 {
                   className: 'text-[11px] font-mono text-slate-400 truncate max-w-xs mx-auto',
@@ -142,10 +142,10 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
               )
             : null,
         ),
-        createElement(
+        React.createElement(
           'div',
           { className: 'flex flex-wrap gap-3 justify-center pt-1' },
-          createElement(
+          React.createElement(
             'button',
             {
               type: 'button',
@@ -153,7 +153,7 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
               className:
                 'inline-flex items-center justify-center gap-2 bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-colors cursor-pointer',
             },
-            createElement(
+            React.createElement(
               'svg',
               {
                 className: 'w-3.5 h-3.5',
@@ -162,7 +162,7 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
                 viewBox: '0 0 24 24',
                 xmlns: 'http://www.w3.org/2000/svg',
               },
-              createElement('path', {
+              React.createElement('path', {
                 strokeLinecap: 'round',
                 strokeLinejoin: 'round',
                 strokeWidth: 2,
@@ -172,7 +172,7 @@ function createChunkErrorFallback<T extends ComponentType<any>>(
             'Recarregar Sistema',
           ),
         ),
-        createElement(
+        React.createElement(
           'div',
           { className: 'text-[11px] text-slate-400 font-mono pt-3 border-t border-slate-100' },
           'CIAFAL • HUB PCP Robotizado',

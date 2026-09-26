@@ -44,20 +44,51 @@ export const WMS_KNOWN_LOCATIONS = [
   'PAT-FORNO-ENTRADA',
 ]
 
-export const KNOWN_MATERIALS_CATALOG: Record<string, {
-  description: string
-  unit: string
-  gauges: string[]
-  sampleRuns: { runNumber: string; batch: string; gauge: string; stockPieces: number; storageLocation: string; receiptDate: string }[]
-}> = {
+export const KNOWN_MATERIALS_CATALOG: Record<
+  string,
+  {
+    description: string
+    unit: string
+    gauges: string[]
+    sampleRuns: {
+      runNumber: string
+      batch: string
+      gauge: string
+      stockPieces: number
+      storageLocation: string
+      receiptDate: string
+    }[]
+  }
+> = {
   'MP-TAR-1045': {
     description: 'Tarugo SAE 1045 130mm x 6000mm',
     unit: 'PC',
     gauges: ['130mm', '120mm'],
     sampleRuns: [
-      { runNumber: '458921', batch: 'L-2026-081', gauge: '130mm', stockPieces: 30, storageLocation: 'PAT-A-01-N1', receiptDate: '10/01/2026' },
-      { runNumber: '458974', batch: 'L-2026-092', gauge: '130mm', stockPieces: 18, storageLocation: 'PAT-A-02-N1', receiptDate: '15/01/2026' },
-      { runNumber: '459102', batch: 'L-2026-104', gauge: '120mm', stockPieces: 25, storageLocation: 'PAT-B-03-N1', receiptDate: '02/02/2026' },
+      {
+        runNumber: '458921',
+        batch: 'L-2026-081',
+        gauge: '130mm',
+        stockPieces: 30,
+        storageLocation: 'PAT-A-01-N1',
+        receiptDate: '10/01/2026',
+      },
+      {
+        runNumber: '458974',
+        batch: 'L-2026-092',
+        gauge: '130mm',
+        stockPieces: 18,
+        storageLocation: 'PAT-A-02-N1',
+        receiptDate: '15/01/2026',
+      },
+      {
+        runNumber: '459102',
+        batch: 'L-2026-104',
+        gauge: '120mm',
+        stockPieces: 25,
+        storageLocation: 'PAT-B-03-N1',
+        receiptDate: '02/02/2026',
+      },
     ],
   },
   'MP-TAR-1020': {
@@ -65,8 +96,22 @@ export const KNOWN_MATERIALS_CATALOG: Record<string, {
     unit: 'PC',
     gauges: ['120mm', '115mm'],
     sampleRuns: [
-      { runNumber: '457810', batch: 'L-2026-033', gauge: '120mm', stockPieces: 45, storageLocation: 'PAT-B-04-N2', receiptDate: '05/01/2026' },
-      { runNumber: '457990', batch: 'L-2026-055', gauge: '120mm', stockPieces: 20, storageLocation: 'PUL-MP-NORTE', receiptDate: '12/01/2026' },
+      {
+        runNumber: '457810',
+        batch: 'L-2026-033',
+        gauge: '120mm',
+        stockPieces: 45,
+        storageLocation: 'PAT-B-04-N2',
+        receiptDate: '05/01/2026',
+      },
+      {
+        runNumber: '457990',
+        batch: 'L-2026-055',
+        gauge: '120mm',
+        stockPieces: 20,
+        storageLocation: 'PUL-MP-NORTE',
+        receiptDate: '12/01/2026',
+      },
     ],
   },
   'MP-FIO-1008': {
@@ -74,8 +119,22 @@ export const KNOWN_MATERIALS_CATALOG: Record<string, {
     unit: 'ROLO',
     gauges: ['5.5mm', '6.5mm'],
     sampleRuns: [
-      { runNumber: '456100', batch: 'FM-992', gauge: '5.5mm', stockPieces: 60, storageLocation: 'GAL-01-RACK-A', receiptDate: '20/12/2025' },
-      { runNumber: '456250', batch: 'FM-998', gauge: '5.5mm', stockPieces: 35, storageLocation: 'GAL-01-RACK-B', receiptDate: '03/01/2026' },
+      {
+        runNumber: '456100',
+        batch: 'FM-992',
+        gauge: '5.5mm',
+        stockPieces: 60,
+        storageLocation: 'GAL-01-RACK-A',
+        receiptDate: '20/12/2025',
+      },
+      {
+        runNumber: '456250',
+        batch: 'FM-998',
+        gauge: '5.5mm',
+        stockPieces: 35,
+        storageLocation: 'GAL-01-RACK-B',
+        receiptDate: '03/01/2026',
+      },
     ],
   },
 }

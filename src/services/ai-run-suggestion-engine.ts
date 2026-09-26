@@ -28,9 +28,17 @@ export function calculateAIRunSuggestions(params: {
   gauges: MPInventoryGaugeRequirement[]
   sapData: SAPMaterialQueryResult | null
 }): AIRunSuggestionResult {
-  const totalRequired = params.gauges.reduce((acc, g) => acc + (Number(g.quantity_required) || 0), 0)
+  const totalRequired = params.gauges.reduce(
+    (acc, g) => acc + (Number(g.quantity_required) || 0),
+    0,
+  )
 
-  if (!params.sapData || !params.sapData.runs || params.sapData.runs.length === 0 || totalRequired <= 0) {
+  if (
+    !params.sapData ||
+    !params.sapData.runs ||
+    params.sapData.runs.length === 0 ||
+    totalRequired <= 0
+  ) {
     return {
       summaryText: 'Aguardando definição de necessidade e dados de corridas do SAP.',
       recommendations: [],

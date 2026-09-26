@@ -93,11 +93,9 @@ describe('lazyWithRetry & Resiliência a Chunks Desatualizados', () => {
     const LazyComponent = lazyWithRetry(failingFactory, 'EntregasPcpPage', 2)
 
     render(
-      React.createElement(
-        Suspense,
-        { fallback: React.createElement('div', null, 'Carregando módulo...') },
-        React.createElement(LazyComponent, null),
-      ),
+      <Suspense fallback={<div>Carregando módulo...</div>}>
+        <LazyComponent />
+      </Suspense>,
     )
 
     // Aguarda renderizar o fallback amigável de erro de chunk

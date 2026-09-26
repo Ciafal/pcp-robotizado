@@ -31,6 +31,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const currentPathname =
     location.pathname || (typeof window !== 'undefined' ? window.location?.pathname : '') || ''
 
+  // BYPASS IMEDIATO PRIORITÁRIO:
+  // Rotas de Entregas PCP (/pcp/entregas, /entregas, subrotas e aliases) NUNCA devem passar por
+  // checagem de timeout, skeleton ou validação de permissão - renderização imediata incondicional.
+  const isEntregasRoute = Boolean(
+    currentPathname.startsWith('/pcp/entregas') ||
+    currentPathname.startsWith('/pcp-robotizado/entregas') ||
+    currentPathname.startsWith('/pcp/entregas-pcp') ||
+    currentPathname.startsWith('/entregas-pcp') ||
+    currentPathname.startsWith('/entregas') ||
+    currentPathname.includes('/pcp/entregas') ||
+    (currentPathname.startsWith('/pcp') && currentPathname.includes('entregas')),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -99,15 +112,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // BYPASS IMEDIATO:
   // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
-  const isEntregasRoute = Boolean(
-    currentPathname.startsWith('/pcp/entregas') ||
-    currentPathname.startsWith('/pcp-robotizado/entregas') ||
-    currentPathname.startsWith('/pcp/entregas-pcp') ||
-    currentPathname.startsWith('/entregas-pcp') ||
-    currentPathname.startsWith('/entregas') ||
-    currentPathname.includes('/pcp/entregas') ||
-    (currentPathname.startsWith('/pcp') && currentPathname.includes('entregas')),
-  )
+  if (isEntregasRoute) {
+    return <>{children}</>
+  }
 
   const isTestProgrammingRoute = Boolean(
     currentPathname.includes('programacao-testes') ||

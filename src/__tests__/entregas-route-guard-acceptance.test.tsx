@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { EntregasPcpPage } from '@/pages/EntregasPcpPage'
 import { AuthContext, AuthContextType } from '@/contexts/AuthContext'
@@ -62,6 +62,80 @@ describe('Entrega 1: Bypass de Rota e Aceitação de /pcp/entregas no Permission
     expect(screen.getByText('Aderência às Entregas')).toBeInTheDocument()
     expect(screen.queryByText('Acesso Restrito')).not.toBeInTheDocument()
     expect(screen.queryByText('Instabilidade na Validação de Acessos')).not.toBeInTheDocument()
+  })
+
+  it('deve resolver alias /entregas redirecionando para a rota canônica /pcp/entregas sem loop e renderizar EntregasPcpPage', async () => {
+    const authVal = makeMockAuth()
+
+    render(
+      <AuthContext.Provider value={authVal}>
+        <MemoryRouter initialEntries={['/entregas']}>
+          <Routes>
+            <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
+            <Route
+              path="/pcp/entregas"
+              element={
+                <PermissionGuard permission="pcp.schedule.view">
+                  <EntregasPcpPage />
+                </PermissionGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    // Renderiza a página sem loop de redirect
+    expect(screen.getByText('Entregas PCP')).toBeInTheDocument()
+    expect(screen.getByText('Aderência às Entregas')).toBeInTheDocument()
+  })
+
+  it('deve resolver aliases /entregas-pcp e /pcp-robotizado/entregas sem loop', async () => {
+    const authVal = makeMockAuth()
+
+    const { unmount } = render(
+      <AuthContext.Provider value={authVal}>
+        <MemoryRouter initialEntries={['/pcp-robotizado/entregas']}>
+          <Routes>
+            <Route
+              path="/pcp-robotizado/entregas"
+              element={<Navigate to="/pcp/entregas" replace />}
+            />
+            <Route
+              path="/pcp/entregas"
+              element={
+                <PermissionGuard permission="pcp.schedule.view">
+                  <div data-testid="pcp-entregas-dest">Destino Entregas OK</div>
+                </PermissionGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    expect(screen.getByTestId('pcp-entregas-dest')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <AuthContext.Provider value={authVal}>
+        <MemoryRouter initialEntries={['/entregas-pcp']}>
+          <Routes>
+            <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
+            <Route
+              path="/pcp/entregas"
+              element={
+                <PermissionGuard permission="pcp.schedule.view">
+                  <div data-testid="pcp-entregas-dest-2">Destino Entregas 2 OK</div>
+                </PermissionGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    )
+
+    expect(screen.getByTestId('pcp-entregas-dest-2')).toBeInTheDocument()
   })
 
   it('deve permitir acesso direto à subrota /pcp/entregas/visao-geral', async () => {
