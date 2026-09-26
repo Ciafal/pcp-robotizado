@@ -740,7 +740,15 @@ export const App: React.FC = () => {
                     element={<Navigate to="/pcp/entregas" replace />}
                   />
                   <Route
+                    path="/pcp/entregas-pcp/*"
+                    element={<Navigate to="/pcp/entregas" replace />}
+                  />
+                  <Route
                     path="/pcp-robotizado/entregas"
+                    element={<Navigate to="/pcp/entregas" replace />}
+                  />
+                  <Route
+                    path="/pcp-robotizado/entregas/*"
                     element={<Navigate to="/pcp/entregas" replace />}
                   />
                   <Route
@@ -748,7 +756,9 @@ export const App: React.FC = () => {
                     element={<Navigate to="/pcp/entregas/resumo-mensal" replace />}
                   />
                   <Route path="/entregas-pcp" element={<Navigate to="/pcp/entregas" replace />} />
+                  <Route path="/entregas-pcp/*" element={<Navigate to="/pcp/entregas" replace />} />
                   <Route path="/entregas" element={<Navigate to="/pcp/entregas" replace />} />
+                  <Route path="/entregas/*" element={<Navigate to="/pcp/entregas" replace />} />
                   {/* Aliases de redirecionamento canônicos para Programação de Testes e Inventário MP */}
                   <Route
                     path="/pcp/inventario-mp"

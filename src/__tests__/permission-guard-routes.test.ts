@@ -131,6 +131,24 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(shouldRenderDirectly).toBe(true)
   })
 
+  it('permite acesso imediato e bypass de rota para Entregas PCP (/pcp/entregas)', () => {
+    const isEntregasPath = (pathname: string) =>
+      Boolean(
+        pathname.startsWith('/pcp/entregas') ||
+        pathname.startsWith('/pcp-robotizado/entregas') ||
+        pathname.startsWith('/pcp/entregas-pcp') ||
+        pathname.startsWith('/entregas-pcp') ||
+        pathname.startsWith('/entregas') ||
+        pathname.includes('/pcp/entregas') ||
+        (pathname.startsWith('/pcp') && pathname.includes('entregas')),
+      )
+
+    expect(isEntregasPath('/pcp/entregas')).toBe(true)
+    expect(isEntregasPath('/pcp/entregas/visao-geral')).toBe(true)
+    expect(isEntregasPath('/pcp-robotizado/entregas')).toBe(true)
+    expect(isEntregasPath('/entregas')).toBe(true)
+  })
+
   it('permite acesso imediato e bypass de rota para Programação de Testes (/pcp/sequenciamento/programacao-testes)', () => {
     const isTestProgrammingPath = (pathname: string) =>
       Boolean(

@@ -98,7 +98,17 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes e controle de produção sem timeout ou flicker
+  // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
+  const isEntregasRoute = Boolean(
+    currentPathname.startsWith('/pcp/entregas') ||
+    currentPathname.startsWith('/pcp-robotizado/entregas') ||
+    currentPathname.startsWith('/pcp/entregas-pcp') ||
+    currentPathname.startsWith('/entregas-pcp') ||
+    currentPathname.startsWith('/entregas') ||
+    currentPathname.includes('/pcp/entregas') ||
+    (currentPathname.startsWith('/pcp') && currentPathname.includes('entregas')),
+  )
+
   const isTestProgrammingRoute = Boolean(
     currentPathname.includes('programacao-testes') ||
     currentPathname.includes('test-programming') ||
@@ -113,7 +123,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
         window.location.href.includes('programacao-testes'))),
   )
 
-  if (isTestProgrammingRoute) {
+  if (isTestProgrammingRoute || isEntregasRoute) {
     return <>{children}</>
   }
 
@@ -133,6 +143,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   if (
     isTestProgrammingRoute ||
+    isEntregasRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     currentPathname.startsWith('/pcp/controle-producao') ||
@@ -204,10 +215,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // 3) Rotas de Análise de Carteira e Programação de Testes
+  // 3) Rotas de Análise de Carteira, Programação de Testes e Entregas PCP
   // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
   if (
     isTestProgrammingRoute ||
+    isEntregasRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     currentPathname.includes('analise-carteira') ||
@@ -353,7 +365,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
-      isTestProgrammingRoute)
+      isTestProgrammingRoute ||
+      isEntregasRoute)
   ) {
     hasPerm = true
   }
@@ -442,7 +455,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.startsWith('/pcp/analise-carteira') ||
-    isTestProgrammingRoute
+    isTestProgrammingRoute ||
+    isEntregasRoute
   ) {
     return <>{children}</>
   }
