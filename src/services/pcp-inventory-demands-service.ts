@@ -18,7 +18,26 @@ function formatPtBrDateTime(d: Date = new Date()): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
-export class PcpInventoryDemandsService {
+export interface DemandMaterialItem {
+  id?: string
+  demand_id?: string
+  production_order_code?: string
+  material_code?: string
+  material_description?: string
+  steel_type?: string
+  gauge_mm?: number
+  application?: string
+  quantity_pieces?: number
+  weight_tons: number
+  unit_of_measure?: string
+  storage_location?: string
+  batch_number?: string
+  notes?: string
+  created?: string
+  updated?: string
+}
+
+class PcpInventoryDemandsService {
   /**
    * Obtém o próximo número de controle atômico via hook do PocketBase
    * Fallback local INV-AAAA-###### caso offline
@@ -98,6 +117,7 @@ export class PcpInventoryDemandsService {
       })
       return records.map((r: any) => ({
         id: r.id,
+        weight_tons: Number(r.quantity_tons || r.weight_tons || 0),
         demand_id: r.demand_id || demandId,
         control_number: r.control_number || r.inventory_code || '',
         material_code: r.raw_material_code || r.material_code || '',

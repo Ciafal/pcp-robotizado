@@ -14,7 +14,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
-import { pcpProductionService, ProductionOrder } from '@/services/pcp-production-service'
+import { pcpProductionService } from '@/services/pcp-production-service'
+type ProductionOrder = any
 import {
   InventoryDemandPriority,
   CreateDemandPayload,
