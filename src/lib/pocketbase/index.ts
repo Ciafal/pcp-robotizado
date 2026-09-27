@@ -7,10 +7,13 @@
  * ou geradores de código de scaffolding que possam tentar reescrever apenas o `client.ts`.
  */
 import PocketBase from 'pocketbase'
-import clientPb from './client'
+import clientPb, { pb as namedClientPb } from './client'
 
 const resolvedPb: PocketBase =
-  (clientPb as any)?.pb || clientPb || new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
+  namedClientPb ||
+  (clientPb as any)?.pb ||
+  clientPb ||
+  new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
 
 export const pb: PocketBase = resolvedPb
 export default resolvedPb
