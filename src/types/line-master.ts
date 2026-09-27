@@ -363,6 +363,9 @@ export interface LineProductivityRate {
   nominal_productivity: number
   planned_productivity?: number
   expected_efficiency_pct?: number
+  max_length_m?: number | null
+  min_length_m?: number | null
+  kg_per_meter?: number | null
   source_mode: SourceMode
   sap_integration_id?: string
   valid_from?: string

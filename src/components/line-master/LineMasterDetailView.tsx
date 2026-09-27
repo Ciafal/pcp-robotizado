@@ -91,6 +91,8 @@ import {
   HierarchyImpactItem,
 } from '@/components/line-master/RawMaterialPriorityConflictModal'
 import { LineRawMaterialPriority } from '@/types/line-master'
+import { RawMaterialApplicationsPanel } from '@/components/line-master/RawMaterialApplicationsPanel'
+import { rawMaterialApplicationService } from '@/services/raw-material-application-service'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -316,6 +318,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'SHIFTS_CREWS'
     | 'PRODUCTIVITY'
     | 'RAW_MATERIALS'
+    | 'RAW_MATERIAL_APPLICATIONS'
     | 'BLOCKED'
     | 'SETUP_MATRIX'
     | 'ACERTOS'
@@ -323,6 +326,22 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'IDEAL_GAUGE_SEQUENCE'
     | 'PROGRAMMING_PARAMETERS'
   >('CAPACITY')
+
+  // Contagem de especificações de Matéria-Prima por Aplicação
+  const [rawMaterialApplicationsCount, setRawMaterialApplicationsCount] = useState<number>(0)
+
+  const loadRawMaterialApplicationsCount = React.useCallback(async () => {
+    try {
+      const list = await rawMaterialApplicationService.listByLine(line.id)
+      setRawMaterialApplicationsCount(list.length)
+    } catch (err) {
+      console.warn('Erro ao carregar contagem de matérias-primas por aplicação:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadRawMaterialApplicationsCount()
+  }, [loadRawMaterialApplicationsCount, overview])
 
   // Contagem de regras de acerto ativas
   const [activeAdjustmentRulesCount, setActiveAdjustmentRulesCount] = useState<number>(0)
@@ -472,6 +491,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [prodFamilyId, setProdFamilyId] = useState('')
   const [prodValidFrom, setProdValidFrom] = useState('')
   const [prodValidUntil, setProdValidUntil] = useState('')
+  const [prodMaxLengthM, setProdMaxLengthM] = useState<string>('')
+  const [prodMinLengthM, setProdMinLengthM] = useState<string>('')
+  const [prodKgPerMeter, setProdKgPerMeter] = useState<string>('')
   const [prodActive, setProdActive] = useState<boolean>(true)
   const [isSavingProd, setIsSavingProd] = useState<boolean>(false)
 
@@ -535,6 +557,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setProdUnit('t/h')
     setProdValidFrom(new Date().toISOString().slice(0, 10))
     setProdValidUntil('')
+    setProdMaxLengthM('')
+    setProdMinLengthM('')
+    setProdKgPerMeter('')
     setProdActive(true)
     setIsProdModalOpen(true)
   }
@@ -549,6 +574,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setProdUnit(item.productivity_unit || 't/h')
     setProdValidFrom(item.valid_from ? item.valid_from.substring(0, 10) : '')
     setProdValidUntil(item.valid_until ? item.valid_until.substring(0, 10) : '')
+    setProdMaxLengthM(item.max_length_m != null ? String(item.max_length_m).replace('.', ',') : '')
+    setProdMinLengthM(item.min_length_m != null ? String(item.min_length_m).replace('.', ',') : '')
+    setProdKgPerMeter(item.kg_per_meter != null ? String(item.kg_per_meter).replace('.', ',') : '')
     setProdActive(item.active !== false)
     setIsProdModalOpen(true)
   }
@@ -598,6 +626,36 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         variant: 'destructive',
         title: 'Vigência inválida',
         description: 'A Vigência Final não pode ser anterior à Vigência Inicial.',
+      })
+      return
+    }
+
+    // Validação dos novos campos técnicos de Produtividade:
+    // - Comprimento máximo (m), Comprimento mínimo (m), kg/metro (kg/m)
+    const parsedMaxLen = prodMaxLengthM.trim()
+      ? Number(prodMaxLengthM.replace(/\./g, '').replace(',', '.'))
+      : null
+    const parsedMinLen = prodMinLengthM.trim()
+      ? Number(prodMinLengthM.replace(/\./g, '').replace(',', '.'))
+      : null
+    const parsedKgM = prodKgPerMeter.trim()
+      ? Number(prodKgPerMeter.replace(/\./g, '').replace(',', '.'))
+      : null
+
+    if (parsedMinLen !== null && parsedMaxLen !== null && parsedMinLen > parsedMaxLen) {
+      toast({
+        variant: 'destructive',
+        title: 'Comprimento inválido',
+        description: 'Comprimento mínimo não pode ser maior que o comprimento máximo.',
+      })
+      return
+    }
+
+    if (parsedKgM !== null && (isNaN(parsedKgM) || parsedKgM <= 0)) {
+      toast({
+        variant: 'destructive',
+        title: 'kg/metro inválido',
+        description: 'kg/metro (kg/m) deve ser maior que zero.',
       })
       return
     }
@@ -657,6 +715,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         expected_efficiency_pct: Number(existingEfficiency),
         valid_from: prodValidFrom || undefined,
         valid_until: prodValidUntil || undefined,
+        max_length_m: parsedMaxLen,
+        min_length_m: parsedMinLen,
+        kg_per_meter: parsedKgM,
         source_mode: 'MANUAL',
         active: prodActive,
       })
@@ -677,6 +738,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               unit: editingProductivity.productivity_unit,
               valid_from: editingProductivity.valid_from,
               valid_until: editingProductivity.valid_until,
+              max_length_m: editingProductivity.max_length_m,
+              min_length_m: editingProductivity.min_length_m,
+              kg_per_meter: editingProductivity.kg_per_meter,
               status: editingProductivity.active !== false ? 'Ativo' : 'Inativo',
             }
           : null
@@ -690,6 +754,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         unit: prodUnit,
         valid_from: prodValidFrom,
         valid_until: prodValidUntil || null,
+        max_length_m: parsedMaxLen,
+        min_length_m: parsedMinLen,
+        kg_per_meter: parsedKgM,
         status: prodActive ? 'Ativo' : 'Inativo',
       }
 
@@ -737,6 +804,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         if (beforeValues.status !== afterValues.status) {
           diffDescriptions.push(
             `Campo alterado: Status — Antes: ${beforeValues.status} — Depois: ${afterValues.status}`,
+          )
+        }
+        if (beforeValues.max_length_m !== afterValues.max_length_m) {
+          diffDescriptions.push(
+            `Campo alterado: Comprimento máx — Antes: ${beforeValues.max_length_m ?? '-'} m — Depois: ${afterValues.max_length_m ?? '-'} m`,
+          )
+        }
+        if (beforeValues.min_length_m !== afterValues.min_length_m) {
+          diffDescriptions.push(
+            `Campo alterado: Comprimento mín — Antes: ${beforeValues.min_length_m ?? '-'} m — Depois: ${afterValues.min_length_m ?? '-'} m`,
+          )
+        }
+        if (beforeValues.kg_per_meter !== afterValues.kg_per_meter) {
+          diffDescriptions.push(
+            `Campo alterado: kg/metro — Antes: ${beforeValues.kg_per_meter ?? '-'} kg/m — Depois: ${afterValues.kg_per_meter ?? '-'} kg/m`,
           )
         }
       }
@@ -2330,6 +2412,24 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
 
             <Button
               size="sm"
+              data-testid="tab-raw-material-applications"
+              variant={masterSubTab === 'RAW_MATERIAL_APPLICATIONS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('RAW_MATERIAL_APPLICATIONS')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'RAW_MATERIAL_APPLICATIONS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Matéria-prima por aplicação"
+            >
+              <Layers className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              <span className="truncate">
+                Matéria-prima por aplicação ({rawMaterialApplicationsCount})
+              </span>
+            </Button>
+
+            <Button
+              size="sm"
               variant={masterSubTab === 'BLOCKED' ? 'default' : 'ghost'}
               onClick={() => setMasterSubTab('BLOCKED')}
               className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
@@ -2720,6 +2820,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                         <th className="p-2.5 whitespace-nowrap text-center">Unidade</th>
                         <th className="p-2.5 whitespace-nowrap text-right">Prod. Nominal</th>
                         <th className="p-2.5 whitespace-nowrap text-right">Eficiência</th>
+                        <th className="p-2.5 whitespace-nowrap text-right">Comprimento (m)</th>
+                        <th className="p-2.5 whitespace-nowrap text-right">kg/metro</th>
                         <th className="p-2.5 whitespace-nowrap">Vigência</th>
                         <th className="p-2.5 whitespace-nowrap text-center">Status</th>
                         <th className="p-2.5 whitespace-nowrap text-right">Ações</th>
@@ -2793,6 +2895,27 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                   ? `${p.expected_efficiency_pct}%`
                                   : '—'}
                               </td>
+                              <td className="p-2.5 font-mono text-slate-700 text-right whitespace-nowrap text-[11px]">
+                                {p.min_length_m != null || p.max_length_m != null ? (
+                                  <span>
+                                    {p.min_length_m != null
+                                      ? String(p.min_length_m).replace('.', ',')
+                                      : '0,00'}{' '}
+                                    a{' '}
+                                    {p.max_length_m != null
+                                      ? String(p.max_length_m).replace('.', ',')
+                                      : '∞'}{' '}
+                                    m
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                              <td className="p-2.5 font-mono font-bold text-slate-800 text-right whitespace-nowrap text-[11px]">
+                                {p.kg_per_meter != null
+                                  ? `${String(p.kg_per_meter).replace('.', ',')} kg/m`
+                                  : '—'}
+                              </td>
                               <td className="p-2.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                                 {vigenciaLabel}
                               </td>
@@ -2835,6 +2958,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               onAddClick={handleOpenAddRawMaterial}
               onEditClick={handleOpenEditRawMaterial}
               onToggleStatusClick={handleToggleRawMaterialStatus}
+            />
+          )}
+
+          {/* Sub-aba: Matéria-prima por Aplicação (HUB Ciafal) */}
+          {masterSubTab === 'RAW_MATERIAL_APPLICATIONS' && (
+            <RawMaterialApplicationsPanel
+              lineId={line.id}
+              centerCode={line.code}
+              centerName={line.name}
+              lineMasterId={master?.id}
+              onRefreshParent={() => {
+                loadRawMaterialApplicationsCount()
+                onRefresh()
+              }}
             />
           )}
 
@@ -3050,7 +3187,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 ))}
               </select>
             </div>
-
             {/* 2. CÓDIGO DO PRODUTO / MATERIAL * (habilita somente após selecionar a Família) */}
             <div className="space-y-1">
               <Label className="text-xs text-slate-700 font-medium">
@@ -3080,7 +3216,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 />
               )}
             </div>
-
             {/* 3. DESCRIÇÃO DO MATERIAL * (preenchimento automático pelo SAP, editável se necessário) */}
             <div className="space-y-1">
               <Label className="text-xs text-slate-700 font-medium">
@@ -3094,7 +3229,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 className="bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97]"
               />
             </div>
-
             {/* 4. TIPO DE MATÉRIA-PRIMA & 5. TIPO DE ENFORNAMENTO */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -3131,7 +3265,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 </select>
               </div>
             </div>
-
             {/* 6. UNIDADE DE MEDIDA * */}
             <div className="space-y-1">
               <Label className="text-xs text-slate-700 font-medium">6. Unidade de Medida *</Label>
@@ -3145,8 +3278,51 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 <option value="m/h">m/h</option>
               </select>
             </div>
-
-            {/* 7. VIGÊNCIA INICIAL * & 8. VIGÊNCIA FINAL (opcional) */}
+            {/* NOVOS CAMPOS TÉCNICOS: Comprimento Máx/Mín (m) e kg/metro (kg/m) */}
+            <div className="p-2.5 bg-slate-50 rounded border border-slate-200 space-y-2">
+              <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider block">
+                Dimensões Técnicas de Produtividade (HUB Ciafal)
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-700 font-medium">Comp. Mínimo (m)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 5,50"
+                      value={prodMinLengthM}
+                      onChange={(e) => setProdMinLengthM(e.target.value)}
+                      className="h-8 text-xs font-mono bg-white pr-7"
+                    />
+                    <span className="absolute right-2 top-2 text-[10px] text-slate-400">m</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-700 font-medium">Comp. Máximo (m)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 6,50"
+                      value={prodMaxLengthM}
+                      onChange={(e) => setProdMaxLengthM(e.target.value)}
+                      className="h-8 text-xs font-mono bg-white pr-7"
+                    />
+                    <span className="absolute right-2 top-2 text-[10px] text-slate-400">m</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-700 font-medium">kg/metro (kg/m)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 12,50"
+                      value={prodKgPerMeter}
+                      onChange={(e) => setProdKgPerMeter(e.target.value)}
+                      className="h-8 text-xs font-mono bg-white pr-10 font-bold"
+                    />
+                    <span className="absolute right-2 top-2 text-[10px] text-slate-400">kg/m</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* 7. VIGÊNCIA INICIAL * & 8. VIGÊNCIA FINAL (opcional) */}{' '}
             <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-200">
               <div className="space-y-1">
                 <Label className="text-xs text-slate-700 font-medium">
@@ -3172,7 +3348,6 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 />
               </div>
             </div>
-
             {/* 9. STATUS * (Ativo / Inativo) */}
             <div className="space-y-1 pt-1 border-t border-slate-200">
               <Label className="text-xs text-slate-700 font-medium">9. Status *</Label>

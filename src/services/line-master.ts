@@ -1214,6 +1214,21 @@ export const lineMasterService = {
           `Status — Antes: ${previousRecord.active ? 'Ativo' : 'Inativo'} — Depois: ${saved.active ? 'Ativo' : 'Inativo'}`,
         )
       }
+      if (previousRecord.max_length_m !== saved.max_length_m) {
+        changedFields.push(
+          `Comprimento máx — Antes: ${previousRecord.max_length_m ?? '-'} m — Depois: ${saved.max_length_m ?? '-'} m`,
+        )
+      }
+      if (previousRecord.min_length_m !== saved.min_length_m) {
+        changedFields.push(
+          `Comprimento mín — Antes: ${previousRecord.min_length_m ?? '-'} m — Depois: ${saved.min_length_m ?? '-'} m`,
+        )
+      }
+      if (previousRecord.kg_per_meter !== saved.kg_per_meter) {
+        changedFields.push(
+          `kg/metro — Antes: ${previousRecord.kg_per_meter ?? '-'} kg/m — Depois: ${saved.kg_per_meter ?? '-'} kg/m`,
+        )
+      }
     }
 
     try {
