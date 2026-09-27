@@ -7,6 +7,20 @@ export type InventoryDemandStatus =
   | 'Inventário concluído'
   | 'Cancelada'
 
+export interface DemandMaterialItem {
+  id?: string
+  demand_id?: string
+  control_number?: string
+  material_code: string
+  material_description?: string
+  heat_number: string
+  quantity_tons: number
+  calculated_pieces: number
+  unit_weight_kg?: number | null
+  location_wms?: string
+  status?: string
+}
+
 export interface InventoryDemand {
   id: string
   control_number: string
@@ -14,6 +28,7 @@ export interface InventoryDemand {
   line: string
   center: string
   storage_deposit: string
+  production_order?: string
   material_code: string
   material_description?: string
   unit_of_measure?: string
@@ -37,6 +52,10 @@ export interface InventoryDemand {
   cancelled_by?: string
   concluded_at?: string
   concluded_by?: string
+  materials_summary?: DemandMaterialItem[]
+  materials?: DemandMaterialItem[]
+  gauge?: string
+  application?: string
   created?: string
   updated?: string
 }
@@ -130,8 +149,19 @@ export interface InventoryAuditEvent {
   user_role?: string
   event_timestamp_formatted?: string
   details_json?: any
+  before_data?: any
+  after_data?: any
   created?: string
   updated?: string
+}
+
+export interface CreateDemandMaterialInput {
+  material_code: string
+  material_description?: string
+  heat_number: string
+  quantity_tons: number
+  calculated_pieces: number
+  unit_weight_kg?: number | null
 }
 
 export interface CreateDemandPayload {
@@ -139,16 +169,18 @@ export interface CreateDemandPayload {
   line: string
   center: string
   storage_deposit: string
-  material_code: string
+  production_order?: string
+  material_code?: string
   material_description?: string
   priority: InventoryDemandPriority
-  gauge: string
-  application: string
+  gauge?: string
+  application?: string
   run_number?: string
-  quantity_required: number
+  quantity_required?: number
   unit_of_measure?: string
   observation?: string
   requester_name?: string
+  materials?: CreateDemandMaterialInput[]
 }
 
 export interface CreateEntryPayload {

@@ -65,18 +65,55 @@ export class PcpInventoryDemandsService {
   /**
    * Lista todas as demandas cadastradas
    */
-  async listDemands(): Promise<InventoryDemand[]> {
+  async listDemands(filterExp?: string): Promise<InventoryDemand[]> {
     try {
-      const records = await pb.collection('pcp_mp_inventory_demands').getFullList<InventoryDemand>({
+      const queryParams: any = {
         sort: '-created',
-      })
+      }
+      if (filterExp) {
+        queryParams.filter = filterExp
+      }
+      const records = await pb
+        .collection('pcp_mp_inventory_demands')
+        .getFullList<InventoryDemand>(queryParams)
       return records
     } catch (err) {
-      console.error('Erro ao listar demandas de inventário:', err)
+      console.warn('Erro ao listar demandas de inventário:', err)
       return []
     }
   }
 
+  /**
+   * Busca itens de MP vinculados a uma demanda (pcp_mp_inventory_items)
+   */
+  async listItemsByDemand(demandId: string, controlNumber?: string): Promise<DemandMaterialItem[]> {
+    try {
+      let filter = `demand_id = '${demandId}'`
+      if (controlNumber) {
+        filter += ` || control_number = '${controlNumber}'`
+      }
+      const records = await pb.collection('pcp_mp_inventory_items').getFullList({
+        filter,
+        sort: 'created',
+      })
+      return records.map((r: any) => ({
+        id: r.id,
+        demand_id: r.demand_id || demandId,
+        control_number: r.control_number || r.inventory_code || '',
+        material_code: r.raw_material_code || r.material_code || '',
+        material_description: r.raw_material_description || r.material_description || '',
+        heat_number: r.heat_number || '',
+        quantity_tons: Number(r.quantity_tons || r.planned_requirement_tons) || 0,
+        calculated_pieces: Number(r.calculated_pieces || r.sap_pieces_count) || 0,
+        unit_weight_kg: r.unit_weight_kg != null ? Number(r.unit_weight_kg) : null,
+        location_wms: r.wms_physical_location || '',
+        status: r.status,
+      }))
+    } catch (err) {
+      console.warn('Erro ao listar itens da demanda:', err)
+      return []
+    }
+  }
   /**
    * Obtém uma demanda por ID
    */
@@ -186,17 +223,43 @@ export class PcpInventoryDemandsService {
     const requesterName = payload.requester_name || authUser?.name || 'Programador PCP'
     const requesterRole = (authUser as any)?.role || 'PCP_PROGRAMMER'
 
-    const totalReq = Number(payload.quantity_required) || 0
+    // Suporte a multi-MP e legado mono-MP
+    const materialsInput =
+      payload.materials && payload.materials.length > 0
+        ? payload.materials
+        : [
+            {
+              material_code: payload.material_code || '',
+              material_description: payload.material_description || '',
+              heat_number: payload.run_number || 'LOTE-INICIAL',
+              quantity_tons: 0,
+              calculated_pieces: Number(payload.quantity_required) || 0,
+              unit_weight_kg: null,
+            },
+          ]
+
+    const totalReq =
+      payload.materials && payload.materials.length > 0
+        ? payload.materials.reduce((acc, m) => acc + (Number(m.calculated_pieces) || 0), 0)
+        : Number(payload.quantity_required) || 0
+
+    const primaryMaterial = materialsInput[0] || {
+      material_code: payload.material_code || '',
+      material_description: payload.material_description || '',
+      heat_number: payload.run_number || 'LOTE-INICIAL',
+    }
 
     // 1. Persiste a demanda
-    const demandRecord = await pb.collection('pcp_mp_inventory_demands').create<InventoryDemand>({
+    const demandPayload: any = {
       control_number: nextCtrl,
-      company: payload.company || 'CIAFAL',
-      line: payload.line || 'L1',
-      center: payload.center || 'FORNOL1',
-      storage_deposit: payload.storage_deposit || 'DP07',
-      material_code: payload.material_code,
-      material_description: payload.material_description || '',
+      company: payload.company || '',
+      line: payload.line || '',
+      center: payload.center || '',
+      storage_deposit: payload.storage_deposit || '',
+      production_order: payload.production_order || '',
+      material_code: primaryMaterial.material_code || payload.material_code || '',
+      material_description:
+        primaryMaterial.material_description || payload.material_description || '',
       unit_of_measure: payload.unit_of_measure || 'pçs',
       sap_stock: totalReq,
       sap_last_sync: nowStr,
@@ -212,9 +275,52 @@ export class PcpInventoryDemandsService {
       total_pieces_inventoried: 0,
       divergence_pieces: -totalReq,
       divergence_pct: -100,
-    })
+      materials_summary: materialsInput,
+    }
 
-    // 2. Persiste o item correspondente em pcp_mp_inventory_gauges
+    if (payload.gauge) demandPayload.gauge = payload.gauge
+    if (payload.application) demandPayload.application = payload.application
+
+    const demandRecord = await pb
+      .collection('pcp_mp_inventory_demands')
+      .create<InventoryDemand>(demandPayload)
+
+    // 2. Persiste itens em pcp_mp_inventory_items (1 Demanda -> N MPs)
+    try {
+      for (const m of materialsInput) {
+        if (!m.material_code) continue
+        await pb.collection('pcp_mp_inventory_items').create({
+          demand_id: demandRecord.id,
+          control_number: nextCtrl,
+          inventory_id: demandRecord.id,
+          inventory_code: nextCtrl,
+          item_control_key: `${nextCtrl}-${m.material_code}-${m.heat_number}`,
+          company: payload.company || '',
+          line: payload.line || '',
+          center: payload.center || '',
+          storage_deposit: payload.storage_deposit || '',
+          production_order: payload.production_order || '',
+          raw_material_code: m.material_code,
+          raw_material_description: m.material_description || '',
+          heat_number: m.heat_number || '',
+          produced_gauge_product: payload.gauge || '',
+          enfornamento_type: 'NORMAL',
+          quantity_tons: m.quantity_tons || 0,
+          calculated_pieces: m.calculated_pieces || 0,
+          unit_weight_kg: m.unit_weight_kg ?? null,
+          planned_requirement_tons: m.quantity_tons || 0,
+          sap_pieces_count: m.calculated_pieces || 0,
+          wms_physical_location: payload.storage_deposit || '',
+          pcp_planned_sequence: 1,
+          schedule_version: 1,
+          status: 'Aguardando Inventário',
+        })
+      }
+    } catch (itErr) {
+      console.warn('Erro ao salvar pcp_mp_inventory_items:', itErr)
+    }
+
+    // 3. Persiste o item correspondente em pcp_mp_inventory_gauges
     try {
       await pb.collection('pcp_mp_inventory_gauges').create<InventoryGauge>({
         demand_id: demandRecord.id,
@@ -223,43 +329,52 @@ export class PcpInventoryDemandsService {
         application: payload.application || 'Laminação L1',
         quantity_required: totalReq,
         unit_of_measure: payload.unit_of_measure || 'pçs',
-        suggested_run: payload.run_number || '',
+        suggested_run: primaryMaterial.heat_number || payload.run_number || '',
         run_stock: totalReq,
       })
     } catch (gErr) {
       console.warn('Erro ao criar gauge vinculado:', gErr)
     }
 
-    // 3. Persiste a corrida inicial (se informada ou default)
-    const runNum = payload.run_number || 'LOTE-INICIAL'
+    // 4. Persiste as corridas vinculadas
     try {
-      await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
-        demand_id: demandRecord.id,
-        control_number: nextCtrl,
-        run_number: runNum,
-        batch_number: `LOT-${runNum}`,
-        gauge: payload.gauge || 'Tarugo 130mm',
-        application: payload.application || 'Laminação L1',
-        sap_stock_pieces: totalReq,
-        suggested_pieces: totalReq,
-        selected_pieces: totalReq,
-        is_ai_suggested: false,
-        is_manual_override: false,
-        inventoried_pieces: 0,
-      })
+      for (const m of materialsInput) {
+        const runNum = m.heat_number || payload.run_number || 'LOTE-INICIAL'
+        await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
+          demand_id: demandRecord.id,
+          control_number: nextCtrl,
+          run_number: runNum,
+          batch_number: `LOT-${runNum}`,
+          gauge: payload.gauge || 'Tarugo 130mm',
+          application: payload.application || 'Laminação L1',
+          sap_stock_pieces: m.calculated_pieces || totalReq,
+          suggested_pieces: m.calculated_pieces || totalReq,
+          selected_pieces: m.calculated_pieces || totalReq,
+          is_ai_suggested: false,
+          is_manual_override: false,
+          inventoried_pieces: 0,
+        })
+      }
     } catch (rErr) {
-      console.warn('Erro ao criar corrida vinculada:', rErr)
+      console.warn('Erro ao criar corridas vinculadas:', rErr)
     }
 
-    // 4. Registra evento append-only de auditoria
+    // 5. Registra evento append-only de auditoria com detalhes completos
     try {
+      const matSummaryText = materialsInput
+        .map(
+          (m) =>
+            `${m.material_code} (Corrida: ${m.heat_number}, ${m.quantity_tons} t / ${m.calculated_pieces} pçs)`,
+        )
+        .join('; ')
+
       await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
         demand_id: demandRecord.id,
         control_number: nextCtrl,
         event_type: 'DEMANDA_GERADA',
-        event_description: `Demanda de inventário ${nextCtrl} gerada com sucesso para material ${payload.material_code} (${totalReq} peças previstas).`,
-        run_number: payload.run_number || '',
-        location_wms: payload.storage_deposit || 'DP07',
+        event_description: `Demanda de inventário ${nextCtrl} gerada com sucesso para OP ${payload.production_order || '—'}. Matérias-Primas: [${matSummaryText}]. Total: ${totalReq} peças.`,
+        run_number: primaryMaterial.heat_number || payload.run_number || '',
+        location_wms: payload.storage_deposit || '',
         pieces_count: totalReq,
         previous_value: '—',
         new_value: `${totalReq} pçs`,
@@ -274,8 +389,15 @@ export class PcpInventoryDemandsService {
           line: payload.line,
           center: payload.center,
           storage_deposit: payload.storage_deposit,
+          production_order: payload.production_order,
           priority: payload.priority,
           gauge: payload.gauge,
+          application: payload.application,
+          materials: materialsInput,
+        },
+        after_data: {
+          demand: demandPayload,
+          materials: materialsInput,
         },
       })
     } catch (aErr) {

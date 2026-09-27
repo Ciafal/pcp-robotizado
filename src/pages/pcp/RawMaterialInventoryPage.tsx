@@ -159,14 +159,16 @@ export const RawMaterialInventoryPage: React.FC = () => {
   // Filtro Rápido
   const [quickFilter, setQuickFilter] = useState<MPQuickViewFilter>('TODOS')
 
-  // Filtros Avançados
-  const [filterCompany, setFilterCompany] = useState<string>('CIAFAL')
-  const [filterLine, setFilterLine] = useState<string>('L1')
-  const [filterCenter, setFilterCenter] = useState<string>('FORNOL1')
+  // Filtros Avançados — iniciam vazios conforme critério A
+  const [filterCompany, setFilterCompany] = useState<string>('')
+  const [filterLine, setFilterLine] = useState<string>('')
+  const [filterCenter, setFilterCenter] = useState<string>('')
+  const [filterDeposit, setFilterDeposit] = useState<string>('')
   const [filterDate, setFilterDate] = useState<string>('')
   const [filterOrder, setFilterOrder] = useState<string>('')
   const [filterMaterial, setFilterMaterial] = useState<string>('')
   const [filterHeat, setFilterHeat] = useState<string>('')
+  const [filterPriority, setFilterPriority] = useState<string>('TODAS')
   const [filterEnfornamentoType, setFilterEnfornamentoType] = useState<string>('TODOS')
   const [filterStatus, setFilterStatus] = useState<string>('TODOS')
   const [filterResponsible, setFilterResponsible] = useState<string>('')
@@ -274,15 +276,12 @@ export const RawMaterialInventoryPage: React.FC = () => {
     }
   }
 
-  // Carrega Ordens de Inventário
+  // Carrega Ordens de Inventário (sem selecionar headers[0] automaticamente quando não há seleção real)
   const loadHeaders = useCallback(async () => {
     setLoading(true)
     try {
       const list = await rawMaterialInventoryService.listInventoryOrders()
       setHeaders(list)
-      if (list.length > 0 && !selectedHeaderId) {
-        setSelectedHeaderId(list[0].id || '')
-      }
     } catch (err) {
       console.error('Erro ao carregar cabeçalhos de inventário:', err)
       toast({
@@ -293,7 +292,7 @@ export const RawMaterialInventoryPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [selectedHeaderId, toast])
+  }, [toast])
 
   // Carrega Itens da Ordem Selecionada
   const loadItems = useCallback(async (headerId: string) => {
@@ -321,7 +320,8 @@ export const RawMaterialInventoryPage: React.FC = () => {
   }, [selectedHeaderId, loadItems])
 
   const currentHeader = useMemo(() => {
-    return headers.find((h) => h.id === selectedHeaderId) || headers[0] || null
+    if (!selectedHeaderId) return null
+    return headers.find((h) => h.id === selectedHeaderId) || null
   }, [headers, selectedHeaderId])
 
   // Recálculo dinâmico do Resumo Operacional
@@ -373,8 +373,32 @@ export const RawMaterialInventoryPage: React.FC = () => {
     }
   }, [items, editedItems])
 
+  // Determina se há algum filtro ativo pelo usuário (fluxo FILTRO -> CONTEXTO -> DADOS)
+  const hasActiveFilter = Boolean(
+    filterCompany ||
+    filterLine ||
+    filterCenter ||
+    filterDeposit ||
+    filterDate ||
+    filterOrder ||
+    filterMaterial ||
+    filterHeat ||
+    filterWmsLocation ||
+    filterResponsible ||
+    (filterPriority && filterPriority !== 'TODAS') ||
+    (filterStatus && filterStatus !== 'TODOS') ||
+    (filterEnfornamentoType && filterEnfornamentoType !== 'TODOS') ||
+    (filterVersion && filterVersion !== 'TODOS') ||
+    (quickFilter && quickFilter !== 'TODOS'),
+  )
+
   // Itens filtrados
   const filteredItems = useMemo(() => {
+    // Se não houver seleção de filtro nem cabeçalho selecionado, exibe lista vazia no estado inicial
+    if (!hasActiveFilter && !selectedHeaderId) {
+      return []
+    }
+
     return items.filter((it) => {
       // 1. Filtros Rápidos
       const todayStr = new Date().toISOString().split('T')[0]
@@ -404,6 +428,11 @@ export const RawMaterialInventoryPage: React.FC = () => {
         return false
       if (filterLine && !it.line.toLowerCase().includes(filterLine.toLowerCase())) return false
       if (filterCenter && !it.center.toLowerCase().includes(filterCenter.toLowerCase()))
+        return false
+      if (
+        filterDeposit &&
+        !it.wms_physical_location?.toLowerCase().includes(filterDeposit.toLowerCase())
+      )
         return false
       if (filterDate && it.enfornamento_date !== filterDate) return false
       if (filterOrder && !it.production_order.toLowerCase().includes(filterOrder.toLowerCase()))
@@ -436,10 +465,13 @@ export const RawMaterialInventoryPage: React.FC = () => {
     })
   }, [
     items,
+    hasActiveFilter,
+    selectedHeaderId,
     quickFilter,
     filterCompany,
     filterLine,
     filterCenter,
+    filterDeposit,
     filterDate,
     filterOrder,
     filterMaterial,

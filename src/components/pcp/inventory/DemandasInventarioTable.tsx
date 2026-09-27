@@ -23,8 +23,8 @@ import {
   Filter,
   Search,
   RotateCcw,
-  Sparkles,
-  AlertTriangle,
+  Boxes,
+  FileSpreadsheet,
 } from 'lucide-react'
 import {
   Dialog,
@@ -49,6 +49,35 @@ interface DemandasInventarioTableProps {
 
 type QuickFilterType = 'TODAS' | 'HOJE' | 'PENDENTES' | 'EM_INVENTARIO' | 'CONCLUIDAS' | 'URGENTES'
 
+// Formata data brasileira padrão dd/mm/aaaa, HH:mm
+const formatPtBrDate = (dateVal?: string): string => {
+  if (!dateVal) return '—'
+  if (dateVal.includes('/') && dateVal.includes(':')) {
+    return dateVal
+  }
+  try {
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return dateVal
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = String(d.getHours()).padStart(2, '0')
+    const mins = String(d.getMinutes()).padStart(2, '0')
+    return `${day}/${month}/${year}, ${hours}:${mins}`
+  } catch {
+    return dateVal
+  }
+}
+
+// Formatação com vírgula decimal
+const formatBrNumber = (num?: number | null, decimals = 3): string => {
+  if (num == null || isNaN(num)) return '0,000'
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+}
+
 export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = ({
   demands,
   loading,
@@ -63,13 +92,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
 
   // Filtros detalhados
   const [filterControl, setFilterControl] = useState('')
+  const [filterOrder, setFilterOrder] = useState('')
   const [filterCenter, setFilterCenter] = useState('')
   const [filterDeposit, setFilterDeposit] = useState('')
   const [filterMaterial, setFilterMaterial] = useState('')
   const [filterPriority, setFilterPriority] = useState<string>('TODAS')
   const [filterStatus, setFilterStatus] = useState<string>('TODOS')
-  const [filterStartDate, setFilterStartDate] = useState('')
-  const [filterEndDate, setFilterEndDate] = useState('')
 
   // Modal Cancelar
   const [cancelModalDemand, setCancelModalDemand] = useState<InventoryDemand | null>(null)
@@ -82,13 +110,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   const handleClearFilters = () => {
     setQuickFilter('TODAS')
     setFilterControl('')
+    setFilterOrder('')
     setFilterCenter('')
     setFilterDeposit('')
     setFilterMaterial('')
     setFilterPriority('TODAS')
     setFilterStatus('TODOS')
-    setFilterStartDate('')
-    setFilterEndDate('')
   }
 
   const handleConfirmCancel = async () => {
@@ -128,18 +155,30 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       if (filterControl && !d.control_number.toLowerCase().includes(filterControl.toLowerCase())) {
         return false
       }
+      if (
+        filterOrder &&
+        (!d.production_order ||
+          !d.production_order.toLowerCase().includes(filterOrder.toLowerCase()))
+      ) {
+        return false
+      }
       if (filterCenter && !d.center.toLowerCase().includes(filterCenter.toLowerCase())) {
         return false
       }
       if (filterDeposit && !d.storage_deposit.toLowerCase().includes(filterDeposit.toLowerCase())) {
         return false
       }
-      if (
-        filterMaterial &&
-        !d.material_code.toLowerCase().includes(filterMaterial.toLowerCase()) &&
-        !d.material_description?.toLowerCase().includes(filterMaterial.toLowerCase())
-      ) {
-        return false
+      if (filterMaterial) {
+        const matTerm = filterMaterial.toLowerCase()
+        const matchMain =
+          d.material_code.toLowerCase().includes(matTerm) ||
+          d.material_description?.toLowerCase().includes(matTerm)
+        const matchItems = d.materials_summary?.some(
+          (m) =>
+            m.material_code.toLowerCase().includes(matTerm) ||
+            m.material_description?.toLowerCase().includes(matTerm),
+        )
+        if (!matchMain && !matchItems) return false
       }
       if (filterPriority !== 'TODAS' && d.priority !== filterPriority) {
         return false
@@ -154,13 +193,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
     demands,
     quickFilter,
     filterControl,
+    filterOrder,
     filterCenter,
     filterDeposit,
     filterMaterial,
     filterPriority,
     filterStatus,
-    filterStartDate,
-    filterEndDate,
   ])
 
   const renderPriorityBadge = (priority: InventoryDemandPriority) => {
@@ -241,10 +279,18 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             Demandas de Inventário de Matéria-Prima
           </h2>
           <p className="text-xs text-slate-500">
-            Painel consolidado das solicitações de inventário, status físico e ações autorizadas.
+            Painel consolidado das solicitações de inventário, Ordem de Produção e status físico.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleClearFilters}
+            className="text-xs h-7 text-slate-600 gap-1"
+          >
+            Limpar Filtros
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -293,7 +339,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       </div>
 
       {/* Filtros Detalhados */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs bg-slate-50/60 p-3 rounded-lg border border-slate-200/80">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs bg-slate-50/60 p-3 rounded-lg border border-slate-200/80">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase">Nº Controle</label>
           <div className="relative mt-0.5">
@@ -301,8 +347,23 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             <Input
               value={filterControl}
               onChange={(e) => setFilterControl(e.target.value)}
-              placeholder="INV-2026-..."
-              className="text-xs h-7 pl-6 font-mono"
+              placeholder="INV-..."
+              className="text-xs h-7 pl-6 font-mono bg-white"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">
+            Ordem de Produção
+          </label>
+          <div className="relative mt-0.5">
+            <FileSpreadsheet className="w-3 h-3 text-slate-400 absolute left-2 top-2" />
+            <Input
+              value={filterOrder}
+              onChange={(e) => setFilterOrder(e.target.value)}
+              placeholder="OP / Nº Ordem..."
+              className="text-xs h-7 pl-6 font-mono bg-white"
             />
           </div>
         </div>
@@ -312,8 +373,8 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
           <Input
             value={filterCenter}
             onChange={(e) => setFilterCenter(e.target.value)}
-            placeholder="FORNOL1"
-            className="text-xs h-7 mt-0.5"
+            placeholder="Centro..."
+            className="text-xs h-7 mt-0.5 bg-white"
           />
         </div>
 
@@ -322,18 +383,18 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
           <Input
             value={filterDeposit}
             onChange={(e) => setFilterDeposit(e.target.value)}
-            placeholder="DP07"
-            className="text-xs h-7 mt-0.5"
+            placeholder="Depósito..."
+            className="text-xs h-7 mt-0.5 bg-white"
           />
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-slate-500 uppercase">Material</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Material / MP</label>
           <Input
             value={filterMaterial}
             onChange={(e) => setFilterMaterial(e.target.value)}
             placeholder="Código ou descrição"
-            className="text-xs h-7 mt-0.5"
+            className="text-xs h-7 mt-0.5 bg-white"
           />
         </div>
 
@@ -369,223 +430,354 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
         </div>
       </div>
 
-      {/* Tabela de Demandas */}
-      <div className="rounded-lg border border-slate-200 overflow-x-auto">
-        <Table>
+      {/* Tabela de Demandas com rolagem interna */}
+      <div className="rounded-lg border border-slate-200 overflow-x-auto max-w-full">
+        <Table className="min-w-[1100px]">
           <TableHeader>
             <TableRow className="bg-slate-50 text-[11px] font-bold">
               <TableHead className="w-[140px]">Nº Controle</TableHead>
+              <TableHead className="w-[120px]">Ordem Produção</TableHead>
               <TableHead className="w-[130px]">Data/Hora</TableHead>
-              <TableHead className="w-[90px]">Prioridade</TableHead>
-              <TableHead className="w-[90px]">Centro</TableHead>
+              <TableHead className="w-[85px]">Prioridade</TableHead>
+              <TableHead className="w-[80px]">Centro</TableHead>
               <TableHead className="w-[80px]">Depósito</TableHead>
-              <TableHead className="w-[120px]">Material</TableHead>
-              <TableHead className="min-w-[180px]">Descrição</TableHead>
+              <TableHead className="w-[150px]">Matérias-Primas</TableHead>
+              <TableHead className="min-w-[180px]">Descrição / Corridas</TableHead>
               <TableHead className="w-[110px] text-right">Qtd. Prevista</TableHead>
               <TableHead className="w-[110px] text-right">Qtd. Apurada</TableHead>
               <TableHead className="w-[120px] text-center">Status</TableHead>
-              <TableHead className="w-[140px]">Solicitante</TableHead>
-              <TableHead className="w-[180px] text-center">Ações</TableHead>
+              <TableHead className="w-[130px]">Solicitante</TableHead>
+              <TableHead className="w-[150px] text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-xs text-slate-500">
+                <TableCell colSpan={13} className="text-center py-8 text-xs text-slate-500">
                   Carregando demandas de inventário...
                 </TableCell>
               </TableRow>
             ) : filteredDemands.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-xs text-slate-500">
+                <TableCell colSpan={13} className="text-center py-8 text-xs text-slate-500">
                   Nenhuma demanda de inventário encontrada com os filtros aplicados.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredDemands.map((demand) => (
-                <TableRow key={demand.id} className="text-xs hover:bg-slate-50/70">
-                  <TableCell className="font-mono font-bold text-[#004C97]">
-                    {demand.control_number}
-                  </TableCell>
-                  <TableCell className="text-slate-600 font-mono text-[11px]">
-                    {demand.generation_date_formatted || '—'}
-                  </TableCell>
-                  <TableCell>{renderPriorityBadge(demand.priority)}</TableCell>
-                  <TableCell className="font-semibold">{demand.center}</TableCell>
-                  <TableCell className="font-semibold">{demand.storage_deposit}</TableCell>
-                  <TableCell className="font-mono font-semibold">{demand.material_code}</TableCell>
-                  <TableCell
-                    className="text-slate-700 truncate max-w-[200px]"
-                    title={demand.material_description}
-                  >
-                    {demand.material_description || '—'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold">
-                    {demand.total_pieces_required || 0} pçs
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-[#004C97]">
-                    {demand.total_pieces_inventoried ?? 0} pçs
-                  </TableCell>
-                  <TableCell className="text-center">{renderStatusBadge(demand.status)}</TableCell>
-                  <TableCell
-                    className="text-slate-600 truncate max-w-[140px]"
-                    title={demand.requester_name}
-                  >
-                    {demand.requester_name || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-center gap-1">
-                      {/* Visualizar */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setViewDemand(demand)
-                          onVisualizar(demand)
-                        }}
-                        title="Visualizar Detalhes"
-                        className="h-7 w-7 p-0 text-slate-600 hover:text-slate-900"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
+              filteredDemands.map((demand) => {
+                const multiCount = demand.materials_summary?.length || 1
+                return (
+                  <TableRow key={demand.id} className="text-xs hover:bg-slate-50/70">
+                    <TableCell className="font-mono font-bold text-[#004C97] whitespace-nowrap">
+                      {demand.control_number}
+                    </TableCell>
+                    <TableCell className="font-mono font-semibold text-slate-800 whitespace-nowrap">
+                      {demand.production_order ? (
+                        <span className="inline-flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                          {demand.production_order}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                      {formatPtBrDate(demand.generation_date_formatted || demand.created)}
+                    </TableCell>
+                    <TableCell>{renderPriorityBadge(demand.priority)}</TableCell>
+                    <TableCell className="font-semibold">{demand.center || '—'}</TableCell>
+                    <TableCell className="font-semibold">{demand.storage_deposit || '—'}</TableCell>
+                    <TableCell>
+                      {multiCount > 1 ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-sky-50 text-[#004C97] border-[#004C97]/30 font-bold"
+                          >
+                            <Boxes className="w-2.5 h-2.5 mr-1" />
+                            {multiCount} MPs
+                          </Badge>
+                          <span className="font-mono text-[11px] text-slate-600 truncate max-w-[80px]">
+                            {demand.material_code}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-mono font-semibold">
+                          {demand.material_code || '—'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-700 max-w-[220px]">
+                      {demand.materials_summary && demand.materials_summary.length > 0 ? (
+                        <div className="space-y-0.5 text-[11px]">
+                          {demand.materials_summary.map((m, idx) => (
+                            <div
+                              key={idx}
+                              className="truncate"
+                              title={`${m.material_code} - Corrida: ${m.heat_number} (${formatBrNumber(m.quantity_tons, 3)} t / ${m.calculated_pieces} pç)`}
+                            >
+                              <span className="font-mono font-semibold text-[#004C97]">
+                                {m.material_code}
+                              </span>
+                              : Corrida <span className="font-mono">{m.heat_number}</span> (
+                              {formatBrNumber(m.quantity_tons, 3)} t / {m.calculated_pieces} pç)
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="truncate block" title={demand.material_description}>
+                          {demand.material_description || '—'}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold whitespace-nowrap">
+                      {demand.total_pieces_required || 0} pç
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-[#004C97] whitespace-nowrap">
+                      {demand.total_pieces_inventoried ?? 0} pç
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {renderStatusBadge(demand.status)}
+                    </TableCell>
+                    <TableCell
+                      className="text-slate-600 truncate max-w-[130px]"
+                      title={demand.requester_name}
+                    >
+                      {demand.requester_name || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1">
+                        {/* Visualizar */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setViewDemand(demand)
+                            onVisualizar(demand)
+                          }}
+                          title="Visualizar Detalhes"
+                          className="h-7 w-7 p-0 text-slate-600 hover:text-slate-900"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
 
-                      {/* Lançar Inventário (apenas se não cancelada e não concluída) */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onLancar(demand)}
-                        disabled={
-                          demand.status === 'Cancelada' || demand.status === 'Inventário concluído'
-                        }
-                        title="Lançar Inventário"
-                        className="h-7 w-7 p-0 text-[#004C97] hover:text-[#003B75] hover:bg-blue-50 disabled:opacity-30"
-                      >
-                        <ClipboardCheck className="w-3.5 h-3.5" />
-                      </Button>
+                        {/* Lançar Inventário */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onLancar(demand)}
+                          disabled={
+                            demand.status === 'Cancelada' ||
+                            demand.status === 'Inventário concluído'
+                          }
+                          title="Lançar Inventário"
+                          className="h-7 w-7 p-0 text-[#004C97] hover:text-[#003B75] hover:bg-blue-50 disabled:opacity-30"
+                        >
+                          <ClipboardCheck className="w-3.5 h-3.5" />
+                        </Button>
 
-                      {/* Histórico e Rastreabilidade */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onHistorico(demand)}
-                        title="Histórico e Rastreabilidade"
-                        className="h-7 w-7 p-0 text-slate-600 hover:text-slate-900"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </Button>
+                        {/* Histórico e Rastreabilidade */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onHistorico(demand)}
+                          title="Histórico e Rastreabilidade"
+                          className="h-7 w-7 p-0 text-slate-600 hover:text-slate-900"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </Button>
 
-                      {/* Cancelar (apenas se não concluída e não cancelada) */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setCancelModalDemand(demand)
-                          setCancelReason('')
-                        }}
-                        disabled={
-                          demand.status === 'Cancelada' || demand.status === 'Inventário concluído'
-                        }
-                        title="Cancelar Demanda"
-                        className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50 disabled:opacity-30"
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {/* Cancelar */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setCancelModalDemand(demand)
+                            setCancelReason('')
+                          }}
+                          disabled={
+                            demand.status === 'Cancelada' ||
+                            demand.status === 'Inventário concluído'
+                          }
+                          title="Cancelar Demanda"
+                          className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50 disabled:opacity-30"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Modal Visualizar Demanda */}
+      {/* Modal Visualizar Demanda com todas as MPs */}
       {viewDemand && (
         <Dialog open={Boolean(viewDemand)} onOpenChange={() => setViewDemand(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+              <DialogTitle className="text-base font-black text-slate-900 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                 <span>Demanda de Inventário {viewDemand.control_number}</span>
                 {renderStatusBadge(viewDemand.status)}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Informações completas do cadastro da demanda de matéria-prima.
+                Informações consolidadas da demanda, Ordem de Produção e matérias-primas por
+                corrida.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs py-2">
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Empresa
-                </span>
-                <span className="font-semibold text-slate-800">{viewDemand.company}</span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Linha</span>
-                <span className="font-semibold text-slate-800">{viewDemand.line}</span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Centro</span>
-                <span className="font-semibold text-slate-800">{viewDemand.center}</span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Depósito
-                </span>
-                <span className="font-semibold text-slate-800">{viewDemand.storage_deposit}</span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Código MP
-                </span>
-                <span className="font-mono font-bold text-slate-800">
-                  {viewDemand.material_code}
-                </span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Prioridade
-                </span>
-                <span>{renderPriorityBadge(viewDemand.priority)}</span>
-              </div>
-              <div className="col-span-2 sm:col-span-3 bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Descrição MP
-                </span>
-                <span className="text-slate-800">{viewDemand.material_description || '—'}</span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Qtd. Prevista
-                </span>
-                <span className="font-mono font-bold text-slate-800">
-                  {viewDemand.total_pieces_required || 0} pçs
-                </span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Qtd. Apurada
-                </span>
-                <span className="font-mono font-bold text-[#004C97]">
-                  {viewDemand.total_pieces_inventoried || 0} pçs
-                </span>
-              </div>
-              <div className="bg-slate-50 p-2.5 rounded-md border border-slate-100">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                  Divergência
-                </span>
-                <span className="font-mono font-bold text-amber-700">
-                  {viewDemand.divergence_pieces || 0} pçs (
-                  {viewDemand.divergence_pct
-                    ? `${String(viewDemand.divergence_pct).replace('.', ',')}%`
-                    : '0%'}
-                  )
-                </span>
-              </div>
-              {viewDemand.observation && (
-                <div className="col-span-2 sm:col-span-3 bg-slate-50 p-2.5 rounded-md border border-slate-100">
+            <div className="space-y-4 py-2 text-xs">
+              {/* Metadados gerais */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Observação
+                    Ordem de Produção
+                  </span>
+                  <span className="font-mono font-bold text-[#004C97]">
+                    {viewDemand.production_order || '—'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    Empresa / Linha
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {viewDemand.company} / {viewDemand.line}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    Centro / Depósito
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {viewDemand.center} / {viewDemand.storage_deposit}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    Prioridade
+                  </span>
+                  <span>{renderPriorityBadge(viewDemand.priority)}</span>
+                </div>
+              </div>
+
+              {/* Bitola e Aplicação */}
+              {(viewDemand.gauge || viewDemand.application) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Bitola
+                    </span>
+                    <span className="font-mono font-semibold text-slate-800">
+                      {viewDemand.gauge || '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Aplicação
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      {viewDemand.application || '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabela de Matérias-Primas (1..N) */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Matérias-Primas Vinculadas
+                </span>
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50 text-[10px]">
+                      <TableRow>
+                        <TableHead>Código MP</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Corrida</TableHead>
+                        <TableHead className="text-right">Qtd. (t)</TableHead>
+                        <TableHead className="text-right">Peças Calculadas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="text-xs">
+                      {viewDemand.materials_summary && viewDemand.materials_summary.length > 0 ? (
+                        viewDemand.materials_summary.map((m, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono font-bold text-[#004C97]">
+                              {m.material_code}
+                            </TableCell>
+                            <TableCell className="text-slate-700">
+                              {m.material_description || '—'}
+                            </TableCell>
+                            <TableCell className="font-mono font-semibold">
+                              {m.heat_number}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {formatBrNumber(m.quantity_tons, 3)} t
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold">
+                              {m.calculated_pieces} pç
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell className="font-mono font-bold text-[#004C97]">
+                            {viewDemand.material_code}
+                          </TableCell>
+                          <TableCell className="text-slate-700">
+                            {viewDemand.material_description || '—'}
+                          </TableCell>
+                          <TableCell className="font-mono font-semibold">—</TableCell>
+                          <TableCell className="text-right font-mono">—</TableCell>
+                          <TableCell className="text-right font-mono font-bold">
+                            {viewDemand.total_pieces_required || 0} pç
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Totais de Peças e Divergência */}
+              <div className="grid grid-cols-3 gap-2.5 bg-sky-50/60 p-3 rounded-lg border border-sky-100">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Qtd. Prevista Total
+                  </span>
+                  <span className="text-sm font-mono font-bold text-slate-900">
+                    {viewDemand.total_pieces_required || 0} pç
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Qtd. Apurada
+                  </span>
+                  <span className="text-sm font-mono font-bold text-[#004C97]">
+                    {viewDemand.total_pieces_inventoried || 0} pç
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Divergência
+                  </span>
+                  <span className="text-sm font-mono font-bold text-amber-700">
+                    {viewDemand.divergence_pieces || 0} pç (
+                    {viewDemand.divergence_pct
+                      ? `${String(viewDemand.divergence_pct).replace('.', ',')}%`
+                      : '0%'}
+                    )
+                  </span>
+                </div>
+              </div>
+
+              {viewDemand.observation && (
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                    Observação / Justificativa
                   </span>
                   <span className="text-slate-800">{viewDemand.observation}</span>
                 </div>
