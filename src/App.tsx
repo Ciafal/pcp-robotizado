@@ -702,7 +702,9 @@ export const App: React.FC = () => {
                       path="/pcp/entregas/visao-geral"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasPcpPage />
+                          <ErrorBoundary moduleName="Entregas PCP — Visão Geral">
+                            <EntregasPcpPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -710,7 +712,9 @@ export const App: React.FC = () => {
                       path="/pcp/entregas/resumo-mensal"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <ResumoMensalPage />
+                          <ErrorBoundary moduleName="Entregas PCP — Resumo Mensal">
+                            <ResumoMensalPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -718,7 +722,9 @@ export const App: React.FC = () => {
                       path="/pcp/entregas/historico"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasHistoricoPage />
+                          <ErrorBoundary moduleName="Entregas PCP — Histórico">
+                            <EntregasHistoricoPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -726,7 +732,9 @@ export const App: React.FC = () => {
                       path="/pcp/entregas/revisoes"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasRevisoesPage />
+                          <ErrorBoundary moduleName="Entregas PCP — Revisões">
+                            <EntregasRevisoesPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
@@ -734,7 +742,9 @@ export const App: React.FC = () => {
                       path="/pcp/entregas/indicadores"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <EntregasIndicadoresPage />
+                          <ErrorBoundary moduleName="Entregas PCP — Indicadores">
+                            <EntregasIndicadoresPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />
