@@ -61,6 +61,14 @@ import { FieldSituationResolver } from '@/services/pcp-adapters-service'
 import { IntegrationGovernancePanel } from '@/components/pcp/IntegrationGovernancePanel'
 import { OrderDetailDrawer } from '@/components/pcp/OrderDetailDrawer'
 import { InternalNotificationCenterModal } from '@/components/pcp/InternalNotificationCenterModal'
+import { GestaoInventarioBar } from '@/components/pcp/inventory/GestaoInventarioBar'
+import { NovaDemandaInventarioModal } from '@/components/pcp/inventory/NovaDemandaInventarioModal'
+import { DemandasInventarioTable } from '@/components/pcp/inventory/DemandasInventarioTable'
+import { LancarInventarioModal } from '@/components/pcp/inventory/LancarInventarioModal'
+import { HistoricoRastreabilidadeModal } from '@/components/pcp/inventory/HistoricoRastreabilidadeModal'
+import { SeletorDemandaModal } from '@/components/pcp/inventory/SeletorDemandaModal'
+import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
+import { InventoryDemand } from '@/types/pcp-inventory-demands'
 
 // Helpers visuais de Status
 export const getStatusBadge = (status: MPInventoryStatus) => {
@@ -194,6 +202,77 @@ export const RawMaterialInventoryPage: React.FC = () => {
 
   // Drag and drop temporário de reordenação
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
+
+  // ESTADOS DA GESTÃO DE INVENTÁRIO (4 FUNCIONALIDADES OBRIGATÓRIAS)
+  const [inventoryDemands, setInventoryDemands] = useState<InventoryDemand[]>([])
+  const [loadingDemands, setLoadingDemands] = useState<boolean>(false)
+  const [showDemandasSection, setShowDemandasSection] = useState<boolean>(true)
+  const [novaDemandaModalOpen, setNovaDemandaModalOpen] = useState<boolean>(false)
+  const [lancarModalOpen, setLancarModalOpen] = useState<boolean>(false)
+  const [selectedDemandForLancar, setSelectedDemandForLancar] = useState<InventoryDemand | null>(
+    null,
+  )
+  const [seletorDemandaModalOpen, setSeletorDemandaModalOpen] = useState<boolean>(false)
+  const [historicoModalOpenReal, setHistoricoModalOpenReal] = useState<boolean>(false)
+  const [selectedDemandForHistorico, setSelectedDemandForHistorico] =
+    useState<InventoryDemand | null>(null)
+
+  // Carrega demandas de inventário
+  const loadDemands = useCallback(async () => {
+    setLoadingDemands(true)
+    try {
+      const data = await pcpInventoryDemandsService.listDemands()
+      setInventoryDemands(data)
+    } catch (err) {
+      console.error('Erro ao carregar demandas de inventário:', err)
+    } finally {
+      setLoadingDemands(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDemands()
+  }, [loadDemands])
+
+  // Handlers da Gestão de Inventário
+  const handleOpenGerarDemanda = () => {
+    setNovaDemandaModalOpen(true)
+  }
+
+  const handleToggleDemandas = () => {
+    setShowDemandasSection((prev) => !prev)
+  }
+
+  const handleOpenLancarInventario = (demand?: InventoryDemand) => {
+    if (demand) {
+      setSelectedDemandForLancar(demand)
+      setLancarModalOpen(true)
+    } else {
+      setSeletorDemandaModalOpen(true)
+    }
+  }
+
+  const handleOpenHistorico = (demand?: InventoryDemand) => {
+    setSelectedDemandForHistorico(demand || null)
+    setHistoricoModalOpenReal(true)
+  }
+
+  const handleCancelarDemanda = async (demand: InventoryDemand, motivo: string) => {
+    try {
+      await pcpInventoryDemandsService.cancelDemand(demand.id, motivo)
+      toast({
+        title: 'Demanda Cancelada',
+        description: `Demanda nº ${demand.control_number} cancelada com sucesso.`,
+      })
+      await loadDemands()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao cancelar demanda',
+        description: err?.message || 'Falha ao cancelar demanda.',
+      })
+    }
+  }
 
   // Carrega Ordens de Inventário
   const loadHeaders = useCallback(async () => {
@@ -687,6 +766,30 @@ export const RawMaterialInventoryPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 1.1 BARRA "GESTÃO DE INVENTÁRIO" COM EXATAMENTE 4 AÇÕES SEMPRE VISÍVEIS */}
+      <GestaoInventarioBar
+        onGerarDemanda={handleOpenGerarDemanda}
+        onToggleDemandas={handleToggleDemandas}
+        showingDemandas={showDemandasSection}
+        onLancarInventario={() => handleOpenLancarInventario()}
+        onHistorico={() => handleOpenHistorico()}
+      />
+
+      {/* 1.2 SEÇÃO "DEMANDAS DE INVENTÁRIO" NA MESMA PÁGINA (COM TABELA, FILTROS E AÇÕES) */}
+      {showDemandasSection && (
+        <DemandasInventarioTable
+          demands={inventoryDemands}
+          loading={loadingDemands}
+          onVisualizar={(demanda) => {
+            // Visualização aberta internamente na tabela
+          }}
+          onLancar={(demanda) => handleOpenLancarInventario(demanda)}
+          onHistorico={(demanda) => handleOpenHistorico(demanda)}
+          onCancelar={handleCancelarDemanda}
+          onRefresh={loadDemands}
+        />
+      )}
 
       {/* PAINEL DE INTEGRAÇÕES & GOVERNANÇA (ISOLADO DO DP07) */}
       {showGovernance && (
@@ -1721,6 +1824,45 @@ export const RawMaterialInventoryPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 8. MODAIS DA GESTÃO DE INVENTÁRIO (4 FUNCIONALIDADES OBRIGATÓRIAS) */}
+      {/* 8.1 Modal "+ Gerar Demanda de Inventário" */}
+      <NovaDemandaInventarioModal
+        open={novaDemandaModalOpen}
+        onOpenChange={setNovaDemandaModalOpen}
+        onSuccess={() => {
+          loadDemands()
+        }}
+      />
+
+      {/* 8.2 Seletor de Demanda para "Lançar Inventário" via Barra */}
+      <SeletorDemandaModal
+        open={seletorDemandaModalOpen}
+        onOpenChange={setSeletorDemandaModalOpen}
+        demands={inventoryDemands}
+        onSelectDemand={(demanda) => {
+          setSelectedDemandForLancar(demanda)
+          setLancarModalOpen(true)
+        }}
+      />
+
+      {/* 8.3 Modal "Lançar Inventário" com Contagem Física e SLA Real */}
+      <LancarInventarioModal
+        open={lancarModalOpen}
+        onOpenChange={setLancarModalOpen}
+        demand={selectedDemandForLancar}
+        onSuccess={() => {
+          loadDemands()
+        }}
+      />
+
+      {/* 8.4 Modal "Histórico e Rastreabilidade" com Trilha Imutável de Demandas */}
+      <HistoricoRastreabilidadeModal
+        open={historicoModalOpenReal}
+        onOpenChange={setHistoricoModalOpenReal}
+        selectedDemand={selectedDemandForHistorico}
+        demands={inventoryDemands}
+      />
     </div>
   )
 }

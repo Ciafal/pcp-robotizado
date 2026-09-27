@@ -34,6 +34,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // BYPASS IMEDIATO PRIORITÁRIO:
   // Rotas de Entregas PCP (/pcp/entregas, /entregas, subrotas e aliases) NUNCA devem passar por
   // checagem de timeout, skeleton ou validação de permissão - renderização imediata incondicional.
+  const windowPath =
+    typeof window !== 'undefined'
+      ? `${window.location?.pathname || ''} ${window.location?.hash || ''}`
+      : ''
   const isEntregasRoute = Boolean(
     currentPathname.startsWith('/pcp/entregas') ||
     currentPathname.startsWith('/pcp-robotizado/entregas') ||
@@ -41,6 +45,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/entregas-pcp') ||
     currentPathname.startsWith('/entregas') ||
     currentPathname.includes('/pcp/entregas') ||
+    currentPathname.includes('entregas') ||
+    windowPath.includes('/pcp/entregas') ||
+    windowPath.includes('/entregas') ||
     (currentPathname.startsWith('/pcp') && currentPathname.includes('entregas')),
   )
 
