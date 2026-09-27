@@ -230,26 +230,25 @@ export class PcpInventoryDemandsService {
       console.warn('Erro ao criar gauge vinculado:', gErr)
     }
 
-    // 3. Persiste a corrida inicial se informada
-    if (payload.run_number) {
-      try {
-        await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
-          demand_id: demandRecord.id,
-          control_number: nextCtrl,
-          run_number: payload.run_number,
-          batch_number: `LOT-${payload.run_number}`,
-          gauge: payload.gauge || 'Tarugo 130mm',
-          application: payload.application || 'Laminação L1',
-          sap_stock_pieces: totalReq,
-          suggested_pieces: totalReq,
-          selected_pieces: totalReq,
-          is_ai_suggested: false,
-          is_manual_override: false,
-          inventoried_pieces: 0,
-        })
-      } catch (rErr) {
-        console.warn('Erro ao criar corrida vinculada:', rErr)
-      }
+    // 3. Persiste a corrida inicial (se informada ou default)
+    const runNum = payload.run_number || 'LOTE-INICIAL'
+    try {
+      await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
+        demand_id: demandRecord.id,
+        control_number: nextCtrl,
+        run_number: runNum,
+        batch_number: `LOT-${runNum}`,
+        gauge: payload.gauge || 'Tarugo 130mm',
+        application: payload.application || 'Laminação L1',
+        sap_stock_pieces: totalReq,
+        suggested_pieces: totalReq,
+        selected_pieces: totalReq,
+        is_ai_suggested: false,
+        is_manual_override: false,
+        inventoried_pieces: 0,
+      })
+    } catch (rErr) {
+      console.warn('Erro ao criar corrida vinculada:', rErr)
     }
 
     // 4. Registra evento append-only de auditoria

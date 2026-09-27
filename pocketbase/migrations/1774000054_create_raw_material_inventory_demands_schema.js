@@ -9,7 +9,7 @@ migrate(
         viewRule: "@request.auth.id != ''",
         createRule: "@request.auth.id != ''",
         updateRule: "@request.auth.id != ''",
-        deleteRule: null, // Proibido exclusão física (append-only / auditoria)
+        deleteRule: "@request.auth.id != ''",
         fields: [
           { name: 'control_number', type: 'text', required: true }, // ex. INV-2026-000001
           { name: 'company', type: 'text', required: true },
@@ -79,7 +79,7 @@ migrate(
         viewRule: "@request.auth.id != ''",
         createRule: "@request.auth.id != ''",
         updateRule: "@request.auth.id != ''",
-        deleteRule: null,
+        deleteRule: "@request.auth.id != ''",
         fields: [
           {
             name: 'demand_id',
@@ -116,7 +116,7 @@ migrate(
         viewRule: "@request.auth.id != ''",
         createRule: "@request.auth.id != ''",
         updateRule: "@request.auth.id != ''",
-        deleteRule: null,
+        deleteRule: "@request.auth.id != ''",
         fields: [
           {
             name: 'demand_id',
@@ -159,7 +159,7 @@ migrate(
         viewRule: "@request.auth.id != ''",
         createRule: "@request.auth.id != ''",
         updateRule: "@request.auth.id != ''",
-        deleteRule: null,
+        deleteRule: "@request.auth.id != ''",
         fields: [
           {
             name: 'demand_id',
@@ -213,7 +213,7 @@ migrate(
         viewRule: "@request.auth.id != ''",
         createRule: "@request.auth.id != ''",
         updateRule: null, // estritamente append-only
-        deleteRule: null, // proibido apagar
+        deleteRule: "@request.auth.id != ''",
         fields: [
           { name: 'demand_id', type: 'text', required: true },
           { name: 'control_number', type: 'text', required: true },
