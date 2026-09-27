@@ -21,6 +21,7 @@ function formatPtBrDateTime(d: Date = new Date()): string {
 export interface DemandMaterialItem {
   id?: string
   demand_id?: string
+  control_number?: string
   production_order_code?: string
   material_code?: string
   material_description?: string
@@ -29,10 +30,18 @@ export interface DemandMaterialItem {
   application?: string
   quantity_pieces?: number
   weight_tons: number
+  quantity_tons?: number
+  calculated_pieces?: number
+  unit_weight_t?: number | null
+  unit_weight_kg?: number | null
+  weight_origin?: string
+  heat_number?: string
   unit_of_measure?: string
   storage_location?: string
+  location_wms?: string
   batch_number?: string
   notes?: string
+  status?: string
   created?: string
   updated?: string
 }
@@ -126,6 +135,13 @@ class PcpInventoryDemandsService {
         quantity_tons: Number(r.quantity_tons || r.planned_requirement_tons) || 0,
         calculated_pieces: Number(r.calculated_pieces || r.sap_pieces_count) || 0,
         unit_weight_kg: r.unit_weight_kg != null ? Number(r.unit_weight_kg) : null,
+        unit_weight_t:
+          r.unit_weight_t != null
+            ? Number(r.unit_weight_t)
+            : r.unit_weight_kg
+              ? Number(r.unit_weight_kg) / 1000
+              : null,
+        weight_origin: r.weight_origin || '',
         location_wms: r.wms_physical_location || '',
         status: r.status,
       }))
@@ -246,15 +262,23 @@ class PcpInventoryDemandsService {
     // Suporte a multi-MP e legado mono-MP
     const materialsInput =
       payload.materials && payload.materials.length > 0
-        ? payload.materials
+        ? payload.materials.map((m) => ({
+            ...m,
+            heat_number: m.heat_number?.trim() || '', // Corrida opcional
+            unit_weight_t:
+              m.unit_weight_t ?? (m.unit_weight_kg != null ? m.unit_weight_kg / 1000 : null),
+            weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
+          }))
         : [
             {
               material_code: payload.material_code || '',
               material_description: payload.material_description || '',
-              heat_number: payload.run_number || 'LOTE-INICIAL',
+              heat_number: payload.run_number?.trim() || '',
               quantity_tons: 0,
               calculated_pieces: Number(payload.quantity_required) || 0,
+              unit_weight_t: null,
               unit_weight_kg: null,
+              weight_origin: 'LOCAL_CADASTRO',
             },
           ]
 
@@ -266,7 +290,7 @@ class PcpInventoryDemandsService {
     const primaryMaterial = materialsInput[0] || {
       material_code: payload.material_code || '',
       material_description: payload.material_description || '',
-      heat_number: payload.run_number || 'LOTE-INICIAL',
+      heat_number: payload.run_number?.trim() || '',
     }
 
     // 1. Persiste a demanda
@@ -309,12 +333,14 @@ class PcpInventoryDemandsService {
     try {
       for (const m of materialsInput) {
         if (!m.material_code) continue
+        const heatVal = (m.heat_number || '').trim()
+        const itemKey = `${nextCtrl}-${m.material_code}-${heatVal || 'AVULSO'}-${Math.floor(Math.random() * 1000)}`
         await pb.collection('pcp_mp_inventory_items').create({
           demand_id: demandRecord.id,
           control_number: nextCtrl,
           inventory_id: demandRecord.id,
           inventory_code: nextCtrl,
-          item_control_key: `${nextCtrl}-${m.material_code}-${m.heat_number}`,
+          item_control_key: itemKey,
           company: payload.company || '',
           line: payload.line || '',
           center: payload.center || '',
@@ -322,12 +348,24 @@ class PcpInventoryDemandsService {
           production_order: payload.production_order || '',
           raw_material_code: m.material_code,
           raw_material_description: m.material_description || '',
-          heat_number: m.heat_number || '',
+          heat_number: heatVal, // Corrida opcional: persiste vazio se não informada
           produced_gauge_product: payload.gauge || '',
           enfornamento_type: 'NORMAL',
           quantity_tons: m.quantity_tons || 0,
+          unit_weight_t:
+            m.unit_weight_t != null
+              ? Number(m.unit_weight_t)
+              : m.unit_weight_kg
+                ? Number(m.unit_weight_kg) / 1000
+                : null,
+          weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
           calculated_pieces: m.calculated_pieces || 0,
-          unit_weight_kg: m.unit_weight_kg ?? null,
+          unit_weight_kg:
+            m.unit_weight_kg != null
+              ? Number(m.unit_weight_kg)
+              : m.unit_weight_t
+                ? Math.round(Number(m.unit_weight_t) * 1000)
+                : null,
           planned_requirement_tons: m.quantity_tons || 0,
           sap_pieces_count: m.calculated_pieces || 0,
           wms_physical_location: payload.storage_deposit || '',
@@ -356,15 +394,15 @@ class PcpInventoryDemandsService {
       console.warn('Erro ao criar gauge vinculado:', gErr)
     }
 
-    // 4. Persiste as corridas vinculadas
+    // 4. Persiste as corridas vinculadas se informadas
     try {
       for (const m of materialsInput) {
-        const runNum = m.heat_number || payload.run_number || 'LOTE-INICIAL'
+        const runNum = m.heat_number || payload.run_number || 'AVULSO'
         await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
           demand_id: demandRecord.id,
           control_number: nextCtrl,
           run_number: runNum,
-          batch_number: `LOT-${runNum}`,
+          batch_number: runNum !== 'AVULSO' ? `LOT-${runNum}` : `SEM-CORRIDA`,
           gauge: payload.gauge || 'Tarugo 130mm',
           application: payload.application || 'Laminação L1',
           sap_stock_pieces: m.calculated_pieces || totalReq,
@@ -379,12 +417,12 @@ class PcpInventoryDemandsService {
       console.warn('Erro ao criar corridas vinculadas:', rErr)
     }
 
-    // 5. Registra evento append-only de auditoria com detalhes completos
+    // 5. Registra evento append-only de auditoria com detalhes completos (incluindo origem do peso unitário)
     try {
       const matSummaryText = materialsInput
         .map(
           (m) =>
-            `${m.material_code} (Corrida: ${m.heat_number}, ${m.quantity_tons} t / ${m.calculated_pieces} pçs)`,
+            `${m.material_code} (Corrida: ${m.heat_number || 'Sem corrida'}, ${m.quantity_tons} t / ${m.calculated_pieces} pçs | Peso un: ${m.unit_weight_t != null ? m.unit_weight_t + ' t' : 'Aguardando SAP'} [Origem: ${m.weight_origin || 'LOCAL_CADASTRO'}])`,
         )
         .join('; ')
 

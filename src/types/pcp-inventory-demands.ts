@@ -13,10 +13,12 @@ export interface DemandMaterialItem {
   control_number?: string
   material_code: string
   material_description?: string
-  heat_number: string
+  heat_number?: string
   quantity_tons: number
   calculated_pieces: number
   unit_weight_kg?: number | null
+  unit_weight_t?: number | null
+  weight_origin?: string
   location_wms?: string
   status?: string
 }
@@ -158,10 +160,12 @@ export interface InventoryAuditEvent {
 export interface CreateDemandMaterialInput {
   material_code: string
   material_description?: string
-  heat_number: string
+  heat_number?: string
   quantity_tons: number
   calculated_pieces: number
   unit_weight_kg?: number | null
+  unit_weight_t?: number | null
+  weight_origin?: string
 }
 
 export interface CreateDemandPayload {

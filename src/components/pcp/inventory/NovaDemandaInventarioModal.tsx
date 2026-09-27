@@ -14,15 +14,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
+import { sapMaterialService } from '@/services/sap-material-service'
 import { pcpProductionService } from '@/services/pcp-production-service'
+import { parsePtBrNumber, formatPtBrNumber, calculatePiecesFromTons } from '@/lib/number-format'
 type ProductionOrder = any
 import {
   InventoryDemandPriority,
   CreateDemandPayload,
-  InventoryDemand,
   CreateDemandMaterialInput,
+  InventoryDemand,
 } from '@/types/pcp-inventory-demands'
-import pb from '@/lib/pocketbase/client'
 import {
   PlusCircle,
   Loader2,
@@ -33,6 +34,7 @@ import {
   Boxes,
   Layers,
   FileSpreadsheet,
+  Info,
 } from 'lucide-react'
 
 interface NovaDemandaInventarioModalProps {
@@ -52,12 +54,17 @@ interface MaterialRowState {
   id: string
   material_code: string
   material_description: string
-  heat_number: string
+  heat_number: string // Corrida (opcional)
   quantity_tons_str: string
   quantity_tons: number
-  unit_weight_kg: number | null
+  unit_weight_t: number | null
+  unit_weight_kg?: number | null
+  weight_origin?: string
   calculated_pieces: number
-  piecesError?: string | null
+  weightLoading?: boolean
+  weightAvailable?: boolean
+  weightStatusMessage?: string
+  quantityError?: string | null
 }
 
 export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProps> = ({
@@ -97,7 +104,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   const [errorField, setErrorField] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Quando o modal abre, herda contexto e limpa estado
+  // Quando o modal abre, herda contexto e inicializa estado limpo
   useEffect(() => {
     if (open) {
       setCompany(initialContext?.company || '')
@@ -122,15 +129,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
           heat_number: '',
           quantity_tons_str: '',
           quantity_tons: 0,
+          unit_weight_t: null,
           unit_weight_kg: null,
+          weight_origin: 'NOT_FOUND',
           calculated_pieces: 0,
+          weightLoading: false,
+          weightAvailable: false,
+          weightStatusMessage: 'Informe o código da MP para buscar o peso unitário.',
         },
       ])
       setObservation('')
       setErrorField(null)
       setErrorMessage(null)
 
-      // Carrega ordens de produção reais
       loadRealOrders()
     }
   }, [open, initialContext])
@@ -157,7 +168,6 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     setErrorField(null)
     setErrorMessage(null)
 
-    // Se a empresa/linha/centro estiverem vazios no contexto, pode puxar da OP
     if (!company && order.empresa_code) setCompany(order.empresa_code)
     if (!line && order.linha_code) setLine(order.linha_code)
     if (!center && (order.work_center || order.centro_code)) {
@@ -184,75 +194,6 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     }
   }
 
-  // Busca peso unitário real do cadastro técnico (Ficha Mestra / line_productivity_rates / MP)
-  const lookupUnitWeightKg = async (
-    matCode: string,
-    appSpec?: string,
-  ): Promise<{ weight: number | null; desc?: string }> => {
-    const cleanCode = matCode.trim()
-    if (!cleanCode) return { weight: null }
-
-    try {
-      // 1. Tenta buscar em line_productivity_rates
-      const rates = await pb.collection('line_productivity_rates').getFullList({
-        filter: `material_product_code ~ '${cleanCode}' || raw_material_type ~ '${cleanCode}'`,
-        sort: '-created',
-        limit: 1,
-      })
-      if (rates && rates.length > 0) {
-        const r: any = rates[0]
-        if (r.kg_per_meter && Number(r.kg_per_meter) > 0) {
-          const mLen = Number(r.max_length_m) || Number(r.min_length_m) || 12 // padrão 12m se comprimento
-          return {
-            weight: Number((Number(r.kg_per_meter) * mLen).toFixed(2)),
-            desc: r.material_product_name || '',
-          }
-        }
-      }
-    } catch {
-      // continua
-    }
-
-    try {
-      // 2. Tenta em line_raw_material_priorities
-      const prios = await pb.collection('line_raw_material_priorities').getFullList({
-        filter: `material_code = '${cleanCode}'`,
-        limit: 1,
-      })
-      if (prios && prios.length > 0) {
-        const p: any = prios[0]
-        // Se tiver peso associado em metadata ou descrição
-        return {
-          weight: null,
-          desc: p.material_description || '',
-        }
-      }
-    } catch {
-      // continua
-    }
-
-    // Regra técnica homologada por bitola/código de tarugos CIAFAL
-    // Tarugo 130mm x 12m peso unitário padrão = 1.590 kg (1,59 t)
-    // Tarugo 150mm x 12m peso unitário padrão = 2.120 kg (2,12 t)
-    // Tarugo 120mm x 12m = 1.350 kg
-    const upper = (cleanCode + ' ' + (appSpec || '') + ' ' + gauge).toUpperCase()
-    if (upper.includes('130') || upper.includes('TAR-130')) {
-      return { weight: 1590, desc: 'Tarugo SAE 1020 130mm x 12m' }
-    }
-    if (upper.includes('150') || upper.includes('TAR-150')) {
-      return { weight: 2120, desc: 'Tarugo SAE 1045 150mm x 12m' }
-    }
-    if (upper.includes('120') || upper.includes('TAR-120')) {
-      return { weight: 1350, desc: 'Tarugo SAE 1020 120mm x 12m' }
-    }
-    if (upper.includes('BOB') || upper.includes('BOBINA')) {
-      // Bobina peso unitário de 5.000 kg (5 t) ou 10.000 kg
-      return { weight: 5000, desc: 'Bobina de Aço Laminada' }
-    }
-
-    return { weight: null }
-  }
-
   // Manipulação de Matérias-Primas (1..N)
   const handleAddMaterial = () => {
     setMaterials((prev) => [
@@ -261,11 +202,16 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
         id: `mp-${Date.now()}-${prev.length + 1}`,
         material_code: '',
         material_description: '',
-        heat_number: '',
+        heat_number: '', // Corrida (opcional)
         quantity_tons_str: '',
         quantity_tons: 0,
+        unit_weight_t: null,
         unit_weight_kg: null,
+        weight_origin: 'NOT_FOUND',
         calculated_pieces: 0,
+        weightLoading: false,
+        weightAvailable: false,
+        weightStatusMessage: 'Informe o código da MP para buscar o peso unitário.',
       },
     ])
   }
@@ -282,64 +228,117 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     setMaterials((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // Busca peso unitário via sapMaterialService dedicado
   const handleMaterialCodeChange = async (index: number, code: string) => {
-    const updated = [...materials]
-    const row = { ...updated[index], material_code: code }
-    updated[index] = row
-    setMaterials(updated)
+    // Atualiza imediatamente o código digitado
+    setMaterials((prev) => {
+      const next = [...prev]
+      next[index] = {
+        ...next[index],
+        material_code: code,
+        weightLoading: code.trim().length >= 2,
+      }
+      return next
+    })
 
-    if (code.trim().length >= 3) {
-      const res = await lookupUnitWeightKg(code, application)
-      setMaterials((curr) => {
-        const next = [...curr]
+    const clean = code.trim()
+    if (clean.length < 2) {
+      setMaterials((prev) => {
+        const next = [...prev]
         const r = { ...next[index] }
-        if (res.desc && !r.material_description) {
-          r.material_description = res.desc
+        r.unit_weight_t = null
+        r.unit_weight_kg = null
+        r.weight_origin = 'NOT_FOUND'
+        r.weightAvailable = false
+        r.weightLoading = false
+        r.weightStatusMessage = 'Informe o código da MP para buscar o peso unitário.'
+        r.calculated_pieces = 0
+        next[index] = r
+        return next
+      })
+      return
+    }
+
+    try {
+      const res = await sapMaterialService.getMaterialWeight(clean, {
+        application,
+        gauge,
+      })
+
+      setMaterials((prev) => {
+        const next = [...prev]
+        if (!next[index]) return prev
+        const r = { ...next[index] }
+        if (res.material_description && !r.material_description) {
+          r.material_description = res.material_description
         }
-        r.unit_weight_kg = res.weight
-        // Recalcula peças se já houver tonelagem
-        if (r.quantity_tons > 0) {
-          if (res.weight && res.weight > 0) {
-            const kg = r.quantity_tons * 1000
-            r.calculated_pieces = Math.round(kg / res.weight)
-            r.piecesError = null
+        r.unit_weight_t = res.unit_weight_t
+        r.unit_weight_kg = res.unit_weight_kg
+        r.weight_origin = res.source
+        r.weightAvailable = res.is_available
+        r.weightLoading = false
+
+        if (res.is_available && res.unit_weight_t && res.unit_weight_t > 0) {
+          r.weightStatusMessage = undefined
+          // Recalcula peças: peças = Quantidade (t) ÷ Peso Unitário (t)
+          if (r.quantity_tons > 0) {
+            r.calculated_pieces = calculatePiecesFromTons(r.quantity_tons, res.unit_weight_t)
           } else {
             r.calculated_pieces = 0
-            r.piecesError =
-              'Peso unitário não disponível. Não foi possível calcular a quantidade de peças.'
           }
+        } else {
+          r.calculated_pieces = 0
+          r.weightStatusMessage =
+            'Peso unitário ainda não disponível para esta matéria-prima (Aguardando dado do SAP).'
         }
+
+        next[index] = r
+        return next
+      })
+    } catch (err) {
+      console.warn('Erro ao buscar peso unitário do material:', err)
+      setMaterials((prev) => {
+        const next = [...prev]
+        if (!next[index]) return prev
+        const r = { ...next[index] }
+        r.weightLoading = false
+        r.weightAvailable = false
+        r.weightStatusMessage = 'Aguardando dado do SAP'
         next[index] = r
         return next
       })
     }
   }
 
+  // Parser robusto para Quantidade (t) aceitando padrão pt-BR ("24,00", "5,50", "24,500", "1.250,750")
   const handleTonsChange = (index: number, valStr: string) => {
-    // Permite digitação com vírgula decimal (ex. 25,000)
-    const normalized = valStr.replace(',', '.')
-    const tons = Number(normalized)
-
     setMaterials((prev) => {
       const next = [...prev]
       const row = { ...next[index], quantity_tons_str: valStr }
 
-      if (!isNaN(tons) && tons > 0) {
-        row.quantity_tons = tons
-        if (row.unit_weight_kg && row.unit_weight_kg > 0) {
-          const kg = tons * 1000
-          row.calculated_pieces = Math.round(kg / row.unit_weight_kg)
-          row.piecesError = null
-        } else {
-          row.calculated_pieces = 0
-          row.piecesError =
-            'Peso unitário não disponível. Não foi possível calcular a quantidade de peças.'
-        }
-      } else {
+      const parsed = parsePtBrNumber(valStr)
+
+      if (valStr.trim() === '') {
         row.quantity_tons = 0
         row.calculated_pieces = 0
-        row.piecesError = null
+        row.quantityError = null
+      } else if (isNaN(parsed) || parsed <= 0) {
+        row.quantity_tons = 0
+        row.calculated_pieces = 0
+        row.quantityError = 'Informe uma quantidade maior que zero.'
+      } else {
+        row.quantity_tons = parsed
+        row.quantityError = null
+
+        // Se o peso unitário em toneladas estiver disponível, recalcula as peças
+        // Nova fórmula: peças = Quantidade (t) ÷ Peso Unitário (t)
+        if (row.unit_weight_t && row.unit_weight_t > 0) {
+          row.calculated_pieces = calculatePiecesFromTons(parsed, row.unit_weight_t)
+        } else {
+          row.calculated_pieces = 0
+        }
       }
+
       next[index] = row
       return next
     })
@@ -356,7 +355,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   // Submissão do formulário
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (submitting) return // impede duplo clique
+    if (submitting) return // Proteção anti-duplo-envio no frontend
 
     setErrorField(null)
     setErrorMessage(null)
@@ -364,40 +363,40 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     // Validações Bloco 1
     if (!company.trim()) {
       setErrorField('company')
-      setErrorMessage('Informe a Empresa.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
     if (!line.trim()) {
       setErrorField('line')
-      setErrorMessage('Informe a Linha.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
     if (!center.trim()) {
       setErrorField('center')
-      setErrorMessage('Informe o Centro.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
     if (!storageDeposit.trim()) {
       setErrorField('storageDeposit')
-      setErrorMessage('Informe o Depósito.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
 
     // Validações Bloco 2
     if (!selectedOrderNumber.trim()) {
       setErrorField('productionOrder')
-      setErrorMessage('Selecione uma Ordem de Produção existente no sistema.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
     if (!priority) {
       setErrorField('priority')
-      setErrorMessage('Selecione a Prioridade (Normal ou Urgente).')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
 
     // Validações Bloco 3: Matérias-Primas
     if (materials.length === 0) {
-      setErrorMessage('Adicione pelo menos 1 matéria-prima à demanda.')
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       return
     }
 
@@ -405,40 +404,41 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       const m = materials[i]
       if (!m.material_code.trim()) {
         setErrorField(`mp_code_${i}`)
-        setErrorMessage(`Informe o Código da Matéria-Prima no item #${i + 1}.`)
+        setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
         return
       }
-      if (!m.heat_number.trim()) {
-        setErrorField(`mp_heat_${i}`)
-        setErrorMessage(`Informe a Corrida específica da Matéria-Prima no item #${i + 1}.`)
-        return
-      }
-      if (m.quantity_tons <= 0) {
+
+      // CORRIDA É OPCIONAL — NUNCA barra se vazia!
+      // Quantidade (t) validação: erro de usuário só para vazio, não numérico, <= 0
+      const parsed = parsePtBrNumber(m.quantity_tons_str)
+      if (m.quantity_tons_str.trim() === '' || isNaN(parsed) || parsed <= 0) {
         setErrorField(`mp_tons_${i}`)
-        setErrorMessage(
-          `Informe uma Quantidade (t) maior que zero para a Matéria-Prima no item #${i + 1}.`,
-        )
-        return
-      }
-      if (m.piecesError || m.calculated_pieces <= 0 || m.unit_weight_kg == null) {
-        setErrorField(`mp_pieces_${i}`)
-        setErrorMessage(
-          `Peso unitário não disponível para ${m.material_code}. Não foi possível calcular a quantidade de peças e a geração está bloqueada.`,
-        )
+        setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
         return
       }
     }
 
     setSubmitting(true)
     try {
-      const itemsPayload: CreateDemandMaterialInput[] = materials.map((m) => ({
-        material_code: m.material_code.trim(),
-        material_description: m.material_description.trim() || undefined,
-        heat_number: m.heat_number.trim(),
-        quantity_tons: m.quantity_tons,
-        calculated_pieces: m.calculated_pieces,
-        unit_weight_kg: m.unit_weight_kg,
-      }))
+      const itemsPayload: CreateDemandMaterialInput[] = materials.map((m) => {
+        const parsedTons = parsePtBrNumber(m.quantity_tons_str)
+        const effectiveTons = !isNaN(parsedTons) && parsedTons > 0 ? parsedTons : m.quantity_tons
+        const pces =
+          m.unit_weight_t && m.unit_weight_t > 0
+            ? calculatePiecesFromTons(effectiveTons, m.unit_weight_t)
+            : m.calculated_pieces || 0
+
+        return {
+          material_code: m.material_code.trim(),
+          material_description: m.material_description.trim() || undefined,
+          heat_number: m.heat_number.trim(), // Corrida opcional: vazia se não informada
+          quantity_tons: effectiveTons,
+          calculated_pieces: pces,
+          unit_weight_t: m.unit_weight_t,
+          unit_weight_kg: m.unit_weight_kg ?? (m.unit_weight_t ? m.unit_weight_t * 1000 : null),
+          weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
+        }
+      })
 
       const payload: CreateDemandPayload = {
         company: company.trim(),
@@ -464,12 +464,12 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       onSuccess(created)
     } catch (err: any) {
       console.error('Erro ao gerar demanda:', err)
-      const msg = err?.message || 'Falha ao salvar demanda no backend. Tente novamente.'
-      setErrorMessage(msg)
+      // Em erro: popup aberto, dados preservados, botão reabilitado, mensagem amigável, erro técnico em log
+      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
       toast({
         variant: 'destructive',
         title: 'Erro ao gerar demanda',
-        description: msg,
+        description: 'Não foi possível gerar a demanda. Verifique os campos destacados.',
       })
     } finally {
       setSubmitting(false)
@@ -501,7 +501,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
                 Gere uma ordem de contagem física rastreável com vínculo à Ordem de Produção e
-                matérias-primas por corrida.
+                matérias-primas cadastradas.
               </DialogDescription>
             </div>
           </div>
@@ -530,7 +530,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   onChange={(e) => setCompany(e.target.value)}
                   placeholder="Ex.: CIAFAL"
                   className={`text-xs h-8 bg-white ${
-                    errorField === 'company' ? 'border-rose-500 bg-rose-50/40' : ''
+                    errorField === 'company'
+                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                      : ''
                   }`}
                   disabled={submitting}
                 />
@@ -543,7 +545,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   onChange={(e) => setLine(e.target.value)}
                   placeholder="Ex.: L1"
                   className={`text-xs h-8 bg-white ${
-                    errorField === 'line' ? 'border-rose-500 bg-rose-50/40' : ''
+                    errorField === 'line'
+                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                      : ''
                   }`}
                   disabled={submitting}
                 />
@@ -556,7 +560,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   onChange={(e) => setCenter(e.target.value)}
                   placeholder="Ex.: FORNOL1"
                   className={`text-xs h-8 bg-white ${
-                    errorField === 'center' ? 'border-rose-500 bg-rose-50/40' : ''
+                    errorField === 'center'
+                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                      : ''
                   }`}
                   disabled={submitting}
                 />
@@ -569,7 +575,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   onChange={(e) => setStorageDeposit(e.target.value)}
                   placeholder="Ex.: DP07"
                   className={`text-xs h-8 bg-white ${
-                    errorField === 'storageDeposit' ? 'border-rose-500 bg-rose-50/40' : ''
+                    errorField === 'storageDeposit'
+                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                      : ''
                   }`}
                   disabled={submitting}
                 />
@@ -601,7 +609,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                     onFocus={() => setOrderDropdownOpen(true)}
                     placeholder="Digite o número da OP (ex.: 4500012342, OP-2025-0891)..."
                     className={`text-xs h-8 pr-8 font-mono bg-white ${
-                      errorField === 'productionOrder' ? 'border-rose-500 bg-rose-50/40' : ''
+                      errorField === 'productionOrder'
+                        ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                        : ''
                     }`}
                     disabled={submitting}
                   />
@@ -653,7 +663,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as InventoryDemandPriority)}
                   className={`w-full text-xs h-8 px-2.5 mt-1 rounded-md border bg-white font-medium ${
-                    errorField === 'priority' ? 'border-rose-500 bg-rose-50/40' : 'border-slate-300'
+                    errorField === 'priority'
+                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                      : 'border-slate-300'
                   }`}
                   disabled={submitting}
                 >
@@ -753,17 +765,20 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                     )}
                   </div>
 
+                  {/* Linha 1: Código MP * | Descrição da MP | Corrida (opcional) */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Código MP * (ex.: TAR-130-1020)
+                        Código MP * (ex.: ST930)
                       </Label>
                       <Input
                         value={mat.material_code}
                         onChange={(e) => handleMaterialCodeChange(idx, e.target.value)}
                         placeholder="Código MP"
                         className={`text-xs h-8 font-mono ${
-                          errorField === `mp_code_${idx}` ? 'border-rose-500 bg-rose-50/40' : ''
+                          errorField === `mp_code_${idx}`
+                            ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                            : ''
                         }`}
                         disabled={submitting}
                       />
@@ -786,36 +801,68 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Corrida * (específica da MP)
+                        Corrida (opcional)
                       </Label>
                       <Input
                         value={mat.heat_number}
                         onChange={(e) =>
                           handleMaterialFieldChange(idx, 'heat_number', e.target.value)
                         }
-                        placeholder="Nº da Corrida"
-                        className={`text-xs h-8 font-mono ${
-                          errorField === `mp_heat_${idx}` ? 'border-rose-500 bg-rose-50/40' : ''
-                        }`}
+                        placeholder="Nº da Corrida (opcional)"
+                        className="text-xs h-8 font-mono"
                         disabled={submitting}
                       />
                     </div>
                   </div>
 
-                  {/* Quantidade (t) e Quantidade calculada (peças) */}
+                  {/* Linha 2: Quantidade (t) * | Peso Unitário (t) | Qtd. Calculada (peças) */}
+                  {/* Ordem visual exata: Quantidade → Peso → Resultado */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Quantidade (t) * (vírgula decimal)
+                        Quantidade (t) *
                       </Label>
                       <Input
                         value={mat.quantity_tons_str}
                         onChange={(e) => handleTonsChange(idx, e.target.value)}
-                        placeholder="Ex.: 25,000"
+                        placeholder="Ex.: 24,00"
                         className={`text-xs h-8 font-mono ${
-                          errorField === `mp_tons_${idx}` ? 'border-rose-500 bg-rose-50/40' : ''
+                          errorField === `mp_tons_${idx}` || mat.quantityError
+                            ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
+                            : ''
                         }`}
                         disabled={submitting}
+                      />
+                      {mat.quantityError && (
+                        <p className="text-[11px] text-rose-600 mt-1 font-medium">
+                          {mat.quantityError}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-slate-700">
+                          Peso Unitário (t)
+                        </Label>
+                        {mat.weightLoading && (
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> Buscando...
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        readOnly
+                        value={
+                          mat.unit_weight_t != null
+                            ? `${formatPtBrNumber(mat.unit_weight_t, 3, 4)} t`
+                            : 'Aguardando dado do SAP'
+                        }
+                        className={`text-xs h-8 font-mono bg-slate-50 cursor-not-allowed ${
+                          mat.unit_weight_t != null
+                            ? 'text-slate-800 font-bold'
+                            : 'text-amber-700 bg-amber-50/50'
+                        }`}
                       />
                     </div>
 
@@ -824,40 +871,35 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                         <Label className="text-xs font-semibold text-slate-700">
                           Qtd. Calculada (peças)
                         </Label>
-                        <span className="text-[10px] text-slate-400">t × 1000 ÷ peso un.</span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Qtd (t) ÷ Peso (t)
+                        </span>
                       </div>
                       <Input
                         readOnly
-                        value={mat.calculated_pieces > 0 ? `${mat.calculated_pieces} pç` : '—'}
-                        placeholder="Calculado automaticamente"
-                        className={`text-xs h-8 font-mono bg-slate-50 cursor-not-allowed ${
-                          mat.piecesError ? 'border-amber-400 bg-amber-50/30 text-amber-800' : ''
-                        }`}
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-xs font-semibold text-slate-700">
-                        Peso Unitário (kg)
-                      </Label>
-                      <Input
-                        readOnly
                         value={
-                          mat.unit_weight_kg != null
-                            ? `${mat.unit_weight_kg.toLocaleString('pt-BR')} kg`
-                            : 'Não identificado'
+                          mat.calculated_pieces > 0
+                            ? `${formatPtBrNumber(mat.calculated_pieces, 0, 0)} pç`
+                            : '—'
                         }
-                        className="text-xs h-8 font-mono bg-slate-50 cursor-not-allowed text-slate-600"
+                        placeholder="Calculado automaticamente"
+                        className="text-xs h-8 font-mono bg-slate-50 cursor-not-allowed font-bold text-[#004C97]"
                       />
                     </div>
                   </div>
 
-                  {mat.piecesError && (
-                    <p className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded p-1.5 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      {mat.piecesError}
-                    </p>
-                  )}
+                  {/* Estado informativo sobre o peso unitário quando ausente */}
+                  {mat.material_code.trim().length >= 2 &&
+                    !mat.unit_weight_t &&
+                    !mat.weightLoading && (
+                      <div className="p-2 rounded bg-amber-50/80 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                        <span>
+                          {mat.weightStatusMessage ||
+                            'Peso unitário ainda não disponível para esta matéria-prima (Aguardando dado do SAP).'}
+                        </span>
+                      </div>
+                    )}
                 </div>
               ))}
             </div>
