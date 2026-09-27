@@ -363,40 +363,54 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     // Validações Bloco 1
     if (!company.trim()) {
       setErrorField('company')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
     if (!line.trim()) {
       setErrorField('line')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
     if (!center.trim()) {
       setErrorField('center')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
     if (!storageDeposit.trim()) {
       setErrorField('storageDeposit')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
 
     // Validações Bloco 2
     if (!selectedOrderNumber.trim()) {
       setErrorField('productionOrder')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
     if (!priority) {
       setErrorField('priority')
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
 
     // Validações Bloco 3: Matérias-Primas
     if (materials.length === 0) {
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       return
     }
 
@@ -404,7 +418,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       const m = materials[i]
       if (!m.material_code.trim()) {
         setErrorField(`mp_code_${i}`)
-        setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+        setErrorMessage(
+          'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+        )
         return
       }
 
@@ -413,7 +429,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       const parsed = parsePtBrNumber(m.quantity_tons_str)
       if (m.quantity_tons_str.trim() === '' || isNaN(parsed) || parsed <= 0) {
         setErrorField(`mp_tons_${i}`)
-        setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+        setErrorMessage(
+          'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+        )
         return
       }
     }
@@ -455,21 +473,20 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 
       const created = await pcpInventoryDemandsService.createDemand(payload)
 
-      toast({
-        title: 'Demanda de Inventário gerada',
-        description: `Demanda de Inventário nº ${created.control_number} gerada com sucesso.`,
-      })
-
+      // Sucesso na persistência real: fecha o modal do formulário e chama onSuccess com a demanda criada
       onOpenChange(false)
       onSuccess(created)
     } catch (err: any) {
       console.error('Erro ao gerar demanda:', err)
       // Em erro: popup aberto, dados preservados, botão reabilitado, mensagem amigável, erro técnico em log
-      setErrorMessage('Não foi possível gerar a demanda. Verifique os campos destacados.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+      )
       toast({
         variant: 'destructive',
         title: 'Erro ao gerar demanda',
-        description: 'Não foi possível gerar a demanda. Verifique os campos destacados.',
+        description:
+          'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
       })
     } finally {
       setSubmitting(false)

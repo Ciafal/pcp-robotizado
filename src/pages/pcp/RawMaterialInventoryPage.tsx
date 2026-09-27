@@ -67,6 +67,7 @@ import { DemandasInventarioTable } from '@/components/pcp/inventory/DemandasInve
 import { LancarInventarioModal } from '@/components/pcp/inventory/LancarInventarioModal'
 import { HistoricoRastreabilidadeModal } from '@/components/pcp/inventory/HistoricoRastreabilidadeModal'
 import { SeletorDemandaModal } from '@/components/pcp/inventory/SeletorDemandaModal'
+import { DemandaSucessoModal } from '@/components/pcp/inventory/DemandaSucessoModal'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
 import { InventoryDemand } from '@/types/pcp-inventory-demands'
 
@@ -218,6 +219,13 @@ export const RawMaterialInventoryPage: React.FC = () => {
   const [historicoModalOpenReal, setHistoricoModalOpenReal] = useState<boolean>(false)
   const [selectedDemandForHistorico, setSelectedDemandForHistorico] =
     useState<InventoryDemand | null>(null)
+
+  // Estado do Popup de Confirmação de Sucesso
+  const [sucessoModalOpen, setSucessoModalOpen] = useState<boolean>(false)
+  const [createdDemandForSuccess, setCreatedDemandForSuccess] = useState<InventoryDemand | null>(
+    null,
+  )
+  const [demandForDirectView, setDemandForDirectView] = useState<InventoryDemand | null>(null)
 
   // Carrega demandas de inventário
   const loadDemands = useCallback(async () => {
@@ -820,6 +828,9 @@ export const RawMaterialInventoryPage: React.FC = () => {
           onHistorico={(demanda) => handleOpenHistorico(demanda)}
           onCancelar={handleCancelarDemanda}
           onRefresh={loadDemands}
+          externalViewDemand={demandForDirectView}
+          onClearExternalViewDemand={() => setDemandForDirectView(null)}
+          lastCreatedDemand={createdDemandForSuccess}
         />
       )}
 
@@ -1862,8 +1873,27 @@ export const RawMaterialInventoryPage: React.FC = () => {
       <NovaDemandaInventarioModal
         open={novaDemandaModalOpen}
         onOpenChange={setNovaDemandaModalOpen}
-        onSuccess={() => {
-          loadDemands()
+        onSuccess={(novaDemanda) => {
+          // Gravação no banco retornou sucesso com ID e Nº Controle criados
+          setCreatedDemandForSuccess(novaDemanda)
+          setSucessoModalOpen(true)
+        }}
+      />
+
+      {/* 8.1.1 Popup de Confirmação de Sucesso com Resumo e Ações */}
+      <DemandaSucessoModal
+        open={sucessoModalOpen}
+        onOpenChange={setSucessoModalOpen}
+        demand={createdDemandForSuccess}
+        onClose={async () => {
+          // Atualização imediata do grid ao fechar o popup, sem F5 e mantendo filtros
+          await loadDemands()
+        }}
+        onViewDetails={async (demanda) => {
+          // Atualiza dados no grid e abre modal de detalhes da demanda recém-criada
+          await loadDemands()
+          setShowDemandasSection(true)
+          setDemandForDirectView(demanda)
         }}
       />
 

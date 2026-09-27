@@ -45,6 +45,9 @@ interface DemandasInventarioTableProps {
   onHistorico: (demand: InventoryDemand) => void
   onCancelar: (demand: InventoryDemand, motivo: string) => Promise<void>
   onRefresh: () => void
+  externalViewDemand?: InventoryDemand | null
+  onClearExternalViewDemand?: () => void
+  lastCreatedDemand?: InventoryDemand | null
 }
 
 type QuickFilterType = 'TODAS' | 'HOJE' | 'PENDENTES' | 'EM_INVENTARIO' | 'CONCLUIDAS' | 'URGENTES'
@@ -86,6 +89,9 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   onHistorico,
   onCancelar,
   onRefresh,
+  externalViewDemand,
+  onClearExternalViewDemand,
+  lastCreatedDemand,
 }) => {
   // Filtros rápidos
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>('TODAS')
@@ -106,6 +112,30 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
 
   // Modal Visualizar Demanda
   const [viewDemand, setViewDemand] = useState<InventoryDemand | null>(null)
+
+  // Identifica demanda recém-criada para destacar aviso discreto quando não atender aos filtros ativos
+  const [justCreatedDemand, setJustCreatedDemand] = useState<InventoryDemand | null>(null)
+
+  React.useEffect(() => {
+    if (lastCreatedDemand) {
+      setJustCreatedDemand(lastCreatedDemand)
+    }
+  }, [lastCreatedDemand])
+
+  // Sincroniza abertura externa de visualização (ex.: acionada via popup de sucesso)
+  React.useEffect(() => {
+    if (externalViewDemand) {
+      setViewDemand(externalViewDemand)
+      setJustCreatedDemand(externalViewDemand)
+    }
+  }, [externalViewDemand])
+
+  const handleCloseViewDemand = () => {
+    setViewDemand(null)
+    if (onClearExternalViewDemand) {
+      onClearExternalViewDemand()
+    }
+  }
 
   const handleClearFilters = () => {
     setQuickFilter('TODAS')
@@ -200,6 +230,19 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
     filterPriority,
     filterStatus,
   ])
+
+  // Checa se a demanda criada atende ou não aos filtros ativos
+  const demandHiddenByFilter = useMemo(() => {
+    if (!justCreatedDemand) return false
+    // Se a demanda recém-criada existe no array de demands mas NÃO está presente em filteredDemands:
+    const existsInAll = demands.some(
+      (d) => d.id === justCreatedDemand.id || d.control_number === justCreatedDemand.control_number,
+    )
+    const existsInFiltered = filteredDemands.some(
+      (d) => d.id === justCreatedDemand.id || d.control_number === justCreatedDemand.control_number,
+    )
+    return existsInAll && !existsInFiltered
+  }, [justCreatedDemand, demands, filteredDemands])
 
   const renderPriorityBadge = (priority: InventoryDemandPriority) => {
     switch (priority) {
@@ -337,6 +380,25 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
           )
         })}
       </div>
+
+      {/* Alerta discreto quando a demanda recém-gerada não aparece nos filtros atuais */}
+      {demandHiddenByFilter && (
+        <div className="p-2.5 rounded-lg bg-blue-50/90 border border-blue-200 text-blue-800 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">
+              Demanda gerada com sucesso. O registro não aparece no filtro atual.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleClearFilters}
+            className="text-xs h-6 px-2 text-[#004C97] hover:bg-blue-100 font-bold"
+          >
+            Exibir todos os registros
+          </Button>
+        </div>
+      )}
 
       {/* Filtros Detalhados */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs bg-slate-50/60 p-3 rounded-lg border border-slate-200/80">
@@ -615,7 +677,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
 
       {/* Modal Visualizar Demanda com todas as MPs */}
       {viewDemand && (
-        <Dialog open={Boolean(viewDemand)} onOpenChange={() => setViewDemand(null)}>
+        <Dialog open={Boolean(viewDemand)} onOpenChange={(v) => !v && handleCloseViewDemand()}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base font-black text-slate-900 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
@@ -785,7 +847,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             </div>
 
             <DialogFooter>
-              <Button size="sm" onClick={() => setViewDemand(null)} className="text-xs">
+              <Button size="sm" onClick={handleCloseViewDemand} className="text-xs">
                 Fechar
               </Button>
             </DialogFooter>
