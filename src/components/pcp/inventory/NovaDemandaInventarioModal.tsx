@@ -783,16 +783,18 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                   </div>
 
                   {/* Linha 1: Código MP * | Descrição da MP | Corrida (opcional) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <Label className="text-xs font-semibold text-slate-700">
-                        Código MP * (ex.: ST930)
-                      </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+                    <div className="flex flex-col justify-end">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
+                          Código MP * (ex.: ST930)
+                        </Label>
+                      </div>
                       <Input
                         value={mat.material_code}
                         onChange={(e) => handleMaterialCodeChange(idx, e.target.value)}
                         placeholder="Código MP"
-                        className={`text-xs h-8 font-mono ${
+                        className={`text-xs h-9 font-mono ${
                           errorField === `mp_code_${idx}`
                             ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
                             : ''
@@ -801,32 +803,36 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-xs font-semibold text-slate-700">
-                        Descrição da MP
-                      </Label>
+                    <div className="flex flex-col justify-end">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
+                          Descrição da MP
+                        </Label>
+                      </div>
                       <Input
                         value={mat.material_description}
                         onChange={(e) =>
                           handleMaterialFieldChange(idx, 'material_description', e.target.value)
                         }
                         placeholder="Descrição técnica"
-                        className="text-xs h-8"
+                        className="text-xs h-9"
                         disabled={submitting}
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-xs font-semibold text-slate-700">
-                        Corrida (opcional)
-                      </Label>
+                    <div className="flex flex-col justify-end md:col-span-2 lg:col-span-1">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
+                          Corrida (opcional)
+                        </Label>
+                      </div>
                       <Input
                         value={mat.heat_number}
                         onChange={(e) =>
                           handleMaterialFieldChange(idx, 'heat_number', e.target.value)
                         }
                         placeholder="Nº da Corrida (opcional)"
-                        className="text-xs h-8 font-mono"
+                        className="text-xs h-9 font-mono"
                         disabled={submitting}
                       />
                     </div>
@@ -834,16 +840,18 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 
                   {/* Linha 2: Quantidade (t) * | Peso Unitário (t) | Qtd. Calculada (peças) */}
                   {/* Ordem visual exata: Quantidade → Peso → Resultado */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div>
-                      <Label className="text-xs font-semibold text-slate-700">
-                        Quantidade (t) *
-                      </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+                    <div className="flex flex-col justify-end">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
+                          Quantidade (t) *
+                        </Label>
+                      </div>
                       <Input
                         value={mat.quantity_tons_str}
                         onChange={(e) => handleTonsChange(idx, e.target.value)}
                         placeholder="Ex.: 24,00"
-                        className={`text-xs h-8 font-mono ${
+                        className={`text-xs h-9 font-mono ${
                           errorField === `mp_tons_${idx}` || mat.quantityError
                             ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
                             : ''
@@ -857,13 +865,13 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                       )}
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-slate-700">
+                    <div className="flex flex-col justify-end">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
                           Peso Unitário (t)
                         </Label>
                         {mat.weightLoading && (
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 leading-none">
                             <Loader2 className="w-2.5 h-2.5 animate-spin" /> Buscando...
                           </span>
                         )}
@@ -875,7 +883,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                             ? `${formatPtBrNumber(mat.unit_weight_t, 3, 4)} t`
                             : 'Aguardando dado do SAP'
                         }
-                        className={`text-xs h-8 font-mono bg-slate-50 cursor-not-allowed ${
+                        className={`text-xs h-9 font-mono bg-slate-50 cursor-not-allowed ${
                           mat.unit_weight_t != null
                             ? 'text-slate-800 font-bold'
                             : 'text-amber-700 bg-amber-50/50'
@@ -883,13 +891,17 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                       />
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-slate-700">
+                    <div className="flex flex-col justify-end md:col-span-2 lg:col-span-1">
+                      <div className="h-5 flex items-center justify-between mb-1">
+                        <Label className="text-xs font-semibold text-slate-700 leading-none">
                           Qtd. Calculada (peças)
                         </Label>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          Qtd (t) ÷ Peso (t)
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-400 bg-slate-100/90 border border-slate-200/60 rounded px-1.5 py-0.5 leading-none shrink-0"
+                          title="Fórmula: Quantidade (t) ÷ Peso Unitário (t)"
+                        >
+                          <Info className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                          <span>Qtd. (t) ÷ Peso (t)</span>
                         </span>
                       </div>
                       <Input
@@ -900,7 +912,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                             : '—'
                         }
                         placeholder="Calculado automaticamente"
-                        className="text-xs h-8 font-mono bg-slate-50 cursor-not-allowed font-bold text-[#004C97]"
+                        className="text-xs h-9 font-mono bg-slate-50 cursor-not-allowed font-bold text-[#004C97]"
                       />
                     </div>
                   </div>
