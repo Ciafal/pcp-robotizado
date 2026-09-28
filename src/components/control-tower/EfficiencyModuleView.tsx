@@ -36,7 +36,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 interface EfficiencyViewProps {
-  initialTab?: 'produtos' | 'linhas' | 'plantas' | 'assertividade'
+  initialTab?: 'produtos' | 'linhas' | 'centros' | 'plantas' | 'assertividade' | 'aprendizado'
 }
 
 export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
@@ -115,38 +115,37 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header com Contexto CIAFAL */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#004C97]/20 border border-[#004C97]/40 flex items-center justify-center text-[#3b82f6]">
+      {/* Header com Contexto CIAFAL — Responsivo (Desktop em linha, Tablet com quebra controlada, Mobile empilhado) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-lg bg-[#004C97]/10 border border-[#004C97]/20 flex items-center justify-center text-[#004C97] shrink-0">
             <Activity className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                Eficiência Operacional & Assertividade do PCP
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                Previsto x Realizado
               </h2>
               <Badge
                 variant="outline"
-                className="text-[10px] border-sky-500/30 text-sky-400 bg-sky-950/20 font-mono"
+                className="text-[10px] sm:text-[11px] border-[#004C97]/30 text-[#004C97] bg-[#004C97]/5 font-mono font-medium"
               >
                 {filters.plantCode === 'ALL' ? 'Todas as Plantas' : `Planta ${filters.plantCode}`}{' '}
                 &bull;{' '}
                 {filters.lineCode === 'ALL' ? 'Todas as Linhas' : `Linha ${filters.lineCode}`}
               </Badge>
             </div>
-            <p className="text-xs text-slate-400">
-              Controle preventivo de ritmo, perdas industriais, assertividade de premissas e ciclo
-              contínuo de aprendizado.
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Comparação entre programação planejada e produção realizada por centro e linha.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 pt-1 md:pt-0">
           <Button
             size="sm"
             onClick={() => handleRunAiAnalysis(productPerformances[0])}
-            className="gap-2 bg-gradient-to-r from-[#004C97] to-indigo-700 hover:from-[#003d7a] hover:to-indigo-800 text-white text-xs font-semibold shadow"
+            className="w-full sm:w-auto gap-2 bg-[#004C97] hover:bg-[#003870] text-white text-xs font-semibold shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
             Analisar Eficiência com IA
@@ -154,42 +153,49 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
         </div>
       </div>
 
-      {/* Tabs Principais da Eficiência */}
+      {/* Tabs Principais da Eficiência — Identidade CIAFAL (fundo neutro claro, azul institucional #004C97) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-lg">
+        <TabsList className="bg-slate-100/90 border border-slate-200 p-1 rounded-lg flex flex-wrap h-auto gap-1">
           <TabsTrigger
             value="produtos"
-            className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
           >
             <Layers className="w-3.5 h-3.5 mr-1.5" />
             Eficiência por Produto
           </TabsTrigger>
           <TabsTrigger
             value="linhas"
-            className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
           >
             <Factory className="w-3.5 h-3.5 mr-1.5" />
             Eficiência por Linha
           </TabsTrigger>
           <TabsTrigger
+            value="centros"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
+          >
+            <Building2 className="w-3.5 h-3.5 mr-1.5" />
+            Eficiência Centro
+          </TabsTrigger>
+          <TabsTrigger
             value="plantas"
-            className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
           >
             <Building2 className="w-3.5 h-3.5 mr-1.5" />
             Eficiência por Planta
           </TabsTrigger>
           <TabsTrigger
             value="assertividade"
-            className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
           >
             <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
             Assertividade da Programação
           </TabsTrigger>
           <TabsTrigger
             value="aprendizado"
-            className="text-xs data-[state=active]:bg-[#004C97] data-[state=active]:text-white"
+            className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white font-medium"
           >
-            <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+            <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-500 data-[state=active]:text-amber-300" />
             Ciclo de Aprendizado ({productionDeviations.length})
           </TabsTrigger>
         </TabsList>
@@ -440,7 +446,49 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
           </div>
         </TabsContent>
 
-        {/* 3. Eficiência por Planta */}
+        {/* 3. Eficiência Centro (Aba 3 na ordem solicitada: após Linhas, antes de Plantas) */}
+        <TabsContent value="centros" className="space-y-4">
+          <Card className="bg-slate-900 border-slate-800">
+            <CardHeader className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#004C97]/20 border border-[#004C97]/40 flex items-center justify-center text-[#3b82f6] mx-auto mb-3">
+                <Building2 className="w-6 h-6 text-sky-400" />
+              </div>
+              <CardTitle className="text-lg font-bold text-white">
+                Análise por Centro de Trabalho — em construção
+              </CardTitle>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+                A consolidação de eficiência e aderência por centro produtivo (laminação,
+                trefilação, corte e acabamento) está sendo integrada com os apontamentos automáticos
+                do MES 4.0.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl mx-auto">
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
+                  <div className="text-[11px] text-slate-400">Centros Mapeados</div>
+                  <div className="text-lg font-bold text-sky-400 mt-1">
+                    {filters.lineCode === 'ALL'
+                      ? 'Todos os Centros'
+                      : `Centros da Linha ${filters.lineCode}`}
+                  </div>
+                  <span className="text-[10px] text-slate-500">SAP ZPP003 / Ficha Mestra</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
+                  <div className="text-[11px] text-slate-400">Premissa Prevista x Real</div>
+                  <div className="text-lg font-bold text-emerald-400 mt-1">Conexão Ativa</div>
+                  <span className="text-[10px] text-slate-500">Cadência & Setup Padrão</span>
+                </div>
+                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
+                  <div className="text-[11px] text-slate-400">Taxonomia de Desvios</div>
+                  <div className="text-lg font-bold text-amber-400 mt-1">Habilitada</div>
+                  <span className="text-[10px] text-slate-500">Classificação com IA</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 4. Eficiência por Planta */}
         <TabsContent value="plantas" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {plants.map((p) => (
