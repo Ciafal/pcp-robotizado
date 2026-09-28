@@ -6,6 +6,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -124,6 +134,34 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
   // Chave de idempotência única por abertura/sessão do formulário
   const idempotencyKeyRef = useRef<string>('')
 
+  // Snapshot dos valores iniciais para detecção de alterações não salvas
+  const initialSnapshotRef = useRef<{
+    materialCode: string
+    materialDescription: string
+    bitola: string
+    materialGroup: string
+    priorityOrder: number | string
+    validFrom: string
+    validUntil: string
+    criterio: RawMaterialPriorityCriterion
+    descricaoOutroCriterio: string
+    active: boolean
+  }>({
+    materialCode: '',
+    materialDescription: '',
+    bitola: '',
+    materialGroup: '',
+    priorityOrder: 1,
+    validFrom: '',
+    validUntil: '',
+    criterio: 'Rotativa',
+    descricaoOutroCriterio: '',
+    active: true,
+  })
+
+  // Diálogo "Descartar alterações?"
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+
   // Erros por campo com foco no primeiro
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -156,32 +194,106 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
     idempotencyKeyRef.current = `rmp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
     if (initialData) {
-      setMaterialCode(initialData.material_code || '')
-      setMaterialDescription(initialData.material_description || '')
-      setBitola(initialData.bitola || '')
-      setMaterialGroup(initialData.material_group || '')
-      setPriorityOrder(initialData.priority_order ?? 1)
-      setValidFrom(
+      const initCode = initialData.material_code || ''
+      const initDesc = initialData.material_description || ''
+      const initBitola = initialData.bitola || ''
+      const initGroup = initialData.material_group || ''
+      const initPrio = initialData.priority_order ?? 1
+      const initFrom =
         toDisplayDate(initialData.valid_from) ||
-          toDisplayDate(new Date().toISOString().slice(0, 10)),
-      )
-      setValidUntil(toDisplayDate(initialData.valid_until))
-      setCriterio((initialData.criterio_prioridade as RawMaterialPriorityCriterion) || 'Rotativa')
-      setDescricaoOutroCriterio(initialData.descricao_outro_criterio || '')
-      setActive(initialData.active !== false)
+        toDisplayDate(new Date().toISOString().slice(0, 10))
+      const initUntil = toDisplayDate(initialData.valid_until)
+      const initCrit =
+        (initialData.criterio_prioridade as RawMaterialPriorityCriterion) || 'Rotativa'
+      const initOutro = initialData.descricao_outro_criterio || ''
+      const initActive = initialData.active !== false
+
+      setMaterialCode(initCode)
+      setMaterialDescription(initDesc)
+      setBitola(initBitola)
+      setMaterialGroup(initGroup)
+      setPriorityOrder(initPrio)
+      setValidFrom(initFrom)
+      setValidUntil(initUntil)
+      setCriterio(initCrit)
+      setDescricaoOutroCriterio(initOutro)
+      setActive(initActive)
+
+      initialSnapshotRef.current = {
+        materialCode: initCode,
+        materialDescription: initDesc,
+        bitola: initBitola,
+        materialGroup: initGroup,
+        priorityOrder: initPrio,
+        validFrom: initFrom,
+        validUntil: initUntil,
+        criterio: initCrit,
+        descricaoOutroCriterio: initOutro,
+        active: initActive,
+      }
     } else {
-      setMaterialCode('')
-      setMaterialDescription('')
-      setBitola('')
-      setMaterialGroup('Bobinas BQ')
-      setPriorityOrder(1)
-      setValidFrom(toDisplayDate(new Date().toISOString().slice(0, 10)))
-      setValidUntil('')
-      setCriterio('Rotativa')
-      setDescricaoOutroCriterio('')
-      setActive(true)
+      const initCode = ''
+      const initDesc = ''
+      const initBitola = ''
+      const initGroup = 'Bobinas BQ'
+      const initPrio = 1
+      const initFrom = toDisplayDate(new Date().toISOString().slice(0, 10))
+      const initUntil = ''
+      const initCrit: RawMaterialPriorityCriterion = 'Rotativa'
+      const initOutro = ''
+      const initActive = true
+
+      setMaterialCode(initCode)
+      setMaterialDescription(initDesc)
+      setBitola(initBitola)
+      setMaterialGroup(initGroup)
+      setPriorityOrder(initPrio)
+      setValidFrom(initFrom)
+      setValidUntil(initUntil)
+      setCriterio(initCrit)
+      setDescricaoOutroCriterio(initOutro)
+      setActive(initActive)
+
+      initialSnapshotRef.current = {
+        materialCode: initCode,
+        materialDescription: initDesc,
+        bitola: initBitola,
+        materialGroup: initGroup,
+        priorityOrder: initPrio,
+        validFrom: initFrom,
+        validUntil: initUntil,
+        criterio: initCrit,
+        descricaoOutroCriterio: initOutro,
+        active: initActive,
+      }
     }
   }, [open, initialData])
+
+  // Verifica se houve alteração nos campos em relação ao snapshot inicial
+  const hasDirtyChanges = (): boolean => {
+    const snap = initialSnapshotRef.current
+    if (materialCode.trim() !== (snap.materialCode || '').trim()) return true
+    if (materialDescription.trim() !== (snap.materialDescription || '').trim()) return true
+    if (bitola.trim() !== (snap.bitola || '').trim()) return true
+    if (materialGroup.trim() !== (snap.materialGroup || '').trim()) return true
+    if (String(priorityOrder).trim() !== String(snap.priorityOrder).trim()) return true
+    if (validFrom.trim() !== (snap.validFrom || '').trim()) return true
+    if (validUntil.trim() !== (snap.validUntil || '').trim()) return true
+    if (criterio !== snap.criterio) return true
+    if (descricaoOutroCriterio.trim() !== (snap.descricaoOutroCriterio || '').trim()) return true
+    if (active !== snap.active) return true
+    return false
+  }
+
+  // Handler de cancelamento / fechamento inteligente
+  const handleCancelRequest = () => {
+    if (isSubmitting) return
+    if (hasDirtyChanges()) {
+      setShowDiscardConfirm(true)
+    } else {
+      onClose()
+    }
+  }
 
   // Formatação de bitola com decimal por vírgula (ex: 12,70 mm)
   const handleBitolaChange = (raw: string) => {
@@ -230,10 +342,15 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
       errs.materialDescription = 'A Descrição da Matéria-Prima é obrigatória.'
     }
 
-    // Linha 3: Ordem da Prioridade (inteiro mínimo 1, não aceita 0 nem negativo)
-    const prioNum = parseInt(String(priorityOrder), 10)
-    if (isNaN(prioNum) || prioNum < 1) {
-      errs.priorityOrder = 'Informe uma ordem de prioridade maior ou igual a 1.'
+    // Linha 3: Ordem da Prioridade (inteiro maior que zero: proibir zero, negativos, decimais e texto)
+    const prioStr = String(priorityOrder).trim()
+    if (!/^\d+$/.test(prioStr)) {
+      errs.priorityOrder = 'A prioridade deve ser um número inteiro maior que zero (1, 2, 3...).'
+    } else {
+      const prioNum = parseInt(prioStr, 10)
+      if (prioNum < 1) {
+        errs.priorityOrder = 'Informe uma ordem de prioridade maior ou igual a 1.'
+      }
     }
 
     // Linha 4: Data de Início em dd/mm/aaaa
@@ -303,312 +420,285 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (!v && !isSubmitting ? onClose() : null)}>
-      <DialogContent
-        className="bg-white border-slate-200 text-slate-900 max-w-xl shadow-2xl p-0 overflow-hidden"
-        data-testid="raw-material-priority-form-modal"
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => (!v && !isSubmitting ? handleCancelRequest() : null)}
       >
-        <DialogHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-          <DialogTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#004C97]" />
-            {isEditing
-              ? 'Editar Prioridade de Matéria-Prima'
-              : 'Cadastrar Prioridade de Matéria-Prima'}
-          </DialogTitle>
-        </DialogHeader>
+        <DialogContent
+          className="bg-white border-slate-200 text-slate-900 max-w-xl shadow-2xl p-0 overflow-hidden"
+          data-testid="raw-material-priority-form-modal"
+        >
+          <DialogHeader className="p-5 pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+            <DialogTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#004C97]" />
+              {isEditing
+                ? 'Editar Prioridade de Matéria-Prima'
+                : 'Cadastrar Prioridade de Matéria-Prima'}
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs text-slate-700">
-          {/* LINHA 1: Código MP & Descrição MP */}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
-                <span>1. Código MP *</span>
-                <span className="text-[11px] font-normal text-slate-500">
-                  Pesquise no catálogo ou digite
-                </span>
-              </Label>
+          <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs text-slate-700">
+            {/* LINHA 1: Código MP & Descrição MP */}
+            <div className="space-y-3">
               <div className="space-y-1">
-                <MaterialSelector
-                  value={materialCode}
-                  lineId={lineId}
-                  onChange={(code, mat) => {
-                    setMaterialCode(code)
-                    if (mat && mat.name) {
-                      setMaterialDescription(mat.name)
-                    }
-                    if (fieldErrors.materialCode) {
-                      setFieldErrors((prev) => {
-                        const next = { ...prev }
-                        delete next.materialCode
-                        return next
-                      })
-                    }
-                  }}
-                  placeholder="Pesquisar código MP no catálogo..."
-                />
+                <Label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
+                  <span>1. Código MP *</span>
+                  <span className="text-[11px] font-normal text-slate-500">
+                    Pesquise no catálogo ou digite
+                  </span>
+                </Label>
+                <div className="space-y-1">
+                  <MaterialSelector
+                    value={materialCode}
+                    lineId={lineId}
+                    onChange={(code, mat) => {
+                      setMaterialCode(code)
+                      if (mat && mat.name) {
+                        setMaterialDescription(mat.name)
+                      }
+                      if (fieldErrors.materialCode) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev }
+                          delete next.materialCode
+                          return next
+                        })
+                      }
+                    }}
+                    placeholder="Pesquisar código MP no catálogo..."
+                  />
+                  <Input
+                    ref={codeInputRef}
+                    value={materialCode}
+                    onChange={(e) => {
+                      setMaterialCode(e.target.value.toUpperCase())
+                      if (fieldErrors.materialCode) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev }
+                          delete next.materialCode
+                          return next
+                        })
+                      }
+                    }}
+                    placeholder="Ou digite o código MP (Ex: BOB_CSN_BQ_1012)"
+                    data-testid="input-raw-material-code"
+                    className={`bg-white border-slate-300 text-slate-900 font-mono font-bold uppercase focus-visible:ring-[#004C97] ${
+                      fieldErrors.materialCode ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                    }`}
+                  />
+                </div>
+                {fieldErrors.materialCode && (
+                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {fieldErrors.materialCode}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-semibold">Descrição MP *</Label>
                 <Input
-                  ref={codeInputRef}
-                  value={materialCode}
+                  ref={descInputRef}
+                  value={materialDescription}
                   onChange={(e) => {
-                    setMaterialCode(e.target.value.toUpperCase())
-                    if (fieldErrors.materialCode) {
+                    setMaterialDescription(e.target.value)
+                    if (fieldErrors.materialDescription) {
                       setFieldErrors((prev) => {
                         const next = { ...prev }
-                        delete next.materialCode
+                        delete next.materialDescription
                         return next
                       })
                     }
                   }}
-                  placeholder="Ou digite o código MP (Ex: BOB_CSN_BQ_1012)"
-                  data-testid="input-raw-material-code"
-                  className={`bg-white border-slate-300 text-slate-900 font-mono font-bold uppercase focus-visible:ring-[#004C97] ${
-                    fieldErrors.materialCode ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                  placeholder="Ex: Bobina Laminada a Quente SAE 1012"
+                  data-testid="input-raw-material-desc"
+                  className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
+                    fieldErrors.materialDescription ? 'border-rose-500 ring-1 ring-rose-500' : ''
                   }`}
                 />
+                {fieldErrors.materialDescription && (
+                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {fieldErrors.materialDescription}
+                  </p>
+                )}
               </div>
-              {fieldErrors.materialCode && (
-                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {fieldErrors.materialCode}
-                </p>
-              )}
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold">Descrição MP *</Label>
-              <Input
-                ref={descInputRef}
-                value={materialDescription}
-                onChange={(e) => {
-                  setMaterialDescription(e.target.value)
-                  if (fieldErrors.materialDescription) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev }
-                      delete next.materialDescription
-                      return next
-                    })
-                  }
-                }}
-                placeholder="Ex: Bobina Laminada a Quente SAE 1012"
-                data-testid="input-raw-material-desc"
-                className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
-                  fieldErrors.materialDescription ? 'border-rose-500 ring-1 ring-rose-500' : ''
-                }`}
-              />
-              {fieldErrors.materialDescription && (
-                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {fieldErrors.materialDescription}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* LINHA 2: Bitola (decimal com vírgula, ex 12,70 mm) & Grupo de Mercadorias */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold">
-                Bitola (decimal com vírgula)
-              </Label>
-              <Input
-                ref={bitolaInputRef}
-                value={bitola}
-                onChange={(e) => handleBitolaChange(e.target.value)}
-                placeholder="Ex: 12,70 mm"
-                data-testid="input-raw-material-bitola"
-                className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
-                  fieldErrors.bitola ? 'border-rose-500 ring-1 ring-rose-500' : ''
-                }`}
-              />
-              <span className="text-[10px] text-slate-400">
-                Exemplo: 12,70 mm (sem ponto decimal)
-              </span>
-              {fieldErrors.bitola && (
-                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {fieldErrors.bitola}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold">Grupo de Mercadorias</Label>
+            {/* LINHA 2: Bitola (decimal com vírgula, ex 12,70 mm) & Grupo de Mercadorias */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <select
-                  value={materialGroup}
-                  onChange={(e) => setMaterialGroup(e.target.value)}
-                  data-testid="select-raw-material-group"
-                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
-                >
-                  <option value="">Selecione o grupo de mercadorias...</option>
-                  {matklGroups.length > 0 ? (
-                    matklGroups.map((g) => (
-                      <option key={g.matkl} value={g.description || g.matkl}>
-                        {g.matkl} — {g.description}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Bobinas BQ">030 — Bobinas e Tiras BQ</option>
-                      <option value="Tarugos de Aço">012 — Tarugos e Palanquilhas</option>
-                      <option value="Vergalhões e Fios">010 — Vergalhões e Fios</option>
-                      <option value="Tubos Industriais">001 — Tubos Industriais</option>
-                    </>
-                  )}
-                </select>
-                <Input
-                  value={materialGroup}
-                  onChange={(e) => setMaterialGroup(e.target.value)}
-                  placeholder="Ou digite o grupo de mercadorias"
-                  className="bg-white border-slate-300 text-slate-900 text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* LINHA 3: Ordem da Prioridade */}
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
-              <span>Ordem da Prioridade *</span>
-              <span className="text-[11px] font-bold text-[#004C97]">1 = prioridade máxima</span>
-            </Label>
-            <Input
-              ref={priorityInputRef}
-              type="number"
-              min="1"
-              step="1"
-              value={priorityOrder}
-              onChange={(e) => {
-                const val = e.target.value
-                setPriorityOrder(val)
-                if (fieldErrors.priorityOrder) {
-                  setFieldErrors((prev) => {
-                    const next = { ...prev }
-                    delete next.priorityOrder
-                    return next
-                  })
-                }
-              }}
-              data-testid="input-raw-material-priority"
-              className={`bg-white border-slate-300 text-amber-900 font-mono font-bold focus-visible:ring-[#004C97] ${
-                fieldErrors.priorityOrder ? 'border-rose-500 ring-1 ring-rose-500' : ''
-              }`}
-            />
-            {fieldErrors.priorityOrder && (
-              <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                <AlertCircle className="w-3 h-3 shrink-0" />
-                {fieldErrors.priorityOrder}
-              </p>
-            )}
-          </div>
-
-          {/* LINHA 4: Data de Início e Data de Fim em dd/mm/aaaa */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold">
-                Data de Início * (dd/mm/aaaa)
-              </Label>
-              <Input
-                ref={fromInputRef}
-                value={validFrom}
-                onChange={(e) => {
-                  setValidFrom(e.target.value)
-                  if (fieldErrors.validFrom) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev }
-                      delete next.validFrom
-                      return next
-                    })
-                  }
-                }}
-                placeholder="dd/mm/aaaa (Ex: 01/10/2026)"
-                data-testid="input-raw-material-valid-from"
-                className={`bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97] ${
-                  fieldErrors.validFrom ? 'border-rose-500 ring-1 ring-rose-500' : ''
-                }`}
-              />
-              {fieldErrors.validFrom && (
-                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {fieldErrors.validFrom}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-700 font-semibold">
-                Data de Fim (dd/mm/aaaa - opcional)
-              </Label>
-              <Input
-                ref={untilInputRef}
-                value={validUntil}
-                onChange={(e) => {
-                  setValidUntil(e.target.value)
-                  if (fieldErrors.validUntil) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev }
-                      delete next.validUntil
-                      return next
-                    })
-                  }
-                }}
-                placeholder="dd/mm/aaaa (Ex: 31/10/2026)"
-                data-testid="input-raw-material-valid-until"
-                className={`bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97] ${
-                  fieldErrors.validUntil ? 'border-rose-500 ring-1 ring-rose-500' : ''
-                }`}
-              />
-              {fieldErrors.validUntil && (
-                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {fieldErrors.validUntil}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* CRITÉRIO DA PRIORIDADE & DESCRIÇÃO QUANDO "OUTRO" */}
-          <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-slate-700">Critério da Prioridade</Label>
-              <select
-                value={criterio}
-                onChange={(e) => {
-                  const val = e.target.value as RawMaterialPriorityCriterion
-                  setCriterio(val)
-                  if (fieldErrors.descricaoOutroCriterio) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev }
-                      delete next.descricaoOutroCriterio
-                      return next
-                    })
-                  }
-                }}
-                data-testid="select-raw-material-criterion"
-                className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
-              >
-                {CRITERIOS_CATALOG.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-500 italic">
-                Classificação para uso futuro pelo motor de programação. Sem regras automáticas
-                escondidas.
-              </p>
-            </div>
-
-            {criterio === 'Outro' && (
-              <div className="space-y-1 pt-1 border-t border-slate-200">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Descrição do Critério *
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Bitola (decimal com vírgula)
                 </Label>
                 <Input
-                  ref={outroCriterioInputRef}
-                  value={descricaoOutroCriterio}
+                  ref={bitolaInputRef}
+                  value={bitola}
+                  onChange={(e) => handleBitolaChange(e.target.value)}
+                  placeholder="Ex: 12,70 mm"
+                  data-testid="input-raw-material-bitola"
+                  className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
+                    fieldErrors.bitola ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                  }`}
+                />
+                <span className="text-[10px] text-slate-400">
+                  Exemplo: 12,70 mm (sem ponto decimal)
+                </span>
+                {fieldErrors.bitola && (
+                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {fieldErrors.bitola}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-semibold">Grupo de Mercadorias</Label>
+                <div className="space-y-1">
+                  <select
+                    value={materialGroup}
+                    onChange={(e) => setMaterialGroup(e.target.value)}
+                    data-testid="select-raw-material-group"
+                    className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
+                  >
+                    <option value="">Selecione o grupo de mercadorias...</option>
+                    {matklGroups.length > 0 ? (
+                      matklGroups.map((g) => (
+                        <option key={g.matkl} value={g.description || g.matkl}>
+                          {g.matkl} — {g.description}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Bobinas BQ">030 — Bobinas e Tiras BQ</option>
+                        <option value="Tarugos de Aço">012 — Tarugos e Palanquilhas</option>
+                        <option value="Vergalhões e Fios">010 — Vergalhões e Fios</option>
+                        <option value="Tubos Industriais">001 — Tubos Industriais</option>
+                      </>
+                    )}
+                  </select>
+                  <Input
+                    value={materialGroup}
+                    onChange={(e) => setMaterialGroup(e.target.value)}
+                    placeholder="Ou digite o grupo de mercadorias"
+                    className="bg-white border-slate-300 text-slate-900 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* LINHA 3: Ordem da Prioridade */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
+                <span>Ordem da Prioridade *</span>
+                <span className="text-[11px] font-bold text-[#004C97]">1 = prioridade máxima</span>
+              </Label>
+              <Input
+                ref={priorityInputRef}
+                type="number"
+                min="1"
+                step="1"
+                value={priorityOrder}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setPriorityOrder(val)
+                  if (fieldErrors.priorityOrder) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.priorityOrder
+                      return next
+                    })
+                  }
+                }}
+                data-testid="input-raw-material-priority"
+                className={`bg-white border-slate-300 text-amber-900 font-mono font-bold focus-visible:ring-[#004C97] ${
+                  fieldErrors.priorityOrder ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                }`}
+              />
+              {fieldErrors.priorityOrder && (
+                <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  {fieldErrors.priorityOrder}
+                </p>
+              )}
+            </div>
+
+            {/* LINHA 4: Data de Início e Data de Fim em dd/mm/aaaa */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Data de Início * (dd/mm/aaaa)
+                </Label>
+                <Input
+                  ref={fromInputRef}
+                  value={validFrom}
                   onChange={(e) => {
-                    setDescricaoOutroCriterio(e.target.value)
+                    setValidFrom(e.target.value)
+                    if (fieldErrors.validFrom) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.validFrom
+                        return next
+                      })
+                    }
+                  }}
+                  placeholder="dd/mm/aaaa (Ex: 01/10/2026)"
+                  data-testid="input-raw-material-valid-from"
+                  className={`bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97] ${
+                    fieldErrors.validFrom ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                  }`}
+                />
+                {fieldErrors.validFrom && (
+                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {fieldErrors.validFrom}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Data de Fim (dd/mm/aaaa - opcional)
+                </Label>
+                <Input
+                  ref={untilInputRef}
+                  value={validUntil}
+                  onChange={(e) => {
+                    setValidUntil(e.target.value)
+                    if (fieldErrors.validUntil) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.validUntil
+                        return next
+                      })
+                    }
+                  }}
+                  placeholder="dd/mm/aaaa (Ex: 31/10/2026)"
+                  data-testid="input-raw-material-valid-until"
+                  className={`bg-white border-slate-300 text-slate-900 font-mono text-xs focus-visible:ring-[#004C97] ${
+                    fieldErrors.validUntil ? 'border-rose-500 ring-1 ring-rose-500' : ''
+                  }`}
+                />
+                {fieldErrors.validUntil && (
+                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {fieldErrors.validUntil}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* CRITÉRIO DA PRIORIDADE & DESCRIÇÃO QUANDO "OUTRO" */}
+            <div className="p-3 bg-slate-50 rounded-md border border-slate-200 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700">
+                  Critério da Prioridade
+                </Label>
+                <select
+                  value={criterio}
+                  onChange={(e) => {
+                    const val = e.target.value as RawMaterialPriorityCriterion
+                    setCriterio(val)
                     if (fieldErrors.descricaoOutroCriterio) {
                       setFieldErrors((prev) => {
                         const next = { ...prev }
@@ -617,79 +707,145 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
                       })
                     }
                   }}
-                  placeholder="Especifique o critério customizado adotado..."
-                  data-testid="input-raw-material-custom-criterion"
-                  className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
-                    fieldErrors.descricaoOutroCriterio ? 'border-rose-500 ring-1 ring-rose-500' : ''
-                  }`}
-                />
-                {fieldErrors.descricaoOutroCriterio && (
-                  <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    {fieldErrors.descricaoOutroCriterio}
-                  </p>
-                )}
+                  data-testid="select-raw-material-criterion"
+                  className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 p-2 focus:ring-1 focus:ring-[#004C97] outline-none"
+                >
+                  {CRITERIOS_CATALOG.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 italic">
+                  Classificação para uso futuro pelo motor de programação. Sem regras automáticas
+                  escondidas.
+                </p>
               </div>
-            )}
-          </div>
 
-          {/* STATUS: ATIVO / INATIVO */}
-          <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-md border border-slate-200">
-            <input
-              type="checkbox"
-              id="rawActiveCheckbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              data-testid="checkbox-raw-material-active"
-              className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] h-4 w-4 cursor-pointer"
-            />
-            <Label
-              htmlFor="rawActiveCheckbox"
-              className="text-xs text-slate-700 font-semibold cursor-pointer"
-            >
-              Status:{' '}
-              {active ? (
-                <span className="text-emerald-700 font-bold">Ativo</span>
-              ) : (
-                <span className="text-slate-500">Inativo</span>
+              {criterio === 'Outro' && (
+                <div className="space-y-1 pt-1 border-t border-slate-200">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Descrição do Critério *
+                  </Label>
+                  <Input
+                    ref={outroCriterioInputRef}
+                    value={descricaoOutroCriterio}
+                    onChange={(e) => {
+                      setDescricaoOutroCriterio(e.target.value)
+                      if (fieldErrors.descricaoOutroCriterio) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev }
+                          delete next.descricaoOutroCriterio
+                          return next
+                        })
+                      }
+                    }}
+                    placeholder="Especifique o critério customizado adotado..."
+                    data-testid="input-raw-material-custom-criterion"
+                    className={`bg-white border-slate-300 text-slate-900 focus-visible:ring-[#004C97] ${
+                      fieldErrors.descricaoOutroCriterio
+                        ? 'border-rose-500 ring-1 ring-rose-500'
+                        : ''
+                    }`}
+                  />
+                  {fieldErrors.descricaoOutroCriterio && (
+                    <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {fieldErrors.descricaoOutroCriterio}
+                    </p>
+                  )}
+                </div>
               )}
-            </Label>
-          </div>
+            </div>
 
-          <DialogFooter className="gap-2 border-t border-slate-200 pt-3 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isSubmitting}
-              onClick={onClose}
-              data-testid="modal-cancel-btn"
-              className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs"
+            {/* STATUS: ATIVO / INATIVO */}
+            <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-md border border-slate-200">
+              <input
+                type="checkbox"
+                id="rawActiveCheckbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+                data-testid="checkbox-raw-material-active"
+                className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] h-4 w-4 cursor-pointer"
+              />
+              <Label
+                htmlFor="rawActiveCheckbox"
+                className="text-xs text-slate-700 font-semibold cursor-pointer"
+              >
+                Status:{' '}
+                {active ? (
+                  <span className="text-emerald-700 font-bold">Ativo</span>
+                ) : (
+                  <span className="text-slate-500">Inativo</span>
+                )}
+              </Label>
+            </div>
+
+            <DialogFooter className="gap-2 border-t border-slate-200 pt-3 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isSubmitting}
+                onClick={handleCancelRequest}
+                data-testid="modal-cancel-btn"
+                className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                data-testid="modal-save-btn"
+                className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5 shadow-xs disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar Prioridade'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmação para descarte de alterações */}
+      <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+        <AlertDialogContent className="bg-white border-slate-200 text-slate-900 max-w-md shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-900 font-bold text-sm">
+              Descartar alterações?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-600">
+              Existem informações preenchidas que ainda não foram salvas. Deseja descartar as
+              alterações?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-end pt-2">
+            <AlertDialogCancel
+              onClick={() => setShowDiscardConfirm(false)}
+              className="text-xs border-slate-300 hover:bg-slate-100"
             >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isSubmitting}
-              data-testid="modal-save-btn"
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5 shadow-xs disabled:opacity-50"
+              Continuar editando
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDiscardConfirm(false)
+                onClose()
+              }}
+              className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Salvando...
-                </>
-              ) : isEditing ? (
-                'Salvar Alterações'
-              ) : (
-                'Salvar Prioridade'
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              Descartar alterações
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

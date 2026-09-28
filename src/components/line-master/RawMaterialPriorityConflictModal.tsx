@@ -44,10 +44,12 @@ export const RawMaterialPriorityConflictModal: React.FC<RawMaterialPriorityConfl
   onCancel,
   onConfirmReorganize,
 }) => {
-  // Monta a mensagem exata requerida na especificação
+  // Monta a mensagem requerida na especificação
   const message = isEditing
     ? `Alterar esta matéria-prima para prioridade #${targetPriority} exige reorganizar a hierarquia atual. Deseja continuar?`
-    : `Já existe uma matéria-prima cadastrada como prioridade #${targetPriority} para este Centro durante o período informado. Deseja inserir esta matéria-prima como prioridade #${targetPriority} e reorganizar automaticamente toda a hierarquia?`
+    : conflictingMaterialCode
+      ? `A prioridade ${targetPriority} já está atribuída à matéria-prima ${conflictingMaterialCode}. Deseja reorganizar as prioridades?`
+      : `A prioridade ${targetPriority} já está atribuída a outra matéria-prima. Deseja reorganizar as prioridades?`
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v && !isSubmitting ? onCancel() : null)}>
@@ -183,7 +185,7 @@ export const RawMaterialPriorityConflictModal: React.FC<RawMaterialPriorityConfl
                 Reorganizando...
               </>
             ) : (
-              'Reorganizar Hierarquia e Salvar'
+              'Reorganizar prioridades'
             )}
           </Button>
         </DialogFooter>

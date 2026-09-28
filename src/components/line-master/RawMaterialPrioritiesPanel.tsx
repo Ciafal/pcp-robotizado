@@ -2,7 +2,7 @@ import React from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Layers, Plus, Pencil, CheckCircle2, Power } from 'lucide-react'
+import { Layers, Plus, Pencil } from 'lucide-react'
 import { LineRawMaterialPriority } from '@/types/line-master'
 import { formatDatePTBR } from '@/lib/formatters-ptbr'
 
@@ -28,7 +28,6 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
   rawMaterials,
   onAddClick,
   onEditClick,
-  onToggleStatusClick,
   isReadOnly = false,
 }) => {
   // Ordenação da tabela: prioridade crescente e, dentro da mesma prioridade, data de início crescente
@@ -75,20 +74,20 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
         {/* Tabela Responsiva sem scroll horizontal forçado e sem overflow escondido */}
         <div className="w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
           <table
-            className="w-full text-left text-xs text-slate-700 min-w-[760px]"
+            className="w-full text-left text-xs text-slate-700 table-auto"
             data-testid="raw-materials-table"
           >
             <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
               <tr>
-                <th className="p-2.5 w-16 text-center">Prioridade</th>
-                <th className="p-2.5 w-32">Código MP</th>
-                <th className="p-2.5">Descrição MP</th>
-                <th className="p-2.5 w-28">Bitola</th>
-                <th className="p-2.5 w-36">Grupo Mercadorias</th>
-                <th className="p-2.5 w-28">Critério</th>
-                <th className="p-2.5 w-44">Vigência</th>
-                <th className="p-2.5 w-20 text-center">Status</th>
-                <th className="p-2.5 w-28 text-right">Ações</th>
+                <th className="p-2.5 w-16 text-center whitespace-nowrap">Prioridade</th>
+                <th className="p-2.5 w-28 whitespace-nowrap">Código MP</th>
+                <th className="p-2.5 min-w-[150px]">Descrição MP</th>
+                <th className="p-2.5 w-24 whitespace-nowrap">Bitola</th>
+                <th className="p-2.5 w-32 whitespace-nowrap">Grupo Mercadorias</th>
+                <th className="p-2.5 w-24 whitespace-nowrap">Critério</th>
+                <th className="p-2.5 w-40 whitespace-nowrap">Vigência</th>
+                <th className="p-2.5 w-20 text-center whitespace-nowrap">Status</th>
+                <th className="p-2.5 w-20 text-right whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -108,7 +107,7 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       className="hover:bg-slate-50 transition-colors"
                     >
                       {/* Prioridade */}
-                      <td className="p-2.5 text-center">
+                      <td className="p-2.5 text-center whitespace-nowrap">
                         <Badge
                           className={`font-mono font-bold text-xs ${
                             r.priority_order === 1
@@ -121,7 +120,7 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       </td>
 
                       {/* Código MP */}
-                      <td className="p-2.5 font-mono font-bold text-slate-900">
+                      <td className="p-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
                         {r.material_code}
                       </td>
 
@@ -134,7 +133,7 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       </td>
 
                       {/* Bitola */}
-                      <td className="p-2.5 text-slate-700 font-medium">
+                      <td className="p-2.5 text-slate-700 font-medium whitespace-nowrap">
                         {r.bitola ? (
                           <span className="font-mono text-slate-800">{r.bitola}</span>
                         ) : (
@@ -151,7 +150,7 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       </td>
 
                       {/* Critério */}
-                      <td className="p-2.5">
+                      <td className="p-2.5 whitespace-nowrap">
                         <Badge
                           variant="outline"
                           className="text-[10px] border-slate-200 bg-slate-50 text-slate-700 font-medium"
@@ -171,7 +170,7 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       </td>
 
                       {/* Status */}
-                      <td className="p-2.5 text-center">
+                      <td className="p-2.5 text-center whitespace-nowrap">
                         {isActive ? (
                           <Badge
                             data-testid={`badge-status-active-${r.id}`}
@@ -190,32 +189,14 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
                       </td>
 
                       {/* Ações */}
-                      <td className="p-2.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {onToggleStatusClick && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onToggleStatusClick(r)}
-                              title={isActive ? 'Inativar prioridade' : 'Ativar prioridade'}
-                              data-testid={`btn-toggle-status-${r.id}`}
-                              className="h-7 px-1.5 text-[11px] text-slate-600 hover:text-slate-900"
-                            >
-                              <Power
-                                className={`w-3.5 h-3.5 ${
-                                  isActive
-                                    ? 'text-amber-600 hover:text-amber-700'
-                                    : 'text-emerald-600 hover:text-emerald-700'
-                                }`}
-                              />
-                            </Button>
-                          )}
+                      <td className="p-2.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => onEditClick(r)}
                             data-testid={`btn-edit-raw-material-${r.material_code}`}
-                            className="h-7 px-2 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50 gap-1"
+                            className="h-7 px-2.5 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50 gap-1"
                           >
                             <Pencil className="w-3 h-3" />
                             Editar
