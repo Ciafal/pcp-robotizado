@@ -664,7 +664,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           centerCode: lineCode,
           productCode: selectedMaterial.material_code,
           rawMaterialCode: evalTempo.blockingItem?.raw_material_code || rawCode,
-          targetDateTime: typeof targetStart === 'string' ? targetStart : targetStart.toISOString(),
+          targetDateTime: targetStart,
           tempoMinimoMinutos: evalTempo.tempoMinimoExigidoMinutos,
           antecedenciaDisponivelMinutos: evalTempo.antecedenciaDisponivelMinutos,
           primeiroHorarioPermitido: evalTempo.primeiroInicioPermitidoFormatado,

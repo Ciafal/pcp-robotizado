@@ -805,6 +805,8 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Salvando...
                   </>
+                ) : isEditing ? (
+                  'Salvar Alterações'
                 ) : (
                   'Salvar Prioridade'
                 )}
