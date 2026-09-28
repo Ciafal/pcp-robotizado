@@ -127,6 +127,13 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
   // Flags
   const [formFirstRun, setFormFirstRun] = useState<boolean>(false)
   const [formAllowOutOfStd, setFormAllowOutOfStd] = useState<boolean>(false)
+
+  // Bloco 7: Tempo Mínimo PCP
+  const [formTempoUnidade, setFormTempoUnidade] = useState<
+    'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
+  >('')
+  const [formTempoValor, setFormTempoValor] = useState<string>('')
+
   const [formStatus, setFormStatus] = useState<'Ativo' | 'Inativo'>('Ativo')
   const [formNotes, setFormNotes] = useState<string>('')
 
@@ -256,6 +263,8 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     setFormReductionPct('')
     setFormFirstRun(false)
     setFormAllowOutOfStd(false)
+    setFormTempoUnidade('')
+    setFormTempoValor('')
     setFormStatus('Ativo')
     setFormNotes('')
     setIsModalOpen(true)
@@ -294,6 +303,14 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
 
     setFormFirstRun(Boolean(item.first_run))
     setFormAllowOutOfStd(Boolean(item.allow_out_of_standard_mp))
+    setFormTempoUnidade(
+      (item.tempo_minimo_pcp_unidade as 'Minutos' | 'Horas' | 'Dias' | 'Semanas') || '',
+    )
+    setFormTempoValor(
+      item.tempo_minimo_pcp_valor != null
+        ? formatBrNumber(item.tempo_minimo_pcp_valor, item.tempo_minimo_pcp_valor % 1 === 0 ? 0 : 2)
+        : '',
+    )
     setFormStatus(item.status || 'Ativo')
     setFormNotes(item.notes || '')
     setIsModalOpen(true)
@@ -388,6 +405,8 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
       reduction_percentage: formReductionPct,
       first_run: formFirstRun,
       allow_out_of_standard_mp: formAllowOutOfStd,
+      tempo_minimo_pcp_unidade: formTempoUnidade,
+      tempo_minimo_pcp_valor: formTempoValor,
       status: formStatus,
       notes: formNotes.trim(),
     }
@@ -403,10 +422,13 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
       const firstErr = Object.values(errors)[0]
+      const errorTitle = errors.tempo_minimo_pcp
+        ? 'Não foi possível salvar. Verifique os campos do Tempo mínimo PCP.'
+        : 'Campos com divergência'
       toast({
         variant: 'destructive',
-        title: 'Campos com divergência',
-        description: firstErr,
+        title: errorTitle,
+        description: errors.tempo_minimo_pcp || firstErr,
       })
       return
     }
@@ -444,9 +466,12 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
       loadData()
       if (onRefreshParent) onRefreshParent()
     } catch (err: any) {
+      const isTempoErr = err?.message?.includes('tempo mínimo')
       toast({
         variant: 'destructive',
-        title: 'Erro ao salvar',
+        title: isTempoErr
+          ? 'Não foi possível salvar. Verifique os campos do Tempo mínimo PCP.'
+          : 'Erro ao salvar',
         description: err.message || 'Falha ao salvar matéria-prima por aplicação.',
       })
     } finally {
@@ -651,6 +676,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                   <th className="p-2.5 whitespace-nowrap text-right">Comp. Laminado</th>
                   <th className="p-2.5 whitespace-nowrap text-right">Faixa Comp. MP</th>
                   <th className="p-2.5 whitespace-nowrap text-center">Redução (1:X | %)</th>
+                  <th className="p-2.5 whitespace-nowrap text-center">Tempo Mínimo PCP</th>
                   <th className="p-2.5 whitespace-nowrap text-center">1ª Corrida</th>
                   <th className="p-2.5 whitespace-nowrap text-center">Fora Padrão MP</th>
                   <th className="p-2.5 whitespace-nowrap text-center">Status</th>
@@ -660,7 +686,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               <tbody className="divide-y divide-slate-100">
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="p-6 text-center text-slate-400 italic text-xs">
+                    <td colSpan={14} className="p-6 text-center text-slate-400 italic text-xs">
                       Nenhuma matéria-prima por aplicação encontrada com os filtros selecionados.
                       Clique em &quot;Adicionar matéria-prima&quot; para cadastrar.
                     </td>
@@ -795,6 +821,25 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                             </div>
                           ) : (
                             <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        {/* Tempo Mínimo PCP */}
+                        <td className="p-2.5 text-center whitespace-nowrap">
+                          {item.tempo_minimo_pcp_valor != null && item.tempo_minimo_pcp_unidade ? (
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[11px] bg-blue-50 text-[#004C97] border-blue-200 font-semibold"
+                              data-testid={`badge-tempo-minimo-${item.id}`}
+                            >
+                              {formatBrNumber(
+                                item.tempo_minimo_pcp_valor,
+                                item.tempo_minimo_pcp_valor % 1 === 0 ? 0 : 2,
+                              )}{' '}
+                              {item.tempo_minimo_pcp_unidade}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">Não definido</span>
                           )}
                         </td>
 
@@ -1370,7 +1415,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
             {/* Bloco 6: Flags de Sequenciamento & Autorização Técnica */}
             <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
               <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
-                6. Controle de Sequenciamento & Exceção Técnica
+                6. CONTROLE DE SEQUENCIAMENTO & EXECUÇÃO TÉCNICA
               </span>
 
               <div className="space-y-3">
@@ -1429,7 +1474,106 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               </div>
             </div>
 
-            {/* Bloco 7: Status & Observações */}
+            {/* Bloco 7: TEMPO MÍNIMO PCP */}
+            <div
+              className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3"
+              data-testid="bloco-tempo-minimo-pcp"
+            >
+              <div>
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
+                  7. TEMPO MÍNIMO PCP
+                </span>
+                <p className="text-[11px] text-slate-600 leading-tight mt-0.5">
+                  Define a antecedência mínima necessária para que esta matéria-prima possa ser
+                  utilizada em uma programação do PCP.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Campo 1: Unidade de tempo */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="select-tempo-minimo-unidade"
+                    className="text-xs text-slate-700 font-semibold"
+                  >
+                    Unidade de tempo
+                  </Label>
+                  <select
+                    id="select-tempo-minimo-unidade"
+                    data-testid="select-tempo-minimo-unidade"
+                    value={formTempoUnidade}
+                    onChange={(e) => {
+                      const nextUnidade = e.target.value as
+                        | 'Minutos'
+                        | 'Horas'
+                        | 'Dias'
+                        | 'Semanas'
+                        | ''
+                      setFormTempoUnidade(nextUnidade)
+                      if (!nextUnidade) {
+                        setFormTempoValor('')
+                      }
+                      setFieldErrors((prev) => ({ ...prev, tempo_minimo_pcp: undefined }))
+                    }}
+                    className={`w-full bg-white border rounded text-xs text-slate-900 h-8 px-2 focus:ring-1 focus:ring-[#004C97] outline-none ${
+                      fieldErrors.tempo_minimo_pcp
+                        ? 'border-red-500 ring-1 ring-red-500'
+                        : 'border-slate-300'
+                    }`}
+                  >
+                    <option value="">Selecione a unidade</option>
+                    <option value="Minutos">Minutos</option>
+                    <option value="Horas">Horas</option>
+                    <option value="Dias">Dias</option>
+                    <option value="Semanas">Semanas</option>
+                  </select>
+                </div>
+
+                {/* Campo 2: Tempo mínimo de antecedência */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="input-tempo-minimo-valor"
+                    className="text-xs text-slate-700 font-semibold"
+                  >
+                    Tempo mínimo de antecedência
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="input-tempo-minimo-valor"
+                      data-testid="input-tempo-minimo-valor"
+                      placeholder={formTempoUnidade ? 'Ex: 12' : 'Selecione a unidade primeiro'}
+                      disabled={!formTempoUnidade}
+                      value={formTempoValor}
+                      onChange={(e) => {
+                        setFormTempoValor(e.target.value)
+                        setFieldErrors((prev) => ({ ...prev, tempo_minimo_pcp: undefined }))
+                      }}
+                      className={`h-8 text-xs font-mono bg-white disabled:bg-slate-100 disabled:text-slate-400 ${
+                        fieldErrors.tempo_minimo_pcp
+                          ? 'border-red-500 ring-1 ring-red-500'
+                          : 'border-slate-300'
+                      }`}
+                    />
+                    {formTempoUnidade && (
+                      <span className="absolute right-2.5 top-2 text-[11px] text-slate-500 font-medium pointer-events-none">
+                        {formTempoUnidade.toLowerCase()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {fieldErrors.tempo_minimo_pcp && (
+                <p
+                  className="text-[11px] text-red-600 font-medium"
+                  data-testid="error-tempo-minimo-pcp"
+                >
+                  {fieldErrors.tempo_minimo_pcp}
+                </p>
+              )}
+            </div>
+
+            {/* Bloco 8: Status & Observações */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div className="space-y-1">
                 <Label className="text-xs text-slate-700 font-semibold">Status *</Label>
