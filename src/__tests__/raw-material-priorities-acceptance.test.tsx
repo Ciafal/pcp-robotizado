@@ -199,6 +199,7 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
         isEditing={false}
         targetPriority={1}
         targetMaterialCode="BOB_NOVA_01"
+        conflictingMaterialCode="BOB_CSN_BQ_1012"
         impactList={impactList}
         onCancel={handleCancel}
         onConfirmReorganize={handleReorganize}
@@ -207,7 +208,9 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
 
     // Mensagem de conflito
     expect(
-      screen.getByText(/Já existe uma matéria-prima cadastrada como prioridade #1/i),
+      screen.getByText(
+        /A prioridade 1 já está atribuída à matéria-prima BOB_CSN_BQ_1012. Deseja reorganizar as prioridades\?/i,
+      ),
     ).toBeTruthy()
     // Itens na tabela de impacto
     expect(screen.getByText('BOB_NOVA_01')).toBeTruthy()
@@ -445,7 +448,7 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
   })
 
   // T4: Cancelar com dados alterados pede "Descartar alterações?"
-  it('T4: Cancelar com dados alterados exibe confirmação "Descartar alterações?"', async () => {
+  it('T4: Cancelar com dados alterados exibe confirmação "Descartar alterações?" e botões Continuar editando e Descartar alterções', async () => {
     const handleClose = vi.fn()
     render(
       <RawMaterialPriorityModal
@@ -470,6 +473,8 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
           'Existem informações preenchidas que ainda não foram salvas. Deseja descartar as alterações?',
         ),
       ).toBeTruthy()
+      expect(screen.getByText('Continuar editando')).toBeTruthy()
+      expect(screen.getByText('Descartar alterções')).toBeTruthy()
     })
     expect(handleClose).not.toHaveBeenCalled()
   })
@@ -533,10 +538,10 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
       />,
     )
 
-    expect(screen.getByText('Prioridade já cadastrada para esta Matéria-Prima')).toBeTruthy()
-    expect(screen.getByText('BOB_CSN_BQ_1012')).toBeTruthy()
+    expect(screen.getAllByText('Prioridade já cadastrada').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/BOB_CSN_BQ_1012/).length).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getByText('Deseja realmente alterar a prioridade desta matéria-prima?'),
+      screen.getByText('Tem certeza de que deseja alterar a prioridade desta matéria-prima?'),
     ).toBeTruthy()
 
     const confirmBtn = screen.getByTestId('btn-confirm-existing-priority')
@@ -570,10 +575,9 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
         rawMaterials={mockRawMaterials}
         onAddClick={() => {}}
         onEditClick={() => {}}
-        onToggleStatusClick={() => {}}
       />,
     )
-    expect(screen.getByText('3 cadastradas')).toBeTruthy()
+    expect(screen.getByText(/Prioridades de Matéria-Prima & Bobinas \(3\)/i)).toBeTruthy()
   })
 
   // T9: Validação estrita de número inteiro positivo para prioridade
@@ -617,11 +621,10 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
         rawMaterials={mockRawMaterials}
         onAddClick={handleAdd}
         onEditClick={() => {}}
-        onToggleStatusClick={() => {}}
       />,
     )
 
-    expect(screen.getByText('Prioridades de Matéria-Prima (MP)')).toBeTruthy()
+    expect(screen.getByText(/Prioridades de Matéria-Prima & Bobinas/i)).toBeTruthy()
     const addBtn = screen.getByTestId('btn-add-raw-material-priority')
     fireEvent.click(addBtn)
     expect(handleAdd).toHaveBeenCalledTimes(1)

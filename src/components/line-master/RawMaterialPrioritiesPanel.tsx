@@ -71,10 +71,10 @@ export const RawMaterialPrioritiesPanel: React.FC<RawMaterialPrioritiesPanelProp
       </CardHeader>
 
       <CardContent className="p-4 pt-3">
-        {/* Tabela Responsiva sem scroll horizontal forçado e sem overflow escondido */}
+        {/* Tabela Responsiva com rolagem interna apenas quando necessário para evitar scroll global */}
         <div className="w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
           <table
-            className="w-full text-left text-xs text-slate-700 table-auto"
+            className="w-full text-left text-xs text-slate-700 table-auto min-w-[760px] lg:min-w-full"
             data-testid="raw-materials-table"
           >
             <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">

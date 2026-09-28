@@ -503,6 +503,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [isSavingRawMaterial, setIsSavingRawMaterial] = useState<boolean>(false)
   const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false)
   const [conflictImpactList, setConflictImpactList] = useState<HierarchyImpactItem[]>([])
+  const [conflictingMaterialCode, setConflictingMaterialCode] = useState<string>('')
   const [isExistingPriorityModalOpen, setIsExistingPriorityModalOpen] = useState<boolean>(false)
   const [existingRecordForConfirm, setExistingRecordForConfirm] =
     useState<LineRawMaterialPriority | null>(null)
@@ -998,6 +999,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setIsSavingRawMaterial(true)
     try {
       const isEditing = Boolean(formData.id)
+      const prevRecord = formData.id ? rawMaterials.find((m) => m.id === formData.id) : null
+      const prevPriority = prevRecord?.priority_order ?? editingRawPriority?.priority_order ?? null
 
       const result = await lineMasterService.saveRawMaterialPriority({
         id: formData.id,
@@ -1020,17 +1023,21 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       if (reorganize) {
         const count = result.reorganizedCount || conflictImpactList.length
         toast({
-          title: 'Prioridade salva com sucesso.',
+          title: 'Prioridade de matéria-prima salva com sucesso.',
           description: `A hierarquia foi reorganizada automaticamente. ${count} prioridades foram atualizadas.`,
         })
       } else if (isEditing) {
+        const diffText =
+          prevPriority !== null && prevPriority !== formData.priority_order
+            ? `Prioridade da matéria-prima ${formData.material_code} alterada de #${prevPriority} para #${formData.priority_order} com sucesso.`
+            : `Prioridade alterada com sucesso.`
         toast({
-          title: 'Prioridade de MP atualizada com sucesso.',
+          title: diffText,
           description: `Material ${formData.material_code} atualizado na prioridade #${formData.priority_order}.`,
         })
       } else {
         toast({
-          title: 'Prioridade de MP salva com sucesso.',
+          title: 'Prioridade de matéria-prima salva com sucesso.',
           description: `Material ${formData.material_code} cadastrado na prioridade #${formData.priority_order}.`,
         })
       }
@@ -1055,6 +1062,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             is_target: true,
           },
         ]
+        const conflicting = rawMaterials.find(
+          (m) =>
+            m.active !== false &&
+            (!formData.id || m.id !== formData.id) &&
+            m.priority_order === formData.priority_order,
+        )
+        setConflictingMaterialCode(conflicting?.material_code || '')
         setConflictImpactList(impact)
         setPendingRawPayload(formData)
         setIsConflictModalOpen(true)
@@ -1101,6 +1115,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     // Checagem prévia de conflito no front-end para abrir o popup de conflito de prioridade
     const impact = calculateConflictImpact(formData)
     if (impact && impact.length > 1) {
+      const conflicting = rawMaterials.find(
+        (m) =>
+          m.active !== false &&
+          (!formData.id || m.id !== formData.id) &&
+          m.priority_order === formData.priority_order,
+      )
+      setConflictingMaterialCode(conflicting?.material_code || '')
       setConflictImpactList(impact)
       setPendingRawPayload(formData)
       setIsConflictModalOpen(true)
@@ -3492,11 +3513,13 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         targetPriority={pendingRawPayload?.priority_order ?? 1}
         targetMaterialCode={pendingRawPayload?.material_code ?? ''}
         targetMaterialDescription={pendingRawPayload?.material_description}
+        conflictingMaterialCode={conflictingMaterialCode}
         impactList={conflictImpactList}
         isSubmitting={isSavingRawMaterial}
         onCancel={() => {
           setIsConflictModalOpen(false)
           setPendingRawPayload(null)
+          setConflictingMaterialCode('')
         }}
         onConfirmReorganize={handleConfirmReorganize}
       />

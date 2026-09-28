@@ -840,8 +840,8 @@ export const RawMaterialPriorityModal: React.FC<RawMaterialPriorityModalProps> =
               }}
               className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold"
             >
-              Descartar alterações
-            </AlertDialogAction>
+              Descartar alterções
+            </AlertDialogAction>{' '}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

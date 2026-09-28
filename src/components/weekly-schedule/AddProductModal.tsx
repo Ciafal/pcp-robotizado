@@ -636,8 +636,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     const evaluatedStatusLabel = mpControlEvaluation.statusLabel
     // Validação de Tempo Mínimo PCP antes de submeter
     if (rawMaterialApplications && rawMaterialApplications.length > 0) {
-      const targetStart = calculatedDates.startDateTime || calculatedDates.startDate || new Date()
-      const rawCode = selectedRawMaterialOption?.raw_material_code || ''
+      const targetStart = `${selectedDay}T${calculationResult.startTime || '06:00'}:00`
+      const rawCode = primaryMpRow?.materialCode || ''
       const allMpCodes: string[] = []
       if (rawCode) allMpCodes.push(rawCode)
       if (rawMaterialRows && Array.isArray(rawMaterialRows)) {

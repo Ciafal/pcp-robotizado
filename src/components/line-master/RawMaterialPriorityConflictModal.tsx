@@ -64,7 +64,7 @@ export const RawMaterialPriorityConflictModal: React.FC<RawMaterialPriorityConfl
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-amber-950 flex items-center gap-2">
-                Conflito de Prioridade
+                Prioridade já utilizada
               </DialogTitle>
               <p className="text-xs text-amber-800 mt-0.5">
                 Sobreposição de vigência detectada para a prioridade #{targetPriority}
