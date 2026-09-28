@@ -85,6 +85,8 @@ import {
 import { sapMrpService } from '@/services/sap-mrp-service'
 import { bottleneckMatrixService } from '@/services/bottleneck-rules-engine'
 import { MatrixResolutionResult } from '@/types/sap-mrp'
+import { evaluateTempoMinimoPcp } from '@/services/tempo-minimo-pcp-engine'
+import { pcpAuditService } from '@/services/pcp-audit-service'
 
 interface AddProductModalProps {
   isOpen: boolean
@@ -98,6 +100,8 @@ interface AddProductModalProps {
   targetShiftCode?: string
   targetShiftName?: string
   targetCrewName?: string
+  rawMaterialApplications?: any[]
+  onBlockedTempoMinimo?: (evaluation: any) => void
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({
@@ -108,12 +112,13 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   lineOverview,
   officialMaterials,
   existingItems = [],
-  targetDay = 'SEG',
-  targetShiftCode = 'T1_L1',
-  targetShiftName = '1º Turno Matutino',
-  targetCrewName = 'Turma A',
-}) => {
-  // Cascata: 1. Família -> 2. Produto
+  targetDay,
+  targetShiftCode,
+  targetShiftName,
+  targetCrewName,
+  rawMaterialApplications = [],
+  onBlockedTempoMinimo,
+}) => {  // Cascata: 1. Família -> 2. Produto
   const [selectedFamilyCode, setSelectedFamilyCode] = useState<string>('')
   const [selectedMaterial, setSelectedMaterial] = useState<OfficialMaterialOption | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -630,6 +635,50 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     // BLOCO B: Status do MP persistido no item salvo (não só toast — alertas NÃO podem desaparecer após salvar)
     const evaluatedStatus = mpControlEvaluation.status
     const evaluatedStatusLabel = mpControlEvaluation.statusLabel
+    // Validação de Tempo Mínimo PCP antes de submeter
+    if (rawMaterialApplications && rawMaterialApplications.length > 0) {
+      const targetStart = calculatedDates.startDateTime || calculatedDates.startDate || new Date()
+      const rawCode = selectedRawMaterialOption?.raw_material_code || ''
+      const allMpCodes: string[] = []
+      if (rawCode) allMpCodes.push(rawCode)
+      if (rawMaterialRows && Array.isArray(rawMaterialRows)) {
+        for (const r of rawMaterialRows) {
+          if (r.materialCode && !allMpCodes.includes(r.materialCode)) {
+            allMpCodes.push(r.materialCode)
+          }
+        }
+      }
+
+      const evalTempo = evaluateTempoMinimoPcp({
+        centerCode: lineCode,
+        productCode: selectedMaterial.material_code,
+        rawMaterialCode: rawCode,
+        rawMaterialCodes: allMpCodes,
+        targetStartDateTime: targetStart,
+        now: new Date(),
+        applications: rawMaterialApplications,
+      })
+
+      if (!evalTempo.isValid) {
+        // Auditoria de tentativa bloqueada
+        pcpAuditService.recordBlockedTempoMinimoPcp({
+          centerCode: lineCode,
+          productCode: selectedMaterial.material_code,
+          rawMaterialCode: evalTempo.blockingItem?.raw_material_code || rawCode,
+          targetDateTime: typeof targetStart === 'string' ? targetStart : targetStart.toISOString(),
+          tempoMinimoMinutos: evalTempo.tempoMinimoExigidoMinutos,
+          antecedenciaDisponivelMinutos: evalTempo.antecedenciaDisponivelMinutos,
+          primeiroHorarioPermitido: evalTempo.primeiroInicioPermitidoFormatado,
+          originAction: 'inclusao_item_add_product_modal',
+        })
+
+        if (onBlockedTempoMinimo) {
+          onBlockedTempoMinimo(evalTempo)
+        }
+        return
+      }
+    }
+
     const deficitTons =
       mpControlEvaluation.differenceTons < 0 ? Math.abs(mpControlEvaluation.differenceTons) : 0
 

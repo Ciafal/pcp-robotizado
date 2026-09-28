@@ -478,6 +478,46 @@ class PCPAuditService {
     })
   }
 
+  async recordBlockedTempoMinimoPcp(params: {
+    centerCode?: string
+    productCode?: string
+    rawMaterialCode?: string
+    targetDateTime?: string
+    tempoMinimoMinutos?: number
+    antecedenciaDisponivelMinutos?: number
+    primeiroHorarioPermitido?: string
+    originAction?: string
+    userRole?: string
+    errorMessage?: string
+  }): Promise<boolean> {
+    try {
+      const details: Record<string, unknown> = {
+        center: params.centerCode || 'N/D',
+        product_code: params.productCode || 'N/D',
+        raw_material_code: params.rawMaterialCode || 'N/D',
+        target_datetime: params.targetDateTime || '',
+        tempo_minimo_exigido_minutos: params.tempoMinimoMinutos || 0,
+        antecedencia_disponivel_minutos: params.antecedenciaDisponivelMinutos || 0,
+        primeiro_horario_permitido: params.primeiroHorarioPermitido || '',
+        action_origin: params.originAction || 'operacao_semanal',
+        error_message: params.errorMessage || 'Tempo mínimo PCP não atendido',
+      }
+
+      await this.recordLog({
+        action: 'PROGRAMACAO_BLOQUEADA_TEMPO_MINIMO_PCP',
+        entity: 'weekly_schedules',
+        resource: 'weekly_schedules',
+        details,
+        userRole: params.userRole || 'PCP_PLANNER',
+        success: false,
+      })
+      return true
+    } catch (err) {
+      console.warn('[pcpAuditService] Erro ao registrar bloqueio de Tempo Mínimo PCP:', err)
+      return false
+    }
+  },
+
   async recordFailureAttempt(params: {
     operation: string
     module: string

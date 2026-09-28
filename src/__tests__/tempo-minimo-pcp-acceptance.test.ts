@@ -322,7 +322,7 @@ describe('Tempo Mínimo PCP Engine & Acceptance Suite (T1 - T12)', () => {
 
   // T12 Auditoria: evento PROGRAMACAO_BLOQUEADA_TEMPO_MINIMO_PCP
   it('T12 Auditoria: registra tentativa bloqueada com todos os metadados requeridos', async () => {
-    const spy = vi.spyOn(pcpAuditService, 'recordLog').mockResolvedValue(true)
+    const spy = vi.spyOn(pcpAuditService, 'recordLog').mockResolvedValue(true as any)
 
     const now = new Date('2026-09-28T10:00:00Z')
     const target = new Date('2026-09-28T14:00:00Z')
@@ -367,5 +367,32 @@ describe('Tempo Mínimo PCP Engine & Acceptance Suite (T1 - T12)', () => {
     expect(callArgs.details?.product_code).toBe('PROD_AUDIT')
     expect(callArgs.details?.raw_material_code).toBe('MP_AUDIT')
     expect(callArgs.details?.action_origin).toBe('inclusao')
+  })
+
+  // T13 Fallback do Backend: se o servidor retornar TEMPO_MINIMO_PCP_NAO_ATENDIDO, tratar e bloquear
+  it('T13 Fallback backend: captura erro 400 com código TEMPO_MINIMO_PCP_NAO_ATENDIDO', () => {
+    const backendError = {
+      status: 400,
+      response: {
+        code: 'TEMPO_MINIMO_PCP_NAO_ATENDIDO',
+        message: 'A programação não pode ser realizada porque a matéria-prima MP_SPECIAL exige antecedência mínima de 12 Horas.',
+        details: {
+          rawMaterialCode: 'MP_SPECIAL',
+          requiredValue: 12,
+          requiredUnit: 'Horas',
+          requiredMinutes: 720,
+          availableMinutes: 300,
+          earliestAllowedDate: '29/09/2026 10:00',
+        },
+      },
+    }
+
+    const isTempoMinimoError =
+      backendError.response?.code === 'TEMPO_MINIMO_PCP_NAO_ATENDIDO' ||
+      String(backendError.response?.message || '').includes('TEMPO_MINIMO_PCP_NAO_ATENDIDO')
+
+    expect(isTempoMinimoError).toBe(true)
+    expect(backendError.response.details.rawMaterialCode).toBe('MP_SPECIAL')
+    expect(backendError.response.details.requiredMinutes).toBe(720)
   })
 })

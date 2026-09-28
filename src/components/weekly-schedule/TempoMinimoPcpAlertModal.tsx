@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { TempoMinimoPcpEvaluationResult } from '@/types/raw-material-application'
+import { TempoMinimoPcpEvaluationResult } from '@/services/tempo-minimo-pcp-engine'
 import { formatBrNumber } from '@/lib/number-format'
 
 export interface TempoMinimoPcpAlertModalData {
