@@ -1134,6 +1134,8 @@ export const App: React.FC = () => {
                         path="semanal"
                         element={<MasterPlanningPage initialHorizon="SEMANAL" />}
                       />
+                      <Route path="diaria" element={<MasterPlanningPage />} />
+                      <Route path="dia" element={<MasterPlanningPage />} />
                     </Route>
                     <Route
                       path="/planejamento-mestre"

@@ -22,7 +22,9 @@ import {
   Factory,
   Info,
   CalendarDays,
+  Sun,
 } from 'lucide-react'
+import { DailyDeviationView } from './DailyDeviationView'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,7 +60,7 @@ interface MasterPlanningPageProps {
   initialHorizon?: 'ANUAL' | 'MENSAL' | 'SEMANAL'
 }
 
-type MainHorizon = 'visao-geral' | 'anual' | 'mensal' | 'semanal'
+type MainHorizon = 'visao-geral' | 'anual' | 'mensal' | 'semanal' | 'diaria'
 
 interface LineCapacityCalc {
   lineId: string
@@ -114,8 +116,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
     if (q === 'anual') return 'anual'
     if (q === 'mensal') return 'mensal'
     if (q === 'semanal') return 'semanal'
+    if (q === 'diaria' || q === 'dia') return 'diaria'
 
     const path = location.pathname.toLowerCase()
+    if (path.endsWith('/diaria') || path.endsWith('/dia')) return 'diaria'
     if (path.endsWith('/anual')) return 'anual'
     if (path.endsWith('/mensal')) return 'mensal'
     if (path.endsWith('/semanal')) return 'semanal'
@@ -545,7 +549,7 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
             Visão ativa: <strong className="text-slate-700">{activeHorizon.toUpperCase()}</strong>
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <button
             type="button"
             onClick={() => handleSelectHorizon('visao-geral')}
@@ -623,6 +627,27 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
               className={`text-[11px] leading-snug line-clamp-2 ${activeHorizon === 'semanal' ? 'text-white/90' : 'text-slate-500'}`}
             >
               Horizonte operacional Semana &rarr; Dia &rarr; Turno integrado à programação semanal.
+            </p>
+          </button>
+
+          {/* NOVO CARD/ABA VISÃO DIÁRIA (Requisito 1) */}
+          <button
+            type="button"
+            onClick={() => handleSelectHorizon('diaria')}
+            className={`p-3 rounded-lg border text-left transition-all ${
+              activeHorizon === 'diaria'
+                ? 'bg-[#004C97] text-white border-[#004C97] shadow-xs ring-1 ring-[#004C97]'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold uppercase tracking-wide">VISÃO DIÁRIA</span>
+              <Sun className="w-4 h-4 opacity-80" />
+            </div>
+            <p
+              className={`text-[11px] leading-snug line-clamp-2 ${activeHorizon === 'diaria' ? 'text-white/90' : 'text-slate-500'}`}
+            >
+              Horizonte operacional Dia &rarr; Turno &rarr; Ordem &rarr; Material.
             </p>
           </button>
         </div>
@@ -930,6 +955,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                       <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                         <th className="py-2.5 px-3">Produto / SKU</th>
                         <th className="py-2.5 px-3">Linha</th>
+                        {/* COLUNA OBRIGATÓRIA ORDEM DE PRODUÇÃO (Requisito 5) */}
+                        <th className="py-2.5 px-3 bg-blue-50/70 border-x border-blue-200 text-[#004C97]">
+                          ORDEM DE PRODUÇÃO
+                        </th>
                         <th className="py-2.5 px-3 text-right">Previsto CRM (t)</th>
                         <th className="py-2.5 px-3 text-right">Planejado PCP (t)</th>
                         <th className="py-2.5 px-3 text-right">Programado (t)</th>
@@ -949,6 +978,18 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                             </div>
                           </td>
                           <td className="py-2.5 px-3 font-bold text-slate-700">{item.line_code}</td>
+                          {/* Coluna Ordem de Produção */}
+                          <td className="py-2.5 px-3 bg-blue-50/40 border-x border-blue-100 whitespace-nowrap">
+                            {item.production_order ? (
+                              <span className="font-mono font-bold text-[#004C97] text-xs bg-white px-2 py-0.5 rounded border border-blue-200 inline-block">
+                                {item.production_order}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">
+                                OP não disponível
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                             {item.crm_forecast_tons.toFixed(1).replace('.', ',')}
                           </td>
@@ -1248,6 +1289,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                       <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                         <th className="py-2.5 px-3">Produto / SKU</th>
                         <th className="py-2.5 px-3">Linha</th>
+                        {/* COLUNA OBRIGATÓRIA ORDEM DE PRODUÇÃO (Requisito 5) */}
+                        <th className="py-2.5 px-3 bg-blue-50/70 border-x border-blue-200 text-[#004C97]">
+                          ORDEM DE PRODUÇÃO
+                        </th>
                         <th className="py-2.5 px-3 text-right">Previsto CRM (t)</th>
                         <th className="py-2.5 px-3 text-right">Planejado PCP (t)</th>
                         <th className="py-2.5 px-3 text-right">Programado (t)</th>
@@ -1267,6 +1312,18 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                             </div>
                           </td>
                           <td className="py-2.5 px-3 font-bold text-slate-700">{item.line_code}</td>
+                          {/* Coluna Ordem de Produção */}
+                          <td className="py-2.5 px-3 bg-blue-50/40 border-x border-blue-100 whitespace-nowrap">
+                            {item.production_order ? (
+                              <span className="font-mono font-bold text-[#004C97] text-xs bg-white px-2 py-0.5 rounded border border-blue-200 inline-block">
+                                {item.production_order}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">
+                                OP não disponível
+                              </span>
+                            )}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                             {item.crm_forecast_tons.toFixed(1)}
                           </td>
@@ -1766,6 +1823,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                     <th className="py-2.5 px-3">Linha Ficha Mestre</th>
+                    {/* COLUNA OBRIGATÓRIA ORDEM DE PRODUÇÃO (Requisito 5) */}
+                    <th className="py-2.5 px-3 bg-blue-50/70 border-x border-blue-200 text-[#004C97]">
+                      ORDEM DE PRODUÇÃO
+                    </th>
                     <th className="py-2.5 px-3 text-right">Cadência (t/h)</th>
                     <th className="py-2.5 px-3 text-right">Disponível Anual (t)</th>
                     <th className="py-2.5 px-3 text-right">Planejado Anual (t)</th>
@@ -1788,6 +1849,14 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                       >
                         <td className="py-2.5 px-3 font-bold text-slate-900">
                           {line.lineCode} &bull; {line.lineName}
+                        </td>
+                        <td className="py-2.5 px-3 bg-blue-50/40 border-x border-blue-100 whitespace-nowrap">
+                          <span
+                            className="text-slate-400 italic text-[11px]"
+                            title="Horizonte Estratégico Anual - OPs são geradas na programação operacional"
+                          >
+                            Aguardando integração
+                          </span>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                           {line.nominalCapacityRateTh.toFixed(1).replace('.', ',')}
@@ -1911,6 +1980,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                     <th className="py-2.5 px-3">Linha</th>
+                    {/* COLUNA OBRIGATÓRIA ORDEM DE PRODUÇÃO (Requisito 5) */}
+                    <th className="py-2.5 px-3 bg-blue-50/70 border-x border-blue-200 text-[#004C97]">
+                      ORDEM DE PRODUÇÃO
+                    </th>
                     <th className="py-2.5 px-3 text-center">Turnos Ativos</th>
                     <th className="py-2.5 px-3 text-right">Horas Disponíveis / Mês</th>
                     <th className="py-2.5 px-3 text-right">Capacidade Disponível (t)</th>
@@ -1930,6 +2003,14 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                       <td className="py-2.5 px-3">
                         <span className="font-bold text-slate-900">{line.lineCode}</span> &bull;{' '}
                         {line.lineName}
+                      </td>
+                      <td className="py-2.5 px-3 bg-blue-50/40 border-x border-blue-100 whitespace-nowrap">
+                        <span
+                          className="text-slate-400 italic text-[11px]"
+                          title="Horizonte Tático Mensal - OPs são geradas no congelamento da programação semanal"
+                        >
+                          Aguardando integração
+                        </span>
                       </td>
                       <td className="py-2.5 px-3 text-center font-mono">
                         {line.isActive ? `${line.activeShiftsCount} turnos` : 'Inativa'}
@@ -1972,6 +2053,19 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
             </div>
           </Card>
         </div>
+      )}
+
+      {/* =========================================================================
+          VISÃO 5: VISÃO DIÁRIA (Horizonte Dia -> Turno -> Ordem -> Material)
+          (Requisito 1: Integrado diretamente sem navegação para rota inexistente)
+         ========================================================================= */}
+      {activeHorizon === 'diaria' && (
+        <DailyDeviationView
+          initialPlant={selectedPlant}
+          initialLine={selectedLine}
+          onPlantChange={(p) => setSelectedPlant(p)}
+          onLineChange={(l) => setSelectedLine(l)}
+        />
       )}
 
       {/* =========================================================================
@@ -2070,6 +2164,10 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                     <th className="py-2.5 px-3">Seq</th>
                     <th className="py-2.5 px-3">Dia / Data</th>
                     <th className="py-2.5 px-3">Turno / Turma</th>
+                    {/* COLUNA OBRIGATÓRIA ORDEM DE PRODUÇÃO (Requisito 5) */}
+                    <th className="py-2.5 px-3 bg-blue-50/70 border-x border-blue-200 text-[#004C97]">
+                      ORDEM DE PRODUÇÃO
+                    </th>
                     <th className="py-2.5 px-3">Produto / Material</th>
                     <th className="py-2.5 px-3 text-right">Volume (t)</th>
                     <th className="py-2.5 px-3 text-right">Cadência (t/h)</th>
@@ -2090,6 +2188,18 @@ export const MasterPlanningPage: React.FC<MasterPlanningPageProps> = ({ initialH
                         <td className="py-2 px-3 text-slate-700">
                           {item.shift_name || item.shift_code || 'Turno Geral'} (
                           {item.crew_name || 'Turma A'})
+                        </td>
+                        {/* Coluna Ordem de Produção */}
+                        <td className="py-2 px-3 bg-blue-50/40 border-x border-blue-100 whitespace-nowrap">
+                          {item.production_order ? (
+                            <span className="font-mono font-bold text-[#004C97] text-xs bg-white px-2 py-0.5 rounded border border-blue-200 inline-block shadow-2xs">
+                              {item.production_order}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">
+                              OP não disponível
+                            </span>
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           <div className="font-bold text-slate-900">{item.material_code}</div>
