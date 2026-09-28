@@ -110,6 +110,26 @@ export const rawMaterialApplicationService = {
       }
     }
 
+    // Bloco 7: Tempo Mínimo PCP
+    const unidade = data.tempo_minimo_pcp_unidade
+    const valRaw = data.tempo_minimo_pcp_valor
+    const hasUnidade = Boolean(unidade && unidade.trim())
+    const hasValor =
+      valRaw !== undefined &&
+      valRaw !== null &&
+      (typeof valRaw === 'number' || String(valRaw).trim() !== '')
+
+    if (hasUnidade || hasValor) {
+      if (!hasUnidade || !hasValor) {
+        errors.tempo_minimo_pcp = 'Informe uma unidade e um tempo mínimo válido maior que zero.'
+      } else {
+        const parsedVal = parseBrNumber(valRaw)
+        if (parsedVal === null || isNaN(parsedVal) || parsedVal <= 0) {
+          errors.tempo_minimo_pcp = 'Informe uma unidade e um tempo mínimo válido maior que zero.'
+        }
+      }
+    }
+
     return errors
   },
 
@@ -303,6 +323,27 @@ export const rawMaterialApplicationService = {
       reduction_percentage: redPercentage,
       first_run: Boolean(formData.first_run),
       allow_out_of_standard_mp: Boolean(formData.allow_out_of_standard_mp),
+      // Bloco 7: Tempo Mínimo PCP
+      tempo_minimo_pcp_unidade: formData.tempo_minimo_pcp_unidade || null,
+      tempo_minimo_pcp_valor:
+        formData.tempo_minimo_pcp_valor !== undefined &&
+        formData.tempo_minimo_pcp_valor !== null &&
+        formData.tempo_minimo_pcp_valor !== ''
+          ? parseBrNumber(formData.tempo_minimo_pcp_valor)
+          : null,
+      tempo_minimo_pcp_minutos:
+        formData.tempo_minimo_pcp_unidade &&
+        formData.tempo_minimo_pcp_valor !== undefined &&
+        formData.tempo_minimo_pcp_valor !== null &&
+        formData.tempo_minimo_pcp_valor !== ''
+          ? (() => {
+              const pVal = parseBrNumber(formData.tempo_minimo_pcp_valor)
+              if (pVal == null || pVal <= 0) return null
+              const u = formData.tempo_minimo_pcp_unidade
+              const mult = u === 'Minutos' ? 1 : u === 'Horas' ? 60 : u === 'Dias' ? 1440 : 10080
+              return pVal * mult
+            })()
+          : null,
       status: formData.status,
       notes: formData.notes?.trim() || '',
     }
@@ -405,6 +446,26 @@ export const rawMaterialApplicationService = {
         }
         if (previousRecord.status !== saved.status) {
           diffList.push(`Status: ${previousRecord.status} → ${saved.status}`)
+        }
+        if (
+          previousRecord.tempo_minimo_pcp_unidade !== saved.tempo_minimo_pcp_unidade ||
+          previousRecord.tempo_minimo_pcp_valor !== saved.tempo_minimo_pcp_valor
+        ) {
+          const beforeStr =
+            previousRecord.tempo_minimo_pcp_valor != null
+              ? `${formatBrNumber(previousRecord.tempo_minimo_pcp_valor)} ${previousRecord.tempo_minimo_pcp_unidade || ''}`
+              : 'Não definido'
+          const afterStr =
+            saved.tempo_minimo_pcp_valor != null
+              ? `${formatBrNumber(saved.tempo_minimo_pcp_valor)} ${saved.tempo_minimo_pcp_unidade || ''}`
+              : 'Não definido'
+          diffList.push(`Tempo mínimo PCP: ${beforeStr} → ${afterStr}`)
+        }
+      } else {
+        if (saved.tempo_minimo_pcp_valor != null) {
+          diffList.push(
+            `Tempo mínimo PCP inicial: ${formatBrNumber(saved.tempo_minimo_pcp_valor)} ${saved.tempo_minimo_pcp_unidade || ''}`,
+          )
         }
       }
 

@@ -33,6 +33,10 @@ export interface LineRawMaterialApplication {
   // Flags de controle técnico
   first_run: boolean // 1ª corrida: Sim/Não
   allow_out_of_standard_mp: boolean // Permitir fora padrão MP: Sim/Não
+  // Bloco 7: Tempo Mínimo PCP
+  tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | string | null
+  tempo_minimo_pcp_valor?: number | null
+  tempo_minimo_pcp_minutos?: number | null
   status: 'Ativo' | 'Inativo' // Status
   notes?: string
   created_by_user_id?: string
@@ -70,6 +74,9 @@ export interface RawMaterialApplicationFormData {
   reduction_percentage?: number | string | null
   first_run: boolean
   allow_out_of_standard_mp: boolean
+  // Bloco 7: Tempo Mínimo PCP
+  tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
+  tempo_minimo_pcp_valor?: number | string | null
   status: 'Ativo' | 'Inativo'
   notes?: string
 }
@@ -88,6 +95,7 @@ export interface RawMaterialApplicationValidationErrors {
   max_mp_length_m?: string
   min_mp_length_m?: string
   reduction?: string
+  tempo_minimo_pcp?: string
   duplicate?: string
   general?: string
 }
