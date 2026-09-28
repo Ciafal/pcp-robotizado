@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { EfficiencyCenterMainView } from './efficiency/EfficiencyCenterMainView'
 
 interface EfficiencyViewProps {
   initialTab?: 'produtos' | 'linhas' | 'centros' | 'plantas' | 'assertividade' | 'aprendizado'
@@ -448,44 +449,10 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
 
         {/* 3. Eficiência Centro (Aba 3 na ordem solicitada: após Linhas, antes de Plantas) */}
         <TabsContent value="centros" className="space-y-4">
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader className="p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#004C97]/20 border border-[#004C97]/40 flex items-center justify-center text-[#3b82f6] mx-auto mb-3">
-                <Building2 className="w-6 h-6 text-sky-400" />
-              </div>
-              <CardTitle className="text-lg font-bold text-white">
-                Análise por Centro de Trabalho — em construção
-              </CardTitle>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-                A consolidação de eficiência e aderência por centro produtivo (laminação,
-                trefilação, corte e acabamento) está sendo integrada com os apontamentos automáticos
-                do MES 4.0.
-              </p>
-            </CardHeader>
-            <CardContent className="p-6 pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl mx-auto">
-                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
-                  <div className="text-[11px] text-slate-400">Centros Mapeados</div>
-                  <div className="text-lg font-bold text-sky-400 mt-1">
-                    {filters.lineCode === 'ALL'
-                      ? 'Todos os Centros'
-                      : `Centros da Linha ${filters.lineCode}`}
-                  </div>
-                  <span className="text-[10px] text-slate-500">SAP ZPP003 / Ficha Mestra</span>
-                </div>
-                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
-                  <div className="text-[11px] text-slate-400">Premissa Prevista x Real</div>
-                  <div className="text-lg font-bold text-emerald-400 mt-1">Conexão Ativa</div>
-                  <span className="text-[10px] text-slate-500">Cadência & Setup Padrão</span>
-                </div>
-                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center font-mono">
-                  <div className="text-[11px] text-slate-400">Taxonomia de Desvios</div>
-                  <div className="text-lg font-bold text-amber-400 mt-1">Habilitada</div>
-                  <span className="text-[10px] text-slate-500">Classificação com IA</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EfficiencyCenterMainView
+            initialLineCode={filters.lineCode}
+            initialPlantCode={filters.plantCode}
+          />
         </TabsContent>
 
         {/* 4. Eficiência por Planta */}
