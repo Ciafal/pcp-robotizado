@@ -7,20 +7,27 @@ import {
 import { EfficiencyCenterCards } from './EfficiencyCenterCards'
 import { EfficiencyCenterFiltersBar } from './EfficiencyCenterFiltersBar'
 import { EfficiencyCenterTable } from './EfficiencyCenterTable'
+import { EfficiencyCenterHierarchyView } from './EfficiencyCenterHierarchyView'
 import { Badge } from '@/components/ui/badge'
-import { Building2, RefreshCw, Radio } from 'lucide-react'
+import { Building2, RefreshCw, Radio, Table, ListTree } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface EfficiencyCenterMainViewProps {
   initialLineCode?: string
   initialPlantCode?: string
+  externalFilters?: CenterEfficiencyFilters
+  onFilterChange?: (next: CenterEfficiencyFilters) => void
+  hideInternalFiltersBar?: boolean
 }
 
 export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> = ({
   initialLineCode = 'ALL',
   initialPlantCode = 'ALL',
+  externalFilters,
+  onFilterChange,
+  hideInternalFiltersBar = false,
 }) => {
-  const [filters, setFilters] = useState<CenterEfficiencyFilters>({
+  const [internalFilters, setInternalFilters] = useState<CenterEfficiencyFilters>({
     companyCode: 'ALL',
     plantCode: initialPlantCode,
     lineCode: initialLineCode,
@@ -33,9 +40,12 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
     allowDraftSchedule: false,
   })
 
+  const filters = externalFilters || internalFilters
+
   const [data, setData] = useState<CenterEfficiencyDataResult | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'hierarchy' | 'table'>('hierarchy')
 
   // Controle de debounce e cancelamento para performance
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -69,7 +79,11 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
   }, [loadData, filters])
 
   const handleApplyFilters = (newFilters: CenterEfficiencyFilters) => {
-    setFilters(newFilters)
+    if (onFilterChange) {
+      onFilterChange(newFilters)
+    } else {
+      setInternalFilters(newFilters)
+    }
   }
 
   const handleResetFilters = () => {
@@ -85,39 +99,70 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
       order: '',
       allowDraftSchedule: false,
     }
-    setFilters(resetValues)
+    if (onFilterChange) {
+      onFilterChange(resetValues)
+    } else {
+      setInternalFilters(resetValues)
+    }
   }
 
   return (
     <div className="space-y-4" data-testid="efficiency-center-view">
-      {/* Barra de Status de Fontes e Telemetria */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-lg shadow-2xs">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-[#004C97]/10 flex items-center justify-center text-[#004C97]">
+      {/* Barra de Status de Fontes e Seletor de Modo (Hierárquico / Analítico) */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#004C97]/10 flex items-center justify-center text-[#004C97] shrink-0">
             <Building2 className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
                 Eficiência por Centro de Trabalho
               </span>
               <Badge
                 variant="outline"
-                className="text-[10px] font-mono border-slate-300 bg-slate-50 text-slate-600"
+                className="text-[10px] font-mono border-slate-200 bg-slate-50 text-slate-700"
               >
-                Fase 2 &bull; Previsto x Realizado
+                Previsto x Realizado &bull; Oficial
               </Badge>
             </div>
             <p className="text-[11px] text-slate-500">
-              Cruzamento estrito entre a Montagem Semanal oficial e os apontamentos de chão de
-              fábrica.
+              Confronto das programações vigentes com os apontamentos físicos do MES 4.0
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Alternador de visualização: Árvore Hierárquica vs Tabela Analítica */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('hierarchy')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
+                viewMode === 'hierarchy'
+                  ? 'bg-white text-[#004C97] font-semibold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ListTree className="w-3.5 h-3.5" />
+              <span>Visão Hierárquica</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-white text-[#004C97] font-semibold shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>Tabela Detalhada</span>
+            </button>
+          </div>
+
           {/* Status do MES */}
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-mono">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-mono bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
             <Radio
               className={`w-3.5 h-3.5 ${
                 data?.metadata.mesEndpointStatus === 'CONECTADO'
@@ -125,24 +170,22 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
                   : 'text-amber-500'
               }`}
             />
-            <span>
+            <span className="hidden md:inline">
               MES 4.0:{' '}
-              {data?.metadata.mesEndpointStatus === 'CONECTADO'
-                ? 'Conectado (Apontamentos Ativos)'
-                : 'Aguardando telemetria em tempo real'}
+              {data?.metadata.mesEndpointStatus === 'CONECTADO' ? 'Conectado' : 'Aguardando'}
             </span>
           </div>
 
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
             onClick={() => loadData(filters)}
             disabled={loading}
-            className="h-7 text-xs text-slate-600 hover:text-slate-900 gap-1 px-2"
+            className="h-8 text-xs text-slate-700 border-slate-200 bg-white hover:bg-slate-50 gap-1 px-2.5 shadow-2xs"
             title="Atualizar dados"
           >
             <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
+            <span className="hidden sm:inline">Atualizar</span>
           </Button>
         </div>
       </div>
@@ -165,31 +208,44 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
         loading={loading}
       />
 
-      {/* 2. FILTROS OPERACIONAIS */}
-      <EfficiencyCenterFiltersBar
-        initialFilters={filters}
-        options={
-          data?.availableOptions || {
-            companies: [],
-            plants: [],
-            lines: [],
-            centers: [],
+      {/* 2. FILTROS OPERACIONAIS INTERNOS (SE NÃO OCULTOS PELO PAI) */}
+      {!hideInternalFiltersBar && (
+        <EfficiencyCenterFiltersBar
+          initialFilters={filters}
+          options={
+            data?.availableOptions || {
+              companies: [],
+              plants: [],
+              lines: [],
+              centers: [],
+            }
           }
-        }
-        onApplyFilters={handleApplyFilters}
-        onResetFilters={handleResetFilters}
-        isLoading={loading}
-      />
+          onApplyFilters={handleApplyFilters}
+          onResetFilters={handleResetFilters}
+          isLoading={loading}
+        />
+      )}
 
-      {/* 3. TABELA ANALÍTICA PREVISTO X REALIZADO POR CENTRO */}
-      <EfficiencyCenterTable
-        rows={data?.rows || []}
-        loading={loading}
-        error={error}
-        onRetry={() => loadData(filters)}
-        activeProgramacaoId={data?.metadata.activeProgramacaoId}
-        activeProgramacaoVersion={data?.metadata.activeProgramacaoVersion}
-      />
+      {/* 3. VISÃO PRINCIPAL: HIERARQUIA PLANTA -> LINHA -> CENTRO COM CARDS EXPANSÍVEIS */}
+      {viewMode === 'hierarchy' ? (
+        <EfficiencyCenterHierarchyView
+          rows={data?.rows || []}
+          loading={loading}
+          error={error}
+          onRetry={() => loadData(filters)}
+          activeProgramacaoId={data?.metadata.activeProgramacaoId}
+          activeProgramacaoVersion={data?.metadata.activeProgramacaoVersion}
+        />
+      ) : (
+        <EfficiencyCenterTable
+          rows={data?.rows || []}
+          loading={loading}
+          error={error}
+          onRetry={() => loadData(filters)}
+          activeProgramacaoId={data?.metadata.activeProgramacaoId}
+          activeProgramacaoVersion={data?.metadata.activeProgramacaoVersion}
+        />
+      )}
     </div>
   )
 }
