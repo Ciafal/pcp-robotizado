@@ -798,6 +798,8 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                         <TableRow>
                           <TableHead>Código MP</TableHead>
                           <TableHead>Descrição</TableHead>
+                          <TableHead>Bitola</TableHead>
+                          <TableHead>Aplicação</TableHead>
                           <TableHead>Corrida</TableHead>
                           <TableHead className="text-right">Qtd. (t)</TableHead>
                           <TableHead className="text-right">Peças Calculadas</TableHead>
@@ -812,6 +814,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                               </TableCell>
                               <TableCell className="text-slate-700">
                                 {item.material_description || 'Dado não disponível'}
+                              </TableCell>
+                              <TableCell className="font-mono text-slate-700">
+                                {viewDemand.gauge || 'Não aplicável'}
+                              </TableCell>
+                              <TableCell className="text-slate-700">
+                                {viewDemand.application || 'Não aplicável'}
                               </TableCell>
                               <TableCell className="font-mono font-semibold">
                                 {item.heat_number ? item.heat_number : 'Sem corrida'}
@@ -834,6 +842,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                               <TableCell className="text-slate-700">
                                 {m.material_description || 'Dado não disponível'}
                               </TableCell>
+                              <TableCell className="font-mono text-slate-700">
+                                {viewDemand.gauge || 'Não aplicável'}
+                              </TableCell>
+                              <TableCell className="text-slate-700">
+                                {viewDemand.application || 'Não aplicável'}
+                              </TableCell>
                               <TableCell className="font-mono font-semibold">
                                 {m.heat_number ? m.heat_number : 'Sem corrida'}
                               </TableCell>
@@ -848,7 +862,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                         ) : (
                           <TableRow>
                             <TableCell
-                              colSpan={5}
+                              colSpan={7}
                               className="py-4 text-center text-rose-600 bg-rose-50/40"
                             >
                               <div className="flex items-center justify-center gap-2">

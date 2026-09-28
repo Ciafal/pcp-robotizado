@@ -46,5 +46,8 @@ describe('PocketBase Client Export Regression Test & Guard', () => {
 
     const effCenter = await import('@/services/efficiency-center-service')
     expect(effCenter.efficiencyCenterService).toBeDefined()
+
+    const inventoryDemands = await import('@/services/pcp-inventory-demands-service')
+    expect(inventoryDemands.pcpInventoryDemandsService).toBeDefined()
   })
 })

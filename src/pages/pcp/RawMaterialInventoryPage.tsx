@@ -1873,10 +1873,11 @@ export const RawMaterialInventoryPage: React.FC = () => {
       <NovaDemandaInventarioModal
         open={novaDemandaModalOpen}
         onOpenChange={setNovaDemandaModalOpen}
-        onSuccess={(novaDemanda) => {
+        onSuccess={async (novaDemanda) => {
           // Gravação no banco retornou sucesso com ID e Nº Controle criados
           setCreatedDemandForSuccess(novaDemanda)
           setSucessoModalOpen(true)
+          await loadDemands()
         }}
       />
 
