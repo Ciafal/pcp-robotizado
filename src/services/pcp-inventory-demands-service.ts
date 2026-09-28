@@ -117,14 +117,18 @@ class PcpInventoryDemandsService {
    */
   async listItemsByDemand(demandId: string, controlNumber?: string): Promise<DemandMaterialItem[]> {
     try {
+      // Prioriza demand_id quando fornecido para evitar colisão com itens de control_number compartilhado/legado
       let filter = `demand_id = '${demandId}'`
-      if (controlNumber) {
-        filter = `demand_id = '${demandId}' || control_number = '${controlNumber}'`
-      }
-      const records = await pb.collection('pcp_mp_inventory_items').getFullList({
+      let records = await pb.collection('pcp_mp_inventory_items').getFullList({
         filter,
         sort: 'created',
       })
+      if (records.length === 0 && controlNumber) {
+        records = await pb.collection('pcp_mp_inventory_items').getFullList({
+          filter: `control_number = '${controlNumber}' || inventory_code = '${controlNumber}'`,
+          sort: 'created',
+        })
+      }
       return records.map((r: any) => ({
         id: r.id,
         weight_tons: Number(r.quantity_tons || r.weight_tons || 0),
