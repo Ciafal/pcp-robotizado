@@ -41,22 +41,31 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const currentHash =
     location.hash || (typeof window !== 'undefined' ? window.location?.hash : '') || ''
 
+  // Rota canônica estrita para Inventário de MP
+  const isInventarioMpRoute = Boolean(
+    currentPathname === '/pcp/sequenciamento/inventario-mp' ||
+    currentPathname.startsWith('/pcp/sequenciamento/inventario-mp/') ||
+    currentPathname === '/pcp/inventario-mp' ||
+    currentPathname === '/inventario-mp',
+  )
+
+  // Segregação estrita para rotas de Entregas PCP (NUNCA usar substring genérica 'entregas')
   const isEntregasRoute = Boolean(
-    currentPathname.startsWith('/pcp/entregas') ||
-    currentPathname.startsWith('/pcp-robotizado/entregas') ||
-    currentPathname.startsWith('/pcp/entregas-pcp') ||
-    currentPathname.startsWith('/entregas-pcp') ||
-    currentPathname.startsWith('/entregas') ||
-    currentPathname.includes('/pcp/entregas') ||
-    currentPathname.includes('entregas') ||
-    currentHash.includes('/pcp/entregas') ||
-    currentHash.includes('pcp/entregas') ||
-    currentHash.includes('entregas') ||
-    windowPath.includes('/pcp/entregas') ||
-    windowPath.includes('#/pcp/entregas') ||
-    windowPath.includes('/entregas') ||
-    windowPath.includes('#/entregas') ||
-    (currentPathname.startsWith('/pcp') && currentPathname.includes('entregas')),
+    !isInventarioMpRoute &&
+    (currentPathname === '/pcp/entregas' ||
+      currentPathname.startsWith('/pcp/entregas/') ||
+      currentPathname === '/pcp-robotizado/entregas' ||
+      currentPathname.startsWith('/pcp-robotizado/entregas/') ||
+      currentPathname === '/pcp/entregas-pcp' ||
+      currentPathname.startsWith('/pcp/entregas-pcp/') ||
+      currentPathname === '/entregas-pcp' ||
+      currentPathname.startsWith('/entregas-pcp/') ||
+      currentPathname === '/entregas' ||
+      currentPathname.startsWith('/entregas/') ||
+      currentHash === '#/pcp/entregas' ||
+      currentHash.startsWith('#/pcp/entregas/') ||
+      currentHash === '#/entregas' ||
+      currentHash.startsWith('#/entregas/')),
   )
 
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
@@ -149,7 +158,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/ficha-mestre'),
   )
 
-  if (isEntregasRoute || isCadastrosOrMasterDataEarly) {
+  if (isInventarioMpRoute || isEntregasRoute || isCadastrosOrMasterDataEarly) {
     return <>{children}</>
   }
 
@@ -186,6 +195,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('/pedidos-cancelados')
 
   if (
+    isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
     isCarteiraRouteOrPerm ||
@@ -265,9 +275,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // 3) Rotas de Análise de Carteira, Programação de Testes e Entregas PCP
+  // 3) Rotas de Análise de Carteira, Programação de Testes, Inventário MP e Entregas PCP
   // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
   if (
+    isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
     permission === 'pcp.carteira.view' ||
