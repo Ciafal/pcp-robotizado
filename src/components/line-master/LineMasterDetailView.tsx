@@ -90,6 +90,7 @@ import {
   RawMaterialPriorityConflictModal,
   HierarchyImpactItem,
 } from '@/components/line-master/RawMaterialPriorityConflictModal'
+import { RawMaterialExistingPriorityModal } from '@/components/line-master/RawMaterialExistingPriorityModal'
 import { LineRawMaterialPriority } from '@/types/line-master'
 import { RawMaterialApplicationsPanel } from '@/components/line-master/RawMaterialApplicationsPanel'
 import { rawMaterialApplicationService } from '@/services/raw-material-application-service'
@@ -502,6 +503,9 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [isSavingRawMaterial, setIsSavingRawMaterial] = useState<boolean>(false)
   const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false)
   const [conflictImpactList, setConflictImpactList] = useState<HierarchyImpactItem[]>([])
+  const [isExistingPriorityModalOpen, setIsExistingPriorityModalOpen] = useState<boolean>(false)
+  const [existingRecordForConfirm, setExistingRecordForConfirm] =
+    useState<LineRawMaterialPriority | null>(null)
   const [pendingRawPayload, setPendingRawPayload] = useState<RawMaterialPriorityFormData | null>(
     null,
   )
@@ -1068,7 +1072,33 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   }
 
   const handleRawFormSubmit = async (formData: RawMaterialPriorityFormData) => {
-    // 1. Checagem prévia de conflito no front-end para abrir o popup de conflito
+    const isNew = !formData.id
+
+    // Checar se já existe registro com o mesmo código MP na linha
+    // Caso seja cadastro novo, ou caso não tenha id correspondente
+    if (isNew) {
+      const existing = rawMaterials.find(
+        (m) => m.material_code.trim().toUpperCase() === formData.material_code.trim().toUpperCase(),
+      )
+      if (existing) {
+        // Encontrou registro pré-existente para esta MP -> abre modal de confirmação de alteração
+        setExistingRecordForConfirm(existing)
+        // vincula o ID do registro existente para garantir que salve sobre o EXISTENTE (sem duplicar)
+        setPendingRawPayload({
+          ...formData,
+          id: existing.id,
+        })
+        setIsExistingPriorityModalOpen(true)
+        return
+      }
+    }
+
+    // Se não há colisão de MP pré-existente ou se já é uma edição direta:
+    proceedAfterExistingCheck(formData)
+  }
+
+  const proceedAfterExistingCheck = async (formData: RawMaterialPriorityFormData) => {
+    // Checagem prévia de conflito no front-end para abrir o popup de conflito de prioridade
     const impact = calculateConflictImpact(formData)
     if (impact && impact.length > 1) {
       setConflictImpactList(impact)
@@ -1077,8 +1107,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       return
     }
 
-    // 2. Se sem conflito detectado no front, dispara normalmente
+    // Dispara normalmente sem conflito
     await executeSaveRawMaterial(formData, false)
+  }
+
+  const handleConfirmExistingAlteration = async () => {
+    if (!pendingRawPayload) return
+    setIsExistingPriorityModalOpen(false)
+    const payloadToSave = { ...pendingRawPayload }
+    // Prossegue com checagem de conflito / salvamento
+    await proceedAfterExistingCheck(payloadToSave)
   }
 
   const handleConfirmReorganize = async () => {
@@ -3426,6 +3464,25 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           setEditingRawPriority(null)
         }}
         onSubmit={handleRawFormSubmit}
+      />
+
+      {/* MODAL: Prioridade já cadastrada para o Material (Confirmação de alteração) */}
+      <RawMaterialExistingPriorityModal
+        open={isExistingPriorityModalOpen}
+        materialCode={pendingRawPayload?.material_code ?? ''}
+        materialDescription={pendingRawPayload?.material_description}
+        currentPriority={existingRecordForConfirm?.priority_order ?? 1}
+        newPriority={pendingRawPayload?.priority_order ?? 1}
+        currentValidFrom={existingRecordForConfirm?.valid_from}
+        currentValidUntil={existingRecordForConfirm?.valid_until}
+        newValidFrom={pendingRawPayload?.valid_from ?? ''}
+        newValidUntil={pendingRawPayload?.valid_until ?? ''}
+        onCancel={() => {
+          setIsExistingPriorityModalOpen(false)
+          setExistingRecordForConfirm(null)
+          setPendingRawPayload(null)
+        }}
+        onConfirmAlteration={handleConfirmExistingAlteration}
       />
 
       {/* MODAL: Conflito de Prioridade & Reorganização da Hierarquia */}

@@ -4,6 +4,7 @@ import React from 'react'
 import { RawMaterialPriorityModal } from '@/components/line-master/RawMaterialPriorityModal'
 import { RawMaterialPrioritiesPanel } from '@/components/line-master/RawMaterialPrioritiesPanel'
 import { RawMaterialPriorityConflictModal } from '@/components/line-master/RawMaterialPriorityConflictModal'
+import { RawMaterialExistingPriorityModal } from '@/components/line-master/RawMaterialExistingPriorityModal'
 import { LineRawMaterialPriority } from '@/types/line-master'
 
 // Mock de serviços dependentes
@@ -391,5 +392,238 @@ describe('Prioridades de Matéria-Prima — 13 Critérios de Aceite', () => {
       expect(screen.getByText('Informe a descrição do critério.')).toBeTruthy()
       expect(handleSubmit).not.toHaveBeenCalled()
     })
+  })
+
+  // T1: Ícone power/toggle removido da coluna AÇÕES
+  it('T1: Ícone power removido da coluna AÇÕES; somente botão Editar visível', () => {
+    render(
+      <RawMaterialPrioritiesPanel
+        rawMaterials={mockRawMaterials}
+        onAddClick={() => {}}
+        onEditClick={() => {}}
+        onToggleStatusClick={() => {}}
+      />,
+    )
+    expect(screen.queryByTitle(/ativar|inativar|desativar/i)).toBeNull()
+    const editButtons = screen.getAllByRole('button', { name: /editar/i })
+    expect(editButtons.length).toBe(mockRawMaterials.length)
+  })
+
+  // T2: Sem área clicável ou espaço residual na coluna de ações
+  it('T2: Sem área clicável ou espaço residual na coluna Ações além do botão Editar', () => {
+    const { container } = render(
+      <RawMaterialPrioritiesPanel
+        rawMaterials={mockRawMaterials}
+        onAddClick={() => {}}
+        onEditClick={() => {}}
+        onToggleStatusClick={() => {}}
+      />,
+    )
+    const actionTds = container.querySelectorAll('tbody tr td:last-child')
+    actionTds.forEach((td) => {
+      const buttons = td.querySelectorAll('button')
+      expect(buttons.length).toBe(1)
+      expect(buttons[0].textContent).toContain('Editar')
+    })
+  })
+
+  // T3: Editar abre o modal com o registro correto
+  it('T3: Botão Editar abre o modal carregando o registro selecionado', () => {
+    const handleEdit = vi.fn()
+    render(
+      <RawMaterialPrioritiesPanel
+        rawMaterials={mockRawMaterials}
+        onAddClick={() => {}}
+        onEditClick={handleEdit}
+        onToggleStatusClick={() => {}}
+      />,
+    )
+    const targetItem = mockRawMaterials[1] // BOB_GERDAU_1020
+    const editBtn = screen.getByTestId(`btn-edit-raw-material-${targetItem.material_code}`)
+    fireEvent.click(editBtn)
+    expect(handleEdit).toHaveBeenCalledWith(targetItem)
+  })
+
+  // T4: Cancelar com dados alterados pede "Descartar alterações?"
+  it('T4: Cancelar com dados alterados exibe confirmação "Descartar alterações?"', async () => {
+    const handleClose = vi.fn()
+    render(
+      <RawMaterialPriorityModal
+        open={true}
+        lineId="line_l1"
+        lineMasterId="master_1"
+        onClose={handleClose}
+        onSubmit={vi.fn()}
+      />,
+    )
+
+    const codeInput = screen.getByTestId('input-raw-material-code')
+    fireEvent.change(codeInput, { target: { value: 'BOB_ALTERADA' } })
+
+    const cancelBtn = screen.getByTestId('modal-cancel-btn')
+    fireEvent.click(cancelBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('Descartar alterações?')).toBeTruthy()
+      expect(
+        screen.getByText(
+          'Existem informações preenchidas que ainda não foram salvas. Deseja descartar as alterações?',
+        ),
+      ).toBeTruthy()
+    })
+    expect(handleClose).not.toHaveBeenCalled()
+  })
+
+  // T5: Salvar persiste dados válidos e chama callback onSubmit
+  it('T5: Salvar persiste dados válidos e aciona callback onSubmit com payload íntegro', async () => {
+    const handleSubmit = vi.fn()
+    render(
+      <RawMaterialPriorityModal
+        open={true}
+        lineId="line_l1"
+        lineMasterId="master_1"
+        onClose={vi.fn()}
+        onSubmit={handleSubmit}
+      />,
+    )
+
+    fireEvent.change(screen.getByTestId('input-raw-material-code'), {
+      target: { value: 'BOB_NOVA_MP' },
+    })
+    fireEvent.change(screen.getByTestId('input-raw-material-desc'), {
+      target: { value: 'Bobina Especial de Teste' },
+    })
+    fireEvent.change(screen.getByTestId('input-raw-material-priority'), {
+      target: { value: '1' },
+    })
+    fireEvent.change(screen.getByTestId('input-raw-material-valid-from'), {
+      target: { value: '01/11/2026' },
+    })
+
+    fireEvent.click(screen.getByTestId('modal-save-btn'))
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalledTimes(1)
+      const payload = handleSubmit.mock.calls[0][0]
+      expect(payload.material_code).toBe('BOB_NOVA_MP')
+      expect(payload.material_description).toBe('Bobina Especial de Teste')
+      expect(payload.priority_order).toBe(1)
+      expect(payload.valid_from).toBe('2026-11-01')
+      expect(payload.active).toBe(true)
+    })
+  })
+
+  // T6: RawMaterialExistingPriorityModal exibe alerta de material já priorizado
+  it('T6: MP já priorizada exibe modal de confirmação sem duplicar registro', () => {
+    const handleConfirm = vi.fn()
+    const handleCancel = vi.fn()
+    render(
+      <RawMaterialExistingPriorityModal
+        open={true}
+        materialCode="BOB_CSN_BQ_1012"
+        materialDescription="Bobina Laminada a Quente SAE 1012"
+        currentPriority={1}
+        newPriority={2}
+        currentValidFrom="2026-10-01"
+        currentValidUntil="2026-10-31"
+        newValidFrom="01/11/2026"
+        newValidUntil="30/11/2026"
+        onCancel={handleCancel}
+        onConfirmAlteration={handleConfirm}
+      />,
+    )
+
+    expect(screen.getByText('Prioridade já cadastrada para esta Matéria-Prima')).toBeTruthy()
+    expect(screen.getByText('BOB_CSN_BQ_1012')).toBeTruthy()
+    expect(
+      screen.getByText('Deseja realmente alterar a prioridade desta matéria-prima?'),
+    ).toBeTruthy()
+
+    const confirmBtn = screen.getByTestId('btn-confirm-existing-priority')
+    fireEvent.click(confirmBtn)
+    expect(handleConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  // T7: Cancelar no modal de MP já cadastrada preserva o estado
+  it('T7: Cancelar no modal de prioridade existente preserva estado sem alteração', () => {
+    const handleCancel = vi.fn()
+    render(
+      <RawMaterialExistingPriorityModal
+        open={true}
+        materialCode="BOB_CSN_BQ_1012"
+        currentPriority={1}
+        newPriority={2}
+        onCancel={handleCancel}
+        onConfirmAlteration={() => {}}
+      />,
+    )
+
+    const cancelBtn = screen.getByTestId('btn-cancel-existing-priority')
+    fireEvent.click(cancelBtn)
+    expect(handleCancel).toHaveBeenCalledTimes(1)
+  })
+
+  // T8: Contador "Prioridades MP (X)" reflete a quantidade correta na lista
+  it('T8: Contador reflete a quantidade correta de itens', () => {
+    render(
+      <RawMaterialPrioritiesPanel
+        rawMaterials={mockRawMaterials}
+        onAddClick={() => {}}
+        onEditClick={() => {}}
+        onToggleStatusClick={() => {}}
+      />,
+    )
+    expect(screen.getByText('3 cadastradas')).toBeTruthy()
+  })
+
+  // T9: Validação estrita de número inteiro positivo para prioridade
+  it('T9: Prioridade inválida (0, negativa ou decimal) é bloqueada', async () => {
+    const handleSubmit = vi.fn()
+    render(
+      <RawMaterialPriorityModal
+        open={true}
+        lineId="line_l1"
+        lineMasterId="master_1"
+        onClose={vi.fn()}
+        onSubmit={handleSubmit}
+      />,
+    )
+
+    fireEvent.change(screen.getByTestId('input-raw-material-code'), {
+      target: { value: 'BOB_TESTE' },
+    })
+    fireEvent.change(screen.getByTestId('input-raw-material-desc'), {
+      target: { value: 'Descrição' },
+    })
+    fireEvent.change(screen.getByTestId('input-raw-material-priority'), {
+      target: { value: '-2' },
+    })
+
+    fireEvent.click(screen.getByTestId('modal-save-btn'))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('A prioridade deve ser um número inteiro maior que zero (1, 2, 3...).'),
+      ).toBeTruthy()
+      expect(handleSubmit).not.toHaveBeenCalled()
+    })
+  })
+
+  // T10: Regressão de integridade das demais propriedades
+  it('T10: Painel de Prioridades exibe cabeçalho oficial e botão Adicionar Prioridade', () => {
+    const handleAdd = vi.fn()
+    render(
+      <RawMaterialPrioritiesPanel
+        rawMaterials={mockRawMaterials}
+        onAddClick={handleAdd}
+        onEditClick={() => {}}
+        onToggleStatusClick={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('Prioridades de Matéria-Prima (MP)')).toBeTruthy()
+    const addBtn = screen.getByTestId('btn-add-raw-material-priority')
+    fireEvent.click(addBtn)
+    expect(handleAdd).toHaveBeenCalledTimes(1)
   })
 })

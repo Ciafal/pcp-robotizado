@@ -59,6 +59,10 @@ export function formatPtBrNumber(
   })
 }
 
+// Aliases para compatibilidade com módulos legados
+export const formatBrNumber = formatPtBrNumber
+export const parseBrNumber = parsePtBrNumber
+
 /**
  * Fórmula oficial de cálculo de peças:
  * peças = Quantidade (t) ÷ Peso Unitário (t)

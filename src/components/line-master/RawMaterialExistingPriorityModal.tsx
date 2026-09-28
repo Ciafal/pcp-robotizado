@@ -14,13 +14,19 @@ import { formatDatePTBR } from '@/lib/formatters-ptbr'
 
 interface RawMaterialExistingPriorityModalProps {
   open: boolean
-  existingRecord: LineRawMaterialPriority | null
+  existingRecord?: LineRawMaterialPriority | null
+  materialCode?: string
+  materialDescription?: string
+  currentPriority?: number
   newPriority: number
-  newValidFrom: string
+  currentValidFrom?: string | null
+  currentValidUntil?: string | null
+  newValidFrom?: string
   newValidUntil?: string | null
   isSubmitting?: boolean
   onCancel: () => void
-  onConfirmAlter: () => void
+  onConfirmAlter?: () => void
+  onConfirmAlteration?: () => void
 }
 
 function formatVigencia(start?: string | null, end?: string | null): string {
@@ -32,14 +38,31 @@ function formatVigencia(start?: string | null, end?: string | null): string {
 export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPriorityModalProps> = ({
   open,
   existingRecord,
+  materialCode,
+  materialDescription,
+  currentPriority,
   newPriority,
-  newValidFrom,
+  currentValidFrom,
+  currentValidUntil,
+  newValidFrom = '',
   newValidUntil,
   isSubmitting = false,
   onCancel,
   onConfirmAlter,
+  onConfirmAlteration,
 }) => {
-  if (!existingRecord) return null
+  const code = existingRecord?.material_code || materialCode || ''
+  const desc = existingRecord?.material_description || materialDescription || ''
+  const curPrio = existingRecord?.priority_order ?? currentPriority ?? 1
+  const curFrom = existingRecord?.valid_from ?? currentValidFrom
+  const curUntil = existingRecord?.valid_until ?? currentValidUntil
+
+  const handleConfirm = () => {
+    if (onConfirmAlter) onConfirmAlter()
+    if (onConfirmAlteration) onConfirmAlteration()
+  }
+
+  if (!open) return null
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v && !isSubmitting ? onCancel() : null)}>
@@ -54,14 +77,14 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-slate-900">
-                Prioridade já cadastrada
+                Prioridade já cadastrada para esta Matéria-Prima
               </DialogTitle>
               <p className="text-xs text-slate-600 mt-0.5">
                 A matéria-prima{' '}
                 <strong className="text-slate-900 font-mono font-bold">
-                  {existingRecord.material_code}
+                  {code}
                 </strong>{' '}
-                já possui uma prioridade cadastrada.
+                já possui uma prioridade cadastrada nesta linha.
               </p>
             </div>
           </div>
@@ -73,15 +96,17 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
             <div className="p-3 border-b border-slate-200 bg-white grid grid-cols-3 gap-2">
               <span className="text-slate-500 font-semibold">Código MP:</span>
               <span className="col-span-2 font-mono font-bold text-slate-900">
-                {existingRecord.material_code}
+                {code}
               </span>
             </div>
-            <div className="p-3 border-b border-slate-200 bg-white grid grid-cols-3 gap-2">
-              <span className="text-slate-500 font-semibold">Descrição:</span>
-              <span className="col-span-2 text-slate-800">
-                {existingRecord.material_description}
-              </span>
-            </div>
+            {desc && (
+              <div className="p-3 border-b border-slate-200 bg-white grid grid-cols-3 gap-2">
+                <span className="text-slate-500 font-semibold">Descrição:</span>
+                <span className="col-span-2 text-slate-800">
+                  {desc}
+                </span>
+              </div>
+            )}
             <div className="p-3 border-b border-slate-200 bg-white grid grid-cols-3 gap-2 items-center">
               <span className="text-slate-500 font-semibold">Prioridade:</span>
               <div className="col-span-2 flex items-center gap-2">
@@ -90,7 +115,7 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
                   variant="outline"
                   className="font-mono text-slate-700 bg-slate-100 border-slate-300 font-bold"
                 >
-                  #{existingRecord.priority_order}
+                  #{curPrio}
                 </Badge>
                 <ArrowRight className="w-3 h-3 text-slate-400" />
                 <span className="text-slate-600 font-medium">Nova:</span>
@@ -104,7 +129,7 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
               <div className="col-span-2 space-y-1 font-mono text-[11px]">
                 <div className="text-slate-600">
                   <span className="text-slate-400 font-sans text-[10px] mr-1">Atual:</span>
-                  {formatVigencia(existingRecord.valid_from, existingRecord.valid_until)}
+                  {formatVigencia(curFrom, curUntil)}
                 </div>
                 <div className="text-blue-900 font-semibold">
                   <span className="text-slate-400 font-sans text-[10px] mr-1">Nova:</span>
@@ -115,7 +140,7 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
           </div>
 
           <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
-            Tem certeza de que deseja alterar a prioridade desta matéria-prima?
+            Deseja realmente alterar a prioridade desta matéria-prima?
           </div>
         </div>
 
@@ -126,7 +151,7 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
             size="sm"
             disabled={isSubmitting}
             onClick={onCancel}
-            data-testid="existing-priority-cancel-btn"
+            data-testid="btn-cancel-existing-priority"
             className="border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-medium"
           >
             Cancelar
@@ -135,8 +160,8 @@ export const RawMaterialExistingPriorityModal: React.FC<RawMaterialExistingPrior
             type="button"
             size="sm"
             disabled={isSubmitting}
-            onClick={onConfirmAlter}
-            data-testid="existing-priority-confirm-btn"
+            onClick={handleConfirm}
+            data-testid="btn-confirm-existing-priority"
             className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs gap-1.5 shadow-xs"
           >
             {isSubmitting ? (

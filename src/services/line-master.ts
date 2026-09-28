@@ -1499,8 +1499,22 @@ export const lineMasterService = {
     // Fallback cliente caso backend custom endpoint não responda
     const cleanPayload: Record<string, any> = { ...data }
     delete cleanPayload.reorganize_hierarchy
+    const reorganize = Boolean(data.reorganize_hierarchy)
+
+    let previousRecord: LineRawMaterialPriority | null = null
+    if (data.id) {
+      try {
+        previousRecord = await pb
+          .collection('line_raw_material_priorities')
+          .getOne<LineRawMaterialPriority>(data.id)
+      } catch {
+        previousRecord = null
+      }
+    }
 
     let savedRecord: LineRawMaterialPriority
+    let reorganizedCount = 0
+
     if (data.id) {
       savedRecord = await pb
         .collection('line_raw_material_priorities')
@@ -1511,9 +1525,101 @@ export const lineMasterService = {
         .create<LineRawMaterialPriority>(cleanPayload)
     }
 
+    // Se solicitado reorganização em fallback cliente
+    if (reorganize && savedRecord.line_id && savedRecord.priority_order) {
+      try {
+        const activeList = await pb
+          .collection('line_raw_material_priorities')
+          .getFullList<LineRawMaterialPriority>({
+            filter: `line_id = '${savedRecord.line_id}' && active = true && id != '${savedRecord.id}'`,
+            sort: 'priority_order',
+          })
+
+        const reqFrom = String(savedRecord.valid_from || '').slice(0, 10) || '1970-01-01'
+        const reqUntil = String(savedRecord.valid_until || '').slice(0, 10) || '9999-12-31'
+        let currentNextPriority = (savedRecord.priority_order ?? 1) + 1
+
+        for (const item of activeList) {
+          const itemFrom = String(item.valid_from || '').slice(0, 10) || '1970-01-01'
+          const itemUntil = String(item.valid_until || '').slice(0, 10) || '9999-12-31'
+          const overlap = reqFrom <= itemUntil && reqUntil >= itemFrom
+
+          if (overlap && (item.priority_order ?? 0) >= (savedRecord.priority_order ?? 1)) {
+            await pb.collection('line_raw_material_priorities').update(item.id, {
+              priority_order: currentNextPriority,
+            })
+            reorganizedCount++
+            currentNextPriority++
+          }
+        }
+      } catch (reorgErr) {
+        console.warn('Erro na reorganização local de prioridades:', reorgErr)
+      }
+    }
+
+    // Auditoria oficial do salvamento / edição de prioridade
+    const currentUser = pb.authStore.record
+    const auditAction = data.id
+      ? reorganize
+        ? 'REORGANIZE_RAW_MATERIAL_PRIORITIES'
+        : 'UPDATE_RAW_MATERIAL_PRIORITY'
+      : 'CREATE_RAW_MATERIAL_PRIORITY'
+
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: currentUser?.id || null,
+        user_email: (currentUser as any)?.email || '',
+        user_name: (currentUser as any)?.name || (currentUser as any)?.email || 'Usuário PCP',
+        user_role: (currentUser as any)?.role || 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: auditAction,
+        resource: 'line_raw_material_priorities',
+        resource_id: savedRecord.id,
+        permission_required: 'pcp.lines.manage',
+        company: 'CIAFAL',
+        line: savedRecord.line_id,
+        center: savedRecord.line_id,
+        module: 'Centros e Ficha Mestra',
+        screen: 'Ficha Mestre Expandida > Prioridades MP',
+        entity: 'line_raw_material_priorities',
+        record_id: savedRecord.id,
+        outcome: 'SUCCESS',
+        reason: data.id
+          ? `MP ${savedRecord.material_code} — alteração de prioridade para #${savedRecord.priority_order}`
+          : `MP ${savedRecord.material_code} — cadastrada na prioridade #${savedRecord.priority_order}`,
+        details: {
+          line_id: savedRecord.line_id,
+          line_master_id: savedRecord.line_master_id,
+          material_code: savedRecord.material_code,
+          material_description: savedRecord.material_description,
+          previous_values: previousRecord
+            ? {
+                priority_order: previousRecord.priority_order,
+                valid_from: previousRecord.valid_from,
+                valid_until: previousRecord.valid_until,
+                criterio_prioridade: previousRecord.criterio_prioridade,
+                active: previousRecord.active,
+              }
+            : null,
+          new_values: {
+            priority_order: savedRecord.priority_order,
+            valid_from: savedRecord.valid_from,
+            valid_until: savedRecord.valid_until,
+            criterio_prioridade: savedRecord.criterio_prioridade,
+            active: savedRecord.active,
+          },
+          reorganized_count: reorganizedCount,
+          action: auditAction,
+          timestamp: new Date().toISOString(),
+        },
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
     return {
       record: savedRecord,
-      reorganizedCount: 0,
+      reorganizedCount,
       message: data.id
         ? 'Prioridade de MP atualizada com sucesso.'
         : 'Prioridade de MP salva com sucesso.',

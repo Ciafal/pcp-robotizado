@@ -508,15 +508,16 @@ class PCPAuditService {
         entity: 'weekly_schedules',
         resource: 'weekly_schedules',
         details,
-        userRole: params.userRole || 'PCP_PLANNER',
-        success: false,
+        user_role: params.userRole || 'PCP_PLANNER',
+        status: 'Erro',
+        outcome: 'FAILED',
       })
       return true
     } catch (err) {
       console.warn('[pcpAuditService] Erro ao registrar bloqueio de Tempo Mínimo PCP:', err)
       return false
     }
-  },
+  }
 
   async recordFailureAttempt(params: {
     operation: string
