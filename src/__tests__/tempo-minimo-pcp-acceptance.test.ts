@@ -375,7 +375,8 @@ describe('Tempo Mínimo PCP Engine & Acceptance Suite (T1 - T12)', () => {
       status: 400,
       response: {
         code: 'TEMPO_MINIMO_PCP_NAO_ATENDIDO',
-        message: 'A programação não pode ser realizada porque a matéria-prima MP_SPECIAL exige antecedência mínima de 12 Horas.',
+        message:
+          'A programação não pode ser realizada porque a matéria-prima MP_SPECIAL exige antecedência mínima de 12 Horas.',
         details: {
           rawMaterialCode: 'MP_SPECIAL',
           requiredValue: 12,

@@ -134,10 +134,7 @@ export function formatDateToBrDateTime(d: Date): string {
   return formatDateTimeBr(d)
 }
 
-export function calculatePrimeiroInicioPermitido(
-  now: Date,
-  minutosMinimos: number,
-): Date {
+export function calculatePrimeiroInicioPermitido(now: Date, minutosMinimos: number): Date {
   return new Date(now.getTime() + minutosMinimos * 60 * 1000)
 }
 
@@ -399,12 +396,17 @@ export function evaluateTempoMinimoPcp(
   const centerCode = (params.centerCode || '').trim()
   const now = params.now || params.referenceNow || new Date()
   const targetDateInput = params.targetStartDateTime || params.plannedStartDateTime || new Date()
-  
-  const targetDate = targetDateInput instanceof Date ? targetDateInput : new Date(
-    typeof targetDateInput === 'string' && !targetDateInput.includes('T') && targetDateInput.includes(' ')
-      ? targetDateInput.replace(' ', 'T')
-      : targetDateInput
-  )
+
+  const targetDate =
+    targetDateInput instanceof Date
+      ? targetDateInput
+      : new Date(
+          typeof targetDateInput === 'string' &&
+            !targetDateInput.includes('T') &&
+            targetDateInput.includes(' ')
+            ? targetDateInput.replace(' ', 'T')
+            : targetDateInput,
+        )
 
   const rawApps = params.applications || params.applicationsList || []
   const appsList: LineRawMaterialApplication[] = rawApps.map((a: any) => ({
@@ -415,8 +417,10 @@ export function evaluateTempoMinimoPcp(
     raw_material_code: a.raw_material_code || '',
     application: a.application || '',
     tempo_minimo_pcp_unidade: a.tempo_minimo_pcp_unidade || null,
-    tempo_minimo_pcp_valor: a.tempo_minimo_pcp_valor != null ? Number(a.tempo_minimo_pcp_valor) : null,
-    tempo_minimo_pcp_minutos: a.tempo_minimo_pcp_minutos != null ? Number(a.tempo_minimo_pcp_minutos) : null,
+    tempo_minimo_pcp_valor:
+      a.tempo_minimo_pcp_valor != null ? Number(a.tempo_minimo_pcp_valor) : null,
+    tempo_minimo_pcp_minutos:
+      a.tempo_minimo_pcp_minutos != null ? Number(a.tempo_minimo_pcp_minutos) : null,
     status: (a.status || 'Ativo') as 'Ativo' | 'Inativo',
     first_run: false,
     allow_out_of_standard_mp: false,
@@ -452,10 +456,11 @@ export function evaluateTempoMinimoPcp(
   // Filtra regras correspondentes
   const cleanProd = productCode.toUpperCase()
   const cleanCenter = centerCode.toUpperCase()
-  const targetMpCodes = rawMaterialCodes.map(c => c.toUpperCase())
+  const targetMpCodes = rawMaterialCodes.map((c) => c.toUpperCase())
 
-  const matching = appsList.filter(app => {
-    if (cleanCenter && app.center_code && app.center_code.toUpperCase() !== cleanCenter) return false
+  const matching = appsList.filter((app) => {
+    if (cleanCenter && app.center_code && app.center_code.toUpperCase() !== cleanCenter)
+      return false
     const appProd = (app.product_code || '').trim().toUpperCase()
     const appMp = (app.raw_material_code || '').trim().toUpperCase()
 
@@ -465,7 +470,10 @@ export function evaluateTempoMinimoPcp(
   })
 
   const rulesWithTempo = matching.filter(
-    r => Boolean(r.tempo_minimo_pcp_unidade) && r.tempo_minimo_pcp_valor != null && Number(r.tempo_minimo_pcp_valor) > 0
+    (r) =>
+      Boolean(r.tempo_minimo_pcp_unidade) &&
+      r.tempo_minimo_pcp_valor != null &&
+      Number(r.tempo_minimo_pcp_valor) > 0,
   )
 
   const hasRuleConfigured = rulesWithTempo.length > 0
@@ -497,7 +505,7 @@ export function evaluateTempoMinimoPcp(
     }
   }
 
-  const evaluatedRules = rulesWithTempo.map(r => {
+  const evaluatedRules = rulesWithTempo.map((r) => {
     const val = Number(r.tempo_minimo_pcp_valor)
     const unit = r.tempo_minimo_pcp_unidade as TempoMinimoUnidade
     const reqMins = convertTempoMinimoToMinutes(val, unit)
@@ -515,7 +523,7 @@ export function evaluateTempoMinimoPcp(
 
   evaluatedRules.sort((a, b) => b.requiredMinutes - a.requiredMinutes)
   const mostRestrictive = evaluatedRules[0]
-  const violating = evaluatedRules.filter(e => !e.atendido)
+  const violating = evaluatedRules.filter((e) => !e.atendido)
   const isValid = violating.length === 0
 
   const blockingRule = violating.length > 0 ? violating[0] : null
@@ -526,7 +534,10 @@ export function evaluateTempoMinimoPcp(
   const pad = (n: number) => String(n).padStart(2, '0')
   const primeiroInicioFormatado = `${pad(primeiroInicio.getDate())}/${pad(primeiroInicio.getMonth() + 1)}/${primeiroInicio.getFullYear()} ${pad(primeiroInicio.getHours())}:${pad(primeiroInicio.getMinutes())}`
 
-  const valorFormatado = formatBrNumber(mostRestrictive.valor, mostRestrictive.valor % 1 === 0 ? 0 : 2)
+  const valorFormatado = formatBrNumber(
+    mostRestrictive.valor,
+    mostRestrictive.valor % 1 === 0 ? 0 : 2,
+  )
   const msg = !isValid
     ? `Movimentação não permitida ou programação bloqueada: a matéria-prima ${blockingRule?.rawMaterialCode || mostRestrictive.rawMaterialCode} exige antecedência mínima de ${valorFormatado} ${mostRestrictive.unidade}. Primeiro início permitido: ${primeiroInicioFormatado}.`
     : 'Antecedência mínima atendida.'
@@ -548,8 +559,8 @@ export function evaluateTempoMinimoPcp(
     primeiroInicioPermitidoIso: primeiroInicio.toISOString(),
     message: msg,
     blockingItem,
-    violatingItems: violating.map(v => v.rawApp as TempoMinimoPcpApplicationItem),
-    violatingRules: violating.map(v => ({
+    violatingItems: violating.map((v) => v.rawApp as TempoMinimoPcpApplicationItem),
+    violatingRules: violating.map((v) => ({
       rawMaterialCode: v.rawMaterialCode,
       valor: v.valor,
       unidade: v.unidade,
@@ -562,7 +573,7 @@ export function evaluateTempoMinimoPcp(
       unidade: mostRestrictive.unidade,
       requiredMinutes: mostRestrictive.requiredMinutes,
     },
-    allEvaluatedRules: evaluatedRules.map(e => ({
+    allEvaluatedRules: evaluatedRules.map((e) => ({
       rawMaterialCode: e.rawMaterialCode,
       valor: e.valor,
       unidade: e.unidade,

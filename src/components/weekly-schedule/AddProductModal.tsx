@@ -55,8 +55,6 @@ import {
   Trash2,
 } from 'lucide-react'
 import { DAYS_OF_WEEK, WeeklyScheduleItem, OfficialMaterialOption } from '@/types/weekly-schedule'
-import { pcpAuditService } from '@/services/pcp-audit-service'
-
 export interface RawMaterialRowItem {
   id: string
   mpType: string
@@ -118,7 +116,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   targetCrewName,
   rawMaterialApplications = [],
   onBlockedTempoMinimo,
-}) => {  // Cascata: 1. Família -> 2. Produto
+}) => {
+  // Cascata: 1. Família -> 2. Produto
   const [selectedFamilyCode, setSelectedFamilyCode] = useState<string>('')
   const [selectedMaterial, setSelectedMaterial] = useState<OfficialMaterialOption | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
