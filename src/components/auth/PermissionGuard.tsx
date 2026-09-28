@@ -126,8 +126,30 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais, análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
-  if (isEntregasRoute) {
+  // Libera rotas operacionais, cadastrais (inclusive Ficha Mestra), análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
+  const isCadastrosOrMasterDataEarly = Boolean(
+    permission === 'pcp.masterdata.view' ||
+    permission === 'pcp.masterdata.edit' ||
+    permission === 'pcp.masterdata.admin' ||
+    permission === 'pcp.lines.view' ||
+    permission === 'pcp.lines.manage' ||
+    permission.startsWith('pcp.masterdata.') ||
+    permission.startsWith('pcp.lines.') ||
+    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/ficha-mestre') ||
+    currentPathname.startsWith('/pcp/linhas') ||
+    currentPathname.includes('/ficha-mestre') ||
+    currentPathname.includes('ficha-mestre') ||
+    currentPathname.includes('/centros-ficha-mestre') ||
+    currentPathname.includes('/linhas-ficha-mestre') ||
+    currentHash.includes('/ficha-mestre') ||
+    currentHash.includes('ficha-mestre') ||
+    windowPath.includes('/ficha-mestre') ||
+    windowPath.includes('cadastros/ficha-mestre'),
+  )
+
+  if (isEntregasRoute || isCadastrosOrMasterDataEarly) {
     return <>{children}</>
   }
 
@@ -199,7 +221,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentRoleUpper === 'EXECUTIVE_VIEWER' ||
     currentRoleUpper === 'AUDITOR'
 
-  const isCadastrosOrMasterData =
+  const isCadastrosOrMasterData = Boolean(
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.masterdata.edit' ||
     permission === 'pcp.masterdata.admin' ||
@@ -212,8 +234,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/ficha-mestre') ||
+    currentPathname.includes('ficha-mestre') ||
     currentPathname.includes('/centros-ficha-mestre') ||
-    currentPathname.includes('/linhas-ficha-mestre')
+    currentPathname.includes('/linhas-ficha-mestre') ||
+    currentHash.includes('/ficha-mestre') ||
+    currentHash.includes('ficha-mestre') ||
+    windowPath.includes('/ficha-mestre') ||
+    windowPath.includes('cadastros/ficha-mestre'),
+  )
 
   if (
     permission === 'pcp.cockpit.view' ||

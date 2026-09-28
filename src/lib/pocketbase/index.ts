@@ -8,6 +8,7 @@
  */
 import PocketBase from 'pocketbase'
 import clientPb, { pb as namedClientPb } from './client'
+export * from './errors'
 
 const resolvedPb: PocketBase =
   namedClientPb ||

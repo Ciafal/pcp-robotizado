@@ -169,6 +169,7 @@ export interface MasterPlanItem {
   production_nature: 'PRODUCAO_PROPRIA' | 'INDUSTRIALIZACAO'
   order_type: 'MTS' | 'MTO'
   period_ref: string
+  production_order?: string
   planned_tons: number
   programmed_tons: number
   produced_tons: number

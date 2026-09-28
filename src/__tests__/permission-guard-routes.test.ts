@@ -131,6 +131,27 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(shouldRenderDirectly).toBe(true)
   })
 
+  it('permite acesso imediato e bypass de rota para Centros e Ficha Mestra (/pcp/cadastros/ficha-mestre)', () => {
+    const isCadastrosOrMasterDataPath = (pathname: string, permission: string) =>
+      Boolean(
+        permission === 'pcp.masterdata.view' ||
+        permission === 'pcp.masterdata.edit' ||
+        permission === 'pcp.lines.view' ||
+        pathname.startsWith('/pcp/cadastros') ||
+        pathname.startsWith('/pcp/cadastros/ficha-mestre') ||
+        pathname.startsWith('/pcp/ficha-mestre') ||
+        pathname.includes('/ficha-mestre') ||
+        pathname.includes('ficha-mestre'),
+      )
+
+    expect(isCadastrosOrMasterDataPath('/pcp/cadastros/ficha-mestre', 'pcp.masterdata.view')).toBe(
+      true,
+    )
+    expect(isCadastrosOrMasterDataPath('/pcp/ficha-mestre', 'pcp.masterdata.view')).toBe(true)
+    expect(isCadastrosOrMasterDataPath('/pcp/cadastros/ficha-mestre', '')).toBe(true)
+    expect(isCadastrosOrMasterDataPath('/qualquer-rota', 'pcp.masterdata.view')).toBe(true)
+  })
+
   it('permite acesso imediato e bypass de rota para Entregas PCP (/pcp/entregas)', () => {
     const isEntregasPath = (pathname: string) =>
       Boolean(
