@@ -48,7 +48,13 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
 }) => {
   if (!demand) return null
 
-  const materialCount = demand.materials_summary?.length || (demand.material_code ? 1 : 0)
+  const materialCount =
+    demand.materials_summary && demand.materials_summary.length > 0
+      ? demand.materials_summary.length
+      : demand.material_code
+        ? 1
+        : 0
+
   const createdDateFormatted = formatPtBrDateTime(
     demand.generation_date_formatted || demand.created || new Date().toISOString(),
   )
@@ -84,7 +90,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
           </div>
         </DialogHeader>
 
-        {/* Resumo exibido no popup */}
+        {/* Resumo exibido no popup com valores reais retornados pelo backend */}
         <div className="space-y-3 py-2 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/70">
@@ -92,7 +98,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                 Nº da Demanda
               </span>
               <span className="font-mono font-black text-sm text-[#004C97]">
-                {demand.control_number}
+                {demand.control_number || 'INV-PENDENTE'}
               </span>
             </div>
 
@@ -103,7 +109,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   Empresa
                 </span>
                 <span className="font-semibold text-slate-800 text-xs">
-                  {demand.company || '—'}
+                  {demand.company || 'Dado não disponível'}
                 </span>
               </div>
 
@@ -112,7 +118,9 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Factory className="w-3 h-3 text-slate-500" />
                   Linha
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">{demand.line || '—'}</span>
+                <span className="font-semibold text-slate-800 text-xs">
+                  {demand.line || 'Dado não disponível'}
+                </span>
               </div>
 
               <div>
@@ -120,7 +128,9 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Warehouse className="w-3 h-3 text-slate-500" />
                   Centro
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">{demand.center || '—'}</span>
+                <span className="font-semibold text-slate-800 text-xs">
+                  {demand.center || 'Dado não disponível'}
+                </span>
               </div>
 
               <div>
@@ -129,7 +139,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   Depósito
                 </span>
                 <span className="font-semibold text-slate-800 text-xs">
-                  {demand.storage_deposit || '—'}
+                  {demand.storage_deposit || 'Dado não disponível'}
                 </span>
               </div>
             </div>
@@ -140,7 +150,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   Ordem de Produção
                 </span>
                 <span className="font-mono font-bold text-slate-800 text-xs">
-                  {demand.production_order || '—'}
+                  {demand.production_order || 'Dado não disponível'}
                 </span>
               </div>
 

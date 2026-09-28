@@ -471,22 +471,27 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
         observation: observation.trim() || undefined,
       }
 
+      console.debug('[FORM:PAYLOAD]', payload)
       const created = await pcpInventoryDemandsService.createDemand(payload)
+      console.debug('[BACKEND:RESPONSE]', created)
 
-      // Sucesso na persistência real: fecha o modal do formulário e chama onSuccess com a demanda criada
-      onOpenChange(false)
+      // Sequência obrigatória:
+      // 1. Backend persistiu e retornou registro completo (created)
+      // 2. Chama onSuccess(created) para abrir popup de confirmação com dados reais
+      // 3. Fecha o modal do formulário
+      // 4. Somente após a confirmação do sucesso os campos podem ser limpos
       onSuccess(created)
+      onOpenChange(false)
     } catch (err: any) {
       console.error('Erro ao gerar demanda:', err)
-      // Em erro: popup aberto, dados preservados, botão reabilitado, mensagem amigável, erro técnico em log
-      setErrorMessage(
-        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
-      )
+      const userFriendlyMsg =
+        err?.message ||
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.'
+      setErrorMessage(userFriendlyMsg)
       toast({
         variant: 'destructive',
         title: 'Erro ao gerar demanda',
-        description:
-          'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.',
+        description: userFriendlyMsg,
       })
     } finally {
       setSubmitting(false)

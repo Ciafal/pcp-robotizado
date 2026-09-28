@@ -113,12 +113,13 @@ class PcpInventoryDemandsService {
 
   /**
    * Busca itens de MP vinculados a uma demanda (pcp_mp_inventory_items)
+   * Usa tanto demand_id quanto control_number para máxima rastreabilidade
    */
   async listItemsByDemand(demandId: string, controlNumber?: string): Promise<DemandMaterialItem[]> {
     try {
       let filter = `demand_id = '${demandId}'`
       if (controlNumber) {
-        filter += ` || control_number = '${controlNumber}'`
+        filter = `demand_id = '${demandId}' || control_number = '${controlNumber}'`
       }
       const records = await pb.collection('pcp_mp_inventory_items').getFullList({
         filter,
@@ -128,7 +129,7 @@ class PcpInventoryDemandsService {
         id: r.id,
         weight_tons: Number(r.quantity_tons || r.weight_tons || 0),
         demand_id: r.demand_id || demandId,
-        control_number: r.control_number || r.inventory_code || '',
+        control_number: r.control_number || r.inventory_code || controlNumber || '',
         material_code: r.raw_material_code || r.material_code || '',
         material_description: r.raw_material_description || r.material_description || '',
         heat_number: r.heat_number || '',
@@ -150,6 +151,7 @@ class PcpInventoryDemandsService {
       return []
     }
   }
+
   /**
    * Obtém uma demanda por ID
    */
@@ -248,9 +250,94 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Cria uma nova demanda de inventário de matéria-prima
+   * Cria uma nova demanda de inventário de matéria-prima de modo ATÔMICO
+   * com rollback completo se qualquer etapa mandatória falhar.
    */
   async createDemand(payload: CreateDemandPayload): Promise<InventoryDemand> {
+    // 1. Validação estrita de entrada antes de qualquer escrita
+    const company = (payload.company || '').trim()
+    const line = (payload.line || '').trim()
+    const center = (payload.center || '').trim()
+    const storageDeposit = (payload.storage_deposit || '').trim()
+    const productionOrder = (payload.production_order || '').trim()
+    const priority = (payload.priority || '').trim()
+
+    if (!company) {
+      throw new Error('Não foi possível gerar a demanda: Empresa não foi informada.')
+    }
+    if (!line) {
+      throw new Error('Não foi possível gerar a demanda: Linha não foi informada.')
+    }
+    if (!center) {
+      throw new Error('Não foi possível gerar a demanda: Centro não foi informado.')
+    }
+    if (!storageDeposit) {
+      throw new Error('Não foi possível gerar a demanda: Depósito não foi informado.')
+    }
+    if (!productionOrder) {
+      throw new Error('Não foi possível gerar a demanda: Ordem de Produção não foi informada.')
+    }
+    if (!priority) {
+      throw new Error('Não foi possível gerar a demanda: Prioridade não foi informada.')
+    }
+
+    // Preparar lista de materiais (1..N)
+    const rawMaterials =
+      payload.materials && payload.materials.length > 0
+        ? payload.materials
+        : payload.material_code
+          ? [
+              {
+                material_code: payload.material_code,
+                material_description: payload.material_description || '',
+                heat_number: payload.run_number || '',
+                quantity_tons: 0,
+                calculated_pieces: Number(payload.quantity_required) || 0,
+                unit_weight_t: null,
+                unit_weight_kg: null,
+                weight_origin: 'LOCAL_CADASTRO',
+              },
+            ]
+          : []
+
+    if (rawMaterials.length === 0) {
+      throw new Error('Não foi possível gerar a demanda: nenhum material foi vinculado.')
+    }
+
+    const materialsStructured = rawMaterials.map((m) => {
+      const code = (m.material_code || '').trim()
+      if (!code) {
+        throw new Error('Não foi possível gerar a demanda: Código de Matéria-Prima inválido.')
+      }
+      const heat = (m.heat_number || '').trim()
+      const qTons = Number(m.quantity_tons) || 0
+      const calcPieces = Number(m.calculated_pieces) || 0
+      const uWeightT = m.unit_weight_t != null ? Number(m.unit_weight_t) : null
+      const uWeightKg =
+        m.unit_weight_kg != null
+          ? Number(m.unit_weight_kg)
+          : uWeightT != null
+            ? Math.round(uWeightT * 1000)
+            : null
+
+      return {
+        material_code: code,
+        material_description: (m.material_description || '').trim(),
+        heat_number: heat, // Corrida opcional: preserva string vazia se ausente
+        quantity_tons: qTons,
+        calculated_pieces: calcPieces,
+        unit_weight_t: uWeightT,
+        unit_weight_kg: uWeightKg,
+        weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
+      }
+    })
+
+    const totalPiecesReq = materialsStructured.reduce(
+      (acc, m) => acc + (Number(m.calculated_pieces) || 0),
+      0,
+    )
+
+    const primaryMaterial = materialsStructured[0]
     const nextCtrl = await this.fetchNextControlNumber()
     const nowStr = formatPtBrDateTime()
 
@@ -259,210 +346,201 @@ class PcpInventoryDemandsService {
     const requesterName = payload.requester_name || authUser?.name || 'Programador PCP'
     const requesterRole = (authUser as any)?.role || 'PCP_PROGRAMMER'
 
-    // Suporte a multi-MP e legado mono-MP
-    const materialsInput =
-      payload.materials && payload.materials.length > 0
-        ? payload.materials.map((m) => ({
-            ...m,
-            heat_number: m.heat_number?.trim() || '', // Corrida opcional
-            unit_weight_t:
-              m.unit_weight_t ?? (m.unit_weight_kg != null ? m.unit_weight_kg / 1000 : null),
-            weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
-          }))
-        : [
-            {
-              material_code: payload.material_code || '',
-              material_description: payload.material_description || '',
-              heat_number: payload.run_number?.trim() || '',
-              quantity_tons: 0,
-              calculated_pieces: Number(payload.quantity_required) || 0,
-              unit_weight_t: null,
-              unit_weight_kg: null,
-              weight_origin: 'LOCAL_CADASTRO',
-            },
-          ]
-
-    const totalReq =
-      payload.materials && payload.materials.length > 0
-        ? payload.materials.reduce((acc, m) => acc + (Number(m.calculated_pieces) || 0), 0)
-        : Number(payload.quantity_required) || 0
-
-    const primaryMaterial = materialsInput[0] || {
-      material_code: payload.material_code || '',
-      material_description: payload.material_description || '',
-      heat_number: payload.run_number?.trim() || '',
-    }
-
-    // 1. Persiste a demanda
+    // Monta o payload do cabeçalho da demanda
     const demandPayload: any = {
       control_number: nextCtrl,
-      company: payload.company || '',
-      line: payload.line || '',
-      center: payload.center || '',
-      storage_deposit: payload.storage_deposit || '',
-      production_order: payload.production_order || '',
-      material_code: primaryMaterial.material_code || payload.material_code || '',
-      material_description:
-        primaryMaterial.material_description || payload.material_description || '',
+      company,
+      line,
+      center,
+      storage_deposit: storageDeposit,
+      production_order: productionOrder,
+      material_code: primaryMaterial.material_code,
+      material_description: primaryMaterial.material_description,
       unit_of_measure: payload.unit_of_measure || 'pçs',
-      sap_stock: totalReq,
+      sap_stock: totalPiecesReq,
       sap_last_sync: nowStr,
       sap_query_status: 'SINCRONIZADO',
-      priority: payload.priority || 'Normal',
+      priority,
       status: 'Gerada',
-      observation: payload.observation || '',
+      observation: (payload.observation || '').trim(),
       requester_id: requesterId,
       requester_name: requesterName,
       requester_role: requesterRole,
       generation_date_formatted: nowStr,
-      total_pieces_required: totalReq,
+      total_pieces_required: totalPiecesReq,
       total_pieces_inventoried: 0,
-      divergence_pieces: -totalReq,
+      divergence_pieces: -totalPiecesReq,
       divergence_pct: -100,
-      materials_summary: materialsInput,
+      // materials_summary NUNCA null, sempre array estruturado
+      materials_summary: materialsStructured,
     }
 
     if (payload.gauge) demandPayload.gauge = payload.gauge
     if (payload.application) demandPayload.application = payload.application
 
-    const demandRecord = await pb
-      .collection('pcp_mp_inventory_demands')
-      .create<InventoryDemand>(demandPayload)
+    let createdDemandRecord: InventoryDemand | null = null
+    const createdItemIds: string[] = []
 
-    // 2. Persiste itens em pcp_mp_inventory_items (1 Demanda -> N MPs)
     try {
-      for (const m of materialsInput) {
-        if (!m.material_code) continue
-        const heatVal = (m.heat_number || '').trim()
-        const itemKey = `${nextCtrl}-${m.material_code}-${heatVal || 'AVULSO'}-${Math.floor(Math.random() * 1000)}`
-        await pb.collection('pcp_mp_inventory_items').create({
-          demand_id: demandRecord.id,
+      // ETAPA A: Criação da demanda principal
+      createdDemandRecord = await pb
+        .collection('pcp_mp_inventory_demands')
+        .create<InventoryDemand>(demandPayload)
+
+      if (!createdDemandRecord || !createdDemandRecord.id) {
+        throw new Error('Falha ao persistir cabeçalho da Demanda no banco.')
+      }
+
+      // ETAPA B: Criação de cada item em pcp_mp_inventory_items com vínculo estrito
+      for (const m of materialsStructured) {
+        const heatVal = m.heat_number
+        const itemKey = `${nextCtrl}-${m.material_code}-${heatVal || 'AVULSO'}-${Math.floor(Math.random() * 10000)}`
+
+        const itemRecord = await pb.collection('pcp_mp_inventory_items').create({
+          demand_id: createdDemandRecord.id,
           control_number: nextCtrl,
-          inventory_id: demandRecord.id,
+          inventory_id: createdDemandRecord.id,
           inventory_code: nextCtrl,
           item_control_key: itemKey,
-          company: payload.company || '',
-          line: payload.line || '',
-          center: payload.center || '',
-          storage_deposit: payload.storage_deposit || '',
-          production_order: payload.production_order || '',
+          company,
+          line,
+          center,
+          storage_deposit: storageDeposit,
+          production_order: productionOrder,
           raw_material_code: m.material_code,
-          raw_material_description: m.material_description || '',
-          heat_number: heatVal, // Corrida opcional: persiste vazio se não informada
+          raw_material_description: m.material_description,
+          heat_number: heatVal, // Corrida salva fielmente
           produced_gauge_product: payload.gauge || '',
           enfornamento_type: 'NORMAL',
-          quantity_tons: m.quantity_tons || 0,
-          unit_weight_t:
-            m.unit_weight_t != null
-              ? Number(m.unit_weight_t)
-              : m.unit_weight_kg
-                ? Number(m.unit_weight_kg) / 1000
-                : null,
-          weight_origin: m.weight_origin || 'LOCAL_CADASTRO',
-          calculated_pieces: m.calculated_pieces || 0,
-          unit_weight_kg:
-            m.unit_weight_kg != null
-              ? Number(m.unit_weight_kg)
-              : m.unit_weight_t
-                ? Math.round(Number(m.unit_weight_t) * 1000)
-                : null,
-          planned_requirement_tons: m.quantity_tons || 0,
-          sap_pieces_count: m.calculated_pieces || 0,
-          wms_physical_location: payload.storage_deposit || '',
+          quantity_tons: m.quantity_tons,
+          unit_weight_t: m.unit_weight_t,
+          unit_weight_kg: m.unit_weight_kg,
+          weight_origin: m.weight_origin,
+          calculated_pieces: m.calculated_pieces,
+          planned_requirement_tons: m.quantity_tons,
+          sap_pieces_count: m.calculated_pieces,
+          wms_physical_location: storageDeposit,
           pcp_planned_sequence: 1,
           schedule_version: 1,
           status: 'Aguardando Inventário',
         })
+        createdItemIds.push(itemRecord.id)
       }
-    } catch (itErr) {
-      console.warn('Erro ao salvar pcp_mp_inventory_items:', itErr)
-    }
 
-    // 3. Persiste o item correspondente em pcp_mp_inventory_gauges
-    try {
-      await pb.collection('pcp_mp_inventory_gauges').create<InventoryGauge>({
-        demand_id: demandRecord.id,
-        control_number: nextCtrl,
-        gauge: payload.gauge || 'Tarugo 130mm',
-        application: payload.application || 'Laminação L1',
-        quantity_required: totalReq,
-        unit_of_measure: payload.unit_of_measure || 'pçs',
-        suggested_run: primaryMaterial.heat_number || payload.run_number || '',
-        run_stock: totalReq,
-      })
-    } catch (gErr) {
-      console.warn('Erro ao criar gauge vinculado:', gErr)
-    }
+      // ETAPA C: Auditoria append-only inicial em pcp_mp_inventory_history
+      try {
+        const matSummaryText = materialsStructured
+          .map(
+            (m) =>
+              `${m.material_code} (Corrida: ${m.heat_number || 'Sem corrida'}, ${m.quantity_tons} t / ${m.calculated_pieces} pçs | Peso un: ${m.unit_weight_t != null ? m.unit_weight_t + ' t' : 'Aguardando SAP'})`,
+          )
+          .join('; ')
 
-    // 4. Persiste as corridas vinculadas se informadas
-    try {
-      for (const m of materialsInput) {
-        const runNum = m.heat_number || payload.run_number || 'AVULSO'
-        await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
-          demand_id: demandRecord.id,
-          control_number: nextCtrl,
-          run_number: runNum,
-          batch_number: runNum !== 'AVULSO' ? `LOT-${runNum}` : `SEM-CORRIDA`,
-          gauge: payload.gauge || 'Tarugo 130mm',
-          application: payload.application || 'Laminação L1',
-          sap_stock_pieces: m.calculated_pieces || totalReq,
-          suggested_pieces: m.calculated_pieces || totalReq,
-          selected_pieces: m.calculated_pieces || totalReq,
-          is_ai_suggested: false,
-          is_manual_override: false,
-          inventoried_pieces: 0,
+        await pb.collection('pcp_mp_inventory_history').create({
+          inventory_id: createdDemandRecord.id,
+          event_type: 'DEMANDA_GERADA',
+          user_name: requesterName,
+          user_id: requesterId,
+          timestamp: new Date().toISOString(),
+          description: `Demanda de Inventário ${nextCtrl} criada com sucesso para OP ${productionOrder}. Materiais: [${matSummaryText}]. Total previsto: ${totalPiecesReq} peças.`,
+          new_value: {
+            control_number: nextCtrl,
+            company,
+            line,
+            center,
+            storage_deposit: storageDeposit,
+            production_order: productionOrder,
+            priority,
+            materials: materialsStructured,
+            total_pieces_required: totalPiecesReq,
+          },
         })
+      } catch (histErr) {
+        console.warn('Registro em pcp_mp_inventory_history ignorado:', histErr)
       }
-    } catch (rErr) {
-      console.warn('Erro ao criar corridas vinculadas:', rErr)
+
+      // ETAPA D: Coleções legadas auxiliares opcionais (audit_events / gauges / runs) sem quebrar o fluxo
+      try {
+        await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+          demand_id: createdDemandRecord.id,
+          control_number: nextCtrl,
+          event_type: 'DEMANDA_GERADA',
+          event_description: `Demanda de inventário ${nextCtrl} gerada com sucesso para OP ${productionOrder}.`,
+          user_id: requesterId,
+          user_name: requesterName,
+          user_role: requesterRole,
+          pieces_count: totalPiecesReq,
+          event_timestamp_formatted: nowStr,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+
+      try {
+        await pb.collection('pcp_mp_inventory_gauges').create<InventoryGauge>({
+          demand_id: createdDemandRecord.id,
+          control_number: nextCtrl,
+          gauge: payload.gauge || 'Tarugo',
+          application: payload.application || 'Laminação',
+          quantity_required: totalPiecesReq,
+          unit_of_measure: payload.unit_of_measure || 'pçs',
+          suggested_run: primaryMaterial.heat_number || '',
+          run_stock: totalPiecesReq,
+        })
+      } catch {
+        /* intentionally ignored */
+      }
+
+      try {
+        for (const m of materialsStructured) {
+          const runNum = m.heat_number || 'AVULSO'
+          await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
+            demand_id: createdDemandRecord.id,
+            control_number: nextCtrl,
+            run_number: runNum,
+            batch_number: runNum !== 'AVULSO' ? `LOT-${runNum}` : `SEM-CORRIDA`,
+            gauge: payload.gauge || 'Tarugo',
+            application: payload.application || 'Laminação',
+            sap_stock_pieces: m.calculated_pieces,
+            suggested_pieces: m.calculated_pieces,
+            selected_pieces: m.calculated_pieces,
+            is_ai_suggested: false,
+            is_manual_override: false,
+            inventoried_pieces: 0,
+          })
+        }
+      } catch {
+        /* intentionally ignored */
+      }
+
+      // Retorna a demanda criada com todos os campos populados
+      return {
+        ...createdDemandRecord,
+        materials_summary: materialsStructured,
+      }
+    } catch (err: any) {
+      console.error('Falha atômica ao criar demanda de inventário. Iniciando rollback...', err)
+
+      // ROLLBACK: se os itens falharem ou houver erro, remove os itens criados e a demanda
+      for (const itemId of createdItemIds) {
+        try {
+          await pb.collection('pcp_mp_inventory_items').delete(itemId)
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+
+      if (createdDemandRecord && createdDemandRecord.id) {
+        try {
+          await pb.collection('pcp_mp_inventory_demands').delete(createdDemandRecord.id)
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+
+      const errMsg = err?.message || 'Falha desconhecida ao persistir demanda e materiais.'
+      throw new Error(`Não foi possível gerar a demanda: ${errMsg}`)
     }
-
-    // 5. Registra evento append-only de auditoria com detalhes completos (incluindo origem do peso unitário)
-    try {
-      const matSummaryText = materialsInput
-        .map(
-          (m) =>
-            `${m.material_code} (Corrida: ${m.heat_number || 'Sem corrida'}, ${m.quantity_tons} t / ${m.calculated_pieces} pçs | Peso un: ${m.unit_weight_t != null ? m.unit_weight_t + ' t' : 'Aguardando SAP'} [Origem: ${m.weight_origin || 'LOCAL_CADASTRO'}])`,
-        )
-        .join('; ')
-
-      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-        demand_id: demandRecord.id,
-        control_number: nextCtrl,
-        event_type: 'DEMANDA_GERADA',
-        event_description: `Demanda de inventário ${nextCtrl} gerada com sucesso para OP ${payload.production_order || '—'}. Matérias-Primas: [${matSummaryText}]. Total: ${totalReq} peças.`,
-        run_number: primaryMaterial.heat_number || payload.run_number || '',
-        location_wms: payload.storage_deposit || '',
-        pieces_count: totalReq,
-        previous_value: '—',
-        new_value: `${totalReq} pçs`,
-        origin: 'USUARIO',
-        result: 'SUCESSO',
-        user_id: requesterId,
-        user_name: requesterName,
-        user_role: requesterRole,
-        event_timestamp_formatted: nowStr,
-        details_json: {
-          company: payload.company,
-          line: payload.line,
-          center: payload.center,
-          storage_deposit: payload.storage_deposit,
-          production_order: payload.production_order,
-          priority: payload.priority,
-          gauge: payload.gauge,
-          application: payload.application,
-          materials: materialsInput,
-        },
-        after_data: {
-          demand: demandPayload,
-          materials: materialsInput,
-        },
-      })
-    } catch (aErr) {
-      console.warn('Erro ao gravar evento de auditoria:', aErr)
-    }
-
-    return demandRecord
   }
 
   /**
@@ -611,16 +689,20 @@ class PcpInventoryDemandsService {
         status: 'Inventário parcial',
       })
 
-    await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-      demand_id: demand.id,
-      control_number: demand.control_number,
-      event_type: 'SALVAMENTO_PARCIAL',
-      event_description: `Inventário salvo parcialmente com ${updated.total_pieces_inventoried || 0} peças apuradas. Retomada permitida.`,
-      user_id: authUser?.id || '',
-      user_name: userName,
-      user_role: (authUser as any)?.role || '',
-      event_timestamp_formatted: nowStr,
-    })
+    try {
+      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+        demand_id: demand.id,
+        control_number: demand.control_number,
+        event_type: 'SALVAMENTO_PARCIAL',
+        event_description: `Inventário salvo parcialmente com ${updated.total_pieces_inventoried || 0} peças apuradas. Retomada permitida.`,
+        user_id: authUser?.id || '',
+        user_name: userName,
+        user_role: (authUser as any)?.role || '',
+        event_timestamp_formatted: nowStr,
+      })
+    } catch {
+      /* intentionally ignored */
+    }
 
     return updated
   }
@@ -646,17 +728,21 @@ class PcpInventoryDemandsService {
         concluded_by: userName,
       })
 
-    await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-      demand_id: demand.id,
-      control_number: demand.control_number,
-      event_type: 'INVENTARIO_CONCLUIDO',
-      event_description: `Inventário concluído com sucesso. Total apurado: ${updated.total_pieces_inventoried || 0} peças. Divergência: ${updated.divergence_pieces || 0} peças.`,
-      user_id: authUser?.id || '',
-      user_name: userName,
-      user_role: (authUser as any)?.role || '',
-      event_timestamp_formatted: nowStr,
-      result: (updated.divergence_pieces || 0) === 0 ? 'SUCESSO' : 'DIVERGENCIA',
-    })
+    try {
+      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+        demand_id: demand.id,
+        control_number: demand.control_number,
+        event_type: 'INVENTARIO_CONCLUIDO',
+        event_description: `Inventário concluído com sucesso. Total apurado: ${updated.total_pieces_inventoried || 0} peças. Divergência: ${updated.divergence_pieces || 0} peças.`,
+        user_id: authUser?.id || '',
+        user_name: userName,
+        user_role: (authUser as any)?.role || '',
+        event_timestamp_formatted: nowStr,
+        result: (updated.divergence_pieces || 0) === 0 ? 'SUCESSO' : 'DIVERGENCIA',
+      })
+    } catch {
+      /* intentionally ignored */
+    }
 
     return updated
   }
@@ -681,19 +767,23 @@ class PcpInventoryDemandsService {
         cancelled_by: userName,
       })
 
-    await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-      demand_id: demand.id,
-      control_number: demand.control_number,
-      event_type: 'DEMANDA_CANCELADA',
-      event_description: `Demanda cancelada por ${userName}. Motivo: ${reason}`,
-      previous_value: demand.status,
-      new_value: 'Cancelada',
-      user_id: authUser?.id || '',
-      user_name: userName,
-      user_role: (authUser as any)?.role || '',
-      event_timestamp_formatted: nowStr,
-      result: 'SUCESSO',
-    })
+    try {
+      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+        demand_id: demand.id,
+        control_number: demand.control_number,
+        event_type: 'DEMANDA_CANCELADA',
+        event_description: `Demanda cancelada por ${userName}. Motivo: ${reason}`,
+        previous_value: demand.status,
+        new_value: 'Cancelada',
+        user_id: authUser?.id || '',
+        user_name: userName,
+        user_role: (authUser as any)?.role || '',
+        event_timestamp_formatted: nowStr,
+        result: 'SUCESSO',
+      })
+    } catch {
+      /* intentionally ignored */
+    }
 
     return updated
   }

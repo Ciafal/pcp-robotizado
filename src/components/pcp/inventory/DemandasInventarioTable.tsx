@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import {
   InventoryDemand,
   InventoryDemandStatus,
@@ -25,6 +25,8 @@ import {
   RotateCcw,
   Boxes,
   FileSpreadsheet,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import {
   Dialog,
@@ -36,6 +38,11 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import {
+  pcpInventoryDemandsService,
+  DemandMaterialItem,
+} from '@/services/pcp-inventory-demands-service'
+import { formatPtBrNumber } from '@/lib/number-format'
 
 interface DemandasInventarioTableProps {
   demands: InventoryDemand[]
@@ -112,6 +119,8 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
 
   // Modal Visualizar Demanda
   const [viewDemand, setViewDemand] = useState<InventoryDemand | null>(null)
+  const [viewItems, setViewItems] = useState<DemandMaterialItem[]>([])
+  const [loadingViewData, setLoadingViewData] = useState<boolean>(false)
 
   // Identifica demanda recém-criada para destacar aviso discreto quando não atender aos filtros ativos
   const [justCreatedDemand, setJustCreatedDemand] = useState<InventoryDemand | null>(null)
@@ -122,16 +131,39 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
     }
   }, [lastCreatedDemand])
 
+  const openVisualizarFresh = useCallback(async (baseDemand: InventoryDemand) => {
+    setViewDemand(baseDemand)
+    setLoadingViewData(true)
+    try {
+      // Reconsulta o backend por id/control_number para garantir a fonte única da verdade
+      const [freshDemand, items] = await Promise.all([
+        baseDemand.id ? pcpInventoryDemandsService.getDemandById(baseDemand.id) : null,
+        pcpInventoryDemandsService.listItemsByDemand(baseDemand.id, baseDemand.control_number),
+      ])
+
+      if (freshDemand) {
+        setViewDemand(freshDemand)
+      }
+      setViewItems(items)
+    } catch (err) {
+      console.warn('Erro ao carregar dados frescos para visualização:', err)
+      setViewItems([])
+    } finally {
+      setLoadingViewData(false)
+    }
+  }, [])
+
   // Sincroniza abertura externa de visualização (ex.: acionada via popup de sucesso)
   React.useEffect(() => {
     if (externalViewDemand) {
-      setViewDemand(externalViewDemand)
+      openVisualizarFresh(externalViewDemand)
       setJustCreatedDemand(externalViewDemand)
     }
-  }, [externalViewDemand])
+  }, [externalViewDemand, openVisualizarFresh])
 
   const handleCloseViewDemand = () => {
     setViewDemand(null)
+    setViewItems([])
     if (onClearExternalViewDemand) {
       onClearExternalViewDemand()
     }
@@ -613,7 +645,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                           size="sm"
                           variant="ghost"
                           onClick={() => {
-                            setViewDemand(demand)
+                            openVisualizarFresh(demand)
                             onVisualizar(demand)
                           }}
                           title="Visualizar Detalhes"
@@ -690,161 +722,211 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2 text-xs">
-              {/* Metadados gerais */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Ordem de Produção
-                  </span>
-                  <span className="font-mono font-bold text-[#004C97]">
-                    {viewDemand.production_order || '—'}
-                  </span>
-                </div>
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Empresa / Linha
-                  </span>
-                  <span className="font-semibold text-slate-800">
-                    {viewDemand.company} / {viewDemand.line}
-                  </span>
-                </div>
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Centro / Depósito
-                  </span>
-                  <span className="font-semibold text-slate-800">
-                    {viewDemand.center} / {viewDemand.storage_deposit}
-                  </span>
-                </div>
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Prioridade
-                  </span>
-                  <span>{renderPriorityBadge(viewDemand.priority)}</span>
-                </div>
+            {loadingViewData ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-500 text-xs">
+                <Loader2 className="w-5 h-5 animate-spin text-[#004C97]" />
+                <span>Consultando dados atualizados no backend...</span>
               </div>
-
-              {/* Bitola e Aplicação */}
-              {(viewDemand.gauge || viewDemand.application) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div>
+            ) : (
+              <div className="space-y-4 py-2 text-xs">
+                {/* Metadados gerais */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                      Bitola
+                      Ordem de Produção
                     </span>
-                    <span className="font-mono font-semibold text-slate-800">
-                      {viewDemand.gauge || '—'}
+                    <span className="font-mono font-bold text-[#004C97]">
+                      {viewDemand.production_order || 'Dado não disponível'}
                     </span>
                   </div>
-                  <div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                      Aplicação
+                      Empresa / Linha
                     </span>
                     <span className="font-semibold text-slate-800">
-                      {viewDemand.application || '—'}
+                      {viewDemand.company || 'Dado não disponível'} /{' '}
+                      {viewDemand.line || 'Dado não disponível'}
                     </span>
                   </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Centro / Depósito
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      {viewDemand.center || 'Dado não disponível'} /{' '}
+                      {viewDemand.storage_deposit || 'Dado não disponível'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Prioridade
+                    </span>
+                    <span>{renderPriorityBadge(viewDemand.priority)}</span>
+                  </div>
                 </div>
-              )}
 
-              {/* Tabela de Matérias-Primas (1..N) */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Matérias-Primas Vinculadas
-                </span>
-                <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-slate-50 text-[10px]">
-                      <TableRow>
-                        <TableHead>Código MP</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Corrida</TableHead>
-                        <TableHead className="text-right">Qtd. (t)</TableHead>
-                        <TableHead className="text-right">Peças Calculadas</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="text-xs">
-                      {viewDemand.materials_summary && viewDemand.materials_summary.length > 0 ? (
-                        viewDemand.materials_summary.map((m, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-mono font-bold text-[#004C97]">
-                              {m.material_code}
-                            </TableCell>
-                            <TableCell className="text-slate-700">
-                              {m.material_description || '—'}
-                            </TableCell>
-                            <TableCell className="font-mono font-semibold">
-                              {m.heat_number}
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {formatBrNumber(m.quantity_tons, 3)} t
-                            </TableCell>
-                            <TableCell className="text-right font-mono font-bold">
-                              {m.calculated_pieces} pç
+                {/* Bitola e Aplicação */}
+                {(viewDemand.gauge || viewDemand.application) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                        Bitola
+                      </span>
+                      <span className="font-mono font-semibold text-slate-800">
+                        {viewDemand.gauge || 'Dado não disponível'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                        Aplicação
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        {viewDemand.application || 'Dado não disponível'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabela de Matérias-Primas (1..N) - Fonte única da verdade */}
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Matérias-Primas Vinculadas
+                  </span>
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-slate-50 text-[10px]">
+                        <TableRow>
+                          <TableHead>Código MP</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Corrida</TableHead>
+                          <TableHead className="text-right">Qtd. (t)</TableHead>
+                          <TableHead className="text-right">Peças Calculadas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="text-xs">
+                        {viewItems && viewItems.length > 0 ? (
+                          viewItems.map((item, i) => (
+                            <TableRow key={item.id || i}>
+                              <TableCell className="font-mono font-bold text-[#004C97]">
+                                {item.material_code || 'Dado não disponível'}
+                              </TableCell>
+                              <TableCell className="text-slate-700">
+                                {item.material_description || 'Dado não disponível'}
+                              </TableCell>
+                              <TableCell className="font-mono font-semibold">
+                                {item.heat_number ? item.heat_number : 'Sem corrida'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono">
+                                {formatPtBrNumber(item.quantity_tons, 3, 3)} t
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-bold">
+                                {formatPtBrNumber(item.calculated_pieces, 0, 0)} pç
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : viewDemand.materials_summary &&
+                          viewDemand.materials_summary.length > 0 ? (
+                          viewDemand.materials_summary.map((m, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-mono font-bold text-[#004C97]">
+                                {m.material_code || 'Dado não disponível'}
+                              </TableCell>
+                              <TableCell className="text-slate-700">
+                                {m.material_description || 'Dado não disponível'}
+                              </TableCell>
+                              <TableCell className="font-mono font-semibold">
+                                {m.heat_number ? m.heat_number : 'Sem corrida'}
+                              </TableCell>
+                              <TableCell className="text-right font-mono">
+                                {formatPtBrNumber(m.quantity_tons, 3, 3)} t
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-bold">
+                                {formatPtBrNumber(m.calculated_pieces, 0, 0)} pç
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="py-4 text-center text-rose-600 bg-rose-50/40"
+                            >
+                              <div className="flex items-center justify-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-rose-500" />
+                                <span>
+                                  Nenhuma matéria-prima vinculada a esta demanda (Inconsistência de
+                                  relacionamento).
+                                </span>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell className="font-mono font-bold text-[#004C97]">
-                            {viewDemand.material_code}
-                          </TableCell>
-                          <TableCell className="text-slate-700">
-                            {viewDemand.material_description || '—'}
-                          </TableCell>
-                          <TableCell className="font-mono font-semibold">—</TableCell>
-                          <TableCell className="text-right font-mono">—</TableCell>
-                          <TableCell className="text-right font-mono font-bold">
-                            {viewDemand.total_pieces_required || 0} pç
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
 
-              {/* Totais de Peças e Divergência */}
-              <div className="grid grid-cols-3 gap-2.5 bg-sky-50/60 p-3 rounded-lg border border-sky-100">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                    Qtd. Prevista Total
-                  </span>
-                  <span className="text-sm font-mono font-bold text-slate-900">
-                    {viewDemand.total_pieces_required || 0} pç
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                    Qtd. Apurada
-                  </span>
-                  <span className="text-sm font-mono font-bold text-[#004C97]">
-                    {viewDemand.total_pieces_inventoried || 0} pç
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                    Divergência
-                  </span>
-                  <span className="text-sm font-mono font-bold text-amber-700">
-                    {viewDemand.divergence_pieces || 0} pç (
-                    {viewDemand.divergence_pct
-                      ? `${String(viewDemand.divergence_pct).replace('.', ',')}%`
-                      : '0%'}
-                    )
-                  </span>
-                </div>
-              </div>
+                {/* Totais de Peças e Divergência */}
+                {(() => {
+                  const itemsPieces =
+                    viewItems && viewItems.length > 0
+                      ? viewItems.reduce((acc, it) => acc + (Number(it.calculated_pieces) || 0), 0)
+                      : viewDemand.materials_summary && viewDemand.materials_summary.length > 0
+                        ? viewDemand.materials_summary.reduce(
+                            (acc, m) => acc + (Number(m.calculated_pieces) || 0),
+                            0,
+                          )
+                        : Number(viewDemand.total_pieces_required) || 0
 
-              {viewDemand.observation && (
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
-                    Observação / Justificativa
-                  </span>
-                  <span className="text-slate-800">{viewDemand.observation}</span>
-                </div>
-              )}
-            </div>
+                  const totalPrevisto =
+                    itemsPieces > 0 ? itemsPieces : Number(viewDemand.total_pieces_required) || 0
+                  const totalApurado = Number(viewDemand.total_pieces_inventoried) || 0
+                  const divergencia = totalApurado - totalPrevisto
+                  const divPct = totalPrevisto > 0 ? (divergencia / totalPrevisto) * 100 : 0
+
+                  return (
+                    <div className="grid grid-cols-3 gap-2.5 bg-sky-50/60 p-3 rounded-lg border border-sky-100">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                          Qtd. Prevista Total
+                        </span>
+                        <span className="text-sm font-mono font-bold text-slate-900">
+                          {formatPtBrNumber(totalPrevisto, 0, 0)} pç
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                          Qtd. Apurada
+                        </span>
+                        <span className="text-sm font-mono font-bold text-[#004C97]">
+                          {formatPtBrNumber(totalApurado, 0, 0)} pç
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                          Divergência
+                        </span>
+                        <span
+                          className={`text-sm font-mono font-bold ${divergencia < 0 ? 'text-amber-700' : divergencia > 0 ? 'text-blue-700' : 'text-emerald-700'}`}
+                        >
+                          {formatPtBrNumber(divergencia, 0, 0)} pç ({formatPtBrNumber(divPct, 2, 2)}
+                          %)
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {viewDemand.observation && (
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                      Observação / Justificativa
+                    </span>
+                    <span className="text-slate-800">{viewDemand.observation}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter>
               <Button size="sm" onClick={handleCloseViewDemand} className="text-xs">
