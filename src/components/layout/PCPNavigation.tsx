@@ -213,7 +213,7 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
       },
       {
-        title: 'Inventário de Matéria-Prima',
+        title: 'Inventário de matéria-prima',
         href: '/pcp/sequenciamento/inventario-mp',
         icon: Boxes,
         permission: 'pcp.schedule.view',
@@ -783,7 +783,7 @@ const officialNavGroups: NavGroup[] = [
         permission: 'pcp.schedule.view',
       },
       {
-        title: 'INVENTÁRIO DE MATÉRIA-PRIMA',
+        title: 'Inventário de matéria-prima',
         href: '/pcp/sequenciamento/inventario-mp',
         icon: Boxes,
         permission: 'pcp.schedule.view',

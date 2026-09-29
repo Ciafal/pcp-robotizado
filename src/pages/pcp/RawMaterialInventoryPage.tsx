@@ -668,35 +668,30 @@ export const RawMaterialInventoryPage: React.FC = () => {
 
   return (
     <div className="space-y-3 p-3 md:p-6 bg-slate-50/50 min-h-screen text-slate-900 pb-12">
-      {/* 1. CABEÇALHO DO INVENTÁRIO — L1 (100% CONFORME ESPECIFICAÇÃO) */}
+      {/* 1. CABEÇALHO DO INVENTÁRIO DE MATÉRIA-PRIMA */}
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-[#004C97] text-white flex items-center justify-center font-black shadow-xs">
               <Boxes className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
-                  Inventário de Matéria-Prima — L1
+                <h1 className="text-base font-bold tracking-tight text-slate-900">
+                  Inventário de matéria-prima
                 </h1>
                 {currentHeader && getStatusBadge(currentHeader.status)}
               </div>
-              <div className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-0.5">
+              <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
                 <span>Setor Responsável:</span>
                 <strong className="text-slate-800">
                   {currentHeader?.responsible_sector || 'DP07 — Preparação de Tarugos'}
                 </strong>
-                <span>•</span>
-                <span>Tipo:</span>
-                <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[10px] font-semibold py-0">
-                  Enfornamento FRIO
-                </Badge>
               </div>
             </div>
           </div>
 
-          {/* Seleção de Versão e Ações de Cabeçalho */}
+          {/* Ações de Cabeçalho */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
@@ -741,68 +736,6 @@ export const RawMaterialInventoryPage: React.FC = () => {
               <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
               <span>Atualizar</span>
             </Button>
-          </div>
-        </div>
-
-        {/* Metadados do Cabeçalho */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 pt-3 text-xs text-slate-600">
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Empresa
-            </span>
-            <span className="font-semibold text-slate-800">
-              {currentHeader?.company || 'CIAFAL'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Linha
-            </span>
-            <span className="font-semibold text-slate-800">{currentHeader?.line || 'L1'}</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Centro
-            </span>
-            <span className="font-semibold text-slate-800">
-              {currentHeader?.center || 'FORNOL1'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Data do Enfornamento
-            </span>
-            <span className="font-semibold text-slate-800 font-mono">
-              {currentHeader?.schedule_date || new Date().toISOString().split('T')[0]}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Versão PCP
-            </span>
-            <span className="font-bold text-[#004C97] font-mono">
-              V{String(currentHeader?.schedule_version || 1).padStart(2, '0')}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Data/Hora de Geração
-            </span>
-            <span className="text-slate-700 font-mono text-[11px]">
-              {currentHeader?.generated_at
-                ? new Date(currentHeader.generated_at).toLocaleString('pt-BR')
-                : '—'}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Última Atualização
-            </span>
-            <span className="text-slate-700 font-mono text-[11px]">
-              {currentHeader?.last_updated_at
-                ? new Date(currentHeader.last_updated_at).toLocaleString('pt-BR')
-                : '—'}
-            </span>
           </div>
         </div>
       </div>
