@@ -68,6 +68,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentHash.startsWith('#/entregas/')),
   )
 
+  // Rota canônica de Hierarquia das Linhas (/pcp/cadastros/hierarquia e aliases)
+  const isHierarquiaRoute = Boolean(
+    currentPathname === '/pcp/cadastros/hierarquia' ||
+    currentPathname.startsWith('/pcp/cadastros/hierarquia/') ||
+    currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+    currentPathname === '/pcp/linhas/capacidades' ||
+    currentPathname.startsWith('/pcp/linhas/capacidades') ||
+    currentPathname.includes('/hierarquia') ||
+    currentPathname.includes('hierarquia') ||
+    currentHash.includes('/hierarquia') ||
+    currentHash.includes('hierarquia') ||
+    windowPath.includes('/hierarquia') ||
+    windowPath.includes('cadastros/hierarquia'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -115,14 +130,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const hasAvailableAuthContext = Boolean(user || hasValidAuthStore)
 
   // Timeout de segurança: nunca prender o guard em loading indefinidamente
-  // Chamada incondicional de hook respeitando rules-of-hooks
+  // Chamada incondicional de hook respeitando rules-of-hooks.
+  // Se isLoadingPermissions for fornecido como true, ou isLoading/isRetrying estiver ativo,
+  // arma timeout para garantir saída para o usuário em qualquer estado.
   React.useEffect(() => {
-    if (!isLoading && !isRetrying) {
+    const isActivelyLoading = Boolean(isLoading || isRetrying || isLoadingPermissions)
+
+    if (!isActivelyLoading) {
       setTimedOut(false)
       return
     }
 
-    if (hasAvailableAuthContext && !isRetrying) {
+    if (hasAvailableAuthContext && !isRetrying && !isLoadingPermissions) {
       setTimedOut(false)
       return
     }
@@ -132,7 +151,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     }, GUARD_TIMEOUT_MS)
 
     return () => window.clearTimeout(timer)
-  }, [isLoading, isRetrying, hasAvailableAuthContext])
+  }, [isLoading, isRetrying, isLoadingPermissions, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
   // Libera rotas operacionais, cadastrais (inclusive Hierarquia /pcp/cadastros/hierarquia e Ficha Mestra),
@@ -167,7 +186,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/ficha-mestre'),
   )
 
-  if (isInventarioMpRoute || isEntregasRoute || isCadastrosOrMasterDataEarly) {
+  if (isInventarioMpRoute || isEntregasRoute || isHierarquiaRoute || isCadastrosOrMasterDataEarly) {
     return <>{children}</>
   }
 
@@ -207,6 +226,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
+    isHierarquiaRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     currentPathname.startsWith('/pcp/controle-producao') ||
@@ -228,18 +248,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   //    Bypass absoluto no primeiro instante antes de qualquer checagem de timeout ou loading,
   //    garantindo que essas rotas nunca fiquem presas no PermissionGuard no runtime ou cold start para usuários
   //    PCP_ADMIN, PCP_PROGRAMMER, PPC_PROGRAMMER, LINE_MANAGER, PCP_PLANNER etc.
-  const isOperationalPcpRole =
-    currentRoleUpper === 'PCP_ADMIN' ||
-    currentRoleUpper === 'ADMIN' ||
-    currentRoleUpper === 'ADMINISTRADOR' ||
-    currentRoleUpper === 'PCP_PROGRAMMER' ||
-    currentRoleUpper === 'PPC_PROGRAMMER' ||
-    currentRoleUpper === 'LINE_MANAGER' ||
-    currentRoleUpper === 'PCP_PLANNER' ||
-    currentRoleUpper === 'PRODUCTION_VIEWER' ||
-    currentRoleUpper === 'EXECUTIVE_VIEWER' ||
-    currentRoleUpper === 'AUDITOR'
-
   const isCadastrosOrMasterData = Boolean(
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.masterdata.edit' ||
@@ -287,6 +295,65 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
+  // Se houver erro de autenticação explícito ou timeout, a tela amigável com botão Recarregar tem prioridade
+  // para que o usuário NUNCA fique preso num loading infinito ou tela em branco sem saída.
+  if (hasAuthFailure && !isHierarquiaRoute && !isCadastrosOrMasterDataEarly) {
+    return (
+      <div
+        data-testid="permission-guard-error-state"
+        className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80"
+      >
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
+            <AlertTriangle className="w-7 h-7" />
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 tracking-tight">
+              Instabilidade na Validação de Acessos
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Não foi possível validar suas permissões de acesso em tempo hábil. Clique em
+              &quot;Recarregar&quot; para tentar novamente.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 justify-center pt-2">
+            <Button
+              variant="default"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              data-testid="permission-guard-retry-btn"
+              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+              {isRetrying ? 'Recarregando...' : 'Recarregar'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.location?.reload) {
+                  window.location.reload()
+                }
+              }}
+              data-testid="permission-guard-hard-refresh-btn"
+              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Atualizar Página
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/pcp/sequenciamento')}
+              className="gap-2 text-slate-600 hover:text-slate-900 text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // 2) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
   if (isAdminUser) {
     return <>{children}</>
@@ -298,6 +365,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
+    isHierarquiaRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     currentPathname.includes('analise-carteira') ||
@@ -336,14 +404,17 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   // Estado de erro tratável na resolução de permissões: não derruba no ErrorBoundary e não fica preso no spinner.
-  // Quando timedOut for true, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
-  // Se a permissão resolver depois do timeout, o re-render com !isLoading && !isRetrying remove timedOut via useEffect.
+  // Quando timedOut for true ou authError existir, exibe SEMPRE o card de erro tratável independentemente de isAuthPresent.
+  // Se a permissão resolver depois do timeout, o re-render remove timedOut via useEffect.
   const hasAuthFailure = Boolean(authError || timedOut)
 
-  // Se houver falha de autorização tratável/timeout, retorna a tela amigável
+  // Se houver falha de autorização tratável/timeout, retorna a tela amigável com botão Recarregar
   if (hasAuthFailure) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80">
+      <div
+        data-testid="permission-guard-error-state"
+        className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80"
+      >
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
           <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
             <AlertTriangle className="w-7 h-7" />
@@ -354,7 +425,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
               Instabilidade na Validação de Acessos
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Não foi possível validar seus acessos. Tentar novamente.
+              Não foi possível validar suas permissões de acesso em tempo hábil. Clique em
+              &quot;Recarregar&quot; para tentar novamente.
             </p>
           </div>
 
@@ -363,15 +435,28 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
               variant="default"
               onClick={handleRetry}
               disabled={isRetrying}
+              data-testid="permission-guard-retry-btn"
               className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-              {isRetrying ? 'Tentando novamente...' : 'Tentar novamente'}
+              {isRetrying ? 'Recarregando...' : 'Recarregar'}
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate('/pcp/sequenciamento')}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.location?.reload) {
+                  window.location.reload()
+                }
+              }}
+              data-testid="permission-guard-hard-refresh-btn"
               className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Atualizar Página
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/pcp/sequenciamento')}
+              className="gap-2 text-slate-600 hover:text-slate-900 text-xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
             </Button>
@@ -442,6 +527,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
+      isHierarquiaRoute ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
       currentPathname.startsWith('/pcp/cadastros') ||
@@ -458,7 +544,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // Skeleton de loading no padrão do módulo: enquanto estiver carregando permissões,
   // nunca renderiza null/vazio nem spinner puro isolado
   const hasResolvedAccess = Boolean(
-    user || hasValidAuthStore || isDirectOperationalView || isCadastrosOrMasterData,
+    user ||
+    hasValidAuthStore ||
+    isDirectOperationalView ||
+    isCadastrosOrMasterDataEarly ||
+    isCadastrosOrMasterData,
   )
   const showLoadingSkeleton =
     (isLoading || isRetrying || isLoadingPermissions) && !timedOut && !hasResolvedAccess
@@ -535,6 +625,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
+    isHierarquiaRoute ||
     currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
     currentPathname.startsWith('/pcp/cadastros') ||
@@ -612,7 +703,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
               className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-              Tentar novamente
+              Recarregar
             </Button>
           </div>
 
