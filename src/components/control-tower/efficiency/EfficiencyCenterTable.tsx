@@ -289,10 +289,10 @@ export const EfficiencyCenterTable: React.FC<EfficiencyCenterTableProps> = ({
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Building2 className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-medium">
-                      Nenhum dado encontrado para os filtros selecionados.
+                      Nenhum dado disponível para o período selecionado.
                     </p>
                     <p className="text-xs text-slate-400">
-                      Tente alterar ou limpar os filtros de empresa, linha, centro ou período.
+                      Nenhum dado encontrado para os filtros selecionados.
                     </p>
                   </div>
                 </td>

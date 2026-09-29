@@ -156,14 +156,14 @@ export const EfficiencyCenterHierarchyView: React.FC<EfficiencyCenterHierarchyVi
 
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2 shadow-2xs">
-        <Building2 className="w-9 h-9 text-slate-300 mx-auto" />
+      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-2 shadow-2xs">
+        <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
         <h4 className="text-sm font-bold text-slate-800">
-          Nenhum dado encontrado para os filtros selecionados
+          Nenhum dado disponível para o período selecionado.
         </h4>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Nenhum apontamento ou programação encontrada no período. Experimente ajustar a empresa,
-          planta, linha ou período.
+          Nenhum apontamento MES 4.0 ou programação oficial da Montagem Semanal encontrada no
+          período.
         </p>
       </div>
     )

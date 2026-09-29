@@ -203,10 +203,12 @@ describe('Visão Eficiência Centro - Testes de Componentes e Aceitação', () =
   it('exibe estado vazio amigável quando nenhum centro é encontrado', () => {
     render(<EfficiencyCenterTable rows={[]} loading={false} />)
     expect(
+      screen.getByText('Nenhum dado disponível para o período selecionado.'),
+    ).toBeInTheDocument()
+    expect(
       screen.getByText('Nenhum dado encontrado para os filtros selecionados.'),
     ).toBeInTheDocument()
   })
-
   it('exibe estado de erro e permite tentar novamente', () => {
     const handleRetry = vi.fn()
     render(

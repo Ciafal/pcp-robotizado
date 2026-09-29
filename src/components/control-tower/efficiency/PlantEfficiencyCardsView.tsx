@@ -70,7 +70,7 @@ export const PlantEfficiencyCardsView: React.FC<PlantEfficiencyCardsViewProps> =
                     <span className="text-slate-700">Planta {plant.plantCode}</span>
                   </div>
                   <h4
-                    className="text-sm font-bold text-slate-900 leading-snug mt-1 truncate"
+                    className="text-sm font-bold text-slate-900 leading-snug mt-1 break-words"
                     title={plant.plantName}
                   >
                     {plant.plantName}

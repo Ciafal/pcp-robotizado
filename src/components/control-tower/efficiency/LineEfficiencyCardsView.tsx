@@ -91,7 +91,7 @@ export const LineEfficiencyCardsView: React.FC<LineEfficiencyCardsViewProps> = (
                     <span className="text-slate-700">{line.lineCode}</span>
                   </div>
                   <h4
-                    className="text-sm font-bold text-slate-900 leading-snug mt-1 truncate"
+                    className="text-sm font-bold text-slate-900 leading-snug mt-1 break-words"
                     title={line.lineName}
                   >
                     {line.lineName}

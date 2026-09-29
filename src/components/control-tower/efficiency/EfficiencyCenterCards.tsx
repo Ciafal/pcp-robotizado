@@ -123,11 +123,11 @@ export const EfficiencyCenterCards: React.FC<EfficiencyCenterCardsProps> = ({
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {Array.from({ length: 7 }).map((_, i) => (
           <div
             key={i}
-            className="h-24 bg-white border border-slate-200 rounded-lg p-3.5 animate-pulse flex flex-col justify-between"
+            className="h-28 bg-white border border-slate-200 rounded-xl p-3.5 animate-pulse flex flex-col justify-between shadow-2xs"
           >
             <div className="h-3 w-28 bg-slate-200 rounded" />
             <div className="h-6 w-32 bg-slate-300 rounded" />
@@ -139,7 +139,7 @@ export const EfficiencyCenterCards: React.FC<EfficiencyCenterCardsProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {cardsData.map((card) => {
         const Icon = card.icon
         return (
@@ -147,11 +147,14 @@ export const EfficiencyCenterCards: React.FC<EfficiencyCenterCardsProps> = ({
             key={card.id}
             data-testid={`card-${card.id}`}
             title={card.tooltip}
-            className={`bg-white border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow rounded-lg border-t-4 ${card.borderTop}`}
+            className={`bg-white border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow rounded-xl border-t-4 ${card.borderTop} flex flex-col justify-between`}
           >
-            <CardContent className="p-3.5 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-700 truncate" title={card.title}>
+            <CardContent className="p-3.5 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <span
+                  className="text-xs font-semibold text-slate-700 leading-snug break-words"
+                  title={card.title}
+                >
                   {/* Mantém compatibilidade de teste com título anterior ou novo */}
                   <span className="hidden">{card.legacyTitle}</span>
                   {card.title}
@@ -163,12 +166,15 @@ export const EfficiencyCenterCards: React.FC<EfficiencyCenterCardsProps> = ({
                 </div>
               </div>
               <div
-                className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-mono"
+                className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-mono break-words leading-tight"
                 title={card.value}
               >
                 {card.value}
               </div>
-              <p className="text-[11px] text-slate-500 truncate leading-snug" title={card.subtext}>
+              <p
+                className="text-[11px] text-slate-500 leading-relaxed break-words"
+                title={card.subtext}
+              >
                 {card.subtext}
               </p>
             </CardContent>

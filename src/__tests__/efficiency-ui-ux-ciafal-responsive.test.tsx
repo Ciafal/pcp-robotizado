@@ -52,7 +52,7 @@ describe('Previsto x Realizado - UI/UX CIAFAL e Responsividade', () => {
       const grid = container.firstChild as HTMLElement
       expect(grid.className).not.toContain('lg:grid-cols-7')
       expect(grid.className).toContain('grid-cols-1')
-      expect(grid.className).toContain('xl:grid-cols-4')
+      expect(grid.className).toContain('lg:grid-cols-4')
     })
   })
 

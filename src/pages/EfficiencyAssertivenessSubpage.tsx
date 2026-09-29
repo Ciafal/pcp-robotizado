@@ -150,26 +150,33 @@ export const EfficiencyAssertivenessSubpage: React.FC = () => {
         showLine2={false}
       />
 
-      {/* KPI Cards em Estilo Claro */}
+      {/* KPI Cards em Estilo Claro e sem truncamento */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {metrics.map((m, idx) => {
           const Icon = m.icon
           return (
             <Card
               key={idx}
-              className={`bg-white border border-slate-200 shadow-2xs rounded-lg border-t-4 ${m.color}`}
+              className={`bg-white border border-slate-200 shadow-2xs rounded-xl border-t-4 ${m.color} flex flex-col justify-between`}
             >
-              <CardContent className="p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700 truncate">{m.title}</span>
-                  <div className="w-7 h-7 rounded-md bg-slate-50 text-[#004C97] flex items-center justify-center">
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className="text-xs font-semibold text-slate-700 leading-snug break-words"
+                    title={m.title}
+                  >
+                    {m.title}
+                  </span>
+                  <div className="w-7 h-7 rounded-md bg-slate-50 text-[#004C97] flex items-center justify-center shrink-0">
                     <Icon className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-mono">
+                <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-mono leading-tight">
                   {m.value}
                 </div>
-                <p className="text-[11px] text-slate-500 truncate">{m.subtext}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed break-words">
+                  {m.subtext}
+                </p>
               </CardContent>
             </Card>
           )
