@@ -160,8 +160,8 @@ describe('NovaDemandaInventarioModal — Bloco 1 Contexto Operacional com Cascat
     })
   })
 
-  // Teste 6: Abrir Depósito e verificar chamada RFC LGORT por WERKS (neste ambiente: 503 -> erro amigável)
-  it('Teste 6: Deve disparar consulta RFC LGORT (T001L) para o WERKS e exibir erro amigável ao falhar', async () => {
+  // Teste 6: Abrir Depósito e verificar chamada RFC LGORT por WERKS com fallback para lista provisória controlada
+  it('Teste 6: Deve disparar consulta RFC LGORT (T001L) para o WERKS e acionar lista temporária quando RFC indisponível', async () => {
     vi.spyOn(sapParametersMasterDataService, 'fetchCompanies').mockResolvedValueOnce({
       success: true,
       data: [
@@ -195,11 +195,10 @@ describe('NovaDemandaInventarioModal — Bloco 1 Contexto Operacional com Cascat
     fireEvent.click(depTrigger)
 
     await waitFor(() => {
-      expect(screen.getByTestId('sap-deposito-error')).toBeInTheDocument()
-      expect(
-        screen.getByText('Não foi possível consultar os depósitos no SAP. Tente novamente.'),
-      ).toBeInTheDocument()
-      expect(screen.getByTestId('btn-retry-deposito')).toBeInTheDocument()
+      // Quando a RFC estiver indisponível, a lista temporária de 68 depósitos entra em ação com aviso de homologação
+      expect(screen.getByTestId('sap-deposito-provisional-hint')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DP07')).toBeInTheDocument()
+      expect(screen.getByText('DP07 — Matéria Prima L1')).toBeInTheDocument()
     })
   })
 

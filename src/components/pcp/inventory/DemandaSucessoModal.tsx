@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { InventoryDemand } from '@/types/pcp-inventory-demands'
+import { pcpStorageDepositsService } from '@/services/pcp-storage-deposits-service'
 import {
   CheckCircle2,
   Eye,
@@ -206,8 +207,11 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Warehouse className="w-3 h-3 text-slate-500" />
                   Depósito
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">
-                  {demand.storage_deposit}
+                <span
+                  className="font-semibold text-slate-800 text-xs truncate block"
+                  title={pcpStorageDepositsService.formatDepositLabel(demand.storage_deposit)}
+                >
+                  {pcpStorageDepositsService.formatDepositLabel(demand.storage_deposit)}
                 </span>
               </div>
             </div>

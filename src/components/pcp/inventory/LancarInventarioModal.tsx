@@ -21,6 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
+import { pcpStorageDepositsService } from '@/services/pcp-storage-deposits-service'
 import {
   InventoryDemand,
   InventoryEntry,
@@ -354,7 +355,12 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Depósito</span>
-              <span className="font-semibold text-slate-800">{demand.storage_deposit}</span>
+              <span
+                className="font-semibold text-slate-800"
+                title={pcpStorageDepositsService.formatDepositLabel(demand.storage_deposit)}
+              >
+                {pcpStorageDepositsService.formatDepositLabel(demand.storage_deposit)}
+              </span>
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Material</span>

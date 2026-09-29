@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
+import { pcpStorageDepositsService } from '@/services/pcp-storage-deposits-service'
 import {
   InventoryAuditEvent,
   InventoryDemand,
@@ -185,8 +186,8 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
                 <option value="ALL">Todas as Demandas (Global)</option>
                 {demands.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.control_number} — {d.material_code} ({d.center} / {d.storage_deposit}) [
-                    {d.status}]
+                    {d.control_number} — {d.material_code} ({d.center} /{' '}
+                    {pcpStorageDepositsService.formatDepositLabel(d.storage_deposit)}) [{d.status}]
                   </option>
                 ))}
               </select>

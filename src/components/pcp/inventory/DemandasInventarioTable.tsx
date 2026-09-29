@@ -4,6 +4,7 @@ import {
   InventoryDemandStatus,
   InventoryDemandPriority,
 } from '@/types/pcp-inventory-demands'
+import { pcpStorageDepositsService } from '@/services/pcp-storage-deposits-service'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -579,7 +580,28 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                     </TableCell>
                     <TableCell>{renderPriorityBadge(demand.priority)}</TableCell>
                     <TableCell className="font-semibold">{demand.center || '—'}</TableCell>
-                    <TableCell className="font-semibold">{demand.storage_deposit || '—'}</TableCell>
+                    <TableCell
+                      className="font-semibold text-slate-800"
+                      title={pcpStorageDepositsService.formatDepositLabel(demand.storage_deposit)}
+                    >
+                      {demand.storage_deposit ? (
+                        <span>
+                          <span className="font-mono">{demand.storage_deposit}</span>
+                          {pcpStorageDepositsService.getDepositDescription(
+                            demand.storage_deposit,
+                          ) && (
+                            <span className="text-[11px] text-slate-500 font-normal ml-1">
+                              —{' '}
+                              {pcpStorageDepositsService.getDepositDescription(
+                                demand.storage_deposit,
+                              )}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell>
                       {multiCount > 1 ? (
                         <div className="flex items-center gap-1.5">
@@ -754,7 +776,10 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                     </span>
                     <span className="font-semibold text-slate-800">
                       {viewDemand.center || 'Dado não disponível'} /{' '}
-                      {viewDemand.storage_deposit || 'Dado não disponível'}
+                      <span className="font-mono">
+                        {pcpStorageDepositsService.formatDepositLabel(viewDemand.storage_deposit) ||
+                          'Dado não disponível'}
+                      </span>
                     </span>
                   </div>
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
