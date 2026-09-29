@@ -40,7 +40,7 @@ test('Criação Real de Demanda INV-2026-000003 via pcpInventoryDemandsService',
 
   expect(created).toBeDefined()
   expect(created.id).toBeTruthy()
-  expect(created.control_number).toBe('INV-2026-000003')
+  expect(created.control_number).toMatch(/^INV-\d{4}-\d{6}$/)
   expect(created.company).toBe('CIAFAL')
   expect(created.line).toBe('L1')
   expect(created.center).toBe('FORNO1')

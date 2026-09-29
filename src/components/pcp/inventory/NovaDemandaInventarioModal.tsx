@@ -832,7 +832,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                       <Input
                         readOnly
                         value={mat.material_description}
-                        placeholder="Consultando SAP..."
+                        placeholder="Descrição técnica"
                         className="text-xs h-9 bg-slate-50 cursor-not-allowed font-medium text-slate-700 truncate"
                         disabled={submitting}
                       />
