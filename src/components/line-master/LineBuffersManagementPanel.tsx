@@ -27,7 +27,21 @@ import {
   BufferRouteCoverageAnalysis,
 } from '@/types/line-buffers'
 import { LineBuffersService } from '@/services/line-buffers-service'
+import {
+  CenterBufferRecord,
+  CenterLungStockRecord,
+  calculateLungStockBand,
+} from '@/types/center-buffers-and-lungs'
+import { CenterBuffersAndLungsService } from '@/services/center-buffers-and-lungs-service'
+import { formatPtBrNumber } from '@/lib/number-format'
 import { useToast } from '@/hooks/use-toast'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import pb from '@/lib/pocketbase/client'
 
 export const LineBuffersManagementPanel: React.FC = () => {
@@ -38,6 +52,14 @@ export const LineBuffersManagementPanel: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [bufferToEdit, setBufferToEdit] = useState<LineBufferRecord | null>(null)
+
+  // Estados dos registros vindos da Ficha Mestra de Centros
+  const [masterBuffers, setMasterBuffers] = useState<CenterBufferRecord[]>([])
+  const [masterLungs, setMasterLungs] = useState<CenterLungStockRecord[]>([])
+  const [loadingMaster, setLoadingMaster] = useState(false)
+  const [viewMasterBuffer, setViewMasterBuffer] = useState<CenterBufferRecord | null>(null)
+  const [viewMasterLung, setViewMasterLung] = useState<CenterLungStockRecord | null>(null)
+  const [masterViewTab, setMasterViewTab] = useState<'BUFFERS' | 'LUNGS'>('BUFFERS')
 
   // Dados auxiliares de rotas para cobertura e fluxo
   const [routes, setRoutes] = useState<
@@ -90,11 +112,28 @@ export const LineBuffersManagementPanel: React.FC = () => {
     }
   }
 
-  // Carregar buffers do banco
+  // Carregar dados cadastrados na Ficha Mestra de Centros (Passo 1: Fonte Mestra)
+  const loadMasterData = async () => {
+    setLoadingMaster(true)
+    try {
+      const [bufList, lungList] = await Promise.all([
+        CenterBuffersAndLungsService.listAllActiveBuffers(),
+        CenterBuffersAndLungsService.listAllActiveLungs(),
+      ])
+      setMasterBuffers(bufList)
+      setMasterLungs(lungList)
+    } catch (err) {
+      console.warn('Erro ao carregar parâmetros mestres de buffers/pulmões da Ficha Mestra:', err)
+    } finally {
+      setLoadingMaster(false)
+    }
+  }
+
+  // Carregar buffers operacionais e dados mestres
   const loadBuffers = async () => {
     setLoading(true)
     try {
-      const records = await LineBuffersService.listBuffers()
+      const [records] = await Promise.all([LineBuffersService.listBuffers(), loadMasterData()])
       setBuffers(records)
 
       // Calcular o status operacional determinístico de cada buffer
@@ -120,6 +159,7 @@ export const LineBuffersManagementPanel: React.FC = () => {
 
   useEffect(() => {
     loadRoutesAndEdges()
+    loadMasterData()
   }, [])
 
   useEffect(() => {
@@ -880,6 +920,598 @@ export const LineBuffersManagementPanel: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* =========================================================================
+          SEÇÃO INCREMENTAL: PARÂMETROS MESTRES (FICHA MESTRA DE CENTROS)
+          Consumo em Somente Leitura dos cadastros de Buffers e Estoque Pulmão
+         ========================================================================= */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs space-y-0">
+        <div className="p-4 bg-slate-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-[#004C97] text-white rounded-md">
+              <Box className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-slate-800 uppercase font-mono">
+                  Parâmetros Mestres dos Centros (Ficha Mestra)
+                </h3>
+                <Badge className="bg-[#004C97] text-white text-[10px] font-semibold">
+                  Fonte: Ficha Mestra
+                </Badge>
+                <Badge variant="outline" className="text-[10px] text-slate-600 bg-white">
+                  Somente Leitura
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Parâmetros oficiais cadastrados na Ficha Mestra de Centros que alimentam a camada
+                operacional de Sequenciamento & Orquestração.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setMasterViewTab('BUFFERS')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                masterViewTab === 'BUFFERS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-200/60'
+              }`}
+            >
+              <Box className="w-3.5 h-3.5" />
+              Buffers Mestre
+              <span
+                className={`text-[10px] px-1.5 py-0 rounded-full font-mono ${
+                  masterViewTab === 'BUFFERS'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {masterBuffers.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMasterViewTab('LUNGS')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                masterViewTab === 'LUNGS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-200/60'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Estoque Pulmão Mestre
+              <span
+                className={`text-[10px] px-1.5 py-0 rounded-full font-mono ${
+                  masterViewTab === 'LUNGS'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-700'
+                }`}
+              >
+                {masterLungs.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* SUBTAB 1: BUFFERS MESTRE */}
+        {masterViewTab === 'BUFFERS' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-mono text-[11px]">
+                <tr>
+                  <th className="py-2.5 px-3">Código</th>
+                  <th className="py-2.5 px-3">Centro</th>
+                  <th className="py-2.5 px-3">Nome / Identificação</th>
+                  <th className="py-2.5 px-3">Tipo do Buffer</th>
+                  <th className="py-2.5 px-3">Capacidade / Restrição</th>
+                  <th className="py-2.5 px-3">Vigência Bloqueio</th>
+                  <th className="py-2.5 px-3">Impacto na Capacidade</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
+                  <th className="py-2.5 px-3 text-center">Origem</th>
+                  <th className="py-2.5 px-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                {loadingMaster ? (
+                  <tr>
+                    <td colSpan={10} className="py-6 text-center text-slate-500 font-sans text-xs">
+                      Carregando buffers mestre da Ficha de Centros...
+                    </td>
+                  </tr>
+                ) : masterBuffers.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="py-6 text-center text-slate-500 font-sans text-xs">
+                      Nenhum buffer cadastrado na Ficha Mestra de Centros.
+                    </td>
+                  </tr>
+                ) : (
+                  masterBuffers.map((mb) => {
+                    let capText = '—'
+                    if (mb.buffer_type === 'Espaço físico') {
+                      capText = `${mb.available_area != null ? formatPtBrNumber(mb.available_area) : '—'} ${mb.unit_of_measure || 'm²'}`
+                      if (mb.location_physical) capText += ` (${mb.location_physical})`
+                    } else if (mb.buffer_type === 'Capacidade máxima da baia') {
+                      capText = `Máx: ${mb.max_capacity != null ? formatPtBrNumber(mb.max_capacity) : '—'} ${mb.unit_of_measure || 't'}`
+                      if (mb.recommended_capacity != null) {
+                        capText += ` / Rec: ${formatPtBrNumber(mb.recommended_capacity)} ${mb.unit_of_measure || 't'}`
+                      }
+                    } else {
+                      capText =
+                        mb.block_reason ||
+                        mb.location_physical ||
+                        mb.related_equipment ||
+                        'Bloqueio'
+                    }
+
+                    let vigenciaText = 'Permanente'
+                    if (mb.start_date || mb.expected_release_date) {
+                      vigenciaText = `${mb.start_date || 'Início'} → ${mb.expected_release_date || 'A definir'}`
+                    }
+
+                    return (
+                      <tr key={mb.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-[#004C97]">{mb.code}</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{mb.center_code}</td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 font-sans">
+                          {mb.name}
+                          {mb.location_physical && (
+                            <span className="text-[10px] text-slate-500 block font-normal">
+                              Local: {mb.location_physical}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 font-sans">
+                          <Badge variant="outline" className="text-[10px] bg-slate-50 font-normal">
+                            {mb.buffer_type}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700">{capText}</td>
+                        <td className="py-2.5 px-3 text-slate-600 text-[10px]">{vigenciaText}</td>
+                        <td className="py-2.5 px-3">
+                          {mb.impacts_capacity ? (
+                            <div className="text-[10px] text-rose-700 font-semibold flex items-center gap-1 font-sans">
+                              <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                              <span>
+                                Redução {formatPtBrNumber(mb.capacity_reduction ?? 0)}{' '}
+                                {mb.capacity_reduction_unit}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-sans">
+                              Não impacta
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <Badge
+                            className={`text-[10px] ${
+                              mb.status === 'Ativo'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            {mb.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[9px] font-sans">
+                            Fonte: Ficha Mestra
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewMasterBuffer(mb)}
+                            className="h-7 px-2 text-[11px] text-[#004C97] hover:bg-blue-50"
+                            title="Consultar parâmetros mestres"
+                          >
+                            <Search className="w-3 h-3 mr-1" />
+                            Consultar
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* SUBTAB 2: ESTOQUE PULMÃO MESTRE */}
+        {masterViewTab === 'LUNGS' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-mono text-[11px]">
+                <tr>
+                  <th className="py-2.5 px-3">Código</th>
+                  <th className="py-2.5 px-3">Centro</th>
+                  <th className="py-2.5 px-3">Identificação / Material</th>
+                  <th className="py-2.5 px-3">Local / Depósito</th>
+                  <th className="py-2.5 px-3 text-right">Mínimo</th>
+                  <th className="py-2.5 px-3 text-right">Ideal</th>
+                  <th className="py-2.5 px-3 text-right">Máximo</th>
+                  <th className="py-2.5 px-3 text-right">Cap. Física</th>
+                  <th className="py-2.5 px-3 text-center">Faixa Operacional</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
+                  <th className="py-2.5 px-3 text-center">Origem</th>
+                  <th className="py-2.5 px-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                {loadingMaster ? (
+                  <tr>
+                    <td colSpan={12} className="py-6 text-center text-slate-500 font-sans text-xs">
+                      Carregando estoques pulmão da Ficha de Centros...
+                    </td>
+                  </tr>
+                ) : masterLungs.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="py-6 text-center text-slate-500 font-sans text-xs">
+                      Nenhum estoque pulmão cadastrado na Ficha Mestra de Centros.
+                    </td>
+                  </tr>
+                ) : (
+                  masterLungs.map((ml) => {
+                    const curVal =
+                      ml.current_real_stock != null ? ml.current_real_stock : ml.ideal_stock
+                    const band = calculateLungStockBand(
+                      curVal,
+                      ml.min_stock,
+                      ml.ideal_stock,
+                      ml.max_stock,
+                    )
+
+                    return (
+                      <tr key={ml.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-[#004C97]">{ml.code}</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900">{ml.center_code}</td>
+                        <td className="py-2.5 px-3 font-sans">
+                          <span className="font-semibold text-slate-800 block">{ml.name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {ml.material_or_group}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 font-medium">
+                          {ml.location_deposit || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-rose-700">
+                          {formatPtBrNumber(ml.min_stock)} {ml.unit_of_measure}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
+                          {formatPtBrNumber(ml.ideal_stock)} {ml.unit_of_measure}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-bold text-blue-700">
+                          {formatPtBrNumber(ml.max_stock)} {ml.unit_of_measure}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-slate-700">
+                          {ml.physical_capacity != null
+                            ? `${formatPtBrNumber(ml.physical_capacity)} ${ml.unit_of_measure}`
+                            : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Badge
+                              className={`text-[9px] px-1.5 py-0 border font-sans ${band.badgeClass}`}
+                            >
+                              {band.label}
+                            </Badge>
+                            {(ml.min_coverage_hours || ml.ideal_coverage_hours) && (
+                              <span className="text-[10px] font-mono text-slate-500">
+                                {ml.min_coverage_hours || 0}h / {ml.ideal_coverage_hours || 0}h
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <Badge
+                            className={`text-[10px] ${
+                              ml.status === 'Ativo'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            {ml.status}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <Badge className="bg-blue-50 text-[#004C97] border-blue-200 text-[9px] font-sans">
+                            Fonte: Ficha Mestra
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewMasterLung(ml)}
+                            className="h-7 px-2 text-[11px] text-[#004C97] hover:bg-blue-50"
+                            title="Consultar parâmetros mestres"
+                          >
+                            <Search className="w-3 h-3 mr-1" />
+                            Consultar
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL DE VISUALIZAÇÃO SOMENTE LEITURA: BUFFER DA FICHA MESTRA */}
+      <Dialog
+        open={Boolean(viewMasterBuffer)}
+        onOpenChange={(o) => !o && setViewMasterBuffer(null)}
+      >
+        <DialogContent className="max-w-xl bg-white border border-slate-200 p-5 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Box className="w-4 h-4 text-[#004C97]" />
+                Parâmetros do Buffer — Ficha Mestra (Somente Leitura)
+              </span>
+              <Badge className="bg-[#004C97] text-white font-mono text-xs">
+                {viewMasterBuffer?.code}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewMasterBuffer && (
+            <div className="space-y-3 text-xs pt-2">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 font-sans">
+                <div>
+                  <span className="text-slate-500 font-medium block">Nome / Baia:</span>
+                  <span className="font-semibold text-slate-800">{viewMasterBuffer.name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">
+                    Centro Produtivo (Origem):
+                  </span>
+                  <span className="font-semibold text-[#004C97] font-mono">
+                    {viewMasterBuffer.center_code}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">Tipo:</span>
+                  <span className="font-semibold text-slate-800">
+                    {viewMasterBuffer.buffer_type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">Status Mestre:</span>
+                  <Badge
+                    className={
+                      viewMasterBuffer.status === 'Ativo'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-200 text-slate-700'
+                    }
+                  >
+                    {viewMasterBuffer.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 p-3 bg-slate-50 rounded-lg border border-slate-200 font-sans">
+                <span className="font-bold text-slate-700 block">
+                  Capacidades & Restrições Físicas:
+                </span>
+                {viewMasterBuffer.location_physical && (
+                  <p>
+                    <strong>Localização física:</strong> {viewMasterBuffer.location_physical}
+                  </p>
+                )}
+                {viewMasterBuffer.available_area != null && (
+                  <p>
+                    <strong>Área disponível:</strong>{' '}
+                    {formatPtBrNumber(viewMasterBuffer.available_area)}{' '}
+                    {viewMasterBuffer.unit_of_measure}
+                  </p>
+                )}
+                {viewMasterBuffer.max_capacity != null && (
+                  <p>
+                    <strong>Capacidade máxima:</strong>{' '}
+                    {formatPtBrNumber(viewMasterBuffer.max_capacity)}{' '}
+                    {viewMasterBuffer.unit_of_measure}
+                  </p>
+                )}
+                {viewMasterBuffer.recommended_capacity != null && (
+                  <p>
+                    <strong>Capacidade recomendada:</strong>{' '}
+                    {formatPtBrNumber(viewMasterBuffer.recommended_capacity)}{' '}
+                    {viewMasterBuffer.unit_of_measure}
+                  </p>
+                )}
+                {viewMasterBuffer.block_reason && (
+                  <p>
+                    <strong>Motivo do bloqueio:</strong> {viewMasterBuffer.block_reason}
+                  </p>
+                )}
+                {viewMasterBuffer.start_date && (
+                  <p>
+                    <strong>Vigência:</strong> {viewMasterBuffer.start_date} até{' '}
+                    {viewMasterBuffer.expected_release_date || 'indeterminado'}
+                  </p>
+                )}
+                {viewMasterBuffer.responsible_name && (
+                  <p>
+                    <strong>Responsável:</strong> {viewMasterBuffer.responsible_name}
+                  </p>
+                )}
+              </div>
+
+              {viewMasterBuffer.impacts_capacity && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg space-y-1 text-rose-900 font-sans">
+                  <span className="font-bold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Impacto na Capacidade
+                    Produtiva
+                  </span>
+                  <p>
+                    Redução parametrizada:{' '}
+                    <strong>
+                      {formatPtBrNumber(viewMasterBuffer.capacity_reduction ?? 0)}{' '}
+                      {viewMasterBuffer.capacity_reduction_unit}
+                    </strong>
+                  </p>
+                  {(viewMasterBuffer.capacity_impact_start ||
+                    viewMasterBuffer.capacity_impact_end) && (
+                    <p>
+                      Vigência do impacto: {viewMasterBuffer.capacity_impact_start || '—'} até{' '}
+                      {viewMasterBuffer.capacity_impact_end || '—'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-[11px] text-[#004C97] font-medium font-sans">
+                ℹ Registro mestre originado da Ficha Mestra de Centros. Para alterar estes
+                parâmetros, acesse{' '}
+                <strong>
+                  Ficha Mestra de Centros → Centro {viewMasterBuffer.center_code} → Buffers
+                </strong>
+                .
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setViewMasterBuffer(null)}
+              className="text-xs"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE VISUALIZAÇÃO SOMENTE LEITURA: ESTOQUE PULMÃO DA FICHA MESTRA */}
+      <Dialog open={Boolean(viewMasterLung)} onOpenChange={(o) => !o && setViewMasterLung(null)}>
+        <DialogContent className="max-w-xl bg-white border border-slate-200 p-5 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#004C97]" />
+                Parâmetros do Estoque Pulmão — Ficha Mestra (Somente Leitura)
+              </span>
+              <Badge className="bg-[#004C97] text-white font-mono text-xs">
+                {viewMasterLung?.code}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewMasterLung && (
+            <div className="space-y-3 text-xs pt-2">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 font-sans">
+                <div>
+                  <span className="text-slate-500 font-medium block">Nome / Identificação:</span>
+                  <span className="font-semibold text-slate-800">{viewMasterLung.name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">
+                    Centro Produtivo (Origem):
+                  </span>
+                  <span className="font-semibold text-[#004C97] font-mono">
+                    {viewMasterLung.center_code}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">Material / Grupo:</span>
+                  <span className="font-semibold text-slate-800">
+                    {viewMasterLung.material_or_group}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block">Local / Depósito:</span>
+                  <span className="font-semibold text-slate-800">
+                    {viewMasterLung.location_deposit || '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-center p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+                <div className="p-2 bg-rose-50 border border-rose-200 rounded">
+                  <span className="text-[10px] text-rose-700 font-sans block font-semibold">
+                    Mínimo
+                  </span>
+                  <span className="font-bold text-rose-800 text-xs">
+                    {formatPtBrNumber(viewMasterLung.min_stock)} {viewMasterLung.unit_of_measure}
+                  </span>
+                </div>
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded">
+                  <span className="text-[10px] text-emerald-700 font-sans block font-semibold">
+                    Ideal
+                  </span>
+                  <span className="font-bold text-emerald-800 text-xs">
+                    {formatPtBrNumber(viewMasterLung.ideal_stock)} {viewMasterLung.unit_of_measure}
+                  </span>
+                </div>
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                  <span className="text-[10px] text-blue-700 font-sans block font-semibold">
+                    Máximo
+                  </span>
+                  <span className="font-bold text-blue-800 text-xs">
+                    {formatPtBrNumber(viewMasterLung.max_stock)} {viewMasterLung.unit_of_measure}
+                  </span>
+                </div>
+                <div className="p-2 bg-purple-50 border border-purple-200 rounded">
+                  <span className="text-[10px] text-purple-700 font-sans block font-semibold">
+                    Cap. Física
+                  </span>
+                  <span className="font-bold text-purple-800 text-xs">
+                    {viewMasterLung.physical_capacity != null
+                      ? `${formatPtBrNumber(viewMasterLung.physical_capacity)} ${viewMasterLung.unit_of_measure}`
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {(viewMasterLung.min_coverage_hours || viewMasterLung.ideal_coverage_hours) && (
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between font-sans">
+                  <span className="font-medium text-slate-600">
+                    Cobertura de Proteção Operacional Parametrizada:
+                  </span>
+                  <span className="font-mono font-bold text-slate-800">
+                    Mín: {viewMasterLung.min_coverage_hours || 0}h | Ideal:{' '}
+                    {viewMasterLung.ideal_coverage_hours || 0}h
+                  </span>
+                </div>
+              )}
+
+              <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-[11px] text-[#004C97] font-medium font-sans">
+                ℹ Registro mestre originado da Ficha Mestra de Centros. Para alterar estes
+                parâmetros, acesse{' '}
+                <strong>
+                  Ficha Mestra de Centros → Centro {viewMasterLung.center_code} → Estoque Pulmão
+                </strong>
+                .
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setViewMasterLung(null)}
+              className="text-xs"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL DE CADASTRO E EDIÇÃO COM OS 17 CAMPOS */}
       <LineBufferModal
