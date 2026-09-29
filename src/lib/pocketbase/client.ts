@@ -1,6 +1,6 @@
 import PocketBase from 'pocketbase'
 
-// PocketBase client instance for Skip Cloud backend
-const pocketbaseUrl = import.meta.env.VITE_POCKETBASE_URL || '/'
-export const pb = new PocketBase(pocketbaseUrl)
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
+pb.autoCancellation(false)
+
 export default pb
