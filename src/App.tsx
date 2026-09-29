@@ -226,7 +226,7 @@ const ProductionIntegrationMapPage = lazyWithRetry(
 const LineCapacitiesSubpage = lazyWithRetry(
   () =>
     import('@/pages/LineCapacitiesSubpage').then((m: any) => ({
-      default: m.default ?? m.LineCapacitiesSubpage,
+      default: m?.default ?? m?.LineCapacitiesSubpage ?? m,
     })),
   'LineCapacitiesSubpage',
 )

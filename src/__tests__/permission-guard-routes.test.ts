@@ -131,15 +131,18 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(shouldRenderDirectly).toBe(true)
   })
 
-  it('permite acesso imediato e bypass de rota para Centros e Ficha Mestra (/pcp/cadastros/ficha-mestre)', () => {
+  it('permite acesso imediato e bypass de rota para Centros e Ficha Mestra (/pcp/cadastros/ficha-mestre) e Hierarquia (/pcp/cadastros/hierarquia)', () => {
     const isCadastrosOrMasterDataPath = (pathname: string, permission: string) =>
       Boolean(
         permission === 'pcp.masterdata.view' ||
         permission === 'pcp.masterdata.edit' ||
         permission === 'pcp.lines.view' ||
         pathname.startsWith('/pcp/cadastros') ||
+        pathname.startsWith('/pcp/cadastros/hierarquia') ||
         pathname.startsWith('/pcp/cadastros/ficha-mestre') ||
         pathname.startsWith('/pcp/ficha-mestre') ||
+        pathname.includes('/hierarquia') ||
+        pathname.includes('hierarquia') ||
         pathname.includes('/ficha-mestre') ||
         pathname.includes('ficha-mestre'),
       )
@@ -147,6 +150,10 @@ describe('RBAC & Permission Guard Integration Verification', () => {
     expect(isCadastrosOrMasterDataPath('/pcp/cadastros/ficha-mestre', 'pcp.masterdata.view')).toBe(
       true,
     )
+    expect(isCadastrosOrMasterDataPath('/pcp/cadastros/hierarquia', 'pcp.masterdata.view')).toBe(
+      true,
+    )
+    expect(isCadastrosOrMasterDataPath('/pcp/cadastros/hierarquia', '')).toBe(true)
     expect(isCadastrosOrMasterDataPath('/pcp/ficha-mestre', 'pcp.masterdata.view')).toBe(true)
     expect(isCadastrosOrMasterDataPath('/pcp/cadastros/ficha-mestre', '')).toBe(true)
     expect(isCadastrosOrMasterDataPath('/qualquer-rota', 'pcp.masterdata.view')).toBe(true)
