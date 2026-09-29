@@ -94,6 +94,7 @@ import { RawMaterialExistingPriorityModal } from '@/components/line-master/RawMa
 import { LineRawMaterialPriority } from '@/types/line-master'
 import { RawMaterialApplicationsPanel } from '@/components/line-master/RawMaterialApplicationsPanel'
 import { rawMaterialApplicationService } from '@/services/raw-material-application-service'
+import { CenterBuffersAndLungsPanel } from '@/components/line-master/CenterBuffersAndLungsPanel'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -326,6 +327,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'SETUP_ACERTO_COMPATIBILITY'
     | 'IDEAL_GAUGE_SEQUENCE'
     | 'PROGRAMMING_PARAMETERS'
+    | 'BUFFERS'
+    | 'PULMOES'
   >('CAPACITY')
 
   // Contagem de especificações de Matéria-Prima por Aplicação
@@ -2557,6 +2560,48 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               />
               <span className="whitespace-nowrap font-bold">Parâmetros de Programação</span>
             </Button>
+
+            {/* Novo Item: Buffers do Centro */}
+            <Button
+              size="sm"
+              data-testid="tab-center-buffers"
+              variant={masterSubTab === 'BUFFERS' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('BUFFERS')}
+              className={`text-xs h-9 gap-1.5 font-bold justify-start px-2.5 whitespace-nowrap ${
+                masterSubTab === 'BUFFERS'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
+              }`}
+              title="Buffers do Centro"
+            >
+              <Box
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  masterSubTab === 'BUFFERS' ? 'text-white' : 'text-[#004C97]'
+                }`}
+              />
+              <span className="whitespace-nowrap font-bold">Buffers</span>
+            </Button>
+
+            {/* Novo Item: Estoque Pulmão do Centro */}
+            <Button
+              size="sm"
+              data-testid="tab-center-lungs"
+              variant={masterSubTab === 'PULMOES' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('PULMOES')}
+              className={`text-xs h-9 gap-1.5 font-bold justify-start px-2.5 whitespace-nowrap ${
+                masterSubTab === 'PULMOES'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-blue-50 hover:text-[#004C97]'
+              }`}
+              title="Estoque Pulmão"
+            >
+              <Layers
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  masterSubTab === 'PULMOES' ? 'text-white' : 'text-[#004C97]'
+                }`}
+              />
+              <span className="whitespace-nowrap font-bold">Estoque Pulmão</span>
+            </Button>
           </div>
 
           {/* Sub-aba: Turnos & Turmas */}
@@ -3193,6 +3238,30 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                 centerCode={line.code}
                 centerName={line.name}
                 onRefreshParent={onRefresh}
+              />
+            </div>
+          )}
+
+          {/* Sub-aba: Buffers do Centro */}
+          {masterSubTab === 'BUFFERS' && (
+            <div id="section-center-buffers">
+              <CenterBuffersAndLungsPanel
+                centerCode={line.code}
+                centerName={line.name}
+                lineId={line.id}
+                defaultActiveTab="BUFFERS"
+              />
+            </div>
+          )}
+
+          {/* Sub-aba: Estoque Pulmão */}
+          {masterSubTab === 'PULMOES' && (
+            <div id="section-center-lungs">
+              <CenterBuffersAndLungsPanel
+                centerCode={line.code}
+                centerName={line.name}
+                lineId={line.id}
+                defaultActiveTab="PULMOES"
               />
             </div>
           )}

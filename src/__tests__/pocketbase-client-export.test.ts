@@ -8,10 +8,6 @@ describe('PocketBase Client Export Regression Test & Guard', () => {
   it('should export pb as named export and as default export from client.ts', async () => {
     expect(pb).toBeDefined()
     expect(pbDefault).toBeDefined()
-    // @ts-expect-error test inspection
-    const nodeFs = await import('node:fs')
-    const code = nodeFs.readFileSync('src/components/pcp/inventory/LancarInventarioModal.tsx', 'utf-8')
-    expect(code.slice(0, 100)).toBe('fail')
     expect(pb).toBe(pbDefault)
     expect(clientModule).toHaveProperty('pb')
     expect(clientModule).toHaveProperty('default')

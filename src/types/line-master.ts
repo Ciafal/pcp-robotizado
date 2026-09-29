@@ -866,6 +866,8 @@ export interface CompletenessItem {
       | 'SETUP_ACERTO_COMPATIBILITY'
       | 'IDEAL_GAUGE_SEQUENCE'
       | 'PROGRAMMING_PARAMETERS'
+      | 'BUFFERS'
+      | 'PULMOES'
     anchorId?: string
   }
 }
