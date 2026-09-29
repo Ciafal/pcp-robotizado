@@ -754,15 +754,23 @@ export interface MPL1RequirementRow {
 export interface MPUtilizationItem {
   id: string
   order_number: string
+  period_date?: string // Formato YYYY-MM-DD para filtragem diária precisa
   period_week?: string
+  period_week_number?: number // 1 a 53 para filtragem semanal
   period_month?: string
+  period_month_number?: number // 1 a 12 para filtragem mensal
   period_year?: number
+  company_code?: string // 'CIAFAL', 'SDC', etc.
+  company_name?: string
+  line_code?: string // 'L1', 'L2', 'LPP', etc.
+  center_code?: string // 'CFPL', 'LAM1', 'LAM2', etc. da Ficha Mestra
   product_code: string
   product_description?: string
   produced_tons: number
   mp_consumed_code: string
   mp_consumed_tons: number
   steel_grade: string
+  mp_group?: string // Grupo de MP (ex: 'Tarugos 1020', 'Tarugos 1045', 'Tarugos AC', 'Ecosucata')
   origin_group?: string // Arcelor, Vallourec, Ciafal, Faca, Aço Especial, Fura Forno, Aço Comercial B/C/D, A, 1020 L2...
   supplier_name?: string
   hot_charging_tons?: number
