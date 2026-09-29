@@ -39,6 +39,9 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import { ColdCouldBeHotCard } from '@/components/mp-optimization/ColdCouldBeHotCard'
+import { MPUtilizationAiAnalysis } from '@/components/mp-optimization/MPUtilizationAiAnalysis'
+import { MPMonthlyChargingBarChart } from '@/components/mp-optimization/MPMonthlyChargingBarChart'
 
 export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
   // Modal Explicador
@@ -253,8 +256,76 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
     setIsExplainerOpen(true)
   }
 
-  // Rótulo textual do contexto temporal aplicado
+  // Cálculos do Novo Indicador: "Enfornamento frio que poderia ser quente"
+  const ordersWithPotentialHot = useMemo(() => {
+    return filteredRows.filter((r) => r.could_be_hot_charging && (r.potential_hot_tons || 0) > 0)
+  }, [filteredRows])
+
+  const totalPotentialHotTons = useMemo(() => {
+    return ordersWithPotentialHot.reduce((acc, r) => acc + (r.potential_hot_tons || 0), 0)
+  }, [ordersWithPotentialHot])
+
+  const pctColdCouldBeHot = useMemo(() => {
+    return totalColdChargingTons > 0 ? (totalPotentialHotTons / totalColdChargingTons) * 100 : 0
+  }, [totalColdChargingTons, totalPotentialHotTons])
+
+  const openColdCouldBeHotExplainer = () => {
+    const payload = MPCentralProjectionEngine.explainCalculation(
+      'ENFORNAMENTO_FRIO_POTENCIAL_QUENTE' as any,
+      {
+        totalColdTons: totalColdChargingTons,
+        potentialHotTons: totalPotentialHotTons,
+        impactedOrders: ordersWithPotentialHot.length,
+      },
+    )
+    setExplainerPayload(payload)
+    setIsExplainerOpen(true)
+  }
+
+  // Rótulo textual do contexto temporal aplicado (considerando granularidade DE / ATÉ)
   const appliedPeriodDisplay = useMemo(() => {
+    const months = [
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
+    ]
+
+    if (appliedFilters.periodMode === 'DATA') {
+      const fromParts = (appliedFilters.dateFrom || '2026-06-01').split('-')
+      const toParts = (appliedFilters.dateTo || '2026-06-30').split('-')
+      const fromBr =
+        fromParts.length === 3
+          ? `${fromParts[2]}/${fromParts[1]}/${fromParts[0]}`
+          : appliedFilters.dateFrom
+      const toBr =
+        toParts.length === 3 ? `${toParts[2]}/${toParts[1]}/${toParts[0]}` : appliedFilters.dateTo
+      return `De ${fromBr} até ${toBr}`
+    }
+
+    if (appliedFilters.periodMode === 'MES') {
+      const fromM = appliedFilters.monthFrom ?? 6
+      const fromY = appliedFilters.yearMonthFrom ?? 2026
+      const toM = appliedFilters.monthTo ?? 8
+      const toY = appliedFilters.yearMonthTo ?? 2026
+      return `De ${months[fromM - 1]}/${fromY} até ${months[toM - 1]}/${toY}`
+    }
+
+    if (appliedFilters.periodMode === 'ANO') {
+      const fromY = appliedFilters.yearFrom ?? 2025
+      const toY = appliedFilters.yearTo ?? 2026
+      return `De ${fromY} até ${toY}`
+    }
+
+    // Fallback legado
     switch (appliedFilters.temporalVision) {
       case 'DIARIA': {
         const parts = appliedFilters.dailyDate.split('-')
@@ -265,20 +336,6 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
         return `Semana ${String(appliedFilters.weeklyWeek).padStart(2, '0')}/${appliedFilters.weeklyYear} (${range.display})`
       }
       case 'MENSAL': {
-        const months = [
-          'Janeiro',
-          'Fevereiro',
-          'Março',
-          'Abril',
-          'Maio',
-          'Junho',
-          'Julho',
-          'Agosto',
-          'Setembro',
-          'Outubro',
-          'Novembro',
-          'Dezembro',
-        ]
         return `${months[appliedFilters.monthlyMonth - 1]}/${appliedFilters.monthlyYear}`
       }
       case 'ANUAL':
@@ -388,8 +445,8 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
         </Card>
       ) : (
         <>
-          {/* Cards de Métricas Principais */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Cards de Métricas Principais (4 originais + 1 novo card solicitado) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Card 1: % 1020 no Lugar de AC */}
             <Card className="bg-white border-slate-200 shadow-sm">
               <CardContent className="p-3">
@@ -509,7 +566,32 @@ export const MPUtilizationAndSubstitutionSubpage: React.FC = () => {
                 </span>
               </CardContent>
             </Card>
+
+            {/* NOVO CARD 5 (CRITÉRIO 1): Enfornamento frio que poderia ser quente */}
+            <ColdCouldBeHotCard
+              totalColdTons={totalColdChargingTons}
+              potentialHotTons={totalPotentialHotTons}
+              impactedOrdersCount={ordersWithPotentialHot.length}
+              opportunityPct={pctColdCouldBeHot}
+              isLoading={isLoading}
+              onAuditClick={openColdCouldBeHotExplainer}
+            />
           </div>
+
+          {/* NOVA SEÇÃO DE ANÁLISE DE IA (CRITÉRIO 2):
+              O que deveria ter sido realizado, desvios, impactos e recomendações executivas */}
+          <MPUtilizationAiAnalysis
+            rows={filteredRows}
+            isLoading={isLoading}
+            companyCode={appliedFilters.companyCode}
+            lineCode={appliedFilters.lineCode}
+            centerCode={appliedFilters.centerCode}
+            periodLabel={appliedPeriodDisplay}
+          />
+
+          {/* NOVO GRÁFICO DE BARRAS POR MÊS (CRITÉRIO 4):
+              Evolução mensal do enfornamento frio com potencial para quente */}
+          <MPMonthlyChargingBarChart rows={filteredRows} isLoading={isLoading} />
 
           {/* Gráfico e Análise de Grupos */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

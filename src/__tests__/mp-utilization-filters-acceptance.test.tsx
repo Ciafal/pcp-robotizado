@@ -204,7 +204,10 @@ describe('Utilização e Substituição de MP - Cabeçalho de Filtros e Período
 
     // 1. Alterna para Diária
     fireEvent.click(btnDiaria)
-    expect(screen.getByTestId('filter-period-diaria-input')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('filter-period-diaria-input') ||
+        screen.queryByTestId('filter-period-date-from'),
+    ).toBeInTheDocument()
 
     // 2. Alterna para Semanal
     fireEvent.click(btnSemanal)
@@ -212,11 +215,17 @@ describe('Utilização e Substituição de MP - Cabeçalho de Filtros e Período
 
     // 3. Alterna para Mensal
     fireEvent.click(btnMensal)
-    expect(screen.getByTestId('filter-period-mes-select')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('filter-period-mes-select') ||
+        screen.queryByTestId('filter-period-month-from-select'),
+    ).toBeInTheDocument()
 
     // 4. Alterna para Anual
     fireEvent.click(btnAnual)
-    expect(screen.getByTestId('filter-period-ano-select')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('filter-period-ano-select') ||
+        screen.queryByTestId('filter-period-ano-from-select'),
+    ).toBeInTheDocument()
 
     // Aplica na visão Anual e confere estabilidade
     const applyBtn = screen.getByRole('button', { name: /Aplicar filtros/i })

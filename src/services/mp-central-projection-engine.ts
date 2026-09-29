@@ -315,6 +315,35 @@ export class MPCentralProjectionEngine {
           excelLegacyRef: 'Planilha "Utilização MP 1020 2026.xlsm" [Aba Indicadores]',
         }
       }
+
+      case 'ENFORNAMENTO_FRIO_POTENCIAL_QUENTE' as any: {
+        const coldTotal = Number(params.totalColdTons || 0)
+        const potentialHot = Number(params.potentialHotTons || 0)
+        const impactedOrders = Number(params.impactedOrders || 0)
+        const pct = coldTotal > 0 ? (potentialHot / coldTotal) * 100 : 0
+        return {
+          title: 'Explicabilidade do Indicador: Enfornamento frio que poderia ser quente',
+          formula:
+            '% Oportunidade = (Volume Frio Elegível para Quente ÷ Volume Total Enfornado a Frio) × 100',
+          variables: {
+            'Volume Total Enfornado a Frio': `${coldTotal.toFixed(1)} t`,
+            'Volume com Potencial para Quente': `${potentialHot.toFixed(1)} t`,
+            'Ordens com Oportunidade': `${impactedOrders} ordens`,
+          },
+          stepByStep: [
+            `1. Identificação no universo filtrado de todo o material enfornado a frio: ${coldTotal.toFixed(1)} t`,
+            `2. Identificação dos lotes que possuíam disponibilidade térmica/sequencial para conversão a quente: ${potentialHot.toFixed(1)} t (${impactedOrders} ordens impactadas)`,
+            `3. Relação de oportunidade térmica: (${potentialHot.toFixed(1)} / ${coldTotal.toFixed(1)}) × 100 = ${pct.toFixed(1)}%`,
+            `4. Oportunidade de Ganho: Redução de consumo de gás/energia no reaquecimento e preservação de ciclos de forno.`,
+          ],
+          result: pct,
+          resultFormatted: `${pct.toFixed(1)}% (${potentialHot.toFixed(1)} t de ${coldTotal.toFixed(1)} t)`,
+          unit: '%',
+          regulatoryStandardRef:
+            'Procedimento Operacional de Eficiência Energética CIAFAL PE-TERM-004',
+          excelLegacyRef: 'Planilha "Balanço Térmico e Enfornamento L1/L2 2026.xlsx"',
+        }
+      }
     }
   }
 

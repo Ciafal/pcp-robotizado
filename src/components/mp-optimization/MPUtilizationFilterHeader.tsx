@@ -32,6 +32,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export type TemporalVision = 'DIARIA' | 'SEMANAL' | 'MENSAL' | 'ANUAL'
+export type PeriodRangeMode = 'DATA' | 'MES' | 'ANO'
 
 export interface MPFilterItemOption {
   code: string
@@ -45,13 +46,27 @@ export interface MPUtilizationFiltersState {
   centerCode: string // 'ALL' ou código do centro
   selectedRawMaterials: string[] // [] significa todas
   temporalVision: TemporalVision
-  // Período de acordo com a visão:
+  // Período de acordo com a visão legada/rápida:
   dailyDate: string // YYYY-MM-DD (exibido como dd/mm/aaaa)
   weeklyWeek: number // 1 a 53
   weeklyYear: number // ex: 2026
   monthlyMonth: number // 1 a 12
   monthlyYear: number // ex: 2026
   annualYear: number // ex: 2026
+
+  // NOVO: Granularidade DE / ATÉ (Data, Mês, Ano)
+  periodMode?: PeriodRangeMode
+  // 1. Modo DATA (dd/mm/aaaa ou YYYY-MM-DD)
+  dateFrom?: string // '2026-06-01'
+  dateTo?: string // '2026-06-30'
+  // 2. Modo MÊS (Mês/Ano)
+  monthFrom?: number // 1-12
+  yearMonthFrom?: number // 2026
+  monthTo?: number // 1-12
+  yearMonthTo?: number // 2026
+  // 3. Modo ANO
+  yearFrom?: number // 2025
+  yearTo?: number // 2026
 }
 
 export interface MPUtilizationHierarchyOptions {
@@ -310,6 +325,83 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
     return weeks
   }, [filters.weeklyYear])
 
+  // Validação explícita de período DE / ATÉ:
+  // "campo Até nunca pode ser anterior ao campo De; em caso de erro informar claramente o motivo"
+  const periodValidationError = useMemo(() => {
+    const mode =
+      filters.periodMode ||
+      (filters.temporalVision === 'DIARIA'
+        ? 'DATA'
+        : filters.temporalVision === 'ANUAL'
+          ? 'ANO'
+          : 'MES')
+    if (mode === 'DATA') {
+      const from = filters.dateFrom || filters.dailyDate
+      const to = filters.dateTo || filters.dailyDate
+      if (from && to && to < from) {
+        return 'A data final ("Até") não pode ser anterior à data inicial ("De").'
+      }
+    } else if (mode === 'MES') {
+      const fromY = filters.yearMonthFrom ?? filters.monthlyYear ?? 2026
+      const fromM = filters.monthFrom ?? filters.monthlyMonth ?? 1
+      const toY = filters.yearMonthTo ?? filters.monthlyYear ?? 2026
+      const toM = filters.monthTo ?? filters.monthlyMonth ?? 12
+      const totalFrom = fromY * 12 + fromM
+      const totalTo = toY * 12 + toM
+      if (totalTo < totalFrom) {
+        return 'O mês/ano final ("Até") não pode ser anterior ao mês/ano inicial ("De").'
+      }
+    } else if (mode === 'ANO') {
+      const fromY = filters.yearFrom ?? filters.annualYear ?? 2025
+      const toY = filters.yearTo ?? filters.annualYear ?? 2026
+      if (toY < fromY) {
+        return 'O ano final ("Até") não pode ser anterior ao ano inicial ("De").'
+      }
+    }
+    return null
+  }, [filters])
+
+  const handlePeriodModeChange = (mode: PeriodRangeMode) => {
+    if (mode === 'DATA') {
+      onChange({
+        ...filters,
+        periodMode: 'DATA',
+        dateFrom: filters.dateFrom || '2026-06-01',
+        dateTo: filters.dateTo || '2026-06-30',
+        temporalVision: 'DIARIA',
+        dailyDate: filters.dateFrom || '2026-06-01',
+      })
+    } else if (mode === 'MES') {
+      onChange({
+        ...filters,
+        periodMode: 'MES',
+        monthFrom: filters.monthFrom ?? 6,
+        yearMonthFrom: filters.yearMonthFrom ?? 2026,
+        monthTo: filters.monthTo ?? 8,
+        yearMonthTo: filters.yearMonthTo ?? 2026,
+        temporalVision: 'MENSAL',
+        monthlyMonth: filters.monthFrom ?? 6,
+        monthlyYear: filters.yearMonthFrom ?? 2026,
+      })
+    } else if (mode === 'ANO') {
+      onChange({
+        ...filters,
+        periodMode: 'ANO',
+        yearFrom: filters.yearFrom ?? 2025,
+        yearTo: filters.yearTo ?? 2026,
+        temporalVision: 'ANUAL',
+        annualYear: filters.yearTo ?? 2026,
+      })
+    }
+  }
+
+  const handleApplyClick = () => {
+    if (periodValidationError) {
+      return
+    }
+    onApply(filters)
+  }
+
   return (
     <div
       data-testid="mp-utilization-filter-header"
@@ -341,9 +433,42 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
           </div>
         </div>
 
-        {/* Direita: Seletor de Visão Temporal [ DIÁRIA ] [ SEMANAL ] [ MENSAL ] [ ANUAL ] + Botões */}
+        {/* Direita: Seletor de Período DE / ATÉ (Data, Mês, Ano) + Controle Segmentado + Botões */}
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end">
-          {/* Controle Segmentado de Visão Temporal (Destaque Azul CIAFAL) */}
+          {/* Seletor de Granularidade DE / ATÉ (Critério 3: Data, Mês, Ano) */}
+          <div className="flex items-center gap-1 bg-blue-50/70 p-1 rounded-lg border border-blue-200">
+            <span className="text-[10px] font-bold text-[#004C97] uppercase px-1 hidden sm:inline">
+              Intervalo:
+            </span>
+            {(['DATA', 'MES', 'ANO'] as const).map((mode) => {
+              const currentMode =
+                filters.periodMode ||
+                (filters.temporalVision === 'DIARIA'
+                  ? 'DATA'
+                  : filters.temporalVision === 'ANUAL'
+                    ? 'ANO'
+                    : 'MES')
+              const isSelected = currentMode === mode
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  data-testid={`period-mode-${mode.toLowerCase()}`}
+                  onClick={() => handlePeriodModeChange(mode)}
+                  className={cn(
+                    'px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider rounded transition-all',
+                    isSelected
+                      ? 'bg-[#004C97] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70',
+                  )}
+                >
+                  {mode === 'DATA' ? 'Por Data' : mode === 'MES' ? 'Por Mês' : 'Por Ano'}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Controle Segmentado de Visão Temporal (Mantido intacto para compatibilidade total) */}
           <div
             data-testid="temporal-vision-segmented-control"
             role="group"
@@ -390,10 +515,10 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
               type="button"
               variant="default"
               size="sm"
-              onClick={() => onApply(filters)}
-              disabled={isLoading}
+              onClick={handleApplyClick}
+              disabled={isLoading || Boolean(periodValidationError)}
               title="Aplicar filtros e atualizar toda a página"
-              className="h-8 px-3 text-xs bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 font-bold shadow-xs transition-colors"
+              className="h-8 px-3 text-xs bg-[#004C97] hover:bg-[#003870] disabled:bg-slate-300 text-white gap-1.5 font-bold shadow-xs transition-colors"
             >
               {isLoading ? (
                 <>
@@ -408,8 +533,24 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
         </div>
       </div>
 
+      {/* Alerta de Validação de Período (Caso Até < De) */}
+      {periodValidationError && (
+        <div
+          data-testid="period-validation-error-banner"
+          className="bg-rose-50 border border-rose-200 text-rose-800 text-xs px-3 py-2 rounded-lg flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-bold">Atenção ao intervalo selecionado:</span>
+            <span>{periodValidationError}</span>
+          </div>
+          <span className="text-[11px] font-semibold text-rose-600">
+            Corrija as datas para aplicar.
+          </span>
+        </div>
+      )}
+
       {/* Linha 2: Grade Horizontal Responsiva dos Filtros
-          Desktop: Empresa | Linha | Centro | Matéria-prima | Período Específico
+          Desktop: Empresa | Linha | Centro | Matéria-prima | Período Específico / DE-ATÉ
           Em telas menores, organiza em 2 linhas sem rolagem horizontal */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
         {/* 1. Empresa */}
@@ -615,38 +756,254 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
           </Popover>
         </div>
 
-        {/* 5. Período Dinâmico Conforme a Visão Temporal Selecionada */}
+        {/* 5. Período Dinâmico Conforme a Granularidade DE / ATÉ (ou Visão Rápida) */}
         <div className="space-y-1 min-w-0">
-          {/* VISÃO DIÁRIA: campo de data específica dd/mm/aaaa */}
-          {filters.temporalVision === 'DIARIA' && (
+          {/* MODO DATA: De: 01/06/2026 Até: 30/06/2026 */}
+          {(filters.periodMode === 'DATA' ||
+            (!filters.periodMode && filters.temporalVision === 'DIARIA')) && (
             <div>
               <div className="flex items-center justify-between">
                 <Label className="text-[11px] font-semibold text-slate-700 block">
-                  Data Específica
+                  Período por Data (De / Até)
                 </Label>
-                {filters.dailyDate && (
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    {formatIsoDateToBr(filters.dailyDate)}
-                  </span>
-                )}
+                <span className="text-[10px] text-slate-400 font-mono">dd/mm/aaaa</span>
               </div>
-              <Input
-                type="date"
-                data-testid="filter-period-diaria-input"
-                value={filters.dailyDate}
-                onChange={(e) =>
-                  onChange({
-                    ...filters,
-                    dailyDate: e.target.value,
-                  })
-                }
-                className="h-8 text-xs bg-white border-slate-200 text-slate-900 focus-visible:ring-[#004C97]"
-              />
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    type="date"
+                    data-testid="filter-period-date-from"
+                    aria-label="Data inicial"
+                    value={filters.dateFrom || filters.dailyDate || '2026-06-01'}
+                    onChange={(e) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'DATA',
+                        dateFrom: e.target.value,
+                        dailyDate: e.target.value,
+                      })
+                    }
+                    className="h-8 text-xs bg-white border-slate-200 text-slate-900 focus-visible:ring-[#004C97] px-1.5"
+                  />
+                </div>
+                <span className="text-xs text-slate-400 font-semibold">até</span>
+                <div className="flex-1 min-w-0">
+                  <Input
+                    type="date"
+                    data-testid="filter-period-date-to"
+                    aria-label="Data final"
+                    value={filters.dateTo || filters.dailyDate || '2026-06-30'}
+                    onChange={(e) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'DATA',
+                        dateTo: e.target.value,
+                      })
+                    }
+                    className="h-8 text-xs bg-white border-slate-200 text-slate-900 focus-visible:ring-[#004C97] px-1.5"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
-          {/* VISÃO SEMANAL: semana de segunda-feira a domingo com dd/mm/aaaa a dd/mm/aaaa */}
-          {filters.temporalVision === 'SEMANAL' && (
+          {/* MODO MÊS: De Junho/2026 Até Agosto/2026 */}
+          {(filters.periodMode === 'MES' ||
+            (!filters.periodMode && filters.temporalVision === 'MENSAL')) && (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-semibold text-slate-700 block">
+                  Período por Mês (De / Até)
+                </Label>
+                <span className="text-[10px] text-slate-400 font-mono">Mês/Ano</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {/* De: Mês/Ano */}
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <Select
+                    value={String(filters.monthFrom ?? filters.monthlyMonth ?? 6)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'MES',
+                        monthFrom: Number(val),
+                        monthlyMonth: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-month-from-select"
+                      className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97] truncate px-1.5"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES_PT.map((mName, idx) => (
+                        <SelectItem key={idx + 1} value={String(idx + 1)}>
+                          {mName.slice(0, 3)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={String(filters.yearMonthFrom ?? filters.monthlyYear ?? 2026)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'MES',
+                        yearMonthFrom: Number(val),
+                        monthlyYear: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-year-from-select"
+                      className="w-16 h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97] px-1"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((yr) => (
+                        <SelectItem key={yr} value={String(yr)}>
+                          {yr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <span className="text-[11px] text-slate-400 font-semibold px-0.5">a</span>
+
+                {/* Até: Mês/Ano */}
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <Select
+                    value={String(filters.monthTo ?? 8)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'MES',
+                        monthTo: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-month-to-select"
+                      className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97] truncate px-1.5"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES_PT.map((mName, idx) => (
+                        <SelectItem key={idx + 1} value={String(idx + 1)}>
+                          {mName.slice(0, 3)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={String(filters.yearMonthTo ?? 2026)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'MES',
+                        yearMonthTo: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-year-to-select"
+                      className="w-16 h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97] px-1"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((yr) => (
+                        <SelectItem key={yr} value={String(yr)}>
+                          {yr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODO ANO: De 2025 Até 2026 */}
+          {(filters.periodMode === 'ANO' ||
+            (!filters.periodMode && filters.temporalVision === 'ANUAL')) && (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] font-semibold text-slate-700 block">
+                  Período por Ano (De / Até)
+                </Label>
+                <span className="text-[10px] text-slate-400 font-mono">Ano</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={String(filters.yearFrom ?? 2025)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'ANO',
+                        yearFrom: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-ano-from-select"
+                      className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((yr) => (
+                        <SelectItem key={yr} value={String(yr)}>
+                          {yr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <span className="text-xs text-slate-400 font-semibold">até</span>
+
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={String(filters.yearTo ?? filters.annualYear ?? 2026)}
+                    onValueChange={(val) =>
+                      onChange({
+                        ...filters,
+                        periodMode: 'ANO',
+                        yearTo: Number(val),
+                        annualYear: Number(val),
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      data-testid="filter-period-ano-to-select"
+                      className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((yr) => (
+                        <SelectItem key={yr} value={String(yr)}>
+                          {yr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VISÃO SEMANAL (preservada quando o usuário opta explicitamente pelo seletor semanal) */}
+          {!filters.periodMode && filters.temporalVision === 'SEMANAL' && (
             <div>
               <div className="flex items-center justify-between">
                 <Label className="text-[11px] font-semibold text-slate-700 block">
@@ -700,96 +1057,6 @@ export const MPUtilizationFilterHeader: React.FC<MPUtilizationFilterHeaderProps>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          )}
-
-          {/* VISÃO MENSAL: Mês + Ano */}
-          {filters.temporalVision === 'MENSAL' && (
-            <div>
-              <Label className="text-[11px] font-semibold text-slate-700 block">
-                Mês &bull; Ano
-              </Label>
-              <div className="flex items-center gap-1.5">
-                <Select
-                  value={String(filters.monthlyMonth)}
-                  onValueChange={(val) =>
-                    onChange({
-                      ...filters,
-                      monthlyMonth: Number(val),
-                    })
-                  }
-                >
-                  <SelectTrigger
-                    data-testid="filter-period-mes-select"
-                    className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97] truncate flex-1"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTH_NAMES_PT.map((mName, idx) => (
-                      <SelectItem key={idx + 1} value={String(idx + 1)}>
-                        {mName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={String(filters.monthlyYear)}
-                  onValueChange={(val) =>
-                    onChange({
-                      ...filters,
-                      monthlyYear: Number(val),
-                    })
-                  }
-                >
-                  <SelectTrigger
-                    data-testid="filter-period-mes-ano-select"
-                    className="w-20 h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableYears.map((yr) => (
-                      <SelectItem key={yr} value={String(yr)}>
-                        {yr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* VISÃO ANUAL: Ano */}
-          {filters.temporalVision === 'ANUAL' && (
-            <div>
-              <Label className="text-[11px] font-semibold text-slate-700 block">
-                Ano de Análise
-              </Label>
-              <Select
-                value={String(filters.annualYear)}
-                onValueChange={(val) =>
-                  onChange({
-                    ...filters,
-                    annualYear: Number(val),
-                  })
-                }
-              >
-                <SelectTrigger
-                  data-testid="filter-period-ano-select"
-                  className="h-8 text-xs bg-white border-slate-200 text-slate-900 font-medium focus:ring-[#004C97]"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.map((yr) => (
-                    <SelectItem key={yr} value={String(yr)}>
-                      {yr}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
         </div>

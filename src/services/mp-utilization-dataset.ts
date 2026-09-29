@@ -127,6 +127,10 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 65.0,
     cold_charging_tons: 25.5,
     charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Disponibilidade de lote quente na L2 não sincronizada com a janela térmica do forno CFPL.',
+    potential_hot_tons: 25.5,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: true,
@@ -161,6 +165,8 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 127.2,
     cold_charging_tons: 0,
     charging_type: 'QUENTE',
+    could_be_hot_charging: false,
+    potential_hot_tons: 0,
     standard_mp_rule: 'Obrigatório SAE 1020',
     could_be_ac: false,
     should_be_1020: true,
@@ -193,6 +199,10 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 0,
     cold_charging_tons: 63.8,
     charging_type: 'FRIO',
+    could_be_hot_charging: false,
+    could_be_hot_reason:
+      'Tarugo Vallourec descarregado a frio no pátio externo sem ligação direta de transferência quente.',
+    potential_hot_tons: 0,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: true,
@@ -227,6 +237,8 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 191.0,
     cold_charging_tons: 0,
     charging_type: 'QUENTE',
+    could_be_hot_charging: false,
+    potential_hot_tons: 0,
     standard_mp_rule: 'Obrigatório SAE 1045',
     could_be_ac: false,
     is_substitute_application: false,
@@ -258,6 +270,10 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 80.0,
     cold_charging_tons: 21.5,
     charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Ordem programada fora da janela de vazamento contínuo; lote permaneceu no pátio intermediário.',
+    potential_hot_tons: 21.5,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: true,
@@ -269,6 +285,78 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
   },
   {
     id: 'ord-106',
+    order_number: 'OP-2026-0711',
+    period_date: '2026-07-15',
+    period_week: 'Semana 29',
+    period_week_number: 29,
+    period_month: 'Julho',
+    period_month_number: 7,
+    period_year: 2026,
+    company_code: 'CIAFAL',
+    company_name: 'CIAFAL Indústria de Aço',
+    line_code: 'L2',
+    center_code: 'FORN_L2',
+    product_code: 'BARRA-RED-22',
+    product_description: 'Barra Redonda 22mm',
+    produced_tons: 80.0,
+    mp_consumed_code: 'MP-TG-1020-130',
+    mp_consumed_tons: 85.0,
+    steel_grade: 'SAE 1020',
+    mp_group: 'Tarugos Nobres 1020',
+    origin_group: 'Ciafal L2',
+    supplier_name: 'Produção Própria L2',
+    hot_charging_tons: 50.0,
+    cold_charging_tons: 35.0,
+    charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Troca de bitola atrasou o sequenciamento, forçando estocagem intermediária no pátio e resfriamento.',
+    potential_hot_tons: 35.0,
+    standard_mp_rule: 'Obrigatório SAE 1020',
+    could_be_ac: false,
+    should_be_1020: true,
+    is_substitute_application: false,
+    deviation_detected: false,
+    observation: 'Perda de ganho térmico por descontinuidade de campanha.',
+  },
+  {
+    id: 'ord-107',
+    order_number: 'OP-2026-0820',
+    period_date: '2026-08-18',
+    period_week: 'Semana 34',
+    period_week_number: 34,
+    period_month: 'Agosto',
+    period_month_number: 8,
+    period_year: 2026,
+    company_code: 'CIAFAL',
+    company_name: 'CIAFAL Indústria de Aço',
+    line_code: 'L2',
+    center_code: 'LAM2',
+    product_code: 'BARRA-CHAT-32X8',
+    product_description: 'Barra Chata 32x8 mm',
+    produced_tons: 90.0,
+    mp_consumed_code: 'MP-TG-1020-130',
+    mp_consumed_tons: 95.0,
+    steel_grade: 'SAE 1020',
+    mp_group: 'Tarugos Nobres 1020',
+    origin_group: 'Ciafal L2',
+    supplier_name: 'Produção Própria L2',
+    hot_charging_tons: 60.0,
+    cold_charging_tons: 35.0,
+    charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Saldo de tarugos quentes disponível na esteira mas não consumido por inversão na fila de programação.',
+    potential_hot_tons: 35.0,
+    standard_mp_rule: 'Obrigatório SAE 1020',
+    could_be_ac: false,
+    should_be_1020: true,
+    is_substitute_application: false,
+    deviation_detected: false,
+    observation: 'Potencial de agrupamento para ganho térmico não aproveitado.',
+  },
+  {
+    id: 'ord-108',
     order_number: 'OP-2026-9941',
     period_date: '2026-09-29',
     period_week: 'Semana 40',
@@ -292,6 +380,10 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 100.0,
     cold_charging_tons: 16.5,
     charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Tarugo complementar retirado do pátio frio por subdimensionamento da corrida quente.',
+    potential_hot_tons: 16.5,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: true,
@@ -302,7 +394,7 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     observation: 'Enfornamento misto com alta proporção quente.',
   },
   {
-    id: 'ord-107',
+    id: 'ord-109',
     order_number: 'OP-2026-9955',
     period_date: '2026-09-29',
     period_week: 'Semana 40',
@@ -326,6 +418,9 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 50.0,
     cold_charging_tons: 26.8,
     charging_type: 'MISTO',
+    could_be_hot_charging: false,
+    could_be_hot_reason: 'Material AC comercial de terceiros descarregado frio no pátio.',
+    potential_hot_tons: 0,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: false,
@@ -333,7 +428,7 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     observation: 'Utilização 100% conforme da MP AC prevista.',
   },
   {
-    id: 'ord-108',
+    id: 'ord-110',
     order_number: 'OP-2026-9960',
     period_date: '2026-10-02',
     period_week: 'Semana 40',
@@ -357,6 +452,9 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 0,
     cold_charging_tons: 48.0,
     charging_type: 'FRIO',
+    could_be_hot_charging: false,
+    could_be_hot_reason: 'Ecosucata e pontas de faca exigem triagem física a frio no pátio.',
+    potential_hot_tons: 0,
     standard_mp_rule: 'Elegível para Sucata e Faca',
     could_be_ac: false,
     is_substitute_application: false,
@@ -364,7 +462,7 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     observation: 'Aproveitamento de sobras de laminação sem desvios.',
   },
   {
-    id: 'ord-109',
+    id: 'ord-111',
     order_number: 'OP-2026-9972',
     period_date: '2026-04-12',
     period_week: 'Semana 15',
@@ -388,6 +486,10 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     hot_charging_tons: 0,
     cold_charging_tons: 58.2,
     charging_type: 'FRIO',
+    could_be_hot_charging: false,
+    could_be_hot_reason:
+      'Processo SDC Corte & Dobra opera exclusivamente a frio em perfiladeira mecânica.',
+    potential_hot_tons: 0,
     standard_mp_rule: 'Elegível para Aço Comercial (AC)',
     could_be_ac: true,
     is_substitute_application: true,
@@ -396,6 +498,44 @@ export const CANONICAL_MP_UTILIZATION_DATASET: MPUtilizationItem[] = [
     deviation_impact_tons: 58.2,
     deviation_reason: 'Tarugo nobre alocado na SDC para cumprimento de prazo de entrega.',
     observation: 'Substituição pontual na Sidercentro.',
+  },
+  {
+    id: 'ord-112',
+    order_number: 'OP-2025-8810',
+    period_date: '2025-11-20',
+    period_week: 'Semana 47',
+    period_week_number: 47,
+    period_month: 'Novembro',
+    period_month_number: 11,
+    period_year: 2025,
+    company_code: 'CIAFAL',
+    company_name: 'CIAFAL Indústria de Aço',
+    line_code: 'L1',
+    center_code: 'CFPL',
+    product_code: 'BARRA-RED-25',
+    product_description: 'Barra Redonda 25mm 2025',
+    produced_tons: 90.0,
+    mp_consumed_code: 'MP-TG-1020-130',
+    mp_consumed_tons: 96.0,
+    steel_grade: 'SAE 1020',
+    mp_group: 'Tarugos Nobres 1020',
+    origin_group: 'ArcelorMittal',
+    supplier_name: 'ArcelorMittal Tubarão',
+    hot_charging_tons: 50.0,
+    cold_charging_tons: 46.0,
+    charging_type: 'MISTO',
+    could_be_hot_charging: true,
+    could_be_hot_reason:
+      'Gargalo de movimentação logística na ponte rolante forçou enfornamento a frio.',
+    potential_hot_tons: 46.0,
+    standard_mp_rule: 'Elegível para Aço Comercial (AC)',
+    could_be_ac: true,
+    is_substitute_application: true,
+    substitution_category: '1020 no lugar de AC',
+    deviation_detected: true,
+    deviation_impact_tons: 96.0,
+    deviation_reason: 'Desvio de programação em 2025.',
+    observation: 'Histórico anual 2025.',
   },
 ]
 
@@ -435,11 +575,58 @@ export function filterMPUtilizationRows(
       }
     }
 
-    // 5. Período conforme Visão Temporal
+    // 5. Período: Se periodMode DE / ATÉ estiver ativo, prioriza o intervalo explícito DE / ATÉ
+    if (filters.periodMode) {
+      if (filters.periodMode === 'DATA') {
+        const rowDate =
+          row.period_date ||
+          (row.period_year && row.period_month_number
+            ? `${row.period_year}-${String(row.period_month_number).padStart(2, '0')}-01`
+            : '')
+        if (filters.dateFrom && rowDate && rowDate < filters.dateFrom) {
+          return false
+        }
+        if (filters.dateTo && rowDate && rowDate > filters.dateTo) {
+          return false
+        }
+        return true
+      }
+
+      if (filters.periodMode === 'MES') {
+        const rowYear = row.period_year || 2026
+        const rowMonth = row.period_month_number || 1
+        const rowTotalMonths = rowYear * 12 + rowMonth
+
+        const fromYear = filters.yearMonthFrom ?? 2026
+        const fromMonth = filters.monthFrom ?? 1
+        const fromTotalMonths = fromYear * 12 + fromMonth
+
+        const toYear = filters.yearMonthTo ?? 2026
+        const toMonth = filters.monthTo ?? 12
+        const toTotalMonths = toYear * 12 + toMonth
+
+        if (rowTotalMonths < fromTotalMonths || rowTotalMonths > toTotalMonths) {
+          return false
+        }
+        return true
+      }
+
+      if (filters.periodMode === 'ANO') {
+        const rowYear = row.period_year || 2026
+        const fromYear = filters.yearFrom ?? 2025
+        const toYear = filters.yearTo ?? 2026
+
+        if (rowYear < fromYear || rowYear > toYear) {
+          return false
+        }
+        return true
+      }
+    }
+
+    // 6. Fallback para Visão Temporal legada (DIARIA / SEMANAL / MENSAL / ANUAL)
     switch (filters.temporalVision) {
       case 'DIARIA': {
         if (filters.dailyDate) {
-          // Se a linha tiver period_date definido, compara exatamente YYYY-MM-DD
           if (row.period_date && row.period_date !== filters.dailyDate) {
             return false
           }

@@ -780,6 +780,9 @@ export interface MPUtilizationItem {
   could_be_ac?: boolean
   could_be_a?: boolean
   should_be_1020?: boolean
+  could_be_hot_charging?: boolean // Identifica se o enfornamento a frio tinha potencial/elegibilidade para ser a quente
+  could_be_hot_reason?: string // Motivo do desvio térmico (ex: sequência incompatível, falta de agrupamento, janela térmica perdida)
+  potential_hot_tons?: number // Toneladas de enfornamento a frio com potencial de conversão para quente
   is_substitute_application?: boolean
   substitution_category?: string // '1020 no lugar de AC', '1020 MPI no lugar de AC', '1020 L2 no lugar de AC'...
   deviation_detected?: boolean
