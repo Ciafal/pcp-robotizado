@@ -442,14 +442,12 @@ class PcpInventoryDemandsService {
           .join('; ')
 
         await pb.collection('pcp_mp_inventory_history').create({
-          inventory_order_id: createdDemandRecord.id,
-          demand_id: createdDemandRecord.id,
-          control_number: nextCtrl,
+          inventory_id: createdDemandRecord.id,
           event_type: 'DEMANDA_GERADA',
           user_name: requesterName,
-          user_role: requesterRole,
-          summary: `Demanda de Inventário ${nextCtrl} criada com sucesso para OP ${productionOrder}. Materiais: [${matSummaryText}]. Total previsto: ${totalPiecesReq} peças.`,
-          details: {
+          user_id: requesterId,
+          description: `Demanda de Inventário ${nextCtrl} gerada para WERKS ${company}, Linha ${line}, Centro ${center}, Depósito LGORT ${storageDeposit}. OP: ${productionOrder}. Materiais: [${matSummaryText}]. Total: ${totalPiecesReq} peças.`,
+          new_value: {
             control_number: nextCtrl,
             company,
             line,
@@ -463,7 +461,7 @@ class PcpInventoryDemandsService {
           timestamp: new Date().toISOString(),
         })
       } catch (histErr) {
-        console.warn('Registro secundário em pcp_mp_inventory_history ignorado:', histErr)
+        console.warn('Registro em pcp_mp_inventory_history ignorado:', histErr)
       }
 
       // ETAPA D: Auditoria oficial em pcp_audit_logs (falha secundária NUNCA aborta o fluxo de sucesso)
@@ -471,7 +469,7 @@ class PcpInventoryDemandsService {
         await pb.collection('pcp_audit_logs').create({
           module: 'INVENTARIO_MP',
           action: 'CREATE_DEMAND',
-          event_type: 'DEMANDA_GERADA',
+          event_type: 'SCHEDULE_ACTION',
           user_id: requesterId,
           user_name: requesterName,
           user_role: requesterRole,
@@ -492,6 +490,8 @@ class PcpInventoryDemandsService {
             priority,
             total_pieces_required: totalPiecesReq,
             materials_count: materialsStructured.length,
+            operation_result: 'DEMANDA_GERADA_SUCESSO',
+            timestamp: new Date().toISOString(),
           },
         })
       } catch (auditErr) {

@@ -295,65 +295,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // Se houver erro de autenticação explícito ou timeout, a tela amigável com botão Recarregar tem prioridade
-  // para que o usuário NUNCA fique preso num loading infinito ou tela em branco sem saída.
-  if (hasAuthFailure && !isHierarquiaRoute && !isCadastrosOrMasterDataEarly) {
-    return (
-      <div
-        data-testid="permission-guard-error-state"
-        className="min-h-[50vh] flex items-center justify-center p-6 bg-slate-50/80"
-      >
-        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xl text-center space-y-4">
-          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
-            <AlertTriangle className="w-7 h-7" />
-          </div>
-
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              Instabilidade na Validação de Acessos
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Não foi possível validar suas permissões de acesso em tempo hábil. Clique em
-              &quot;Recarregar&quot; para tentar novamente.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2.5 justify-center pt-2">
-            <Button
-              variant="default"
-              onClick={handleRetry}
-              disabled={isRetrying}
-              data-testid="permission-guard-retry-btn"
-              className="gap-2 bg-[#004C97] hover:bg-[#003d7a] text-white shadow-sm font-semibold text-xs"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-              {isRetrying ? 'Recarregando...' : 'Recarregar'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.location?.reload) {
-                  window.location.reload()
-                }
-              }}
-              data-testid="permission-guard-hard-refresh-btn"
-              className="gap-2 bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Atualizar Página
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/pcp/sequenciamento')}
-              className="gap-2 text-slate-600 hover:text-slate-900 text-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Cockpit
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // 2) Usuário administrativo (PCP_ADMIN, ADMIN, ADMINISTRADOR) NUNCA é bloqueado por spinner/timeout
   if (isAdminUser) {
     return <>{children}</>

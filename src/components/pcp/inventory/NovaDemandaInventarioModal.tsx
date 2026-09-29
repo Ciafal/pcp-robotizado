@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,27 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { useToast } from '@/hooks/use-toast'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
 import { sapMaterialService } from '@/services/sap-material-service'
 import { pcpProductionService } from '@/services/pcp-production-service'
+import {
+  sapParametersMasterDataService,
+  SapCompanyOption,
+  SapStorageDepositOption,
+} from '@/services/sap-parameters-master-data-service'
+import { lineMasterService } from '@/services/line-master'
+import pb from '@/lib/pocketbase/client'
+import { cn } from '@/lib/utils'
 import { parsePtBrNumber, formatPtBrNumber, calculatePiecesFromTons } from '@/lib/number-format'
 type ProductionOrder = any
 import {
@@ -35,6 +52,9 @@ import {
   Layers,
   FileSpreadsheet,
   Info,
+  ChevronsUpDown,
+  Check,
+  RefreshCw,
 } from 'lucide-react'
 
 interface NovaDemandaInventarioModalProps {
@@ -75,11 +95,43 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 }) => {
   const { toast } = useToast()
 
-  // Bloco 1: Empresa, Linha, Centro, Depósito (herdam apenas o contexto ativo dos filtros)
+  // Bloco 1: Contexto Operacional com Cascata Oficial
+  // 1. Empresa (SAP T001W via RFC WERKS)
   const [company, setCompany] = useState<string>('')
+  const [companyLabel, setCompanyLabel] = useState<string>('')
+  const [companyOptions, setCompanyOptions] = useState<SapCompanyOption[]>([])
+  const [loadingCompanies, setLoadingCompanies] = useState<boolean>(false)
+  const [companyError, setCompanyError] = useState<string | null>(null)
+  const [companyOpen, setCompanyOpen] = useState<boolean>(false)
+  const [companySearch, setCompanySearch] = useState<string>('')
+
+  // 2. Linha (production_lines via lineMasterService.listLines)
   const [line, setLine] = useState<string>('')
+  const [lineLabel, setLineLabel] = useState<string>('')
+  const [allLinesData, setAllLinesData] = useState<any[]>([])
+  const [plantsData, setPlantsData] = useState<any[]>([])
+  const [loadingLines, setLoadingLines] = useState<boolean>(false)
+  const [lineOpen, setLineOpen] = useState<boolean>(false)
+  const [lineSearch, setLineSearch] = useState<string>('')
+
+  // 3. Centro (Centros e Ficha Mestra / production_lines.sap_work_center / line_masters / work_centers)
   const [center, setCenter] = useState<string>('')
+  const [centerLabel, setCenterLabel] = useState<string>('')
+  const [centerOptions, setCenterOptions] = useState<
+    Array<{ code: string; name: string; label: string }>
+  >([])
+  const [loadingCenters, setLoadingCenters] = useState<boolean>(false)
+  const [centerOpen, setCenterOpen] = useState<boolean>(false)
+  const [centerSearch, setCenterSearch] = useState<string>('')
+
+  // 4. Depósito (SAP T001L via RFC LGORT por WERKS)
   const [storageDeposit, setStorageDeposit] = useState<string>('')
+  const [storageDepositLabel, setStorageDepositLabel] = useState<string>('')
+  const [depositOptions, setDepositOptions] = useState<SapStorageDepositOption[]>([])
+  const [loadingDeposits, setLoadingDeposits] = useState<boolean>(false)
+  const [depositError, setDepositError] = useState<string | null>(null)
+  const [depositOpen, setDepositOpen] = useState<boolean>(false)
+  const [depositSearch, setDepositSearch] = useState<string>('')
 
   // Bloco 2: Ordem de Produção (pesquisável) + Prioridade + Bitola/Aplicação preenchidas auto
   const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([])
@@ -107,10 +159,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   // Quando o modal abre, herda contexto e inicializa estado limpo
   useEffect(() => {
     if (open) {
-      setCompany(initialContext?.company || '')
-      setLine(initialContext?.line || '')
-      setCenter(initialContext?.center || '')
-      setStorageDeposit(initialContext?.storageDeposit || '')
+      const initComp = initialContext?.company || ''
+      const initLine = initialContext?.line || ''
+      const initCenter = initialContext?.center || ''
+      const initDep = initialContext?.storageDeposit || ''
+
+      setCompany(initComp)
+      setCompanyLabel(initComp)
+      setLine(initLine)
+      setLineLabel(initLine)
+      setCenter(initCenter)
+      setCenterLabel(initCenter)
+      setStorageDeposit(initDep)
+      setStorageDepositLabel(initDep)
 
       const initialOp = initialContext?.productionOrder || ''
       setSelectedOrderNumber(initialOp)
@@ -142,9 +203,264 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       setErrorField(null)
       setErrorMessage(null)
 
+      // Carga das fontes oficiais
+      loadCompanies()
+      loadInternalCadastros()
       loadRealOrders()
     }
   }, [open, initialContext])
+
+  // =========================================================================
+  // CARGA DAS FONTES OFICIAIS DO BLOCO 1
+  // =========================================================================
+
+  // 1. EMPRESA: SAP ECC via RFC (T001W)
+  const loadCompanies = async (force = false) => {
+    setLoadingCompanies(true)
+    setCompanyError(null)
+    try {
+      const res = await sapParametersMasterDataService.fetchCompanies({ forceRefresh: force })
+      if (res.success && res.data.length > 0) {
+        setCompanyOptions(res.data)
+        setCompanyError(null)
+      } else if (res.isUnavailable || !res.success) {
+        setCompanyOptions([])
+        setCompanyError(
+          res.error || 'Não foi possível consultar as empresas no SAP. Tente novamente.',
+        )
+      } else {
+        setCompanyOptions([])
+        setCompanyError(null)
+      }
+    } catch (err: any) {
+      console.warn('[NovaDemandaInventarioModal] Erro ao consultar empresas no SAP:', err)
+      setCompanyOptions([])
+      setCompanyError('Não foi possível consultar as empresas no SAP. Tente novamente.')
+    } finally {
+      setLoadingCompanies(false)
+    }
+  }
+
+  // Carga das tabelas internas: production_lines + plants
+  const loadInternalCadastros = async () => {
+    setLoadingLines(true)
+    try {
+      const [linesResult, plantsResult] = await Promise.all([
+        lineMasterService.listLines({ activeOnly: true }),
+        pb
+          .collection('plants')
+          .getFullList({ sort: 'name' })
+          .catch(() => []),
+      ])
+      setAllLinesData(linesResult || [])
+      setPlantsData(plantsResult || [])
+    } catch (err) {
+      console.warn(
+        '[NovaDemandaInventarioModal] Erro ao carregar cadastros internos de linhas/plantas:',
+        err,
+      )
+    } finally {
+      setLoadingLines(false)
+    }
+  }
+
+  // 2. LINHA: filtrar por empresa (production_lines.plant_id -> plants.id correspondente ao WERKS)
+  const filteredLinesByCompany = useMemo(() => {
+    if (!company) {
+      // Se nenhuma empresa estiver selecionada, lista todas as linhas ativas
+      return allLinesData
+    }
+
+    // Identificar a(s) planta(s) cujo sap_plant_code seja igual ao WERKS selecionado
+    const matchingPlants = plantsData.filter(
+      (p) => (p.sap_plant_code || '').trim() === company.trim(),
+    )
+    if (matchingPlants.length === 0) {
+      // Caso a planta não esteja explicitamente mapeada com sap_plant_code == WERKS,
+      // fallback cuidadoso pelo plant_id se houver relação direta
+      return allLinesData.filter((l) => (l.sap_plant_code || '').trim() === company.trim())
+    }
+
+    const matchingPlantIds = new Set(matchingPlants.map((p) => p.id))
+    return allLinesData.filter((l) => l.plant_id && matchingPlantIds.has(l.plant_id))
+  }, [company, allLinesData, plantsData])
+
+  // 3. CENTRO: derivar centros compatíveis com a Linha selecionada a partir de Centros e Ficha Mestra
+  const loadCentersForLine = async (lineIdentifier: string) => {
+    if (!lineIdentifier) {
+      setCenterOptions([])
+      return
+    }
+
+    setLoadingCenters(true)
+    try {
+      // Localizar o registro da linha produtiva selecionada
+      const foundLine = allLinesData.find(
+        (l) => l.code === lineIdentifier || l.name === lineIdentifier || l.id === lineIdentifier,
+      )
+
+      const lineId = foundLine?.id || lineIdentifier
+      const derivedOptions: Array<{ code: string; name: string; label: string }> = []
+      const seenCodes = new Set<string>()
+
+      // Fonte A: production_lines.sap_work_center
+      if (foundLine && foundLine.sap_work_center && foundLine.sap_work_center.trim()) {
+        const swc = foundLine.sap_work_center.trim()
+        if (!seenCodes.has(swc)) {
+          seenCodes.add(swc)
+          derivedOptions.push({
+            code: swc,
+            name: foundLine.name ? `${foundLine.name} (${swc})` : swc,
+            label: `${swc} — ${foundLine.name || 'Centro da Linha'}`,
+          })
+        }
+      }
+
+      // Fonte B: line_masters associadas à linha selecionada
+      try {
+        const lineMasters = await pb.collection('line_masters').getFullList({
+          filter: `line_id = '${lineId}' || code = '${lineIdentifier}'`,
+          sort: '-version',
+        })
+        for (const lm of lineMasters) {
+          const sapCode = (lm.sap_plant_code || lm.code || '').trim()
+          if (sapCode && !seenCodes.has(sapCode)) {
+            seenCodes.add(sapCode)
+            derivedOptions.push({
+              code: sapCode,
+              name: lm.name || sapCode,
+              label: `${sapCode} — ${lm.name || 'Ficha Mestra'}`,
+            })
+          }
+        }
+      } catch (lmErr) {
+        console.warn('[NovaDemandaInventarioModal] Erro ao consultar line_masters:', lmErr)
+      }
+
+      // Fonte C: work_centers vinculados à linha
+      try {
+        const workCenters = await pb.collection('work_centers').getFullList({
+          filter: `line_id = '${lineId}'`,
+          sort: 'code',
+        })
+        for (const wc of workCenters) {
+          const wcCode = (wc.code || wc.sap_work_center_code || '').trim()
+          if (wcCode && !seenCodes.has(wcCode)) {
+            seenCodes.add(wcCode)
+            derivedOptions.push({
+              code: wcCode,
+              name: wc.name || wcCode,
+              label: `${wcCode} — ${wc.name || 'Centro de Trabalho'}`,
+            })
+          }
+        }
+      } catch (wcErr) {
+        console.warn('[NovaDemandaInventarioModal] Erro ao consultar work_centers:', wcErr)
+      }
+
+      setCenterOptions(derivedOptions)
+    } catch (err) {
+      console.warn('[NovaDemandaInventarioModal] Erro ao carregar centros para linha:', err)
+      setCenterOptions([])
+    } finally {
+      setLoadingCenters(false)
+    }
+  }
+
+  // 4. DEPÓSITO: SAP ECC via RFC (T001L) filtrado pelo WERKS selecionado
+  const loadDepositsForWerks = async (werksCode: string, force = false) => {
+    if (!werksCode) {
+      setDepositOptions([])
+      setDepositError(null)
+      return
+    }
+
+    setLoadingDeposits(true)
+    setDepositError(null)
+    try {
+      const res = await sapParametersMasterDataService.fetchDeposits({
+        werks: werksCode,
+        forceRefresh: force,
+      })
+
+      if (res.success && res.data.length > 0) {
+        setDepositOptions(res.data)
+        setDepositError(null)
+      } else if (res.isUnavailable || !res.success) {
+        setDepositOptions([])
+        setDepositError(
+          res.error || 'Não foi possível consultar os depósitos no SAP. Tente novamente.',
+        )
+      } else {
+        setDepositOptions([])
+        setDepositError(null)
+      }
+    } catch (err: any) {
+      console.warn('[NovaDemandaInventarioModal] Erro ao consultar depósitos no SAP:', err)
+      setDepositOptions([])
+      setDepositError('Não foi possível consultar os depósitos no SAP. Tente novamente.')
+    } finally {
+      setLoadingDeposits(false)
+    }
+  }
+
+  // =========================================================================
+  // CASCATA OBRIGATÓRIA: Etapa 1 -> Etapa 2 -> Etapa 3 -> Etapa 4
+  // =========================================================================
+
+  // Alterar Empresa: limpa Linha, Centro e Depósito, recarrega Depósitos (LGORTs) para o novo WERKS
+  const handleSelectCompany = (opt: SapCompanyOption) => {
+    setCompany(opt.werks)
+    setCompanyLabel(opt.label)
+    setCompanyOpen(false)
+    setErrorField(null)
+    setErrorMessage(null)
+
+    // Cascata dependente: limpa Linha, Centro e Depósito
+    setLine('')
+    setLineLabel('')
+    setCenter('')
+    setCenterLabel('')
+    setCenterOptions([])
+    setStorageDeposit('')
+    setStorageDepositLabel('')
+
+    // Recarrega depósitos do SAP para o WERKS recém-selecionado
+    loadDepositsForWerks(opt.werks)
+  }
+
+  // Alterar Linha: limpa Centro e carrega Centros compatíveis com a Linha
+  const handleSelectLine = (selectedLineItem: any) => {
+    const lineCode = selectedLineItem.code || selectedLineItem.name
+    setLine(lineCode)
+    setLineLabel(`${lineCode} — ${selectedLineItem.name || 'Linha Produtiva'}`)
+    setLineOpen(false)
+    setErrorField(null)
+    setErrorMessage(null)
+
+    // Cascata dependente: limpa Centro e carrega novos centros
+    setCenter('')
+    setCenterLabel('')
+    loadCentersForLine(lineCode)
+  }
+
+  // Alterar Centro: mantém os demais e valida seleção
+  const handleSelectCenter = (centerItem: { code: string; name: string; label: string }) => {
+    setCenter(centerItem.code)
+    setCenterLabel(centerItem.label)
+    setCenterOpen(false)
+    setErrorField(null)
+    setErrorMessage(null)
+  }
+
+  // Alterar Depósito: seleciona LGORT oficial retornado
+  const handleSelectDeposit = (depOpt: SapStorageDepositOption) => {
+    setStorageDeposit(depOpt.lgort)
+    setStorageDepositLabel(depOpt.label)
+    setDepositOpen(false)
+    setErrorField(null)
+    setErrorMessage(null)
+  }
 
   const loadRealOrders = async () => {
     setLoadingOrders(true)
@@ -546,72 +862,489 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5 pt-1">
-          {/* BLOCO 1: Contexto Operacional */}
+          {/* BLOCO 1: Contexto Operacional com Comboboxes Pesquisáveis e Cascata Obrigatória */}
           <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-              <Layers className="w-3.5 h-3.5 text-[#004C97]" />
-              <span>Bloco 1: Contexto Operacional (Herdado dos Filtros)</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <Layers className="w-3.5 h-3.5 text-[#004C97]" />
+                <span>Bloco 1: Contexto Operacional (Fontes Oficiais & Cascata)</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] bg-white text-slate-600 font-mono">
+                Cascata: Empresa → Linha → Centro → Depósito
+              </Badge>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">Empresa *</Label>
-                <Input
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Ex.: CIAFAL"
-                  className={`text-xs h-8 bg-white ${
-                    errorField === 'company'
-                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                      : ''
-                  }`}
-                  disabled={submitting}
-                />
+            {/* Grid dos 4 campos: desktop em 4 colunas perfeitamente alinhadas (Empresa | Linha | Centro | Depósito), quebrando responsivamente em mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-start">
+              {/* CAMPO 1: EMPRESA (SAP ECC via RFC WERKS) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between h-5">
+                  <Label className="text-xs font-semibold text-slate-700">Empresa *</Label>
+                  <span className="text-[10px] font-mono text-slate-400">SAP WERKS</span>
+                </div>
+                <Popover open={companyOpen} onOpenChange={setCompanyOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={companyOpen}
+                      disabled={submitting}
+                      data-testid="select-empresa-trigger"
+                      className={cn(
+                        'w-full justify-between font-normal text-left h-8 px-2.5 text-xs bg-white text-slate-900 border hover:bg-slate-50',
+                        errorField === 'company'
+                          ? 'border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500'
+                          : 'border-slate-300 focus-visible:ring-[#004C97]',
+                      )}
+                    >
+                      <span className="truncate">
+                        {company ? (
+                          <span className="font-semibold text-slate-900">
+                            {companyLabel || company}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Selecione a empresa...</span>
+                        )}
+                      </span>
+                      <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[300px] p-0 shadow-lg border-slate-200 z-50 text-xs"
+                    align="start"
+                  >
+                    <Command shouldFilter={false} className="w-full">
+                      <div className="flex items-center border-b px-2.5">
+                        <CommandInput
+                          placeholder="Pesquisar por WERKS ou nome..."
+                          value={companySearch}
+                          onValueChange={setCompanySearch}
+                          className="h-8 text-xs border-0 focus:ring-0"
+                          data-testid="input-search-empresa"
+                        />
+                      </div>
+                      <CommandList className="max-h-56 overflow-y-auto">
+                        {loadingCompanies ? (
+                          <div className="flex items-center justify-center p-4 text-xs text-slate-500 gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                            Carregando empresas...
+                          </div>
+                        ) : companyError ? (
+                          <div
+                            className="p-3 text-xs bg-amber-50/90 border-t border-amber-200 text-amber-900 space-y-2"
+                            data-testid="sap-empresa-error"
+                          >
+                            <div className="flex items-start gap-1.5">
+                              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                              <div className="space-y-1">
+                                <p className="font-semibold text-[11px] leading-tight">
+                                  Integração SAP
+                                </p>
+                                <p className="text-[11px] text-amber-800 leading-snug">
+                                  {companyError}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              data-testid="btn-retry-empresa"
+                              onClick={() => loadCompanies(true)}
+                              className="w-full h-7 text-[11px] font-semibold bg-white border-amber-300 text-amber-900 hover:bg-amber-100 gap-1.5"
+                            >
+                              <RefreshCw className="w-3 h-3 text-amber-700" /> Tentar novamente
+                            </Button>
+                          </div>
+                        ) : companyOptions.length === 0 ? (
+                          <CommandEmpty className="p-4 text-xs text-center text-slate-500">
+                            Nenhuma empresa cadastrada no SAP.
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup heading="Empresas SAP ECC (T001W)">
+                            {companyOptions
+                              .filter((c) => {
+                                if (!companySearch.trim()) return true
+                                const q = companySearch.toLowerCase()
+                                return (
+                                  c.werks.toLowerCase().includes(q) ||
+                                  c.name.toLowerCase().includes(q)
+                                )
+                              })
+                              .map((c) => (
+                                <CommandItem
+                                  key={c.werks}
+                                  value={c.werks}
+                                  data-testid={`empresa-option-${c.werks}`}
+                                  onSelect={() => handleSelectCompany(c)}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                    company === c.werks && 'bg-blue-50 font-bold text-[#004C97]',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-slate-900 text-xs">
+                                      {c.label}
+                                    </span>
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      'h-3.5 w-3.5 text-[#004C97]',
+                                      company === c.werks ? 'opacity-100' : 'opacity-0',
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">Linha *</Label>
-                <Input
-                  value={line}
-                  onChange={(e) => setLine(e.target.value)}
-                  placeholder="Ex.: L1"
-                  className={`text-xs h-8 bg-white ${
-                    errorField === 'line'
-                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                      : ''
-                  }`}
-                  disabled={submitting}
-                />
+              {/* CAMPO 2: LINHA (Cadastro de Linhas / production_lines) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between h-5">
+                  <Label className="text-xs font-semibold text-slate-700">Linha *</Label>
+                  <span className="text-[10px] font-mono text-slate-400">Hierarquia Linhas</span>
+                </div>
+                <Popover open={lineOpen} onOpenChange={setLineOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={lineOpen}
+                      disabled={submitting}
+                      data-testid="select-linha-trigger"
+                      className={cn(
+                        'w-full justify-between font-normal text-left h-8 px-2.5 text-xs bg-white text-slate-900 border hover:bg-slate-50',
+                        errorField === 'line'
+                          ? 'border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500'
+                          : 'border-slate-300 focus-visible:ring-[#004C97]',
+                      )}
+                    >
+                      <span className="truncate">
+                        {line ? (
+                          <span className="font-semibold text-slate-900">{lineLabel || line}</span>
+                        ) : (
+                          <span className="text-slate-400">Selecione a linha...</span>
+                        )}
+                      </span>
+                      <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[320px] p-0 shadow-lg border-slate-200 z-50 text-xs"
+                    align="start"
+                  >
+                    <Command shouldFilter={false} className="w-full">
+                      <div className="flex items-center border-b px-2.5">
+                        <CommandInput
+                          placeholder="Pesquisar linha por código ou nome..."
+                          value={lineSearch}
+                          onValueChange={setLineSearch}
+                          className="h-8 text-xs border-0 focus:ring-0"
+                          data-testid="input-search-linha"
+                        />
+                      </div>
+                      <CommandList className="max-h-56 overflow-y-auto">
+                        {loadingLines ? (
+                          <div className="flex items-center justify-center p-4 text-xs text-slate-500 gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                            Carregando linhas...
+                          </div>
+                        ) : filteredLinesByCompany.length === 0 ? (
+                          <CommandEmpty className="p-4 text-xs text-center text-slate-500">
+                            {company
+                              ? 'Nenhuma linha cadastrada para a empresa selecionada.'
+                              : 'Nenhuma linha ativa encontrada no cadastro.'}
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup heading="Linhas de Produção Homologadas">
+                            {filteredLinesByCompany
+                              .filter((l) => {
+                                if (!lineSearch.trim()) return true
+                                const q = lineSearch.toLowerCase()
+                                return (
+                                  l.code.toLowerCase().includes(q) ||
+                                  (l.name && l.name.toLowerCase().includes(q))
+                                )
+                              })
+                              .map((l) => (
+                                <CommandItem
+                                  key={l.id || l.code}
+                                  value={l.code}
+                                  data-testid={`linha-option-${l.code}`}
+                                  onSelect={() => handleSelectLine(l)}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                    line === l.code && 'bg-blue-50 font-bold text-[#004C97]',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="font-mono font-bold text-slate-900 text-xs">
+                                      {l.code}
+                                    </span>
+                                    <span className="text-slate-600 text-xs truncate">
+                                      — {l.name}
+                                    </span>
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      'h-3.5 w-3.5 text-[#004C97] shrink-0',
+                                      line === l.code ? 'opacity-100' : 'opacity-0',
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">Centro *</Label>
-                <Input
-                  value={center}
-                  onChange={(e) => setCenter(e.target.value)}
-                  placeholder="Ex.: FORNOL1"
-                  className={`text-xs h-8 bg-white ${
-                    errorField === 'center'
-                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                      : ''
-                  }`}
-                  disabled={submitting}
-                />
+              {/* CAMPO 3: CENTRO (Cadastros > Centros e Ficha Mestra) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between h-5">
+                  <Label className="text-xs font-semibold text-slate-700">Centro *</Label>
+                  <span className="text-[10px] font-mono text-slate-400">Ficha Mestra</span>
+                </div>
+                <Popover open={centerOpen} onOpenChange={setCenterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={centerOpen}
+                      disabled={submitting || !line}
+                      data-testid="select-centro-trigger"
+                      className={cn(
+                        'w-full justify-between font-normal text-left h-8 px-2.5 text-xs bg-white text-slate-900 border hover:bg-slate-50',
+                        !line && 'opacity-60 cursor-not-allowed bg-slate-100',
+                        errorField === 'center'
+                          ? 'border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500'
+                          : 'border-slate-300 focus-visible:ring-[#004C97]',
+                      )}
+                    >
+                      <span className="truncate">
+                        {!line ? (
+                          <span className="text-slate-400 italic">
+                            Selecione uma linha primeiro...
+                          </span>
+                        ) : center ? (
+                          <span className="font-semibold text-slate-900">
+                            {centerLabel || center}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Selecione o centro...</span>
+                        )}
+                      </span>
+                      <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[300px] p-0 shadow-lg border-slate-200 z-50 text-xs"
+                    align="start"
+                  >
+                    <Command shouldFilter={false} className="w-full">
+                      <div className="flex items-center border-b px-2.5">
+                        <CommandInput
+                          placeholder="Pesquisar centro..."
+                          value={centerSearch}
+                          onValueChange={setCenterSearch}
+                          className="h-8 text-xs border-0 focus:ring-0"
+                          data-testid="input-search-centro"
+                        />
+                      </div>
+                      <CommandList className="max-h-56 overflow-y-auto">
+                        {loadingCenters ? (
+                          <div className="flex items-center justify-center p-4 text-xs text-slate-500 gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                            Carregando centros...
+                          </div>
+                        ) : centerOptions.length === 0 ? (
+                          <CommandEmpty className="p-4 text-xs text-center text-slate-500">
+                            Nenhum centro cadastrado para a linha selecionada.
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup heading="Centros e Ficha Mestra">
+                            {centerOptions
+                              .filter((c) => {
+                                if (!centerSearch.trim()) return true
+                                const q = centerSearch.toLowerCase()
+                                return (
+                                  c.code.toLowerCase().includes(q) ||
+                                  c.name.toLowerCase().includes(q)
+                                )
+                              })
+                              .map((c) => (
+                                <CommandItem
+                                  key={c.code}
+                                  value={c.code}
+                                  data-testid={`centro-option-${c.code}`}
+                                  onSelect={() => handleSelectCenter(c)}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                    center === c.code && 'bg-blue-50 font-bold text-[#004C97]',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="font-mono font-bold text-slate-900 text-xs">
+                                      {c.code}
+                                    </span>
+                                    <span className="text-slate-600 text-xs truncate">
+                                      — {c.name}
+                                    </span>
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      'h-3.5 w-3.5 text-[#004C97] shrink-0',
+                                      center === c.code ? 'opacity-100' : 'opacity-0',
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold text-slate-700">Depósito *</Label>
-                <Input
-                  value={storageDeposit}
-                  onChange={(e) => setStorageDeposit(e.target.value)}
-                  placeholder="Ex.: DP07"
-                  className={`text-xs h-8 bg-white ${
-                    errorField === 'storageDeposit'
-                      ? 'border-rose-500 bg-rose-50/40 ring-1 ring-rose-500'
-                      : ''
-                  }`}
-                  disabled={submitting}
-                />
+              {/* CAMPO 4: DEPÓSITO (SAP ECC via RFC LGORT por WERKS) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between h-5">
+                  <Label className="text-xs font-semibold text-slate-700">Depósito *</Label>
+                  <span className="text-[10px] font-mono text-slate-400">SAP LGORT</span>
+                </div>
+                <Popover open={depositOpen} onOpenChange={setDepositOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={depositOpen}
+                      disabled={submitting || !company}
+                      data-testid="select-deposito-trigger"
+                      className={cn(
+                        'w-full justify-between font-normal text-left h-8 px-2.5 text-xs bg-white text-slate-900 border hover:bg-slate-50',
+                        !company && 'opacity-60 cursor-not-allowed bg-slate-100',
+                        errorField === 'storageDeposit'
+                          ? 'border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500'
+                          : 'border-slate-300 focus-visible:ring-[#004C97]',
+                      )}
+                    >
+                      <span className="truncate">
+                        {!company ? (
+                          <span className="text-slate-400 italic">
+                            Selecione uma empresa primeiro...
+                          </span>
+                        ) : storageDeposit ? (
+                          <span className="font-semibold text-slate-900">
+                            {storageDepositLabel || storageDeposit}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Selecione o depósito...</span>
+                        )}
+                      </span>
+                      <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[300px] p-0 shadow-lg border-slate-200 z-50 text-xs"
+                    align="start"
+                  >
+                    <Command shouldFilter={false} className="w-full">
+                      <div className="flex items-center border-b px-2.5">
+                        <CommandInput
+                          placeholder="Pesquisar por LGORT ou descrição..."
+                          value={depositSearch}
+                          onValueChange={setDepositSearch}
+                          className="h-8 text-xs border-0 focus:ring-0"
+                          data-testid="input-search-deposito"
+                        />
+                      </div>
+                      <CommandList className="max-h-56 overflow-y-auto">
+                        {loadingDeposits ? (
+                          <div className="flex items-center justify-center p-4 text-xs text-slate-500 gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                            Carregando depósitos...
+                          </div>
+                        ) : depositError ? (
+                          <div
+                            className="p-3 text-xs bg-amber-50/90 border-t border-amber-200 text-amber-900 space-y-2"
+                            data-testid="sap-deposito-error"
+                          >
+                            <div className="flex items-start gap-1.5">
+                              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                              <div className="space-y-1">
+                                <p className="font-semibold text-[11px] leading-tight">
+                                  Integração SAP
+                                </p>
+                                <p className="text-[11px] text-amber-800 leading-snug">
+                                  {depositError}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              data-testid="btn-retry-deposito"
+                              onClick={() => loadDepositsForWerks(company, true)}
+                              className="w-full h-7 text-[11px] font-semibold bg-white border-amber-300 text-amber-900 hover:bg-amber-100 gap-1.5"
+                            >
+                              <RefreshCw className="w-3 h-3 text-amber-700" /> Tentar novamente
+                            </Button>
+                          </div>
+                        ) : depositOptions.length === 0 ? (
+                          <CommandEmpty className="p-4 text-xs text-center text-slate-500">
+                            Nenhum depósito SAP encontrado para a empresa selecionada.
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup heading={`Depósitos SAP (WERKS ${company})`}>
+                            {depositOptions
+                              .filter((d) => {
+                                if (!depositSearch.trim()) return true
+                                const q = depositSearch.toLowerCase()
+                                return (
+                                  d.lgort.toLowerCase().includes(q) ||
+                                  d.description.toLowerCase().includes(q)
+                                )
+                              })
+                              .map((d) => (
+                                <CommandItem
+                                  key={d.lgort}
+                                  value={d.lgort}
+                                  data-testid={`deposito-option-${d.lgort}`}
+                                  onSelect={() => handleSelectDeposit(d)}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                    storageDeposit === d.lgort &&
+                                      'bg-blue-50 font-bold text-[#004C97]',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="font-mono font-bold text-slate-900 text-xs">
+                                      {d.label}
+                                    </span>
+                                  </div>
+                                  <Check
+                                    className={cn(
+                                      'h-3.5 w-3.5 text-[#004C97] shrink-0',
+                                      storageDeposit === d.lgort ? 'opacity-100' : 'opacity-0',
+                                    )}
+                                  />
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
