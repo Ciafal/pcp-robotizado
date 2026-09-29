@@ -82,6 +82,11 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
     loadEvents(id)
   }
 
+  const selectedDemandObj = useMemo(() => {
+    if (activeDemandId === 'ALL') return null
+    return demands.find((d) => d.id === activeDemandId) || null
+  }, [demands, activeDemandId])
+
   const filteredEvents = useMemo(() => {
     return events.filter((ev) => {
       if (filterControl && !ev.control_number.toLowerCase().includes(filterControl.toLowerCase())) {
@@ -197,6 +202,63 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
               Recarregar Trilha
             </Button>
           </div>
+
+          {/* Card de Distinção de Responsáveis quando uma demanda específica está selecionada */}
+          {selectedDemandObj && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-blue-50/60 p-2.5 rounded-lg border border-blue-200/80 text-xs">
+              <div className="space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-blue-900 block flex items-center gap-1">
+                  <User className="w-3 h-3 text-blue-600" />
+                  Solicitante (Criou a Demanda)
+                </span>
+                <span className="font-semibold text-slate-900 block text-xs">
+                  {selectedDemandObj.requester_name || 'Programador PCP'}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {selectedDemandObj.generation_date_formatted ||
+                    (selectedDemandObj.created
+                      ? new Date(selectedDemandObj.created).toLocaleString('pt-BR')
+                      : '—')}
+                </span>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-blue-900 block flex items-center gap-1">
+                  <User className="w-3 h-3 text-emerald-600" />
+                  Usuário da Contagem Física
+                </span>
+                <span className="font-semibold text-slate-900 block text-xs">
+                  {events.find((e) => e.event_type === 'LANCAMENTO_ADICIONADO')?.user_name ||
+                    (selectedDemandObj.total_pieces_inventoried &&
+                    selectedDemandObj.total_pieces_inventoried > 0
+                      ? 'Operador de Estoque'
+                      : 'Aguardando contagem')}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {selectedDemandObj.total_pieces_inventoried
+                    ? `${selectedDemandObj.total_pieces_inventoried} peças registradas`
+                    : 'Sem lançamentos'}
+                </span>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-blue-900 block flex items-center gap-1">
+                  <User className="w-3 h-3 text-indigo-600" />
+                  Usuário da Conclusão
+                </span>
+                <span className="font-semibold text-slate-900 block text-xs">
+                  {selectedDemandObj.status === 'Inventário concluído'
+                    ? selectedDemandObj.concluded_by || 'Programador PCP'
+                    : 'Inventário Aberto'}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {selectedDemandObj.concluded_at
+                    ? new Date(selectedDemandObj.concluded_at).toLocaleString('pt-BR')
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Filtros da busca */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">

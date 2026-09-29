@@ -63,6 +63,10 @@ describe('DemandaSucessoModal & Atualização Imediata do Grid', () => {
     expect(screen.getByText('OP-45000192')).toBeDefined()
     expect(screen.getByText('1 matéria-prima')).toBeDefined()
 
+    // Solicitante ao lado de Data/Hora da Criação (ETAPA D)
+    expect(screen.getByText('Solicitante')).toBeDefined()
+    expect(screen.getByText('Data/Hora da Criação')).toBeDefined()
+
     // Botões Fechar e Visualizar Demanda
     const closeBtn = screen.getByRole('button', { name: /Fechar/i })
     const viewBtn = screen.getByRole('button', { name: /Visualizar Demanda/i })

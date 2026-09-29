@@ -765,6 +765,57 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                   </div>
                 </div>
 
+                {/* Bloco de Responsabilidade e Rastreabilidade (Solicitante / Contagem / Conclusão) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                      Solicitante (Criou a Demanda)
+                    </span>
+                    <span className="font-semibold text-slate-800 block text-xs">
+                      {viewDemand.requester_name || 'Programador PCP'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {viewDemand.generation_date_formatted ||
+                        (viewDemand.created
+                          ? new Date(viewDemand.created).toLocaleString('pt-BR')
+                          : '—')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                      Usuário da Contagem
+                    </span>
+                    <span className="font-semibold text-slate-800 block text-xs">
+                      {viewDemand.total_pieces_inventoried &&
+                      viewDemand.total_pieces_inventoried > 0
+                        ? 'Contagem registrada'
+                        : viewDemand.status === 'Inventário concluído'
+                          ? viewDemand.concluded_by || 'Operador de Estoque'
+                          : 'Aguardando contagem'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {viewDemand.total_pieces_inventoried
+                        ? `${viewDemand.total_pieces_inventoried} peças contadas`
+                        : 'Sem contagem ativa'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                      Usuário da Conclusão
+                    </span>
+                    <span className="font-semibold text-slate-800 block text-xs">
+                      {viewDemand.status === 'Inventário concluído'
+                        ? viewDemand.concluded_by || 'Programador PCP'
+                        : 'Demanda aberta'}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {viewDemand.concluded_at
+                        ? new Date(viewDemand.concluded_at).toLocaleString('pt-BR')
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Bitola e Aplicação */}
                 {(viewDemand.gauge || viewDemand.application) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">

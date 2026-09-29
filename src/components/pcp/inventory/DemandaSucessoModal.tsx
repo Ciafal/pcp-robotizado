@@ -20,6 +20,7 @@ import {
   Calendar,
   Boxes,
   AlertTriangle,
+  User,
 } from 'lucide-react'
 
 interface DemandaSucessoModalProps {
@@ -237,14 +238,29 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between text-slate-600">
-              <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-slate-500" />
-                Data/Hora da Criação
-              </span>
-              <span className="font-mono text-[11px] font-semibold text-slate-700">
-                {createdDateFormatted}
-              </span>
+            <div className="pt-2 border-t border-slate-200/70 grid grid-cols-2 gap-2.5 text-slate-600">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                  <User className="w-3 h-3 text-slate-500" />
+                  Solicitante
+                </span>
+                <span
+                  className="font-semibold text-slate-800 text-xs truncate block"
+                  title={demand.requester_name || 'Programador PCP'}
+                >
+                  {demand.requester_name || 'Programador PCP'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-slate-500" />
+                  Data/Hora da Criação
+                </span>
+                <span className="font-mono text-[11px] font-semibold text-slate-700 block">
+                  {createdDateFormatted}
+                </span>
+              </div>
             </div>
           </div>
         </div>

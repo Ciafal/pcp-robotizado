@@ -58,6 +58,11 @@ export interface InventoryDemand {
   materials?: DemandMaterialItem[]
   gauge?: string
   application?: string
+  // Snapshot SAP na conclusão do inventário
+  sap_snapshot_balance?: number
+  sap_snapshot_at?: string
+  sap_snapshot_status?: 'SINCRONIZADO' | 'INDISPONIVEL' | 'CONCILIADO'
+  sap_snapshot_divergence?: number
   created?: string
   updated?: string
 }
@@ -194,4 +199,7 @@ export interface CreateEntryPayload {
   pieces_count: number
   gauge?: string
   notes?: string
+  // Snapshot SAP na conclusão do inventário
+  sap_snapshot_balance?: number
+  sap_snapshot_at?: string
 }

@@ -670,26 +670,117 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Conclui o inventário da demanda
+   * Consulta Saldo de Estoque no SAP ECC via Hook RFC
    */
-  async concludeDemand(demandId: string): Promise<InventoryDemand> {
+  async getSapStockBalance(params: {
+    werks: string
+    lgort: string
+    matnr: string
+    charg?: string
+    run_number?: string
+  }): Promise<{
+    success: boolean
+    saldo: number | null
+    code?: string
+    message?: string
+    timestamp?: string
+  }> {
+    try {
+      const res = await pb.send<{
+        success: boolean
+        saldo: number
+        code?: string
+        message?: string
+        timestamp?: string
+      }>('/backend/v1/pcp/sap/stock-balance', {
+        method: 'POST',
+        body: params,
+      })
+      return {
+        success: Boolean(res.success),
+        saldo: res.saldo !== undefined && res.saldo !== null ? Number(res.saldo) : null,
+        code: res.code,
+        message: res.message,
+        timestamp: res.timestamp,
+      }
+    } catch (err: any) {
+      console.warn('[PCP-INVENTORY] Falha ao consultar saldo SAP via RFC:', err)
+      return {
+        success: false,
+        saldo: null,
+        code: err?.status === 503 ? err?.data?.code || 'SAP_RFC_NOT_CONFIGURED' : 'SAP_RFC_ERROR',
+        message: err?.data?.message || 'Não foi possível consultar o saldo no SAP.',
+      }
+    }
+  }
+
+  /**
+   * Conclui o inventário da demanda com snapshot imutável de saldo SAP e 6 indicadores
+   */
+  async concludeDemand(
+    demandId: string,
+    conclusionData?: {
+      sap_balance?: number | null
+      sap_status?: 'SINCRONIZADO' | 'INDISPONIVEL' | 'CONCILIADO'
+      divergence_demand?: number
+      divergence_sap?: number | null
+      divergence_pct?: number
+    },
+  ): Promise<InventoryDemand> {
     const demand = await this.getDemandById(demandId)
     if (!demand) throw new Error('Demanda não encontrada.')
 
     const authUser = pb.authStore.record || pb.authStore.model
-    const userName = authUser?.name || 'Operador DP07'
+    const userName = authUser?.name || 'Programador PCP'
+    const userRole = (authUser as any)?.role || 'PCP_PROGRAMMER'
+    const nowIso = new Date().toISOString()
     const nowStr = formatPtBrDateTime()
 
     await this.recalculateDemandTotals(demandId)
+    const refreshed = (await this.getDemandById(demandId)) || demand
+
+    const totalInventoried = refreshed.total_pieces_inventoried || 0
+    const demandQty = refreshed.total_pieces_required || 0
+    const divergenceDemand =
+      conclusionData?.divergence_demand !== undefined
+        ? conclusionData.divergence_demand
+        : totalInventoried - demandQty
+
+    const divPct =
+      conclusionData?.divergence_pct !== undefined
+        ? conclusionData.divergence_pct
+        : demandQty > 0
+          ? ((totalInventoried - demandQty) / demandQty) * 100
+          : 0
+
+    const sapBalance = conclusionData?.sap_balance !== undefined ? conclusionData.sap_balance : null
+    const divergenceSap =
+      conclusionData?.divergence_sap !== undefined
+        ? conclusionData.divergence_sap
+        : sapBalance !== null
+          ? totalInventoried - sapBalance
+          : null
+
+    const sapStatus =
+      conclusionData?.sap_status || (sapBalance !== null ? 'CONCILIADO' : 'INDISPONIVEL')
+
+    const updatePayload: Record<string, any> = {
+      status: 'Inventário concluído',
+      concluded_at: nowIso,
+      concluded_by: userName,
+      divergence_pieces: divergenceDemand,
+      divergence_pct: Number(divPct.toFixed(2)),
+      sap_snapshot_balance: sapBalance !== null ? sapBalance : undefined,
+      sap_snapshot_at: nowIso,
+      sap_snapshot_status: sapStatus,
+      sap_snapshot_divergence: divergenceSap !== null ? divergenceSap : undefined,
+    }
 
     const updated = await pb
       .collection('pcp_mp_inventory_demands')
-      .update<InventoryDemand>(demandId, {
-        status: 'Inventário concluído',
-        concluded_at: nowStr,
-        concluded_by: userName,
-      })
+      .update<InventoryDemand>(demandId, updatePayload)
 
+    // Grava snapshot imutável no Histórico e Rastreabilidade
     try {
       await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
@@ -697,16 +788,60 @@ class PcpInventoryDemandsService {
         control_number: demand.control_number,
         event_type: 'INVENTARIO_CONCLUIDO',
         user_name: userName,
-        user_role: (authUser as any)?.role || '',
-        summary: `Inventário concluído com sucesso. Total apurado: ${updated.total_pieces_inventoried || 0} peças. Divergência: ${updated.divergence_pieces || 0} peças.`,
+        user_role: userRole,
+        summary: `Inventário concluído. Indicadores: Demanda: ${demandQty} | Saldo SAP: ${sapBalance !== null ? sapBalance : 'Indisponível'} | Inventariado: ${totalInventoried} | Div. Demanda: ${divergenceDemand} | Div. SAP: ${divergenceSap !== null ? divergenceSap : '—'} | Div. %: ${divPct.toFixed(2)}%.`,
         details: {
-          total_pieces_inventoried: updated.total_pieces_inventoried,
-          divergence_pieces: updated.divergence_pieces,
+          indicadores: {
+            demanda: demandQty,
+            saldo_sap: sapBalance,
+            inventariado: totalInventoried,
+            divergencia_demanda: divergenceDemand,
+            divergencia_sap: divergenceSap,
+            divergencia_pct: Number(divPct.toFixed(2)),
+          },
+          snapshot_sap: {
+            saldo: sapBalance,
+            status: sapStatus,
+            data_hora: nowIso,
+          },
+          usuario_conclusao: userName,
+          data_hora_conclusao: nowIso,
         },
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso,
       })
-    } catch {
-      /* intentionally ignored */
+    } catch (e) {
+      console.warn('[PCP-INVENTORY] Erro ao gravar histórico de conclusão:', e)
+    }
+
+    // Grava trilha em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        module: 'INVENTARIO_MP',
+        action: 'CONCLUDE_INVENTORY_DEMAND',
+        event_type: 'SCHEDULE_ACTION',
+        user_id: authUser?.id || '',
+        user_name: userName,
+        user_role: userRole,
+        record_id: demand.id,
+        resource: 'pcp_mp_inventory_demands',
+        resource_id: demand.id,
+        outcome: 'SUCCESS',
+        company: demand.company,
+        details: {
+          control_number: demand.control_number,
+          demanda: demandQty,
+          saldo_sap: sapBalance,
+          inventariado: totalInventoried,
+          divergencia_demanda: divergenceDemand,
+          divergencia_sap: divergenceSap,
+          divergencia_pct: Number(divPct.toFixed(2)),
+          sap_snapshot_status: sapStatus,
+          concluded_at: nowIso,
+          concluded_by: userName,
+        },
+      })
+    } catch (auditErr) {
+      console.warn('[PCP-INVENTORY] Erro ao gravar pcp_audit_logs:', auditErr)
     }
 
     return updated

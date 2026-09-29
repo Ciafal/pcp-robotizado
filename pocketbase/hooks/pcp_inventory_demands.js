@@ -89,3 +89,41 @@ routerAdd('GET', '/backend/v1/pcp-inventory-demands-next-number', (e) => {
     year: year,
   })
 })
+
+// ETAPA A: Hooks de integridade e governança de Solicitante em pcp_mp_inventory_demands
+// onRecordCreateRequest: se !e.auth -> 401/403 com mensagem amigável; sobrescrever requester_*
+onRecordCreateRequest((e) => {
+  const auth = e.auth
+  if (!auth) {
+    throw new BadRequestError(
+      'Acesso não autenticado: faça login para gerar demandas de inventário.',
+    )
+  }
+
+  const requesterId = auth.id
+  const requesterName = auth.get('name') || auth.get('email') || 'Programador PCP'
+  const requesterRole = auth.get('role') || 'PCP_PROGRAMMER'
+
+  // O frontend NÃO envia o Solicitante — sobrescrever incondicionalmente no servidor
+  e.record.set('requester_id', requesterId)
+  e.record.set('requester_name', requesterName)
+  e.record.set('requester_role', requesterRole)
+
+  e.next()
+}, 'pcp_mp_inventory_demands')
+
+// onRecordUpdateRequest: preservar requester_* originais (Solicitante = quem CRIOU; edits/contagens/conclusão não alteram)
+onRecordUpdateRequest((e) => {
+  const original = e.record.original()
+  if (original) {
+    const origId = original.getString('requester_id')
+    const origName = original.getString('requester_name')
+    const origRole = original.getString('requester_role')
+
+    if (origId) e.record.set('requester_id', origId)
+    if (origName) e.record.set('requester_name', origName)
+    if (origRole) e.record.set('requester_role', origRole)
+  }
+
+  e.next()
+}, 'pcp_mp_inventory_demands')

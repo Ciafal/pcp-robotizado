@@ -71,6 +71,56 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   const [concluding, setConcluding] = useState<boolean>(false)
   const [showConfirmConclusion, setShowConfirmConclusion] = useState<boolean>(false)
 
+  // Estado da Consulta ao Saldo SAP (ETAPA F e B)
+  const [sapLoading, setSapLoading] = useState<boolean>(false)
+  const [sapError, setSapError] = useState<string | null>(null)
+  const [sapBalance, setSapBalance] = useState<number | null>(null)
+  const [sapUnit, setSapUnit] = useState<string>('peças')
+
+  // Consulta saldo SAP via endpoint RFC corporativo
+  const fetchSapBalance = useCallback(async () => {
+    if (!demand?.company || !demand?.storage_deposit || !demand?.material_code) {
+      setSapError('Parâmetros da demanda insuficientes para consultar SAP.')
+      setSapBalance(null)
+      return
+    }
+
+    setSapLoading(true)
+    setSapError(null)
+
+    try {
+      const firstHeat =
+        demand.materials_summary?.[0]?.heat_number ||
+        demand.materials?.[0]?.heat_number ||
+        undefined
+      const res = await pcpInventoryDemandsService.getSapStockBalance({
+        werks: demand.company,
+        lgort: demand.storage_deposit,
+        matnr: demand.material_code,
+        charg: firstHeat,
+      })
+
+      if (res.success && res.saldo !== null) {
+        setSapBalance(res.saldo)
+        setSapError(null)
+      } else {
+        setSapBalance(null)
+        setSapError(res.message || 'Não foi possível consultar o saldo no SAP.')
+      }
+    } catch (err: any) {
+      setSapBalance(null)
+      setSapError(err?.message || 'Não foi possível consultar o saldo no SAP.')
+    } finally {
+      setSapLoading(false)
+    }
+  }, [
+    demand?.company,
+    demand?.storage_deposit,
+    demand?.material_code,
+    demand?.materials_summary,
+    demand?.materials,
+  ])
+
   // Carrega dados da demanda selecionada
   const loadData = useCallback(async () => {
     if (!demand?.id) return
@@ -97,21 +147,29 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   useEffect(() => {
     if (open && demand?.id) {
       loadData()
+      fetchSapBalance()
       setShowAddForm(false)
       setLocationWms(demand.storage_deposit || 'DP07')
       setPiecesCount('')
       setNotes('')
     }
-  }, [open, demand?.id, loadData])
+  }, [open, demand?.id, loadData, fetchSapBalance])
 
-  // Cálculos em tempo real com formatação brasileira (vírgula decimal)
-  const totalPrevisto = demand?.total_pieces_required || 0
-  const totalInventariado = useMemo(() => {
+  // Cálculos em tempo real conforme ETAPA F (6 Cards exatos na ordem solicitada):
+  // 1. DEMANDA: quantidade da demanda (sem "Previsto")
+  // 2. SALDO SAP: saldo retornado ou "Saldo indisponível"
+  // 3. INVENTARIADO: soma das contagens
+  // 4. DIVERGÊNCIA DEMANDA: Inventariado − Demanda
+  // 5. DIVERGÊNCIA SAP: Inventariado − Saldo SAP (ou "—" se SAP indisponível)
+  // 6. DIVERGÊNCIA %: ((Inventariado − Demanda)/Demanda)*100 (0,00% se Demanda=0)
+  const demandaQtd = demand?.total_pieces_required || 0
+  const inventariadoQtd = useMemo(() => {
     return entries.reduce((acc, curr) => acc + (curr.pieces_count || 0), 0)
   }, [entries])
 
-  const divergenciaPecas = totalInventariado - totalPrevisto
-  const divergenciaPct = totalPrevisto > 0 ? (divergenciaPecas / totalPrevisto) * 100 : 0
+  const divergenciaDemanda = inventariadoQtd - demandaQtd
+  const divergenciaSap = sapBalance !== null ? inventariadoQtd - sapBalance : null
+  const divergenciaPct = demandaQtd > 0 ? ((inventariadoQtd - demandaQtd) / demandaQtd) * 100 : 0
 
   const formatPtBrNumber = (val: number, decimals: number = 0): string => {
     return val.toLocaleString('pt-BR', {
@@ -121,11 +179,12 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   }
 
   const formatPtBrPct = (val: number): string => {
-    const formatted = val.toLocaleString('pt-BR', {
+    const formatted = Math.abs(val).toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
-    return `${val > 0 ? '+' : ''}${formatted}%`
+    if (val === 0) return '0,00%'
+    return `${val > 0 ? '+' : '−'}${formatted}%`
   }
 
   // Adicionar nova contagem física
@@ -216,11 +275,14 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     }
   }
 
-  // Concluir Inventário
+  // Concluir Inventário (ETAPA G: persistência com 6 indicadores e snapshot SAP)
   const handleCheckConclusion = () => {
     if (!demand?.id) return
-    // Se não há contagens ou quantidade inventariada menor que prevista ou itens sem corrida
-    if (entries.length === 0 || divergenciaPecas !== 0) {
+    if (
+      entries.length === 0 ||
+      divergenciaDemanda !== 0 ||
+      (sapBalance !== null && divergenciaSap !== 0)
+    ) {
       setShowConfirmConclusion(true)
     } else {
       executeConclude()
@@ -231,10 +293,16 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     if (!demand?.id) return
     setConcluding(true)
     try {
-      await pcpInventoryDemandsService.concludeDemand(demand.id)
+      await pcpInventoryDemandsService.concludeDemand(demand.id, {
+        sap_balance: sapBalance,
+        sap_status: sapBalance !== null ? 'CONCILIADO' : 'INDISPONIVEL',
+        divergence_demand: divergenciaDemanda,
+        divergence_sap: divergenciaSap,
+        divergence_pct: Number(divergenciaPct.toFixed(2)),
+      })
       toast({
         title: 'Inventário Concluído com Sucesso',
-        description: `Demanda ${demand.control_number} finalizada com ${totalInventariado} peças apuradas.`,
+        description: `Demanda ${demand.control_number} finalizada com ${inventariadoQtd} peças apuradas.`,
       })
       setShowConfirmConclusion(false)
       onSuccess()
@@ -310,69 +378,154 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Qtd. Prevista
+                Qtd. Demanda
               </span>
-              <span className="font-mono font-bold text-slate-900">{totalPrevisto} pçs</span>
+              <span className="font-mono font-bold text-slate-900">{demandaQtd} pçs</span>
             </div>
           </div>
 
-          {/* Cards de Apuração em Tempo Real */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Previsto</span>
+          {/* ETAPA F: 6 CARDS NA ORDEM EXATA, MESMA ALTURA, TIPOGRAFIA CONSISTENTE, pt-BR COM VÍRGULA */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {/* 1. DEMANDA */}
+            <div className="p-2.5 rounded-lg border border-slate-200 bg-white flex flex-col justify-between h-[82px]">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight block">
+                1. DEMANDA
+              </span>
               <div className="flex items-baseline justify-between mt-0.5">
-                <span className="text-lg font-black font-mono text-slate-800">
-                  {formatPtBrNumber(totalPrevisto)}
+                <span className="text-lg font-black font-mono text-slate-900">
+                  {formatPtBrNumber(demandaQtd)}
                 </span>
                 <span className="text-[10px] font-bold text-slate-400">peças</span>
               </div>
+              <span className="text-[9px] text-slate-400 truncate">Qtd. da Demanda</span>
             </div>
 
-            <div className="p-2.5 rounded-lg border border-blue-200 bg-blue-50/50">
-              <span className="text-[10px] font-bold text-blue-700 uppercase block">
-                Inventariado
+            {/* 2. SALDO SAP */}
+            <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/70 flex flex-col justify-between h-[82px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight block">
+                  2. SALDO SAP
+                </span>
+                {sapLoading && <Loader2 className="w-3 h-3 animate-spin text-[#004C97]" />}
+              </div>
+
+              {sapLoading ? (
+                <div className="flex items-center gap-1.5 py-1 text-slate-500 text-[11px]">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+                  <span className="font-medium">Consultando SAP...</span>
+                </div>
+              ) : sapBalance !== null ? (
+                <div className="flex items-baseline justify-between mt-0.5">
+                  <span className="text-lg font-black font-mono text-slate-900">
+                    {formatPtBrNumber(sapBalance)}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">{sapUnit}</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-0.5 py-0.5">
+                  <span className="text-[11px] font-bold text-amber-800 leading-tight">
+                    Saldo indisponível
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchSapBalance}
+                    className="text-[10px] text-[#004C97] hover:underline font-semibold text-left inline-flex items-center gap-0.5"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              <span className="text-[9px] text-slate-400 truncate">
+                {sapBalance !== null ? 'Estoque Oficial SAP' : 'RFC indisponível'}
+              </span>
+            </div>
+
+            {/* 3. INVENTARIADO */}
+            <div className="p-2.5 rounded-lg border border-blue-200 bg-blue-50/50 flex flex-col justify-between h-[82px]">
+              <span className="text-[10px] font-bold text-[#004C97] uppercase tracking-tight block">
+                3. INVENTARIADO
               </span>
               <div className="flex items-baseline justify-between mt-0.5">
                 <span className="text-lg font-black font-mono text-[#004C97]">
-                  {formatPtBrNumber(totalInventariado)}
+                  {formatPtBrNumber(inventariadoQtd)}
                 </span>
-                <span className="text-[10px] font-bold text-blue-600">peças</span>
+                <span className="text-[10px] font-bold text-blue-700">peças</span>
               </div>
+              <span className="text-[9px] text-blue-600/80 truncate">Soma das contagens</span>
             </div>
 
+            {/* 4. DIVERGÊNCIA DEMANDA */}
             <div
-              className={`p-2.5 rounded-lg border ${
-                divergenciaPecas === 0
+              className={`p-2.5 rounded-lg border flex flex-col justify-between h-[82px] ${
+                divergenciaDemanda === 0
                   ? 'border-emerald-200 bg-emerald-50/40 text-emerald-800'
-                  : 'border-amber-200 bg-amber-50/40 text-amber-900'
+                  : 'border-amber-200 bg-amber-50/30 text-amber-900'
               }`}
             >
-              <span className="text-[10px] font-bold uppercase block opacity-80">Divergência</span>
+              <span className="text-[10px] font-bold uppercase tracking-tight block opacity-90">
+                4. DIVERGÊNCIA DEMANDA
+              </span>
               <div className="flex items-baseline justify-between mt-0.5">
                 <span className="text-lg font-black font-mono">
-                  {divergenciaPecas > 0 ? '+' : ''}
-                  {formatPtBrNumber(divergenciaPecas)}
+                  {divergenciaDemanda > 0 ? '+' : divergenciaDemanda < 0 ? '−' : ''}
+                  {formatPtBrNumber(Math.abs(divergenciaDemanda))}
                 </span>
                 <span className="text-[10px] font-bold opacity-80">peças</span>
               </div>
+              <span className="text-[9px] opacity-75 truncate">Inventariado − Demanda</span>
             </div>
 
+            {/* 5. DIVERGÊNCIA SAP */}
             <div
-              className={`p-2.5 rounded-lg border ${
-                divergenciaPecas === 0
-                  ? 'border-emerald-200 bg-emerald-50/40 text-emerald-800'
-                  : 'border-amber-200 bg-amber-50/40 text-amber-900'
+              className={`p-2.5 rounded-lg border flex flex-col justify-between h-[82px] ${
+                sapBalance === null
+                  ? 'border-slate-200 bg-slate-50/60 text-slate-600'
+                  : divergenciaSap === 0
+                    ? 'border-emerald-200 bg-emerald-50/40 text-emerald-800'
+                    : 'border-amber-200 bg-amber-50/30 text-amber-900'
               }`}
             >
-              <span className="text-[10px] font-bold uppercase block opacity-80">
-                Divergência %
+              <span className="text-[10px] font-bold uppercase tracking-tight block opacity-90">
+                5. DIVERGÊNCIA SAP
+              </span>
+              <div className="flex items-baseline justify-between mt-0.5">
+                <span className="text-lg font-black font-mono">
+                  {sapBalance === null
+                    ? '—'
+                    : divergenciaSap !== null && divergenciaSap > 0
+                      ? `+${formatPtBrNumber(divergenciaSap)}`
+                      : divergenciaSap !== null && divergenciaSap < 0
+                        ? `−${formatPtBrNumber(Math.abs(divergenciaSap))}`
+                        : '0'}
+                </span>
+                <span className="text-[10px] font-bold opacity-80">
+                  {sapBalance !== null ? 'peças' : ''}
+                </span>
+              </div>
+              <span className="text-[9px] opacity-75 truncate">
+                {sapBalance !== null ? 'Inventariado − SAP' : 'Sem saldo SAP'}
+              </span>
+            </div>
+
+            {/* 6. DIVERGÊNCIA % */}
+            <div
+              className={`p-2.5 rounded-lg border flex flex-col justify-between h-[82px] ${
+                divergenciaDemanda === 0
+                  ? 'border-emerald-200 bg-emerald-50/40 text-emerald-800'
+                  : 'border-amber-200 bg-amber-50/30 text-amber-900'
+              }`}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-tight block opacity-90">
+                6. DIVERGÊNCIA %
               </span>
               <div className="flex items-baseline justify-between mt-0.5">
                 <span className="text-lg font-black font-mono">
                   {formatPtBrPct(divergenciaPct)}
                 </span>
-                <span className="text-[10px] font-bold opacity-80">SLA</span>
+                <span className="text-[10px] font-bold opacity-80">ref. demanda</span>
               </div>
+              <span className="text-[9px] opacity-75 truncate">((Inv − Dem)/Dem)%</span>
             </div>
           </div>
 
@@ -632,19 +785,38 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
 
           <div className="text-xs text-slate-700 bg-amber-50 p-3 rounded-lg border border-amber-200 space-y-1.5">
             <p className="font-semibold text-amber-900">
-              Existem itens/corridas ainda não inventariados. Deseja realmente concluir?
+              Existem itens/corridas ainda não inventariados ou com divergência. Deseja realmente
+              concluir?
             </p>
             <div className="text-[11px] text-amber-800 space-y-0.5 pt-1">
               <div>
-                Previsto: <strong>{totalPrevisto} pçs</strong>
+                Demanda: <strong>{demandaQtd} pçs</strong>
               </div>
               <div>
-                Inventariado: <strong>{totalInventariado} pçs</strong>
+                Saldo SAP:{' '}
+                <strong>{sapBalance !== null ? `${sapBalance} pçs` : 'Indisponível (—)'}</strong>
               </div>
               <div>
-                Divergência: <strong>{formatPtBrPct(divergenciaPct)}</strong> ({divergenciaPecas}{' '}
-                pçs)
+                Inventariado: <strong>{inventariadoQtd} pçs</strong>
               </div>
+              <div>
+                Divergência Demanda:{' '}
+                <strong>
+                  {divergenciaDemanda > 0 ? `+${divergenciaDemanda}` : divergenciaDemanda} pçs (
+                  {formatPtBrPct(divergenciaPct)})
+                </strong>
+              </div>
+              {sapBalance !== null && (
+                <div>
+                  Divergência SAP:{' '}
+                  <strong>
+                    {divergenciaSap !== null && divergenciaSap > 0
+                      ? `+${divergenciaSap}`
+                      : divergenciaSap}{' '}
+                    pçs
+                  </strong>
+                </div>
+              )}
             </div>
           </div>
 
