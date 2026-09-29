@@ -135,7 +135,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }, [isLoading, isRetrying, hasAvailableAuthContext])
 
   // BYPASS IMEDIATO:
-  // Libera rotas operacionais, cadastrais (inclusive Hierarquia das Linhas e Ficha Mestra), análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
+  // Libera rotas operacionais, cadastrais (inclusive Hierarquia /pcp/cadastros/hierarquia e Ficha Mestra),
+  // análise de carteira, programação de testes, controle de produção e entregas sem timeout ou flicker
   const isCadastrosOrMasterDataEarly = Boolean(
     permission === 'pcp.masterdata.view' ||
     permission === 'pcp.masterdata.edit' ||
@@ -144,8 +145,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.lines.manage' ||
     permission.startsWith('pcp.masterdata.') ||
     permission.startsWith('pcp.lines.') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+    currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
@@ -246,8 +248,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.lines.manage' ||
     permission.startsWith('pcp.masterdata.') ||
     permission.startsWith('pcp.lines.') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+    currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
@@ -411,8 +414,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.carteira.view' ||
       permission.startsWith('pcp.carteira.') ||
       currentPathname === '/' ||
-      currentPathname.startsWith('/pcp/cadastros') ||
+      currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+      currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/ficha-mestre') ||
       currentPathname.includes('/hierarquia') ||
@@ -438,8 +442,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
-      currentPathname.startsWith('/pcp/cadastros') ||
+      currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+      currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
@@ -452,7 +457,9 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
   // Skeleton de loading no padrão do módulo: enquanto estiver carregando permissões,
   // nunca renderiza null/vazio nem spinner puro isolado
-  const hasResolvedAccess = Boolean(user || hasValidAuthStore || isDirectOperationalView)
+  const hasResolvedAccess = Boolean(
+    user || hasValidAuthStore || isDirectOperationalView || isCadastrosOrMasterData,
+  )
   const showLoadingSkeleton =
     (isLoading || isRetrying || isLoadingPermissions) && !timedOut && !hasResolvedAccess
 
@@ -528,12 +535,14 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
-    currentPathname.startsWith('/pcp/cadastros') ||
+    currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
+    currentPathname.startsWith('/pcp/cadastros') ||
     currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
     currentPathname.startsWith('/pcp/ficha-mestre') ||
     currentPathname.startsWith('/pcp/linhas') ||
     currentPathname.includes('/hierarquia') ||
+    currentPathname.includes('hierarquia') ||
     currentPathname.includes('/ficha-mestre') ||
     currentPathname.startsWith('/pcp/analise-carteira') ||
     isTestProgrammingRoute ||

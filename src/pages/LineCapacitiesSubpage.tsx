@@ -89,7 +89,11 @@ interface HierarchyLineStructure {
   centers: CenterSequenceItem[]
 }
 
-export default function LineCapacitiesSubpage() {
+export function LineCapacitiesSubpage() {
+  return <LineCapacitiesSubpageContent />
+}
+
+export default function LineCapacitiesSubpageContent() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [savingSequence, setSavingSequence] = useState(false)
@@ -399,7 +403,7 @@ export default function LineCapacitiesSubpage() {
           }
         }
 
-        // Ordenar por sequenceOrder
+// Ordenar por sequenceOrder
         centers.sort((a, b) => a.sequenceOrder - b.sequenceOrder)
 
         // Normalizar numeração em saltos 10, 20, 30...
