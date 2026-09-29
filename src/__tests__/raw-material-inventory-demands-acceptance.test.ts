@@ -50,8 +50,7 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
     }
 
     const demandCreateSpy = vi.fn().mockResolvedValue(createdDemand)
-    const gaugeCreateSpy = vi.fn().mockResolvedValue({ id: 'g-1' })
-    const runCreateSpy = vi.fn().mockResolvedValue({ id: 'r-1' })
+    const historyCreateSpy = vi.fn().mockResolvedValue({ id: 'hist-1' })
     const auditCreateSpy = vi.fn().mockResolvedValue({ id: 'aud-1' })
 
     vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
@@ -62,13 +61,10 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
           getOne: vi.fn().mockResolvedValue(createdDemand),
         } as any
       }
-      if (col === 'pcp_mp_inventory_gauges') {
-        return { create: gaugeCreateSpy } as any
+      if (col === 'pcp_mp_inventory_history') {
+        return { create: historyCreateSpy } as any
       }
-      if (col === 'pcp_mp_inventory_runs') {
-        return { create: runCreateSpy } as any
-      }
-      if (col === 'pcp_mp_inventory_audit_events') {
+      if (col === 'pcp_audit_logs') {
         return { create: auditCreateSpy } as any
       }
       return {} as any
@@ -89,11 +85,14 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
         status: 'Gerada',
       }),
     )
-    expect(gaugeCreateSpy).toHaveBeenCalled()
-    expect(runCreateSpy).toHaveBeenCalled()
-    expect(auditCreateSpy).toHaveBeenCalledWith(
+    expect(historyCreateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: 'DEMANDA_GERADA',
+      }),
+    )
+    expect(auditCreateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'CREATE_DEMAND',
       }),
     )
   })
@@ -202,7 +201,7 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
       status: 'Em inventário',
       total_pieces_inventoried: 40,
     })
-    const auditCreateSpy = vi.fn().mockResolvedValue({ id: 'aud-entry' })
+    const historyCreateSpy = vi.fn().mockResolvedValue({ id: 'aud-entry' })
 
     vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
       if (col === 'pcp_mp_inventory_demands') {
@@ -211,21 +210,14 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
           update: demandUpdateSpy,
         } as any
       }
-      if (col === 'pcp_mp_inventory_runs') {
-        return {
-          getFullList: vi
-            .fn()
-            .mockResolvedValue([{ id: 'run-1', run_number: '458921', demand_id: 'dem-06' }]),
-        } as any
-      }
       if (col === 'pcp_mp_inventory_entries') {
         return {
           create: entryCreateSpy,
           getFullList: vi.fn().mockResolvedValue([mockEntry]),
         } as any
       }
-      if (col === 'pcp_mp_inventory_audit_events') {
-        return { create: auditCreateSpy } as any
+      if (col === 'pcp_mp_inventory_history') {
+        return { create: historyCreateSpy } as any
       }
       return {} as any
     })
@@ -250,11 +242,10 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
         status: 'Em inventário',
       }),
     )
-    // Evento de auditoria registrado
-    expect(auditCreateSpy).toHaveBeenCalledWith(
+    // Evento de histórico registrado
+    expect(historyCreateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: 'LANCAMENTO_ADICIONADO',
-        pieces_count: 40,
       }),
     )
   })
@@ -293,10 +284,10 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
       },
     ]
 
-    const getAuditSpy = vi.fn().mockResolvedValue(mockAuditEvents)
+    const getHistorySpy = vi.fn().mockResolvedValue(mockAuditEvents)
     vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
-      if (col === 'pcp_mp_inventory_audit_events') {
-        return { getFullList: getAuditSpy } as any
+      if (col === 'pcp_mp_inventory_history') {
+        return { getFullList: getHistorySpy } as any
       }
       return {} as any
     })
@@ -307,10 +298,10 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
     expect(events[0].event_type).toBe('DEMANDA_GERADA')
     expect(events[1].event_type).toBe('INVENTARIO_INICIADO')
     expect(events[2].event_type).toBe('LANCAMENTO_ADICIONADO')
-    expect(getAuditSpy).toHaveBeenCalledWith(
+    expect(getHistorySpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        filter: "demand_id = 'dem-01'",
-        sort: 'created',
+        filter: "demand_id = 'dem-01' || inventory_order_id = 'dem-01'",
+        sort: '-created',
       }),
     )
   })
@@ -403,7 +394,7 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
     const demandUpdateSpy = vi.fn().mockImplementation((id, data) => {
       return Promise.resolve({ ...parentDemand, ...data })
     })
-    const auditCreateSpy = vi.fn().mockResolvedValue({ id: 'aud-st' })
+    const historyCreateSpy = vi.fn().mockResolvedValue({ id: 'aud-st' })
 
     vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
       if (col === 'pcp_mp_inventory_demands') {
@@ -419,8 +410,8 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
             .mockResolvedValue([{ id: 'e-1', pieces_count: 80, is_active: true }]),
         } as any
       }
-      if (col === 'pcp_mp_inventory_audit_events') {
-        return { create: auditCreateSpy } as any
+      if (col === 'pcp_mp_inventory_history') {
+        return { create: historyCreateSpy } as any
       }
       return {} as any
     })
@@ -428,7 +419,7 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
     // Teste Salvamento Parcial
     const partialRes = await pcpInventoryDemandsService.savePartialDemand('dem-status-test')
     expect(partialRes.status).toBe('Inventário parcial')
-    expect(auditCreateSpy).toHaveBeenCalledWith(
+    expect(historyCreateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: 'SALVAMENTO_PARCIAL',
       }),
@@ -437,7 +428,7 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
     // Teste Conclusão
     const concludeRes = await pcpInventoryDemandsService.concludeDemand('dem-status-test')
     expect(concludeRes.status).toBe('Inventário concluído')
-    expect(auditCreateSpy).toHaveBeenCalledWith(
+    expect(historyCreateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: 'INVENTARIO_CONCLUIDO',
       }),

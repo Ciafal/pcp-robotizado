@@ -65,12 +65,18 @@ test('E2E Real Backend: Gerar Demanda com ST930, Corrida em Branco e 24,00 t', a
   expect(items[0].unit_weight_t).toBe(0.12)
   expect(items[0].calculated_pieces).toBe(200)
 
-  // 6. Verifica auditoria append-only
-  const audits = await pb.collection('pcp_mp_inventory_audit_events').getFullList({
-    filter: `demand_id = '${created.id}'`,
+  // 6. Verifica timeline em pcp_mp_inventory_history
+  const historyRecords = await pb.collection('pcp_mp_inventory_history').getFullList({
+    filter: `demand_id = '${created.id}' || control_number = '${created.control_number}'`,
   })
-  expect(audits.length).toBeGreaterThan(0)
-  expect(audits[0].event_type).toBe('DEMANDA_GERADA')
-  expect(audits[0].event_description).toContain('ST930')
-  expect(audits[0].event_description).toContain('Sem corrida')
+  expect(historyRecords.length).toBeGreaterThan(0)
+  expect(historyRecords[0].event_type).toBe('DEMANDA_GERADA')
+  expect(historyRecords[0].summary).toContain('ST930')
+
+  // 7. Verifica log em pcp_audit_logs
+  const auditLogs = await pb.collection('pcp_audit_logs').getFullList({
+    filter: `module = 'INVENTARIO_MP' && action = 'CREATE_DEMAND' && record_id = '${created.id}'`,
+  })
+  expect(auditLogs.length).toBeGreaterThan(0)
+  expect(auditLogs[0].action).toBe('CREATE_DEMAND')
 })

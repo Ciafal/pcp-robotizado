@@ -10,7 +10,17 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { InventoryDemand } from '@/types/pcp-inventory-demands'
-import { CheckCircle2, Eye, X, Building2, Factory, Warehouse, Calendar, Boxes } from 'lucide-react'
+import {
+  CheckCircle2,
+  Eye,
+  X,
+  Building2,
+  Factory,
+  Warehouse,
+  Calendar,
+  Boxes,
+  AlertTriangle,
+} from 'lucide-react'
 
 interface DemandaSucessoModalProps {
   open: boolean
@@ -21,7 +31,15 @@ interface DemandaSucessoModalProps {
 }
 
 const formatPtBrDateTime = (dateVal?: string): string => {
-  if (!dateVal) return '—'
+  if (!dateVal || dateVal === '—' || dateVal.trim() === '') {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
+    const hours = String(now.getHours()).padStart(2, '0')
+    const mins = String(now.getMinutes()).padStart(2, '0')
+    return `${day}/${month}/${year}, ${hours}:${mins}`
+  }
   if (dateVal.includes('/') && dateVal.includes(':')) {
     return dateVal
   }
@@ -48,6 +66,28 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
 }) => {
   if (!demand) return null
 
+  // PROIBIDO exibir "-", null, undefined ou vazio — se o backend não retornou dado obrigatório, é erro, não sucesso
+  const isInvalid =
+    !demand.control_number ||
+    demand.control_number === '-' ||
+    demand.control_number.trim() === '' ||
+    demand.control_number.includes('PENDENTE') ||
+    !demand.company ||
+    demand.company === '-' ||
+    demand.company.trim() === '' ||
+    !demand.line ||
+    demand.line === '-' ||
+    demand.line.trim() === '' ||
+    !demand.center ||
+    demand.center === '-' ||
+    demand.center.trim() === '' ||
+    !demand.storage_deposit ||
+    demand.storage_deposit === '-' ||
+    demand.storage_deposit.trim() === '' ||
+    !demand.production_order ||
+    demand.production_order === '-' ||
+    demand.production_order.trim() === ''
+
   const materialCount =
     demand.materials_summary && demand.materials_summary.length > 0
       ? demand.materials_summary.length
@@ -56,7 +96,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
         : 0
 
   const createdDateFormatted = formatPtBrDateTime(
-    demand.generation_date_formatted || demand.created || new Date().toISOString(),
+    demand.generation_date_formatted || demand.created,
   )
 
   const handleClose = () => {
@@ -67,6 +107,39 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
   const handleView = () => {
     onOpenChange(false)
     onViewDetails(demand)
+  }
+
+  if (isInvalid) {
+    return (
+      <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 pb-2 border-b border-rose-100">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-rose-900 tracking-tight">
+                  ERRO NO RETORNO DO BACKEND
+                </DialogTitle>
+                <DialogDescription className="text-xs text-rose-700 mt-0.5">
+                  A demanda criada não contém todos os campos obrigatórios persistidos pelo banco de
+                  dados.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="py-3 text-xs text-slate-700">
+            Dados obrigatórios ausentes ou inválidos no registro retornado pelo PocketBase.
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose} className="text-xs h-8">
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
@@ -90,7 +163,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
           </div>
         </DialogHeader>
 
-        {/* Resumo exibido no popup com valores reais retornados pelo backend */}
+        {/* Resumo exibido no popup com valores reais retornados pelo backend SOMENTE */}
         <div className="space-y-3 py-2 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/90 space-y-2.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/70">
@@ -98,7 +171,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                 Nº da Demanda
               </span>
               <span className="font-mono font-black text-sm text-[#004C97]">
-                {demand.control_number || 'INV-PENDENTE'}
+                {demand.control_number}
               </span>
             </div>
 
@@ -108,9 +181,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Building2 className="w-3 h-3 text-slate-500" />
                   Empresa
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">
-                  {demand.company || 'Dado não disponível'}
-                </span>
+                <span className="font-semibold text-slate-800 text-xs">{demand.company}</span>
               </div>
 
               <div>
@@ -118,9 +189,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Factory className="w-3 h-3 text-slate-500" />
                   Linha
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">
-                  {demand.line || 'Dado não disponível'}
-                </span>
+                <span className="font-semibold text-slate-800 text-xs">{demand.line}</span>
               </div>
 
               <div>
@@ -128,9 +197,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   <Warehouse className="w-3 h-3 text-slate-500" />
                   Centro
                 </span>
-                <span className="font-semibold text-slate-800 text-xs">
-                  {demand.center || 'Dado não disponível'}
-                </span>
+                <span className="font-semibold text-slate-800 text-xs">{demand.center}</span>
               </div>
 
               <div>
@@ -139,7 +206,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   Depósito
                 </span>
                 <span className="font-semibold text-slate-800 text-xs">
-                  {demand.storage_deposit || 'Dado não disponível'}
+                  {demand.storage_deposit}
                 </span>
               </div>
             </div>
@@ -150,7 +217,7 @@ export const DemandaSucessoModal: React.FC<DemandaSucessoModalProps> = ({
                   Ordem de Produção
                 </span>
                 <span className="font-mono font-bold text-slate-800 text-xs">
-                  {demand.production_order || 'Dado não disponível'}
+                  {demand.production_order}
                 </span>
               </div>
 

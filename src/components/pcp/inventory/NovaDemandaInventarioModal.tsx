@@ -228,32 +228,37 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     setMaterials((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Busca peso unitário via sapMaterialService dedicado
+  // Busca dados de material no SAP (descrição + peso unitário) via sapMaterialService dedicado
   const handleMaterialCodeChange = async (index: number, code: string) => {
-    // Atualiza imediatamente o código digitado
+    const clean = code.trim()
+
+    // 1. Limpa descrição anterior imediatamente e mostra status de consulta
     setMaterials((prev) => {
       const next = [...prev]
+      if (!next[index]) return prev
       next[index] = {
         ...next[index],
         material_code: code,
-        weightLoading: code.trim().length >= 2,
+        material_description: clean.length > 0 ? 'Consultando SAP...' : '',
+        unit_weight_t: null,
+        unit_weight_kg: null,
+        calculated_pieces: 0,
+        weightLoading: clean.length >= 2,
+        weightStatusMessage: clean.length >= 2 ? 'Consultando SAP...' : 'Informe o código da MP.',
       }
       return next
     })
 
-    const clean = code.trim()
     if (clean.length < 2) {
       setMaterials((prev) => {
         const next = [...prev]
-        const r = { ...next[index] }
-        r.unit_weight_t = null
-        r.unit_weight_kg = null
-        r.weight_origin = 'NOT_FOUND'
-        r.weightAvailable = false
-        r.weightLoading = false
-        r.weightStatusMessage = 'Informe o código da MP para buscar o peso unitário.'
-        r.calculated_pieces = 0
-        next[index] = r
+        if (!next[index]) return prev
+        next[index] = {
+          ...next[index],
+          material_description: '',
+          weightLoading: false,
+          weightStatusMessage: 'Informe o código da MP.',
+        }
         return next
       })
       return
@@ -269,41 +274,45 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
         const next = [...prev]
         if (!next[index]) return prev
         const r = { ...next[index] }
-        if (res.material_description && !r.material_description) {
-          r.material_description = res.material_description
-        }
-        r.unit_weight_t = res.unit_weight_t
-        r.unit_weight_kg = res.unit_weight_kg
-        r.weight_origin = res.source
-        r.weightAvailable = res.is_available
         r.weightLoading = false
 
-        if (res.is_available && res.unit_weight_t && res.unit_weight_t > 0) {
+        if (res && res.is_available) {
+          r.material_description = res.material_description || `Matéria-prima ${clean}`
+          r.unit_weight_t = res.unit_weight_t
+          r.unit_weight_kg = res.unit_weight_kg
+          r.weight_origin = res.source
+          r.weightAvailable = true
           r.weightStatusMessage = undefined
-          // Recalcula peças: peças = Quantidade (t) ÷ Peso Unitário (t)
-          if (r.quantity_tons > 0) {
-            r.calculated_pieces = calculatePiecesFromTons(r.quantity_tons, res.unit_weight_t)
+
+          if (r.unit_weight_t && r.unit_weight_t > 0 && r.quantity_tons > 0) {
+            r.calculated_pieces = calculatePiecesFromTons(r.quantity_tons, r.unit_weight_t)
           } else {
             r.calculated_pieces = 0
           }
         } else {
+          r.material_description = 'Material não encontrado no SAP.'
+          r.unit_weight_t = null
+          r.unit_weight_kg = null
+          r.weightAvailable = false
           r.calculated_pieces = 0
-          r.weightStatusMessage =
-            'Peso unitário ainda não disponível para esta matéria-prima (Aguardando dado do SAP).'
+          r.weightStatusMessage = 'Material não encontrado no SAP.'
         }
 
         next[index] = r
         return next
       })
     } catch (err) {
-      console.warn('Erro ao buscar peso unitário do material:', err)
+      console.warn('Erro ao consultar material no SAP:', err)
       setMaterials((prev) => {
         const next = [...prev]
         if (!next[index]) return prev
         const r = { ...next[index] }
+        r.material_description = 'Material não encontrado no SAP.'
+        r.unit_weight_t = null
+        r.unit_weight_kg = null
         r.weightLoading = false
         r.weightAvailable = false
-        r.weightStatusMessage = 'Aguardando dado do SAP'
+        r.weightStatusMessage = 'Material não encontrado no SAP.'
         next[index] = r
         return next
       })
@@ -787,12 +796,12 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                     )}
                   </div>
 
-                  {/* Linha 1: Código MP * | Descrição da MP | Corrida (opcional) */}
+                  {/* Linha 1: Código MP* | Descrição da MP (readOnly) | Corrida (opcional) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
                     <div className="flex flex-col justify-end">
                       <div className="h-5 flex items-center justify-between mb-1">
                         <Label className="text-xs font-semibold text-slate-700 leading-none">
-                          Código MP * (ex.: ST930)
+                          Código MP *
                         </Label>
                       </div>
                       <Input
@@ -813,14 +822,18 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                         <Label className="text-xs font-semibold text-slate-700 leading-none">
                           Descrição da MP
                         </Label>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] text-slate-500 bg-slate-50 font-mono"
+                        >
+                          readOnly
+                        </Badge>
                       </div>
                       <Input
+                        readOnly
                         value={mat.material_description}
-                        onChange={(e) =>
-                          handleMaterialFieldChange(idx, 'material_description', e.target.value)
-                        }
-                        placeholder="Descrição técnica"
-                        className="text-xs h-9"
+                        placeholder="Consultando SAP..."
+                        className="text-xs h-9 bg-slate-50 cursor-not-allowed font-medium text-slate-700 truncate"
                         disabled={submitting}
                       />
                     </div>
@@ -843,8 +856,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                     </div>
                   </div>
 
-                  {/* Linha 2: Quantidade (t) * | Peso Unitário (t) | Qtd. Calculada (peças) */}
-                  {/* Ordem visual exata: Quantidade → Peso → Resultado */}
+                  {/* Linha 2: Quantidade (t)* | Peso Unitário (t) | Qtd. Calculada (peças) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
                     <div className="flex flex-col justify-end">
                       <div className="h-5 flex items-center justify-between mb-1">
@@ -875,10 +887,12 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                         <Label className="text-xs font-semibold text-slate-700 leading-none">
                           Peso Unitário (t)
                         </Label>
-                        {mat.weightLoading && (
+                        {mat.weightLoading ? (
                           <span className="text-[10px] text-slate-400 flex items-center gap-1 leading-none">
                             <Loader2 className="w-2.5 h-2.5 animate-spin" /> Buscando...
                           </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-400">SAP</span>
                         )}
                       </div>
                       <Input
@@ -902,7 +916,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                           Qtd. Calculada (peças)
                         </Label>
                         <span
-                          className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-400 bg-slate-100/90 border border-slate-200/60 rounded px-1.5 py-0.5 leading-none shrink-0"
+                          className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 leading-none shrink-0"
                           title="Fórmula: Quantidade (t) ÷ Peso Unitário (t)"
                         >
                           <Info className="w-2.5 h-2.5 text-slate-400 shrink-0" />
@@ -968,12 +982,12 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
             <Button
               type="submit"
               disabled={submitting}
-              className="text-xs h-8 bg-[#004C97] hover:bg-[#003B75] text-white font-bold gap-1.5 shadow-sm"
+              className="text-xs h-8 bg-[#004C97] hover:bg-[#003B75] text-white font-bold gap-1.5 shadow-sm disabled:opacity-50"
             >
               {submitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Gerando Demanda...
+                  Gerando demanda...
                 </>
               ) : (
                 <>

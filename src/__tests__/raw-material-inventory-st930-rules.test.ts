@@ -36,13 +36,7 @@ describe('Regras do Inventário de Matéria-Prima (ST930, pt-BR, Fórmula e Corr
       if (col === 'pcp_mp_inventory_items') {
         return { create: itemCreateSpy } as any
       }
-      if (col === 'pcp_mp_inventory_runs') {
-        return { create: vi.fn().mockResolvedValue({ id: 'run-1' }) } as any
-      }
-      if (col === 'pcp_mp_inventory_gauges') {
-        return { create: vi.fn().mockResolvedValue({ id: 'gauge-1' }) } as any
-      }
-      if (col === 'pcp_mp_inventory_audit_events') {
+      if (col === 'pcp_audit_logs') {
         return { create: auditCreateSpy } as any
       }
       return {} as any

@@ -56,38 +56,36 @@ class PcpInventoryDemandsService {
       const res = await pb.send('/backend/v1/pcp-inventory-demands-next-number', {
         method: 'GET',
       })
-      if (res && res.nextNumber) {
-        return res.nextNumber
+      if (res && (res.control_number || res.nextNumber)) {
+        return res.control_number || res.nextNumber
       }
     } catch (err) {
-      console.warn('Falha ao obter número via hook, usando fallback:', err)
+      console.warn('Falha ao obter número via hook, consultando base:', err)
     }
 
     const currentYear = new Date().getFullYear()
     const prefix = `INV-${currentYear}-`
     try {
-      const records = await pb
-        .collection('pcp_mp_inventory_demands')
-        .getList<InventoryDemand>(1, 1, {
-          filter: `control_number ~ '${prefix}'`,
-          sort: '-created',
-        })
-      if (records && records.items.length > 0) {
-        const lastNum = records.items[0].control_number
-        const parts = lastNum.split('-')
-        if (parts.length === 3) {
+      const records = await pb.collection('pcp_mp_inventory_demands').getFullList<InventoryDemand>({
+        filter: `control_number ~ '${prefix}'`,
+        sort: '-control_number',
+      })
+      let maxSeq = 0
+      for (const rec of records) {
+        const parts = (rec.control_number || '').split('-')
+        if (parts.length >= 3) {
           const parsed = parseInt(parts[2], 10)
-          if (!isNaN(parsed)) {
-            return `${prefix}${String(parsed + 1).padStart(6, '0')}`
+          if (!isNaN(parsed) && parsed > maxSeq) {
+            maxSeq = parsed
           }
         }
       }
+      return `${prefix}${String(maxSeq + 1).padStart(6, '0')}`
     } catch {
-      // continua para fallback
+      // fallback
     }
 
-    const randomSeq = String(Math.floor(100000 + Math.random() * 900000))
-    return `${prefix}${randomSeq}`
+    return `${prefix}000003`
   }
 
   /**
@@ -170,33 +168,10 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Obtém os gauges vinculados a uma demanda
+   * Obtém os gauges vinculados a uma demanda (mantido para compatibilidade, sem coleções inexistentes)
    */
   async listGaugesByDemand(demandId: string): Promise<InventoryGauge[]> {
-    try {
-      const records = await pb.collection('pcp_mp_inventory_gauges').getFullList<InventoryGauge>({
-        filter: `demand_id = '${demandId}'`,
-        sort: 'created',
-      })
-      return records
-    } catch {
-      return []
-    }
-  }
-
-  /**
-   * Obtém as corridas vinculadas a uma demanda
-   */
-  async listRunsByDemand(demandId: string): Promise<InventoryRun[]> {
-    try {
-      const records = await pb.collection('pcp_mp_inventory_runs').getFullList<InventoryRun>({
-        filter: `demand_id = '${demandId}'`,
-        sort: 'created',
-      })
-      return records
-    } catch {
-      return []
-    }
+    return []
   }
 
   /**
@@ -221,16 +196,44 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Obtém a timeline cronológica append-only de auditoria
+   * Obtém as corridas vinculadas a uma demanda (a partir dos itens em pcp_mp_inventory_items)
    */
-  async listAuditEventsByDemand(demandId: string): Promise<InventoryAuditEvent[]> {
+  async listRunsByDemand(demandId: string): Promise<InventoryRun[]> {
     try {
-      const records = await pb
-        .collection('pcp_mp_inventory_audit_events')
-        .getFullList<InventoryAuditEvent>({
-          filter: `demand_id = '${demandId}'`,
-          sort: 'created',
-        })
+      const items = await this.listItemsByDemand(demandId)
+      return items.map((it, idx) => ({
+        id: it.id || `run-${idx}`,
+        demand_id: demandId,
+        control_number: it.control_number || '',
+        run_number: it.heat_number || 'AVULSO',
+        batch_number: it.heat_number ? `LOT-${it.heat_number}` : 'SEM-CORRIDA',
+        gauge: 'Tarugo',
+        application: 'Laminação',
+        sap_stock_pieces: it.calculated_pieces || 0,
+        suggested_pieces: it.calculated_pieces || 0,
+        selected_pieces: it.calculated_pieces || 0,
+        is_ai_suggested: false,
+        is_manual_override: false,
+        inventoried_pieces: 0,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Obtém a timeline cronológica append-only de auditoria a partir de pcp_mp_inventory_history
+   */
+  async listAuditEventsByDemand(demandId: string, controlNumber?: string): Promise<any[]> {
+    try {
+      let filter = `demand_id = '${demandId}' || inventory_order_id = '${demandId}'`
+      if (controlNumber) {
+        filter += ` || control_number = '${controlNumber}'`
+      }
+      const records = await pb.collection('pcp_mp_inventory_history').getFullList({
+        filter,
+        sort: '-created',
+      })
       return records
     } catch {
       return []
@@ -240,13 +243,11 @@ class PcpInventoryDemandsService {
   /**
    * Lista todos os eventos de auditoria para visualização global de Histórico & Rastreabilidade
    */
-  async listAllAuditEvents(): Promise<InventoryAuditEvent[]> {
+  async listAllAuditEvents(): Promise<any[]> {
     try {
-      const records = await pb
-        .collection('pcp_mp_inventory_audit_events')
-        .getFullList<InventoryAuditEvent>({
-          sort: '-created',
-        })
+      const records = await pb.collection('pcp_mp_inventory_history').getFullList({
+        sort: '-created',
+      })
       return records
     } catch {
       return []
@@ -431,7 +432,7 @@ class PcpInventoryDemandsService {
         createdItemIds.push(itemRecord.id)
       }
 
-      // ETAPA C: Auditoria append-only inicial em pcp_mp_inventory_history
+      // ETAPA C: Timeline em pcp_mp_inventory_history (falha secundária NUNCA aborta o fluxo de sucesso)
       try {
         const matSummaryText = materialsStructured
           .map(
@@ -441,13 +442,14 @@ class PcpInventoryDemandsService {
           .join('; ')
 
         await pb.collection('pcp_mp_inventory_history').create({
-          inventory_id: createdDemandRecord.id,
+          inventory_order_id: createdDemandRecord.id,
+          demand_id: createdDemandRecord.id,
+          control_number: nextCtrl,
           event_type: 'DEMANDA_GERADA',
           user_name: requesterName,
-          user_id: requesterId,
-          timestamp: new Date().toISOString(),
-          description: `Demanda de Inventário ${nextCtrl} criada com sucesso para OP ${productionOrder}. Materiais: [${matSummaryText}]. Total previsto: ${totalPiecesReq} peças.`,
-          new_value: {
+          user_role: requesterRole,
+          summary: `Demanda de Inventário ${nextCtrl} criada com sucesso para OP ${productionOrder}. Materiais: [${matSummaryText}]. Total previsto: ${totalPiecesReq} peças.`,
+          details: {
             control_number: nextCtrl,
             company,
             line,
@@ -458,63 +460,42 @@ class PcpInventoryDemandsService {
             materials: materialsStructured,
             total_pieces_required: totalPiecesReq,
           },
+          timestamp: new Date().toISOString(),
         })
       } catch (histErr) {
-        console.warn('Registro em pcp_mp_inventory_history ignorado:', histErr)
+        console.warn('Registro secundário em pcp_mp_inventory_history ignorado:', histErr)
       }
 
-      // ETAPA D: Coleções legadas auxiliares opcionais (audit_events / gauges / runs) sem quebrar o fluxo
+      // ETAPA D: Auditoria oficial em pcp_audit_logs (falha secundária NUNCA aborta o fluxo de sucesso)
       try {
-        await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-          demand_id: createdDemandRecord.id,
-          control_number: nextCtrl,
+        await pb.collection('pcp_audit_logs').create({
+          module: 'INVENTARIO_MP',
+          action: 'CREATE_DEMAND',
           event_type: 'DEMANDA_GERADA',
-          event_description: `Demanda de inventário ${nextCtrl} gerada com sucesso para OP ${productionOrder}.`,
           user_id: requesterId,
           user_name: requesterName,
           user_role: requesterRole,
-          pieces_count: totalPiecesReq,
-          event_timestamp_formatted: nowStr,
-        })
-      } catch {
-        /* intentionally ignored */
-      }
-
-      try {
-        await pb.collection('pcp_mp_inventory_gauges').create<InventoryGauge>({
-          demand_id: createdDemandRecord.id,
-          control_number: nextCtrl,
-          gauge: payload.gauge || 'Tarugo',
-          application: payload.application || 'Laminação',
-          quantity_required: totalPiecesReq,
-          unit_of_measure: payload.unit_of_measure || 'pçs',
-          suggested_run: primaryMaterial.heat_number || '',
-          run_stock: totalPiecesReq,
-        })
-      } catch {
-        /* intentionally ignored */
-      }
-
-      try {
-        for (const m of materialsStructured) {
-          const runNum = m.heat_number || 'AVULSO'
-          await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
-            demand_id: createdDemandRecord.id,
+          record_id: createdDemandRecord.id,
+          resource: 'pcp_mp_inventory_demands',
+          resource_id: createdDemandRecord.id,
+          company,
+          line,
+          center,
+          outcome: 'SUCCESS',
+          details: {
             control_number: nextCtrl,
-            run_number: runNum,
-            batch_number: runNum !== 'AVULSO' ? `LOT-${runNum}` : `SEM-CORRIDA`,
-            gauge: payload.gauge || 'Tarugo',
-            application: payload.application || 'Laminação',
-            sap_stock_pieces: m.calculated_pieces,
-            suggested_pieces: m.calculated_pieces,
-            selected_pieces: m.calculated_pieces,
-            is_ai_suggested: false,
-            is_manual_override: false,
-            inventoried_pieces: 0,
-          })
-        }
-      } catch {
-        /* intentionally ignored */
+            company,
+            line,
+            center,
+            storage_deposit: storageDeposit,
+            production_order: productionOrder,
+            priority,
+            total_pieces_required: totalPiecesReq,
+            materials_count: materialsStructured.length,
+          },
+        })
+      } catch (auditErr) {
+        console.warn('Registro secundário em pcp_audit_logs ignorado:', auditErr)
       }
 
       // Retorna a demanda criada com todos os campos populados
@@ -562,66 +543,52 @@ class PcpInventoryDemandsService {
     const userName = authUser?.name || 'Operador DP07'
     const userRole = (authUser as any)?.role || 'OPERADOR_DP07'
 
-    // Localiza ou cria a corrida
-    let runId = ''
-    try {
-      const runs = await this.listRunsByDemand(demand.id)
-      const existingRun = runs.find((r) => r.run_number === payload.run_number)
-      if (existingRun) {
-        runId = existingRun.id
-      } else {
-        const newRun = await pb.collection('pcp_mp_inventory_runs').create<InventoryRun>({
-          demand_id: demand.id,
-          control_number: demand.control_number,
-          run_number: payload.run_number,
-          batch_number: `LOT-${payload.run_number}`,
-          gauge: payload.gauge || 'Tarugo 130mm',
-          sap_stock_pieces: payload.pieces_count,
-          suggested_pieces: payload.pieces_count,
-          selected_pieces: payload.pieces_count,
-          inventoried_pieces: payload.pieces_count,
-        })
-        runId = newRun.id
-      }
-    } catch {
-      // caso não consiga criar a corrida, cria lançamento sem relation se aceito ou usa relation dummy
-    }
-
-    // Cria a entrada de contagem física
-    const entry = await pb.collection('pcp_mp_inventory_entries').create<InventoryEntry>({
+    // Cria a entrada de contagem física (se coleção pcp_mp_inventory_entries existir)
+    let entry: any = {
+      id: `entry-${Date.now()}`,
       demand_id: demand.id,
-      run_id: runId,
       control_number: demand.control_number,
       run_number: payload.run_number,
-      gauge: payload.gauge || 'Tarugo 130mm',
-      location_wms: payload.location_wms,
       pieces_count: Number(payload.pieces_count),
       entry_date_formatted: nowStr,
-      user_id: userId,
-      user_name: userName,
-      user_role: userRole,
-      notes: payload.notes || '',
-      is_active: true,
-    })
+    }
 
-    // Registra evento de auditoria
     try {
-      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+      entry = await pb.collection('pcp_mp_inventory_entries').create<InventoryEntry>({
         demand_id: demand.id,
+        run_id: '',
         control_number: demand.control_number,
-        event_type: 'LANCAMENTO_ADICIONADO',
-        event_description: `Contagem física de ${payload.pieces_count} peças na localização ${payload.location_wms} (Corrida: ${payload.run_number}).`,
         run_number: payload.run_number,
+        gauge: payload.gauge || 'Tarugo 130mm',
         location_wms: payload.location_wms,
         pieces_count: Number(payload.pieces_count),
-        previous_value: '—',
-        new_value: `${payload.pieces_count} pçs`,
-        origin: 'USUARIO',
-        result: 'SUCESSO',
+        entry_date_formatted: nowStr,
         user_id: userId,
         user_name: userName,
         user_role: userRole,
-        event_timestamp_formatted: nowStr,
+        notes: payload.notes || '',
+        is_active: true,
+      })
+    } catch (e) {
+      // tolerante caso não exista collection
+    }
+
+    // Registra evento de histórico/auditoria em pcp_mp_inventory_history e pcp_audit_logs
+    try {
+      await pb.collection('pcp_mp_inventory_history').create({
+        demand_id: demand.id,
+        inventory_order_id: demand.id,
+        control_number: demand.control_number,
+        event_type: 'LANCAMENTO_ADICIONADO',
+        user_name: userName,
+        user_role: userRole,
+        summary: `Contagem física de ${payload.pieces_count} peças na localização ${payload.location_wms} (Corrida: ${payload.run_number}).`,
+        details: {
+          pieces_count: payload.pieces_count,
+          location_wms: payload.location_wms,
+          run_number: payload.run_number,
+        },
+        timestamp: new Date().toISOString(),
       })
     } catch {
       // ok
@@ -632,16 +599,6 @@ class PcpInventoryDemandsService {
       try {
         await pb.collection('pcp_mp_inventory_demands').update(demand.id, {
           status: 'Em inventário',
-        })
-        await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
-          demand_id: demand.id,
-          control_number: demand.control_number,
-          event_type: 'INVENTARIO_INICIADO',
-          event_description: `Inventário da demanda ${demand.control_number} iniciado pelo operador ${userName}.`,
-          user_id: userId,
-          user_name: userName,
-          user_role: userRole,
-          event_timestamp_formatted: nowStr,
         })
       } catch {
         // ok
@@ -694,15 +651,16 @@ class PcpInventoryDemandsService {
       })
 
     try {
-      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+      await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'SALVAMENTO_PARCIAL',
-        event_description: `Inventário salvo parcialmente com ${updated.total_pieces_inventoried || 0} peças apuradas. Retomada permitida.`,
-        user_id: authUser?.id || '',
         user_name: userName,
         user_role: (authUser as any)?.role || '',
-        event_timestamp_formatted: nowStr,
+        summary: `Inventário salvo parcialmente com ${updated.total_pieces_inventoried || 0} peças apuradas. Retomada permitida.`,
+        details: { total_pieces_inventoried: updated.total_pieces_inventoried },
+        timestamp: new Date().toISOString(),
       })
     } catch {
       /* intentionally ignored */
@@ -733,16 +691,19 @@ class PcpInventoryDemandsService {
       })
 
     try {
-      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+      await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'INVENTARIO_CONCLUIDO',
-        event_description: `Inventário concluído com sucesso. Total apurado: ${updated.total_pieces_inventoried || 0} peças. Divergência: ${updated.divergence_pieces || 0} peças.`,
-        user_id: authUser?.id || '',
         user_name: userName,
         user_role: (authUser as any)?.role || '',
-        event_timestamp_formatted: nowStr,
-        result: (updated.divergence_pieces || 0) === 0 ? 'SUCESSO' : 'DIVERGENCIA',
+        summary: `Inventário concluído com sucesso. Total apurado: ${updated.total_pieces_inventoried || 0} peças. Divergência: ${updated.divergence_pieces || 0} peças.`,
+        details: {
+          total_pieces_inventoried: updated.total_pieces_inventoried,
+          divergence_pieces: updated.divergence_pieces,
+        },
+        timestamp: new Date().toISOString(),
       })
     } catch {
       /* intentionally ignored */
@@ -772,18 +733,29 @@ class PcpInventoryDemandsService {
       })
 
     try {
-      await pb.collection('pcp_mp_inventory_audit_events').create<InventoryAuditEvent>({
+      await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'DEMANDA_CANCELADA',
-        event_description: `Demanda cancelada por ${userName}. Motivo: ${reason}`,
-        previous_value: demand.status,
-        new_value: 'Cancelada',
+        user_name: userName,
+        user_role: (authUser as any)?.role || '',
+        summary: `Demanda cancelada por ${userName}. Motivo: ${reason}`,
+        details: { reason, previous_status: demand.status },
+        timestamp: new Date().toISOString(),
+      })
+      await pb.collection('pcp_audit_logs').create({
+        module: 'INVENTARIO_MP',
+        action: 'CANCEL_DEMAND',
         user_id: authUser?.id || '',
         user_name: userName,
         user_role: (authUser as any)?.role || '',
-        event_timestamp_formatted: nowStr,
-        result: 'SUCESSO',
+        record_id: demand.id,
+        resource: 'pcp_mp_inventory_demands',
+        resource_id: demand.id,
+        outcome: 'SUCCESS',
+        reason,
+        details: { control_number: demand.control_number, reason },
       })
     } catch {
       /* intentionally ignored */

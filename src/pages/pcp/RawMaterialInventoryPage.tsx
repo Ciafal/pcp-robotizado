@@ -1875,6 +1875,13 @@ export const RawMaterialInventoryPage: React.FC = () => {
         onOpenChange={setNovaDemandaModalOpen}
         onSuccess={async (novaDemanda) => {
           // Gravação no banco retornou sucesso com ID e Nº Controle criados
+          // Inserção otimista no topo do grid E chamada loadDemands() para reconciliação
+          setInventoryDemands((prev) => [
+            novaDemanda,
+            ...prev.filter(
+              (d) => d.id !== novaDemanda.id && d.control_number !== novaDemanda.control_number,
+            ),
+          ])
           setCreatedDemandForSuccess(novaDemanda)
           setSucessoModalOpen(true)
           await loadDemands()
