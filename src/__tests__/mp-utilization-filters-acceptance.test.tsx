@@ -142,6 +142,47 @@ describe('Utilização e Substituição de MP - Cabeçalho de Filtros e Período
     expect(filtered.length).toBe(0)
   })
 
+  it('CENÁRIO E (UI): combinação sem registros exibe "Nenhum registro encontrado para os filtros selecionados." com botão Limpar filtros, sem erro', async () => {
+    render(<MPUtilizationAndSubstitutionSubpage />)
+
+    // Altera a data diária para uma data sem registros
+    const diariaBtn = screen.getByRole('button', { name: /^DIARIA$/i })
+    fireEvent.click(diariaBtn)
+
+    const dateInput = screen.getByTestId('filter-period-diaria-input')
+    fireEvent.change(dateInput, { target: { value: '2020-01-01' } })
+
+    const applyBtn = screen.getByRole('button', { name: /Aplicar filtros/i })
+    fireEvent.click(applyBtn)
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText('Nenhum registro encontrado para os filtros selecionados.'),
+        ).toBeInTheDocument()
+      },
+      { timeout: 2000 },
+    )
+
+    const emptyCard = screen.getByTestId('mp-utilization-empty-state')
+    expect(emptyCard).toBeInTheDocument()
+    const cleanButton = within(emptyCard).getByRole('button', { name: /Limpar filtros/i })
+    expect(cleanButton).toBeInTheDocument()
+
+    // Clicar em "Limpar filtros" dentro do empty state deve restaurar a visualização
+    fireEvent.click(cleanButton)
+
+    await waitFor(
+      () => {
+        expect(
+          screen.queryByText('Nenhum registro encontrado para os filtros selecionados.'),
+        ).not.toBeInTheDocument()
+        expect(screen.getByText('% 1020 no Lugar de AC')).toBeInTheDocument()
+      },
+      { timeout: 2000 },
+    )
+  })
+
   // ==========================================
   // CENÁRIO F: Troca rápida de visões Diária -> Semanal -> Mensal -> Anual e cálculo de datas ISO
   // ==========================================
@@ -150,6 +191,43 @@ describe('Utilização e Substituição de MP - Cabeçalho de Filtros e Período
     expect(week24_2026.display).toMatch(/\d{2}\/\d{2}\/2026 a \d{2}\/\d{2}\/2026/)
     expect(week24_2026.startDateStr).toContain('/2026')
     expect(week24_2026.endDateStr).toContain('/2026')
+  })
+
+  it('CENÁRIO F (UI): troca rápida Diária -> Semanal -> Mensal -> Anual atualiza os controles de período sem quebrar a UI', async () => {
+    render(<MPUtilizationAndSubstitutionSubpage />)
+
+    const segControl = screen.getByTestId('temporal-vision-segmented-control')
+    const btnDiaria = within(segControl).getByRole('button', { name: /^DIARIA$/i })
+    const btnSemanal = within(segControl).getByRole('button', { name: /^SEMANAL$/i })
+    const btnMensal = within(segControl).getByRole('button', { name: /^MENSAL$/i })
+    const btnAnual = within(segControl).getByRole('button', { name: /^ANUAL$/i })
+
+    // 1. Alterna para Diária
+    fireEvent.click(btnDiaria)
+    expect(screen.getByTestId('filter-period-diaria-input')).toBeInTheDocument()
+
+    // 2. Alterna para Semanal
+    fireEvent.click(btnSemanal)
+    expect(screen.getByTestId('filter-period-semana-select')).toBeInTheDocument()
+
+    // 3. Alterna para Mensal
+    fireEvent.click(btnMensal)
+    expect(screen.getByTestId('filter-period-mes-select')).toBeInTheDocument()
+
+    // 4. Alterna para Anual
+    fireEvent.click(btnAnual)
+    expect(screen.getByTestId('filter-period-ano-select')).toBeInTheDocument()
+
+    // Aplica na visão Anual e confere estabilidade
+    const applyBtn = screen.getByRole('button', { name: /Aplicar filtros/i })
+    fireEvent.click(applyBtn)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('% 1020 no Lugar de AC')).toBeInTheDocument()
+      },
+      { timeout: 2000 },
+    )
   })
 
   // ==========================================
