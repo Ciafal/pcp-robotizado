@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,8 @@ import { MPCentralProjectionEngine } from '@/services/mp-central-projection-engi
 import { CalculationExplainerModal } from '@/components/mp-optimization/CalculationExplainerModal'
 import { LegacyExcelComparisonModal } from '@/components/mp-optimization/LegacyExcelComparisonModal'
 import { PurchaseSimulationModal } from '@/components/mp-optimization/PurchaseSimulationModal'
+import { DateInputPtBr, parseDatePtBr } from '@/components/mp-optimization/DateInputPtBr'
+import { pcpAuditService } from '@/services/pcp-audit-service'
 import {
   TrendingUp,
   AlertTriangle,
@@ -40,6 +42,10 @@ import {
   Sparkles,
   ChevronRight,
   ShieldCheck,
+  CalendarRange,
+  Loader2,
+  Info,
+  RotateCcw,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -54,11 +60,24 @@ import {
 } from 'recharts'
 
 export const MPProjectionsSubpage: React.FC = () => {
-  // Estados de Filtros Globais
+  // Estados de Filtros Globais Existentes
   const [selectedSteel, setSelectedSteel] = useState<string>('TODOS')
   const [selectedShape, setSelectedShape] = useState<string>('TODOS')
   const [selectedHorizon, setSelectedHorizon] = useState<string>('30_DIAS')
   const [searchTerm, setSearchTerm] = useState<string>('')
+
+  // Novos Campos de Período Personalizado "Período de / Até" (formato DD/MM/AAAA)
+  const [startDateInput, setStartDateInput] = useState<string>('')
+  const [endDateInput, setEndDateInput] = useState<string>('')
+  const [periodValidationMessage, setPeriodValidationMessage] = useState<string | null>(null)
+  const [activeCustomPeriod, setActiveCustomPeriod] = useState<{
+    startDateStr: string
+    endDateStr: string
+    startDate: Date
+    endDate: Date
+    durationDays: number
+  } | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
 
   // Modais de Auditoria, Homologação e Simulação
   const [explainerPayload, setExplainerPayload] = useState<CalculationExplainPayload | null>(null)
@@ -66,6 +85,9 @@ export const MPProjectionsSubpage: React.FC = () => {
   const [isExcelHomologOpen, setIsExcelHomologOpen] = useState(false)
   const [isSimulationOpen, setIsSimulationOpen] = useState(false)
   const [simulatedPurchases, setSimulatedPurchases] = useState<SimulatedPurchaseItem[]>([])
+
+  // Ref para guardar último período auditado e evitar duplicações
+  const lastAuditedPeriodRef = useRef<string | null>(null)
 
   // Dados Oficiais Integrados do SAP e PCP Robotizado para os Aços
   const baseSteelsData: Array<{
@@ -280,62 +302,270 @@ export const MPProjectionsSubpage: React.FC = () => {
     },
   ]
 
-  // Projeções Calculadas via Motor Central
-  const projections: SteelProjectionSummary[] = baseSteelsData.map((item) =>
-    MPCentralProjectionEngine.calculateSteelProjection(
-      item.steel,
-      item.shape,
-      item.avail,
-      item.consumption,
-      item.entries,
-      item.finishedChain,
-      simulatedPurchases,
-      item.minStock,
-    ),
-  )
+  // Validação e aplicação automática do filtro de período personalizado com debounce
+  useEffect(() => {
+    const hasStart = !!startDateInput.trim()
+    const hasEnd = !!endDateInput.trim()
 
-  // Filtros
-  const filteredProjections = projections.filter((p) => {
-    if (selectedSteel !== 'TODOS' && p.steelGrade !== selectedSteel) return false
-    if (selectedShape !== 'TODOS' && p.shape !== selectedShape) return false
-    if (searchTerm && !p.steelGrade.toLowerCase().includes(searchTerm.toLowerCase())) return false
-    return true
-  })
+    // 1. Cenário: ambas as datas limpas -> desativa período personalizado e volta ao Horizonte
+    if (!hasStart && !hasEnd) {
+      setPeriodValidationMessage(null)
+      setActiveCustomPeriod(null)
+      lastAuditedPeriodRef.current = null
+      return
+    }
 
-  // Métricas Consolidadas para os Cards Executivos
-  const totalStockTons = projections.reduce((acc, p) => acc + p.totalAvailableTons, 0)
-  const totalFreeTons = projections.reduce((acc, p) => acc + p.unrestrictedTons, 0)
-  const totalQualityTons = projections.reduce((acc, p) => acc + p.qualityControlTons, 0)
-  const totalConfirmedReceiptsTons = projections.reduce(
+    // 2. Cenário: somente uma das datas preenchida -> bloqueia aplicação com mensagem exigida
+    if (hasStart !== hasEnd) {
+      setPeriodValidationMessage(
+        'Informe a data inicial e a data final para aplicar o período personalizado.',
+      )
+      setActiveCustomPeriod(null)
+      return
+    }
+
+    // 3. Cenário: ambas preenchidas -> validar formato e datas reais
+    const parsedStart = parseDatePtBr(startDateInput)
+    const parsedEnd = parseDatePtBr(endDateInput)
+
+    // Se ainda está incompleto (menos de 10 caracteres como '01/10')
+    if (startDateInput.length < 10 || endDateInput.length < 10) {
+      setPeriodValidationMessage('Data incompleta. Utilize o formato DD/MM/AAAA.')
+      setActiveCustomPeriod(null)
+      return
+    }
+
+    if (!parsedStart || !parsedEnd) {
+      setPeriodValidationMessage('Data inválida. Verifique o dia, mês e ano informados.')
+      setActiveCustomPeriod(null)
+      return
+    }
+
+    // 4. Cenário: data inicial maior que data final
+    if (parsedStart.getTime() > parsedEnd.getTime()) {
+      setPeriodValidationMessage('A data inicial não pode ser posterior à data final.')
+      setActiveCustomPeriod(null)
+      return
+    }
+
+    // Período Válido: aplicar com debounce para suavidade
+    setPeriodValidationMessage(null)
+    setIsLoading(true)
+
+    const timer = setTimeout(() => {
+      const diffTime = Math.abs(parsedEnd.getTime() - parsedStart.getTime())
+      // Duração em dias inclusivos (ex: 01/10 até 01/10 = 1 dia)
+      const durationDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1
+
+      const newPeriod = {
+        startDateStr: startDateInput,
+        endDateStr: endDateInput,
+        startDate: parsedStart,
+        endDate: parsedEnd,
+        durationDays,
+      }
+      setActiveCustomPeriod(newPeriod)
+      setIsLoading(false)
+
+      // Registrar Auditoria Oficial via pcpAuditService (Requisito 9)
+      const auditKey = `${startDateInput}__${endDateInput}`
+      if (lastAuditedPeriodRef.current !== auditKey) {
+        lastAuditedPeriodRef.current = auditKey
+        pcpAuditService
+          .recordLog({
+            action: 'APLICAR_FILTRO_PERIODO_PERSONALIZADO',
+            event_type: 'RULE_ACTION',
+            screen: 'Gestão de MP > Projeções de MP',
+            module: 'PCP Robotizado',
+            details: {
+              tela: 'Projeções de MP',
+              periodo_inicial: startDateInput,
+              periodo_final: endDateInput,
+              dias_intervalo: durationDays,
+              filtro_vigente: 'PERIODO_PERSONALIZADO',
+              horizonte_anterior: selectedHorizon,
+              aco_selecionado: selectedSteel,
+              forma_selecionada: selectedShape,
+            },
+            justification: `Filtro de período personalizado de ${startDateInput} até ${endDateInput} (${durationDays} dia(s)) aplicado na tela Projeções de MP`,
+            source: 'Usuário',
+            status: 'Concluída',
+            outcome: 'SUCCESS',
+          })
+          .catch((err) => {
+            console.warn('Erro ao registrar log de auditoria do período:', err)
+          })
+      }
+    }, 250)
+
+    return () => clearTimeout(timer)
+  }, [startDateInput, endDateInput, selectedHorizon, selectedSteel, selectedShape])
+
+  // Limpeza rápida de ambas as datas (volta ao Horizonte normal)
+  const handleClearCustomPeriod = () => {
+    setStartDateInput('')
+    setEndDateInput('')
+    setPeriodValidationMessage(null)
+    setActiveCustomPeriod(null)
+    lastAuditedPeriodRef.current = null
+  }
+
+  // Resolução da quantidade de dias vigente para o horizonte analítico:
+  // Se período personalizado ativo, durationDays vigente; senão, dias do selectedHorizon.
+  const horizonDays = useMemo(() => {
+    if (activeCustomPeriod) {
+      return Math.max(1, activeCustomPeriod.durationDays)
+    }
+    switch (selectedHorizon) {
+      case '7_DIAS':
+        return 7
+      case '15_DIAS':
+        return 15
+      case '60_DIAS':
+        return 60
+      case '90_DIAS':
+        return 90
+      case '30_DIAS':
+      default:
+        return 30
+    }
+  }, [activeCustomPeriod, selectedHorizon])
+
+  // Dados com escala proporcional ao período vigente para o consumo programado e entradas
+  // Fator proporcional = horizonDays / 30 (base padrão de 30 dias das ordens mensais)
+  // O estoque disponível inicial é pontual (saldo físico) e mantido intacto.
+  // Fórmulas e regras de cálculo do MPCentralProjectionEngine permanecem 100% inalteradas.
+  const timeFactor = horizonDays / 30.0
+
+  // Projeções Calculadas via Motor Central Determinístico CIAFAL
+  const projections: SteelProjectionSummary[] = useMemo(() => {
+    return baseSteelsData.map((item) => {
+      // Ajuste proporcional do consumo e entradas para o intervalo selecionado
+      const scaledConsumption = {
+        l1Tons: Number((item.consumption.l1Tons * timeFactor).toFixed(1)),
+        l2Tons: Number((item.consumption.l2Tons * timeFactor).toFixed(1)),
+        monthlyAverage: item.consumption.monthlyAverage,
+      }
+
+      // Entradas previstas no intervalo
+      const scaledEntries = {
+        confirmedReceipts:
+          horizonDays >= 7
+            ? item.entries.confirmedReceipts
+            : Number(((item.entries.confirmedReceipts * horizonDays) / 7).toFixed(1)),
+        transitOrders:
+          horizonDays >= 14
+            ? item.entries.transitOrders
+            : horizonDays >= 7
+              ? Number((item.entries.transitOrders * 0.5).toFixed(1))
+              : 0,
+        projectedL2Prod: Number((item.entries.projectedL2Prod * timeFactor).toFixed(1)),
+        l2YieldFactor: 0.95,
+      }
+
+      const referenceDate = activeCustomPeriod ? activeCustomPeriod.startDate : new Date()
+
+      return MPCentralProjectionEngine.calculateSteelProjection(
+        item.steel,
+        item.shape,
+        item.avail,
+        scaledConsumption,
+        scaledEntries,
+        item.finishedChain,
+        simulatedPurchases,
+        item.minStock,
+        referenceDate,
+      )
+    })
+  }, [baseSteelsData, timeFactor, horizonDays, activeCustomPeriod, simulatedPurchases])
+
+  // Filtros de Aço, Forma e Termo de Busca aplicados sobre as projeções recalculadas
+  const filteredProjections = useMemo(() => {
+    return projections.filter((p) => {
+      if (selectedSteel !== 'TODOS' && p.steelGrade !== selectedSteel) return false
+      if (selectedShape !== 'TODOS' && p.shape !== selectedShape) return false
+      if (searchTerm && !p.steelGrade.toLowerCase().includes(searchTerm.toLowerCase())) return false
+      return true
+    })
+  }, [projections, selectedSteel, selectedShape, searchTerm])
+
+  // Métricas Consolidadas para os Cards Executivos (considerando os filtros ativos)
+  const targetForCards = filteredProjections.length > 0 ? filteredProjections : projections
+  const totalStockTons = targetForCards.reduce((acc, p) => acc + p.totalAvailableTons, 0)
+  const totalFreeTons = targetForCards.reduce((acc, p) => acc + p.unrestrictedTons, 0)
+  const totalQualityTons = targetForCards.reduce((acc, p) => acc + p.qualityControlTons, 0)
+  const totalConfirmedReceiptsTons = targetForCards.reduce(
     (acc, p) => acc + p.confirmedReceiptsTons,
     0,
   )
   const totalSimulatedTons = simulatedPurchases.reduce((acc, p) => acc + p.quantityTons, 0)
-  const steelsInRisk = projections.filter(
+  const steelsInRisk = targetForCards.filter(
     (p) => p.riskLevel === 'VERMELHO' || p.riskLevel === 'LARANJA',
   ).length
 
-  // Gráfico Temporal Consolidado (30 dias)
-  const chartData = Array.from({ length: 30 }, (_, i) => {
-    const day = i + 1
-    const baseTotal = totalStockTons
-    const consumptionRate = 45 // t/dia
-    const entryDay = day === 7 ? totalConfirmedReceiptsTons : day === 15 ? 120 : 0
-    const simEntry = day === 12 && totalSimulatedTons > 0 ? totalSimulatedTons : 0
-    const projected = Math.max(
-      0,
-      baseTotal - day * consumptionRate + entryDay * (day >= 7 ? 1 : 0) + simEntry,
-    )
-    return {
-      dia: `D+${day}`,
-      'Estoque Projetado (t)': Number(projected.toFixed(1)),
-      'Estoque Mínimo (t)': 230,
-      'Consumo Acumulado (t)': Number((day * consumptionRate).toFixed(1)),
-      'Entradas Previstas (t)': Number(
-        (day >= 7 ? totalConfirmedReceiptsTons : 0) + (day >= 12 ? totalSimulatedTons : 0),
-      ),
+  // Identificação do primeiro aço com ruptura dentro do horizonte analisado
+  const earliestRupture = useMemo(() => {
+    const sorted = [...targetForCards].sort((a, b) => a.dailyRuptureDays - b.dailyRuptureDays)
+    const first = sorted.find((p) => p.dailyRuptureDays <= horizonDays)
+    if (!first) {
+      return {
+        label: 'Nenhuma no período',
+        subtitle: `Autonomia > ${horizonDays}d`,
+      }
     }
-  })
+    return {
+      label: `${first.steelGrade} (${first.dailyRuptureDays}d)`,
+      subtitle: `Ruptura em ${first.dailyRuptureDate}`,
+    }
+  }, [targetForCards, horizonDays])
+
+  // Gráfico Temporal Consolidado adaptado à quantidade de dias do período vigente
+  const chartPointsCount = Math.min(horizonDays, 90)
+  const chartData = useMemo(() => {
+    const consumptionRatePerDay = totalStockTons > 0 ? (totalStockTons / 30) * 0.2 : 45
+    return Array.from({ length: chartPointsCount }, (_, i) => {
+      const day = i + 1
+      const baseTotal = totalStockTons
+      const entryDay =
+        day === Math.min(7, chartPointsCount)
+          ? totalConfirmedReceiptsTons
+          : day === Math.min(15, chartPointsCount)
+            ? 120
+            : 0
+      const simEntry =
+        day === Math.min(12, chartPointsCount) && totalSimulatedTons > 0 ? totalSimulatedTons : 0
+      const accumulatedConsumption = day * consumptionRatePerDay
+      const projected = Math.max(
+        0,
+        baseTotal -
+          accumulatedConsumption +
+          entryDay * (day >= Math.min(7, chartPointsCount) ? 1 : 0) +
+          simEntry,
+      )
+
+      let diaLabel = `D+${day}`
+      if (activeCustomPeriod) {
+        const dObj = new Date(activeCustomPeriod.startDate.getTime() + (day - 1) * 86400000)
+        diaLabel = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}`
+      }
+
+      return {
+        dia: diaLabel,
+        'Estoque Projetado (t)': Number(projected.toFixed(1)),
+        'Estoque Mínimo (t)': 230,
+        'Consumo Acumulado (t)': Number(accumulatedConsumption.toFixed(1)),
+        'Entradas Previstas (t)': Number(
+          (day >= 7 ? totalConfirmedReceiptsTons : 0) + (day >= 12 ? totalSimulatedTons : 0),
+        ),
+      }
+    })
+  }, [
+    chartPointsCount,
+    totalStockTons,
+    totalConfirmedReceiptsTons,
+    totalSimulatedTons,
+    activeCustomPeriod,
+  ])
 
   // Handlers para Simulação
   const handleAddSimulatedPurchase = (item: SimulatedPurchaseItem) => {
@@ -483,7 +713,7 @@ export const MPProjectionsSubpage: React.FC = () => {
               <span className="text-xs font-normal text-slate-500">t</span>
             </div>
             <span className="text-[10px] text-blue-600 font-semibold block mt-0.5">
-              Entradas confirmadas
+              Entradas no período
             </span>
           </CardContent>
         </Card>
@@ -515,9 +745,14 @@ export const MPProjectionsSubpage: React.FC = () => {
             <div
               className={`text-xl font-black font-mono mt-1 ${steelsInRisk > 0 ? 'text-rose-600' : 'text-emerald-600'}`}
             >
-              {steelsInRisk} <span className="text-xs font-normal text-slate-500">de 6</span>
+              {steelsInRisk}{' '}
+              <span className="text-xs font-normal text-slate-500">
+                de {filteredProjections.length}
+              </span>
             </div>
-            <span className="text-[10px] text-slate-500 block mt-0.5">Horizonte &lt; 15 dias</span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              Ruptura &lt; {horizonDays}d
+            </span>
           </CardContent>
         </Card>
 
@@ -526,74 +761,177 @@ export const MPProjectionsSubpage: React.FC = () => {
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
               Primeira Ruptura
             </span>
-            <div className="text-sm font-black text-rose-700 font-mono mt-1">SAE 1045 (18d)</div>
-            <span className="text-[10px] text-rose-600 font-semibold block mt-0.5">
-              Pedido chega 4d após
+            <div className="text-sm font-black text-rose-700 font-mono mt-1 truncate">
+              {earliestRupture.label}
+            </div>
+            <span className="text-[10px] text-rose-600 font-semibold block mt-0.5 truncate">
+              {earliestRupture.subtitle}
             </span>
           </CardContent>
         </Card>
       </div>
 
-      {/* Barra de Filtros Rápidos */}
-      <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-lg border border-slate-200 text-xs">
-        <div className="w-48">
-          <Input
-            placeholder="Buscar por aço..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-8 text-xs bg-slate-50"
-          />
+      {/* Barra de Filtros Rápidos com Período Personalizado De / Até Integrado */}
+      <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs shadow-xs space-y-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* 1. Buscar por Aço */}
+          <div className="w-44 min-w-[150px]">
+            <Input
+              placeholder="Buscar por aço..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8 text-xs bg-slate-50"
+              aria-label="Buscar por aço"
+            />
+          </div>
+
+          {/* 2. Seleção de Aço */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-semibold shrink-0">Aço:</span>
+            <Select value={selectedSteel} onValueChange={setSelectedSteel}>
+              <SelectTrigger className="h-8 w-36 text-xs bg-slate-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODOS">Todos os Aços</SelectItem>
+                <SelectItem value="SAE 1020">SAE 1020</SelectItem>
+                <SelectItem value="SAE 1045">SAE 1045</SelectItem>
+                <SelectItem value="SAE 4140">SAE 4140</SelectItem>
+                <SelectItem value="SAE 8620">SAE 8620</SelectItem>
+                <SelectItem value="SAE 4340">SAE 4340</SelectItem>
+                <SelectItem value="20MnCr5">20MnCr5</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 3. Seleção de Forma */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-semibold shrink-0">Forma:</span>
+            <Select value={selectedShape} onValueChange={setSelectedShape}>
+              <SelectTrigger className="h-8 w-36 text-xs bg-slate-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODOS">Todas as Formas</SelectItem>
+                <SelectItem value="TARUGO">Tarugos</SelectItem>
+                <SelectItem value="PALANQUILHA">Palanquilhas</SelectItem>
+                <SelectItem value="PLACA">Placas</SelectItem>
+                <SelectItem value="LINGOTE">Lingotes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 4. Seleção de Horizonte (continua ativo e funcional; com badge se sobreposto) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-semibold shrink-0">Horizonte:</span>
+            <div className="relative">
+              <Select
+                value={selectedHorizon}
+                onValueChange={(val) => {
+                  setSelectedHorizon(val)
+                  // Se o usuário mexer no Horizonte enquanto tem período personalizado,
+                  // o comportamento permanece compatível sem conflitos
+                }}
+              >
+                <SelectTrigger
+                  className={`h-8 w-32 text-xs bg-slate-50 ${
+                    activeCustomPeriod ? 'opacity-60 border-dashed border-amber-300' : ''
+                  }`}
+                  title={
+                    activeCustomPeriod
+                      ? 'Período personalizado ativo tem precedência sobre o Horizonte padrão'
+                      : 'Horizonte padrão'
+                  }
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7_DIAS">7 Dias</SelectItem>
+                  <SelectItem value="15_DIAS">15 Dias</SelectItem>
+                  <SelectItem value="30_DIAS">30 Dias</SelectItem>
+                  <SelectItem value="60_DIAS">60 Dias</SelectItem>
+                  <SelectItem value="90_DIAS">90 Dias</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Divisor vertical em telas maiores */}
+          <div className="hidden lg:block h-5 w-[1px] bg-slate-200 mx-0.5" />
+
+          {/* 5. Novos Campos de Período Personalizado "Período de" e "Até" */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-600 font-semibold shrink-0">Período de:</span>
+            <DateInputPtBr
+              id="filtro-periodo-de"
+              label="Período de"
+              value={startDateInput}
+              onChange={setStartDateInput}
+              placeholder="01/10/2026"
+              className="w-32 min-w-[120px]"
+              hasError={!!periodValidationMessage}
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-600 font-semibold shrink-0">Até:</span>
+            <DateInputPtBr
+              id="filtro-periodo-ate"
+              label="Até"
+              value={endDateInput}
+              onChange={setEndDateInput}
+              placeholder="31/10/2026"
+              className="w-32 min-w-[120px]"
+              hasError={!!periodValidationMessage}
+            />
+          </div>
+
+          {/* Indicador de carregamento suave / feedback */}
+          {isLoading && (
+            <div className="flex items-center gap-1 text-slate-500 text-[11px] animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#004C97]" />
+              <span>Calculando...</span>
+            </div>
+          )}
+
+          {/* Botão para limpar período personalizado e voltar ao Horizonte padrão */}
+          {(startDateInput || endDateInput || activeCustomPeriod) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClearCustomPeriod}
+              className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 gap-1"
+              title="Limpar período personalizado e retornar ao Horizonte selecionado"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Limpar período</span>
+            </Button>
+          )}
+
+          {/* Badge Indicador de Período Personalizado Ativo (Requisito 4) */}
+          {activeCustomPeriod && (
+            <Badge
+              variant="outline"
+              className="bg-blue-50 border-blue-300 text-[#004C97] text-[11px] font-semibold gap-1 py-1 px-2 shrink-0"
+            >
+              <CalendarRange className="w-3.5 h-3.5 text-[#004C97]" />
+              Período personalizado ativo: {activeCustomPeriod.startDateStr} até{' '}
+              {activeCustomPeriod.endDateStr} ({activeCustomPeriod.durationDays}d)
+            </Badge>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500 font-semibold">Aço:</span>
-          <Select value={selectedSteel} onValueChange={setSelectedSteel}>
-            <SelectTrigger className="h-8 w-36 text-xs bg-slate-50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="TODOS">Todos os Aços</SelectItem>
-              <SelectItem value="SAE 1020">SAE 1020</SelectItem>
-              <SelectItem value="SAE 1045">SAE 1045</SelectItem>
-              <SelectItem value="SAE 4140">SAE 4140</SelectItem>
-              <SelectItem value="SAE 8620">SAE 8620</SelectItem>
-              <SelectItem value="SAE 4340">SAE 4340</SelectItem>
-              <SelectItem value="20MnCr5">20MnCr5</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500 font-semibold">Forma:</span>
-          <Select value={selectedShape} onValueChange={setSelectedShape}>
-            <SelectTrigger className="h-8 w-36 text-xs bg-slate-50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="TODOS">Todas as Formas</SelectItem>
-              <SelectItem value="TARUGO">Tarugos</SelectItem>
-              <SelectItem value="PALANQUILHA">Palanquilhas</SelectItem>
-              <SelectItem value="PLACA">Placas</SelectItem>
-              <SelectItem value="LINGOTE">Lingotes</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500 font-semibold">Horizonte:</span>
-          <Select value={selectedHorizon} onValueChange={setSelectedHorizon}>
-            <SelectTrigger className="h-8 w-32 text-xs bg-slate-50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7_DIAS">7 Dias</SelectItem>
-              <SelectItem value="15_DIAS">15 Dias</SelectItem>
-              <SelectItem value="30_DIAS">30 Dias</SelectItem>
-              <SelectItem value="60_DIAS">60 Dias</SelectItem>
-              <SelectItem value="90_DIAS">90 Dias</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Mensagens de Validação Obrigatórias (sem apagar os demais filtros) */}
+        {periodValidationMessage && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 p-2 bg-rose-50 border border-rose-200 text-rose-800 rounded-md text-xs"
+          >
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span className="font-medium">{periodValidationMessage}</span>
+          </div>
+        )}
       </div>
 
       {/* Tabela Principal de Projeções de MP com Dupla Metodologia e Explicabilidade */}
@@ -606,6 +944,14 @@ export const MPProjectionsSubpage: React.FC = () => {
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Apresentação simultânea do Modelo Excel (médio) vs Motor Diário Operacional CIAFAL
+                {activeCustomPeriod ? (
+                  <span className="ml-1 text-[#004C97] font-semibold">
+                    • Período Filtrado: {activeCustomPeriod.startDateStr} até{' '}
+                    {activeCustomPeriod.endDateStr} ({activeCustomPeriod.durationDays} dias)
+                  </span>
+                ) : (
+                  <span className="ml-1 text-slate-500">• Horizonte: {horizonDays} dias</span>
+                )}
               </CardDescription>
             </div>
             <div className="flex items-center gap-3 text-xs">
@@ -845,13 +1191,23 @@ export const MPProjectionsSubpage: React.FC = () => {
                 Curva Temporal de Estoque Projetado vs Consumo e Ruptura Operacional
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Projeção contínua nos próximos 30 dias com linha de corte do Estoque Mínimo de
-                Segurança
+                Projeção contínua no período vigente ({horizonDays} dias
+                {activeCustomPeriod
+                  ? `: ${activeCustomPeriod.startDateStr} até ${activeCustomPeriod.endDateStr}`
+                  : ''}
+                ) com linha de corte do Estoque Mínimo de Segurança
               </CardDescription>
             </div>
-            <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-xs">
-              Granularidade Diária
-            </Badge>
+            <div className="flex items-center gap-2">
+              {activeCustomPeriod && (
+                <Badge className="bg-blue-50 text-[#004C97] border-blue-300 text-xs">
+                  {activeCustomPeriod.durationDays} dias no gráfico
+                </Badge>
+              )}
+              <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-xs">
+                Granularidade Diária
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-4">

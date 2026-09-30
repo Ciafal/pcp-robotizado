@@ -81,6 +81,7 @@ export class MPCentralProjectionEngine {
     },
     simulatedPurchases: SimulatedPurchaseItem[] = [],
     minStockLimitTons: number = 50,
+    referenceDate?: Date,
   ): SteelProjectionSummary {
     const totalAvailable = availableTons.unrestricted + availableTons.quality // MP total disponível
     const operationalAvailable = Math.max(0, availableTons.unrestricted - availableTons.blocked)
@@ -106,7 +107,7 @@ export class MPCentralProjectionEngine {
     const excelCoverageMonths = Number((projectedBalance / monthlyRate).toFixed(2))
     const excelCoverageDays = Math.max(0, Math.round(excelCoverageMonths * 30))
 
-    const now = new Date()
+    const now = referenceDate ? new Date(referenceDate.getTime()) : new Date()
     const excelRuptureDateObj = new Date(now.getTime() + excelCoverageDays * 24 * 60 * 60 * 1000)
     const excelRuptureDate = excelRuptureDateObj.toLocaleDateString('pt-BR')
 
