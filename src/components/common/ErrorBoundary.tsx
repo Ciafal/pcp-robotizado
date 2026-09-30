@@ -47,6 +47,16 @@ export class ErrorBoundary extends Component<Props, State> {
     // Se o erro for de chunk dinâmico desatualizado, tenta um reload automático único
     if (isChunkLoadError(error)) {
       triggerChunkReloadOnce()
+    } else {
+      const msg = String(error?.message || '').toLowerCase()
+      if (
+        msg.includes('dynamically imported module') ||
+        msg.includes('error loading dynamically imported module') ||
+        msg.includes('failed to fetch dynamically imported module') ||
+        msg.includes('loading chunk')
+      ) {
+        triggerChunkReloadOnce()
+      }
     }
 
     // Registra o código de ocorrência e stack internamente nos logs de auditoria (pcp_audit_logs)

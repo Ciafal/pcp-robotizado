@@ -22,13 +22,17 @@ const CHUNK_RELOAD_FLAG = 'pcp_chunk_reload_attempted'
  */
 export function isChunkLoadError(error: unknown): boolean {
   if (!error) return false
-  const message = error instanceof Error ? error.message : String(error)
+  const rawMessage =
+    error instanceof Error ? `${error.name}: ${error.message} ${error.stack || ''}` : String(error)
+  const message = rawMessage.toLowerCase()
   return (
-    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('failed to fetch dynamically imported module') ||
     message.includes('error loading dynamically imported module') ||
-    message.includes('Loading chunk') ||
-    message.includes('Failed to load module script') ||
-    message.includes('Expected a JavaScript module script')
+    message.includes('loading chunk') ||
+    message.includes('failed to load module script') ||
+    message.includes('expected a javascript module script') ||
+    message.includes('dynamically imported module') ||
+    message.includes('unable to preload css')
   )
 }
 
@@ -238,7 +242,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       lastError,
     )
 
-    // Se for erro de chunk, tenta reload automático único transparente
+    // Se for erro de chunk (ou erro de carregamento dinâmico), tenta reload automático único transparente
     if (isChunkLoadError(lastError)) {
       const reloaded = triggerChunkReloadOnce()
       if (reloaded) {
@@ -247,6 +251,21 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       }
       // Se o reload automático já foi consumido nesta sessão, renderiza estado de erro amigável
       // com botão para recarregar explicitamente a página (sem tela branca e sem suspense infinito)
+      return createChunkErrorFallback<T>(moduleName, lastError)
+    }
+
+    // Se não for explicitamente categorizado como chunk error mas for erro de rede/TypeError de import
+    const errStr = String(lastError || '').toLowerCase()
+    if (
+      errStr.includes('import') ||
+      errStr.includes('fetch') ||
+      errStr.includes('failed') ||
+      errStr.includes('network')
+    ) {
+      const reloaded = triggerChunkReloadOnce()
+      if (reloaded) {
+        return new Promise<{ default: T }>(() => {})
+      }
       return createChunkErrorFallback<T>(moduleName, lastError)
     }
 
