@@ -16,6 +16,7 @@ import {
   Lightbulb,
   Lock,
   PauseCircle,
+  Percent,
   Plus,
   RefreshCw,
   Server,
@@ -96,6 +97,8 @@ import { LineRawMaterialPriority } from '@/types/line-master'
 import { RawMaterialApplicationsPanel } from '@/components/line-master/RawMaterialApplicationsPanel'
 import { rawMaterialApplicationService } from '@/services/raw-material-application-service'
 import { CenterBuffersAndLungsPanel } from '@/components/line-master/CenterBuffersAndLungsPanel'
+import { TheoreticalLossesPanel } from '@/components/line-master/TheoreticalLossesPanel'
+import { theoreticalLossesService } from '@/services/theoretical-losses-service'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -330,7 +333,24 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'PROGRAMMING_PARAMETERS'
     | 'BUFFERS'
     | 'PULMOES'
+    | 'THEORETICAL_LOSSES'
   >('CAPACITY')
+
+  // Contagem de perdas teóricas cadastradas na linha
+  const [theoreticalLossesCount, setTheoreticalLossesCount] = useState<number>(0)
+
+  const loadTheoreticalLossesCount = React.useCallback(async () => {
+    try {
+      const list = await theoreticalLossesService.listByLine(line.id)
+      setTheoreticalLossesCount(list.length)
+    } catch (err) {
+      console.warn('Erro ao carregar contagem de perdas teóricas:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadTheoreticalLossesCount()
+  }, [loadTheoreticalLossesCount, overview])
 
   // Contagem de especificações de Matéria-Prima por Aplicação
   const [rawMaterialApplicationsCount, setRawMaterialApplicationsCount] = useState<number>(0)
@@ -2491,6 +2511,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </span>
             </Button>
 
+            {/* Nova Sub-aba: Perdas Teóricas da Ficha Mestra */}
+            <Button
+              size="sm"
+              data-testid="tab-theoretical-losses"
+              variant={masterSubTab === 'THEORETICAL_LOSSES' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('THEORETICAL_LOSSES')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'THEORETICAL_LOSSES'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Perdas Teóricas (RM, Carepa, Apara)"
+            >
+              <Percent className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              <span className="truncate">Perdas Teóricas ({theoreticalLossesCount})</span>
+            </Button>
+
             <Button
               size="sm"
               variant={masterSubTab === 'BLOCKED' ? 'default' : 'ghost'}
@@ -3075,6 +3112,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               lineMasterId={master?.id}
               onRefreshParent={() => {
                 loadRawMaterialApplicationsCount()
+                onRefresh()
+              }}
+            />
+          )}
+
+          {/* Sub-aba: Perdas Teóricas */}
+          {masterSubTab === 'THEORETICAL_LOSSES' && (
+            <TheoreticalLossesPanel
+              lineId={line.id}
+              centerCode={line.code}
+              centerName={line.name}
+              lineMasterId={master?.id}
+              onRefreshParent={() => {
+                loadTheoreticalLossesCount()
                 onRefresh()
               }}
             />

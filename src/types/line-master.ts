@@ -868,6 +868,8 @@ export interface CompletenessItem {
       | 'PROGRAMMING_PARAMETERS'
       | 'BUFFERS'
       | 'PULMOES'
+      | 'THEORETICAL_LOSSES'
+      | 'RAW_MATERIAL_APPLICATIONS'
     anchorId?: string
   }
 }
