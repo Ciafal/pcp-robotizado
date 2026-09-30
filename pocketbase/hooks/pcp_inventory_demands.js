@@ -96,9 +96,13 @@ onRecordCreateRequest((e) => {
   const auth = e.auth
 
   // Em ambiente corporativo com auth ativo usa o id do auth; caso contrário aceita o requester enviado ou fallback
-  const requesterId = auth ? auth.id : (e.record.getString('requester_id') || 'usr-pcp')
-  const requesterName = auth ? (auth.get('name') || auth.get('email') || 'Programador PCP') : (e.record.getString('requester_name') || 'Programador PCP')
-  const requesterRole = auth ? (auth.get('role') || 'PCP_PROGRAMMER') : (e.record.getString('requester_role') || 'PCP_PROGRAMMER')
+  const requesterId = auth ? auth.id : e.record.getString('requester_id') || 'usr-pcp'
+  const requesterName = auth
+    ? auth.get('name') || auth.get('email') || 'Programador PCP'
+    : e.record.getString('requester_name') || 'Programador PCP'
+  const requesterRole = auth
+    ? auth.get('role') || 'PCP_PROGRAMMER'
+    : e.record.getString('requester_role') || 'PCP_PROGRAMMER'
 
   e.record.set('requester_id', requesterId)
   e.record.set('requester_name', requesterName)
