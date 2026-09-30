@@ -188,65 +188,84 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     return `${val > 0 ? '+' : '−'}${formatted}%`
   }
 
+  // Erros inline de validação do formulário de contagem
+  const [formErrors, setFormErrors] = useState<{
+    runNumber?: string
+    locationWms?: string
+    piecesCount?: string
+  }>({})
+
   // Adicionar nova contagem física
   const handleAddEntry = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!demand?.id) return
+    if (!demand?.id || savingEntry) return
 
-    if (!runNumber.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Corrida obrigatória',
-        description: 'Informe o número da corrida.',
-      })
-      return
-    }
-    if (!locationWms.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Localização obrigatória',
-        description: 'Informe a localização no WMS ou depósito.',
-      })
-      return
-    }
-    const count = parseInt(piecesCount, 10)
-    if (isNaN(count) || count < 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Quantidade inválida',
-        description: 'Informe um número de peças maior ou igual a zero.',
-      })
-      return
+    const errors: { runNumber?: string; locationWms?: string; piecesCount?: string } = {}
+
+    const runTrim = runNumber.trim()
+    const locTrim = locationWms.trim()
+    const rawPieces = piecesCount.trim()
+
+    if (!runTrim) {
+      errors.runNumber = 'Informe o número da corrida.'
     }
 
+    if (!locTrim) {
+      errors.locationWms = 'Informe a localização no WMS.'
+    }
+
+    if (!rawPieces) {
+      errors.piecesCount = 'Informe o número de peças.'
+    } else {
+      const parsed = parseInt(rawPieces, 10)
+      if (isNaN(parsed) || parsed <= 0) {
+        errors.piecesCount = 'O número de peças deve ser maior que zero.'
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    setFormErrors({})
     setSavingEntry(true)
+
+    const count = parseInt(rawPieces, 10)
     try {
       const payload: CreateEntryPayload = {
         demand_id: demand.id,
-        run_number: runNumber.trim(),
-        location_wms: locationWms.trim(),
+        run_number: runTrim,
+        location_wms: locTrim,
         pieces_count: count,
         gauge: gauges[0]?.gauge || 'Tarugo 130mm',
         notes: notes.trim() || undefined,
       }
 
-      await pcpInventoryDemandsService.addEntry(payload)
+      const saved = await pcpInventoryDemandsService.addEntry(payload)
 
       toast({
-        title: 'Contagem registrada com sucesso',
-        description: `${count} peças registradas na localização ${locationWms.trim()}.`,
+        title: 'Contagem salva com sucesso.',
+        description: `Contagem de ${count} peças da corrida ${runTrim} salva com sucesso.`,
       })
 
+      // Limpa os campos SOMENTE após sucesso confirmado pelo backend
       setPiecesCount('')
       setNotes('')
       setShowAddForm(false)
+
+      // Atualiza o grid imediatamente sem depender de recarregar página
+      if (saved) {
+        setEntries((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)])
+      }
       await loadData()
     } catch (err: any) {
       console.error('Erro ao adicionar contagem:', err)
+      // Em erro, mensagem clara e NÃO limpa os campos
       toast({
         variant: 'destructive',
-        title: 'Erro ao registrar contagem',
-        description: err?.message || 'Falha ao salvar contagem física.',
+        title: 'Não foi possível salvar a contagem.',
+        description: 'Não foi possível salvar a contagem. Tente novamente.',
       })
     } finally {
       setSavingEntry(false)
@@ -578,12 +597,22 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                     <Label className="text-[11px] font-semibold text-slate-700">Corrida *</Label>
                     <Input
                       value={runNumber}
-                      onChange={(e) => setRunNumber(e.target.value)}
+                      onChange={(e) => {
+                        setRunNumber(e.target.value)
+                        if (formErrors.runNumber) {
+                          setFormErrors((prev) => ({ ...prev, runNumber: undefined }))
+                        }
+                      }}
                       placeholder="Ex.: 458921"
-                      className="text-xs h-8 font-mono mt-0.5"
+                      className={`text-xs h-8 font-mono mt-0.5 ${formErrors.runNumber ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       disabled={savingEntry}
                       autoFocus
                     />
+                    {formErrors.runNumber && (
+                      <span className="text-[10px] text-rose-600 font-medium block mt-0.5">
+                        {formErrors.runNumber}
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -592,11 +621,21 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                     </Label>
                     <Input
                       value={locationWms}
-                      onChange={(e) => setLocationWms(e.target.value)}
+                      onChange={(e) => {
+                        setLocationWms(e.target.value)
+                        if (formErrors.locationWms) {
+                          setFormErrors((prev) => ({ ...prev, locationWms: undefined }))
+                        }
+                      }}
                       placeholder="Ex.: DP07-RUA02-BL04"
-                      className="text-xs h-8 mt-0.5"
+                      className={`text-xs h-8 mt-0.5 ${formErrors.locationWms ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       disabled={savingEntry}
                     />
+                    {formErrors.locationWms && (
+                      <span className="text-[10px] text-rose-600 font-medium block mt-0.5">
+                        {formErrors.locationWms}
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -605,13 +644,23 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                     </Label>
                     <Input
                       type="number"
-                      min="0"
+                      min="1"
                       value={piecesCount}
-                      onChange={(e) => setPiecesCount(e.target.value)}
+                      onChange={(e) => {
+                        setPiecesCount(e.target.value)
+                        if (formErrors.piecesCount) {
+                          setFormErrors((prev) => ({ ...prev, piecesCount: undefined }))
+                        }
+                      }}
                       placeholder="Ex.: 40"
-                      className="text-xs h-8 font-mono font-bold mt-0.5"
+                      className={`text-xs h-8 font-mono font-bold mt-0.5 ${formErrors.piecesCount ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                       disabled={savingEntry}
                     />
+                    {formErrors.piecesCount && (
+                      <span className="text-[10px] text-rose-600 font-medium block mt-0.5">
+                        {formErrors.piecesCount}
+                      </span>
+                    )}
                   </div>
                 </div>
 

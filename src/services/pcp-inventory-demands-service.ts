@@ -175,22 +175,68 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Obtém os lançamentos (contagens físicas) de uma demanda
+   * Obtém os lançamentos (contagens físicas) de uma demanda persistidos em pcp_mp_inventory_items
    */
   async listEntriesByDemand(
     demandId: string,
     onlyActive: boolean = true,
   ): Promise<InventoryEntry[]> {
     try {
+      // Prioridade 1: Leitura na coleção real pcp_mp_inventory_items com is_count_entry = true
       const filter = onlyActive
-        ? `demand_id = '${demandId}' && is_active = true`
-        : `demand_id = '${demandId}'`
-      const records = await pb.collection('pcp_mp_inventory_entries').getFullList<InventoryEntry>({
+        ? `demand_id = '${demandId}' && is_count_entry = true && is_active = true`
+        : `demand_id = '${demandId}' && is_count_entry = true`
+
+      const records = await pb.collection('pcp_mp_inventory_items').getFullList({
         filter,
         sort: '-created',
       })
-      return records
-    } catch {
+
+      if (records && records.length > 0) {
+        return records.map((r: any) => ({
+          id: r.id,
+          demand_id: r.demand_id || demandId,
+          run_id: r.id,
+          control_number: r.control_number || r.inventory_code || '',
+          run_number: r.run_number || r.heat_number || '',
+          gauge: r.gauge || r.produced_gauge_product || 'Tarugo 130mm',
+          location_wms: r.location_wms || r.wms_physical_location || '',
+          pieces_count: Number(r.pieces_count ?? r.dp07_inventoried_pieces ?? 0),
+          entry_date_formatted:
+            r.entry_date_formatted || r.updated_at_timestamp || formatPtBrDateTime(),
+          user_id: r.user_id || '',
+          user_name: r.user_name || r.responsible_user || 'Operador DP07',
+          user_role: r.user_role || '',
+          notes: r.notes || r.dp07_observation || '',
+          is_active: r.is_active !== false,
+          created: r.created,
+          updated: r.updated,
+        }))
+      }
+
+      // Fallback de compatibilidade caso haja legados em pcp_mp_inventory_entries
+      try {
+        const legacyEntries = await pb
+          .collection('pcp_mp_inventory_entries')
+          .getFullList<InventoryEntry>({
+            filter: onlyActive
+              ? `demand_id = '${demandId}' && is_active = true`
+              : `demand_id = '${demandId}'`,
+            sort: '-created',
+          })
+        if (legacyEntries && legacyEntries.length > 0) {
+          return legacyEntries
+        }
+      } catch {
+        // Fallback não encontrado, continua
+      }
+
+      return []
+    } catch (err) {
+      console.warn(
+        '[PCP-INVENTORY] Erro ao listar contagens da demanda em pcp_mp_inventory_items:',
+        err,
+      )
       return []
     }
   }
@@ -529,7 +575,8 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Adiciona um lançamento (contagem física)
+   * Adiciona um lançamento (contagem física) persistindo em pcp_mp_inventory_items
+   * e registrando LANCAMENTO_ADICIONADO em pcp_mp_inventory_history
    */
   async addEntry(payload: CreateEntryPayload): Promise<InventoryEntry> {
     const demand = await this.getDemandById(payload.demand_id)
@@ -537,31 +584,187 @@ class PcpInventoryDemandsService {
       throw new Error('Demanda não encontrada.')
     }
 
+    const count = Number(payload.pieces_count)
+    if (isNaN(count) || count < 0) {
+      throw new Error('O número de peças deve ser maior ou igual a zero.')
+    }
+
+    const runNumberTrim = (payload.run_number || '').trim()
+    const locationWmsTrim = (payload.location_wms || '').trim()
+    if (!runNumberTrim) {
+      throw new Error('Informe o número da corrida.')
+    }
+    if (!locationWmsTrim) {
+      throw new Error('Informe a localização no WMS.')
+    }
+
     const nowStr = formatPtBrDateTime()
+    const nowIso = new Date().toISOString()
     const authUser = pb.authStore.record || pb.authStore.model
     const userId = authUser?.id || 'usr-pcp'
     const userName = authUser?.name || 'Operador DP07'
     const userRole = (authUser as any)?.role || 'OPERADOR_DP07'
 
-    // Cria a entrada de contagem física (se coleção pcp_mp_inventory_entries existir)
-    let entry: any = {
-      id: `entry-${Date.now()}`,
+    const gaugeVal =
+      payload.gauge || demand.materials_summary?.[0]?.material_description || 'Tarugo 130mm'
+    const matCode =
+      demand.material_code || demand.materials_summary?.[0]?.material_code || 'MP-CIAFAL'
+    const matDesc =
+      demand.material_description ||
+      demand.materials_summary?.[0]?.material_description ||
+      'Tarugo Laminado'
+    const itemKey = `${demand.control_number}-COUNT-${runNumberTrim}-${Date.now()}`
+
+    // 1. Gravação REAL em pcp_mp_inventory_items
+    const itemPayload: any = {
       demand_id: demand.id,
       control_number: demand.control_number,
-      run_number: payload.run_number,
-      pieces_count: Number(payload.pieces_count),
+      inventory_id: demand.id,
+      inventory_code: demand.control_number,
+      item_control_key: itemKey,
+      company: demand.company || 'CIAFAL',
+      line: demand.line || 'L1',
+      center: demand.center || 'FORNO1',
+      production_order: demand.production_order || '',
+      raw_material_code: matCode,
+      raw_material_description: matDesc,
+      heat_number: runNumberTrim,
+      run_number: runNumberTrim,
+      produced_gauge_product: gaugeVal,
+      gauge: gaugeVal,
+      enfornamento_type: 'NORMAL',
+      quantity_tons: 0,
+      calculated_pieces: count,
+      planned_requirement_tons: 0,
+      sap_pieces_count: 0,
+      wms_physical_location: locationWmsTrim,
+      location_wms: locationWmsTrim,
+      dp07_inventoried_pieces: count,
+      pieces_count: count,
+      dp07_observation: payload.notes || '',
+      notes: payload.notes || '',
+      pcp_planned_sequence: 1,
+      schedule_version: 1,
+      status: 'Em Inventário',
+      responsible_user: userName,
+      user_id: userId,
+      user_name: userName,
+      user_role: userRole,
       entry_date_formatted: nowStr,
+      updated_at_timestamp: nowIso,
+      is_active: true,
+      is_count_entry: true,
     }
 
+    let createdItemRecord: any = null
     try {
-      entry = await pb.collection('pcp_mp_inventory_entries').create<InventoryEntry>({
+      createdItemRecord = await pb.collection('pcp_mp_inventory_items').create(itemPayload)
+    } catch (createErr: any) {
+      console.error(
+        '[PCP-INVENTORY] Falha ao persistir contagem física em pcp_mp_inventory_items:',
+        createErr,
+      )
+      throw new Error(
+        `Não foi possível salvar a contagem física: ${createErr?.message || 'Erro no banco de dados'}`,
+      )
+    }
+
+    // 2. Registro do evento LANCAMENTO_ADICIONADO em pcp_mp_inventory_history
+    try {
+      await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
-        run_id: '',
+        inventory_id: demand.id,
+        inventory_item_id: createdItemRecord?.id || '',
+        inventory_order_id: demand.id,
         control_number: demand.control_number,
-        run_number: payload.run_number,
-        gauge: payload.gauge || 'Tarugo 130mm',
-        location_wms: payload.location_wms,
-        pieces_count: Number(payload.pieces_count),
+        event_type: 'LANCAMENTO_ADICIONADO',
+        user_name: userName,
+        user_id: userId,
+        user_role: userRole,
+        description: `Contagem física de ${count} peças registrada na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}) por ${userName}.`,
+        summary: `Contagem física de ${count} peças na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}).`,
+        previous_value: null,
+        new_value: {
+          demand_id: demand.id,
+          control_number: demand.control_number,
+          inventory_item_id: createdItemRecord?.id,
+          run_number: runNumberTrim,
+          location_wms: locationWmsTrim,
+          pieces_count: count,
+          gauge: gaugeVal,
+          user_id: userId,
+          user_name: userName,
+          user_role: userRole,
+          timestamp: nowIso,
+        },
+        timestamp: nowIso,
+      })
+    } catch (histErr) {
+      console.warn(
+        '[PCP-INVENTORY] Aviso: falha ao gravar pcp_mp_inventory_history para contagem:',
+        histErr,
+      )
+    }
+
+    // 3. Auditoria oficial em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        module: 'INVENTARIO_MP',
+        action: 'ADD_INVENTORY_COUNT_ENTRY',
+        event_type: 'SCHEDULE_ACTION',
+        user_id: userId,
+        user_name: userName,
+        user_role: userRole,
+        record_id: createdItemRecord?.id || demand.id,
+        resource: 'pcp_mp_inventory_items',
+        resource_id: createdItemRecord?.id || demand.id,
+        company: demand.company,
+        line: demand.line,
+        center: demand.center,
+        outcome: 'SUCCESS',
+        details: {
+          demand_id: demand.id,
+          control_number: demand.control_number,
+          inventory_item_id: createdItemRecord?.id,
+          run_number: runNumberTrim,
+          location_wms: locationWmsTrim,
+          pieces_count: count,
+          gauge: gaugeVal,
+          operation_result: 'LANCAMENTO_ADICIONADO_SUCESSO',
+          timestamp: nowIso,
+        },
+      })
+    } catch (auditErr) {
+      console.warn('[PCP-INVENTORY] Aviso: falha ao gravar pcp_audit_logs para contagem:', auditErr)
+    }
+
+    // 4. Se o status da demanda era 'Gerada', transiciona para 'Em inventário'
+    if (demand.status === 'Gerada') {
+      try {
+        await pb.collection('pcp_mp_inventory_demands').update(demand.id, {
+          status: 'Em inventário',
+        })
+      } catch (stErr) {
+        console.warn(
+          '[PCP-INVENTORY] Erro ao atualizar status da demanda para Em inventário:',
+          stErr,
+        )
+      }
+    }
+
+    // 5. Recalcula totais da demanda
+    await this.recalculateDemandTotals(demand.id)
+
+    // Também cria em pcp_mp_inventory_entries para retrocompatibilidade com mocks legados que possam interceptá-la
+    try {
+      await pb.collection('pcp_mp_inventory_entries').create({
+        demand_id: demand.id,
+        run_id: createdItemRecord?.id || '',
+        control_number: demand.control_number,
+        run_number: runNumberTrim,
+        gauge: gaugeVal,
+        location_wms: locationWmsTrim,
+        pieces_count: count,
         entry_date_formatted: nowStr,
         user_id: userId,
         user_name: userName,
@@ -569,44 +772,28 @@ class PcpInventoryDemandsService {
         notes: payload.notes || '',
         is_active: true,
       })
-    } catch (e) {
-      // tolerante caso não exista collection
-    }
-
-    // Registra evento de histórico/auditoria em pcp_mp_inventory_history e pcp_audit_logs
-    try {
-      await pb.collection('pcp_mp_inventory_history').create({
-        demand_id: demand.id,
-        inventory_order_id: demand.id,
-        control_number: demand.control_number,
-        event_type: 'LANCAMENTO_ADICIONADO',
-        user_name: userName,
-        user_role: userRole,
-        summary: `Contagem física de ${payload.pieces_count} peças na localização ${payload.location_wms} (Corrida: ${payload.run_number}).`,
-        details: {
-          pieces_count: payload.pieces_count,
-          location_wms: payload.location_wms,
-          run_number: payload.run_number,
-        },
-        timestamp: new Date().toISOString(),
-      })
     } catch {
-      // ok
+      // tolerante se pcp_mp_inventory_entries não existir no banco
     }
 
-    // Se o status da demanda era 'Gerada', transiciona para 'Em inventário'
-    if (demand.status === 'Gerada') {
-      try {
-        await pb.collection('pcp_mp_inventory_demands').update(demand.id, {
-          status: 'Em inventário',
-        })
-      } catch {
-        // ok
-      }
+    const entry: InventoryEntry = {
+      id: createdItemRecord?.id || `entry-${Date.now()}`,
+      demand_id: demand.id,
+      run_id: createdItemRecord?.id || '',
+      control_number: demand.control_number,
+      run_number: runNumberTrim,
+      gauge: gaugeVal,
+      location_wms: locationWmsTrim,
+      pieces_count: count,
+      entry_date_formatted: nowStr,
+      user_id: userId,
+      user_name: userName,
+      user_role: userRole,
+      notes: payload.notes || '',
+      is_active: true,
+      created: nowIso,
+      updated: nowIso,
     }
-
-    // Recalcula totais da demanda
-    await this.recalculateDemandTotals(demand.id)
 
     return entry
   }
