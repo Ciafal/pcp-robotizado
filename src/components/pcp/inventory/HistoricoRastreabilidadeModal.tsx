@@ -367,7 +367,7 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
                     </div>
 
                     <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                      {ev.event_description}
+                      {ev.event_description || ev.description || ''}
                     </p>
 
                     {/* Metadados do Registro */}

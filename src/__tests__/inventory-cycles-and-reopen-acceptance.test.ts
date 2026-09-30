@@ -3,6 +3,43 @@ import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-ser
 import { InventoryDemand, InventoryEntry } from '@/types/pcp-inventory-demands'
 import { pb } from '@/lib/pocketbase/client'
 
+function createMockDemand(overrides: Partial<InventoryDemand> = {}): InventoryDemand {
+  return {
+    id: overrides.id || 'dem-default',
+    control_number: overrides.control_number || 'INV-2026-000010',
+    company: overrides.company || 'CIAFAL',
+    line: overrides.line || 'L1',
+    center: overrides.center || 'FORNO1',
+    storage_deposit: overrides.storage_deposit || 'DP07',
+    material_code: overrides.material_code || 'ST930',
+    material_description: overrides.material_description || 'Tarugo ST930',
+    priority: overrides.priority || 'Normal',
+    status: overrides.status || 'Aberto',
+    cycle_count: overrides.cycle_count ?? 1,
+    total_pieces_required: overrides.total_pieces_required ?? 200,
+    total_pieces_inventoried: overrides.total_pieces_inventoried ?? 0,
+    ...overrides,
+  }
+}
+
+function createMockEntry(overrides: Partial<InventoryEntry> = {}): InventoryEntry {
+  return {
+    id: overrides.id || 'entry-default',
+    demand_id: overrides.demand_id || 'dem-default',
+    run_id: overrides.run_id || 'run-default',
+    control_number: overrides.control_number || 'INV-2026-000010',
+    run_number: overrides.run_number || '458921',
+    location_wms: overrides.location_wms || 'DP07-A1',
+    pieces_count: overrides.pieces_count ?? 10,
+    cycle_number: overrides.cycle_number ?? 1,
+    entry_date_formatted: overrides.entry_date_formatted || '27/09/2026 10:00',
+    user_id: overrides.user_id || 'usr-default',
+    user_name: overrides.user_name || 'Operador DP07',
+    is_active: overrides.is_active ?? true,
+    ...overrides,
+  }
+}
+
 /**
  * Suíte de Aceitação Automatizada: 20 Critérios do Usuário
  * PCP Robotizado > Programação > Inventário de matéria-prima > Lançar Inventário
@@ -15,19 +52,14 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C1: Demanda recém-criada inicia com status 'Aberto' (ou compatível 'Gerada' normalizada para Aberto)
   it('C1: Demanda recém-criada tem status inicial Aberto e cycle_count = 1', () => {
-    const demand: InventoryDemand = {
+    const demand = createMockDemand({
       id: 'dem-c1',
       control_number: 'INV-2026-000010',
-      company: 'CIAFAL',
-      line: 'L1',
-      center: 'FORNO1',
-      storage_deposit: 'DP07',
-      material_code: 'ST930',
       status: 'Aberto',
       cycle_count: 1,
       total_pieces_required: 200,
       total_pieces_inventoried: 0,
-    }
+    })
     expect(demand.status).toBe('Aberto')
     expect(demand.cycle_count).toBe(1)
     expect(demand.total_pieces_inventoried).toBe(0)
@@ -35,45 +67,45 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C2: Status Aberto é elegível para seleção na tela de lançamento
   it('C2: Demanda em Aberto é elegível para lançamento físico', () => {
-    const demand: InventoryDemand = {
+    const demand = createMockDemand({
       id: 'dem-c2',
       control_number: 'INV-2026-000011',
       status: 'Aberto',
       cycle_count: 1,
-    }
+    })
     expect(pcpInventoryDemandsService.isDemandEligibleForPhysicalEntry(demand)).toBe(true)
   })
 
   // C3: Status Parcial é elegível para seleção na tela de lançamento
   it('C3: Demanda em Parcial é elegível para lançamento físico', () => {
-    const demand: InventoryDemand = {
+    const demand = createMockDemand({
       id: 'dem-c3',
       control_number: 'INV-2026-000012',
       status: 'Parcial',
       cycle_count: 1,
-    }
+    })
     expect(pcpInventoryDemandsService.isDemandEligibleForPhysicalEntry(demand)).toBe(true)
   })
 
   // C4: Status Cancelado é elegível para seleção (com objetivo de reabrir novo ciclo)
   it('C4: Demanda em Cancelado é elegível para seleção (reabrirá ciclo)', () => {
-    const demand: InventoryDemand = {
+    const demand = createMockDemand({
       id: 'dem-c4',
       control_number: 'INV-2026-000003',
       status: 'Cancelado',
       cycle_count: 1,
-    }
+    })
     expect(pcpInventoryDemandsService.isDemandEligibleForPhysicalEntry(demand)).toBe(true)
   })
 
   // C5: Status Concluído NUNCA é elegível para lançamento físico (estado terminal definitivo)
   it('C5: Demanda em Concluído é estritamente não-elegível para lançamento físico', () => {
-    const demand: InventoryDemand = {
+    const demand = createMockDemand({
       id: 'dem-c5',
       control_number: 'INV-2026-000001',
       status: 'Concluído',
       cycle_count: 1,
-    }
+    })
     expect(pcpInventoryDemandsService.isDemandEligibleForPhysicalEntry(demand)).toBe(false)
     expect(pcpInventoryDemandsService.isDemandConcluded(demand.status)).toBe(true)
   })
@@ -81,10 +113,10 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
   // C6: Nunca usar filtro negativo 'status != CANCELADO' — Cancelado deve ser explicitamente aceito
   it('C6: Filtro de elegibilidade não usa status != CANCELADO e permite Aberto, Parcial e Cancelado', () => {
     const list: InventoryDemand[] = [
-      { id: '1', control_number: 'INV-1', status: 'Aberto' },
-      { id: '2', control_number: 'INV-2', status: 'Parcial' },
-      { id: '3', control_number: 'INV-3', status: 'Cancelado' },
-      { id: '4', control_number: 'INV-4', status: 'Concluído' },
+      createMockDemand({ id: '1', control_number: 'INV-1', status: 'Aberto' }),
+      createMockDemand({ id: '2', control_number: 'INV-2', status: 'Parcial' }),
+      createMockDemand({ id: '3', control_number: 'INV-3', status: 'Cancelado' }),
+      createMockDemand({ id: '4', control_number: 'INV-4', status: 'Concluído' }),
     ]
     // Apenas Concluído é excluído da lista de seleção
     const eligible = list.filter((d) =>
@@ -95,7 +127,7 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C7: Primeira contagem adicionada transiciona demanda de Aberto para Parcial
   it('C7: addEntry transiciona demanda Aberto/Gerada para status Parcial', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c7',
       control_number: 'INV-2026-000020',
       company: 'CIAFAL',
@@ -107,7 +139,7 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
       cycle_count: 1,
       total_pieces_required: 100,
       total_pieces_inventoried: 0,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
 
@@ -149,18 +181,18 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C8: Salvar Parcial persiste demanda com status Parcial e mensagem adequada
   it('C8: savePartialDemand persiste status Parcial e atualiza totais', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c8',
       control_number: 'INV-2026-000021',
       status: 'Aberto',
       cycle_count: 1,
       total_pieces_required: 150,
       total_pieces_inventoried: 50,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
     vi.spyOn(pcpInventoryDemandsService, 'listEntriesByDemand').mockResolvedValue([
-      { id: 'e1', demand_id: 'dem-c8', pieces_count: 50, cycle_number: 1 } as any,
+      createMockEntry({ id: 'e1', demand_id: 'dem-c8', pieces_count: 50, cycle_number: 1 }),
     ])
 
     const updateSpy = vi
@@ -182,12 +214,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C9: Cancelar Inventário salva motivo obrigatório, finaliza ciclo e define status Cancelado
   it('C9: cancelDemand exige motivo, registra histórico com motivo e ciclo e define status Cancelado', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c9',
       control_number: 'INV-2026-000022',
       status: 'Parcial',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
 
@@ -232,14 +264,14 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C10: Reabertura de demanda cancelada incrementa cycle_count (+1)
   it('C10: reopenDemand incrementa cycle_count (+1) e define status Aberto', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c10',
       control_number: 'INV-2026-000003',
       status: 'Cancelado',
       cycle_count: 1,
       total_pieces_required: 200,
       total_pieces_inventoried: 30,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
 
@@ -263,12 +295,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C11: Contagens do ciclo cancelado NÃO somam no novo ciclo (isolamento por cycle_number)
   it('C11: listEntriesByDemand com onlyCurrentCycle isola contagens antigas pelo ciclo vigente', async () => {
-    const demandCiclo2: InventoryDemand = {
+    const demandCiclo2 = createMockDemand({
       id: 'dem-c11',
       control_number: 'INV-2026-000003',
       status: 'Aberto',
       cycle_count: 2,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandCiclo2)
 
@@ -301,18 +333,18 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C12: Concluir Inventário exige confirmação e snapshot completo antes de status Concluído
   it('C12: concludeDemand persiste snapshot SAP e todos os indicadores com status Concluído', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c12',
       control_number: 'INV-2026-000030',
       status: 'Parcial',
       cycle_count: 1,
       total_pieces_required: 100,
       total_pieces_inventoried: 100,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
     vi.spyOn(pcpInventoryDemandsService, 'listEntriesByDemand').mockResolvedValue([
-      { id: 'e1', demand_id: 'dem-c12', pieces_count: 100, cycle_number: 1 } as any,
+      createMockEntry({ id: 'e1', demand_id: 'dem-c12', pieces_count: 100, cycle_number: 1 }),
     ])
 
     const updateSpy = vi
@@ -356,12 +388,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C13: Tentativa de registrar contagem em demanda Concluída lança erro com mensagem exata
   it('C13: Tentativa de contagem em demanda Concluída lança mensagem R9 exata', async () => {
-    const demandConcluida: InventoryDemand = {
+    const demandConcluida = createMockDemand({
       id: 'dem-c13',
       control_number: 'INV-2026-000001',
       status: 'Concluído',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandConcluida)
 
@@ -377,12 +409,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C14: Tentativa de registrar contagem em demanda Cancelada sem reabrir lança erro orientando novo ciclo
   it('C14: Tentativa de contagem em demanda Cancelada lança orientação para novo ciclo', async () => {
-    const demandCancelada: InventoryDemand = {
+    const demandCancelada = createMockDemand({
       id: 'dem-c14',
       control_number: 'INV-2026-000003',
       status: 'Cancelado',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandCancelada)
 
@@ -400,12 +432,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C15: Demanda Concluída não pode ser reaberta (estado terminal)
   it('C15: Demanda Concluída não aceita reopenDemand', async () => {
-    const demandConcluida: InventoryDemand = {
+    const demandConcluida = createMockDemand({
       id: 'dem-c15',
       control_number: 'INV-2026-000001',
       status: 'Concluído',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandConcluida)
 
@@ -416,12 +448,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C16: Demanda Concluída não pode ser cancelada novamente
   it('C16: Demanda Concluída não aceita cancelamento', async () => {
-    const demandConcluida: InventoryDemand = {
+    const demandConcluida = createMockDemand({
       id: 'dem-c16',
       control_number: 'INV-2026-000001',
       status: 'Concluído',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandConcluida)
 
@@ -432,12 +464,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C17: Demanda Concluída não permite salvar parcial
   it('C17: Demanda Concluída não aceita savePartialDemand', async () => {
-    const demandConcluida: InventoryDemand = {
+    const demandConcluida = createMockDemand({
       id: 'dem-c17',
       control_number: 'INV-2026-000001',
       status: 'Concluído',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandConcluida)
 
@@ -448,12 +480,12 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C18: Histórico de auditoria preserva cycle_number em cada evento
   it('C18: Histórico de auditoria grava cycle_number para múltiplos ciclos', async () => {
-    const mockDemand: InventoryDemand = {
+    const mockDemand = createMockDemand({
       id: 'dem-c18',
       control_number: 'INV-2026-000003',
       status: 'Cancelado',
       cycle_count: 1,
-    }
+    })
 
     vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(mockDemand)
 
@@ -494,7 +526,7 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
 
   // C20: Leitura do banco após F5 (getDemandById + listEntriesByDemand) reflete status e contagens exatos
   it('C20: Leitura isolada do banco restaura estado consistente da demanda e contagens', async () => {
-    const mockRecord = {
+    const mockRecord = createMockDemand({
       id: 'dem-c20',
       control_number: 'INV-2026-000003',
       company: 'CIAFAL',
@@ -506,7 +538,7 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
       cycle_count: 1,
       total_pieces_required: 200,
       total_pieces_inventoried: 30,
-    }
+    })
 
     vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
       if (col === 'pcp_mp_inventory_demands') {

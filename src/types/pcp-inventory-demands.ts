@@ -145,12 +145,30 @@ export type InventoryAuditEventType =
   | 'DEMANDA_CANCELADA'
   | 'DEMANDA_REABERTA'
 
+export interface InventoryAuditDetails {
+  previous_status?: string
+  new_status?: string
+  previous_cycle?: number
+  new_cycle?: number
+  total_pieces_inventoried?: number
+  reopened_by?: string
+  reopened_at?: string
+  reason?: string
+  cancellation_reason?: string
+  indicadores?: Record<string, unknown>
+  snapshot_sap?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 export interface InventoryAuditEvent {
   id: string
   demand_id: string
   control_number: string
   event_type: InventoryAuditEventType
   event_description: string
+  cycle_number?: number
+  details?: InventoryAuditDetails
+  description?: string
   run_number?: string
   location_wms?: string
   pieces_count?: number

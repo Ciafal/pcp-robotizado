@@ -5,6 +5,7 @@ import {
   CreateEntryPayload,
   InventoryDemand,
   InventoryEntry,
+  InventoryAuditEvent,
 } from '@/types/pcp-inventory-demands'
 import pb from '@/lib/pocketbase/client'
 
@@ -252,13 +253,15 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
 
   // TESTE 07: "Histórico e Rastreabilidade" mostra eventos em ordem cronológica (dados reais persistidos)
   it('TESTE 07: "Histórico e Rastreabilidade" retorna timeline cronológica real e append-only', async () => {
-    const mockAuditEvents = [
+    const mockAuditEvents: InventoryAuditEvent[] = [
       {
         id: 'aud-1',
         demand_id: 'dem-01',
         control_number: 'INV-2026-000001',
         event_type: 'DEMANDA_GERADA',
         event_description: 'Demanda de inventário INV-2026-000001 gerada com sucesso.',
+        description: 'Demanda de inventário INV-2026-000001 gerada com sucesso.',
+        cycle_number: 1,
         user_name: 'Lucas Ferreira (PCP)',
         created: '2026-09-27 10:00:00.000Z',
       },
@@ -269,6 +272,8 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
         event_type: 'INVENTARIO_INICIADO',
         event_description:
           'Inventário da demanda INV-2026-000001 iniciado pelo operador Roberto Silva.',
+        description: 'Inventário da demanda INV-2026-000001 iniciado pelo operador Roberto Silva.',
+        cycle_number: 1,
         user_name: 'Roberto Silva (Operação)',
         created: '2026-09-27 10:30:00.000Z',
       },
@@ -278,6 +283,8 @@ describe('TESTES 03–08: Homologação e Persistência do Inventário de Matér
         control_number: 'INV-2026-000001',
         event_type: 'LANCAMENTO_ADICIONADO',
         event_description: 'Contagem física de 40 peças na localização DP07-RUA02-BL04.',
+        description: 'Contagem física de 40 peças na localização DP07-RUA02-BL04.',
+        cycle_number: 1,
         pieces_count: 40,
         user_name: 'Roberto Silva (Operação)',
         created: '2026-09-27 10:35:00.000Z',
