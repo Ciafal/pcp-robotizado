@@ -4190,13 +4190,200 @@
       ]
     },
     {
+      "name": "pcp_carteira_daily_snapshots",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "data",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "material_descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "familia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_material",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "centro",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "linha",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_carteira",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "curva_abc_vigente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "origem_dados",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_hora_atualizacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "competencia",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estoque_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "programacao_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "producao_t",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao_ia",
+          "type": "text",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_snap_comp_date ON pcp_carteira_daily_snapshots (competencia, data)",
+        "CREATE INDEX idx_pcp_snap_mat_center ON pcp_carteira_daily_snapshots (material, centro)"
+      ]
+    },
+    {
+      "name": "pcp_mp_inventory_demands",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        { "name": "control_number", "type": "text", "required": true, "system": false },
+        { "name": "company", "type": "text", "required": true, "system": false },
+        { "name": "line", "type": "text", "required": true, "system": false },
+        { "name": "center", "type": "text", "required": true, "system": false },
+        { "name": "storage_deposit", "type": "text", "required": true, "system": false },
+        { "name": "production_order", "type": "text", "required": true, "system": false },
+        { "name": "material_code", "type": "text", "required": false, "system": false },
+        { "name": "material_description", "type": "text", "required": false, "system": false },
+        { "name": "unit_of_measure", "type": "text", "required": false, "system": false },
+        { "name": "sap_stock", "type": "number", "required": false, "system": false },
+        { "name": "sap_last_sync", "type": "text", "required": false, "system": false },
+        { "name": "sap_query_status", "type": "text", "required": false, "system": false },
+        { "name": "priority", "type": "text", "required": true, "system": false },
+        { "name": "status", "type": "text", "required": true, "system": false },
+        { "name": "observation", "type": "text", "required": false, "system": false },
+        { "name": "requester_id", "type": "text", "required": false, "system": false },
+        { "name": "requester_name", "type": "text", "required": false, "system": false },
+        { "name": "requester_role", "type": "text", "required": false, "system": false },
+        { "name": "generation_date_formatted", "type": "text", "required": false, "system": false },
+        { "name": "total_pieces_required", "type": "number", "required": false, "system": false },
+        {
+          "name": "total_pieces_inventoried",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        { "name": "divergence_pieces", "type": "number", "required": false, "system": false },
+        { "name": "divergence_pct", "type": "number", "required": false, "system": false },
+        { "name": "cycle_count", "type": "number", "required": false, "system": false },
+        { "name": "materials_summary", "type": "json", "required": false, "system": false },
+        { "name": "gauge", "type": "text", "required": false, "system": false },
+        { "name": "application", "type": "text", "required": false, "system": false },
+        { "name": "cancellation_reason", "type": "text", "required": false, "system": false },
+        { "name": "cancelled_at", "type": "text", "required": false, "system": false },
+        { "name": "cancelled_by", "type": "text", "required": false, "system": false },
+        { "name": "concluded_at", "type": "text", "required": false, "system": false },
+        { "name": "concluded_by", "type": "text", "required": false, "system": false },
+        { "name": "sap_snapshot_balance", "type": "number", "required": false, "system": false },
+        { "name": "sap_snapshot_at", "type": "text", "required": false, "system": false },
+        { "name": "sap_snapshot_divergence", "type": "number", "required": false, "system": false },
+        { "name": "sap_snapshot_status", "type": "text", "required": false, "system": false },
+        { "name": "ai_suggestion_payload", "type": "json", "required": false, "system": false },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pcp_mp_demands_ctrl ON pcp_mp_inventory_demands (control_number)",
+        "CREATE INDEX idx_pcp_mp_demands_op ON pcp_mp_inventory_demands (production_order)",
+        "CREATE INDEX idx_pcp_mp_demands_status ON pcp_mp_inventory_demands (status)"
+      ]
+    },
+    {
       "name": "production_line_relationships",
       "type": "base",
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "@request.auth.role = 'PCP_ADMIN'",
-        "update": "@request.auth.role = 'PCP_ADMIN'",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
         "delete": "@request.auth.role = 'PCP_ADMIN'"
       },
       "fields": [
@@ -4214,51 +4401,10 @@
         },
         {
           "name": "relation_type",
-          "type": "text",
+          "type": "select",
           "required": true,
-          "system": false
-        },
-        {
-          "name": "product_code",
-          "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "family_code",
-          "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "routing_condition",
-          "type": "text",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "priority_order",
-          "type": "number",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "allocation_pct",
-          "type": "number",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "capacity_limit_rate",
-          "type": "number",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "standard_lead_time_minutes",
-          "type": "number",
-          "required": false,
-          "system": false
+          "system": false,
+          "selectValues": ["MANDATORY", "OPTIONAL", "EXCLUSIVE", "PARALLEL"]
         },
         {
           "name": "buffer_min_tons",
@@ -4273,21 +4419,21 @@
           "system": false
         },
         {
-          "name": "valid_from",
-          "type": "date",
+          "name": "lead_time_min_minutes",
+          "type": "number",
           "required": false,
           "system": false
         },
         {
-          "name": "valid_until",
-          "type": "date",
+          "name": "lead_time_max_minutes",
+          "type": "number",
           "required": false,
           "system": false
         },
         {
-          "name": "status",
-          "type": "text",
-          "required": true,
+          "name": "active",
+          "type": "bool",
+          "required": false,
           "system": false
         },
         {

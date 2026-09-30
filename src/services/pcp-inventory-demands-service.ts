@@ -573,7 +573,18 @@ class PcpInventoryDemandsService {
         materials_summary: materialsStructured,
       }
     } catch (err: any) {
-      console.error('Falha atômica ao criar demanda de inventário. Iniciando rollback...', err)
+      // LOG TÉCNICO DETALHADO NO CONSOLE (collection, payload, response data, status, erro exato)
+      console.error('[PCP-INVENTORY-SERVICE:ERRO_CRIACAO_DEMANDA]', {
+        collection: createdDemandRecord ? 'pcp_mp_inventory_items' : 'pcp_mp_inventory_demands',
+        demandPayloadSent: demandPayload,
+        itemsPayloadSent: materialsStructured,
+        pocketbaseErrorStatus: err?.status,
+        pocketbaseErrorResponse: err?.response,
+        pocketbaseData: err?.data,
+        fieldErrors: err?.data?.data,
+        originalError: err,
+        errorMessage: err?.message,
+      })
 
       // ROLLBACK: se os itens falharem ou houver erro, remove os itens criados e a demanda
       for (const itemId of createdItemIds) {

@@ -828,6 +828,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     }
 
     setSubmitting(true)
+    let payloadToSubmit: CreateDemandPayload | null = null
     try {
       const itemsPayload: CreateDemandMaterialInput[] = materials.map((m) => {
         const parsedTons = parsePtBrNumber(m.quantity_tons_str)
@@ -861,6 +862,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
         materials: itemsPayload,
         observation: observation.trim() || undefined,
       }
+      payloadToSubmit = payload
 
       console.debug('[FORM:PAYLOAD]', payload)
       const created = await pcpInventoryDemandsService.createDemand(payload)
@@ -874,10 +876,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       onSuccess(created)
       onOpenChange(false)
     } catch (err: any) {
-      console.error('Erro ao gerar demanda:', err)
+      // LOG TÉCNICO COMPLETO NO CONSOLE mantendo mensagem amigável no popup
+      console.error('[NOVA-DEMANDA-MODAL:ERRO_GERAR_DEMANDA]', {
+        collection: 'pcp_mp_inventory_demands / pcp_mp_inventory_items',
+        payloadSent: payloadToSubmit,
+        errorStatus: err?.status,
+        errorResponse: err?.response,
+        errorData: err?.data,
+        fieldErrors: err?.data?.data,
+        originalError: err,
+        rawMessage: err?.message,
+      })
       const userFriendlyMsg =
-        err?.message ||
-        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados.'
+        'Não foi possível gerar a demanda de inventário. Verifique os campos destacados e tente novamente.'
       setErrorMessage(userFriendlyMsg)
       toast({
         variant: 'destructive',
@@ -1838,7 +1849,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
               {submitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Gerando demanda...
+                  Salvando...
                 </>
               ) : (
                 <>
