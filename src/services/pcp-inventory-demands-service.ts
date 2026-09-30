@@ -578,10 +578,51 @@ class PcpInventoryDemandsService {
    * Adiciona um lançamento (contagem física) persistindo em pcp_mp_inventory_items
    * e registrando LANCAMENTO_ADICIONADO em pcp_mp_inventory_history
    */
+  /**
+   * Helper para verificar se status é Concluído
+   */
+  isDemandConcluded(status?: string): boolean {
+    if (!status) return false
+    const s = status.trim().toLowerCase()
+    return (
+      s === 'concluído' ||
+      s === 'concluido' ||
+      s === 'inventário concluído' ||
+      s === 'inventario concluido'
+    )
+  }
+
+  /**
+   * Helper para verificar se status é Cancelado
+   */
+  isDemandCancelled(status?: string): boolean {
+    if (!status) return false
+    const s = status.trim().toLowerCase()
+    return s === 'cancelado' || s === 'cancelada'
+  }
+
+  /**
+   * Helper para verificar se a demanda está apta para lançamento físico
+   */
+  isDemandEligibleForPhysicalEntry(demand: InventoryDemand): boolean {
+    if (this.isDemandCancelled(demand.status) || this.isDemandConcluded(demand.status)) {
+      return false
+    }
+    return true
+  }
+
   async addEntry(payload: CreateEntryPayload): Promise<InventoryEntry> {
     const demand = await this.getDemandById(payload.demand_id)
     if (!demand) {
       throw new Error('Demanda não encontrada.')
+    }
+
+    // Regra crítica de bloqueio no backend/serviço
+    if (this.isDemandCancelled(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (this.isDemandConcluded(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário concluído.')
     }
 
     const count = Number(payload.pieces_count)
@@ -825,29 +866,69 @@ class PcpInventoryDemandsService {
     const demand = await this.getDemandById(demandId)
     if (!demand) throw new Error('Demanda não encontrada.')
 
+    if (this.isDemandCancelled(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (this.isDemandConcluded(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+    }
+
     const authUser = pb.authStore.record || pb.authStore.model
     const userName = authUser?.name || 'Operador DP07'
-    const nowStr = formatPtBrDateTime()
+    const nowIso = new Date().toISOString()
+    const previousStatus = demand.status || 'Gerada'
 
     await this.recalculateDemandTotals(demandId)
 
     const updated = await pb
       .collection('pcp_mp_inventory_demands')
       .update<InventoryDemand>(demandId, {
-        status: 'Inventário parcial',
+        status: 'Parcial',
       })
 
     try {
       await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_id: demand.id,
         inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'SALVAMENTO_PARCIAL',
         user_name: userName,
         user_role: (authUser as any)?.role || '',
-        summary: `Inventário salvo parcialmente com ${updated.total_pieces_inventoried || 0} peças apuradas. Retomada permitida.`,
-        details: { total_pieces_inventoried: updated.total_pieces_inventoried },
-        timestamp: new Date().toISOString(),
+        description: `Inventário salvo parcialmente — Status anterior: ${previousStatus} — Status novo: Parcial`,
+        summary: `Inventário salvo parcialmente — Status anterior: ${previousStatus} — Status novo: Parcial`,
+        previous_value: previousStatus,
+        new_value: 'Parcial',
+        details: {
+          previous_status: previousStatus,
+          new_status: 'Parcial',
+          total_pieces_inventoried: updated.total_pieces_inventoried,
+        },
+        timestamp: nowIso,
+      })
+    } catch {
+      /* intentionally ignored */
+    }
+
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        module: 'INVENTARIO_MP',
+        action: 'SAVE_PARTIAL_DEMAND',
+        event_type: 'SCHEDULE_ACTION',
+        user_id: authUser?.id || '',
+        user_name: userName,
+        user_role: (authUser as any)?.role || '',
+        record_id: demand.id,
+        resource: 'pcp_mp_inventory_demands',
+        resource_id: demand.id,
+        outcome: 'SUCCESS',
+        company: demand.company,
+        details: {
+          control_number: demand.control_number,
+          previous_status: previousStatus,
+          new_status: 'Parcial',
+          total_pieces_inventoried: updated.total_pieces_inventoried,
+        },
       })
     } catch {
       /* intentionally ignored */
@@ -917,11 +998,20 @@ class PcpInventoryDemandsService {
     const demand = await this.getDemandById(demandId)
     if (!demand) throw new Error('Demanda não encontrada.')
 
+    if (this.isDemandCancelled(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (this.isDemandConcluded(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+    }
+
     const authUser = pb.authStore.record || pb.authStore.model
     const userName = authUser?.name || 'Programador PCP'
     const userRole = (authUser as any)?.role || 'PCP_PROGRAMMER'
+    const userAdIdentifier =
+      (authUser as any)?.email || (authUser as any)?.username || authUser?.id || 'PCP-AD'
     const nowIso = new Date().toISOString()
-    const nowStr = formatPtBrDateTime()
+    const previousStatus = demand.status || 'Em inventário'
 
     await this.recalculateDemandTotals(demandId)
     const refreshed = (await this.getDemandById(demandId)) || demand
@@ -952,7 +1042,7 @@ class PcpInventoryDemandsService {
       conclusionData?.sap_status || (sapBalance !== null ? 'CONCILIADO' : 'INDISPONIVEL')
 
     const updatePayload: Record<string, any> = {
-      status: 'Inventário concluído',
+      status: 'Concluído',
       concluded_at: nowIso,
       concluded_by: userName,
       divergence_pieces: divergenceDemand,
@@ -971,13 +1061,20 @@ class PcpInventoryDemandsService {
     try {
       await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_id: demand.id,
         inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'INVENTARIO_CONCLUIDO',
         user_name: userName,
         user_role: userRole,
-        summary: `Inventário concluído. Indicadores: Demanda: ${demandQty} | Saldo SAP: ${sapBalance !== null ? sapBalance : 'Indisponível'} | Inventariado: ${totalInventoried} | Div. Demanda: ${divergenceDemand} | Div. SAP: ${divergenceSap !== null ? divergenceSap : '—'} | Div. %: ${divPct.toFixed(2)}%.`,
+        description: `Inventário concluído — Status anterior: ${previousStatus} — Status novo: Concluído. Indicadores: Demanda: ${demandQty} | Saldo SAP: ${sapBalance !== null ? sapBalance : 'Indisponível'} | Inventariado: ${totalInventoried} | Div. Demanda: ${divergenceDemand} | Div. SAP: ${divergenceSap !== null ? divergenceSap : '—'} | Div. %: ${divPct.toFixed(2)}%.`,
+        summary: `Inventário concluído — Status anterior: ${previousStatus} — Status novo: Concluído`,
+        previous_value: previousStatus,
+        new_value: 'Concluído',
         details: {
+          previous_status: previousStatus,
+          new_status: 'Concluído',
+          usuario_ad: userAdIdentifier,
           indicadores: {
             demanda: demandQty,
             saldo_sap: sapBalance,
@@ -1038,18 +1135,32 @@ class PcpInventoryDemandsService {
    * Cancela uma demanda
    */
   async cancelDemand(demandId: string, reason: string): Promise<InventoryDemand> {
+    const trimmedReason = (reason || '').trim()
+    if (!trimmedReason) {
+      throw new Error('Motivo do cancelamento é obrigatório.')
+    }
+
     const demand = await this.getDemandById(demandId)
     if (!demand) throw new Error('Demanda não encontrada.')
+
+    if (this.isDemandCancelled(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (this.isDemandConcluded(demand.status)) {
+      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+    }
 
     const authUser = pb.authStore.record || pb.authStore.model
     const userName = authUser?.name || 'Programador PCP'
     const nowStr = formatPtBrDateTime()
+    const nowIso = new Date().toISOString()
+    const previousStatus = demand.status || 'Gerada'
 
     const updated = await pb
       .collection('pcp_mp_inventory_demands')
       .update<InventoryDemand>(demandId, {
-        status: 'Cancelada',
-        cancellation_reason: reason,
+        status: 'Cancelado',
+        cancellation_reason: trimmedReason,
         cancelled_at: nowStr,
         cancelled_by: userName,
       })
@@ -1057,14 +1168,23 @@ class PcpInventoryDemandsService {
     try {
       await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
+        inventory_id: demand.id,
         inventory_order_id: demand.id,
         control_number: demand.control_number,
         event_type: 'DEMANDA_CANCELADA',
         user_name: userName,
         user_role: (authUser as any)?.role || '',
-        summary: `Demanda cancelada por ${userName}. Motivo: ${reason}`,
-        details: { reason, previous_status: demand.status },
-        timestamp: new Date().toISOString(),
+        description: `Demanda cancelada — Status anterior: ${previousStatus} — Status novo: Cancelado. Motivo: ${trimmedReason}`,
+        summary: `Demanda cancelada por ${userName}. Motivo: ${trimmedReason}`,
+        previous_value: previousStatus,
+        new_value: 'Cancelado',
+        details: {
+          previous_status: previousStatus,
+          new_status: 'Cancelado',
+          reason: trimmedReason,
+          cancellation_reason: trimmedReason,
+        },
+        timestamp: nowIso,
       })
       await pb.collection('pcp_audit_logs').create({
         module: 'INVENTARIO_MP',
@@ -1076,8 +1196,13 @@ class PcpInventoryDemandsService {
         resource: 'pcp_mp_inventory_demands',
         resource_id: demand.id,
         outcome: 'SUCCESS',
-        reason,
-        details: { control_number: demand.control_number, reason },
+        reason: trimmedReason,
+        details: {
+          control_number: demand.control_number,
+          previous_status: previousStatus,
+          new_status: 'Cancelado',
+          reason: trimmedReason,
+        },
       })
     } catch {
       /* intentionally ignored */

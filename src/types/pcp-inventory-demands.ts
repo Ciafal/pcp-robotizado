@@ -3,8 +3,11 @@ export type InventoryDemandPriority = 'Baixa' | 'Normal' | 'Alta' | 'Urgente'
 export type InventoryDemandStatus =
   | 'Gerada'
   | 'Em inventário'
+  | 'Parcial'
   | 'Inventário parcial'
+  | 'Concluído'
   | 'Inventário concluído'
+  | 'Cancelado'
   | 'Cancelada'
 
 export interface DemandMaterialItem {

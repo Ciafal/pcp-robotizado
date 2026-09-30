@@ -205,11 +205,11 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       if (quickFilter === 'HOJE') {
         if (!d.generation_date_formatted?.startsWith(todayStrPt)) return false
       } else if (quickFilter === 'PENDENTES') {
-        if (d.status !== 'Gerada' && d.status !== 'Inventário parcial') return false
+        if (isCancelledStatus(d.status) || isConcludedStatus(d.status)) return false
       } else if (quickFilter === 'EM_INVENTARIO') {
-        if (d.status !== 'Em inventário' && d.status !== 'Inventário parcial') return false
+        if (d.status !== 'Em inventário' && !isPartialStatus(d.status)) return false
       } else if (quickFilter === 'CONCLUIDAS') {
-        if (d.status !== 'Inventário concluído') return false
+        if (!isConcludedStatus(d.status)) return false
       } else if (quickFilter === 'URGENTES') {
         if (d.priority !== 'Urgente' && d.priority !== 'Alta') return false
       }
@@ -246,8 +246,16 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
       if (filterPriority !== 'TODAS' && d.priority !== filterPriority) {
         return false
       }
-      if (filterStatus !== 'TODOS' && d.status !== filterStatus) {
-        return false
+      if (filterStatus !== 'TODOS') {
+        if (filterStatus === 'Cancelado') {
+          if (!isCancelledStatus(d.status)) return false
+        } else if (filterStatus === 'Concluído') {
+          if (!isConcludedStatus(d.status)) return false
+        } else if (filterStatus === 'Parcial') {
+          if (!isPartialStatus(d.status)) return false
+        } else if (d.status !== filterStatus) {
+          return false
+        }
       }
 
       return true
@@ -308,7 +316,51 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
     }
   }
 
-  const renderStatusBadge = (status: InventoryDemandStatus) => {
+  const isCancelledStatus = (st?: string) => {
+    if (!st) return false
+    const s = st.trim().toLowerCase()
+    return s === 'cancelado' || s === 'cancelada'
+  }
+
+  const isConcludedStatus = (st?: string) => {
+    if (!st) return false
+    const s = st.trim().toLowerCase()
+    return (
+      s === 'concluído' ||
+      s === 'concluido' ||
+      s === 'inventário concluído' ||
+      s === 'inventario concluido'
+    )
+  }
+
+  const isPartialStatus = (st?: string) => {
+    if (!st) return false
+    const s = st.trim().toLowerCase()
+    return s === 'parcial' || s === 'inventário parcial' || s === 'inventario parcial'
+  }
+
+  const renderStatusBadge = (status: InventoryDemandStatus | string) => {
+    if (isCancelledStatus(status)) {
+      return (
+        <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-[10px]">
+          {status === 'Cancelado' ? 'Cancelado' : status}
+        </Badge>
+      )
+    }
+    if (isConcludedStatus(status)) {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-[10px]">
+          {status === 'Concluído' ? 'Concluído' : status}
+        </Badge>
+      )
+    }
+    if (isPartialStatus(status)) {
+      return (
+        <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px]">
+          {status === 'Parcial' ? 'Parcial' : status}
+        </Badge>
+      )
+    }
     switch (status) {
       case 'Gerada':
         return (
@@ -318,26 +370,8 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
         )
       case 'Em inventário':
         return (
-          <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px]">
+          <Badge className="bg-sky-100 text-sky-900 border-sky-300 font-bold text-[10px]">
             Em inventário
-          </Badge>
-        )
-      case 'Inventário parcial':
-        return (
-          <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 font-medium text-[10px]">
-            Inventário parcial
-          </Badge>
-        )
-      case 'Inventário concluído':
-        return (
-          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-[10px]">
-            Inventário concluído
-          </Badge>
-        )
-      case 'Cancelada':
-        return (
-          <Badge className="bg-slate-100 text-slate-500 border-slate-300 line-through text-[10px]">
-            Cancelada
           </Badge>
         )
       default:
@@ -518,8 +552,11 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             <option value="TODOS">Todos</option>
             <option value="Gerada">Gerada</option>
             <option value="Em inventário">Em inventário</option>
+            <option value="Parcial">Parcial</option>
             <option value="Inventário parcial">Inventário parcial</option>
+            <option value="Concluído">Concluído</option>
             <option value="Inventário concluído">Inventário concluído</option>
+            <option value="Cancelado">Cancelado</option>
             <option value="Cancelada">Cancelada</option>
           </select>
         </div>
@@ -682,10 +719,15 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                           variant="ghost"
                           onClick={() => onLancar(demand)}
                           disabled={
-                            demand.status === 'Cancelada' ||
-                            demand.status === 'Inventário concluído'
+                            isCancelledStatus(demand.status) || isConcludedStatus(demand.status)
                           }
-                          title="Lançar Inventário"
+                          title={
+                            isCancelledStatus(demand.status)
+                              ? 'Inventário cancelado. Lançamento não permitido.'
+                              : isConcludedStatus(demand.status)
+                                ? 'Inventário concluído. Lançamento não permitido.'
+                                : 'Lançar Inventário'
+                          }
                           className="h-7 w-7 p-0 text-[#004C97] hover:text-[#003B75] hover:bg-blue-50 disabled:opacity-30"
                         >
                           <ClipboardCheck className="w-3.5 h-3.5" />
@@ -711,10 +753,15 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                             setCancelReason('')
                           }}
                           disabled={
-                            demand.status === 'Cancelada' ||
-                            demand.status === 'Inventário concluído'
+                            isCancelledStatus(demand.status) || isConcludedStatus(demand.status)
                           }
-                          title="Cancelar Demanda"
+                          title={
+                            isCancelledStatus(demand.status)
+                              ? 'Demanda já cancelada'
+                              : isConcludedStatus(demand.status)
+                                ? 'Demanda já concluída'
+                                : 'Cancelar Demanda'
+                          }
                           className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50 disabled:opacity-30"
                         >
                           <Ban className="w-3.5 h-3.5" />
@@ -790,6 +837,20 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                   </div>
                 </div>
 
+                {/* Motivo do Cancelamento (se aplicável) */}
+                {isCancelledStatus(viewDemand.status) && viewDemand.cancellation_reason && (
+                  <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-rose-900 text-xs">
+                    <span className="text-[10px] uppercase font-bold text-rose-700 block mb-0.5">
+                      Motivo do Cancelamento
+                    </span>
+                    <span className="font-semibold">{viewDemand.cancellation_reason}</span>
+                    <div className="text-[10px] text-rose-600 mt-1">
+                      Cancelado por: <strong>{viewDemand.cancelled_by || 'Responsável PCP'}</strong>
+                      {viewDemand.cancelled_at && ` em ${viewDemand.cancelled_at}`}
+                    </div>
+                  </div>
+                )}
+
                 {/* Bloco de Responsabilidade e Rastreabilidade (Solicitante / Contagem / Conclusão) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <div>
@@ -814,7 +875,7 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                       {viewDemand.total_pieces_inventoried &&
                       viewDemand.total_pieces_inventoried > 0
                         ? 'Contagem registrada'
-                        : viewDemand.status === 'Inventário concluído'
+                        : isConcludedStatus(viewDemand.status)
                           ? viewDemand.concluded_by || 'Operador de Estoque'
                           : 'Aguardando contagem'}
                     </span>
@@ -829,9 +890,11 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                       Usuário da Conclusão
                     </span>
                     <span className="font-semibold text-slate-800 block text-xs">
-                      {viewDemand.status === 'Inventário concluído'
+                      {isConcludedStatus(viewDemand.status)
                         ? viewDemand.concluded_by || 'Programador PCP'
-                        : 'Demanda aberta'}
+                        : isCancelledStatus(viewDemand.status)
+                          ? 'Cancelado'
+                          : 'Demanda aberta'}
                     </span>
                     <span className="text-[10px] text-slate-500 block">
                       {viewDemand.concluded_at
@@ -1038,10 +1101,17 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                 </div>
                 <div>
                   <DialogTitle className="text-base font-black text-slate-900">
-                    Cancelar Demanda {cancelModalDemand.control_number}
+                    Cancelar inventário?
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-slate-500">
-                    Informe a justificativa do cancelamento. Esta ação será auditada na timeline.
+                  <div className="text-xs text-slate-600 mt-1">
+                    Demanda:{' '}
+                    <span className="font-mono font-bold text-slate-900">
+                      {cancelModalDemand.control_number}
+                    </span>
+                  </div>
+                  <DialogDescription className="text-xs text-slate-500 mt-1">
+                    O inventário será cancelado e não aceitará novas contagens. Esta ação ficará
+                    registrada no histórico.
                   </DialogDescription>
                 </div>
               </div>
@@ -1050,12 +1120,12 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             <div className="space-y-3 py-2">
               <div>
                 <Label className="text-xs font-semibold text-slate-700">
-                  Motivo do Cancelamento *
+                  Motivo do cancelamento *
                 </Label>
                 <Textarea
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Ex.: Necessidade de inventário reavaliada pelo PCP, lote alocado para outra linha..."
+                  placeholder="Informe o motivo do cancelamento obrigatoriamente..."
                   rows={3}
                   className="text-xs resize-none mt-1"
                 />

@@ -271,14 +271,14 @@ export const RawMaterialInventoryPage: React.FC = () => {
     try {
       await pcpInventoryDemandsService.cancelDemand(demand.id, motivo)
       toast({
-        title: 'Demanda Cancelada',
-        description: `Demanda nº ${demand.control_number} cancelada com sucesso.`,
+        title: 'Inventário Cancelado',
+        description: `Demanda ${demand.control_number} cancelada com sucesso.`,
       })
       await loadDemands()
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: 'Erro ao cancelar demanda',
+        title: 'Erro ao cancelar inventário',
         description: err?.message || 'Falha ao cancelar demanda.',
       })
     }

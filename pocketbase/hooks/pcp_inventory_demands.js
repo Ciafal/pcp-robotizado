@@ -112,7 +112,7 @@ onRecordCreateRequest((e) => {
   e.next()
 }, 'pcp_mp_inventory_demands')
 
-// onRecordUpdateRequest: preservar requester_* originais (Solicitante = quem CRIOU; edits/contagens/conclusão não alteram)
+// onRecordUpdateRequest: preservar requester_* originais e bloquear alterações indevidas em demandas já encerradas
 onRecordUpdateRequest((e) => {
   const original = e.record.original()
   if (original) {
@@ -123,7 +123,143 @@ onRecordUpdateRequest((e) => {
     if (origId) e.record.set('requester_id', origId)
     if (origName) e.record.set('requester_name', origName)
     if (origRole) e.record.set('requester_role', origRole)
+
+    const prevStatus = (original.getString('status') || '').trim().toLowerCase()
+    const isCancelled = prevStatus === 'cancelado' || prevStatus === 'cancelada'
+    const isConcluded =
+      prevStatus === 'concluído' ||
+      prevStatus === 'concluido' ||
+      prevStatus === 'inventário concluído' ||
+      prevStatus === 'inventario concluido'
+
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (isConcluded) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+    }
   }
 
   e.next()
 }, 'pcp_mp_inventory_demands')
+
+// BLOQUEIO SERVER-SIDE DE NOVAS CONTAGENS / EDIÇÕES / EXCLUSÕES EM pcp_mp_inventory_items
+onRecordCreateRequest((e) => {
+  const demandId = e.record.getString('demand_id') || e.record.getString('inventory_id')
+  const inventoryCode = e.record.getString('inventory_code') || e.record.getString('control_number')
+
+  let demandRecord = null
+  if (demandId) {
+    try {
+      demandRecord = $app.findRecordById('pcp_mp_inventory_demands', demandId)
+    } catch (_) {}
+  }
+  if (!demandRecord && inventoryCode) {
+    try {
+      demandRecord = $app.findFirstRecordByData(
+        'pcp_mp_inventory_demands',
+        'control_number',
+        inventoryCode,
+      )
+    } catch (_) {}
+  }
+
+  if (demandRecord) {
+    const st = (demandRecord.getString('status') || '').trim().toLowerCase()
+    const isCancelled = st === 'cancelado' || st === 'cancelada'
+    const isConcluded =
+      st === 'concluído' ||
+      st === 'concluido' ||
+      st === 'inventário concluído' ||
+      st === 'inventario concluido'
+
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (isConcluded) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+    }
+  }
+
+  e.next()
+}, 'pcp_mp_inventory_items')
+
+onRecordUpdateRequest((e) => {
+  const demandId = e.record.getString('demand_id') || e.record.getString('inventory_id')
+  const inventoryCode = e.record.getString('inventory_code') || e.record.getString('control_number')
+
+  let demandRecord = null
+  if (demandId) {
+    try {
+      demandRecord = $app.findRecordById('pcp_mp_inventory_demands', demandId)
+    } catch (_) {}
+  }
+  if (!demandRecord && inventoryCode) {
+    try {
+      demandRecord = $app.findFirstRecordByData(
+        'pcp_mp_inventory_demands',
+        'control_number',
+        inventoryCode,
+      )
+    } catch (_) {}
+  }
+
+  if (demandRecord) {
+    const st = (demandRecord.getString('status') || '').trim().toLowerCase()
+    const isCancelled = st === 'cancelado' || st === 'cancelada'
+    const isConcluded =
+      st === 'concluído' ||
+      st === 'concluido' ||
+      st === 'inventário concluído' ||
+      st === 'inventario concluido'
+
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (isConcluded) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+    }
+  }
+
+  e.next()
+}, 'pcp_mp_inventory_items')
+
+onRecordDeleteRequest((e) => {
+  const demandId = e.record.getString('demand_id') || e.record.getString('inventory_id')
+  const inventoryCode = e.record.getString('inventory_code') || e.record.getString('control_number')
+
+  let demandRecord = null
+  if (demandId) {
+    try {
+      demandRecord = $app.findRecordById('pcp_mp_inventory_demands', demandId)
+    } catch (_) {}
+  }
+  if (!demandRecord && inventoryCode) {
+    try {
+      demandRecord = $app.findFirstRecordByData(
+        'pcp_mp_inventory_demands',
+        'control_number',
+        inventoryCode,
+      )
+    } catch (_) {}
+  }
+
+  if (demandRecord) {
+    const st = (demandRecord.getString('status') || '').trim().toLowerCase()
+    const isCancelled = st === 'cancelado' || st === 'cancelada'
+    const isConcluded =
+      st === 'concluído' ||
+      st === 'concluido' ||
+      st === 'inventário concluído' ||
+      st === 'inventario concluido'
+
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
+    }
+    if (isConcluded) {
+      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+    }
+  }
+
+  e.next()
+}, 'pcp_mp_inventory_items')

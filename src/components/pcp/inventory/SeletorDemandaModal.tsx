@@ -25,10 +25,18 @@ export const SeletorDemandaModal: React.FC<SeletorDemandaModalProps> = ({
   demands,
   onSelectDemand,
 }) => {
-  // Apenas demandas aptas a inventariar (não concluídas e não canceladas)
-  const pendentes = demands.filter(
-    (d) => d.status !== 'Inventário concluído' && d.status !== 'Cancelada',
-  )
+  // Regra crítica 8 & 9: mostrar APENAS demandas aptas ao lançamento físico (não iniciadas/Gerada/Em inventário e Parcial)
+  // NUNCA exibir Canceladas (Cancelado / Cancelada) nem Concluídas (Concluído / Inventário concluído)
+  const pendentes = demands.filter((d) => {
+    const s = (d.status || '').trim().toLowerCase()
+    const isCancelled = s === 'cancelado' || s === 'cancelada'
+    const isConcluded =
+      s === 'concluído' ||
+      s === 'concluido' ||
+      s === 'inventário concluído' ||
+      s === 'inventario concluido'
+    return !isCancelled && !isConcluded
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,7 +77,16 @@ export const SeletorDemandaModal: React.FC<SeletorDemandaModalProps> = ({
                     <span className="font-mono font-bold text-xs text-[#004C97]">
                       {demand.control_number}
                     </span>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge
+                      className={
+                        demand.status === 'Parcial' || demand.status === 'Inventário parcial'
+                          ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px]'
+                          : demand.status === 'Em inventário'
+                            ? 'bg-blue-100 text-[#004C97] border-blue-300 font-semibold text-[10px]'
+                            : 'bg-slate-100 text-slate-700 text-[10px]'
+                      }
+                      variant="outline"
+                    >
                       {demand.status}
                     </Badge>
                     <Badge className="bg-slate-100 text-slate-700 text-[10px]">

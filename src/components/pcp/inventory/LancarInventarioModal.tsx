@@ -37,6 +37,9 @@ import {
   Save,
   AlertTriangle,
   Package,
+  Ban,
+  Lock,
+  Trash2,
 } from 'lucide-react'
 
 interface LancarInventarioModalProps {
@@ -67,10 +70,39 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   const [notes, setNotes] = useState<string>('')
   const [savingEntry, setSavingEntry] = useState<boolean>(false)
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Excluir Lançamento
+  const handleDeleteEntry = async (entryId: string) => {
+    if (isReadOnly) return
+    try {
+      setDeletingId(entryId)
+      await pcpInventoryDemandsService.deleteEntry(entryId)
+      toast({
+        title: 'Contagem Removida',
+        description: 'Lançamento físico removido com sucesso.',
+      })
+      await loadData()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao remover contagem',
+        description: err?.message || 'Falha ao remover registro.',
+      })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   // Ações de salvamento da demanda
   const [savingPartial, setSavingPartial] = useState<boolean>(false)
   const [concluding, setConcluding] = useState<boolean>(false)
   const [showConfirmConclusion, setShowConfirmConclusion] = useState<boolean>(false)
+
+  // Estado do Cancelamento pelo modal de Lançamento
+  const [showCancelModal, setShowCancelModal] = useState<boolean>(false)
+  const [cancelReasonText, setCancelReasonText] = useState<string>('')
+  const [cancelling, setCancelling] = useState<boolean>(false)
 
   // Estado da Consulta ao Saldo SAP (ETAPA F e B)
   const [sapLoading, setSapLoading] = useState<boolean>(false)
@@ -272,15 +304,35 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     }
   }
 
+  // Verificação de bloqueio
+  const isCancelled = useMemo(() => {
+    if (!demand?.status) return false
+    const s = demand.status.trim().toLowerCase()
+    return s === 'cancelado' || s === 'cancelada'
+  }, [demand?.status])
+
+  const isConcluded = useMemo(() => {
+    if (!demand?.status) return false
+    const s = demand.status.trim().toLowerCase()
+    return (
+      s === 'concluído' ||
+      s === 'concluido' ||
+      s === 'inventário concluído' ||
+      s === 'inventario concluido'
+    )
+  }, [demand?.status])
+
+  const isReadOnly = isCancelled || isConcluded
+
   // Salvar Parcial
   const handleSavePartial = async () => {
-    if (!demand?.id) return
+    if (!demand?.id || isReadOnly) return
     setSavingPartial(true)
     try {
       await pcpInventoryDemandsService.savePartialDemand(demand.id)
       toast({
-        title: 'Inventário Parcial Salvo',
-        description: `Demanda ${demand.control_number} salva em status "Inventário parcial". Você pode retomar esta demanda a qualquer momento.`,
+        title: 'Inventário salvo parcialmente com sucesso.',
+        description: `Demanda ${demand.control_number} salva com status Parcial. A demanda continua disponível em "Selecionar Demanda para Lançamento".`,
       })
       onSuccess()
       onOpenChange(false)
@@ -295,22 +347,14 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     }
   }
 
-  // Concluir Inventário (ETAPA G: persistência com 6 indicadores e snapshot SAP)
+  // Concluir Inventário
   const handleCheckConclusion = () => {
-    if (!demand?.id) return
-    if (
-      entries.length === 0 ||
-      divergenciaDemanda !== 0 ||
-      (sapBalance !== null && divergenciaSap !== 0)
-    ) {
-      setShowConfirmConclusion(true)
-    } else {
-      executeConclude()
-    }
+    if (!demand?.id || isReadOnly) return
+    setShowConfirmConclusion(true)
   }
 
   const executeConclude = async () => {
-    if (!demand?.id) return
+    if (!demand?.id || isReadOnly) return
     setConcluding(true)
     try {
       await pcpInventoryDemandsService.concludeDemand(demand.id, {
@@ -321,12 +365,12 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
         divergence_pct: Number(divergenciaPct.toFixed(2)),
       })
       toast({
-        title: 'Inventário Concluído com Sucesso',
-        description: `Demanda ${demand.control_number} finalizada com ${inventariadoQtd} peças apuradas.`,
+        title: 'Inventário concluído com sucesso.',
+        description: `Demanda ${demand.control_number} concluída. Nova contagens não são permitidas.`,
       })
       setShowConfirmConclusion(false)
       onSuccess()
-      onOpenChange(false)
+      await loadData()
     } catch (err: any) {
       toast({
         variant: 'destructive',
@@ -335,6 +379,40 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
       })
     } finally {
       setConcluding(false)
+    }
+  }
+
+  // Cancelar Inventário
+  const handleConfirmCancel = async () => {
+    if (!demand?.id || isReadOnly) return
+    const reason = cancelReasonText.trim()
+    if (!reason) {
+      toast({
+        variant: 'destructive',
+        title: 'Motivo obrigatório',
+        description: 'Informe o motivo do cancelamento para prosseguir.',
+      })
+      return
+    }
+
+    setCancelling(true)
+    try {
+      await pcpInventoryDemandsService.cancelDemand(demand.id, reason)
+      toast({
+        title: 'Inventário cancelado com sucesso.',
+        description: `Demanda ${demand.control_number} cancelada. Histórico e contagens foram preservados.`,
+      })
+      setShowCancelModal(false)
+      onSuccess()
+      await loadData()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao cancelar inventário',
+        description: err?.message || 'Falha ao cancelar demanda.',
+      })
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -349,16 +427,63 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               <div className="w-8 h-8 rounded-lg bg-[#004C97] text-white flex items-center justify-center">
                 <ClipboardCheck className="w-4.5 h-4.5" />
               </div>
-              <div>
-                <DialogTitle className="text-base font-black text-slate-900">
-                  Lançar Inventário — Demanda {demand.control_number}
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-base font-black text-slate-900">
+                    Lançar Inventário — Demanda {demand.control_number}
+                  </DialogTitle>
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <span className="text-xs font-semibold text-slate-600">Status:</span>
+                    <Badge
+                      className={
+                        isCancelled
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs'
+                          : isConcluded
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs'
+                            : demand.status === 'Parcial' || demand.status === 'Inventário parcial'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold text-xs'
+                              : 'bg-blue-100 text-[#004C97] border-blue-300 font-semibold text-xs'
+                      }
+                    >
+                      {demand.status}
+                    </Badge>
+                  </div>
+                </div>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
                   Registre as contagens físicas de peças por corrida e localização no WMS.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
+
+          {/* Banner de Aviso de Estado Final / Somente Leitura */}
+          {isConcluded && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2 rounded-lg text-xs font-semibold">
+              <Lock className="w-4 h-4 text-emerald-600" />
+              <span>
+                Inventário concluído — somente leitura. Novas contagens e edições não são
+                permitidas.
+              </span>
+            </div>
+          )}
+
+          {isCancelled && (
+            <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 text-rose-900 px-3 py-2 rounded-lg text-xs">
+              <div className="flex items-center gap-2 font-semibold">
+                <Lock className="w-4 h-4 text-rose-600" />
+                <span>
+                  Inventário cancelado — somente leitura. Novas contagens e edições não são
+                  permitidas.
+                </span>
+              </div>
+              {demand.cancellation_reason && (
+                <div className="text-[11px] text-rose-700 pl-6">
+                  Motivo: <strong>{demand.cancellation_reason}</strong>
+                  {demand.cancelled_by && ` (por ${demand.cancelled_by})`}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cabeçalho Somente Leitura */}
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
@@ -571,8 +696,19 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               {!showAddForm && (
                 <Button
                   size="sm"
-                  onClick={() => setShowAddForm(true)}
-                  className="text-xs h-7 bg-[#004C97] hover:bg-[#003B75] text-white gap-1 font-bold"
+                  onClick={() => {
+                    if (isReadOnly) return
+                    setShowAddForm(true)
+                  }}
+                  disabled={isReadOnly}
+                  title={
+                    isCancelled
+                      ? 'Inventário cancelado. Novas contagens não são permitidas.'
+                      : isConcluded
+                        ? 'Inventário concluído. Novas contagens não são permitidas.'
+                        : '+ Adicionar Contagem'
+                  }
+                  className="text-xs h-7 bg-[#004C97] hover:bg-[#003B75] text-white gap-1 font-bold disabled:opacity-40"
                 >
                   <Plus className="w-3.5 h-3.5" />+ Adicionar Contagem
                 </Button>
@@ -709,18 +845,25 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                     <TableHead className="w-[150px]">Usuário</TableHead>
                     <TableHead className="w-[130px]">Data/Hora</TableHead>
                     <TableHead className="w-[80px] text-center">Status</TableHead>
+                    {!isReadOnly && <TableHead className="w-[40px] text-center"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-xs text-slate-500">
+                      <TableCell
+                        colSpan={isReadOnly ? 7 : 8}
+                        className="text-center py-6 text-xs text-slate-500"
+                      >
                         Carregando lançamentos...
                       </TableCell>
                     </TableRow>
                   ) : entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-xs text-slate-400">
+                      <TableCell
+                        colSpan={isReadOnly ? 7 : 8}
+                        className="text-center py-6 text-xs text-slate-400"
+                      >
                         Nenhuma contagem física registrada ainda para esta demanda.
                       </TableCell>
                     </TableRow>
@@ -753,6 +896,25 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                             Ativo
                           </Badge>
                         </TableCell>
+                        {!isReadOnly && (
+                          <TableCell className="text-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              disabled={deletingId === entry.id}
+                              className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                              title="Remover Contagem"
+                            >
+                              {deletingId === entry.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
@@ -762,116 +924,135 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-slate-100 flex-col sm:flex-row justify-between items-center">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={savingPartial || concluding}
-              className="text-xs"
-            >
-              Cancelar
-            </Button>
-
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleSavePartial}
-                disabled={savingPartial || concluding}
-                className="text-xs font-semibold gap-1 text-slate-700 hover:bg-slate-100"
+                onClick={() => onOpenChange(false)}
+                disabled={savingPartial || concluding || cancelling}
+                className="text-xs"
               >
-                {savingPartial ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Salvando Parcial...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5 text-blue-600" />
-                    Salvar Parcial
-                  </>
-                )}
+                Fechar
               </Button>
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleCheckConclusion}
-                disabled={savingPartial || concluding}
-                className="text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {concluding ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Concluindo...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Concluir Inventário
-                  </>
-                )}
-              </Button>
+              {!isReadOnly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCancelReasonText('')
+                    setShowCancelModal(true)
+                  }}
+                  disabled={savingPartial || concluding || cancelling}
+                  className="text-xs font-semibold text-rose-700 hover:bg-rose-50 border-rose-200 gap-1"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  Cancelar Inventário
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isReadOnly && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSavePartial}
+                    disabled={savingPartial || concluding || cancelling}
+                    className="text-xs font-semibold gap-1 text-slate-700 hover:bg-slate-100"
+                  >
+                    {savingPartial ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Salvando Parcial...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5 text-blue-600" />
+                        Salvar Parcial
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCheckConclusion}
+                    disabled={savingPartial || concluding || cancelling}
+                    className="text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {concluding ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Concluindo...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Concluir Inventário
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirmação de Conclusão com Itens/Corridas Pendentes ou Divergência */}
+      {/* Requisito 5: Concluir Inventário — Confirmação com título 'Concluir inventário?', mensagem 'Após a conclusão não será possível adicionar ou alterar contagens físicas.', botões 'Voltar' e 'Concluir Inventário' */}
       <Dialog open={showConfirmConclusion} onOpenChange={setShowConfirmConclusion}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
               <div>
                 <DialogTitle className="text-base font-black text-slate-900">
-                  Atenção ao Concluir Inventário
+                  Concluir inventário?
                 </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Existem itens/corridas ainda não inventariados ou com divergência de quantidade.
+                <DialogDescription className="text-xs text-slate-600 mt-1">
+                  Após a conclusão não será possível adicionar ou alterar contagens físicas.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="text-xs text-slate-700 bg-amber-50 p-3 rounded-lg border border-amber-200 space-y-1.5">
-            <p className="font-semibold text-amber-900">
-              Existem itens/corridas ainda não inventariados ou com divergência. Deseja realmente
-              concluir?
-            </p>
-            <div className="text-[11px] text-amber-800 space-y-0.5 pt-1">
+          <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5">
+            <span className="font-semibold text-slate-900 block">Resumo do Fechamento:</span>
+            <div className="text-[11px] text-slate-700 space-y-0.5 pt-0.5">
               <div>
                 Demanda: <strong>{demandaQtd} pçs</strong>
               </div>
               <div>
-                Saldo SAP:{' '}
+                Saldo SAP utilizado:{' '}
                 <strong>{sapBalance !== null ? `${sapBalance} pçs` : 'Indisponível (—)'}</strong>
               </div>
               <div>
-                Inventariado: <strong>{inventariadoQtd} pçs</strong>
+                Inventariado final: <strong>{inventariadoQtd} pçs</strong>
               </div>
               <div>
-                Divergência Demanda:{' '}
+                Divergência demanda:{' '}
                 <strong>
-                  {divergenciaDemanda > 0 ? `+${divergenciaDemanda}` : divergenciaDemanda} pçs (
-                  {formatPtBrPct(divergenciaPct)})
+                  {divergenciaDemanda > 0 ? `+${divergenciaDemanda}` : divergenciaDemanda} pçs
                 </strong>
               </div>
-              {sapBalance !== null && (
-                <div>
-                  Divergência SAP:{' '}
-                  <strong>
-                    {divergenciaSap !== null && divergenciaSap > 0
-                      ? `+${divergenciaSap}`
-                      : divergenciaSap}{' '}
-                    pçs
-                  </strong>
-                </div>
-              )}
+              <div>
+                Divergência SAP:{' '}
+                <strong>
+                  {divergenciaSap !== null
+                    ? `${divergenciaSap > 0 ? `+${divergenciaSap}` : divergenciaSap} pçs`
+                    : '—'}
+                </strong>
+              </div>
+              <div>
+                Divergência %: <strong>{formatPtBrPct(divergenciaPct)}</strong>
+              </div>
             </div>
           </div>
 
@@ -883,16 +1064,82 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               onClick={() => setShowConfirmConclusion(false)}
               className="text-xs"
             >
-              Voltar à Contagem
+              Voltar
             </Button>
             <Button
               type="button"
               size="sm"
               onClick={executeConclude}
               disabled={concluding}
-              className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white"
+              className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {concluding ? 'Concluindo...' : 'Sim, Concluir Inventário'}
+              {concluding ? 'Concluindo...' : 'Concluir Inventário'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Requisito 6: Cancelar Inventário — Título 'Cancelar inventário?', linha 'Demanda: INV-AAAA-NNNNNN', mensagem 'O inventário será cancelado e não aceitará novas contagens. Esta ação ficará registrada no histórico.', campo OBRIGATÓRIO 'Motivo do cancelamento', botões 'Voltar' e 'Confirmar Cancelamento' */}
+      <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                <Ban className="w-4 h-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-slate-900">
+                  Cancelar inventário?
+                </DialogTitle>
+                <div className="text-xs text-slate-700 mt-1">
+                  Demanda:{' '}
+                  <span className="font-mono font-bold text-slate-900">
+                    {demand.control_number}
+                  </span>
+                </div>
+                <DialogDescription className="text-xs text-slate-600 mt-1">
+                  O inventário será cancelado e não aceitará novas contagens. Esta ação ficará
+                  registrada no histórico.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">
+                Motivo do cancelamento *
+              </Label>
+              <Input
+                value={cancelReasonText}
+                onChange={(e) => setCancelReasonText(e.target.value)}
+                placeholder="Informe o motivo do cancelamento obrigatoriamente..."
+                className="text-xs h-9 mt-1"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCancelModal(false)}
+              disabled={cancelling}
+              className="text-xs"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmCancel}
+              disabled={cancelling || !cancelReasonText.trim()}
+              className="text-xs font-bold"
+            >
+              {cancelling ? 'Cancelando...' : 'Confirmar Cancelamento'}
             </Button>
           </DialogFooter>
         </DialogContent>
