@@ -434,7 +434,7 @@ class PcpInventoryDemandsService {
       sap_last_sync: nowStr,
       sap_query_status: 'SINCRONIZADO',
       priority,
-      status: 'Gerada',
+      status: 'Aberto',
       observation: (payload.observation || '').trim(),
       requester_id: requesterId,
       requester_name: requesterName,
@@ -688,6 +688,7 @@ class PcpInventoryDemandsService {
         summary: `Inventário reaberto para novo lançamento — status anterior: Cancelado`,
         previous_value: previousStatus,
         new_value: 'Aberto',
+        cycle_number: newCycle,
         details: {
           previous_status: previousStatus,
           new_status: 'Aberto',
@@ -739,14 +740,14 @@ class PcpInventoryDemandsService {
       throw new Error('Demanda não encontrada.')
     }
 
-    // Regra crítica de bloqueio no backend/serviço
+    // Regra crítica de bloqueio no backend/serviço (R9: mensagens exatas)
     if (this.isDemandCancelled(demand.status)) {
       throw new Error(
         'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
       )
     }
     if (this.isDemandConcluded(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+      throw new Error('Inventário concluído. Novas contagens não são permitidas.')
     }
 
     const count = Number(payload.pieces_count)
@@ -812,7 +813,7 @@ class PcpInventoryDemandsService {
       pcp_planned_sequence: 1,
       schedule_version: 1,
       cycle_number: currentDemandCycle,
-      status: 'Em Inventário',
+      status: 'Parcial',
       responsible_user: userName,
       user_id: userId,
       user_name: userName,
@@ -848,9 +849,10 @@ class PcpInventoryDemandsService {
         user_name: userName,
         user_id: userId,
         user_role: userRole,
-        description: `Contagem física de ${count} peças registrada na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}) por ${userName}.`,
+        description: `Contagem física de ${count} peças registrada na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}) por ${userName}. Ciclo: ${currentDemandCycle}.`,
         summary: `Contagem física de ${count} peças na localização ${locationWmsTrim} (Corrida: ${runNumberTrim}).`,
         previous_value: null,
+        cycle_number: currentDemandCycle,
         new_value: {
           demand_id: demand.id,
           control_number: demand.control_number,
@@ -862,6 +864,7 @@ class PcpInventoryDemandsService {
           user_id: userId,
           user_name: userName,
           user_role: userRole,
+          cycle_number: currentDemandCycle,
           timestamp: nowIso,
         },
         timestamp: nowIso,
@@ -905,17 +908,15 @@ class PcpInventoryDemandsService {
       console.warn('[PCP-INVENTORY] Aviso: falha ao gravar pcp_audit_logs para contagem:', auditErr)
     }
 
-    // 4. Se o status da demanda era 'Gerada', transiciona para 'Em inventário'
-    if (demand.status === 'Gerada') {
+    // 4. R5: Se o status da demanda era 'Aberto' ou 'Gerada', transiciona automaticamente para 'Parcial'
+    const curStatus = (demand.status || '').trim().toLowerCase()
+    if (curStatus === 'aberto' || curStatus === 'gerada' || curStatus === 'gerado') {
       try {
         await pb.collection('pcp_mp_inventory_demands').update(demand.id, {
-          status: 'Em inventário',
+          status: 'Parcial',
         })
       } catch (stErr) {
-        console.warn(
-          '[PCP-INVENTORY] Erro ao atualizar status da demanda para Em inventário:',
-          stErr,
-        )
+        console.warn('[PCP-INVENTORY] Erro ao atualizar status da demanda para Parcial:', stErr)
       }
     }
 
@@ -995,10 +996,12 @@ class PcpInventoryDemandsService {
     if (!demand) throw new Error('Demanda não encontrada.')
 
     if (this.isDemandCancelled(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+      throw new Error(
+        'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
+      )
     }
     if (this.isDemandConcluded(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+      throw new Error('Inventário concluído. Novas contagens não são permitidas.')
     }
 
     const authUser = pb.authStore.record || pb.authStore.model
@@ -1027,6 +1030,7 @@ class PcpInventoryDemandsService {
         summary: `Inventário salvo parcialmente — Status anterior: ${previousStatus} — Status novo: Parcial`,
         previous_value: previousStatus,
         new_value: 'Parcial',
+        cycle_number: demand.cycle_count || 1,
         details: {
           previous_status: previousStatus,
           new_status: 'Parcial',
@@ -1192,10 +1196,10 @@ class PcpInventoryDemandsService {
     if (!demand) throw new Error('Demanda não encontrada.')
 
     if (this.isDemandCancelled(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+      throw new Error('Não é possível concluir um inventário cancelado.')
     }
     if (this.isDemandConcluded(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+      throw new Error('Inventário concluído. Novas contagens não são permitidas.')
     }
 
     const authUser = pb.authStore.record || pb.authStore.model
@@ -1264,6 +1268,7 @@ class PcpInventoryDemandsService {
         summary: `Inventário concluído — Status anterior: ${previousStatus} — Status novo: Concluído`,
         previous_value: previousStatus,
         new_value: 'Concluído',
+        cycle_number: demand.cycle_count || 1,
         details: {
           previous_status: previousStatus,
           new_status: 'Concluído',
@@ -1337,10 +1342,10 @@ class PcpInventoryDemandsService {
     if (!demand) throw new Error('Demanda não encontrada.')
 
     if (this.isDemandCancelled(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+      throw new Error('Demanda já está cancelada.')
     }
     if (this.isDemandConcluded(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário concluído.')
+      throw new Error('Não é possível cancelar uma demanda já concluída.')
     }
 
     const authUser = pb.authStore.record || pb.authStore.model
@@ -1371,6 +1376,7 @@ class PcpInventoryDemandsService {
         summary: `Demanda cancelada por ${userName}. Motivo: ${trimmedReason}`,
         previous_value: previousStatus,
         new_value: 'Cancelado',
+        cycle_number: demand.cycle_count || 1,
         details: {
           previous_status: previousStatus,
           new_status: 'Cancelado',

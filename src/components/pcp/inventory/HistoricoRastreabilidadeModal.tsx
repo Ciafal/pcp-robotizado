@@ -148,6 +148,10 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
         )
       case 'DEMANDA_CANCELADA':
         return <Badge className="bg-rose-100 text-rose-800 border-rose-200">Cancelamento</Badge>
+      case 'DEMANDA_REABERTA':
+        return (
+          <Badge className="bg-sky-100 text-sky-800 border-sky-300 font-bold">Novo Ciclo</Badge>
+        )
       default:
         return <Badge variant="outline">{type}</Badge>
     }
@@ -313,6 +317,7 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
                 <option value="SALVAMENTO_PARCIAL">Salvamento Parcial</option>
                 <option value="INVENTARIO_CONCLUIDO">Inventário Concluído</option>
                 <option value="DEMANDA_CANCELADA">Demanda Cancelada</option>
+                <option value="DEMANDA_REABERTA">Demanda Reaberta (Novo Ciclo)</option>
               </select>
             </div>
           </div>
@@ -372,6 +377,14 @@ export const HistoricoRastreabilidadeModal: React.FC<HistoricoRastreabilidadeMod
                           <User className="w-3 h-3 text-slate-400" />
                           <span>
                             Usuário: <strong className="text-slate-700">{ev.user_name}</strong>
+                          </span>
+                        </div>
+                      )}
+                      {(ev.cycle_number || ev.details?.new_cycle || ev.details?.previous_cycle) && (
+                        <div className="flex items-center gap-1 font-mono">
+                          <span className="font-semibold text-sky-800 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
+                            Ciclo{' '}
+                            {ev.cycle_number || ev.details?.new_cycle || ev.details?.previous_cycle}
                           </span>
                         </div>
                       )}

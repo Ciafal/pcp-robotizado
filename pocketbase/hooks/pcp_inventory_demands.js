@@ -134,12 +134,10 @@ onRecordUpdateRequest((e) => {
 
     // Concluído é o único estado terminal absoluto: nenhuma alteração permitida
     if (isOriginalConcluded) {
-      throw new BadRequestError(
-        'Não é possível alterar uma demanda de inventário concluída (estado terminal).',
-      )
+      throw new BadRequestError('Inventário concluído. Novas contagens não são permitidas.')
     }
 
-    // Se estava cancelado, só é permitida atualização se estiver sendo reaberto (status mudando para Aberto ou Parcial com incremento de ciclo)
+    // Se estava cancelado, só é permitida atualização se estiver sendo reaberto (status mudando para Aberto com incremento de ciclo)
     const isOriginalCancelled = prevStatus === 'cancelado' || prevStatus === 'cancelada'
     if (isOriginalCancelled && (nextStatus === 'cancelado' || nextStatus === 'cancelada')) {
       // Modificações internas mantendo cancelado são rejeitadas se tentarem inventariar
@@ -147,7 +145,7 @@ onRecordUpdateRequest((e) => {
       const nextPieces = e.record.getInt('total_pieces_inventoried')
       if (prevPieces !== nextPieces) {
         throw new BadRequestError(
-          'Não é possível registrar contagens em um ciclo de inventário cancelado sem reabri-lo.',
+          'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
         )
       }
     }
@@ -187,9 +185,7 @@ onRecordCreateRequest((e) => {
       st === 'inventario concluido'
 
     if (isConcluded) {
-      throw new BadRequestError(
-        'Não é possível registrar contagens em um inventário concluído (estado terminal).',
-      )
+      throw new BadRequestError('Inventário concluído. Novas contagens não são permitidas.')
     }
     if (isCancelled) {
       throw new BadRequestError(
@@ -238,10 +234,12 @@ onRecordUpdateRequest((e) => {
       st === 'inventario concluido'
 
     if (isConcluded) {
-      throw new BadRequestError('Não é possível alterar contagens em um inventário concluído.')
+      throw new BadRequestError('Inventário concluído. Novas contagens não são permitidas.')
     }
     if (isCancelled) {
-      throw new BadRequestError('Não é possível alterar contagens em um inventário cancelado.')
+      throw new BadRequestError(
+        'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
+      )
     }
 
     // Também bloquear alteração de contagens de ciclos anteriores já encerrados
@@ -287,10 +285,12 @@ onRecordDeleteRequest((e) => {
       st === 'inventario concluido'
 
     if (isConcluded) {
-      throw new BadRequestError('Não é possível excluir contagens em um inventário concluído.')
+      throw new BadRequestError('Inventário concluído. Novas contagens não são permitidas.')
     }
     if (isCancelled) {
-      throw new BadRequestError('Não é possível excluir contagens em um inventário cancelado.')
+      throw new BadRequestError(
+        'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
+      )
     }
 
     // Bloquear exclusão de contagens de ciclos anteriores (preservação para auditoria)

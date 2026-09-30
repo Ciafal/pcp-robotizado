@@ -253,8 +253,29 @@ export const RawMaterialInventoryPage: React.FC = () => {
     setShowDemandasSection((prev) => !prev)
   }
 
-  const handleOpenLancarInventario = (demand?: InventoryDemand) => {
+  const handleOpenLancarInventario = async (demand?: InventoryDemand) => {
     if (demand) {
+      const st = (demand.status || '').trim().toLowerCase()
+      if (st === 'cancelado' || st === 'cancelada') {
+        try {
+          const reaberta = await pcpInventoryDemandsService.reopenDemand(demand.id)
+          toast({
+            title: 'Demanda Reaberta para Novo Ciclo',
+            description: `Demanda ${reaberta.control_number} reaberta (Ciclo ${reaberta.cycle_count || 2}). Contagens físicas habilitadas.`,
+          })
+          await loadDemands()
+          setSelectedDemandForLancar(reaberta)
+          setLancarModalOpen(true)
+          return
+        } catch (err: any) {
+          toast({
+            variant: 'destructive',
+            title: 'Erro ao reabrir demanda',
+            description: err?.message || 'Falha ao reabrir demanda cancelada.',
+          })
+          return
+        }
+      }
       setSelectedDemandForLancar(demand)
       setLancarModalOpen(true)
     } else {

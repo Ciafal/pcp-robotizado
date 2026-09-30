@@ -373,7 +373,7 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
       await pcpInventoryDemandsService.savePartialDemand(demand.id)
       toast({
         title: 'Inventário salvo parcialmente com sucesso.',
-        description: `Demanda ${demand.control_number} salva com status Parcial. A demanda continua disponível em "Selecionar Demanda para Lançamento".`,
+        description: 'Inventário salvo parcialmente com sucesso.',
       })
       onSuccess()
       onOpenChange(false)
@@ -389,6 +389,30 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   }
 
   // Concluir Inventário
+  const [concludedResultModal, setConcludedResultModal] = useState<{
+    open: boolean
+    demand: InventoryDemand | null
+    demanda: number
+    inventariado: number
+    divergenciaDemanda: number
+    divergenciaSap: number | null
+    divergenciaPct: number
+    saldoSap: number | null
+    usuario: string
+    dataHora: string
+  }>({
+    open: false,
+    demand: null,
+    demanda: 0,
+    inventariado: 0,
+    divergenciaDemanda: 0,
+    divergenciaSap: null,
+    divergenciaPct: 0,
+    saldoSap: null,
+    usuario: '',
+    dataHora: '',
+  })
+
   const handleCheckConclusion = () => {
     if (!demand?.id || isReadOnly) return
     setShowConfirmConclusion(true)
@@ -405,26 +429,49 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
         divergence_sap: divergenciaSap,
         divergence_pct: Number(divergenciaPct.toFixed(2)),
       })
+
+      // R6: Persistência confirmada com sucesso pelo backend -> atualiza estado
       setCurrentDemandState(concluded)
-      toast({
-        title: 'Inventário concluído com sucesso.',
-        description: `Demanda ${activeDemand.control_number} concluída. Nova contagens não são permitidas.`,
-      })
       setShowConfirmConclusion(false)
+
+      const nowPtBr = new Date().toLocaleString('pt-BR')
+      const userName = concluded.concluded_by || 'Programador PCP'
+
+      // Toast com mensagem exata solicitada
+      toast({
+        title: `Inventário ${activeDemand.control_number} concluído com sucesso.`,
+        description: `Status Concluído confirmado. A demanda foi finalizada com sucesso.`,
+      })
+
+      // Abre modal de sucesso detalhado conforme R6:
+      // "Inventário INV-2026-XXXXXX concluído com sucesso." (modal com Inventariado final, divergências, data/hora, usuário, botão "Fechar")
+      setConcludedResultModal({
+        open: true,
+        demand: concluded,
+        demanda: demandaQtd,
+        inventariado: inventariadoQtd,
+        divergenciaDemanda,
+        divergenciaSap,
+        divergenciaPct,
+        saldoSap: sapBalance,
+        usuario: userName,
+        dataHora: nowPtBr,
+      })
+
       onSuccess()
       await loadData()
     } catch (err: any) {
       toast({
         variant: 'destructive',
         title: 'Erro ao concluir inventário',
-        description: err?.message || 'Falha ao concluir demanda.',
+        description: err?.message || 'Falha ao concluir demanda no backend.',
       })
     } finally {
       setConcluding(false)
     }
   }
 
-  // Cancelar Inventário
+  // Cancelar Inventário (R8: mensagem exata)
   const handleConfirmCancel = async () => {
     if (!demand?.id || isReadOnly) return
     const reason = cancelReasonText.trim()
@@ -442,7 +489,8 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
       await pcpInventoryDemandsService.cancelDemand(demand.id, reason)
       toast({
         title: 'Inventário cancelado com sucesso.',
-        description: `Demanda ${demand.control_number} cancelada. Histórico e contagens foram preservados.`,
+        description:
+          'Inventário cancelado com sucesso. A demanda permanece disponível para novo lançamento.',
       })
       setShowCancelModal(false)
       onSuccess()
@@ -1210,6 +1258,110 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               className="text-xs font-bold"
             >
               {cancelling ? 'Cancelando...' : 'Confirmar Cancelamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* R6: Modal de Sucesso de Conclusão do Inventário */}
+      <Dialog
+        open={concludedResultModal.open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setConcludedResultModal((prev) => ({ ...prev, open: false }))
+            onOpenChange(false)
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-slate-900">
+                  Inventário {concludedResultModal.demand?.control_number} concluído com sucesso.
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Demanda finalizada em estado Concluído com snapshot imutável registrado.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-slate-700">
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Demanda:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {formatPtBrNumber(concludedResultModal.demanda)} pçs
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Inventariado final:</span>
+                <span className="font-mono font-bold text-emerald-700">
+                  {formatPtBrNumber(concludedResultModal.inventariado)} pçs
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Saldo SAP utilizado:</span>
+                <span className="font-mono font-semibold text-slate-800">
+                  {concludedResultModal.saldoSap !== null
+                    ? `${formatPtBrNumber(concludedResultModal.saldoSap)} pçs`
+                    : 'Indisponível (—)'}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Divergência Demanda:</span>
+                <span
+                  className={`font-mono font-bold ${
+                    concludedResultModal.divergenciaDemanda === 0
+                      ? 'text-emerald-700'
+                      : 'text-amber-800'
+                  }`}
+                >
+                  {concludedResultModal.divergenciaDemanda > 0 ? '+' : ''}
+                  {formatPtBrNumber(concludedResultModal.divergenciaDemanda)} pçs
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Divergência SAP:</span>
+                <span className="font-mono font-semibold text-slate-800">
+                  {concludedResultModal.divergenciaSap !== null
+                    ? `${concludedResultModal.divergenciaSap > 0 ? '+' : ''}${formatPtBrNumber(
+                        concludedResultModal.divergenciaSap,
+                      )} pçs`
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Divergência %:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {formatPtBrPct(concludedResultModal.divergenciaPct)}
+                </span>
+              </div>
+              <div className="flex justify-between py-0.5 border-b border-slate-200/70">
+                <span className="text-slate-500">Usuário:</span>
+                <span className="font-semibold text-slate-800">{concludedResultModal.usuario}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="text-slate-500">Data/Hora:</span>
+                <span className="font-mono text-slate-700">{concludedResultModal.dataHora}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                setConcludedResultModal((prev) => ({ ...prev, open: false }))
+                onOpenChange(false)
+              }}
+              className="text-xs font-bold bg-[#004C97] hover:bg-[#003B75] text-white"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
