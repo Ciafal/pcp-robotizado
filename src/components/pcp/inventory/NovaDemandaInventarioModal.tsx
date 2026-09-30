@@ -33,6 +33,7 @@ import {
   pcpStorageDepositsService,
   StorageDepositItem,
   normalizeForSearch,
+  PROVISIONAL_DEPOSIT_MAP,
 } from '@/services/pcp-storage-deposits-service'
 import { lineMasterService } from '@/services/line-master'
 import pb from '@/lib/pocketbase/client'
@@ -387,7 +388,8 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 
   // 4. DEPÓSITO: Camada de serviço de depósitos (SAP ECC via RFC LGORT por WERKS com fallback para lista provisória de homologação de 68 itens)
   const loadDepositsForWerks = async (werksCode: string, force = false) => {
-    // Se a fonte for TEMPORÁRIA, mantém os 68 depósitos sempre disponíveis sem esvaziá-los por chamada RFC indisponível
+    // Na fonte TEMPORÁRIA / HOMOLOGAÇÃO, os 68 depósitos ficam 100% desacoplados de Empresa/Linha/Centro
+    // NUNCA chamar RFC nem resetar opções enquanto a fonte for provisória.
     if (isDepositProvisional && !force) {
       const prov = pcpStorageDepositsService.getProvisionalDeposits()
       setDepositOptions(prov)
@@ -399,14 +401,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       return
     }
 
+    // Se estiver em modo oficial SAP_RFC ou for forçado explicitamente com werks
     if (!werksCode) {
-      const prov = pcpStorageDepositsService.getProvisionalDeposits()
-      setDepositOptions(prov)
-      setIsDepositProvisional(true)
-      setDepositWarning(
-        'Lista temporária para homologação — fonte definitiva: SAP ECC via RFC (LGORT)',
-      )
-      setDepositError(null)
+      if (isDepositProvisional) {
+        const prov = pcpStorageDepositsService.getProvisionalDeposits()
+        setDepositOptions(prov)
+        setIsDepositProvisional(true)
+        setDepositWarning(
+          'Lista temporária para homologação — fonte definitiva: SAP ECC via RFC (LGORT)',
+        )
+        setDepositError(null)
+      } else {
+        setDepositOptions([])
+      }
       return
     }
 
@@ -416,7 +423,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       const res = await pcpStorageDepositsService.getDepositsForDemand({
         werks: werksCode,
         forceRefresh: force,
-        preferRfc: true,
+        preferRfc: !isDepositProvisional || force,
       })
 
       setDepositOptions(res.data)
@@ -425,7 +432,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       setDepositError(null)
     } catch (err: any) {
       console.warn('[NovaDemandaInventarioModal] Erro ao consultar depósitos no serviço:', err)
-      // Fallback seguro: garante que os 68 depósitos estejam disponíveis para testes
+      // Fallback seguro: garante que os 68 depósitos estejam disponíveis para homologação
       const provFallback = pcpStorageDepositsService.getProvisionalDeposits()
       setDepositOptions(provFallback)
       setIsDepositProvisional(true)
@@ -442,8 +449,11 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   // CASCATA OBRIGATÓRIA: Etapa 1 -> Etapa 2 -> Etapa 3 -> Etapa 4
   // =========================================================================
 
-  // Alterar Empresa: limpa Linha e Centro; se fonte for SAP_RFC limpa e recarrega depósitos,
-  // mas na fonte TEMPORÁRIA os 68 depósitos permanecem sempre disponíveis sem reset
+  // Alterar Empresa: limpa Linha e Centro.
+  // Regra fundamental da CAUSA 2: durante a fonte TEMPORÁRIA, o Depósito fica TOTALMENTE desacoplado
+  // de Empresa/Linha/Centro — nunca chamar loadDepositsForWerks nem resetar as opções.
+  // Qualquer combinação Empresa/Linha/Centro mantém a lista integral de 68 depósitos.
+  // A cascata WERKS→LGORT só se aplica quando a fonte for "SAP_RFC".
   const handleSelectCompany = (opt: SapCompanyOption) => {
     setCompany(opt.werks)
     setCompanyLabel(opt.label)
@@ -458,7 +468,7 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     setCenterLabel('')
     setCenterOptions([])
 
-    // Regra da fonte: só reseta e recarrega depósitos se NÃO for provisório (SAP_RFC ativo)
+    // Apenas se a fonte ativa for SAP_RFC (e NÃO a provisória de homologação)
     if (!isDepositProvisional) {
       setStorageDeposit('')
       setStorageDepositLabel('')
@@ -753,7 +763,17 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     }
 
     // Regra estrita: Não permitir salvar valor livre que não pertença à lista controlada
-    if (!pcpStorageDepositsService.isValidDepositCode(storageDeposit, depositOptions)) {
+    // CAUSA 3: Validação do salvamento contra fonte canônica (PROVISIONAL_DEPOSIT_MAP)
+    // Se o código existe na lista temporária canônica (ex.: DP07), é válido, sem segunda validação contra SAP/LGORT durante homologação.
+    // Garante que mesmo que o estado `depositOptions` tenha oscilado, se for um código válido da lista temporária ou opção ativa, passa.
+    const cleanDepositCode = storageDeposit.trim().toUpperCase()
+    const isValidProvisional = PROVISIONAL_DEPOSIT_MAP.has(cleanDepositCode)
+    const isValidService = pcpStorageDepositsService.isValidDepositCode(
+      cleanDepositCode,
+      depositOptions,
+    )
+
+    if (!isValidProvisional && !isValidService) {
       setErrorField('storageDeposit')
       setErrorMessage(
         'Não foi possível gerar a demanda de inventário. Selecione um depósito da lista.',
@@ -1376,7 +1396,15 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                               <RefreshCw className="w-3 h-3 text-amber-700" /> Tentar novamente
                             </Button>
                           </div>
-                        ) : depositOptions.length === 0 ? (
+                        ) : depositOptions.filter((d) => {
+                            if (!depositSearch.trim()) return true
+                            const q = normalizeForSearch(depositSearch)
+                            return (
+                              normalizeForSearch(d.code).includes(q) ||
+                              normalizeForSearch(d.description).includes(q) ||
+                              normalizeForSearch(d.label).includes(q)
+                            )
+                          }).length === 0 ? (
                           <CommandEmpty className="p-4 text-xs text-center text-slate-500">
                             Nenhum depósito encontrado.
                           </CommandEmpty>
@@ -1398,48 +1426,31 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                                   normalizeForSearch(d.label).includes(q)
                                 )
                               })
-                              .map((d) => {
-                                const searchableValue =
-                                  pcpStorageDepositsService.getCommandItemValue(d)
-                                return (
-                                  <CommandItem
-                                    key={d.code}
-                                    value={searchableValue}
-                                    data-testid={`deposito-option-${d.code}`}
-                                    onSelect={() => handleSelectDeposit(d)}
+                              .map((d) => (
+                                <CommandItem
+                                  key={d.code}
+                                  value={d.code}
+                                  data-testid={`deposito-option-${d.code}`}
+                                  onSelect={() => handleSelectDeposit(d)}
+                                  className={cn(
+                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                    storageDeposit === d.code &&
+                                      'bg-blue-50 font-bold text-[#004C97]',
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="font-mono font-bold text-slate-900 text-xs">
+                                      {d.label}
+                                    </span>
+                                  </div>
+                                  <Check
                                     className={cn(
-                                      'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
-                                      storageDeposit === d.code &&
-                                        'bg-blue-50 font-bold text-[#004C97]',
+                                      'h-3.5 w-3.5 text-[#004C97] shrink-0',
+                                      storageDeposit === d.code ? 'opacity-100' : 'opacity-0',
                                     )}
-                                  >
-                                    <div className="flex items-center gap-2 truncate">
-                                      <span className="font-mono font-bold text-slate-900 text-xs">
-                                        {d.label}
-                                      </span>
-                                    </div>
-                                    <Check
-                                      className={cn(
-                                        'h-3.5 w-3.5 text-[#004C97] shrink-0',
-                                        storageDeposit === d.code ? 'opacity-100' : 'opacity-0',
-                                      )}
-                                    />
-                                  </CommandItem>
-                                )
-                              })}
-                            {depositOptions.filter((d) => {
-                              if (!depositSearch.trim()) return true
-                              const q = normalizeForSearch(depositSearch)
-                              return (
-                                normalizeForSearch(d.code).includes(q) ||
-                                normalizeForSearch(d.description).includes(q) ||
-                                normalizeForSearch(d.label).includes(q)
-                              )
-                            }).length === 0 && (
-                              <CommandEmpty className="p-4 text-xs text-center text-slate-500">
-                                Nenhum depósito encontrado.
-                              </CommandEmpty>
-                            )}
+                                  />
+                                </CommandItem>
+                              ))}
                           </CommandGroup>
                         )}
                       </CommandList>

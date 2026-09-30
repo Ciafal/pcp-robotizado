@@ -128,7 +128,7 @@ export const PROVISIONAL_STORAGE_DEPOSITS: ReadonlyArray<{ code: string; descrip
  */
 export const PROVISIONAL_DEPOSITS_LIST = PROVISIONAL_STORAGE_DEPOSITS
 
-const PROVISIONAL_DEPOSIT_MAP = new Map<string, string>(
+export const PROVISIONAL_DEPOSIT_MAP = new Map<string, string>(
   PROVISIONAL_STORAGE_DEPOSITS.map((d) => [d.code, d.description]),
 )
 
@@ -241,6 +241,8 @@ class PcpStorageDepositsService {
   /**
    * Valida se um código pertence à lista de depósitos válidos (seja da lista de homologação ou SAP fornecido).
    * Tolera maiúsculas/minúsculas no código.
+   * Regra CAUSA 3: durante a homologação, validação garantida contra PROVISIONAL_DEPOSIT_MAP canônico
+   * sem depender do estado do componente ter sido esvaziado ou filtrado.
    */
   public isValidDepositCode(code?: string | null, extraOptions?: StorageDepositItem[]): boolean {
     if (!code || !code.trim()) return false
@@ -248,6 +250,13 @@ class PcpStorageDepositsService {
     if (PROVISIONAL_DEPOSIT_MAP.has(clean)) return true
     if (extraOptions && extraOptions.some((opt) => opt.code.toUpperCase() === clean)) return true
     return false
+  }
+
+  /**
+   * Retorna diretamente o mapa canônico de depósitos provisórios
+   */
+  public getProvisionalDepositMap(): Map<string, string> {
+    return PROVISIONAL_DEPOSIT_MAP
   }
 
   /**

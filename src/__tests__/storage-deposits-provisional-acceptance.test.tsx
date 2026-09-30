@@ -310,4 +310,110 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (Re
 
     expect(screen.getByText('DS06 — Acabado SDC')).toBeInTheDocument()
   })
+
+  // Teste de aceitação completo do Combobox: abertura sem pesquisa (68 itens), search DP07, DC09, DS06, DW01, Almoxarifado, Empresa/Linha/Centro selecionados, seleção DP07 e reabertura preserva DP07
+  it('Combobox de Depósito no Modal: abertura sem pesquisa mostra 68 itens; busca filtra DP07, DC09, DS06, DW01 e Almoxarifado; desacoplado da cascata', async () => {
+    const { unmount } = render(
+      <NovaDemandaInventarioModal
+        open={true}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+        initialContext={{
+          company: 'CIAFAL',
+          line: 'ACAB_L2',
+          center: 'ACABL2',
+        }}
+      />,
+    )
+
+    const depTrigger = screen.getByTestId('select-deposito-trigger')
+    expect(depTrigger).toBeInTheDocument()
+    expect(depTrigger).not.toBeDisabled()
+
+    // 1. Abertura sem pesquisa -> dropdown abre com os 68 depósitos
+    fireEvent.click(depTrigger)
+    await waitFor(() => {
+      expect(screen.getByTestId('sap-deposito-provisional-hint')).toHaveTextContent('68 itens')
+      expect(screen.getByTestId('deposito-option-DP01')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DW01')).toBeInTheDocument()
+    })
+
+    const searchInput = screen.getByTestId('input-search-deposito')
+
+    // 2. Search "DP07" -> exatamente "DP07 — Matéria Prima L1"
+    fireEvent.change(searchInput, { target: { value: 'DP07' } })
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DP07')).toBeInTheDocument()
+      expect(screen.getByText('DP07 — Matéria Prima L1')).toBeInTheDocument()
+      expect(screen.queryByTestId('deposito-option-DP01')).not.toBeInTheDocument()
+    })
+
+    // 3. Search "DC09" -> "Tarugo acabado"
+    fireEvent.change(searchInput, { target: { value: 'DC09' } })
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DC09')).toBeInTheDocument()
+      expect(screen.getByText('DC09 — Tarugo acabado')).toBeInTheDocument()
+      expect(screen.queryByTestId('deposito-option-DP07')).not.toBeInTheDocument()
+    })
+
+    // 4. Search "DS06" -> "Acabado SDC"
+    fireEvent.change(searchInput, { target: { value: 'DS06' } })
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DS06')).toBeInTheDocument()
+      expect(screen.getByText('DS06 — Acabado SDC')).toBeInTheDocument()
+      expect(screen.queryByTestId('deposito-option-DC09')).not.toBeInTheDocument()
+    })
+
+    // 5. Search "DW01" -> "Armazém"
+    fireEvent.change(searchInput, { target: { value: 'DW01' } })
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DW01')).toBeInTheDocument()
+      expect(screen.getByText('DW01 — Armazém')).toBeInTheDocument()
+    })
+
+    // 6. Search "Almoxarifado" -> 7 resultados
+    fireEvent.change(searchInput, { target: { value: 'Almoxarifado' } })
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DP01')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DP31')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DC01')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DC02')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DC03')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DC12')).toBeInTheDocument()
+      expect(screen.getByTestId('deposito-option-DS01')).toBeInTheDocument()
+      expect(screen.queryByTestId('deposito-option-DP07')).not.toBeInTheDocument()
+    })
+
+    // 7. Search "XYZ999" -> Estado vazio
+    fireEvent.change(searchInput, { target: { value: 'XYZ999' } })
+    await waitFor(() => {
+      expect(screen.getByText('Nenhum depósito encontrado.')).toBeInTheDocument()
+    })
+
+    // 8. Limpa busca, seleciona DP07
+    fireEvent.change(searchInput, { target: { value: 'DP07' } })
+    await waitFor(() => screen.getByTestId('deposito-option-DP07'))
+    fireEvent.click(screen.getByTestId('deposito-option-DP07'))
+
+    // Trigger exibe o rótulo selecionado
+    expect(depTrigger).toHaveTextContent('DP07 — Matéria Prima L1')
+    unmount()
+
+    // 9. Reabertura do modal com initialContext.storageDeposit = 'DP07' preserva o valor e rótulo
+    render(
+      <NovaDemandaInventarioModal
+        open={true}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+        initialContext={{
+          company: 'CIAFAL',
+          line: 'ACAB_L2',
+          center: 'ACABL2',
+          storageDeposit: 'DP07',
+        }}
+      />,
+    )
+    const reopenedDepTrigger = screen.getByTestId('select-deposito-trigger')
+    expect(reopenedDepTrigger).toHaveTextContent('DP07 — Matéria Prima L1')
+  })
 })
