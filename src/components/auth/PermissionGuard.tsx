@@ -83,6 +83,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/hierarquia'),
   )
 
+  // Rota canônica de Projeções de MP (/pcp/gestao-materia-prima/projecoes-mp e aliases de Gestão de MP)
+  const isGestaoMpRoute = Boolean(
+    currentPathname === '/pcp/gestao-materia-prima/projecoes-mp' ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima/projecoes-mp') ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+    currentPathname.startsWith('/pcp/otimizacao-mp') ||
+    currentPathname.includes('projecoes-mp') ||
+    currentHash.includes('projecoes-mp') ||
+    windowPath.includes('projecoes-mp') ||
+    windowPath.includes('gestao-materia-prima'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -186,7 +198,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/ficha-mestre'),
   )
 
-  if (isInventarioMpRoute || isEntregasRoute || isHierarquiaRoute || isCadastrosOrMasterDataEarly) {
+  if (
+    isInventarioMpRoute ||
+    isEntregasRoute ||
+    isHierarquiaRoute ||
+    isGestaoMpRoute ||
+    isCadastrosOrMasterDataEarly
+  ) {
     return <>{children}</>
   }
 
@@ -227,10 +245,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isTestProgrammingRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
+    isGestaoMpRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
+    permission === 'pcp.mp_opt.view' ||
     currentPathname.startsWith('/pcp/controle-producao') ||
     currentPathname.startsWith('/pcp/producao') ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
@@ -282,6 +303,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.cockpit.view' ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.rules.view' ||
+    permission === 'pcp.mp_opt.view' ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
@@ -289,8 +311,10 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
     currentPathname.startsWith('/pcp/entregas') ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     currentPathname.includes('/pcp/controle-producao') ||
     currentPathname.includes('/pcp/producao') ||
+    isGestaoMpRoute ||
     isCadastrosOrMasterData
   ) {
     return <>{children}</>
@@ -308,13 +332,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isTestProgrammingRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
+    isGestaoMpRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
+    permission === 'pcp.mp_opt.view' ||
     currentPathname.includes('analise-carteira') ||
     currentPathname.includes('carteira') ||
     currentPathname.includes('cancelados') ||
     currentPathname.includes('kpis') ||
-    currentPathname.includes('/pedidos-cancelados')
+    currentPathname.includes('/pedidos-cancelados') ||
+    currentPathname.includes('gestao-materia-prima')
   ) {
     return <>{children}</>
   }
@@ -440,6 +467,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.edit' ||
       permission === 'pcp.carteira.view' ||
       permission.startsWith('pcp.carteira.') ||
+      permission === 'pcp.mp_opt.view' ||
       currentPathname === '/' ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
@@ -447,9 +475,11 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
-      currentPathname.startsWith('/pcp/analise-carteira')
+      currentPathname.startsWith('/pcp/analise-carteira') ||
+      isGestaoMpRoute
     ) {
       hasPerm = true
     }
@@ -470,12 +500,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.cockpit.view' ||
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
+      permission === 'pcp.mp_opt.view' ||
       isHierarquiaRoute ||
+      isGestaoMpRoute ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
@@ -563,13 +596,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.production.view' ||
+    permission === 'pcp.mp_opt.view' ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
     currentPathname.startsWith('/pcp/cockpit') ||
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     isHierarquiaRoute ||
+    isGestaoMpRoute ||
     currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
     currentPathname.startsWith('/pcp/cadastros') ||

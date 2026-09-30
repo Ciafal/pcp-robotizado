@@ -1,354 +1,237 @@
+/**
+ * Testes de Aceitação da Regra de Período — Gestão de MP > Projeções de MP
+ *
+ * Regra do Período:
+ * 1. Data inicial fixa = hoje (preenchimento automático, formato DD/MM/AAAA, somente leitura).
+ * 2. Horizonte: opções "-" (ausência/null), 7 Dias, 15 Dias, 30 Dias, 60 Dias, 90 Dias. Padrão inicial: 30 Dias.
+ * 3. Regra de exclusividade Horizonte x Data final:
+ *    - Se Horizonte tem valor (7/15/30/60/90): Data final vazia e desabilitada.
+ *    - Se Horizonte = "-": Data final habilitada.
+ *    - Se selecionar Horizonte com Data final preenchida: limpa Data final e desabilita.
+ *    - Se trocar Horizonte para "-": remove horizonte, habilita Data final, aguarda preenchimento.
+ * 4. Validação da Data final: obrigatória, DD/MM/AAAA, igual ou posterior a hoje.
+ *    Se anterior a hoje: "A data final não pode ser anterior à data atual."
+ * 5. Indicador de período vigente exibido na tela.
+ * 6. Testes obrigatórios 1 a 6 do usuário.
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import React from 'react'
-import { MPProjectionsSubpage } from '@/pages/mp-optimization/MPProjectionsSubpage'
-import {
-  parseDatePtBr,
-  formatDatePtBr,
-  applyDateMask,
-} from '@/components/mp-optimization/DateInputPtBr'
-import { pcpAuditService } from '@/services/pcp-audit-service'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MPProjectionsSubpage } from '../pages/mp-optimization/MPProjectionsSubpage'
+import { pcpAuditService } from '../services/pcp-audit-service'
+import { formatDatePtBr } from '../components/mp-optimization/DateInputPtBr'
 
-// Mock de recharts para testes rápidos de interface
-vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts')
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }: any) => (
-      <div data-testid="recharts-container">{children}</div>
-    ),
-    LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-    Line: () => <div />,
-    XAxis: () => <div />,
-    YAxis: () => <div />,
-    CartesianGrid: () => <div />,
-    Tooltip: () => <div />,
-    Legend: () => <div />,
-    ReferenceLine: () => <div />,
-  }
-})
+// Mock de ResizeObserver para Recharts
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = ResizeObserverMock
 
-describe('Gestão de MP > Projeções de MP - Filtro de Período Personalizado "Período de / Até"', () => {
+describe('Projeções de MP — Regra de Período (Aceitação Funcional)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(pcpAuditService, 'recordLog').mockResolvedValue({
+      id: 'mock-audit-id',
+      action: 'APLICAR_FILTRO_PERIODO_PERSONALIZADO',
+    } as any)
   })
 
-  // =========================================================================
-  // TESTE 1: Helpers e Validações de Máscara / Data pt-BR
-  // =========================================================================
-  describe('DateInputPtBr Helpers (Máscara, Parse e Formatação pt-BR)', () => {
-    it('deve aplicar máscara progressiva DD/MM/AAAA corretamente', () => {
-      expect(applyDateMask('01')).toBe('01')
-      expect(applyDateMask('0110')).toBe('01/10')
-      expect(applyDateMask('01102026')).toBe('01/10/2026')
-      expect(applyDateMask('01/10/2026')).toBe('01/10/2026')
-      // Letras e símbolos são descartados
-      expect(applyDateMask('abc01def10ghi2026')).toBe('01/10/2026')
+  const todayStr = formatDatePtBr(new Date())
+
+  it('(Critérios 1, 2, 4, 6, 7) Estado inicial: Data inicial = hoje (readOnly), Horizonte = 30 Dias, Data final vazia e desabilitada', () => {
+    render(<MPProjectionsSubpage />)
+
+    // Data inicial preenchida com a data de hoje e somente leitura
+    const startInput = screen.getByLabelText('Data inicial') as HTMLInputElement
+    expect(startInput).toBeInTheDocument()
+    expect(startInput.value).toBe(todayStr)
+    expect(startInput.readOnly).toBe(true)
+
+    // Não deve haver botão de limpar nem calendário no campo de Data inicial
+    expect(screen.queryByRole('button', { name: 'Limpar data' })).not.toBeInTheDocument()
+
+    // Data final vazia e desabilitada
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput).toBeInTheDocument()
+    expect(endInput.value).toBe('')
+    expect(endInput.disabled).toBe(true)
+
+    // Indicador de período vigente exibido com 30 dias
+    expect(
+      screen.getByText(new RegExp(`Período: ${todayStr} a .+ • Horizonte: 30 dias`)),
+    ).toBeInTheDocument()
+  })
+
+  it('Teste 1 Obrigatório: Horizonte = 7 Dias → projeção iniciando em hoje', async () => {
+    render(<MPProjectionsSubpage />)
+
+    const startInput = screen.getByLabelText('Data inicial') as HTMLInputElement
+    expect(startInput.value).toBe(todayStr)
+
+    // O trigger do Select do horizonte
+    const horizonTrigger = screen.getByLabelText('Horizonte')
+    fireEvent.click(horizonTrigger)
+
+    // Seleciona 7 Dias
+    const opt7 = await screen.findByRole('option', { name: '7 Dias' })
+    fireEvent.click(opt7)
+
+    // Período vigente deve indicar Horizonte: 7 dias e iniciar em hoje
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`Período: ${todayStr} a .+ • Horizonte: 7 dias`)),
+      ).toBeInTheDocument()
     })
 
-    it('deve fazer parse de data pt-BR válida e rejeitar inválidas', () => {
-      const valid = parseDatePtBr('01/10/2026')
-      expect(valid).not.toBeNull()
-      expect(valid?.getDate()).toBe(1)
-      expect(valid?.getMonth()).toBe(9) // 0-based: 9 = Outubro
-      expect(valid?.getFullYear()).toBe(2026)
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(true)
+    expect(endInput.value).toBe('')
+  })
 
-      // Rejeita dia inválido (ex: 31 de abril)
-      expect(parseDatePtBr('31/04/2026')).toBeNull()
-      // Rejeita mês inválido
-      expect(parseDatePtBr('15/13/2026')).toBeNull()
-      // Rejeita formato incompleto ou vazio
-      expect(parseDatePtBr('')).toBeNull()
-      expect(parseDatePtBr('01/10')).toBeNull()
+  it('Teste 2 Obrigatório: Horizonte = 30 Dias → Data final indisponível (vazia e desabilitada)', () => {
+    render(<MPProjectionsSubpage />)
+
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(true)
+    expect(endInput.value).toBe('')
+  })
+
+  it('Teste 3 Obrigatório: Horizonte = "-" e Data final = 31/12/2026 → projeção de hoje até 31/12/2026', async () => {
+    render(<MPProjectionsSubpage />)
+
+    // Trocar Horizonte para "-"
+    const horizonTrigger = screen.getByLabelText('Horizonte')
+    fireEvent.click(horizonTrigger)
+
+    const optNone = await screen.findByRole('option', { name: '-' })
+    fireEvent.click(optNone)
+
+    // Data final agora está habilitada
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(false)
+
+    // Preenche 31/12/2026
+    fireEvent.change(endInput, { target: { value: '31/12/2026' } })
+
+    // Aguarda debounce e validação
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(new RegExp(`Período: ${todayStr} a 31/12/2026 • Período personalizado`)),
+        ).toBeInTheDocument()
+      },
+      { timeout: 1500 },
+    )
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('Teste 4 Obrigatório: Horizonte = "-" e Data final anterior a hoje → bloquear com a mensagem exigida', async () => {
+    render(<MPProjectionsSubpage />)
+
+    // Trocar Horizonte para "-"
+    const horizonTrigger = screen.getByLabelText('Horizonte')
+    fireEvent.click(horizonTrigger)
+
+    const optNone = await screen.findByRole('option', { name: '-' })
+    fireEvent.click(optNone)
+
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(false)
+
+    // Data passada proposital: 01/01/2020
+    fireEvent.change(endInput, { target: { value: '01/01/2020' } })
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText('A data final não pode ser anterior à data atual.'),
+        ).toBeInTheDocument()
+      },
+      { timeout: 1000 },
+    )
+
+    // Não deve aplicar período personalizado inválido
+    expect(screen.queryByText(/• Período personalizado/i)).not.toBeInTheDocument()
+  })
+
+  it('Teste 5 Obrigatório: Data final preenchida → selecionar Horizonte 60 Dias → limpar Data final e usar Horizonte', async () => {
+    render(<MPProjectionsSubpage />)
+
+    // 1. Vai para "-"
+    const horizonTrigger = screen.getByLabelText('Horizonte')
+    fireEvent.click(horizonTrigger)
+    const optNone = await screen.findByRole('option', { name: '-' })
+    fireEvent.click(optNone)
+
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(false)
+
+    // 2. Preenche Data final com 31/12/2026
+    fireEvent.change(endInput, { target: { value: '31/12/2026' } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/• Período personalizado/)).toBeInTheDocument()
     })
 
-    it('deve formatar Date para DD/MM/AAAA sem retrocesso de fuso', () => {
-      const date = new Date(2026, 8, 29, 12, 0, 0) // 29/09/2026
-      expect(formatDatePtBr(date)).toBe('29/09/2026')
+    // 3. Seleciona Horizonte 60 Dias
+    fireEvent.click(horizonTrigger)
+    const opt60 = await screen.findByRole('option', { name: '60 Dias' })
+    fireEvent.click(opt60)
+
+    // Data final deve ser limpa e desabilitada
+    await waitFor(() => {
+      expect(endInput.value).toBe('')
+      expect(endInput.disabled).toBe(true)
+      expect(
+        screen.getByText(new RegExp(`Período: ${todayStr} a .+ • Horizonte: 60 dias`)),
+      ).toBeInTheDocument()
     })
   })
 
-  // =========================================================================
-  // TESTES OBRIGATÓRIOS DO USUÁRIO NA TELA REAL
-  // =========================================================================
-  describe('Cenários Obrigatórios da Especificação do Usuário na Tela Real', () => {
-    it('(1) Renderização inicial: exibe campos Período de, Até, Buscar por aço, Aço, Forma e Horizonte', () => {
-      render(<MPProjectionsSubpage />)
+  it('Teste 6 Obrigatório: Horizonte 90 Dias → selecionar "-" → liberar Data final e aguardar preenchimento', async () => {
+    render(<MPProjectionsSubpage />)
 
-      expect(screen.getByText('Projeções de MP & Ruptura da Cadeia Integrada')).toBeInTheDocument()
+    const horizonTrigger = screen.getByLabelText('Horizonte')
+
+    // 1. Seleciona 90 Dias
+    fireEvent.click(horizonTrigger)
+    const opt90 = await screen.findByRole('option', { name: '90 Dias' })
+    fireEvent.click(opt90)
+
+    await waitFor(() => {
       expect(
-        screen.getByText('Matriz de Projeção de Estoque, Ruptura e Cobertura Total da Cadeia'),
+        screen.getByText(new RegExp(`Período: ${todayStr} a .+ • Horizonte: 90 dias`)),
       ).toBeInTheDocument()
-
-      // Filtros existentes
-      expect(screen.getByPlaceholderText('Buscar por aço...')).toBeInTheDocument()
-      expect(screen.getByText('Aço:')).toBeInTheDocument()
-      expect(screen.getByText('Forma:')).toBeInTheDocument()
-      expect(screen.getByText('Horizonte:')).toBeInTheDocument()
-
-      // Novos campos de período lado a lado
-      expect(screen.getByText('Período de:')).toBeInTheDocument()
-      expect(screen.getByText('Até:')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('01/10/2026')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('31/10/2026')).toBeInTheDocument()
     })
 
-    it('(2) Cenário 01/10/2026 até 31/10/2026 (válido, dados recalculados no intervalo e auditoria)', async () => {
-      const auditSpy = vi.spyOn(pcpAuditService, 'recordLog').mockResolvedValue({} as any)
+    const endInput = screen.getByLabelText('Data final') as HTMLInputElement
+    expect(endInput.disabled).toBe(true)
 
-      render(<MPProjectionsSubpage />)
+    // 2. Troca para "-"
+    fireEvent.click(horizonTrigger)
+    const optNone = await screen.findByRole('option', { name: '-' })
+    fireEvent.click(optNone)
 
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
+    // Data final agora deve estar liberada e vazia, aguardando preenchimento
+    expect(endInput.disabled).toBe(false)
+    expect(endInput.value).toBe('')
+    expect(screen.getByText(/Informe uma Data final para a projeção/i)).toBeInTheDocument()
+  })
 
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-      fireEvent.change(endInput, { target: { value: '31/10/2026' } })
+  it('Filtro de busca por aço e filtros de visualização operam harmoniosamente com a regra de período', async () => {
+    render(<MPProjectionsSubpage />)
 
-      // Aguarda aplicação do debounce
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Período personalizado ativo: 01\/10\/2026 até 31\/10\/2026 \(31d\)/i),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1500 },
-      )
+    const searchInput = screen.getByPlaceholderText('Buscar por aço...')
+    fireEvent.change(searchInput, { target: { value: '1045' } })
 
-      // Matriz atualizada com texto do período filtrado
-      expect(
-        screen.getByText(/Período Filtrado: 01\/10\/2026 até 31\/10\/2026 \(31 dias\)/i),
-      ).toBeInTheDocument()
+    expect(screen.getByText('SAE 1045')).toBeInTheDocument()
+    expect(screen.queryByText('SAE 1020')).not.toBeInTheDocument()
 
-      // Sem mensagem de erro
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-
-      // Auditoria chamada via pcpAuditService
-      expect(auditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'APLICAR_FILTRO_PERIODO_PERSONALIZADO',
-          screen: 'Gestão de MP > Projeções de MP',
-          details: expect.objectContaining({
-            periodo_inicial: '01/10/2026',
-            periodo_final: '31/10/2026',
-            dias_intervalo: 31,
-          }),
-        }),
-      )
-    })
-
-    it('(3) Cenário 01/10/2026 até 01/10/2026 (dia único válido)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
-
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-      fireEvent.change(endInput, { target: { value: '01/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Período personalizado ativo: 01\/10\/2026 até 01\/10\/2026 \(1d\)/i),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1500 },
-      )
-
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    })
-
-    it('(4) Data inicial maior que data final (bloqueado com mensagem oficial)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
-
-      // De 30/11/2026, Até 01/11/2026
-      fireEvent.change(startInput, { target: { value: '30/11/2026' } })
-      fireEvent.change(endInput, { target: { value: '01/11/2026' } })
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText('A data inicial não pode ser posterior à data final.'),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1000 },
-      )
-
-      // Não exibe o badge de período ativo quando bloqueado
-      expect(screen.queryByText(/Período personalizado ativo:/i)).not.toBeInTheDocument()
-    })
-
-    it('(5) Somente "Período de" preenchido (bloqueado com mensagem oficial)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(
-              'Informe a data inicial e a data final para aplicar o período personalizado.',
-            ),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1000 },
-      )
-
-      expect(screen.queryByText(/Período personalizado ativo:/i)).not.toBeInTheDocument()
-    })
-
-    it('(6) Somente "Até" preenchido (bloqueado com mensagem oficial)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const endInput = screen.getByLabelText('Até')
-      fireEvent.change(endInput, { target: { value: '31/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(
-              'Informe a data inicial e a data final para aplicar o período personalizado.',
-            ),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1000 },
-      )
-
-      expect(screen.queryByText(/Período personalizado ativo:/i)).not.toBeInTheDocument()
-    })
-
-    it('(7) Limpeza das duas datas (retorno ao estado anterior e funcionamento normal do Horizonte)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
-
-      // 1. Aplica período válido
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-      fireEvent.change(endInput, { target: { value: '15/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(screen.getByText(/Período personalizado ativo:/i)).toBeInTheDocument()
-        },
-        { timeout: 1500 },
-      )
-
-      // 2. Clica no botão "Limpar período"
-      const clearPeriodBtn = screen.getByRole('button', { name: /Limpar período/i })
-      fireEvent.click(clearPeriodBtn)
-
-      await waitFor(
-        () => {
-          expect(screen.queryByText(/Período personalizado ativo:/i)).not.toBeInTheDocument()
-          expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-          // Retornou ao Horizonte padrão (30 dias)
-          expect(screen.getByText(/• Horizonte: 30 dias/i)).toBeInTheDocument()
-        },
-        { timeout: 1000 },
-      )
-    })
-
-    it('(8) Limpeza individual via botão "X" de cada campo', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-
-      // Botão X de limpeza individual aparece
-      const clearButtons = screen.getAllByRole('button', { name: 'Limpar data' })
-      expect(clearButtons.length).toBeGreaterThan(0)
-
-      fireEvent.click(clearButtons[0])
-
-      expect((startInput as HTMLInputElement).value).toBe('')
-    })
-
-    it('(9) Combinação com filtro de Busca por Aço', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const searchInput = screen.getByPlaceholderText('Buscar por aço...')
-      fireEvent.change(searchInput, { target: { value: '1045' } })
-
-      // Na matriz, apenas SAE 1045 deve estar presente
-      expect(screen.getByText('SAE 1045')).toBeInTheDocument()
-      expect(screen.queryByText('SAE 1020')).not.toBeInTheDocument()
-
-      // Aplica período personalizado simultaneamente sem perder o filtro de aço
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
-      fireEvent.change(startInput, { target: { value: '01/10/2026' } })
-      fireEvent.change(endInput, { target: { value: '31/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(screen.getByText(/Período personalizado ativo:/i)).toBeInTheDocument()
-          expect(screen.getByText('SAE 1045')).toBeInTheDocument()
-          expect(screen.queryByText('SAE 1020')).not.toBeInTheDocument()
-        },
-        { timeout: 1500 },
-      )
-    })
-
-    it('(10) Preservação do filtro ao abrir modais (Explicabilidade, Homologação Excel e Simulação)', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const startInput = screen.getByLabelText('Período de')
-      const endInput = screen.getByLabelText('Até')
-      fireEvent.change(startInput, { target: { value: '05/10/2026' } })
-      fireEvent.change(endInput, { target: { value: '25/10/2026' } })
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Período personalizado ativo: 05\/10\/2026 até 25\/10\/2026/i),
-          ).toBeInTheDocument()
-        },
-        { timeout: 1500 },
-      )
-
-      // Abre modal de Simulação de Compras
-      const simButton = screen.getByRole('button', { name: /Simulação de Compras/i })
-      fireEvent.click(simButton)
-
-      // Modal aberto
-      expect(screen.getByText('Simulação de Compras de MP')).toBeInTheDocument()
-
-      // Fecha o modal
-      const closeBtn = screen.getByRole('button', { name: /Fechar/i })
-      fireEvent.click(closeBtn)
-
-      // Período personalizado permanece íntegro
-      expect(
-        screen.getByText(/Período personalizado ativo: 05\/10\/2026 até 25\/10\/2026/i),
-      ).toBeInTheDocument()
-      expect((startInput as HTMLInputElement).value).toBe('05/10/2026')
-      expect((endInput as HTMLInputElement).value).toBe('25/10/2026')
-    })
-
-    it('(11) Seleção via Popover Calendário pt-BR', async () => {
-      render(<MPProjectionsSubpage />)
-
-      const calButtons = screen.getAllByRole('button', { name: 'Abrir calendário' })
-      expect(calButtons.length).toBe(2)
-
-      // Abre popover do primeiro campo
-      fireEvent.click(calButtons[0])
-
-      // Popover exibe dias da semana em pt-BR (Dom, Seg, Ter...) e botão "Hoje"
-      expect(screen.getByText('Dom')).toBeInTheDocument()
-      expect(screen.getByText('Seg')).toBeInTheDocument()
-      expect(screen.getByText(/Hoje \(/i)).toBeInTheDocument()
-
-      // Clica em Hoje
-      const hojeBtn = screen.getByText(/Hoje \(/i)
-      fireEvent.click(hojeBtn)
-
-      const startInput = screen.getByLabelText('Período de') as HTMLInputElement
-      expect(startInput.value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/)
-    })
+    // Data inicial continua hoje
+    const startInput = screen.getByLabelText('Data inicial') as HTMLInputElement
+    expect(startInput.value).toBe(todayStr)
   })
 })

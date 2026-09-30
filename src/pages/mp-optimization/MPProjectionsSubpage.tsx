@@ -28,7 +28,11 @@ import { MPCentralProjectionEngine } from '@/services/mp-central-projection-engi
 import { CalculationExplainerModal } from '@/components/mp-optimization/CalculationExplainerModal'
 import { LegacyExcelComparisonModal } from '@/components/mp-optimization/LegacyExcelComparisonModal'
 import { PurchaseSimulationModal } from '@/components/mp-optimization/PurchaseSimulationModal'
-import { DateInputPtBr, parseDatePtBr } from '@/components/mp-optimization/DateInputPtBr'
+import {
+  DateInputPtBr,
+  parseDatePtBr,
+  formatDatePtBr,
+} from '@/components/mp-optimization/DateInputPtBr'
 import { pcpAuditService } from '@/services/pcp-audit-service'
 import {
   TrendingUp,
@@ -63,14 +67,22 @@ export const MPProjectionsSubpage: React.FC = () => {
   // Estados de Filtros Globais Existentes
   const [selectedSteel, setSelectedSteel] = useState<string>('TODOS')
   const [selectedShape, setSelectedShape] = useState<string>('TODOS')
+  // selectedHorizon: 'NONE' (-) ou '7_DIAS' | '15_DIAS' | '30_DIAS' | '60_DIAS' | '90_DIAS'
+  // Estado inicial padrão: 30 Dias (30_DIAS)
   const [selectedHorizon, setSelectedHorizon] = useState<string>('30_DIAS')
   const [searchTerm, setSearchTerm] = useState<string>('')
 
-  // Novos Campos de Período Personalizado "Período de / Até" (formato DD/MM/AAAA)
-  const [startDateInput, setStartDateInput] = useState<string>('')
+  // Data inicial fixa = hoje (formato DD/MM/AAAA, somente leitura)
+  const [todayDate] = useState<Date>(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0)
+  })
+  const initialStartDateStr = useMemo(() => formatDatePtBr(todayDate), [todayDate])
+
+  // Data final manual ("Até" / Data final) quando Horizonte = "-"
   const [endDateInput, setEndDateInput] = useState<string>('')
   const [periodValidationMessage, setPeriodValidationMessage] = useState<string | null>(null)
-  const [activeCustomPeriod, setActiveCustomPeriod] = useState<{
+  const [activeManualPeriod, setActiveManualPeriod] = useState<{
     startDateStr: string
     endDateStr: string
     startDate: Date
@@ -302,49 +314,76 @@ export const MPProjectionsSubpage: React.FC = () => {
     },
   ]
 
-  // Validação e aplicação automática do filtro de período personalizado com debounce
+  // Regra de Exclusividade Horizonte × Data Final:
+  // IF selectedHorizon !== 'NONE': Horizonte ativo -> Data final vazia e desabilitada; período = hoje + horizonte; data final manual é ignorada.
+  // ELSE (selectedHorizon === 'NONE'): Data final habilitada; período = hoje -> data final informada.
+  const isHorizonActive = selectedHorizon !== 'NONE'
+
+  // Troca de Horizonte com tratamento de exclusividade
+  const handleHorizonChange = (val: string) => {
+    setSelectedHorizon(val)
+    if (val !== 'NONE') {
+      // Se selecionou Horizonte com valor: limpar a Data final, desabilitar o campo, usar o Horizonte, recalcular.
+      setEndDateInput('')
+      setPeriodValidationMessage(null)
+      setActiveManualPeriod(null)
+      lastAuditedPeriodRef.current = null
+    } else {
+      // Se trocou para "-": remover o horizonte, habilitar Data final, aguardar preenchimento.
+      setActiveManualPeriod(null)
+    }
+  }
+
+  // Validação da Data final quando Horizonte = "-"
   useEffect(() => {
-    const hasStart = !!startDateInput.trim()
+    // Se o Horizonte está ativo, a data final manual fica vazia e é ignorada
+    if (isHorizonActive) {
+      setPeriodValidationMessage(null)
+      setActiveManualPeriod(null)
+      return
+    }
+
+    // Horizonte = "-": Data final habilitada
     const hasEnd = !!endDateInput.trim()
 
-    // 1. Cenário: ambas as datas limpas -> desativa período personalizado e volta ao Horizonte
-    if (!hasStart && !hasEnd) {
+    // Se ainda vazia, aguarda preenchimento sem erro vermelho imediato
+    if (!hasEnd) {
       setPeriodValidationMessage(null)
-      setActiveCustomPeriod(null)
+      setActiveManualPeriod(null)
       lastAuditedPeriodRef.current = null
       return
     }
 
-    // 2. Cenário: somente uma das datas preenchida -> bloqueia aplicação com mensagem exigida
-    if (hasStart !== hasEnd) {
-      setPeriodValidationMessage(
-        'Informe a data inicial e a data final para aplicar o período personalizado.',
-      )
-      setActiveCustomPeriod(null)
-      return
-    }
-
-    // 3. Cenário: ambas preenchidas -> validar formato e datas reais
-    const parsedStart = parseDatePtBr(startDateInput)
-    const parsedEnd = parseDatePtBr(endDateInput)
-
     // Se ainda está incompleto (menos de 10 caracteres como '01/10')
-    if (startDateInput.length < 10 || endDateInput.length < 10) {
+    if (endDateInput.length < 10) {
       setPeriodValidationMessage('Data incompleta. Utilize o formato DD/MM/AAAA.')
-      setActiveCustomPeriod(null)
+      setActiveManualPeriod(null)
       return
     }
 
-    if (!parsedStart || !parsedEnd) {
+    const parsedEnd = parseDatePtBr(endDateInput)
+    if (!parsedEnd) {
       setPeriodValidationMessage('Data inválida. Verifique o dia, mês e ano informados.')
-      setActiveCustomPeriod(null)
+      setActiveManualPeriod(null)
       return
     }
 
-    // 4. Cenário: data inicial maior que data final
-    if (parsedStart.getTime() > parsedEnd.getTime()) {
-      setPeriodValidationMessage('A data inicial não pode ser posterior à data final.')
-      setActiveCustomPeriod(null)
+    // Regra 5: igual ou posterior à data atual. Se anterior a hoje, exibir EXATAMENTE:
+    // "A data final não pode ser anterior à data atual." — sem apagar os demais filtros.
+    const startMidnight = new Date(
+      todayDate.getFullYear(),
+      todayDate.getMonth(),
+      todayDate.getDate(),
+    ).getTime()
+    const endMidnight = new Date(
+      parsedEnd.getFullYear(),
+      parsedEnd.getMonth(),
+      parsedEnd.getDate(),
+    ).getTime()
+
+    if (endMidnight < startMidnight) {
+      setPeriodValidationMessage('A data final não pode ser anterior à data atual.')
+      setActiveManualPeriod(null)
       return
     }
 
@@ -353,22 +392,22 @@ export const MPProjectionsSubpage: React.FC = () => {
     setIsLoading(true)
 
     const timer = setTimeout(() => {
-      const diffTime = Math.abs(parsedEnd.getTime() - parsedStart.getTime())
-      // Duração em dias inclusivos (ex: 01/10 até 01/10 = 1 dia)
+      const diffTime = endMidnight - startMidnight
+      // Duração em dias inclusivos (ex: hoje até hoje = 1 dia)
       const durationDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1
 
       const newPeriod = {
-        startDateStr: startDateInput,
+        startDateStr: initialStartDateStr,
         endDateStr: endDateInput,
-        startDate: parsedStart,
+        startDate: todayDate,
         endDate: parsedEnd,
-        durationDays,
+        durationDays: Math.max(1, durationDays),
       }
-      setActiveCustomPeriod(newPeriod)
+      setActiveManualPeriod(newPeriod)
       setIsLoading(false)
 
-      // Registrar Auditoria Oficial via pcpAuditService (Requisito 9)
-      const auditKey = `${startDateInput}__${endDateInput}`
+      // Registrar Auditoria Oficial via pcpAuditService
+      const auditKey = `${initialStartDateStr}__${endDateInput}`
       if (lastAuditedPeriodRef.current !== auditKey) {
         lastAuditedPeriodRef.current = auditKey
         pcpAuditService
@@ -379,15 +418,15 @@ export const MPProjectionsSubpage: React.FC = () => {
             module: 'PCP Robotizado',
             details: {
               tela: 'Projeções de MP',
-              periodo_inicial: startDateInput,
+              periodo_inicial: initialStartDateStr,
               periodo_final: endDateInput,
               dias_intervalo: durationDays,
               filtro_vigente: 'PERIODO_PERSONALIZADO',
-              horizonte_anterior: selectedHorizon,
+              horizonte: 'NONE',
               aco_selecionado: selectedSteel,
               forma_selecionada: selectedShape,
             },
-            justification: `Filtro de período personalizado de ${startDateInput} até ${endDateInput} (${durationDays} dia(s)) aplicado na tela Projeções de MP`,
+            justification: `Filtro de período personalizado de ${initialStartDateStr} até ${endDateInput} (${durationDays} dia(s)) aplicado na tela Projeções de MP`,
             source: 'Usuário',
             status: 'Concluída',
             outcome: 'SUCCESS',
@@ -399,37 +438,52 @@ export const MPProjectionsSubpage: React.FC = () => {
     }, 250)
 
     return () => clearTimeout(timer)
-  }, [startDateInput, endDateInput, selectedHorizon, selectedSteel, selectedShape])
+  }, [endDateInput, isHorizonActive, todayDate, initialStartDateStr, selectedSteel, selectedShape])
 
-  // Limpeza rápida de ambas as datas (volta ao Horizonte normal)
-  const handleClearCustomPeriod = () => {
-    setStartDateInput('')
+  // Limpeza rápida da Data final manual (quando Horizonte = "-")
+  const handleClearEndDate = () => {
     setEndDateInput('')
     setPeriodValidationMessage(null)
-    setActiveCustomPeriod(null)
+    setActiveManualPeriod(null)
     lastAuditedPeriodRef.current = null
   }
 
   // Resolução da quantidade de dias vigente para o horizonte analítico:
-  // Se período personalizado ativo, durationDays vigente; senão, dias do selectedHorizon.
+  // IF selectedHorizon tem valor: hoje + horizonte; dias = 7/15/30/60/90.
+  // ELSE (selectedHorizon === 'NONE'): se activeManualPeriod preenchido, usa durationDays; senão padrão de 30 dias aguardando preenchimento.
   const horizonDays = useMemo(() => {
-    if (activeCustomPeriod) {
-      return Math.max(1, activeCustomPeriod.durationDays)
+    if (selectedHorizon !== 'NONE') {
+      switch (selectedHorizon) {
+        case '7_DIAS':
+          return 7
+        case '15_DIAS':
+          return 15
+        case '60_DIAS':
+          return 60
+        case '90_DIAS':
+          return 90
+        case '30_DIAS':
+        default:
+          return 30
+      }
     }
-    switch (selectedHorizon) {
-      case '7_DIAS':
-        return 7
-      case '15_DIAS':
-        return 15
-      case '60_DIAS':
-        return 60
-      case '90_DIAS':
-        return 90
-      case '30_DIAS':
-      default:
-        return 30
+    if (activeManualPeriod) {
+      return Math.max(1, activeManualPeriod.durationDays)
     }
-  }, [activeCustomPeriod, selectedHorizon])
+    return 30
+  }, [selectedHorizon, activeManualPeriod])
+
+  // Cálculo da data final vigente calculada para exibição em DD/MM/AAAA
+  const effectiveEndDateStr = useMemo(() => {
+    if (selectedHorizon !== 'NONE') {
+      const targetTime = todayDate.getTime() + horizonDays * 86400000
+      return formatDatePtBr(new Date(targetTime))
+    }
+    if (activeManualPeriod) {
+      return activeManualPeriod.endDateStr
+    }
+    return endDateInput || formatDatePtBr(new Date(todayDate.getTime() + 30 * 86400000))
+  }, [selectedHorizon, horizonDays, todayDate, activeManualPeriod, endDateInput])
 
   // Dados com escala proporcional ao período vigente para o consumo programado e entradas
   // Fator proporcional = horizonDays / 30 (base padrão de 30 dias das ordens mensais)
@@ -463,7 +517,7 @@ export const MPProjectionsSubpage: React.FC = () => {
         l2YieldFactor: 0.95,
       }
 
-      const referenceDate = activeCustomPeriod ? activeCustomPeriod.startDate : new Date()
+      const referenceDate = todayDate
 
       return MPCentralProjectionEngine.calculateSteelProjection(
         item.steel,
@@ -477,7 +531,7 @@ export const MPProjectionsSubpage: React.FC = () => {
         referenceDate,
       )
     })
-  }, [baseSteelsData, timeFactor, horizonDays, activeCustomPeriod, simulatedPurchases])
+  }, [baseSteelsData, timeFactor, horizonDays, todayDate, simulatedPurchases])
 
   // Filtros de Aço, Forma e Termo de Busca aplicados sobre as projeções recalculadas
   const filteredProjections = useMemo(() => {
@@ -544,10 +598,8 @@ export const MPProjectionsSubpage: React.FC = () => {
       )
 
       let diaLabel = `D+${day}`
-      if (activeCustomPeriod) {
-        const dObj = new Date(activeCustomPeriod.startDate.getTime() + (day - 1) * 86400000)
-        diaLabel = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}`
-      }
+      const dObj = new Date(todayDate.getTime() + (day - 1) * 86400000)
+      diaLabel = `${String(dObj.getDate()).padStart(2, '0')}/${String(dObj.getMonth() + 1).padStart(2, '0')}`
 
       return {
         dia: diaLabel,
@@ -559,13 +611,7 @@ export const MPProjectionsSubpage: React.FC = () => {
         ),
       }
     })
-  }, [
-    chartPointsCount,
-    totalStockTons,
-    totalConfirmedReceiptsTons,
-    totalSimulatedTons,
-    activeCustomPeriod,
-  ])
+  }, [chartPointsCount, totalStockTons, totalConfirmedReceiptsTons, totalSimulatedTons, todayDate])
 
   // Handlers para Simulação
   const handleAddSimulatedPurchase = (item: SimulatedPurchaseItem) => {
@@ -821,31 +867,19 @@ export const MPProjectionsSubpage: React.FC = () => {
             </Select>
           </div>
 
-          {/* 4. Seleção de Horizonte (continua ativo e funcional; com badge se sobreposto) */}
+          {/* 4. Seleção de Horizonte: '-' como 1ª opção, mantendo 7/15/30/60/90 Dias */}
           <div className="flex items-center gap-1.5">
             <span className="text-slate-500 font-semibold shrink-0">Horizonte:</span>
             <div className="relative">
-              <Select
-                value={selectedHorizon}
-                onValueChange={(val) => {
-                  setSelectedHorizon(val)
-                  // Se o usuário mexer no Horizonte enquanto tem período personalizado,
-                  // o comportamento permanece compatível sem conflitos
-                }}
-              >
+              <Select value={selectedHorizon} onValueChange={handleHorizonChange}>
                 <SelectTrigger
-                  className={`h-8 w-32 text-xs bg-slate-50 ${
-                    activeCustomPeriod ? 'opacity-60 border-dashed border-amber-300' : ''
-                  }`}
-                  title={
-                    activeCustomPeriod
-                      ? 'Período personalizado ativo tem precedência sobre o Horizonte padrão'
-                      : 'Horizonte padrão'
-                  }
+                  className="h-8 w-28 text-xs bg-slate-50 font-medium"
+                  aria-label="Horizonte"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="NONE">-</SelectItem>
                   <SelectItem value="7_DIAS">7 Dias</SelectItem>
                   <SelectItem value="15_DIAS">15 Dias</SelectItem>
                   <SelectItem value="30_DIAS">30 Dias</SelectItem>
@@ -859,30 +893,33 @@ export const MPProjectionsSubpage: React.FC = () => {
           {/* Divisor vertical em telas maiores */}
           <div className="hidden lg:block h-5 w-[1px] bg-slate-200 mx-0.5" />
 
-          {/* 5. Novos Campos de Período Personalizado "Período de" e "Até" */}
+          {/* 5. Data Inicial Fixa = hoje, somente leitura (não editável, sem calendário, sem apagar) */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-600 font-semibold shrink-0">Período de:</span>
+            <span className="text-slate-600 font-semibold shrink-0">Data inicial:</span>
             <DateInputPtBr
-              id="filtro-periodo-de"
-              label="Período de"
-              value={startDateInput}
-              onChange={setStartDateInput}
-              placeholder="01/10/2026"
+              id="filtro-data-inicial"
+              label="Data inicial"
+              value={initialStartDateStr}
+              onChange={() => {}}
+              readOnly={true}
+              disabled={false}
+              placeholder="DD/MM/AAAA"
               className="w-32 min-w-[120px]"
-              hasError={!!periodValidationMessage}
             />
           </div>
 
+          {/* 6. Data Final (manual): habilitada apenas quando Horizonte = '-' */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-600 font-semibold shrink-0">Até:</span>
+            <span className="text-slate-600 font-semibold shrink-0">Data final:</span>
             <DateInputPtBr
-              id="filtro-periodo-ate"
-              label="Até"
-              value={endDateInput}
+              id="filtro-data-final"
+              label="Data final"
+              value={isHorizonActive ? '' : endDateInput}
               onChange={setEndDateInput}
-              placeholder="31/10/2026"
+              disabled={isHorizonActive}
+              placeholder="DD/MM/AAAA"
               className="w-32 min-w-[120px]"
-              hasError={!!periodValidationMessage}
+              hasError={!!periodValidationMessage && !isHorizonActive}
             />
           </div>
 
@@ -894,30 +931,47 @@ export const MPProjectionsSubpage: React.FC = () => {
             </div>
           )}
 
-          {/* Botão para limpar período personalizado e voltar ao Horizonte padrão */}
-          {(startDateInput || endDateInput || activeCustomPeriod) && (
+          {/* Botão para limpar Data final quando Horizonte = '-' */}
+          {!isHorizonActive && endDateInput && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={handleClearCustomPeriod}
+              onClick={handleClearEndDate}
               className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 gap-1"
-              title="Limpar período personalizado e retornar ao Horizonte selecionado"
+              title="Limpar Data final"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Limpar período</span>
+              <span className="hidden sm:inline">Limpar Data final</span>
             </Button>
           )}
 
-          {/* Badge Indicador de Período Personalizado Ativo (Requisito 4) */}
-          {activeCustomPeriod && (
+          {/* Badge Indicador de Período Vigente */}
+          {isHorizonActive ? (
             <Badge
               variant="outline"
-              className="bg-blue-50 border-blue-300 text-[#004C97] text-[11px] font-semibold gap-1 py-1 px-2 shrink-0"
+              className="bg-blue-50 border-blue-200 text-[#004C97] text-[11px] font-semibold gap-1 py-1 px-2 shrink-0"
             >
               <CalendarRange className="w-3.5 h-3.5 text-[#004C97]" />
-              Período personalizado ativo: {activeCustomPeriod.startDateStr} até{' '}
-              {activeCustomPeriod.endDateStr} ({activeCustomPeriod.durationDays}d)
+              Período: {initialStartDateStr} a {effectiveEndDateStr} &bull; Horizonte: {horizonDays}{' '}
+              dias
+            </Badge>
+          ) : activeManualPeriod ? (
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 border-emerald-300 text-emerald-800 text-[11px] font-semibold gap-1 py-1 px-2 shrink-0"
+            >
+              <CalendarRange className="w-3.5 h-3.5 text-emerald-600" />
+              Período: {initialStartDateStr} a {activeManualPeriod.endDateStr} &bull; Período
+              personalizado
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-amber-50 border-amber-300 text-amber-800 text-[11px] font-semibold gap-1 py-1 px-2 shrink-0"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              Informe uma Data final para a projeção
             </Badge>
           )}
         </div>
@@ -944,10 +998,15 @@ export const MPProjectionsSubpage: React.FC = () => {
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Apresentação simultânea do Modelo Excel (médio) vs Motor Diário Operacional CIAFAL
-                {activeCustomPeriod ? (
+                {isHorizonActive ? (
                   <span className="ml-1 text-[#004C97] font-semibold">
-                    • Período Filtrado: {activeCustomPeriod.startDateStr} até{' '}
-                    {activeCustomPeriod.endDateStr} ({activeCustomPeriod.durationDays} dias)
+                    • Período: {initialStartDateStr} a {effectiveEndDateStr} &bull; Horizonte:{' '}
+                    {horizonDays} dias
+                  </span>
+                ) : activeManualPeriod ? (
+                  <span className="ml-1 text-[#004C97] font-semibold">
+                    • Período: {initialStartDateStr} a {activeManualPeriod.endDateStr} &bull;
+                    Período personalizado
                   </span>
                 ) : (
                   <span className="ml-1 text-slate-500">• Horizonte: {horizonDays} dias</span>
@@ -1191,20 +1250,15 @@ export const MPProjectionsSubpage: React.FC = () => {
                 Curva Temporal de Estoque Projetado vs Consumo e Ruptura Operacional
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Projeção contínua no período vigente ({horizonDays} dias
-                {activeCustomPeriod
-                  ? `: ${activeCustomPeriod.startDateStr} até ${activeCustomPeriod.endDateStr}`
-                  : ''}
-                ) com linha de corte do Estoque Mínimo de Segurança
+                Projeção contínua no período vigente: {initialStartDateStr} a {effectiveEndDateStr}{' '}
+                ({horizonDays} dias) com linha de corte do Estoque Mínimo de Segurança
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {activeCustomPeriod && (
-                <Badge className="bg-blue-50 text-[#004C97] border-blue-300 text-xs">
-                  {activeCustomPeriod.durationDays} dias no gráfico
-                </Badge>
-              )}
-              <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-xs">
+              <Badge className="bg-blue-50 text-[#004C97] border-blue-300 text-xs font-semibold">
+                {horizonDays} dias no gráfico
+              </Badge>
+              <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-xs font-medium">
                 Granularidade Diária
               </Badge>
             </div>
