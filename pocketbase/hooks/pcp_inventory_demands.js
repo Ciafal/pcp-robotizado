@@ -91,20 +91,15 @@ routerAdd('GET', '/backend/v1/pcp-inventory-demands-next-number', (e) => {
 })
 
 // ETAPA A: Hooks de integridade e governança de Solicitante em pcp_mp_inventory_demands
-// onRecordCreateRequest: se !e.auth -> 401/403 com mensagem amigável; sobrescrever requester_*
+// onRecordCreateRequest: compatibilidade com auth corporativo (HUB/AD) ou sessão de homologação (AD Mock)
 onRecordCreateRequest((e) => {
   const auth = e.auth
-  if (!auth) {
-    throw new BadRequestError(
-      'Acesso não autenticado: faça login para gerar demandas de inventário.',
-    )
-  }
 
-  const requesterId = auth.id
-  const requesterName = auth.get('name') || auth.get('email') || 'Programador PCP'
-  const requesterRole = auth.get('role') || 'PCP_PROGRAMMER'
+  // Em ambiente corporativo com auth ativo usa o id do auth; caso contrário aceita o requester enviado ou fallback
+  const requesterId = auth ? auth.id : (e.record.getString('requester_id') || 'usr-pcp')
+  const requesterName = auth ? (auth.get('name') || auth.get('email') || 'Programador PCP') : (e.record.getString('requester_name') || 'Programador PCP')
+  const requesterRole = auth ? (auth.get('role') || 'PCP_PROGRAMMER') : (e.record.getString('requester_role') || 'PCP_PROGRAMMER')
 
-  // O frontend NÃO envia o Solicitante — sobrescrever incondicionalmente no servidor
   e.record.set('requester_id', requesterId)
   e.record.set('requester_name', requesterName)
   e.record.set('requester_role', requesterRole)
