@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T13:05:40.997Z",
+  "generatedAt": "2026-09-30T13:27:15.013Z",
   "collections": [
     {
       "name": "users",
@@ -21040,6 +21040,12 @@
         {
           "name": "is_count_entry",
           "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cycle_number",
+          "type": "number",
           "required": false,
           "system": false
         }

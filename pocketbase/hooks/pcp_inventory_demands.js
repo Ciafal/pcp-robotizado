@@ -112,7 +112,7 @@ onRecordCreateRequest((e) => {
   e.next()
 }, 'pcp_mp_inventory_demands')
 
-// onRecordUpdateRequest: preservar requester_* originais e bloquear alterações indevidas em demandas já encerradas
+// onRecordUpdateRequest: preservar requester_* originais e bloquear alterações indevidas em demandas já concluídas
 onRecordUpdateRequest((e) => {
   const original = e.record.original()
   if (original) {
@@ -125,18 +125,31 @@ onRecordUpdateRequest((e) => {
     if (origRole) e.record.set('requester_role', origRole)
 
     const prevStatus = (original.getString('status') || '').trim().toLowerCase()
-    const isCancelled = prevStatus === 'cancelado' || prevStatus === 'cancelada'
-    const isConcluded =
+    const nextStatus = (e.record.getString('status') || '').trim().toLowerCase()
+    const isOriginalConcluded =
       prevStatus === 'concluído' ||
       prevStatus === 'concluido' ||
       prevStatus === 'inventário concluído' ||
       prevStatus === 'inventario concluido'
 
-    if (isCancelled) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
+    // Concluído é o único estado terminal absoluto: nenhuma alteração permitida
+    if (isOriginalConcluded) {
+      throw new BadRequestError(
+        'Não é possível alterar uma demanda de inventário concluída (estado terminal).',
+      )
     }
-    if (isConcluded) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+
+    // Se estava cancelado, só é permitida atualização se estiver sendo reaberto (status mudando para Aberto ou Parcial com incremento de ciclo)
+    const isOriginalCancelled = prevStatus === 'cancelado' || prevStatus === 'cancelada'
+    if (isOriginalCancelled && (nextStatus === 'cancelado' || nextStatus === 'cancelada')) {
+      // Modificações internas mantendo cancelado são rejeitadas se tentarem inventariar
+      const prevPieces = original.getInt('total_pieces_inventoried')
+      const nextPieces = e.record.getInt('total_pieces_inventoried')
+      if (prevPieces !== nextPieces) {
+        throw new BadRequestError(
+          'Não é possível registrar contagens em um ciclo de inventário cancelado sem reabri-lo.',
+        )
+      }
     }
   }
 
@@ -173,11 +186,22 @@ onRecordCreateRequest((e) => {
       st === 'inventário concluído' ||
       st === 'inventario concluido'
 
-    if (isCancelled) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
-    }
     if (isConcluded) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+      throw new BadRequestError(
+        'Não é possível registrar contagens em um inventário concluído (estado terminal).',
+      )
+    }
+    if (isCancelled) {
+      throw new BadRequestError(
+        'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
+      )
+    }
+
+    // Se a demanda possui cycle_count e o item não veio com cycle_number definido, vincula ao ciclo atual
+    const currentDemandCycle = demandRecord.getInt('cycle_count') || 1
+    const itemCycle = e.record.getInt('cycle_number')
+    if (!itemCycle || itemCycle < 1) {
+      e.record.set('cycle_number', currentDemandCycle)
     }
   }
 
@@ -213,11 +237,20 @@ onRecordUpdateRequest((e) => {
       st === 'inventário concluído' ||
       st === 'inventario concluido'
 
-    if (isCancelled) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
-    }
     if (isConcluded) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+      throw new BadRequestError('Não é possível alterar contagens em um inventário concluído.')
+    }
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível alterar contagens em um inventário cancelado.')
+    }
+
+    // Também bloquear alteração de contagens de ciclos anteriores já encerrados
+    const currentDemandCycle = demandRecord.getInt('cycle_count') || 1
+    const itemCycle = e.record.getInt('cycle_number') || 1
+    if (itemCycle < currentDemandCycle) {
+      throw new BadRequestError(
+        'Contagens de ciclos anteriores são somente leitura para fins de auditoria.',
+      )
     }
   }
 
@@ -253,11 +286,20 @@ onRecordDeleteRequest((e) => {
       st === 'inventário concluído' ||
       st === 'inventario concluido'
 
-    if (isCancelled) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário cancelado.')
-    }
     if (isConcluded) {
-      throw new BadRequestError('Não é possível registrar contagens em um inventário concluído.')
+      throw new BadRequestError('Não é possível excluir contagens em um inventário concluído.')
+    }
+    if (isCancelled) {
+      throw new BadRequestError('Não é possível excluir contagens em um inventário cancelado.')
+    }
+
+    // Bloquear exclusão de contagens de ciclos anteriores (preservação para auditoria)
+    const currentDemandCycle = demandRecord.getInt('cycle_count') || 1
+    const itemCycle = e.record.getInt('cycle_number') || 1
+    if (itemCycle < currentDemandCycle) {
+      throw new BadRequestError(
+        'Contagens de ciclos anteriores são preservadas para histórico e não podem ser excluídas.',
+      )
     }
   }
 
