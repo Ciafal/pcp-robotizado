@@ -983,6 +983,71 @@ class PcpInventoryDemandsService {
   }
 
   /**
+   * Exclui um lançamento físico / contagem de inventário
+   */
+  async deleteEntry(entryId: string): Promise<boolean> {
+    if (!entryId) return false
+    const authUser = pb.authStore.record || pb.authStore.model
+    const userName = authUser?.name || 'Operador DP07'
+    const nowIso = new Date().toISOString()
+
+    try {
+      // Tenta recuperar registro para saber a demanda associada
+      let demandId = ''
+      try {
+        const item = await pb.collection('pcp_mp_inventory_items').getOne(entryId)
+        demandId = item.demand_id || item.inventory_id || ''
+      } catch {
+        // se não encontrar em items, tenta em entries
+        try {
+          const entryRec = await pb.collection('pcp_mp_inventory_entries').getOne(entryId)
+          demandId = entryRec.demand_id || ''
+        } catch {
+          // não encontrado
+        }
+      }
+
+      // Exclui de pcp_mp_inventory_items
+      try {
+        await pb.collection('pcp_mp_inventory_items').delete(entryId)
+      } catch (err) {
+        console.warn('[PCP-INVENTORY] Erro ao deletar em pcp_mp_inventory_items:', err)
+      }
+
+      // Exclui de pcp_mp_inventory_entries se existir
+      try {
+        await pb.collection('pcp_mp_inventory_entries').delete(entryId)
+      } catch {
+        // silencioso se tabela não existir
+      }
+
+      if (demandId) {
+        await this.recalculateDemandTotals(demandId)
+
+        // Histórico
+        try {
+          await pb.collection('pcp_mp_inventory_history').create({
+            demand_id: demandId,
+            inventory_id: demandId,
+            event_type: 'LANCAMENTO_REMOVIDO',
+            user_name: userName,
+            description: `Contagem física (ID: ${entryId}) removida por ${userName}.`,
+            summary: `Contagem física removida.`,
+            timestamp: nowIso,
+          })
+        } catch {
+          // silencioso
+        }
+      }
+
+      return true
+    } catch (err) {
+      console.error('[PCP-INVENTORY] Falha ao excluir lançamento:', err)
+      throw err
+    }
+  }
+
+  /**
    * Conclui o inventário da demanda com snapshot imutável de saldo SAP e 6 indicadores
    */
   async concludeDemand(
