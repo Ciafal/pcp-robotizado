@@ -32,6 +32,7 @@ import {
 import {
   pcpStorageDepositsService,
   StorageDepositItem,
+  normalizeForSearch,
 } from '@/services/pcp-storage-deposits-service'
 import { lineMasterService } from '@/services/line-master'
 import pb from '@/lib/pocketbase/client'
@@ -130,10 +131,14 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   // 4. Depósito (SAP T001L via RFC LGORT por WERKS com fallback para lista temporária controlada de homologação)
   const [storageDeposit, setStorageDeposit] = useState<string>('')
   const [storageDepositLabel, setStorageDepositLabel] = useState<string>('')
-  const [depositOptions, setDepositOptions] = useState<StorageDepositItem[]>([])
+  const [depositOptions, setDepositOptions] = useState<StorageDepositItem[]>(() =>
+    pcpStorageDepositsService.getProvisionalDeposits(),
+  )
   const [loadingDeposits, setLoadingDeposits] = useState<boolean>(false)
   const [isDepositProvisional, setIsDepositProvisional] = useState<boolean>(true)
-  const [depositWarning, setDepositWarning] = useState<string | null>(null)
+  const [depositWarning, setDepositWarning] = useState<string | null>(
+    'Lista temporária para homologação — fonte definitiva: SAP ECC via RFC (LGORT)',
+  )
   const [depositError, setDepositError] = useState<string | null>(null)
   const [depositOpen, setDepositOpen] = useState<boolean>(false)
   const [depositSearch, setDepositSearch] = useState<string>('')
@@ -178,6 +183,13 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
       setStorageDeposit(initDep)
       const formattedLabel = initDep ? pcpStorageDepositsService.formatDepositLabel(initDep) : ''
       setStorageDepositLabel(formattedLabel)
+      // Carrega os 68 depósitos temporários prontos
+      setDepositOptions(pcpStorageDepositsService.getProvisionalDeposits())
+      setIsDepositProvisional(true)
+      setDepositWarning(
+        'Lista temporária para homologação — fonte definitiva: SAP ECC via RFC (LGORT)',
+      )
+      setDepositError(null)
 
       const initialOp = initialContext?.productionOrder || ''
       setSelectedOrderNumber(initialOp)
@@ -375,8 +387,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
 
   // 4. DEPÓSITO: Camada de serviço de depósitos (SAP ECC via RFC LGORT por WERKS com fallback para lista provisória de homologação de 68 itens)
   const loadDepositsForWerks = async (werksCode: string, force = false) => {
+    // Se a fonte for TEMPORÁRIA, mantém os 68 depósitos sempre disponíveis sem esvaziá-los por chamada RFC indisponível
+    if (isDepositProvisional && !force) {
+      const prov = pcpStorageDepositsService.getProvisionalDeposits()
+      setDepositOptions(prov)
+      setIsDepositProvisional(true)
+      setDepositWarning(
+        'Lista temporária para homologação — fonte definitiva: SAP ECC via RFC (LGORT)',
+      )
+      setDepositError(null)
+      return
+    }
+
     if (!werksCode) {
-      // Quando ainda não há empresa selecionada, carrega a lista controlada provisória pronta para consulta
       const prov = pcpStorageDepositsService.getProvisionalDeposits()
       setDepositOptions(prov)
       setIsDepositProvisional(true)
@@ -419,7 +442,8 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
   // CASCATA OBRIGATÓRIA: Etapa 1 -> Etapa 2 -> Etapa 3 -> Etapa 4
   // =========================================================================
 
-  // Alterar Empresa: limpa Linha, Centro e Depósito, recarrega Depósitos (LGORTs) para o novo WERKS
+  // Alterar Empresa: limpa Linha e Centro; se fonte for SAP_RFC limpa e recarrega depósitos,
+  // mas na fonte TEMPORÁRIA os 68 depósitos permanecem sempre disponíveis sem reset
   const handleSelectCompany = (opt: SapCompanyOption) => {
     setCompany(opt.werks)
     setCompanyLabel(opt.label)
@@ -427,17 +451,19 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     setErrorField(null)
     setErrorMessage(null)
 
-    // Cascata dependente: limpa Linha, Centro e Depósito
+    // Cascata dependente de estrutura produtiva: limpa Linha e Centro
     setLine('')
     setLineLabel('')
     setCenter('')
     setCenterLabel('')
     setCenterOptions([])
-    setStorageDeposit('')
-    setStorageDepositLabel('')
 
-    // Recarrega depósitos do SAP para o WERKS recém-selecionado
-    loadDepositsForWerks(opt.werks)
+    // Regra da fonte: só reseta e recarrega depósitos se NÃO for provisório (SAP_RFC ativo)
+    if (!isDepositProvisional) {
+      setStorageDeposit('')
+      setStorageDepositLabel('')
+      loadDepositsForWerks(opt.werks)
+    }
   }
 
   // Alterar Linha: limpa Centro e carrega Centros compatíveis com a Linha
@@ -729,7 +755,9 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
     // Regra estrita: Não permitir salvar valor livre que não pertença à lista controlada
     if (!pcpStorageDepositsService.isValidDepositCode(storageDeposit, depositOptions)) {
       setErrorField('storageDeposit')
-      setErrorMessage('O depósito selecionado não é válido. Selecione um item da lista controlada.')
+      setErrorMessage(
+        'Não foi possível gerar a demanda de inventário. Selecione um depósito da lista.',
+      )
       return
     }
 
@@ -1256,18 +1284,20 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                       type="button"
                       role="combobox"
                       aria-expanded={depositOpen}
-                      disabled={submitting || !company}
+                      disabled={submitting || (!isDepositProvisional && !company)}
                       data-testid="select-deposito-trigger"
                       className={cn(
                         'w-full justify-between font-normal text-left h-8 px-2.5 text-xs bg-white text-slate-900 border hover:bg-slate-50',
-                        !company && 'opacity-60 cursor-not-allowed bg-slate-100',
+                        !isDepositProvisional &&
+                          !company &&
+                          'opacity-60 cursor-not-allowed bg-slate-100',
                         errorField === 'storageDeposit'
                           ? 'border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500'
                           : 'border-slate-300 focus-visible:ring-[#004C97]',
                       )}
                     >
                       <span className="truncate">
-                        {!company ? (
+                        {!isDepositProvisional && !company ? (
                           <span className="text-slate-400 italic">
                             Selecione uma empresa primeiro...
                           </span>
@@ -1361,38 +1391,55 @@ export const NovaDemandaInventarioModal: React.FC<NovaDemandaInventarioModalProp
                             {depositOptions
                               .filter((d) => {
                                 if (!depositSearch.trim()) return true
-                                const q = depositSearch.toLowerCase()
+                                const q = normalizeForSearch(depositSearch)
                                 return (
-                                  d.code.toLowerCase().includes(q) ||
-                                  d.description.toLowerCase().includes(q) ||
-                                  d.label.toLowerCase().includes(q)
+                                  normalizeForSearch(d.code).includes(q) ||
+                                  normalizeForSearch(d.description).includes(q) ||
+                                  normalizeForSearch(d.label).includes(q)
                                 )
                               })
-                              .map((d) => (
-                                <CommandItem
-                                  key={d.code}
-                                  value={d.code}
-                                  data-testid={`deposito-option-${d.code}`}
-                                  onSelect={() => handleSelectDeposit(d)}
-                                  className={cn(
-                                    'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
-                                    storageDeposit === d.code &&
-                                      'bg-blue-50 font-bold text-[#004C97]',
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2 truncate">
-                                    <span className="font-mono font-bold text-slate-900 text-xs">
-                                      {d.label}
-                                    </span>
-                                  </div>
-                                  <Check
+                              .map((d) => {
+                                const searchableValue =
+                                  pcpStorageDepositsService.getCommandItemValue(d)
+                                return (
+                                  <CommandItem
+                                    key={d.code}
+                                    value={searchableValue}
+                                    data-testid={`deposito-option-${d.code}`}
+                                    onSelect={() => handleSelectDeposit(d)}
                                     className={cn(
-                                      'h-3.5 w-3.5 text-[#004C97] shrink-0',
-                                      storageDeposit === d.code ? 'opacity-100' : 'opacity-0',
+                                      'flex items-center justify-between p-2 cursor-pointer hover:bg-blue-50/80',
+                                      storageDeposit === d.code &&
+                                        'bg-blue-50 font-bold text-[#004C97]',
                                     )}
-                                  />
-                                </CommandItem>
-                              ))}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <span className="font-mono font-bold text-slate-900 text-xs">
+                                        {d.label}
+                                      </span>
+                                    </div>
+                                    <Check
+                                      className={cn(
+                                        'h-3.5 w-3.5 text-[#004C97] shrink-0',
+                                        storageDeposit === d.code ? 'opacity-100' : 'opacity-0',
+                                      )}
+                                    />
+                                  </CommandItem>
+                                )
+                              })}
+                            {depositOptions.filter((d) => {
+                              if (!depositSearch.trim()) return true
+                              const q = normalizeForSearch(depositSearch)
+                              return (
+                                normalizeForSearch(d.code).includes(q) ||
+                                normalizeForSearch(d.description).includes(q) ||
+                                normalizeForSearch(d.label).includes(q)
+                              )
+                            }).length === 0 && (
+                              <CommandEmpty className="p-4 text-xs text-center text-slate-500">
+                                Nenhum depósito encontrado.
+                              </CommandEmpty>
+                            )}
                           </CommandGroup>
                         )}
                       </CommandList>

@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowDownUp,
+  Box,
   Building2,
   CheckCircle2,
   Clock,

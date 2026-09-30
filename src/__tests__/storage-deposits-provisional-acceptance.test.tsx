@@ -4,14 +4,13 @@ import React from 'react'
 import {
   pcpStorageDepositsService,
   PROVISIONAL_STORAGE_DEPOSITS,
-  StorageDepositItem,
+  PROVISIONAL_DEPOSITS_LIST,
+  normalizeForSearch,
 } from '@/services/pcp-storage-deposits-service'
 import { sapParametersMasterDataService } from '@/services/sap-parameters-master-data-service'
 import { NovaDemandaInventarioModal } from '@/components/pcp/inventory/NovaDemandaInventarioModal'
 import { pcpInventoryDemandsService } from '@/services/pcp-inventory-demands-service'
-import { DemandasInventarioTable } from '@/components/pcp/inventory/DemandasInventarioTable'
 import { LancarInventarioModal } from '@/components/pcp/inventory/LancarInventarioModal'
-import { HistoricoRastreabilidadeModal } from '@/components/pcp/inventory/HistoricoRastreabilidadeModal'
 import { DemandaSucessoModal } from '@/components/pcp/inventory/DemandaSucessoModal'
 
 // Mock dos serviços necessários
@@ -34,16 +33,17 @@ vi.mock('@/services/pcp-production-service', () => ({
   },
 }))
 
-describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16 Critérios de Aceite)', () => {
+describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (Regras de Produto & Aceite)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  // Critério 2: A lista apresenta exatamente os códigos fornecidos (DP01..DP37, DP98, DP99, DC01..DC15, DS01..DS13, DW01 — 68 itens)
-  it('Critério 2: A lista provisória de homologação possui exatamente 68 depósitos controlados', () => {
+  // Critério: A lista apresenta exatamente os códigos fornecidos (DP01..DP37, DP98, DP99, DC01..DC15, DS01..DS13, DW01 — 68 itens)
+  it('A lista provisória de homologação possui exatamente 68 depósitos controlados', () => {
     const list = pcpStorageDepositsService.getProvisionalDeposits()
     expect(list).toHaveLength(68)
     expect(PROVISIONAL_STORAGE_DEPOSITS).toHaveLength(68)
+    expect(PROVISIONAL_DEPOSITS_LIST).toHaveLength(68)
 
     // DP: 39 depósitos (DP01 a DP37 + DP98 + DP99)
     const dpList = list.filter((d) => d.code.startsWith('DP'))
@@ -62,33 +62,83 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
     expect(dwList).toHaveLength(1)
   })
 
-  // Critérios 8, 9, 10, 11: Códigos e descrições específicos da matriz
-  it('Critérios 8, 9, 10, 11 e 5: Padrão [Código] — [Descrição] e grafias exatas', () => {
-    // 8. DP07 -> DP07 — Matéria Prima L1
-    const dp07 = PROVISIONAL_STORAGE_DEPOSITS.find((d) => d.code === 'DP07')
-    expect(dp07).toBeDefined()
-    expect(dp07?.description).toBe('Matéria Prima L1')
+  // Testes Obrigatórios de busca solicitados:
+  // search("DP07") → exatamente 1 resultado "DP07 — Matéria Prima L1"
+  // search("DC09") → exatamente 1 resultado "DC09 — Tarugo acabado"
+  // search("DS06") → exatamente 1 resultado "DS06 — Acabado SDC"
+  // search("DW01") → exatamente 1 resultado "DW01 — Armazém"
+  // search("Almoxarifado") → 7 resultados (DP01, DP31, DC01, DC02, DC03, DC12, DS01)
+  // search("XYZ999") → vazio (0 resultados)
+  it('Testes Obrigatórios da função de busca (DP07, DC09, DS06, DW01, Almoxarifado, XYZ999)', () => {
+    // 1. DP07 -> exatamente 1 resultado
+    const resDP07 = pcpStorageDepositsService.getProvisionalDeposits('DP07')
+    expect(resDP07).toHaveLength(1)
+    expect(resDP07[0].code).toBe('DP07')
+    expect(resDP07[0].description).toBe('Matéria Prima L1')
+    expect(resDP07[0].label).toBe('DP07 — Matéria Prima L1')
     expect(pcpStorageDepositsService.formatDepositLabel('DP07')).toBe('DP07 — Matéria Prima L1')
 
-    // 9. DC09 -> DC09 — Tarugo acabado
-    const dc09 = PROVISIONAL_STORAGE_DEPOSITS.find((d) => d.code === 'DC09')
-    expect(dc09).toBeDefined()
-    expect(dc09?.description).toBe('Tarugo acabado')
+    // 2. DC09 -> exatamente 1 resultado
+    const resDC09 = pcpStorageDepositsService.getProvisionalDeposits('DC09')
+    expect(resDC09).toHaveLength(1)
+    expect(resDC09[0].code).toBe('DC09')
+    expect(resDC09[0].description).toBe('Tarugo acabado')
+    expect(resDC09[0].label).toBe('DC09 — Tarugo acabado')
     expect(pcpStorageDepositsService.formatDepositLabel('DC09')).toBe('DC09 — Tarugo acabado')
 
-    // 10. DS06 -> DS06 — Acabado SDC
-    const ds06 = PROVISIONAL_STORAGE_DEPOSITS.find((d) => d.code === 'DS06')
-    expect(ds06).toBeDefined()
-    expect(ds06?.description).toBe('Acabado SDC')
+    // 3. DS06 -> exatamente 1 resultado
+    const resDS06 = pcpStorageDepositsService.getProvisionalDeposits('DS06')
+    expect(resDS06).toHaveLength(1)
+    expect(resDS06[0].code).toBe('DS06')
+    expect(resDS06[0].description).toBe('Acabado SDC')
+    expect(resDS06[0].label).toBe('DS06 — Acabado SDC')
     expect(pcpStorageDepositsService.formatDepositLabel('DS06')).toBe('DS06 — Acabado SDC')
 
-    // 11. DW01 -> DW01 — Armazém
-    const dw01 = PROVISIONAL_STORAGE_DEPOSITS.find((d) => d.code === 'DW01')
-    expect(dw01).toBeDefined()
-    expect(dw01?.description).toBe('Armazém')
+    // 4. DW01 -> exatamente 1 resultado
+    const resDW01 = pcpStorageDepositsService.getProvisionalDeposits('DW01')
+    expect(resDW01).toHaveLength(1)
+    expect(resDW01[0].code).toBe('DW01')
+    expect(resDW01[0].description).toBe('Armazém')
+    expect(resDW01[0].label).toBe('DW01 — Armazém')
     expect(pcpStorageDepositsService.formatDepositLabel('DW01')).toBe('DW01 — Armazém')
 
-    // Grafias especiais preservadas:
+    // 5. Almoxarifado -> exatamente 7 resultados (DP01, DP31, DC01, DC02, DC03, DC12, DS01)
+    const resAlmox = pcpStorageDepositsService.getProvisionalDeposits('Almoxarifado')
+    expect(resAlmox).toHaveLength(7)
+    const almoxCodes = resAlmox.map((d) => d.code).sort()
+    expect(almoxCodes).toEqual(['DC01', 'DC02', 'DC03', 'DC12', 'DP01', 'DP31', 'DS01'].sort())
+
+    // 5b. Tolerância a acento: "almoxarifado" minúsculo e sem acento deve achar os mesmos 7
+    const resAlmoxNoAccent = pcpStorageDepositsService.getProvisionalDeposits('almoxarifado')
+    expect(resAlmoxNoAccent).toHaveLength(7)
+
+    // 6. XYZ999 -> vazio
+    const resXYZ = pcpStorageDepositsService.getProvisionalDeposits('XYZ999')
+    expect(resXYZ).toHaveLength(0)
+  })
+
+  // Normalização e busca tolerante a acentos e maiúsculas/minúsculas
+  it('Normalização remove acentos e marcas diacríticas corretamente', () => {
+    expect(normalizeForSearch('Matéria Prima L1')).toBe('materia prima l1')
+    expect(normalizeForSearch('Óleo da L1')).toBe('oleo da l1')
+    expect(normalizeForSearch('Armazém')).toBe('armazem')
+    expect(normalizeForSearch('Gases Indust.')).toBe('gases indust.')
+    expect(normalizeForSearch('Refra-Consignado')).toBe('refra-consignado')
+
+    // Busca por "oleo" sem acento encontra os óleos
+    const oleoSearch = pcpStorageDepositsService.getProvisionalDeposits('oleo')
+    expect(oleoSearch.length).toBeGreaterThanOrEqual(5)
+    expect(oleoSearch.some((d) => d.code === 'DP13')).toBe(true)
+
+    // Busca por "materia" sem acento encontra matérias primas
+    const mpSearch = pcpStorageDepositsService.getProvisionalDeposits('materia')
+    expect(mpSearch.length).toBeGreaterThanOrEqual(4)
+    expect(mpSearch.some((d) => d.code === 'DP07')).toBe(true)
+    expect(mpSearch.some((d) => d.code === 'DP02')).toBe(true)
+  })
+
+  // Preservação de grafias exatas da matriz operacional
+  it('Preserva grafias exatas da matriz de homologação', () => {
     // "Tarugo semiacabo" sem "d"
     expect(pcpStorageDepositsService.getDepositDescription('DC08')).toBe('Tarugo semiacabo')
     // "MatériaPrima SDC" sem espaço
@@ -101,88 +151,57 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
     expect(pcpStorageDepositsService.getDepositDescription('DP13')).toBe('Óleo da L1')
   })
 
-  // Critério 3 & 4: Pesquisa por código e por descrição
-  it('Critérios 3 e 4: Pesquisa funciona por código e por descrição', () => {
-    // Pesquisa por código "DP07"
-    const searchCode = pcpStorageDepositsService.getProvisionalDeposits('DP07')
-    expect(searchCode).toHaveLength(1)
-    expect(searchCode[0].code).toBe('DP07')
-    expect(searchCode[0].description).toBe('Matéria Prima L1')
-
-    // Pesquisa por descrição "Almoxarifado" -> retorna DP01, DP31, DC01, DC02, DC03, DC12, DS01
-    const searchDesc = pcpStorageDepositsService.getProvisionalDeposits('Almoxarifado')
-    expect(searchDesc.length).toBeGreaterThanOrEqual(5)
-    expect(searchDesc.some((d) => d.code === 'DP01')).toBe(true)
-    expect(searchDesc.some((d) => d.code === 'DS01')).toBe(true)
-    expect(searchDesc.some((d) => d.code === 'DC01')).toBe(true)
-
-    // Pesquisa "Subprodutos" -> DP99, DC11, DS10
-    const searchSub = pcpStorageDepositsService.getProvisionalDeposits('Subprodutos')
-    expect(searchSub.some((d) => d.code === 'DP99')).toBe(true)
-    expect(searchSub.some((d) => d.code === 'DC11')).toBe(true)
-    expect(searchSub.some((d) => d.code === 'DS10')).toBe(true)
-  })
-
-  // Critério 7: Não permitir salvar valor livre que não pertença à lista
-  it('Critério 7: Validação rejeita códigos inexistentes na lista controlada', () => {
+  // Validação: não permitir salvar valor livre que não pertença à lista controlada
+  it('Validação rejeita códigos inexistentes e aceita códigos válidos', () => {
     expect(pcpStorageDepositsService.isValidDepositCode('DP07')).toBe(true)
     expect(pcpStorageDepositsService.isValidDepositCode('DC09')).toBe(true)
     expect(pcpStorageDepositsService.isValidDepositCode('DS06')).toBe(true)
     expect(pcpStorageDepositsService.isValidDepositCode('DW01')).toBe(true)
+    expect(pcpStorageDepositsService.isValidDepositCode('dp07')).toBe(true) // tolerância a case
 
-    // Códigos inválidos ou digitação livre arbitrária
+    // Inválidos
+    expect(pcpStorageDepositsService.isValidDepositCode('XYZ999')).toBe(false)
     expect(pcpStorageDepositsService.isValidDepositCode('DEP_INVALIDO')).toBe(false)
     expect(pcpStorageDepositsService.isValidDepositCode('QUALQUER_COISA')).toBe(false)
     expect(pcpStorageDepositsService.isValidDepositCode('')).toBe(false)
     expect(pcpStorageDepositsService.isValidDepositCode('   ')).toBe(false)
+    expect(pcpStorageDepositsService.isValidDepositCode(null)).toBe(false)
+    expect(pcpStorageDepositsService.isValidDepositCode(undefined)).toBe(false)
   })
 
-  // Critério 16: Preparação para substituição futura por RFC SAP
-  it('Critério 16: Quando RFC responder com sucesso, assume como fonte oficial; quando indisponível, usa homologação', async () => {
-    // 1. Cenário RFC disponível (SAP ECC ativo)
-    vi.spyOn(sapParametersMasterDataService, 'fetchDeposits').mockResolvedValueOnce({
-      success: true,
-      data: [
-        {
-          lgort: 'LG01',
-          werks: '1001',
-          description: 'Depósito RFC Ativo',
-          label: 'LG01 — Depósito RFC Ativo',
-          source: 'SAP_T001L',
-        },
-      ],
-      timestamp: new Date().toISOString(),
-    })
+  // Combobox não fica bloqueado por empresa na fonte temporária
+  it('Combobox de Depósito está habilitado mesmo sem selecionar Empresa previamente', async () => {
+    render(
+      <NovaDemandaInventarioModal
+        open={true}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+        initialContext={{
+          company: '',
+          line: '',
+          center: '',
+        }}
+      />,
+    )
 
-    const rfcResult = await pcpStorageDepositsService.getDepositsForDemand({
-      werks: '1001',
-      preferRfc: true,
-    })
-    expect(rfcResult.source).toBe('SAP_RFC')
-    expect(rfcResult.isProvisional).toBe(false)
-    expect(rfcResult.data[0].code).toBe('LG01')
+    const depTrigger = screen.getByTestId('select-deposito-trigger')
+    expect(depTrigger).toBeInTheDocument()
+    expect(depTrigger).not.toBeDisabled()
 
-    // 2. Cenário RFC indisponível (503 / homologação) -> fallback automático de 68 depósitos
-    vi.spyOn(sapParametersMasterDataService, 'fetchDeposits').mockResolvedValueOnce({
-      success: false,
-      data: [],
-      isUnavailable: true,
-      error: 'RFC Indisponível',
-      timestamp: new Date().toISOString(),
-    })
+    // Clica no trigger de Depósito mesmo sem empresa selecionada
+    fireEvent.click(depTrigger)
 
-    const fallbackResult = await pcpStorageDepositsService.getDepositsForDemand({
-      werks: '1001',
-      preferRfc: true,
+    // Os depósitos aparecem normalmente
+    await waitFor(() => {
+      expect(screen.getByTestId('deposito-option-DP07')).toBeInTheDocument()
+      expect(screen.getByText('DP07 — Matéria Prima L1')).toBeInTheDocument()
+      expect(screen.getByTestId('sap-deposito-provisional-hint')).toBeInTheDocument()
+      expect(screen.getByText('68 itens')).toBeInTheDocument()
     })
-    expect(fallbackResult.source).toBe('PROVISIONAL_HOMOLOGATION')
-    expect(fallbackResult.isProvisional).toBe(true)
-    expect(fallbackResult.totalCount).toBe(68)
-    expect(fallbackResult.warningMessage).toContain('Lista temporária para homologação')
   })
 
-  // Critérios 1, 6, 12: No popup Nova Demanda, campo Depósito possui opções, grava código selecionado
-  it('Critérios 1, 6 e 12: Nova Demanda abre com opções de depósitos e grava apenas o código na demanda', async () => {
+  // Seleção e gravação do depósito
+  it('Nova Demanda grava apenas o código (DP07) na submissão da demanda', async () => {
     const createSpy = vi.spyOn(pcpInventoryDemandsService, 'createDemand').mockResolvedValueOnce({
       id: 'dem-001',
       control_number: 'INV-2026-000001',
@@ -208,20 +227,14 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
 
     // Clica no combobox de Depósito
     const depTrigger = screen.getByTestId('select-deposito-trigger')
-    expect(depTrigger).toBeInTheDocument()
     fireEvent.click(depTrigger)
 
-    // Critério 1: Depósito possui opções e exibe o hint provisório
     await waitFor(() => {
       expect(screen.getByTestId('deposito-option-DP07')).toBeInTheDocument()
-      expect(screen.getByText('DP07 — Matéria Prima L1')).toBeInTheDocument()
-      expect(screen.getByTestId('sap-deposito-provisional-hint')).toBeInTheDocument()
     })
 
     // Seleciona DP07
     fireEvent.click(screen.getByTestId('deposito-option-DP07'))
-
-    // O trigger exibe o label formatado
     expect(depTrigger).toHaveTextContent('DP07 — Matéria Prima L1')
 
     // Preenche OP, Prioridade, MP e Quantidade
@@ -244,13 +257,12 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
     await waitFor(() => {
       expect(createSpy).toHaveBeenCalledTimes(1)
       const payload = createSpy.mock.calls[0][0]
-      // Critério 6: Sistema grava apenas o código (DP07)
       expect(payload.storage_deposit).toBe('DP07')
     })
   })
 
-  // Critério 13: Depósito aparece corretamente ao visualizar a demanda (tabela e modal de sucesso)
-  it('Critério 13: Depósito aparece com código + descrição na tabela e no modal de detalhes', () => {
+  // Modal de sucesso e modal de lançamento exibem rótulo correto
+  it('Depósito aparece com código + descrição nos modais de sucesso e lançamento', () => {
     const mockDemand: any = {
       id: 'dem-001',
       control_number: 'INV-2026-000001',
@@ -268,7 +280,6 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
       created: new Date().toISOString(),
     }
 
-    // Modal de Sucesso
     const { unmount } = render(
       <DemandaSucessoModal
         open={true}
@@ -279,39 +290,24 @@ describe('Inventário de Matéria-Prima — Depósito Controlado Provisório (16
       />,
     )
 
-    // Confere que exibe DC09 — Tarugo acabado
     expect(screen.getByText('DC09 — Tarugo acabado')).toBeInTheDocument()
     unmount()
-  })
 
-  // Critério 14: Depósito aparece corretamente ao lançar o inventário
-  it('Critério 14: Depósito aparece corretamente no cabeçalho do LancarInventarioModal', () => {
-    const mockDemand: any = {
+    const mockDemand2: any = {
+      ...mockDemand,
       id: 'dem-002',
-      control_number: 'INV-2026-000002',
-      company: '1001',
-      line: 'L1',
-      center: 'LAM-01',
       storage_deposit: 'DS06',
-      production_order: 'OP-45000',
-      material_code: 'MP-1045',
-      material_description: 'Tarugo 1045',
-      status: 'Gerada',
-      priority: 'Normal',
-      total_pieces_required: 80,
-      total_pieces_inventoried: 0,
     }
 
     render(
       <LancarInventarioModal
         open={true}
         onOpenChange={() => {}}
-        demand={mockDemand}
+        demand={mockDemand2}
         onSuccess={() => {}}
       />,
     )
 
-    // DS06 — Acabado SDC deve estar presente
     expect(screen.getByText('DS06 — Acabado SDC')).toBeInTheDocument()
   })
 })

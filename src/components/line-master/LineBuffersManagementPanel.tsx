@@ -1191,8 +1191,8 @@ export const LineBuffersManagementPanel: React.FC = () => {
                           {formatPtBrNumber(ml.max_stock)} {ml.unit_of_measure}
                         </td>
                         <td className="py-2.5 px-3 text-right text-slate-700">
-                          {ml.physical_capacity != null
-                            ? `${formatPtBrNumber(ml.physical_capacity)} ${ml.unit_of_measure}`
+                          {ml.max_physical_capacity != null
+                            ? `${formatPtBrNumber(ml.max_physical_capacity)} ${ml.unit_of_measure}`
                             : '—'}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
@@ -1470,8 +1470,8 @@ export const LineBuffersManagementPanel: React.FC = () => {
                     Cap. Física
                   </span>
                   <span className="font-bold text-purple-800 text-xs">
-                    {viewMasterLung.physical_capacity != null
-                      ? `${formatPtBrNumber(viewMasterLung.physical_capacity)} ${viewMasterLung.unit_of_measure}`
+                    {viewMasterLung.max_physical_capacity != null
+                      ? `${formatPtBrNumber(viewMasterLung.max_physical_capacity)} ${viewMasterLung.unit_of_measure}`
                       : '—'}
                   </span>
                 </div>

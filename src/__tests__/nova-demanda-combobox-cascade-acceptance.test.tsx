@@ -202,8 +202,8 @@ describe('NovaDemandaInventarioModal — Bloco 1 Contexto Operacional com Cascat
     })
   })
 
-  // Teste 7: Trocar Empresa e confirmar limpeza de Linha, Centro e Depósito
-  it('Teste 7: Alterar Empresa limpa Linha, Centro e Depósito em cascata', async () => {
+  // Teste 7: Trocar Empresa limpa Linha e Centro da cascata produtiva; na fonte temporária preserva os depósitos disponíveis
+  it('Teste 7: Alterar Empresa limpa Linha e Centro; mantém lista de depósitos disponível na homologação', async () => {
     vi.spyOn(sapParametersMasterDataService, 'fetchCompanies').mockResolvedValue({
       success: true,
       data: [
@@ -236,14 +236,13 @@ describe('NovaDemandaInventarioModal — Bloco 1 Contexto Operacional com Cascat
     await waitFor(() => screen.getByTestId('empresa-option-2001'))
     fireEvent.click(screen.getByTestId('empresa-option-2001'))
 
-    // Linha, Centro e Depósito devem ser limpos
+    // Linha e Centro devem ser limpos na cascata produtiva
     expect(screen.getByTestId('select-linha-trigger')).toHaveTextContent('Selecione a linha...')
     expect(screen.getByTestId('select-centro-trigger')).toHaveTextContent(
       'Selecione uma linha primeiro...',
     )
-    expect(screen.getByTestId('select-deposito-trigger')).toHaveTextContent(
-      'Selecione o depósito...',
-    )
+    // Na fonte TEMPORÁRIA, os depósitos não são resetados nem bloqueados
+    expect(screen.getByTestId('select-deposito-trigger')).not.toBeDisabled()
   })
 
   // Teste 8: Simular indisponibilidade SAP e verificar que não permite digitação livre

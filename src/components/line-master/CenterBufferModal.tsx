@@ -244,7 +244,7 @@ export const CenterBufferModal: React.FC<CenterBufferModalProps> = ({
       buffer_type: bufferType,
 
       location_physical: locationPhysical,
-      availableArea: parsedAvailableArea,
+      available_area: parsedAvailableArea,
       unit_of_measure: unitOfMeasure,
       operational_capacity: parsedOperationalCapacity,
       observation,

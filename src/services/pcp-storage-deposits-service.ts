@@ -3,7 +3,7 @@
  *
  * Arquitetura de Integração:
  * - FONTE DEFINITIVA: SAP ECC via RFC LGORT (tabela T001L filtrada pelo WERKS selecionado).
- * - FONTE TEMPORÁRIA / HOMOLOGAÇÃO: Lista controlada de 68 depósitos oficiais para testes funcionais
+ * - FONTE TEMPORÁRIA / HOMOLOGAÇÃO: Lista controlada de exatamente 68 depósitos oficiais para testes funcionais
  *   enquanto o endpoint RFC SAP não estiver disponível em homologação.
  *
  * Transição futura:
@@ -29,7 +29,22 @@ export interface StorageDepositItem {
 }
 
 /**
- * Lista provisória controlada de 68 depósitos (preservando acentos e grafias exatas).
+ * Função utilitária de normalização de texto:
+ * - Converte para minúsculas
+ * - Remove acentos via decomposição NFD e remoção de marcas diacríticas
+ * - Remove espaços extras
+ */
+export function normalizeForSearch(text?: string | null): string {
+  if (!text) return ''
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+/**
+ * Lista provisória controlada de exatamente 68 depósitos (preservando grafias e acentos oficiais).
  * Transcrição exata da matriz operacional de homologação:
  * DP01..DP37, DP98, DP99 (39 itens)
  * DC01..DC15 (15 itens)
@@ -108,6 +123,11 @@ export const PROVISIONAL_STORAGE_DEPOSITS: ReadonlyArray<{ code: string; descrip
   { code: 'DW01', description: 'Armazém' },
 ] as const
 
+/**
+ * Alias constante para compatibilidade direta de importação
+ */
+export const PROVISIONAL_DEPOSITS_LIST = PROVISIONAL_STORAGE_DEPOSITS
+
 const PROVISIONAL_DEPOSIT_MAP = new Map<string, string>(
   PROVISIONAL_STORAGE_DEPOSITS.map((d) => [d.code, d.description]),
 )
@@ -116,7 +136,7 @@ export interface GetDepositsParams {
   werks?: string
   search?: string
   forceRefresh?: boolean
-  preferRfc?: boolean // default true: tenta RFC primeiro, fallback para lista temporária
+  preferRfc?: boolean // default true: tenta RFC primeiro se werks informado, fallback para lista temporária
 }
 
 export interface GetDepositsResult {
@@ -204,7 +224,7 @@ class PcpStorageDepositsService {
    */
   public getDepositDescription(code?: string | null): string {
     if (!code) return ''
-    const clean = code.trim()
+    const clean = code.trim().toUpperCase()
     return PROVISIONAL_DEPOSIT_MAP.get(clean) || ''
   }
 
@@ -213,34 +233,45 @@ class PcpStorageDepositsService {
    */
   public formatDepositLabel(code?: string | null, customDescription?: string | null): string {
     if (!code) return '—'
-    const cleanCode = code.trim()
+    const cleanCode = code.trim().toUpperCase()
     const desc = customDescription?.trim() || this.getDepositDescription(cleanCode)
     return desc ? `${cleanCode} — ${desc}` : cleanCode
   }
 
   /**
    * Valida se um código pertence à lista de depósitos válidos (seja da lista de homologação ou SAP fornecido).
+   * Tolera maiúsculas/minúsculas no código.
    */
-  public isValidDepositCode(code: string, extraOptions?: StorageDepositItem[]): boolean {
+  public isValidDepositCode(code?: string | null, extraOptions?: StorageDepositItem[]): boolean {
     if (!code || !code.trim()) return false
-    const clean = code.trim()
+    const clean = code.trim().toUpperCase()
     if (PROVISIONAL_DEPOSIT_MAP.has(clean)) return true
-    if (extraOptions && extraOptions.some((opt) => opt.code === clean)) return true
+    if (extraOptions && extraOptions.some((opt) => opt.code.toUpperCase() === clean)) return true
     return false
   }
 
   /**
-   * Filtro pesquisável tanto por código quanto por descrição (case-insensitive).
+   * Filtro pesquisável case-insensitive e tolerante a acentos sobre código e descrição.
    */
   public filterDeposits(list: StorageDepositItem[], search?: string): StorageDepositItem[] {
     if (!search || !search.trim()) return list
-    const q = search.trim().toLowerCase()
-    return list.filter(
-      (item) =>
-        item.code.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.label.toLowerCase().includes(q),
-    )
+    const q = normalizeForSearch(search)
+    return list.filter((item) => {
+      const codeNorm = normalizeForSearch(item.code)
+      const descNorm = normalizeForSearch(item.description)
+      const labelNorm = normalizeForSearch(item.label)
+      return codeNorm.includes(q) || descNorm.includes(q) || labelNorm.includes(q)
+    })
+  }
+
+  /**
+   * Retorna valor normalizado para busca do CommandItem do cmdk.
+   * Garante correspondência interna do cmdk por código e descrição sem acentos.
+   */
+  public getCommandItemValue(item: { code: string; description?: string; label?: string }): string {
+    const code = normalizeForSearch(item.code)
+    const desc = normalizeForSearch(item.description)
+    return `${code} ${desc}`.trim()
   }
 }
 
