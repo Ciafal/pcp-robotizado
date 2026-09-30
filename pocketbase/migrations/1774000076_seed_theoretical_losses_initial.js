@@ -33,5 +33,5 @@ migrate(
       console.warn('Erro ao inserir seed de perda teórica:', e)
     }
   },
-  (app) => {}
+  (app) => {},
 )

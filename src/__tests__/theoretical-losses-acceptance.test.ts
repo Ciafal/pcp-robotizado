@@ -104,6 +104,36 @@ describe('Módulo Perdas Teóricas - Ficha Mestra (Acceptance Suite)', () => {
       const errors = theoreticalLossesService.validateFormData(data)
       expect(Object.keys(errors).length).toBe(0)
     })
+
+    it('deve validar limites exatos de 0% e 100% como válidos isoladamente quando a soma não ultrapassa 100%', () => {
+      const dataMin: TheoreticalLossFormData = {
+        line_id: testLineId,
+        center_code: 'L1',
+        raw_material_type: 'TARUGO_130X130',
+        raw_material_code: 'MP-TEST-000',
+        raw_material_description: 'Tarugo Teste Limite 0',
+        bitola: 'Não há',
+        application: 'Geral',
+        rm_pct: '0,00',
+        carepa_pct: '0',
+        apara_pct: '0,0',
+      }
+      expect(Object.keys(theoreticalLossesService.validateFormData(dataMin)).length).toBe(0)
+
+      const dataMax: TheoreticalLossFormData = {
+        line_id: testLineId,
+        center_code: 'L1',
+        raw_material_type: 'TARUGO_130X130',
+        raw_material_code: 'MP-TEST-100',
+        raw_material_description: 'Tarugo Teste Limite 100',
+        bitola: 'Não há',
+        application: 'Geral',
+        rm_pct: '100,00',
+        carepa_pct: '0,00',
+        apara_pct: '0,00',
+      }
+      expect(Object.keys(theoreticalLossesService.validateFormData(dataMax)).length).toBe(0)
+    })
   })
 
   describe('3. Persistência Real no Banco PocketBase (CRUD + Exclusão Lógica + Auditoria)', () => {
