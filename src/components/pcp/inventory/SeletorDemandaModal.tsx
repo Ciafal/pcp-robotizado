@@ -25,17 +25,17 @@ export const SeletorDemandaModal: React.FC<SeletorDemandaModalProps> = ({
   demands,
   onSelectDemand,
 }) => {
-  // Regra crítica 8 & 9: mostrar APENAS demandas aptas ao lançamento físico (não iniciadas/Gerada/Em inventário e Parcial)
-  // NUNCA exibir Canceladas (Cancelado / Cancelada) nem Concluídas (Concluído / Inventário concluído)
+  // Regra crítica alinhada aos hooks e serviço:
+  // Concluído é o único estado terminal excluído.
+  // Lista Aberto, Parcial e Cancelado (Cancelado identificável com badge vermelho/alerta pois reabrirá novo ciclo).
   const pendentes = demands.filter((d) => {
     const s = (d.status || '').trim().toLowerCase()
-    const isCancelled = s === 'cancelado' || s === 'cancelada'
     const isConcluded =
       s === 'concluído' ||
       s === 'concluido' ||
       s === 'inventário concluído' ||
       s === 'inventario concluido'
-    return !isCancelled && !isConcluded
+    return !isConcluded
   })
 
   return (
@@ -77,18 +77,43 @@ export const SeletorDemandaModal: React.FC<SeletorDemandaModalProps> = ({
                     <span className="font-mono font-bold text-xs text-[#004C97]">
                       {demand.control_number}
                     </span>
-                    <Badge
-                      className={
-                        demand.status === 'Parcial' || demand.status === 'Inventário parcial'
-                          ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px]'
-                          : demand.status === 'Em inventário'
-                            ? 'bg-blue-100 text-[#004C97] border-blue-300 font-semibold text-[10px]'
-                            : 'bg-slate-100 text-slate-700 text-[10px]'
+                    {(() => {
+                      const st = (demand.status || '').trim().toLowerCase()
+                      const isCancelled = st === 'cancelado' || st === 'cancelada'
+                      const isPartial =
+                        st === 'parcial' ||
+                        st === 'inventário parcial' ||
+                        st === 'inventario parcial'
+                      if (isCancelled) {
+                        return (
+                          <Badge
+                            className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-[10px]"
+                            variant="outline"
+                            title="Demanda cancelada: ao selecionar, iniciará um novo ciclo de contagem."
+                          >
+                            Cancelado (Reabrirá Ciclo {(demand.cycle_count || 1) + 1})
+                          </Badge>
+                        )
                       }
-                      variant="outline"
-                    >
-                      {demand.status}
-                    </Badge>
+                      if (isPartial) {
+                        return (
+                          <Badge
+                            className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px]"
+                            variant="outline"
+                          >
+                            Parcial
+                          </Badge>
+                        )
+                      }
+                      return (
+                        <Badge
+                          className="bg-blue-100 text-[#004C97] border-blue-300 font-semibold text-[10px]"
+                          variant="outline"
+                        >
+                          {demand.status === 'Gerada' ? 'Aberto' : demand.status}
+                        </Badge>
+                      )
+                    })()}
                     <Badge className="bg-slate-100 text-slate-700 text-[10px]">
                       {demand.priority}
                     </Badge>
@@ -100,7 +125,7 @@ export const SeletorDemandaModal: React.FC<SeletorDemandaModalProps> = ({
                   <div className="text-[11px] text-slate-500">
                     {demand.center} | {demand.storage_deposit} | Previsto:{' '}
                     {demand.total_pieces_required || 0} pçs | Apurado:{' '}
-                    {demand.total_pieces_inventoried || 0} pçs
+                    {demand.total_pieces_inventoried || 0} pçs | Ciclo: {demand.cycle_count || 1}
                   </div>
                 </div>
 

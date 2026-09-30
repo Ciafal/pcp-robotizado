@@ -43,6 +43,7 @@ import {
   pcpInventoryDemandsService,
   DemandMaterialItem,
 } from '@/services/pcp-inventory-demands-service'
+import { useToast } from '@/hooks/use-toast'
 import { formatPtBrNumber } from '@/lib/number-format'
 
 interface DemandasInventarioTableProps {
@@ -101,6 +102,30 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
   onClearExternalViewDemand,
   lastCreatedDemand,
 }) => {
+  const { toast } = useToast()
+  const [reopeningId, setReopeningId] = useState<string | null>(null)
+
+  const handleReopenDemand = async (demand: InventoryDemand) => {
+    if (!demand.id || reopeningId) return
+    setReopeningId(demand.id)
+    try {
+      const reaberta = await pcpInventoryDemandsService.reopenDemand(demand.id)
+      toast({
+        title: 'Demanda Reaberta',
+        description: `Demanda ${reaberta.control_number} reaberta com sucesso no Ciclo ${reaberta.cycle_count || 2}.`,
+      })
+      onRefresh()
+      onLancar(reaberta)
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao reabrir demanda',
+        description: err?.message || 'Falha ao reabrir demanda cancelada.',
+      })
+    } finally {
+      setReopeningId(null)
+    }
+  }
   // Filtros rápidos
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>('TODAS')
 
@@ -713,24 +738,38 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
 
-                        {/* Lançar Inventário */}
+                        {/* Lançar Inventário / Reabrir Ciclo */}
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => onLancar(demand)}
-                          disabled={
-                            isCancelledStatus(demand.status) || isConcludedStatus(demand.status)
-                          }
+                          onClick={() => {
+                            if (isCancelledStatus(demand.status)) {
+                              handleReopenDemand(demand)
+                            } else {
+                              onLancar(demand)
+                            }
+                          }}
+                          disabled={isConcludedStatus(demand.status) || reopeningId === demand.id}
                           title={
-                            isCancelledStatus(demand.status)
-                              ? 'Inventário cancelado. Lançamento não permitido.'
-                              : isConcludedStatus(demand.status)
-                                ? 'Inventário concluído. Lançamento não permitido.'
+                            isConcludedStatus(demand.status)
+                              ? 'Inventário concluído — somente leitura. Lançamento não permitido.'
+                              : isCancelledStatus(demand.status)
+                                ? `Demanda cancelada: clique para reabrir novo ciclo (Ciclo ${(demand.cycle_count || 1) + 1}) e lançar.`
                                 : 'Lançar Inventário'
                           }
-                          className="h-7 w-7 p-0 text-[#004C97] hover:text-[#003B75] hover:bg-blue-50 disabled:opacity-30"
+                          className={`h-7 w-7 p-0 disabled:opacity-30 ${
+                            isCancelledStatus(demand.status)
+                              ? 'text-rose-600 hover:text-rose-800 hover:bg-rose-50'
+                              : 'text-[#004C97] hover:text-[#003B75] hover:bg-blue-50'
+                          }`}
                         >
-                          <ClipboardCheck className="w-3.5 h-3.5" />
+                          {reopeningId === demand.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : isCancelledStatus(demand.status) ? (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          ) : (
+                            <ClipboardCheck className="w-3.5 h-3.5" />
+                          )}
                         </Button>
 
                         {/* Histórico e Rastreabilidade */}

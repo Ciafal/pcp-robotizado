@@ -154,15 +154,28 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     demand?.materials,
   ])
 
+  // Estado local da demanda para refletir reaberturas ou conclusões em tempo real
+  const [currentDemandState, setCurrentDemandState] = useState<InventoryDemand | null>(demand)
+
+  useEffect(() => {
+    setCurrentDemandState(demand)
+  }, [demand])
+
   // Carrega dados da demanda selecionada
   const loadData = useCallback(async () => {
-    if (!demand?.id) return
+    const activeDemandId = currentDemandState?.id || demand?.id
+    if (!activeDemandId) return
     setLoading(true)
     try {
+      // Reconsulta a demanda atualizada
+      const freshDemand = await pcpInventoryDemandsService.getDemandById(activeDemandId)
+      if (freshDemand) {
+        setCurrentDemandState(freshDemand)
+      }
       const [fetchedEntries, fetchedRuns, fetchedGauges] = await Promise.all([
-        pcpInventoryDemandsService.listEntriesByDemand(demand.id, true),
-        pcpInventoryDemandsService.listRunsByDemand(demand.id),
-        pcpInventoryDemandsService.listGaugesByDemand(demand.id),
+        pcpInventoryDemandsService.listEntriesByDemand(activeDemandId, true, true),
+        pcpInventoryDemandsService.listRunsByDemand(activeDemandId),
+        pcpInventoryDemandsService.listGaugesByDemand(activeDemandId),
       ])
       setEntries(fetchedEntries)
       setRuns(fetchedRuns)
@@ -175,7 +188,7 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
     } finally {
       setLoading(false)
     }
-  }, [demand?.id, runNumber])
+  }, [currentDemandState?.id, demand?.id, runNumber])
 
   useEffect(() => {
     if (open && demand?.id) {
@@ -195,7 +208,8 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   // 4. DIVERGÊNCIA DEMANDA: Inventariado − Demanda
   // 5. DIVERGÊNCIA SAP: Inventariado − Saldo SAP (ou "—" se SAP indisponível)
   // 6. DIVERGÊNCIA %: ((Inventariado − Demanda)/Demanda)*100 (0,00% se Demanda=0)
-  const demandaQtd = demand?.total_pieces_required || 0
+  const activeDemand = currentDemandState || demand
+  const demandaQtd = activeDemand?.total_pieces_required || 0
   const inventariadoQtd = useMemo(() => {
     return entries.reduce((acc, curr) => acc + (curr.pieces_count || 0), 0)
   }, [entries])
@@ -306,23 +320,50 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
 
   // Verificação de bloqueio
   const isCancelled = useMemo(() => {
-    if (!demand?.status) return false
-    const s = demand.status.trim().toLowerCase()
+    const st = activeDemand?.status
+    if (!st) return false
+    const s = st.trim().toLowerCase()
     return s === 'cancelado' || s === 'cancelada'
-  }, [demand?.status])
+  }, [activeDemand?.status])
 
   const isConcluded = useMemo(() => {
-    if (!demand?.status) return false
-    const s = demand.status.trim().toLowerCase()
+    const st = activeDemand?.status
+    if (!st) return false
+    const s = st.trim().toLowerCase()
     return (
       s === 'concluído' ||
       s === 'concluido' ||
       s === 'inventário concluído' ||
       s === 'inventario concluido'
     )
-  }, [demand?.status])
+  }, [activeDemand?.status])
 
   const isReadOnly = isCancelled || isConcluded
+
+  // Reabertura de demanda Cancelada
+  const [reopening, setReopening] = useState<boolean>(false)
+  const handleReopenDemand = async () => {
+    if (!activeDemand?.id || reopening) return
+    setReopening(true)
+    try {
+      const reaberta = await pcpInventoryDemandsService.reopenDemand(activeDemand.id)
+      setCurrentDemandState(reaberta)
+      toast({
+        title: 'Demanda Reaberta com Sucesso',
+        description: `Novo ciclo ${reaberta.cycle_count || 2} iniciado para a demanda ${reaberta.control_number}. Lançamentos habilitados.`,
+      })
+      await loadData()
+      onSuccess()
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao reabrir demanda',
+        description: err?.message || 'Falha na reabertura da demanda cancelada.',
+      })
+    } finally {
+      setReopening(false)
+    }
+  }
 
   // Salvar Parcial
   const handleSavePartial = async () => {
@@ -354,19 +395,20 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
   }
 
   const executeConclude = async () => {
-    if (!demand?.id || isReadOnly) return
+    if (!activeDemand?.id || isReadOnly) return
     setConcluding(true)
     try {
-      await pcpInventoryDemandsService.concludeDemand(demand.id, {
+      const concluded = await pcpInventoryDemandsService.concludeDemand(activeDemand.id, {
         sap_balance: sapBalance,
         sap_status: sapBalance !== null ? 'CONCILIADO' : 'INDISPONIVEL',
         divergence_demand: divergenciaDemanda,
         divergence_sap: divergenciaSap,
         divergence_pct: Number(divergenciaPct.toFixed(2)),
       })
+      setCurrentDemandState(concluded)
       toast({
         title: 'Inventário concluído com sucesso.',
-        description: `Demanda ${demand.control_number} concluída. Nova contagens não são permitidas.`,
+        description: `Demanda ${activeDemand.control_number} concluída. Nova contagens não são permitidas.`,
       })
       setShowConfirmConclusion(false)
       onSuccess()
@@ -440,12 +482,19 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
                           ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs'
                           : isConcluded
                             ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs'
-                            : demand.status === 'Parcial' || demand.status === 'Inventário parcial'
+                            : activeDemand?.status === 'Parcial' ||
+                                activeDemand?.status === 'Inventário parcial'
                               ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold text-xs'
                               : 'bg-blue-100 text-[#004C97] border-blue-300 font-semibold text-xs'
                       }
                     >
-                      {demand.status}
+                      {activeDemand?.status || 'Aberto'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono font-bold text-slate-600"
+                    >
+                      Ciclo {activeDemand?.cycle_count || 1}
                     </Badge>
                   </div>
                 </div>
@@ -468,20 +517,41 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
           )}
 
           {isCancelled && (
-            <div className="flex flex-col gap-1 bg-rose-50 border border-rose-200 text-rose-900 px-3 py-2 rounded-lg text-xs">
-              <div className="flex items-center gap-2 font-semibold">
-                <Lock className="w-4 h-4 text-rose-600" />
-                <span>
-                  Inventário cancelado — somente leitura. Novas contagens e edições não são
-                  permitidas.
-                </span>
-              </div>
-              {demand.cancellation_reason && (
-                <div className="text-[11px] text-rose-700 pl-6">
-                  Motivo: <strong>{demand.cancellation_reason}</strong>
-                  {demand.cancelled_by && ` (por ${demand.cancelled_by})`}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-rose-50 border border-rose-200 text-rose-900 px-3 py-2.5 rounded-lg text-xs">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Lock className="w-4 h-4 text-rose-600" />
+                  <span>
+                    Inventário cancelado — somente leitura. Novas contagens exigem reabertura de
+                    ciclo.
+                  </span>
                 </div>
-              )}
+                {activeDemand?.cancellation_reason && (
+                  <div className="text-[11px] text-rose-700 pl-6">
+                    Motivo: <strong>{activeDemand.cancellation_reason}</strong>
+                    {activeDemand.cancelled_by && ` (por ${activeDemand.cancelled_by})`}
+                  </div>
+                )}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleReopenDemand}
+                disabled={reopening}
+                className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003B75] text-white shrink-0 shadow-xs"
+              >
+                {reopening ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    Reabrindo Ciclo...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                    Reabrir para Novo Lançamento (Ciclo {(activeDemand?.cycle_count || 1) + 1})
+                  </>
+                )}
+              </Button>
             </div>
           )}
 

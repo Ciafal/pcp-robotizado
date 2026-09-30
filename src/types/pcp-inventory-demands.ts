@@ -1,6 +1,7 @@
 export type InventoryDemandPriority = 'Baixa' | 'Normal' | 'Alta' | 'Urgente'
 
 export type InventoryDemandStatus =
+  | 'Aberto'
   | 'Gerada'
   | 'Em inventário'
   | 'Parcial'
@@ -57,6 +58,7 @@ export interface InventoryDemand {
   cancelled_by?: string
   concluded_at?: string
   concluded_by?: string
+  cycle_count?: number
   materials_summary?: DemandMaterialItem[]
   materials?: DemandMaterialItem[]
   gauge?: string
@@ -113,6 +115,7 @@ export interface InventoryEntry {
   gauge?: string
   location_wms: string
   pieces_count: number
+  cycle_number?: number
   entry_date_formatted: string
   user_id: string
   user_name: string
@@ -140,6 +143,7 @@ export type InventoryAuditEventType =
   | 'SALVAMENTO_PARCIAL'
   | 'INVENTARIO_CONCLUIDO'
   | 'DEMANDA_CANCELADA'
+  | 'DEMANDA_REABERTA'
 
 export interface InventoryAuditEvent {
   id: string

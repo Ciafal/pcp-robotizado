@@ -1843,7 +1843,28 @@ export const RawMaterialInventoryPage: React.FC = () => {
         open={seletorDemandaModalOpen}
         onOpenChange={setSeletorDemandaModalOpen}
         demands={inventoryDemands}
-        onSelectDemand={(demanda) => {
+        onSelectDemand={async (demanda) => {
+          // Se a demanda selecionada estiver Cancelada, reabre formalmente o ciclo
+          const st = (demanda.status || '').trim().toLowerCase()
+          if (st === 'cancelado' || st === 'cancelada') {
+            try {
+              const reaberta = await pcpInventoryDemandsService.reopenDemand(demanda.id)
+              toast({
+                title: 'Demanda Reaberta para Novo Ciclo',
+                description: `Demanda ${reaberta.control_number} reaberta (Ciclo ${reaberta.cycle_count || 2}). Contagens físicas habilitadas.`,
+              })
+              await loadDemands()
+              setSelectedDemandForLancar(reaberta)
+              setLancarModalOpen(true)
+              return
+            } catch (err: any) {
+              toast({
+                variant: 'destructive',
+                title: 'Erro ao reabrir demanda',
+                description: err?.message || 'Falha ao reabrir demanda cancelada.',
+              })
+            }
+          }
           setSelectedDemandForLancar(demanda)
           setLancarModalOpen(true)
         }}

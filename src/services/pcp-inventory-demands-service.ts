@@ -180,12 +180,33 @@ class PcpInventoryDemandsService {
   async listEntriesByDemand(
     demandId: string,
     onlyActive: boolean = true,
+    onlyCurrentCycle: boolean = false,
   ): Promise<InventoryEntry[]> {
     try {
+      // Obter ciclo vigente da demanda caso onlyCurrentCycle seja solicitado
+      let currentCycle: number | undefined
+      if (onlyCurrentCycle) {
+        try {
+          const demand = await this.getDemandById(demandId)
+          currentCycle = demand?.cycle_count || 1
+        } catch {
+          currentCycle = 1
+        }
+      }
+
       // Prioridade 1: Leitura na coleção real pcp_mp_inventory_items com is_count_entry = true
-      const filter = onlyActive
+      let filter = onlyActive
         ? `demand_id = '${demandId}' && is_count_entry = true && is_active = true`
         : `demand_id = '${demandId}' && is_count_entry = true`
+
+      if (onlyCurrentCycle && currentCycle !== undefined) {
+        // cycle_number = currentCycle OU (cycle_number = null / 0 quando cycle_count é 1)
+        if (currentCycle === 1) {
+          filter += ` && (cycle_number = null || cycle_number = 0 || cycle_number = 1)`
+        } else {
+          filter += ` && cycle_number = ${currentCycle}`
+        }
+      }
 
       const records = await pb.collection('pcp_mp_inventory_items').getFullList({
         filter,
@@ -202,6 +223,7 @@ class PcpInventoryDemandsService {
           gauge: r.gauge || r.produced_gauge_product || 'Tarugo 130mm',
           location_wms: r.location_wms || r.wms_physical_location || '',
           pieces_count: Number(r.pieces_count ?? r.dp07_inventoried_pieces ?? 0),
+          cycle_number: r.cycle_number ? Number(r.cycle_number) : 1,
           entry_date_formatted:
             r.entry_date_formatted || r.updated_at_timestamp || formatPtBrDateTime(),
           user_id: r.user_id || '',
@@ -422,6 +444,7 @@ class PcpInventoryDemandsService {
       total_pieces_inventoried: 0,
       divergence_pieces: -totalPiecesReq,
       divergence_pct: -100,
+      cycle_count: 1,
       // materials_summary NUNCA null, sempre array estruturado
       materials_summary: materialsStructured,
     }
@@ -602,13 +625,112 @@ class PcpInventoryDemandsService {
   }
 
   /**
-   * Helper para verificar se a demanda está apta para lançamento físico
+   * Helper para verificar se a demanda está apta para lançamento físico.
+   * Concluído é o ÚNICO estado terminal excluído. Aberto, Parcial e Cancelado (via reabertura) são elegíveis.
    */
   isDemandEligibleForPhysicalEntry(demand: InventoryDemand): boolean {
-    if (this.isDemandCancelled(demand.status) || this.isDemandConcluded(demand.status)) {
+    if (this.isDemandConcluded(demand.status)) {
       return false
     }
     return true
+  }
+
+  /**
+   * Reabre formalmente uma demanda Cancelada iniciando um NOVO ciclo (cycle_count + 1).
+   * O status vai para 'Aberto', o total inventariado do novo ciclo é zerado,
+   * as contagens do ciclo anterior permanecem preservadas mas NÃO são somadas no novo ciclo,
+   * e é gravado no histórico "Inventário reaberto para novo lançamento — status anterior: Cancelado".
+   */
+  async reopenDemand(demandId: string): Promise<InventoryDemand> {
+    const demand = await this.getDemandById(demandId)
+    if (!demand) {
+      throw new Error('Demanda não encontrada.')
+    }
+
+    if (this.isDemandConcluded(demand.status)) {
+      throw new Error('Não é possível reabrir uma demanda concluída (estado terminal).')
+    }
+
+    const previousStatus = demand.status || 'Cancelado'
+    const currentCycle = demand.cycle_count || 1
+    const newCycle = currentCycle + 1
+    const totalRequired = demand.total_pieces_required || 0
+    const nowIso = new Date().toISOString()
+    const nowStr = formatPtBrDateTime()
+
+    const authUser = pb.authStore.record || pb.authStore.model
+    const userName = authUser?.name || 'Programador PCP'
+    const userId = authUser?.id || ''
+    const userRole = (authUser as any)?.role || 'PCP_PROGRAMMER'
+
+    const updated = await pb
+      .collection('pcp_mp_inventory_demands')
+      .update<InventoryDemand>(demand.id, {
+        status: 'Aberto',
+        cycle_count: newCycle,
+        total_pieces_inventoried: 0,
+        divergence_pieces: -totalRequired,
+        divergence_pct: -100,
+      })
+
+    // Registrar no histórico de auditoria
+    try {
+      await pb.collection('pcp_mp_inventory_history').create({
+        demand_id: demand.id,
+        inventory_id: demand.id,
+        inventory_order_id: demand.id,
+        control_number: demand.control_number,
+        event_type: 'DEMANDA_REABERTA',
+        user_name: userName,
+        user_id: userId,
+        user_role: userRole,
+        description: `Inventário reaberto para novo lançamento — status anterior: Cancelado. Ciclo anterior: ${currentCycle} → Novo ciclo: ${newCycle}.`,
+        summary: `Inventário reaberto para novo lançamento — status anterior: Cancelado`,
+        previous_value: previousStatus,
+        new_value: 'Aberto',
+        details: {
+          previous_status: previousStatus,
+          new_status: 'Aberto',
+          previous_cycle: currentCycle,
+          new_cycle: newCycle,
+          total_pieces_inventoried: 0,
+          reopened_by: userName,
+          reopened_at: nowIso,
+        },
+        timestamp: nowIso,
+      })
+    } catch (histErr) {
+      console.warn('[PCP-INVENTORY] Erro ao gravar histórico de reabertura:', histErr)
+    }
+
+    // Registrar em pcp_audit_logs
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        module: 'INVENTARIO_MP',
+        action: 'REOPEN_INVENTORY_DEMAND',
+        event_type: 'SCHEDULE_ACTION',
+        user_id: userId,
+        user_name: userName,
+        user_role: userRole,
+        record_id: demand.id,
+        resource: 'pcp_mp_inventory_demands',
+        resource_id: demand.id,
+        outcome: 'SUCCESS',
+        company: demand.company,
+        details: {
+          control_number: demand.control_number,
+          previous_status: previousStatus,
+          new_status: 'Aberto',
+          previous_cycle: currentCycle,
+          new_cycle: newCycle,
+          timestamp: nowIso,
+        },
+      })
+    } catch (auditErr) {
+      console.warn('[PCP-INVENTORY] Erro ao gravar audit_log de reabertura:', auditErr)
+    }
+
+    return updated
   }
 
   async addEntry(payload: CreateEntryPayload): Promise<InventoryEntry> {
@@ -619,7 +741,9 @@ class PcpInventoryDemandsService {
 
     // Regra crítica de bloqueio no backend/serviço
     if (this.isDemandCancelled(demand.status)) {
-      throw new Error('Não é possível registrar contagens em um inventário cancelado.')
+      throw new Error(
+        'Não é possível registrar contagens em um ciclo de inventário cancelado. Reabra a demanda para iniciar um novo ciclo.',
+      )
     }
     if (this.isDemandConcluded(demand.status)) {
       throw new Error('Não é possível registrar contagens em um inventário concluído.')
@@ -655,6 +779,7 @@ class PcpInventoryDemandsService {
       demand.materials_summary?.[0]?.material_description ||
       'Tarugo Laminado'
     const itemKey = `${demand.control_number}-COUNT-${runNumberTrim}-${Date.now()}`
+    const currentDemandCycle = demand.cycle_count || 1
 
     // 1. Gravação REAL em pcp_mp_inventory_items
     const itemPayload: any = {
@@ -686,6 +811,7 @@ class PcpInventoryDemandsService {
       notes: payload.notes || '',
       pcp_planned_sequence: 1,
       schedule_version: 1,
+      cycle_number: currentDemandCycle,
       status: 'Em Inventário',
       responsible_user: userName,
       user_id: userId,
@@ -846,7 +972,9 @@ class PcpInventoryDemandsService {
     const demand = await this.getDemandById(demandId)
     if (!demand) return
 
-    const entries = await this.listEntriesByDemand(demandId, true)
+    // Contagem de Inventariado/Divergências APENAS por ciclo vigente:
+    // contagens de ciclos anteriores (cycle_number < demand.cycle_count) não são somadas no novo ciclo
+    const entries = await this.listEntriesByDemand(demandId, true, true)
     const totalInventoried = entries.reduce((acc, curr) => acc + (curr.pieces_count || 0), 0)
     const required = demand.total_pieces_required || 0
     const divergence = totalInventoried - required
