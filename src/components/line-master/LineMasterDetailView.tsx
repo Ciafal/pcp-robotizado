@@ -62,6 +62,8 @@ import { LineIdealSequencePanel } from '@/components/line-master/LineIdealSequen
 import { LineReferenceDocumentsPanel } from '@/components/line-master/LineReferenceDocumentsPanel'
 import { lineReferenceDocumentsService } from '@/services/line-reference-documents-service'
 import { LineProgrammingParametersPanel } from '@/components/line-master/LineProgrammingParametersPanel'
+import { DateInputPtBr } from '@/components/mp-optimization/DateInputPtBr'
+import { formatDatePTBR, datePtBrToIso, isoToDatePtBr } from '@/lib/formatters-ptbr'
 import { LineLessonsLearnedPanel } from '@/components/line-master/LineLessonsLearnedPanel'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
 import {
@@ -566,6 +568,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   const [schDur, setSchDur] = useState<number>(30)
   const [schStartTime, setSchStartTime] = useState<string>('08:00')
   const [schEndTime, setSchEndTime] = useState<string>('08:30')
+  const [schValidFrom, setSchValidFrom] = useState<string>('') // DD/MM/AAAA
+  const [schValidUntil, setSchValidUntil] = useState<string>('') // DD/MM/AAAA
+  const [schFormErrors, setSchFormErrors] = useState<{
+    reason?: string
+    category?: string
+    relationType?: string
+    validFrom?: string
+    validUntil?: string
+    duration?: string
+    time?: string
+  }>({})
   const [schTimeApplicable, setSchTimeApplicable] = useState<boolean>(true)
   const [schActive, setSchActive] = useState<boolean>(true)
   const [schRec, setSchRec] = useState<ScheduledStopRecurrence>('DAILY')
@@ -1311,6 +1324,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchDur(30)
     setSchStartTime('08:00')
     setSchEndTime('08:30')
+    // Padrão de vigência: Data início = hoje formatado pt-BR, Data fim = final do ano ou 3 meses à frente
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const yyyy = today.getFullYear()
+    setSchValidFrom(`${dd}/${mm}/${yyyy}`)
+    setSchValidUntil(`31/12/${yyyy}`)
+    setSchFormErrors({})
     setSchTimeApplicable(true)
     setSchActive(true)
     setSchRec('DAILY')
@@ -1374,6 +1395,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     setSchTimeApplicable(isApplicable)
     setSchStartTime(stop.start_time || '08:00')
     setSchEndTime(stop.end_time || '08:30')
+    // Carrega datas de vigência com formatação pt-BR garantida
+    const initialFrom = stop.valid_from ? isoToDatePtBr(stop.valid_from) : '01/01/2026'
+    const initialUntil = stop.valid_until ? isoToDatePtBr(stop.valid_until) : '31/12/2026'
+    setSchValidFrom(initialFrom)
+    setSchValidUntil(initialUntil)
+    setSchFormErrors({})
     setSchActive(stop.active !== false)
     setSchImpact(
       stop.impact ||
@@ -1451,68 +1478,102 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
   }
 
   const handleSaveScheduledStop = async () => {
+    const newErrors: {
+      reason?: string
+      category?: string
+      relationType?: string
+      validFrom?: string
+      validUntil?: string
+      duration?: string
+      time?: string
+    } = {}
+
+    // Validações obrigatórias
     if (!schReason.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Motivo Obrigatório',
-        description: 'Informe o motivo da parada programada.',
-      })
-      return
+      newErrors.reason = 'Informe o motivo / descrição da parada programada.'
+    }
+
+    if (!schCategory) {
+      newErrors.category = 'Selecione a categoria da parada.'
     }
 
     if (!schRelationType) {
-      toast({
-        variant: 'destructive',
-        title: 'Tipo de Relação Obrigatório',
-        description: 'Selecione o tipo de relação da parada.',
-      })
-      return
+      newErrors.relationType = 'Selecione o tipo de relação da parada.'
     }
 
-    if (schDur === undefined || schDur === null || Number(schDur) < 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Tempo de Parada Inválido',
-        description: 'O tempo de parada em minutos deve ser numérico e maior ou igual a zero.',
-      })
-      return
+    if (schDur === undefined || schDur === null || Number(schDur) <= 0 || isNaN(Number(schDur))) {
+      newErrors.duration = 'Duração da parada deve ser numérica e maior que zero.'
     }
 
-    // Regras de Horário: ou os dois preenchidos, ou ambos N/A (timeApplicable = false)
+    // Validações de Vigência (Data Início e Data Fim)
+    if (!schValidFrom || !schValidFrom.trim()) {
+      newErrors.validFrom = 'Data Início é obrigatória (dd/mm/aaaa).'
+    } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(schValidFrom.trim())) {
+      newErrors.validFrom = 'Data Início deve estar no formato dd/mm/aaaa.'
+    }
+
+    if (!schValidUntil || !schValidUntil.trim()) {
+      newErrors.validUntil = 'Data Fim é obrigatória (dd/mm/aaaa).'
+    } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(schValidUntil.trim())) {
+      newErrors.validUntil = 'Data Fim deve estar no formato dd/mm/aaaa.'
+    }
+
+    const isoFrom = datePtBrToIso(schValidFrom)
+    const isoUntil = datePtBrToIso(schValidUntil)
+
+    if (isoFrom && isoUntil && isoUntil < isoFrom) {
+      newErrors.validUntil = 'A Data Fim não pode ser anterior à Data Início.'
+    }
+
+    // Regras de Horário: se timeApplicable, ambos obrigatórios
     let finalStartTime: string | null = null
     let finalEndTime: string | null = null
     let effectiveDuration = Number(schDur)
 
     if (schTimeApplicable) {
       if (!schStartTime || !schEndTime) {
-        toast({
-          variant: 'destructive',
-          title: 'Horários Incompletos',
-          description:
-            'Quando aplicável, tanto a Hora Início quanto a Hora Fim devem ser informadas (ou desmarque o horário).',
-        })
-        return
-      }
-      finalStartTime = schStartTime
-      finalEndTime = schEndTime
+        newErrors.time =
+          'Quando o horário for aplicável, informe a Hora Início e a Hora Fim (HH:mm).'
+      } else {
+        finalStartTime = schStartTime
+        finalEndTime = schEndTime
 
-      // Validação de divergência entre intervalo e tempo editado
-      const calculatedDuration = calculateMinutesBetweenTimes(schStartTime, schEndTime)
-      if (calculatedDuration !== null) {
-        if (calculatedDuration !== Number(schDur)) {
-          setTimeMismatchAlert(
-            `Atenção: O intervalo entre ${schStartTime} e ${schEndTime} é de ${calculatedDuration} min, divergente dos ${schDur} min informados. A duração calculada de ${calculatedDuration} min será priorizada.`,
-          )
-        } else {
-          setTimeMismatchAlert(null)
+        // Validação de divergência entre intervalo e tempo digitado
+        const calculatedDuration = calculateMinutesBetweenTimes(schStartTime, schEndTime)
+        if (calculatedDuration !== null) {
+          if (calculatedDuration !== Number(schDur)) {
+            setTimeMismatchAlert(
+              `Atenção: O intervalo entre ${schStartTime} e ${schEndTime} é de ${calculatedDuration} min, divergente dos ${schDur} min informados. A duração calculada de ${calculatedDuration} min será priorizada.`,
+            )
+          } else {
+            setTimeMismatchAlert(null)
+          }
+          effectiveDuration = calculatedDuration
         }
-        effectiveDuration = calculatedDuration
       }
     } else {
       finalStartTime = null
       finalEndTime = null
       setTimeMismatchAlert(null)
     }
+
+    if (Object.keys(newErrors).length > 0) {
+      setSchFormErrors(newErrors)
+      // Focar o primeiro elemento com erro
+      const firstFieldKey = Object.keys(newErrors)[0]
+      const el = document.getElementById(`sch-field-${firstFieldKey}`)
+      if (el) {
+        el.focus()
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Campos inválidos ou incompletos',
+        description: 'Corrija os erros destacados em vermelho antes de gravar.',
+      })
+      return
+    }
+
+    setSchFormErrors({})
 
     // Mapeamento rigoroso de categoria para o enum do PocketBase
     const VALID_CATEGORIES = [
@@ -1548,7 +1609,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       // Busca registro anterior se for edição para montar payload de auditoria
       const existingStop = schId ? scheduledStops.find((s) => s.id === schId) : null
 
-      await lineMasterService.saveScheduledStop({
+      const savedRecord = await lineMasterService.saveScheduledStop({
         id: schId || undefined,
         line_id: line.id,
         line_master_id: master?.id,
@@ -1566,12 +1627,15 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         start_time: finalStartTime,
         end_time: finalEndTime,
         time_applicable: schTimeApplicable,
+        valid_from: isoFrom ? `${isoFrom} 00:00:00.000Z` : undefined,
+        valid_until: isoUntil ? `${isoUntil} 23:59:59.999Z` : undefined,
         scheduled_time: finalStartTime || 'N/A',
         impact: schImpact,
         active: schActive,
       })
 
-      // Auditoria detalhada em pcp_audit_logs
+      // Auditoria detalhada append-only em pcp_audit_logs contendo Centro, ID da Ficha Mestra, ID da Parada, vigência e status
+      const currentUser = pb.authStore.record || pb.authStore.model
       try {
         await lineMasterService.recordAuditVersion({
           line_id: line.id,
@@ -1580,36 +1644,73 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
           action: schId ? 'UPDATE' : 'CREATE',
           changed_fields: [
             'scheduled_stops',
-            'category',
-            'recurrence',
+            'valid_from',
+            'valid_until',
+            'start_time',
+            'end_time',
             'duration_minutes',
-            'time_applicable',
+            'recurrence',
             'recurrence_day_of_week',
+            'active',
           ],
-          change_reason: `Parada Programada: ${schReason.trim()} (${effectiveDuration} min) - Recorrência: ${mappedRecurrence} / ${mappedRecurrenceDay}`,
+          change_reason: schId
+            ? `Edição de Parada Programada: "${schReason.trim()}" (Vigência: ${schValidFrom} a ${schValidUntil})`
+            : `Criação de Parada Programada: "${schReason.trim()}" (Vigência: ${schValidFrom} a ${schValidUntil})`,
           snapshot_data: {
-            stop_id: schId || 'NEW',
+            line_id: line.id,
+            line_code: line.code,
+            center: line.name || line.code,
+            line_master_id: master?.id || null,
+            stop_id: savedRecord.id || schId || 'NEW',
             reason: schReason.trim(),
             category: mappedCategory,
             relation_type: schRelationType,
             raw_material_type: schRawMaterialType,
             enfornamento_type: schEnfornamentoType,
-            recurrence: mappedRecurrence,
-            recurrence_day_of_week: mappedRecurrenceDay,
-            duration_minutes: effectiveDuration,
+            valid_from: schValidFrom,
+            valid_until: schValidUntil,
             start_time: finalStartTime,
             end_time: finalEndTime,
+            duration_minutes: effectiveDuration,
+            recurrence: mappedRecurrence,
+            recurrence_day_of_week: mappedRecurrenceDay,
             time_applicable: schTimeApplicable,
             active: schActive,
+            status: schActive ? 'Ativo' : 'Inativo',
+            user: (currentUser as any)?.name || (currentUser as any)?.email || 'Usuário PCP',
+            timestamp: new Date().toISOString(),
             previous_values: existingStop
               ? {
+                  stop_id: existingStop.id,
                   reason: existingStop.reason,
                   category: existingStop.category,
-                  recurrence: existingStop.recurrence,
+                  valid_from: existingStop.valid_from
+                    ? isoToDatePtBr(existingStop.valid_from)
+                    : null,
+                  valid_until: existingStop.valid_until
+                    ? isoToDatePtBr(existingStop.valid_until)
+                    : null,
+                  start_time: existingStop.start_time,
+                  end_time: existingStop.end_time,
                   duration: existingStop.expected_duration_minutes,
+                  recurrence: existingStop.recurrence,
                   active: existingStop.active,
+                  status: existingStop.active ? 'Ativo' : 'Inativo',
                 }
               : null,
+            after_values: {
+              stop_id: savedRecord.id || schId,
+              reason: schReason.trim(),
+              category: mappedCategory,
+              valid_from: schValidFrom,
+              valid_until: schValidUntil,
+              start_time: finalStartTime,
+              end_time: finalEndTime,
+              duration: effectiveDuration,
+              recurrence: mappedRecurrence,
+              active: schActive,
+              status: schActive ? 'Ativo' : 'Inativo',
+            },
           },
         })
       } catch (auditErr) {
@@ -1617,8 +1718,8 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
       }
 
       toast({
-        title: 'Sucesso',
-        description: 'Parada programada gravada com sucesso.',
+        title: 'Parada Programada gravada com sucesso.',
+        description: `Parada "${schReason.trim()}" gravada com sucesso. Vigência: ${schValidFrom} a ${schValidUntil}.`,
       })
       setIsScheduledStopModalOpen(false)
       onRefresh()
@@ -2726,13 +2827,14 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     <table className="w-full text-left text-xs text-slate-700">
                       <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold">
                         <tr>
-                          <th className="p-2.5">Motivo</th>
+                          <th className="p-2.5">Descrição / Categoria</th>
                           <th className="p-2.5">Tipo Relação</th>
+                          <th className="p-2.5">Vigência (De / Até)</th>
                           <th className="p-2.5">Matéria-Prima</th>
                           <th className="p-2.5">Enfornamento</th>
                           <th className="p-2.5">Recorrência / Dia</th>
-                          <th className="p-2.5">Tempo (min)</th>
-                          <th className="p-2.5">Início / Fim</th>
+                          <th className="p-2.5">Duração (min)</th>
+                          <th className="p-2.5">Horário (Início / Fim)</th>
                           <th className="p-2.5">Status</th>
                           <th className="p-2.5 text-right">Ações</th>
                         </tr>
@@ -2740,7 +2842,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       <tbody className="divide-y divide-slate-100">
                         {scheduledStops.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="p-4 text-center text-slate-500 italic">
+                            <td colSpan={10} className="p-4 text-center text-slate-500 italic">
                               Nenhuma parada programada cadastrada para esta linha.
                             </td>
                           </tr>
@@ -2772,6 +2874,12 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                               MEETING: 'Reunião / DDS',
                               OTHER: 'Outros',
                             }
+
+                            const vigenciaDe = ss.valid_from ? isoToDatePtBr(ss.valid_from) : '-'
+                            const vigenciaAte = ss.valid_until
+                              ? isoToDatePtBr(ss.valid_until)
+                              : 'Indeterminado'
+
                             return (
                               <tr
                                 key={ss.id}
@@ -2796,6 +2904,16 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                       ss.relation_type ||
                                       'PROGRAMADA_MANUTENCAO'}
                                   </Badge>
+                                </td>
+                                <td className="p-2.5 font-mono text-[11px] whitespace-nowrap text-slate-700">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold text-[#004C97]">
+                                      {vigenciaDe}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">
+                                      até {vigenciaAte}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td className="p-2.5 font-mono text-[11px] text-amber-800">
                                   {ss.raw_material_type || ss.gauge_material_code || (
@@ -2829,7 +2947,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                                 </td>
                                 <td className="p-2.5 font-mono text-[11px]">
                                   {isTimeApplicable ? (
-                                    <span className="text-slate-700">
+                                    <span className="text-slate-700 font-semibold">
                                       {ss.start_time} - {ss.end_time}
                                     </span>
                                   ) : (
@@ -3933,38 +4051,87 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: Cadastrar/Editar Parada Programada (Capacidade) */}
+      {/* MODAL: Cadastrar/Editar Parada Programada (Padrão Corporativo CIAFAL) */}
       <Dialog open={isScheduledStopModalOpen} onOpenChange={setIsScheduledStopModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white text-base flex items-center gap-2">
-              <PauseCircle className="w-4 h-4 text-amber-400" />
-              {schId ? 'Editar Parada Programada' : 'Adicionar Parada Programada'}
-            </DialogTitle>
+        <DialogContent className="bg-white border border-slate-200 text-slate-900 max-w-3xl w-[95vw] p-0 shadow-2xl rounded-xl flex flex-col max-h-[92vh] overflow-hidden">
+          {/* Cabeçalho Institucional Fixo */}
+          <DialogHeader className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-r from-blue-50/70 via-white to-slate-50 shrink-0">
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <div className="space-y-0.5">
+                <DialogTitle className="text-base sm:text-lg font-bold text-[#003870] flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100/70 text-[#004C97] flex items-center justify-center font-bold">
+                    <PauseCircle className="w-5 h-5 text-[#004C97]" />
+                  </div>
+                  <span>{schId ? 'Editar Parada Programada' : 'Adicionar Parada Programada'}</span>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  {schId
+                    ? 'Atualize os dados e a vigência da parada programada da linha.'
+                    : 'Cadastre a parada programada da linha, sua vigência e regras de recorrência.'}
+                </DialogDescription>
+              </div>
+              <Badge
+                variant="outline"
+                className="hidden sm:inline-flex border-blue-200 bg-blue-50/50 text-[#004C97] text-xs font-semibold"
+              >
+                {line.code} • {line.name}
+              </Badge>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
-            {/* Linha 1: Descrição | Categoria | Relação */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Corpo do Formulário com Rolagem Vertical Interna e Layout Padronizado */}
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700">
+            {/* Linha 1: Descrição/Motivo * | Tipo de Parada (Categoria) * | Tipo de Relação * */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="space-y-1 md:col-span-1">
-                <Label className="text-xs text-slate-300">Descrição / Motivo *</Label>
+                <Label htmlFor="sch-field-reason" className="text-xs font-semibold text-slate-700">
+                  Descrição / Motivo <span className="text-rose-600">*</span>
+                </Label>
                 <Input
+                  id="sch-field-reason"
                   placeholder="Ex: Manutenção Preventiva Semanal"
                   value={schReason}
                   onChange={(e) => {
                     setSchReason(e.target.value)
+                    if (schFormErrors.reason) {
+                      setSchFormErrors((prev) => ({ ...prev, reason: undefined }))
+                    }
                     if (!schDesc) setSchDesc(e.target.value)
                   }}
-                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                  className={`bg-white border text-slate-900 text-xs h-9 ${
+                    schFormErrors.reason
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/30'
+                      : 'border-slate-300 focus:border-[#004C97]'
+                  }`}
                 />
+                {schFormErrors.reason && (
+                  <p className="text-[11px] font-medium text-rose-600 mt-1">
+                    {schFormErrors.reason}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Parada (Categoria) *</Label>
+                <Label
+                  htmlFor="sch-field-category"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Tipo de Parada (Categoria) <span className="text-rose-600">*</span>
+                </Label>
                 <select
+                  id="sch-field-category"
                   value={schCategory}
-                  onChange={(e) => setSchCategory(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  onChange={(e) => {
+                    setSchCategory(e.target.value)
+                    if (schFormErrors.category) {
+                      setSchFormErrors((prev) => ({ ...prev, category: undefined }))
+                    }
+                  }}
+                  className={`w-full bg-white border rounded-md text-xs text-slate-900 p-2 h-9 ${
+                    schFormErrors.category
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/30'
+                      : 'border-slate-300 focus:border-[#004C97]'
+                  }`}
                 >
                   <option value="PREVENTIVE_MAINTENANCE">Manutenção Preventiva</option>
                   <option value="CLEANING">Limpeza</option>
@@ -3974,14 +4141,34 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="OPERATIONAL_BREAK">Pausa Operacional</option>
                   <option value="OTHER">Outros</option>
                 </select>
+                {schFormErrors.category && (
+                  <p className="text-[11px] font-medium text-rose-600 mt-1">
+                    {schFormErrors.category}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Relação *</Label>
+                <Label
+                  htmlFor="sch-field-relationType"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Tipo de Relação <span className="text-rose-600">*</span>
+                </Label>
                 <select
+                  id="sch-field-relationType"
                   value={schRelationType}
-                  onChange={(e) => setSchRelationType(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  onChange={(e) => {
+                    setSchRelationType(e.target.value)
+                    if (schFormErrors.relationType) {
+                      setSchFormErrors((prev) => ({ ...prev, relationType: undefined }))
+                    }
+                  }}
+                  className={`w-full bg-white border rounded-md text-xs text-slate-900 p-2 h-9 ${
+                    schFormErrors.relationType
+                      ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/30'
+                      : 'border-slate-300 focus:border-[#004C97]'
+                  }`}
                 >
                   <option value="PROGRAMADA_MANUTENCAO">Manutenção Programada</option>
                   <option value="TROCA_CAMPANHA">Troca de Campanha</option>
@@ -3990,40 +4177,46 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="REFEICAO_DDS">Refeição / DDS</option>
                   <option value="OUTROS">Outros</option>
                 </select>
+                {schFormErrors.relationType && (
+                  <p className="text-[11px] font-medium text-rose-600 mt-1">
+                    {schFormErrors.relationType}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Linha 2: Matéria-prima | Tipo de Enfornamento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Matéria-prima</Label>
+                <Label className="text-xs font-semibold text-slate-700">Matéria-prima</Label>
                 <select
                   value={schRawMaterialType}
                   onChange={(e) => setSchRawMaterialType(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2 font-mono"
+                  className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 h-9 font-mono"
                 >
                   <option value="">Todas / Não restrita</option>
-                  {/* Catálogo mestre cadastrado na linha prioritariamente */}
                   {rawMaterials.map((rm) => (
                     <option key={rm.id} value={rm.material_code}>
                       {rm.material_code} - {rm.material_description || rm.material_code}
                     </option>
                   ))}
-                  {/* Itens oficiais do catálogo mestre de MP */}
                   {OFFICIAL_MP_TYPES_CATALOG.map((mp) => (
                     <option key={mp.code} value={mp.code}>
                       {mp.label} ({mp.code})
                     </option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-500">
+                  Restringe a parada a uma matéria-prima específica ou aplica a todas.
+                </span>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Tipo de Enfornamento</Label>
+                <Label className="text-xs font-semibold text-slate-700">Tipo de Enfornamento</Label>
                 <select
                   value={schEnfornamentoType}
                   onChange={(e) => setSchEnfornamentoType(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 h-9"
                 >
                   <option value="">Todos / Não restrito</option>
                   {ENFORNAMENTO_OPTIONS.map((opt) => (
@@ -4032,13 +4225,79 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                     </option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-500">
+                  Restringe ao tipo de enfornamento operacional do forno.
+                </span>
               </div>
             </div>
 
-            {/* Linha 3: Recorrência | Dia da Semana */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Linha 3 — VIGÊNCIA: Data Início * | Data Fim * (Identidade CIAFAL com Destaque) */}
+            <div className="p-3.5 rounded-lg border border-blue-200/80 bg-blue-50/40 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#003870] flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#004C97]" />
+                  Vigência do Cadastro (Período de Validade)
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">Formato: dd/mm/aaaa</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+                <div className="space-y-1" id="sch-field-validFrom">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data Início <span className="text-rose-600">*</span>
+                  </Label>
+                  <DateInputPtBr
+                    value={schValidFrom}
+                    onChange={(val) => {
+                      setSchValidFrom(val)
+                      if (schFormErrors.validFrom) {
+                        setSchFormErrors((prev) => ({ ...prev, validFrom: undefined }))
+                      }
+                    }}
+                    placeholder="DD/MM/AAAA"
+                  />
+                  {schFormErrors.validFrom ? (
+                    <p className="text-[11px] font-medium text-rose-600 mt-1">
+                      {schFormErrors.validFrom}
+                    </p>
+                  ) : (
+                    <span className="text-[10px] text-slate-500">
+                      Início da validade da regra no motor de capacidade
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1" id="sch-field-validUntil">
+                  <Label className="text-xs font-semibold text-slate-700">
+                    Data Fim <span className="text-rose-600">*</span>
+                  </Label>
+                  <DateInputPtBr
+                    value={schValidUntil}
+                    onChange={(val) => {
+                      setSchValidUntil(val)
+                      if (schFormErrors.validUntil) {
+                        setSchFormErrors((prev) => ({ ...prev, validUntil: undefined }))
+                      }
+                    }}
+                    placeholder="DD/MM/AAAA"
+                  />
+                  {schFormErrors.validUntil ? (
+                    <p className="text-[11px] font-medium text-rose-600 mt-1">
+                      {schFormErrors.validUntil}
+                    </p>
+                  ) : (
+                    <span className="text-[10px] text-slate-500">
+                      Término da vigência (não pode ser anterior à Data Início)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Linha 4 — RECORRÊNCIA: Recorrência | Dia da Semana */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Recorrência</Label>
+                <Label className="text-xs font-semibold text-slate-700">Recorrência</Label>
                 <select
                   value={schRec}
                   onChange={(e) => {
@@ -4048,7 +4307,7 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                       setSchRecurrenceDayOfWeek('Sábado e domingo')
                     }
                   }}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 h-9"
                 >
                   <option value="DAILY">Diária (DAILY)</option>
                   <option value="PER_SHIFT">Por Turno (PER_SHIFT)</option>
@@ -4057,14 +4316,17 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
                   <option value="CUSTOM">Customizada (CUSTOM)</option>
                   <option value="WEEKEND">Final de semana (sábado e domingo) (WEEKEND)</option>
                 </select>
+                <span className="text-[10px] text-slate-500">
+                  Aplica-se unicamente dentro do período de vigência cadastrado.
+                </span>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Dia da Semana</Label>
+                <Label className="text-xs font-semibold text-slate-700">Dia da Semana</Label>
                 <select
                   value={schRecurrenceDayOfWeek}
                   onChange={(e) => setSchRecurrenceDayOfWeek(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded text-xs text-white p-2"
+                  className="w-full bg-white border border-slate-300 rounded-md text-xs text-slate-900 p-2 h-9"
                 >
                   <option value="Todos os dias">Todos os dias</option>
                   <option value="Segunda">Segunda</option>
@@ -4082,91 +4344,157 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
             </div>
 
             {schRec === 'WEEKEND' && (
-              <p className="text-[11px] text-cyan-300 bg-cyan-950/40 p-2 rounded border border-cyan-800">
+              <p className="text-[11px] text-[#004C97] bg-blue-50 p-2.5 rounded-md border border-blue-200">
                 ℹ️ Recorrência ajustada para Final de Semana: aplicável automaticamente aos sábados
-                e domingos no cálculo de capacidade.
+                e domingos durante a vigência.
               </p>
             )}
 
-            {/* Linha 4: Duração e Horários */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Duração (min) *</Label>
-                <Input
-                  type="number"
-                  value={schDur}
-                  onChange={(e) => setSchDur(Number(e.target.value))}
-                  className="bg-slate-900 border-slate-700 text-amber-300 font-mono font-bold"
-                />
+            {/* Linha 5 — HORÁRIO DA PARADA: Duração (min) * | Hora Início | Hora Fim */}
+            <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-[#004C97]" />
+                  Horário Efetivo da Parada
+                </span>
+                <span className="text-[10px] text-slate-500">Padrão 24h (HH:mm)</span>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Hora Início</Label>
-                <Input
-                  type="time"
-                  disabled={!schTimeApplicable}
-                  value={schStartTime}
-                  onChange={(e) => setSchStartTime(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white disabled:opacity-50"
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="sch-field-duration"
+                    className="text-xs font-semibold text-slate-700"
+                  >
+                    Duração (min) <span className="text-rose-600">*</span>
+                  </Label>
+                  <Input
+                    id="sch-field-duration"
+                    type="number"
+                    min="1"
+                    value={schDur}
+                    onChange={(e) => {
+                      setSchDur(Number(e.target.value))
+                      if (schFormErrors.duration) {
+                        setSchFormErrors((prev) => ({ ...prev, duration: undefined }))
+                      }
+                    }}
+                    className={`bg-white border text-amber-800 font-mono font-bold text-xs h-9 ${
+                      schFormErrors.duration
+                        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/30'
+                        : 'border-slate-300 focus:border-[#004C97]'
+                    }`}
+                  />
+                  {schFormErrors.duration && (
+                    <p className="text-[11px] font-medium text-rose-600 mt-1">
+                      {schFormErrors.duration}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">Hora Início</Label>
+                  <Input
+                    type="time"
+                    disabled={!schTimeApplicable}
+                    value={schStartTime}
+                    onChange={(e) => {
+                      setSchStartTime(e.target.value)
+                      if (schFormErrors.time) {
+                        setSchFormErrors((prev) => ({ ...prev, time: undefined }))
+                      }
+                    }}
+                    className="bg-white border border-slate-300 text-slate-900 text-xs h-9 disabled:opacity-50 disabled:bg-slate-100"
+                  />
+                  <span className="text-[10px] text-slate-500">Ex: 08:00</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700">Hora Fim</Label>
+                  <Input
+                    type="time"
+                    disabled={!schTimeApplicable}
+                    value={schEndTime}
+                    onChange={(e) => {
+                      setSchEndTime(e.target.value)
+                      if (schFormErrors.time) {
+                        setSchFormErrors((prev) => ({ ...prev, time: undefined }))
+                      }
+                    }}
+                    className="bg-white border border-slate-300 text-slate-900 text-xs h-9 disabled:opacity-50 disabled:bg-slate-100"
+                  />
+                  <span className="text-[10px] text-slate-500">Ex: 08:30</span>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-300">Hora Fim</Label>
-                <Input
-                  type="time"
-                  disabled={!schTimeApplicable}
-                  value={schEndTime}
-                  onChange={(e) => setSchEndTime(e.target.value)}
-                  className="bg-slate-900 border-slate-700 text-white disabled:opacity-50"
-                />
-              </div>
+
+              {schFormErrors.time && (
+                <p className="text-[11px] font-medium text-rose-600 mt-1">{schFormErrors.time}</p>
+              )}
             </div>
 
-            {/* Linha 5: Observações / Detalhes */}
+            {/* Linha 6: Observações / Descrição Detalhada */}
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Observações / Descrição Detalhada</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Observações / Descrição Detalhada
+              </Label>
               <Input
                 placeholder="Ex: Lubrificação periódica, troca de cilindros ou parada operacional"
                 value={schDesc}
                 onChange={(e) => setSchDesc(e.target.value)}
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-white border border-slate-300 text-slate-900 text-xs h-9"
               />
             </div>
 
-            <div className="flex items-center gap-4 pt-1">
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+            {/* Linha 7: Horário aplicável | Ativo (impacta capacidade) */}
+            <div className="flex flex-wrap items-center gap-6 pt-1 p-3 rounded-lg border border-slate-200 bg-slate-50">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium select-none">
                 <input
                   type="checkbox"
                   checked={schTimeApplicable}
                   onChange={(e) => setSchTimeApplicable(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-[#004C97]"
+                  className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] h-4 w-4"
                 />
                 <span>Horário aplicável</span>
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium select-none">
                 <input
                   type="checkbox"
                   checked={schActive}
                   onChange={(e) => setSchActive(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-[#004C97]"
+                  className="rounded border-slate-300 text-[#004C97] focus:ring-[#004C97] h-4 w-4"
                 />
-                <span>Ativo (impacta capacidade)</span>
+                <span className="flex items-center gap-1.5">
+                  <span>Ativo (impacta capacidade)</span>
+                  {schActive ? (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] py-0 px-1.5">
+                      Ativo
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-slate-200 text-slate-700 border-slate-300 text-[10px] py-0 px-1.5">
+                      Inativo
+                    </Badge>
+                  )}
+                </span>
               </label>
             </div>
 
             {timeMismatchAlert && (
-              <p className="text-[11px] text-amber-400 bg-amber-950/40 p-2 rounded border border-amber-800">
-                {timeMismatchAlert}
+              <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-md border border-amber-300 flex items-start gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>{timeMismatchAlert}</span>
               </p>
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          {/* Rodapé Fixo com Cancelar e Gravar Parada Programada */}
+          <DialogFooter className="p-4 sm:p-5 border-t border-slate-200 bg-slate-50/90 gap-2 shrink-0 flex items-center justify-end">
             <Button
               variant="outline"
               size="sm"
               disabled={isSubmittingScheduledStop}
               onClick={() => setIsScheduledStopModalOpen(false)}
-              className="border-slate-700 bg-slate-900 text-slate-300"
+              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs h-9 px-4 font-semibold"
             >
               Cancelar
             </Button>
@@ -4174,15 +4502,19 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               size="sm"
               disabled={isSubmittingScheduledStop}
               onClick={handleSaveScheduledStop}
-              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs disabled:opacity-50"
+              className="bg-[#004C97] hover:bg-[#003870] text-white font-bold text-xs h-9 px-5 shadow-sm disabled:opacity-50 flex items-center gap-1.5"
             >
-              {isSubmittingScheduledStop
-                ? schId
-                  ? 'Salvando Alterações...'
-                  : 'Gravando...'
-                : schId
-                  ? 'Salvar Alterações'
-                  : 'Gravar Parada Programada'}
+              {isSubmittingScheduledStop ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{schId ? 'Salvando Alterações...' : 'Gravando...'}</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{schId ? 'Salvar Alterações' : 'Gravar Parada Programada'}</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

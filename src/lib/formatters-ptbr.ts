@@ -220,6 +220,42 @@ export function formatDatePTBR(
 }
 
 /**
+ * Converte data DD/MM/AAAA para ISO YYYY-MM-DD
+ * Ex: "01/10/2026" -> "2026-10-01"
+ */
+export function datePtBrToIso(value: string | null | undefined): string | null {
+  if (!value) return null
+  const cleaned = value.trim()
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(cleaned)
+  if (!match) return null
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Converte string ISO ou Date (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss...) para DD/MM/AAAA
+ * Ex: "2026-10-01" -> "01/10/2026"
+ */
+export function isoToDatePtBr(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  if (value instanceof Date) {
+    return formatDatePTBR(value, '')
+  }
+  const cleanStr = String(value).trim()
+  // Se já estiver em DD/MM/AAAA
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanStr)) {
+    return cleanStr
+  }
+  // Se for YYYY-MM-DD
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(cleanStr)
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch
+    return `${day}/${month}/${year}`
+  }
+  return formatDatePTBR(cleanStr, '')
+}
+
+/**
  * Formata data e hora no formato brasileiro DD/MM/AAAA HH:mm ou DD/MM/AAAA HH:mm:ss
  */
 export function formatDateTimePTBR(

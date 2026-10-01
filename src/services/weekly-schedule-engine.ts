@@ -855,12 +855,44 @@ export const WeeklyScheduleEngine = {
   isScheduledStopApplicable(
     stop: StandardScheduledStop,
     context: {
+      date?: Date | string | null // Data para verificação de vigência
       dayOfWeek?: string // 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'
       rawMaterialType?: string
       enfornamentoType?: string
     },
   ): boolean {
     if (!stop.active) return false
+
+    // 0. Filtro por Vigência Temporal (valid_from e valid_until)
+    if (context.date) {
+      let targetIso = ''
+      if (context.date instanceof Date) {
+        targetIso = context.date.toISOString().slice(0, 10)
+      } else {
+        const str = String(context.date).trim()
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+          const [d, m, y] = str.split('/')
+          targetIso = `${y}-${m}-${d}`
+        } else {
+          targetIso = str.slice(0, 10)
+        }
+      }
+
+      if (targetIso) {
+        if (stop.valid_from) {
+          const fromIso = String(stop.valid_from).trim().slice(0, 10)
+          if (fromIso && targetIso < fromIso) {
+            return false
+          }
+        }
+        if (stop.valid_until) {
+          const untilIso = String(stop.valid_until).trim().slice(0, 10)
+          if (untilIso && targetIso > untilIso) {
+            return false
+          }
+        }
+      }
+    }
 
     // 1. Filtro por Matéria-Prima (se especificado na parada)
     if (stop.raw_material_type) {

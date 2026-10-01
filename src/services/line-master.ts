@@ -2684,6 +2684,37 @@ export const lineMasterService = {
       'recurrence_day_of_week',
     ]
 
+    // Formatação segura de valid_from e valid_until para o PocketBase (date field)
+    let validFromVal: string | null = null
+    if (data.valid_from) {
+      const vFrom = String(data.valid_from).trim()
+      if (vFrom) {
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(vFrom)) {
+          const [d, m, y] = vFrom.split('/')
+          validFromVal = `${y}-${m}-${d} 00:00:00.000Z`
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(vFrom)) {
+          validFromVal = `${vFrom} 00:00:00.000Z`
+        } else {
+          validFromVal = vFrom
+        }
+      }
+    }
+
+    let validUntilVal: string | null = null
+    if (data.valid_until) {
+      const vUntil = String(data.valid_until).trim()
+      if (vUntil) {
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(vUntil)) {
+          const [d, m, y] = vUntil.split('/')
+          validUntilVal = `${y}-${m}-${d} 23:59:59.999Z`
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(vUntil)) {
+          validUntilVal = `${vUntil} 23:59:59.999Z`
+        } else {
+          validUntilVal = vUntil
+        }
+      }
+    }
+
     const rawPayload: Record<string, any> = {
       ...data,
       category,
@@ -2694,6 +2725,8 @@ export const lineMasterService = {
       time_applicable: isTimeApplicable,
       expected_duration_minutes: durationMinutes,
       scheduled_time: startTime || 'N/A',
+      valid_from: validFromVal,
+      valid_until: validUntilVal,
       active: data.active !== false,
     }
 
