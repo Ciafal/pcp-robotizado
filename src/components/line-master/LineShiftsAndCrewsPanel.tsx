@@ -12,7 +12,13 @@ import {
   AlertTriangle,
   Link as LinkIcon,
   Layers,
+  Loader2,
 } from 'lucide-react'
+import {
+  DateInputPtBr,
+  parseDatePtBr,
+  formatDatePtBr,
+} from '@/components/mp-optimization/DateInputPtBr'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -71,9 +77,15 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
 
   // Modal states - Shift x Crew Link
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
+  const [editingShiftCrew, setEditingShiftCrew] = useState<ProductionShiftCrew | null>(null)
   const [linkShiftId, setLinkShiftId] = useState('')
   const [linkCrewId, setLinkCrewId] = useState('')
+  const [linkValidFrom, setLinkValidFrom] = useState('')
+  const [linkValidUntil, setLinkValidUntil] = useState('')
+  const [linkStatus, setLinkStatus] = useState<'ATIVO' | 'INATIVO'>('ATIVO')
   const [linkNotes, setLinkNotes] = useState('')
+  const [isSavingLink, setIsSavingLink] = useState(false)
+  const [linkErrorMessage, setLinkErrorMessage] = useState<string | null>(null)
 
   // Helper: calculate duration between HH:MM and HH:MM
   const calculateDuration = (start: string, end: string): { hours: number; display: string } => {
@@ -329,71 +341,217 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
 
   // Shift x Crew Links
   const handleOpenLinkModal = (defaultShiftId?: string) => {
+    setEditingShiftCrew(null)
     setLinkShiftId(defaultShiftId || shifts[0]?.id || '')
+    // Procura a primeira turma disponível ou a primeira da lista
     setLinkCrewId(crews[0]?.id || '')
+    // Data de início padrão hoje em dd/mm/aaaa
+    setLinkValidFrom(formatDatePtBr(new Date()))
+    setLinkValidUntil('')
+    setLinkStatus('ATIVO')
     setLinkNotes('')
+    setLinkErrorMessage(null)
+    setIsLinkModalOpen(true)
+  }
+
+  const handleOpenEditLinkModal = (link: ProductionShiftCrew) => {
+    setEditingShiftCrew(link)
+    setLinkShiftId(link.shift_id)
+    setLinkCrewId(link.crew_id)
+
+    // Converter YYYY-MM-DD para DD/MM/AAAA
+    if (link.valid_from) {
+      const parsed = new Date(link.valid_from)
+      setLinkValidFrom(!isNaN(parsed.getTime()) ? formatDatePtBr(parsed) : '')
+    } else {
+      setLinkValidFrom(formatDatePtBr(new Date()))
+    }
+
+    if (link.valid_until) {
+      const parsedUntil = new Date(link.valid_until)
+      setLinkValidUntil(!isNaN(parsedUntil.getTime()) ? formatDatePtBr(parsedUntil) : '')
+    } else {
+      setLinkValidUntil('')
+    }
+
+    const currentStatus = (
+      link.status || (link.active !== false ? 'ATIVO' : 'INATIVO')
+    ).toUpperCase()
+    setLinkStatus(currentStatus === 'INATIVO' ? 'INATIVO' : 'ATIVO')
+    setLinkNotes(link.notes || '')
+    setLinkErrorMessage(null)
     setIsLinkModalOpen(true)
   }
 
   const handleSaveShiftCrewLink = async () => {
-    if (!linkShiftId || !linkCrewId) {
-      toast({
-        variant: 'destructive',
-        title: 'Seleção obrigatória',
-        description: 'Selecione um turno e uma turma para vincular.',
-      })
+    if (isSavingLink) return
+    setLinkErrorMessage(null)
+
+    // (1) Validar os campos
+    if (!linkShiftId) {
+      setLinkErrorMessage('Selecione o Turno.')
       return
     }
 
-    const alreadyLinked = shiftCrews.some(
-      (sc) => sc.shift_id === linkShiftId && sc.crew_id === linkCrewId,
-    )
-    if (alreadyLinked) {
-      toast({
-        variant: 'destructive',
-        title: 'Vínculo já existente',
-        description: 'Este turno já está associado a esta turma.',
-      })
+    if (!linkCrewId) {
+      setLinkErrorMessage('Selecione a Turma Operacional.')
       return
     }
 
+    if (!linkValidFrom || !linkValidFrom.trim()) {
+      setLinkErrorMessage('Data de início é obrigatória (formato DD/MM/AAAA).')
+      return
+    }
+
+    const parsedFrom = parseDatePtBr(linkValidFrom)
+    if (!parsedFrom) {
+      setLinkErrorMessage('Data de início inválida. Utilize o formato DD/MM/AAAA.')
+      return
+    }
+
+    let parsedUntil: Date | null = null
+    if (linkValidUntil && linkValidUntil.trim()) {
+      parsedUntil = parseDatePtBr(linkValidUntil)
+      if (!parsedUntil) {
+        setLinkErrorMessage('Data de fim inválida. Utilize o formato DD/MM/AAAA.')
+        return
+      }
+      if (parsedUntil < parsedFrom) {
+        setLinkErrorMessage('A Data de fim não pode ser anterior à Data de início.')
+        return
+      }
+    }
+
+    // Datas em ISO YYYY-MM-DD para envio ao backend
+    const fromIso = `${parsedFrom.getFullYear()}-${String(parsedFrom.getMonth() + 1).padStart(2, '0')}-${String(parsedFrom.getDate()).padStart(2, '0')}`
+    const untilIso = parsedUntil
+      ? `${parsedUntil.getFullYear()}-${String(parsedUntil.getMonth() + 1).padStart(2, '0')}-${String(parsedUntil.getDate()).padStart(2, '0')}`
+      : undefined
+
+    // (2) Validação prévia de cardinalidade / sobreposição no front para feedback imediato
+    if (linkStatus === 'ATIVO') {
+      const overlappingConflict = shiftCrews.find((sc) => {
+        if (editingShiftCrew && sc.id === editingShiftCrew.id) return false
+        if (sc.crew_id !== linkCrewId) return false
+        const otherStatus = (sc.status || (sc.active !== false ? 'ATIVO' : 'INATIVO')).toUpperCase()
+        if (otherStatus !== 'ATIVO') return false
+
+        const scFrom = sc.valid_from ? sc.valid_from.slice(0, 10) : '0000-01-01'
+        const scUntil = sc.valid_until ? sc.valid_until.slice(0, 10) : '9999-12-31'
+        const currentEnd = untilIso || '9999-12-31'
+
+        return fromIso <= scUntil && currentEnd >= scFrom
+      })
+
+      if (overlappingConflict) {
+        const conflictShift = shifts.find((s) => s.id === overlappingConflict.shift_id)
+        const conflictShiftCode = conflictShift?.code || conflictShift?.name || 'outro turno'
+        const msg = `Esta turma já possui vínculo vigente com o turno ${conflictShiftCode}. Encerre ou altere a vigência do vínculo existente antes de realizar um novo vínculo.`
+        setLinkErrorMessage(msg)
+        return
+      }
+    }
+
+    const selectedShift = shifts.find((s) => s.id === linkShiftId)
+    const selectedCrew = crews.find((c) => c.id === linkCrewId)
+    const shiftCodeDisplay = selectedShift?.code || 'TURNO'
+    const crewCodeDisplay = selectedCrew?.code || 'TURMA'
+
+    setIsSavingLink(true)
     try {
+      // (3) Gravar efetivamente o vínculo no banco
       await lineMasterService.saveShiftCrew({
+        id: editingShiftCrew?.id,
         line_id: line.id,
         shift_id: linkShiftId,
         crew_id: linkCrewId,
-        active: true,
+        valid_from: fromIso,
+        valid_until: untilIso,
+        status: linkStatus,
+        active: linkStatus === 'ATIVO',
         notes: linkNotes.trim() || undefined,
       })
 
-      toast({
-        title: 'Vínculo Turno × Turma Criado',
-        description: 'Associação homologada e persistida no backend.',
-      })
+      // (4) Fechar o popup somente após confirmação da gravação
       setIsLinkModalOpen(false)
+
+      // (5) Atualizar imediatamente a seção Turnos e Turmas na tela, sem recarga manual
       onRefresh()
+
+      // (6) Apresentar mensagem de sucesso com texto EXATO exigido
+      toast({
+        title: 'Vínculo Confirmado',
+        description: `Vínculo entre o turno ${shiftCodeDisplay} e a turma ${crewCodeDisplay} realizado com sucesso.`,
+      })
     } catch (err: any) {
+      // Em caso de erro: NÃO fechar popup, NÃO apagar campos, registrar tecnicamente no log
+      console.error('[ERRO_TECNICO_VINCULO_TURNO_TURMA]', err)
+      const backendMessage =
+        err?.data?.data?.crew_id?.message ||
+        err?.data?.data?.valid_until?.message ||
+        err?.data?.data?.valid_from?.message ||
+        err?.message ||
+        'Não foi possível concluir o vínculo entre turno e turma.'
+      setLinkErrorMessage(backendMessage)
       toast({
         variant: 'destructive',
-        title: 'Erro ao vincular',
-        description: err.message,
+        title: 'Falha na Gravação do Vínculo',
+        description: backendMessage,
+      })
+    } finally {
+      setIsSavingLink(false)
+    }
+  }
+
+  const handleInactivateShiftCrewLink = async (link: ProductionShiftCrew) => {
+    try {
+      await lineMasterService.inactivateShiftCrew(link.id)
+      const matchedShift = shifts.find((s) => s.id === link.shift_id)
+      const matchedCrew = crews.find((c) => c.id === link.crew_id)
+      toast({
+        title: 'Vínculo Inativado',
+        description: `Vínculo entre ${matchedShift?.code || 'turno'} e ${matchedCrew?.code || 'turma'} foi inativado e mantido no histórico.`,
+      })
+      onRefresh()
+    } catch (err: any) {
+      console.error('[ERRO_INATIVAR_VINCULO]', err)
+      toast({
+        variant: 'destructive',
+        title: 'Falha ao inativar vínculo',
+        description: err.message || 'Erro ao atualizar status do vínculo.',
       })
     }
   }
 
-  const handleDeleteShiftCrewLink = async (linkId: string) => {
+  const handleToggleLinkStatus = async (link: ProductionShiftCrew) => {
+    const isCurrentlyActive =
+      (link.status || (link.active !== false ? 'ATIVO' : 'INATIVO')) === 'ATIVO'
+    const nextStatus = isCurrentlyActive ? 'INATIVO' : 'ATIVO'
+
     try {
-      await lineMasterService.deleteShiftCrew(linkId)
+      await lineMasterService.saveShiftCrew({
+        id: link.id,
+        line_id: link.line_id,
+        shift_id: link.shift_id,
+        crew_id: link.crew_id,
+        valid_from: link.valid_from ? link.valid_from.slice(0, 10) : undefined,
+        valid_until: link.valid_until ? link.valid_until.slice(0, 10) : undefined,
+        status: nextStatus,
+        active: nextStatus === 'ATIVO',
+        notes: link.notes,
+      })
       toast({
-        title: 'Vínculo Removido',
-        description: 'Associação desfeita com sucesso.',
+        title: nextStatus === 'ATIVO' ? 'Vínculo Ativado' : 'Vínculo Inativado',
+        description: `Status alterado para ${nextStatus}.`,
       })
       onRefresh()
     } catch (err: any) {
+      console.error('[ERRO_ALTERAR_STATUS_VINCULO]', err)
+      const msg = err?.data?.data?.crew_id?.message || err.message || 'Erro ao alterar status.'
       toast({
         variant: 'destructive',
-        title: 'Erro ao remover vínculo',
-        description: err.message,
+        title: 'Falha na alteração',
+        description: msg,
       })
     }
   }
@@ -678,8 +836,9 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
               Associação Turno &times; Turma ({shiftCrews.length} vínculos)
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Escala flexível e persistida vinculando turmas aos turnos de trabalho da linha{' '}
-              {line.code}.
+              Escala operacional com controle de vigência e histórico imutável para a linha{' '}
+              {line.code}. 1 Turno suporta múltiplas Turmas; cada Turma possui vínculo único por
+              vigência.
             </CardDescription>
           </div>
           <Button
@@ -705,81 +864,232 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {shifts.map((shift) => {
-                const shiftLinks = shiftCrews.filter((sc) => sc.shift_id === shift.id)
-                return (
-                  <div
-                    key={shift.id}
-                    className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-sm text-[#004C97]">
-                          {shift.code}
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          {shift.start_time}–{shift.end_time}
-                        </span>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] font-mono text-slate-600">
-                        {shift.duration_hours} h
-                      </Badge>
-                    </div>
+            <div className="space-y-4">
+              {/* Tabela Unificada Completa de Vínculos com Vigência e Status */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-left text-xs text-slate-800">
+                  <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-2.5">Turno</th>
+                      <th className="p-2.5">Turma Operacional</th>
+                      <th className="p-2.5">Data de Início</th>
+                      <th className="p-2.5">Data de Fim</th>
+                      <th className="p-2.5 text-center">Status</th>
+                      <th className="p-2.5">Observações da Escala</th>
+                      <th className="p-2.5 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {shiftCrews.map((link) => {
+                      const matchedShift =
+                        shifts.find((s) => s.id === link.shift_id) || (link.expand as any)?.shift_id
+                      const matchedCrew =
+                        crews.find((c) => c.id === link.crew_id) || (link.expand as any)?.crew_id
 
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                        Turmas Vinculadas:
-                      </span>
-                      {shiftLinks.length === 0 ? (
-                        <span className="text-xs text-amber-600 italic block">
-                          Nenhuma turma vinculada a este turno.
-                        </span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {shiftLinks.map((link) => {
-                            const matchedCrew =
-                              crews.find((c) => c.id === link.crew_id) ||
-                              (link.expand as any)?.crew_id
-                            const crewCodeStr = matchedCrew?.code || 'Turma'
-                            const crewNameStr = matchedCrew?.name || crewCodeStr
-                            return (
-                              <div
-                                key={link.id}
-                                className="inline-flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded shadow-2xs text-xs"
-                              >
-                                <span className="font-mono font-bold text-slate-900">
-                                  {crewCodeStr}
+                      const shiftCodeStr = matchedShift?.code || 'Turno'
+                      const shiftNameStr = matchedShift?.name || ''
+                      const crewCodeStr = matchedCrew?.code || 'Turma'
+                      const crewNameStr = matchedCrew?.name || crewCodeStr
+
+                      const rawStatus = (
+                        link.status || (link.active !== false ? 'ATIVO' : 'INATIVO')
+                      ).toUpperCase()
+                      const isActive = rawStatus === 'ATIVO'
+
+                      // Formatação brasileira de datas dd/mm/aaaa
+                      const formatDisplayDate = (dStr?: string) => {
+                        if (!dStr) return null
+                        const clean = dStr.slice(0, 10)
+                        if (clean.includes('-')) {
+                          const [y, m, d] = clean.split('-')
+                          return `${d}/${m}/${y}`
+                        }
+                        return clean
+                      }
+
+                      const dateFromFormatted = formatDisplayDate(link.valid_from) || 'Imediato'
+                      const dateUntilFormatted =
+                        formatDisplayDate(link.valid_until) || 'Indeterminado'
+
+                      return (
+                        <tr
+                          key={link.id}
+                          className={`hover:bg-slate-50/80 transition-colors ${!isActive ? 'bg-slate-50/50 text-slate-500' : ''}`}
+                        >
+                          <td className="p-2.5 font-sans">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-slate-900 bg-blue-50 text-[#004C97] px-2 py-0.5 rounded border border-blue-200">
+                                {shiftCodeStr}
+                              </span>
+                              {shiftNameStr && (
+                                <span className="text-[11px] text-slate-600 font-medium">
+                                  {shiftNameStr}
                                 </span>
-                                <span className="text-[11px] text-slate-500">({crewNameStr})</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteShiftCrewLink(link.id)}
-                                  className="text-slate-400 hover:text-rose-600 ml-1"
-                                  title="Remover vínculo"
-                                >
-                                  &times;
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2.5 font-sans">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300">
+                                {crewCodeStr}
+                              </span>
+                              <span className="text-[11px] text-slate-700 font-medium">
+                                {crewNameStr}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-2.5 font-mono text-xs font-semibold text-slate-700">
+                            {dateFromFormatted}
+                          </td>
+                          <td className="p-2.5 font-mono text-xs text-slate-600">
+                            {dateUntilFormatted}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            {isActive ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-bold">
+                                ATIVO
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-slate-100 text-slate-600 border-slate-300 text-[10px] font-bold">
+                                INATIVO
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-slate-600 text-[11px] max-w-[200px] truncate">
+                            {link.notes || '-'}
+                          </td>
+                          <td className="p-2.5 text-right font-sans">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleLinkStatus(link)}
+                                title={
+                                  isActive
+                                    ? 'Inativar vínculo (mantém no histórico)'
+                                    : 'Ativar vínculo'
+                                }
+                                className="h-6 px-1.5 text-[11px] text-slate-600 hover:text-slate-900"
+                              >
+                                {isActive ? (
+                                  <XCircle className="w-3.5 h-3.5 text-amber-600" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditLinkModal(link)}
+                                className="h-6 px-2 text-[11px] font-semibold text-[#004C97] hover:bg-blue-50"
+                              >
+                                <Edit2 className="w-3 h-3 mr-1" /> Editar
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                    <div className="pt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenLinkModal(shift.id)}
-                        className="w-full text-xs text-[#004C97] hover:bg-blue-50 font-semibold h-6"
-                      >
-                        + Vincular Turma ao {shift.code}
-                      </Button>
+              {/* Visão de Cards Agrupados por Turno (1 Turno -> Várias Turmas) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                {shifts.map((shift) => {
+                  const shiftLinks = shiftCrews.filter((sc) => sc.shift_id === shift.id)
+                  const activeLinks = shiftLinks.filter(
+                    (sc) =>
+                      (sc.status || (sc.active !== false ? 'ATIVO' : 'INATIVO')).toUpperCase() ===
+                      'ATIVO',
+                  )
+                  return (
+                    <div
+                      key={shift.id}
+                      className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-sm text-[#004C97]">
+                            {shift.code}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800">
+                            {shift.start_time}–{shift.end_time}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] font-mono text-slate-600">
+                          {activeLinks.length} turma(s) ativa(s)
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Turmas no Turno:
+                        </span>
+                        {shiftLinks.length === 0 ? (
+                          <span className="text-xs text-amber-600 italic block">
+                            Nenhuma turma vinculada a este turno.
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {shiftLinks.map((link) => {
+                              const matchedCrew =
+                                crews.find((c) => c.id === link.crew_id) ||
+                                (link.expand as any)?.crew_id
+                              const crewCodeStr = matchedCrew?.code || 'Turma'
+                              const crewNameStr = matchedCrew?.name || crewCodeStr
+                              const isLinkActive =
+                                (
+                                  link.status || (link.active !== false ? 'ATIVO' : 'INATIVO')
+                                ).toUpperCase() === 'ATIVO'
+                              return (
+                                <div
+                                  key={link.id}
+                                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded shadow-2xs text-xs border ${
+                                    isLinkActive
+                                      ? 'bg-white border-slate-200'
+                                      : 'bg-slate-100 text-slate-500 border-slate-300'
+                                  }`}
+                                >
+                                  <span className="font-mono font-bold text-slate-900">
+                                    {crewCodeStr}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500">
+                                    ({crewNameStr})
+                                  </span>
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${isLinkActive ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                                    title={isLinkActive ? 'Vínculo Ativo' : 'Vínculo Inativo'}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditLinkModal(link)}
+                                    className="text-slate-400 hover:text-[#004C97] ml-1"
+                                    title="Editar vínculo"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenLinkModal(shift.id)}
+                          className="w-full text-xs text-[#004C97] hover:bg-blue-50 font-semibold h-6"
+                        >
+                          + Vincular Turma ao {shift.code}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )}
         </CardContent>
@@ -1063,63 +1373,182 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
         </div>
       )}
 
-      {/* MODAL: Vincular Turno x Turma */}
+      {/* MODAL: Vincular Turno x Turma (ou Editar Vínculo) */}
       {isLinkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl border border-slate-200 max-w-md w-full shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 max-w-lg w-full shadow-2xl overflow-hidden">
             <div className="bg-[#004C97] text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <LinkIcon className="w-5 h-5 text-cyan-300" />
-                <h3 className="font-bold text-sm">Vincular Turno &times; Turma</h3>
+                <h3 className="font-bold text-sm">
+                  {editingShiftCrew ? 'Editar Vínculo Turno × Turma' : 'Vincular Turno × Turma'}
+                </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setIsLinkModalOpen(false)}
-                className="text-white/80 hover:text-white text-sm font-bold"
+                onClick={() => !isSavingLink && setIsLinkModalOpen(false)}
+                className="text-white/80 hover:text-white text-sm font-bold disabled:opacity-50"
+                disabled={isSavingLink}
               >
                 &times;
               </button>
             </div>
 
             <div className="p-5 space-y-4 text-xs text-slate-800">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700">Selecione o Turno</Label>
-                <select
-                  value={linkShiftId}
-                  onChange={(e) => setLinkShiftId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded text-xs p-2 font-medium"
-                >
-                  {shifts.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.code} — {s.name} ({s.start_time}–{s.end_time})
-                    </option>
-                  ))}
-                </select>
+              {linkErrorMessage && (
+                <div className="p-3 rounded-md bg-rose-50 border border-rose-200 flex items-start gap-2 text-rose-800 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">Atenção na validação:</p>
+                    <p className="text-[11px] leading-relaxed">{linkErrorMessage}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">Turno *</Label>
+                  <select
+                    value={linkShiftId}
+                    onChange={(e) => setLinkShiftId(e.target.value)}
+                    disabled={isSavingLink}
+                    className="w-full bg-slate-50 border border-slate-300 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-[#004C97]"
+                  >
+                    <option value="">Selecione o Turno</option>
+                    {shifts.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code} — {s.name} ({s.start_time}–{s.end_time})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Turma Operacional *
+                  </Label>
+                  <select
+                    value={linkCrewId}
+                    onChange={(e) => setLinkCrewId(e.target.value)}
+                    disabled={isSavingLink}
+                    className="w-full bg-slate-50 border border-slate-300 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-[#004C97]"
+                  >
+                    <option value="">Selecione a Turma Operacional</option>
+                    {crews.map((c) => {
+                      // Verificar se a turma tem outro vínculo ativo nesta linha (exceto o próprio se estiver editando)
+                      const otherActive = shiftCrews.find(
+                        (sc) =>
+                          sc.crew_id === c.id &&
+                          (!editingShiftCrew || sc.id !== editingShiftCrew.id) &&
+                          (
+                            sc.status || (sc.active !== false ? 'ATIVO' : 'INATIVO')
+                          ).toUpperCase() === 'ATIVO',
+                      )
+                      const isOccupied = !!otherActive
+                      const activeShift = isOccupied
+                        ? shifts.find((s) => s.id === otherActive.shift_id)
+                        : null
+
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.code} — {c.name}
+                          {isOccupied
+                            ? ` (Em uso no ${activeShift?.code || 'outro turno'})`
+                            : ' (Disponível)'}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Data de início * (dd/mm/aaaa)
+                  </Label>
+                  <DateInputPtBr
+                    value={linkValidFrom}
+                    onChange={(v) => setLinkValidFrom(v)}
+                    disabled={isSavingLink}
+                    placeholder="DD/MM/AAAA"
+                  />
+                  <span className="text-[10px] text-slate-500">Início da vigência operacional</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Data de fim (opcional, dd/mm/aaaa)
+                  </Label>
+                  <DateInputPtBr
+                    value={linkValidUntil}
+                    onChange={(v) => setLinkValidUntil(v)}
+                    disabled={isSavingLink}
+                    placeholder="DD/MM/AAAA"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Deixe em branco para prazo indeterminado
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-700">Selecione a Turma Operacional</Label>
-                <select
-                  value={linkCrewId}
-                  onChange={(e) => setLinkCrewId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded text-xs p-2 font-medium"
-                >
-                  {crews.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} — {c.name}
-                    </option>
-                  ))}
-                </select>
+                <Label className="text-xs text-slate-700 font-semibold">Status do vínculo *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSavingLink}
+                    onClick={() => setLinkStatus('ATIVO')}
+                    className={`py-2 px-3 rounded-md border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      linkStatus === 'ATIVO'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-400 ring-1 ring-emerald-400 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <CheckCircle2
+                      className={`w-3.5 h-3.5 ${linkStatus === 'ATIVO' ? 'text-emerald-600' : 'text-slate-400'}`}
+                    />
+                    ATIVO
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSavingLink}
+                    onClick={() => setLinkStatus('INATIVO')}
+                    className={`py-2 px-3 rounded-md border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      linkStatus === 'INATIVO'
+                        ? 'bg-slate-200 text-slate-800 border-slate-400 ring-1 ring-slate-400 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <XCircle
+                      className={`w-3.5 h-3.5 ${linkStatus === 'INATIVO' ? 'text-slate-700' : 'text-slate-400'}`}
+                    />
+                    INATIVO
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs text-slate-700">Observações da Escala (opcional)</Label>
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Observações da Escala (opcional)
+                </Label>
                 <Input
                   value={linkNotes}
                   onChange={(e) => setLinkNotes(e.target.value)}
-                  placeholder="Escala semanal regular"
+                  disabled={isSavingLink}
+                  placeholder="Escala regular semanal, revezamento, etc."
                   className="h-8 text-xs"
                 />
+              </div>
+
+              <div className="p-2.5 rounded bg-blue-50/70 border border-blue-200/60 text-[11px] text-[#004C97] space-y-1">
+                <p className="font-semibold">Regra de Vínculo CIAFAL:</p>
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                  Um Turno pode receber múltiplas turmas operacionais. A mesma Turma não pode
+                  possuir dois vínculos ativos no mesmo período. Vínculos inativados permanecem no
+                  histórico de rastreabilidade.
+                </p>
               </div>
             </div>
 
@@ -1128,6 +1557,7 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
                 variant="outline"
                 size="sm"
                 onClick={() => setIsLinkModalOpen(false)}
+                disabled={isSavingLink}
                 className="text-xs h-8"
               >
                 Cancelar
@@ -1135,9 +1565,17 @@ export const LineShiftsAndCrewsPanel: React.FC<LineShiftsAndCrewsPanelProps> = (
               <Button
                 size="sm"
                 onClick={handleSaveShiftCrewLink}
-                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold h-8"
+                disabled={isSavingLink}
+                className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold h-8 gap-1.5"
               >
-                Confirmar Vínculo
+                {isSavingLink ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Gravando vínculo...
+                  </>
+                ) : (
+                  'Confirmar Vínculo'
+                )}
               </Button>
             </div>
           </div>

@@ -619,6 +619,9 @@ export interface ProductionShiftCrew {
   crew_id: string
   day_of_week?: string
   active: boolean
+  status?: 'ATIVO' | 'INATIVO' | string
+  valid_from?: string
+  valid_until?: string
   notes?: string
   created?: string
   updated?: string

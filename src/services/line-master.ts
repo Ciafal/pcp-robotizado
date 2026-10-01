@@ -2824,12 +2824,49 @@ export const lineMasterService = {
   },
 
   async saveShiftCrew(data: Partial<ProductionShiftCrew>): Promise<ProductionShiftCrew> {
+    const rawStatus = (data.status || (data.active === false ? 'INATIVO' : 'ATIVO')).toUpperCase()
+    const status = rawStatus === 'INATIVO' ? 'INATIVO' : 'ATIVO'
+    const active = status === 'ATIVO'
+
+    const payload: Record<string, unknown> = {
+      ...data,
+      status,
+      active,
+      day_of_week: data.day_of_week || 'ALL',
+      notes: data.notes || '',
+    }
+
+    if (data.valid_from !== undefined) {
+      payload.valid_from = data.valid_from ? data.valid_from : null
+    }
+    if (data.valid_until !== undefined) {
+      payload.valid_until = data.valid_until ? data.valid_until : null
+    }
+
     if (data.id) {
       return await pb
         .collection('production_shift_crews')
-        .update<ProductionShiftCrew>(data.id, data)
+        .update<ProductionShiftCrew>(data.id, payload, {
+          expand: 'shift_id,crew_id,line_id',
+        })
     }
-    return await pb.collection('production_shift_crews').create<ProductionShiftCrew>(data)
+    return await pb.collection('production_shift_crews').create<ProductionShiftCrew>(payload, {
+      expand: 'shift_id,crew_id,line_id',
+    })
+  },
+
+  async inactivateShiftCrew(id: string, notes?: string): Promise<ProductionShiftCrew> {
+    return await pb.collection('production_shift_crews').update<ProductionShiftCrew>(
+      id,
+      {
+        status: 'INATIVO',
+        active: false,
+        ...(notes !== undefined ? { notes } : {}),
+      },
+      {
+        expand: 'shift_id,crew_id,line_id',
+      },
+    )
   },
 
   async deleteShiftCrew(id: string): Promise<boolean> {
