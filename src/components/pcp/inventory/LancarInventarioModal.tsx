@@ -40,6 +40,7 @@ import {
   Ban,
   Lock,
   Trash2,
+  RotateCcw,
 } from 'lucide-react'
 
 interface LancarInventarioModalProps {
@@ -340,17 +341,25 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
 
   const isReadOnly = isCancelled || isConcluded
 
-  // Reabertura de demanda Cancelada
+  // Reabertura de demanda Cancelada com modal de confirmação obrigatório
+  const [showConfirmReopen, setShowConfirmReopen] = useState<boolean>(false)
   const [reopening, setReopening] = useState<boolean>(false)
-  const handleReopenDemand = async () => {
+
+  const handleOpenConfirmReopen = () => {
+    if (!activeDemand?.id || reopening) return
+    setShowConfirmReopen(true)
+  }
+
+  const handleConfirmReopenDemand = async () => {
     if (!activeDemand?.id || reopening) return
     setReopening(true)
     try {
       const reaberta = await pcpInventoryDemandsService.reopenDemand(activeDemand.id)
       setCurrentDemandState(reaberta)
+      setShowConfirmReopen(false)
       toast({
         title: 'Demanda Reaberta com Sucesso',
-        description: `Novo ciclo ${reaberta.cycle_count || 2} iniciado para a demanda ${reaberta.control_number}. Lançamentos habilitados.`,
+        description: `Novo ciclo ${reaberta.cycle_count || 2} iniciado para a demanda ${reaberta.control_number}. Lançamentos habilitados com Inventariado inicial zerado.`,
       })
       await loadData()
       onSuccess()
@@ -584,18 +593,18 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               <Button
                 type="button"
                 size="sm"
-                onClick={handleReopenDemand}
+                onClick={handleOpenConfirmReopen}
                 disabled={reopening}
-                className="h-8 text-xs font-bold bg-[#004C97] hover:bg-[#003B75] text-white shrink-0 shadow-xs"
+                className="h-8.5 px-3.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shrink-0 shadow-sm border border-amber-500/40 rounded-lg transition-all flex items-center gap-1.5"
               >
                 {reopening ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
                     Reabrindo Ciclo...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
                     Reabrir para Novo Lançamento (Ciclo {(activeDemand?.cycle_count || 1) + 1})
                   </>
                 )}
@@ -1258,6 +1267,90 @@ export const LancarInventarioModal: React.FC<LancarInventarioModalProps> = ({
               className="text-xs font-bold"
             >
               {cancelling ? 'Cancelando...' : 'Confirmar Cancelamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação Obrigatório: Reabrir Demanda Cancelada */}
+      <Dialog open={showConfirmReopen} onOpenChange={setShowConfirmReopen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-black text-slate-900">
+                  Reabrir Demanda para Novo Lançamento?
+                </DialogTitle>
+                <div className="text-xs text-slate-600 mt-0.5">
+                  Demanda:{' '}
+                  <span className="font-mono font-bold text-[#004C97]">
+                    {activeDemand?.control_number}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
+              O inventário cancelado será reaberto em um{' '}
+              <strong>Novo Ciclo {(activeDemand?.cycle_count || 1) + 1}</strong> com status{' '}
+              <strong>Aberto</strong> e contagem física zerada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2 text-xs">
+            <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-lg text-amber-950 space-y-1.5">
+              <div className="font-semibold flex items-center gap-1 text-amber-900">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>Regras de Preservação e Rastreabilidade:</span>
+              </div>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-900">
+                <li>
+                  As contagens do <strong>Ciclo {activeDemand?.cycle_count || 1}</strong> permanecem
+                  gravadas e canceladas para histórico/auditoria.
+                </li>
+                <li>
+                  O <strong>Ciclo {(activeDemand?.cycle_count || 1) + 1}</strong> iniciará com
+                  Inventariado = 0 peças e permitirá novas contagens físicas de tarugos.
+                </li>
+                <li>
+                  Um evento de reabertura será adicionado à timeline oficial com usuário e
+                  data/hora.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfirmReopen(false)}
+              disabled={reopening}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmReopenDemand}
+              disabled={reopening}
+              className="text-xs font-bold bg-[#004C97] hover:bg-[#003B75] text-white flex items-center gap-1.5"
+            >
+              {reopening ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Reabrindo...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Confirmar Reabertura (Ciclo {(activeDemand?.cycle_count || 1) + 1})
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

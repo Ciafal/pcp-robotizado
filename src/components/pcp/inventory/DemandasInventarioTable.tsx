@@ -104,16 +104,18 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
 }) => {
   const { toast } = useToast()
   const [reopeningId, setReopeningId] = useState<string | null>(null)
+  const [reopenModalDemand, setReopenModalDemand] = useState<InventoryDemand | null>(null)
 
-  const handleReopenDemand = async (demand: InventoryDemand) => {
-    if (!demand.id || reopeningId) return
-    setReopeningId(demand.id)
+  const handleConfirmReopenDemand = async () => {
+    if (!reopenModalDemand?.id || reopeningId) return
+    setReopeningId(reopenModalDemand.id)
     try {
-      const reaberta = await pcpInventoryDemandsService.reopenDemand(demand.id)
+      const reaberta = await pcpInventoryDemandsService.reopenDemand(reopenModalDemand.id)
       toast({
         title: 'Demanda Reaberta',
         description: `Demanda ${reaberta.control_number} reaberta com sucesso no Ciclo ${reaberta.cycle_count || 2}.`,
       })
+      setReopenModalDemand(null)
       onRefresh()
       onLancar(reaberta)
     } catch (err: any) {
@@ -741,10 +743,10 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                         {/* Lançar Inventário / Reabrir Ciclo */}
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant={isCancelledStatus(demand.status) ? 'outline' : 'ghost'}
                           onClick={() => {
                             if (isCancelledStatus(demand.status)) {
-                              handleReopenDemand(demand)
+                              setReopenModalDemand(demand)
                             } else {
                               onLancar(demand)
                             }
@@ -757,16 +759,19 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
                                 ? `Demanda cancelada: clique para reabrir novo ciclo (Ciclo ${(demand.cycle_count || 1) + 1}) e lançar.`
                                 : 'Lançar Inventário'
                           }
-                          className={`h-7 w-7 p-0 disabled:opacity-30 ${
+                          className={`h-7 p-0 disabled:opacity-30 ${
                             isCancelledStatus(demand.status)
-                              ? 'text-rose-600 hover:text-rose-800 hover:bg-rose-50'
-                              : 'text-[#004C97] hover:text-[#003B75] hover:bg-blue-50'
+                              ? 'w-auto px-2 text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-300 font-bold text-[11px] gap-1'
+                              : 'w-7 text-[#004C97] hover:text-[#003B75] hover:bg-blue-50'
                           }`}
                         >
                           {reopeningId === demand.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : isCancelledStatus(demand.status) ? (
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            <>
+                              <RotateCcw className="w-3 h-3 text-amber-700" />
+                              <span>Reabrir</span>
+                            </>
                           ) : (
                             <ClipboardCheck className="w-3.5 h-3.5" />
                           )}
@@ -1123,6 +1128,91 @@ export const DemandasInventarioTable: React.FC<DemandasInventarioTableProps> = (
             <DialogFooter>
               <Button size="sm" onClick={handleCloseViewDemand} className="text-xs">
                 Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal de Confirmação Obrigatório: Reabrir Demanda a partir da Tabela */}
+      {reopenModalDemand && (
+        <Dialog
+          open={Boolean(reopenModalDemand)}
+          onOpenChange={(open) => !open && setReopenModalDemand(null)}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base font-black text-slate-900">
+                    Reabrir Demanda para Novo Lançamento?
+                  </DialogTitle>
+                  <div className="text-xs text-slate-600 mt-0.5">
+                    Demanda:{' '}
+                    <span className="font-mono font-bold text-[#004C97]">
+                      {reopenModalDemand.control_number}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
+                Esta ação reabrirá a demanda cancelada criando o{' '}
+                <strong>Ciclo {(reopenModalDemand.cycle_count || 1) + 1}</strong> com status{' '}
+                <strong>Aberto</strong> e contagem zerada.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 py-2 text-xs">
+              <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-lg text-amber-950 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1 text-amber-900">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Preservação de Histórico:</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-900">
+                  <li>
+                    Contagens do <strong>Ciclo {reopenModalDemand.cycle_count || 1}</strong>{' '}
+                    permanecem canceladas no histórico para auditoria.
+                  </li>
+                  <li>
+                    O novo ciclo iniciará com <strong>0 peças inventariadas</strong>, pronto para
+                    novas contagens físicas.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setReopenModalDemand(null)}
+                disabled={reopeningId === reopenModalDemand.id}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmReopenDemand}
+                disabled={reopeningId === reopenModalDemand.id}
+                className="text-xs font-bold bg-[#004C97] hover:bg-[#003B75] text-white flex items-center gap-1.5"
+              >
+                {reopeningId === reopenModalDemand.id ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Reabrindo...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Confirmar Reabertura
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

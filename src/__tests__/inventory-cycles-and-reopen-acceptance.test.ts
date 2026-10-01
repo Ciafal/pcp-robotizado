@@ -241,6 +241,21 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
       'Motivo do cancelamento é obrigatório.',
     )
 
+    const updateItemSpy = vi.fn().mockResolvedValue({})
+    const getItemsSpy = vi.fn().mockResolvedValue([
+      { id: 'item-1', pieces_count: 25, cycle_number: 1 },
+      { id: 'item-2', pieces_count: 5, cycle_number: 1 },
+    ])
+
+    vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
+      if (col === 'pcp_mp_inventory_demands') return { update: updateSpy } as any
+      if (col === 'pcp_mp_inventory_items')
+        return { getFullList: getItemsSpy, update: updateItemSpy } as any
+      if (col === 'pcp_mp_inventory_history') return { create: historySpy } as any
+      if (col === 'pcp_audit_logs') return { create: vi.fn() } as any
+      return {} as any
+    })
+
     const cancelled = await pcpInventoryDemandsService.cancelDemand(
       'dem-c9',
       'Erro na contagem física',
@@ -252,6 +267,14 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
       expect.objectContaining({
         status: 'Cancelado',
         cancellation_reason: 'Erro na contagem física',
+      }),
+    )
+    expect(getItemsSpy).toHaveBeenCalled()
+    expect(updateItemSpy).toHaveBeenCalledWith(
+      'item-1',
+      expect.objectContaining({
+        status: 'Cancelado',
+        cancelled_reason: 'Erro na contagem física',
       }),
     )
     expect(historySpy).toHaveBeenCalledWith(
@@ -554,5 +577,68 @@ describe('Inventário MP - 20 Critérios de Aceite do Ciclo de Lançamento e Est
     expect(fetched?.status).toBe('Cancelado')
     expect(fetched?.cycle_count).toBe(1)
     expect(fetched?.total_pieces_inventoried).toBe(30)
+  })
+
+  // C21: Ciclo 2 após reabertura tem Inventariado zerado e nova contagem passa status para Parcial
+  it('C21: Reabertura para Ciclo 2 + nova contagem define status Parcial e soma apenas peças do Ciclo 2', async () => {
+    const demandCiclo2 = createMockDemand({
+      id: 'dem-c21',
+      control_number: 'INV-2026-000003',
+      status: 'Aberto',
+      cycle_count: 2,
+      total_pieces_required: 200,
+      total_pieces_inventoried: 0,
+    })
+
+    vi.spyOn(pcpInventoryDemandsService, 'getDemandById').mockResolvedValue(demandCiclo2)
+
+    const updateSpy = vi.fn().mockResolvedValue({ ...demandCiclo2, status: 'Parcial' })
+    const createItemSpy = vi.fn().mockResolvedValue({
+      id: 'entry-c2-nova',
+      demand_id: 'dem-c21',
+      cycle_number: 2,
+      pieces_count: 40,
+    })
+
+    vi.spyOn(pb, 'collection').mockImplementation((col: string) => {
+      if (col === 'pcp_mp_inventory_demands') {
+        return { update: updateSpy, getOne: vi.fn().mockResolvedValue(demandCiclo2) } as any
+      }
+      if (col === 'pcp_mp_inventory_items') {
+        return {
+          create: createItemSpy,
+          getFullList: vi.fn().mockResolvedValue([
+            {
+              id: 'entry-c2-nova',
+              demand_id: 'dem-c21',
+              cycle_number: 2,
+              pieces_count: 40,
+              is_active: true,
+              is_count_entry: true,
+            },
+          ]),
+        } as any
+      }
+      if (col === 'pcp_mp_inventory_history') return { create: vi.fn() } as any
+      if (col === 'pcp_audit_logs') return { create: vi.fn() } as any
+      if (col === 'pcp_mp_inventory_entries') return { create: vi.fn() } as any
+      return {} as any
+    })
+
+    const entry = await pcpInventoryDemandsService.addEntry({
+      demand_id: 'dem-c21',
+      run_number: 'COR-099',
+      location_wms: 'DP07',
+      pieces_count: 40,
+    })
+
+    expect(entry.pieces_count).toBe(40)
+    expect(createItemSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cycle_number: 2,
+        pieces_count: 40,
+      }),
+    )
+    expect(updateSpy).toHaveBeenCalledWith('dem-c21', { status: 'Parcial' })
   })
 })

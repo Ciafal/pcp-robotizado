@@ -13,6 +13,17 @@ describe('PocketBase Client Export Regression Test & Guard', () => {
     expect(clientModule).toHaveProperty('default')
   })
 
+  it('valida estaticamente que client.ts contém expressamente "export const pb" ou "export { pb }"', async () => {
+    const clientRaw = await import('../lib/pocketbase/client.ts?raw')
+    const content = clientRaw.default || ''
+    const hasNamedExport =
+      content.includes('export const pb') ||
+      content.includes('export { pb }') ||
+      content.includes('export { pb as default, pb }')
+    expect(hasNamedExport).toBe(true)
+    expect(content.includes('export default pb')).toBe(true)
+  })
+
   it('should export pb as named export and as default export from index.ts hub', () => {
     expect(hubPb).toBeDefined()
     expect(pbHub).toBeDefined()

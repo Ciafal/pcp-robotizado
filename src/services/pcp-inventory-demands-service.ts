@@ -1374,6 +1374,35 @@ class PcpInventoryDemandsService {
         cancelled_by: userName,
       })
 
+    // Regra atômica: cancelar um ciclo cancela as contagens físicas daquele ciclo
+    const currentCycle = demand.cycle_count || 1
+    try {
+      let cycleFilter = `demand_id = '${demandId}' && is_count_entry = true`
+      if (currentCycle === 1) {
+        cycleFilter += ` && (cycle_number = null || cycle_number = 0 || cycle_number = 1)`
+      } else {
+        cycleFilter += ` && cycle_number = ${currentCycle}`
+      }
+      const activeEntries = await pb.collection('pcp_mp_inventory_items').getFullList({
+        filter: cycleFilter,
+      })
+      for (const entryRecord of activeEntries) {
+        try {
+          await pb.collection('pcp_mp_inventory_items').update(entryRecord.id, {
+            status: 'Cancelado',
+            cancelled_reason: trimmedReason,
+          })
+        } catch (itemCancelErr) {
+          console.warn('[PCP-INVENTORY] Erro ao marcar contagem como cancelada:', itemCancelErr)
+        }
+      }
+    } catch (entriesErr) {
+      console.warn(
+        '[PCP-INVENTORY] Erro ao buscar contagens para cancelamento do ciclo:',
+        entriesErr,
+      )
+    }
+
     try {
       await pb.collection('pcp_mp_inventory_history').create({
         demand_id: demand.id,
