@@ -995,7 +995,12 @@ export const lineMasterService = {
   /**
    * Consulta de Histórico abrangente do Centro no Servidor PCP via hook /check-center-usage
    */
-  async checkCenterUsageOnServer(params: { centerId?: string; centerCode?: string }): Promise<{
+  async checkCenterUsageOnServer(params: {
+    centerId?: string
+    centerCode?: string
+    lineId?: string
+    lineCode?: string
+  }): Promise<{
     centerId?: string
     centerCode?: string
     centerName?: string
@@ -1013,6 +1018,8 @@ export const lineMasterService = {
     const query = new URLSearchParams()
     if (params.centerId) query.set('centerId', params.centerId)
     if (params.centerCode) query.set('centerCode', params.centerCode)
+    if (params.lineId) query.set('lineId', params.lineId)
+    if (params.lineCode) query.set('lineCode', params.lineCode)
 
     return pb.send(`/backend/v1/pcp/hierarchy/check-center-usage?${query.toString()}`, {
       method: 'GET',

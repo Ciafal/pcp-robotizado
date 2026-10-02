@@ -28,6 +28,8 @@ routerAdd('GET', '/backend/v1/pcp/hierarchy/check-center-usage', (e) => {
   try {
     const centerId = (e.request.url.query().get('centerId') || '').trim()
     let centerCode = (e.request.url.query().get('centerCode') || '').trim()
+    const lineId = (e.request.url.query().get('lineId') || '').trim()
+    const lineCode = (e.request.url.query().get('lineCode') || '').trim()
     let centerName = ''
 
     if (!centerId && !centerCode) {
