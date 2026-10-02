@@ -62,6 +62,15 @@ export function formatPtBrNumber(
 // Aliases para compatibilidade com módulos legados
 export const formatBrNumber = formatPtBrNumber
 export const parseBrNumber = parsePtBrNumber
+export const formatNumberPTBR = (
+  val: number | string | null | undefined,
+  minDecimals: number = 0,
+  maxDecimals: number = 3,
+): string => {
+  if (val == null || val === '') return ''
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  return formatPtBrNumber(num, minDecimals, maxDecimals)
+}
 
 /**
  * Fórmula oficial de cálculo de peças:

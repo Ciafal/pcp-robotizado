@@ -30,7 +30,7 @@ import {
   FileCheck2,
 } from 'lucide-react'
 import { LinhaConsolidadaIbge } from '@/types/dados-ibge'
-import { formatNumberPTBR } from '@/lib/number-format'
+import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 
 interface Props {
   open: boolean

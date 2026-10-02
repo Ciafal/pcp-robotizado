@@ -716,7 +716,7 @@ interface NavGroup {
   }[]
 }
 
-const officialNavGroups: NavGroup[] = [
+export const officialNavGroups: NavGroup[] = [
   {
     groupTitle: 'PRINCIPAL',
     items: [

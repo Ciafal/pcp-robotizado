@@ -12,7 +12,7 @@ import { LinhaConsolidadaIbge } from '@/types/dados-ibge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Eye, FileSpreadsheet, Building2, GitBranch, Factory } from 'lucide-react'
-import { formatNumberPTBR } from '@/lib/number-format'
+import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 
 interface Props {
   linhas: LinhaConsolidadaIbge[]

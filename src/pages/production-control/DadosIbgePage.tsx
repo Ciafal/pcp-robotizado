@@ -72,22 +72,25 @@ export const DadosIbgePage: React.FC = () => {
   // 1. Carregar Empresas (sapParametersMasterDataService com fallback para sapWerksService)
   const carregarEmpresas = useCallback(async () => {
     try {
-      let comps = await sapParametersMasterDataService.fetchCompanies()
-      if (!comps || comps.length === 0) {
-        const werksList = await sapWerksService.getWerksList()
-        comps = werksList.map((w) => ({
-          werks: w.code,
-          name: w.name,
-          companyCode: w.code,
+      const resCompanies = await sapParametersMasterDataService.fetchCompanies().catch(() => null)
+      let formatadas: EmpresaOpcao[] = []
+
+      if (resCompanies && resCompanies.success && resCompanies.data.length > 0) {
+        formatadas = resCompanies.data.map((c) => ({
+          werks: c.werks,
+          name: c.name || c.werks,
+          label: c.label || `${c.werks} — ${c.name || 'Empresa'}`,
+        }))
+      } else {
+        const werksRes = await sapWerksService.getWerksList().catch(() => ({ items: [] }))
+        formatadas = werksRes.items.map((w) => ({
+          werks: w.werks,
+          name: w.description || w.werks,
+          label: `${w.werks} — ${w.description || 'Empresa'}`,
         }))
       }
 
-      if (comps && comps.length > 0) {
-        const formatadas: EmpresaOpcao[] = comps.map((c) => ({
-          werks: c.werks,
-          name: c.name || c.werks,
-          label: `${c.werks} — ${c.name || 'Empresa'}`,
-        }))
+      if (formatadas.length > 0) {
         setOpcoesEmpresas(formatadas)
       } else {
         // Fallback robusto garantido com centros CIAFAL
@@ -113,13 +116,16 @@ export const DadosIbgePage: React.FC = () => {
     }
 
     try {
-      const res = await lineMasterService.listLines({
+      const linesData = await lineMasterService.listLines({
         activeOnly: true,
-        sap_plant_code: empresaSelecionada !== 'TODAS' ? empresaSelecionada : undefined,
       })
-      const linesData = res?.items || []
 
-      const formatadas: LinhaOpcao[] = linesData.map((l: any) => ({
+      const filteredLines =
+        empresaSelecionada !== 'TODAS'
+          ? linesData.filter((l) => !l.sap_plant_code || l.sap_plant_code === empresaSelecionada)
+          : linesData
+
+      const formatadas: LinhaOpcao[] = filteredLines.map((l: any) => ({
         id: l.id,
         code: l.code,
         name: l.name || l.code,

@@ -11,7 +11,7 @@
 import React from 'react'
 import { TotalizadoresIbge } from '@/types/dados-ibge'
 import { Factory, Package, Scale, FileText, CheckCircle2, Clock } from 'lucide-react'
-import { formatNumberPTBR } from '@/lib/number-format'
+import { formatNumberPTBR } from '@/lib/formatters-ptbr'
 import { Badge } from '@/components/ui/badge'
 
 interface Props {
