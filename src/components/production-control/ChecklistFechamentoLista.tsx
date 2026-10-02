@@ -36,6 +36,7 @@ interface Props {
   onRastrearDivergencia: (item: ChecklistFechamentoItem) => void
   onAdicionarEvidencia: (item: ChecklistFechamentoItem) => void
   onNovaAtividade: () => void
+  onEditarAtividade?: (item: ChecklistFechamentoItem) => void
   onGerarRelatorioPendencias: () => void
   canEdit: boolean
   filtroStatusRapido?: string
@@ -49,6 +50,7 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
   onRastrearDivergencia,
   onAdicionarEvidencia,
   onNovaAtividade,
+  onEditarAtividade,
   onGerarRelatorioPendencias,
   canEdit,
   filtroStatusRapido = 'TODOS',
@@ -329,6 +331,19 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                           >
                             Abrir Detalhe
                           </Button>
+
+                          {canEdit && onEditarAtividade && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onEditarAtividade(item)}
+                              title="Editar Atividade"
+                              className="h-7 px-2 text-xs text-slate-600 hover:text-[#004C97] hover:bg-blue-50 font-medium"
+                            >
+                              Editar
+                            </Button>
+                          )}
                         </div>
                       </div>
 

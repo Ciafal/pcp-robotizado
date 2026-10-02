@@ -285,21 +285,61 @@ export const ChecklistFechamentoPage: React.FC = () => {
     setMestreModalOpen(true)
   }
 
-  const handleSaveModelo = async (dados: Partial<ChecklistAtividadeModelo>) => {
+  const handleOpenEditarAtividade = async (item: ChecklistFechamentoItem) => {
     try {
-      await checklistFechamentoService.salvarModelo(dados)
-      toast({
-        title: 'Atividade mestre salva',
-        description: 'Cadastro mestre atualizado sem alterar execuções anteriores.',
-      })
-      // Recarrega se quiser
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao salvar atividade mestre',
-        description: err.message,
-        variant: 'destructive',
+      if (item.modelo_id) {
+        const modelo = await pb.collection('checklist_fechamento_modelos').getOne(item.modelo_id)
+        setSelectedModelo(modelo as any)
+      } else {
+        // Fallback: busca pelo código
+        const modelo = await pb
+          .collection('checklist_fechamento_modelos')
+          .getFirstListItem(`codigo="${item.codigo}"`)
+        setSelectedModelo(modelo as any)
+      }
+    } catch {
+      // Se não encontrar o modelo mestre correspondente, constrói objeto a partir do item atual
+      setSelectedModelo({
+        id: item.modelo_id || '',
+        codigo: item.codigo,
+        sequencia: item.sequencia,
+        titulo: item.titulo,
+        descricao_detalhada: item.descricao_detalhada,
+        categoria: item.categoria,
+        linha_centro_relacionado: item.linha_centro_relacionado,
+        empresa: item.empresa || 'CIAFAL',
+        werks: item.werks,
+        line_id: item.line_id,
+        line_code: item.line_code,
+        line_name: item.line_name,
+        center_id: item.center_id,
+        center_code: item.center_code,
+        center_name: item.center_name,
+        transacao_sap: item.transacao_sap,
+        deposito_sap: item.deposito_sap,
+        frequencia: 'somente_fechamento',
+        obrigatoria: item.obrigatoria,
+        responsavel_padrao: item.responsavel_padrao,
+        area_responsavel: item.area_responsavel,
+        prazo_relativo_fechamento: '2º dia útil',
+        manual_documento_referencia: item.manual_documento_referencia,
+        regra_validacao: item.regra_validacao,
+        campo_observacao: '',
+        permite_evidencia: true,
+        ativa: true,
+        data_inicio_vigencia: new Date().toISOString().split('T')[0],
+        fonte_dados: (item.fonte_dados as any) || 'Manual',
+        status_regra: item.status_regra || 'Oficial',
       })
     }
+    setMestreModalOpen(true)
+  }
+
+  const handleSaveModelo = async (dados: Partial<ChecklistAtividadeModelo>) => {
+    const salvo = await checklistFechamentoService.salvarModelo(dados)
+    // Se a competência atual estiver em andamento, sincroniza os itens sem recarregar a página
+    await carregarCompetencia(competenciaSelecionada)
+    return salvo
   }
 
   const handleToggleAtivoModelo = async (id: string, ativo: boolean) => {
@@ -449,6 +489,7 @@ export const ChecklistFechamentoPage: React.FC = () => {
             onRastrearDivergencia={handleOpenRastrearDivergencia}
             onAdicionarEvidencia={handleOpenDetalhe}
             onNovaAtividade={handleOpenNovaAtividade}
+            onEditarAtividade={handleOpenEditarAtividade}
             onGerarRelatorioPendencias={() => setRelatorioModalOpen(true)}
             canEdit={canEdit}
             filtroStatusRapido={filtroStatusRapido}

@@ -30,6 +30,14 @@ export interface ChecklistAtividadeModelo {
   categoria: string
   linha_centro_relacionado: string
   empresa: string
+  // Campos estruturados de localização
+  werks?: string
+  line_id?: string
+  line_code?: string
+  line_name?: string
+  center_id?: string
+  center_code?: string
+  center_name?: string
   transacao_sap: string
   deposito_sap: string
   frequencia: ChecklistFrequencia
@@ -154,6 +162,14 @@ export interface ChecklistFechamentoItem {
   categoria: string
   linha_centro_relacionado: string
   empresa: string
+  // Campos estruturados de localização
+  werks?: string
+  line_id?: string
+  line_code?: string
+  line_name?: string
+  center_id?: string
+  center_code?: string
+  center_name?: string
   transacao_sap: string
   deposito_sap: string
   obrigatoria: boolean

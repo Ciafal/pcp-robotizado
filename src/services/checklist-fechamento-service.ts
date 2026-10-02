@@ -217,6 +217,13 @@ class ChecklistFechamentoService {
         categoria: r.categoria,
         linha_centro_relacionado: r.linha_centro_relacionado,
         empresa: r.empresa,
+        werks: r.werks,
+        line_id: r.line_id,
+        line_code: r.line_code,
+        line_name: r.line_name,
+        center_id: r.center_id,
+        center_code: r.center_code,
+        center_name: r.center_name,
         transacao_sap: r.transacao_sap,
         deposito_sap: r.deposito_sap,
         frequencia: r.frequencia,
@@ -247,22 +254,90 @@ class ChecklistFechamentoService {
    * Salva ou atualiza atividade mestre (SEM modificar checklists antigos)
    */
   async salvarModelo(modelo: Partial<ChecklistAtividadeModelo>): Promise<ChecklistAtividadeModelo> {
+    // Compatibilidade: preservar linha_centro_relacionado derivando dos campos estruturados se não informado
+    const payload: any = { ...modelo }
+    if (
+      !payload.linha_centro_relacionado &&
+      (payload.line_name || payload.center_name || payload.line_code || payload.center_code)
+    ) {
+      const parts = [
+        payload.line_name || payload.line_code,
+        payload.center_name || payload.center_code,
+      ].filter(Boolean)
+      payload.linha_centro_relacionado = parts.join(' / ')
+    }
+    // Sincronizar empresa com werks se informado
+    if (payload.werks && !payload.empresa) {
+      payload.empresa = payload.werks
+    }
+
     if (modelo.id) {
-      const anterior = await pb.collection('checklist_fechamento_modelos').getOne(modelo.id)
-      const record = await pb.collection('checklist_fechamento_modelos').update(modelo.id, modelo)
+      const anterior: any = await pb.collection('checklist_fechamento_modelos').getOne(modelo.id)
+      const record = await pb.collection('checklist_fechamento_modelos').update(modelo.id, payload)
+
+      // Identificar mudanças de Empresa / Linha / Centro para log explícito
+      const alterouLocalizacao =
+        anterior.werks !== record.werks ||
+        anterior.line_id !== record.line_id ||
+        anterior.line_code !== record.line_code ||
+        anterior.center_id !== record.center_id ||
+        anterior.center_code !== record.center_code
+
+      if (alterouLocalizacao) {
+        await this.logAuditoria({
+          acao: 'ALTERAR_LOCAL_APLICACAO_ATIVIDADE',
+          descricao: `Localização da atividade ${record.codigo} alterada: [${anterior.werks || 'N/A'}|${anterior.line_code || 'N/A'}|${anterior.center_code || 'N/A'}] → [${record.werks || 'N/A'}|${record.line_code || 'N/A'}|${record.center_code || 'N/A'}]`,
+          valor_anterior: JSON.stringify({
+            werks: anterior.werks,
+            line_id: anterior.line_id,
+            line_code: anterior.line_code,
+            center_id: anterior.center_id,
+            center_code: anterior.center_code,
+          }),
+          valor_novo: JSON.stringify({
+            werks: record.werks,
+            line_id: record.line_id,
+            line_code: record.line_code,
+            center_id: record.center_id,
+            center_code: record.center_code,
+          }),
+          detalhes: {
+            modelo_id: record.id,
+            codigo: record.codigo,
+            titulo: record.titulo,
+          },
+        })
+      }
+
       await this.logAuditoria({
-        acao: 'EDITAR_ATIVIDADE_MESTRE',
-        descricao: `Atividade mestre ${modelo.codigo || record.codigo} editada`,
+        acao: 'EDITAR_ATIVIDADE',
+        descricao: `Atividade ${record.codigo} - ${record.titulo} editada`,
         valor_anterior: JSON.stringify(anterior),
         valor_novo: JSON.stringify(record),
+        detalhes: {
+          modelo_id: record.id,
+          codigo: record.codigo,
+          titulo: record.titulo,
+          werks: record.werks,
+          line_code: record.line_code,
+          center_code: record.center_code,
+        },
       })
       return record as any
     } else {
-      const record = await pb.collection('checklist_fechamento_modelos').create(modelo)
+      const record = await pb.collection('checklist_fechamento_modelos').create(payload)
       await this.logAuditoria({
-        acao: 'CRIAR_ATIVIDADE_MESTRE',
-        descricao: `Nova atividade mestre cadastrada: ${record.codigo} - ${record.titulo}`,
+        acao: 'CRIAR_ATIVIDADE',
+        descricao: `Atividade ${record.codigo} — ${record.titulo} cadastrada com sucesso. Local: ${record.werks || 'N/A'} / ${record.line_code || 'N/A'} / ${record.center_code || 'N/A'}`,
         valor_novo: JSON.stringify(record),
+        detalhes: {
+          modelo_id: record.id,
+          codigo: record.codigo,
+          titulo: record.titulo,
+          werks: record.werks,
+          line_code: record.line_code,
+          center_code: record.center_code,
+        },
       })
       return record as any
     }
@@ -272,12 +347,18 @@ class ChecklistFechamentoService {
    * Alterna status ativo/inativo de um modelo mestre (NUNCA exclui fisicamente)
    */
   async alternarStatusModelo(id: string, ativo: boolean): Promise<void> {
+    const anterior = await pb.collection('checklist_fechamento_modelos').getOne(id)
     const record = await pb.collection('checklist_fechamento_modelos').update(id, { ativa: ativo })
     await this.logAuditoria({
-      acao: ativo ? 'REATIVAR_ATIVIDADE_MESTRE' : 'DESATIVAR_ATIVIDADE_MESTRE',
-      descricao: `Atividade mestre ${record.codigo} ${ativo ? 'reativada' : 'desativada'}`,
-      valor_anterior: String(!ativo),
-      valor_novo: String(ativo),
+      acao: ativo ? 'ATIVAR_ATIVIDADE' : 'DESATIVAR_ATIVIDADE',
+      descricao: `Atividade ${record.codigo} ${ativo ? 'ativada' : 'desativada'}`,
+      valor_anterior: JSON.stringify({ ativa: anterior.ativa }),
+      valor_novo: JSON.stringify({ ativa: record.ativa }),
+      detalhes: {
+        modelo_id: record.id,
+        codigo: record.codigo,
+        titulo: record.titulo,
+      },
     })
   }
 
@@ -399,6 +480,13 @@ class ChecklistFechamentoService {
         categoria: m.categoria,
         linha_centro_relacionado: m.linha_centro_relacionado,
         empresa: m.empresa,
+        werks: m.werks,
+        line_id: m.line_id,
+        line_code: m.line_code,
+        line_name: m.line_name,
+        center_id: m.center_id,
+        center_code: m.center_code,
+        center_name: m.center_name,
         transacao_sap: m.transacao_sap,
         deposito_sap: m.deposito_sap,
         obrigatoria: m.obrigatoria,
