@@ -30,7 +30,18 @@ import { useSearchParams } from 'react-router-dom'
 import {
   ChecklistFechamentoHeader,
   ChecklistFiltrosAvancados,
+  EmpresaOpcaoItem,
+  LinhaOpcaoItem,
+  CentroOpcaoItem,
 } from '@/components/production-control/ChecklistFechamentoHeader'
+import {
+  sapParametersMasterDataService,
+  SapCompanyOption,
+} from '@/services/sap-parameters-master-data-service'
+import { sapWerksService } from '@/services/sap-werks-service'
+import { lineMasterService } from '@/services/line-master'
+import { ProductionLine } from '@/types/line-master'
+import { datePtBrToIso } from '@/lib/formatters-ptbr'
 import { ChecklistFechamentoLista } from '@/components/production-control/ChecklistFechamentoLista'
 import { ChecklistItemDetailModal } from '@/components/production-control/ChecklistItemDetailModal'
 import { AjusteOperacionalModal } from '@/components/production-control/AjusteOperacionalModal'
@@ -102,13 +113,178 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const [comunicacoes, setComunicacoes] = useState<FechamentoComunicacao[]>([])
   const [podeAdministrar, setPodeAdministrar] = useState(true)
 
+  // Catálogos Mestres para os Filtros Estruturados (Empresa WERKS, Linhas de production_lines, Centros)
+  const [companiesCatalog, setCompaniesCatalog] = useState<EmpresaOpcaoItem[]>([])
+  const [allProductionLines, setAllProductionLines] = useState<ProductionLine[]>([])
+  const [centersForSelectedLine, setCentersForSelectedLine] = useState<CentroOpcaoItem[]>([])
+  const [loadingCenters, setLoadingCenters] = useState(false)
+
   // Permissões
   const [canEdit, setCanEdit] = useState(true)
 
   useEffect(() => {
     verificarPermissoes()
+    carregarCatalogosFiltros()
     carregarInicial()
   }, [])
+
+  // Carrega catálogo oficial de Empresas (WERKS) e Linhas de produção
+  const carregarCatalogosFiltros = async () => {
+    try {
+      const resCompanies = await sapParametersMasterDataService.fetchCompanies().catch(() => null)
+      let companyList: EmpresaOpcaoItem[] = []
+
+      if (resCompanies && resCompanies.success && resCompanies.data.length > 0) {
+        companyList = resCompanies.data.map((c: SapCompanyOption) => ({
+          werks: c.werks,
+          name: c.name,
+          label: `${c.werks} — ${c.name || 'Empresa'}`,
+        }))
+      } else {
+        const fallbackWerks = await sapWerksService.getWerksList().catch(() => ({ items: [] }))
+        companyList = fallbackWerks.items.map((w) => ({
+          werks: w.werks,
+          name: w.description,
+          label: `${w.werks} — ${w.description || 'Empresa'}`,
+        }))
+      }
+
+      if (companyList.length > 0) {
+        setCompaniesCatalog(companyList)
+      } else {
+        setCompaniesCatalog([
+          { werks: '1000', name: 'CIAFAL Matriz', label: '1000 — CIAFAL Matriz' },
+        ])
+      }
+    } catch (err) {
+      console.warn('[ChecklistFechamentoPage] Falha ao carregar catálogo de empresas:', err)
+      setCompaniesCatalog([{ werks: '1000', name: 'CIAFAL Matriz', label: '1000 — CIAFAL Matriz' }])
+    }
+
+    try {
+      const linesData = await lineMasterService.listLines({ activeOnly: true })
+      setAllProductionLines(linesData || [])
+    } catch (err) {
+      console.warn('[ChecklistFechamentoPage] Falha ao carregar linhas de produção:', err)
+      setAllProductionLines([])
+    }
+  }
+
+  // Carrega centros vinculados quando a linha selecionada mudar
+  useEffect(() => {
+    let isMounted = true
+
+    const carregarCentrosDaLinha = async () => {
+      if (!filtros.linha || filtros.linha === 'TODAS') {
+        setCentersForSelectedLine([])
+        return
+      }
+
+      setLoadingCenters(true)
+      try {
+        const foundLine = allProductionLines.find(
+          (l) => l.id === filtros.linha || l.code === filtros.linha,
+        )
+        const lineRealId = foundLine?.id || filtros.linha
+        const lineRealCode = foundLine?.code || filtros.linha
+
+        const derivedOptions: CentroOpcaoItem[] = []
+        const seenCodes = new Set<string>()
+
+        // 1. Centro cadastrado na linha (sap_work_center)
+        if (foundLine && foundLine.sap_work_center && foundLine.sap_work_center.trim()) {
+          const swc = foundLine.sap_work_center.trim()
+          seenCodes.add(swc)
+          derivedOptions.push({
+            code: swc,
+            name: foundLine.name || swc,
+            label: `${swc} — ${foundLine.name || 'Centro da Linha'}`,
+            lineCode: lineRealCode,
+          })
+        }
+
+        // 2. Centros em line_masters
+        try {
+          const lineMasters = await pb.collection('line_masters').getFullList({
+            filter: `line_id = '${lineRealId}' || code = '${lineRealCode}'`,
+            sort: '-version',
+          })
+          for (const lm of lineMasters) {
+            const sapCode = ((lm as any).sap_plant_code || lm.code || '').trim()
+            if (sapCode && !seenCodes.has(sapCode)) {
+              seenCodes.add(sapCode)
+              derivedOptions.push({
+                id: lm.id,
+                code: sapCode,
+                name: lm.name || sapCode,
+                label: `${sapCode} — ${lm.name || 'Ficha Mestra'}`,
+                lineCode: lineRealCode,
+              })
+            }
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // 3. Centros em work_centers
+        try {
+          const workCenters = await pb.collection('work_centers').getFullList({
+            filter: `line_id = '${lineRealId}'`,
+            sort: 'code',
+          })
+          for (const wc of workCenters) {
+            const wcCode = (wc.code || (wc as any).sap_work_center_code || '').trim()
+            if (wcCode && !seenCodes.has(wcCode)) {
+              seenCodes.add(wcCode)
+              derivedOptions.push({
+                id: wc.id,
+                code: wcCode,
+                name: wc.name || wcCode,
+                label: `${wcCode} — ${wc.name || 'Centro de Trabalho'}`,
+                lineCode: lineRealCode,
+              })
+            }
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // 4. Centros existentes nos itens do check-list daquela linha
+        itens.forEach((it) => {
+          const matchLinha =
+            it.line_id === lineRealId ||
+            it.line_code === lineRealCode ||
+            it.linha_centro_relacionado?.includes(lineRealCode)
+          const cCode = it.center_code || ''
+          if (matchLinha && cCode && !seenCodes.has(cCode)) {
+            seenCodes.add(cCode)
+            derivedOptions.push({
+              id: it.center_id,
+              code: cCode,
+              name: it.center_name || cCode,
+              label: `${cCode} — ${it.center_name || 'Centro Operacional'}`,
+              lineCode: lineRealCode,
+            })
+          }
+        })
+
+        if (isMounted) {
+          setCentersForSelectedLine(derivedOptions)
+        }
+      } catch (err) {
+        console.warn('[ChecklistFechamentoPage] Erro ao carregar centros:', err)
+        if (isMounted) setCentersForSelectedLine([])
+      } finally {
+        if (isMounted) setLoadingCenters(false)
+      }
+    }
+
+    carregarCentrosDaLinha()
+
+    return () => {
+      isMounted = false
+    }
+  }, [filtros.linha, allProductionLines, itens])
 
   const verificarPermissoes = async () => {
     try {
@@ -545,91 +721,226 @@ export const ChecklistFechamentoPage: React.FC = () => {
   }
 
   // Opções em cascata para filtros
-  const opcoesEmpresas = useMemo(() => {
-    const s = new Set<string>()
+  // 1. EMPRESAS (WERKS)
+  const opcoesEmpresas: EmpresaOpcaoItem[] = useMemo(() => {
+    if (companiesCatalog.length > 0) {
+      return companiesCatalog
+    }
+    const map = new Map<string, EmpresaOpcaoItem>()
     itens.forEach((it) => {
-      if (it.empresa) s.add(it.empresa)
+      const w = it.werks || it.empresa
+      if (w && !map.has(w)) {
+        map.set(w, {
+          werks: w,
+          name: w === '1000' ? 'CIAFAL Matriz' : `Empresa ${w}`,
+          label: `${w} — ${w === '1000' ? 'CIAFAL Matriz' : `Empresa ${w}`}`,
+        })
+      }
     })
-    if (s.size === 0) s.add('CIAFAL')
-    return Array.from(s)
-  }, [itens])
+    if (map.size === 0) {
+      map.set('1000', {
+        werks: '1000',
+        name: 'CIAFAL Matriz',
+        label: '1000 — CIAFAL Matriz',
+      })
+    }
+    return Array.from(map.values())
+  }, [companiesCatalog, itens])
 
-  const opcoesLinhas = useMemo(() => {
-    const s = new Set<string>()
+  // 2. LINHAS (Filtradas apenas para a Empresa selecionada)
+  const opcoesLinhas: LinhaOpcaoItem[] = useMemo(() => {
+    if (!filtros.empresa || filtros.empresa === 'TODAS') {
+      return []
+    }
+
+    const map = new Map<string, LinhaOpcaoItem>()
+
+    // Linhas do cadastro oficial production_lines
+    allProductionLines.forEach((l) => {
+      const lineWerks = (l.sap_plant_code || '').trim()
+      const matchWerks =
+        !lineWerks || lineWerks === filtros.empresa.trim() || filtros.empresa === '1000'
+      if (matchWerks && !map.has(l.code)) {
+        map.set(l.code, {
+          id: l.id,
+          code: l.code,
+          name: l.name || l.code,
+          werks: lineWerks || filtros.empresa,
+          label: `${l.code} — ${l.name || 'Linha Produtiva'}`,
+        })
+      }
+    })
+
+    // Linhas presentes nos itens do check-list daquela empresa
     itens.forEach((it) => {
-      const linha = it.line_name || it.line_code || it.linha_centro_relacionado
-      if (linha) {
-        if (filtros.empresa === 'TODAS' || it.empresa === filtros.empresa) {
-          s.add(linha)
+      const itemWerks = it.werks || it.empresa
+      if (itemWerks === filtros.empresa) {
+        const code = it.line_code || it.line_name || it.linha_centro_relacionado
+        if (code && !map.has(code)) {
+          map.set(code, {
+            id: it.line_id || code,
+            code: it.line_code || code,
+            name: it.line_name || code,
+            werks: itemWerks,
+            label: `${it.line_code || code} — ${it.line_name || code}`,
+          })
         }
       }
     })
-    return Array.from(s)
-  }, [itens, filtros.empresa])
 
-  const opcoesCentros = useMemo(() => {
-    const s = new Set<string>()
+    return Array.from(map.values())
+  }, [allProductionLines, filtros.empresa, itens])
+
+  // 3. CENTROS (Filtrados por Empresa + Linha selecionada)
+  const opcoesCentros: CentroOpcaoItem[] = useMemo(() => {
+    if (!filtros.linha || filtros.linha === 'TODAS') {
+      return []
+    }
+    if (centersForSelectedLine.length > 0) {
+      return centersForSelectedLine
+    }
+
+    const map = new Map<string, CentroOpcaoItem>()
     itens.forEach((it) => {
-      const linha = it.line_name || it.line_code || it.linha_centro_relacionado
+      const linha = it.line_code || it.line_id || it.line_name || it.linha_centro_relacionado
       const centro = it.center_code || it.center_name
-      if (centro) {
-        const matchEmpresa = filtros.empresa === 'TODAS' || it.empresa === filtros.empresa
-        const matchLinha = filtros.linha === 'TODAS' || linha === filtros.linha
-        if (matchEmpresa && matchLinha) {
-          s.add(centro)
+      if (centro && (linha === filtros.linha || it.line_id === filtros.linha)) {
+        if (!map.has(centro)) {
+          map.set(centro, {
+            id: it.center_id,
+            code: it.center_code || centro,
+            name: it.center_name || centro,
+            label: `${it.center_code || centro} — ${it.center_name || 'Centro Operacional'}`,
+            lineCode: filtros.linha,
+          })
         }
       }
     })
-    return Array.from(s)
-  }, [itens, filtros.empresa, filtros.linha])
+    return Array.from(map.values())
+  }, [centersForSelectedLine, filtros.linha, itens])
+
+  // 4. ANOS (Populados inicialmente a partir dos registros com evolução automática)
+  const opcoesAnos: string[] = useMemo(() => {
+    const anosSet = new Set<string>()
+    const anoAtual = new Date().getFullYear().toString()
+    anosSet.add('2025')
+    anosSet.add('2026')
+    anosSet.add('2027')
+    anosSet.add(anoAtual)
+
+    competencias.forEach((comp) => {
+      const [, ano] = comp.split('/')
+      if (ano && /^\d{4}$/.test(ano)) {
+        anosSet.add(ano)
+      }
+    })
+
+    itens.forEach((it) => {
+      if (it.competencia) {
+        const [, ano] = it.competencia.split('/')
+        if (ano && /^\d{4}$/.test(ano)) {
+          anosSet.add(ano)
+        }
+      }
+    })
+
+    return Array.from(anosSet).sort((a, b) => a.localeCompare(b))
+  }, [competencias, itens])
 
   // Filtragem dos itens exibidos considerando os novos filtros do cabeçalho
   const itensExibidos = useMemo(() => {
+    // Parser das datas informadas em dd/mm/aaaa para ISO YYYY-MM-DD
+    const isoInicio = filtros.dataInicio
+      ? datePtBrToIso(filtros.dataInicio) || filtros.dataInicio
+      : ''
+    const isoFim = filtros.dataFim ? datePtBrToIso(filtros.dataFim) || filtros.dataFim : ''
+
     return itens.filter((it) => {
-      // 1. Empresa
-      if (filtros.empresa !== 'TODAS' && it.empresa && it.empresa !== filtros.empresa) {
-        return false
+      // 1. Empresa (WERKS)
+      if (filtros.empresa !== 'TODAS') {
+        const itWerks = (it.werks || it.empresa || '').trim()
+        if (itWerks && itWerks !== filtros.empresa.trim()) {
+          return false
+        }
       }
 
       // 2. Linha
-      const linhaItem = it.line_name || it.line_code || it.linha_centro_relacionado || ''
-      if (filtros.linha !== 'TODAS' && linhaItem !== filtros.linha) {
-        return false
+      if (filtros.linha !== 'TODAS') {
+        const matchLinha =
+          it.line_id === filtros.linha ||
+          it.line_code === filtros.linha ||
+          it.line_name === filtros.linha ||
+          it.linha_centro_relacionado?.includes(filtros.linha)
+        if (!matchLinha) return false
       }
 
       // 3. Centro
-      const centroItem = it.center_code || it.center_name || ''
-      if (filtros.centro !== 'TODOS' && centroItem !== filtros.centro) {
-        return false
+      if (filtros.centro !== 'TODOS') {
+        const matchCentro =
+          it.center_id === filtros.centro ||
+          it.center_code === filtros.centro ||
+          it.center_name === filtros.centro ||
+          it.linha_centro_relacionado?.includes(filtros.centro)
+        if (!matchCentro) return false
       }
 
       // 4. Ano
       if (filtros.ano !== 'TODOS') {
         const anoCompetencia = it.competencia?.split('/')[1] || ''
-        if (anoCompetencia !== filtros.ano) return false
+        if (anoCompetencia && anoCompetencia !== filtros.ano) return false
       }
 
       // 5. Mês
       if (filtros.mes !== 'TODOS') {
         const mesCompetencia = it.competencia?.split('/')[0] || ''
-        if (mesCompetencia !== filtros.mes) return false
+        if (mesCompetencia && mesCompetencia !== filtros.mes) return false
       }
 
-      // 6. Data Início
-      if (filtros.dataInicio && it.data_hora_execucao) {
-        const dataExec = it.data_hora_execucao.split('T')[0]
-        if (dataExec < filtros.dataInicio) return false
+      // 6. Data Início (dd/mm/aaaa ou YYYY-MM-DD)
+      if (isoInicio) {
+        const dataItem =
+          it.data_hora_execucao ||
+          it.created ||
+          (execucao?.data_inicio ? `${execucao.data_inicio}T00:00:00` : '')
+        if (dataItem) {
+          const dataYmd = dataItem.split('T')[0]
+          if (dataYmd < isoInicio) return false
+        }
       }
 
-      // 7. Data Fim
-      if (filtros.dataFim && it.data_hora_execucao) {
-        const dataExec = it.data_hora_execucao.split('T')[0]
-        if (dataExec > filtros.dataFim) return false
+      // 7. Data Fim (dd/mm/aaaa ou YYYY-MM-DD)
+      if (isoFim) {
+        const dataItem =
+          it.data_hora_execucao ||
+          it.created ||
+          (execucao?.data_inicio ? `${execucao.data_inicio}T00:00:00` : '')
+        if (dataItem) {
+          const dataYmd = dataItem.split('T')[0]
+          if (dataYmd > isoFim) return false
+        }
       }
 
       return true
     })
-  }, [itens, filtros])
+  }, [itens, filtros, execucao])
+
+  // Tratar alteração dos filtros, incluindo localização automática de competência ao selecionar Ano + Mês
+  const handleFiltrosChange = (novosFiltros: ChecklistFiltrosAvancados) => {
+    setFiltros(novosFiltros)
+
+    // Se Ano e Mês estiverem ambos definidos e não forem 'TODOS', tentar localizar diretamente a competência
+    if (
+      novosFiltros.ano &&
+      novosFiltros.ano !== 'TODOS' &&
+      novosFiltros.mes &&
+      novosFiltros.mes !== 'TODOS'
+    ) {
+      const compAlvo = `${novosFiltros.mes}/${novosFiltros.ano}`
+      if (competencias.includes(compAlvo) && compAlvo !== competenciaSelecionada) {
+        handleSelectCompetencia(compAlvo)
+      }
+    }
+  }
 
   const handleLimparFiltros = () => {
     setFiltros({
@@ -665,11 +976,12 @@ export const ChecklistFechamentoPage: React.FC = () => {
             onAbrirAnaliseIa={handleExecutarAnaliseIa}
             onAbrirDestinatarios={() => setDestinatariosModalOpen(true)}
             filtros={filtros}
-            onChangeFiltros={setFiltros}
+            onChangeFiltros={handleFiltrosChange}
             onLimparFiltros={handleLimparFiltros}
             opcoesEmpresas={opcoesEmpresas}
             opcoesLinhas={opcoesLinhas}
             opcoesCentros={opcoesCentros}
+            opcoesAnos={opcoesAnos}
           />
         )}
       </ErrorBoundary>

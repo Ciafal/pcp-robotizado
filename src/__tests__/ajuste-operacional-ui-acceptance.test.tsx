@@ -64,10 +64,10 @@ describe('Check-list Fechamento — Ajuste Operacional (Interface Etapa 2)', () 
     area_responsavel: 'PCP',
     manual_documento_referencia: 'MAN-PCP-001',
     regra_validacao: 'Sem pendências',
-    permite_evidencia: true,
+    status_regra: 'REGRA_OK',
+    fonte_dados: 'MES',
     status: 'OK',
     competencia: '09/2026',
-    data_limite_ajuste: '2026-09-02',
     quantidade_divergencias: 0,
     historico_alteracoes: [],
   }

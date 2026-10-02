@@ -16,6 +16,9 @@ import {
   Ban,
   FileText,
   Users,
+  Building2,
+  GitBranch,
+  Factory,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,16 +31,55 @@ import {
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ChecklistFechamentoExecucao, PrazoFechamentoInfo } from '@/types/checklist-fechamento'
+import { DateInputPtBr } from '@/components/mp-optimization/DateInputPtBr'
 
 export interface ChecklistFiltrosAvancados {
-  empresa: string
-  linha: string
-  centro: string
-  ano: string
-  mes: string
-  dataInicio: string
-  dataFim: string
+  empresa: string // 'TODAS' ou WERKS (ex: '1000')
+  linha: string // 'TODAS' ou line_id / line_code (ex: 'L1')
+  centro: string // 'TODOS' ou center_code / sap_work_center (ex: 'WC-L1')
+  ano: string // 'TODOS' ou '2025', '2026', '2027'...
+  mes: string // 'TODOS' ou '01'..'12'
+  dataInicio: string // 'DD/MM/AAAA'
+  dataFim: string // 'DD/MM/AAAA'
 }
+
+export interface EmpresaOpcaoItem {
+  werks: string
+  name: string
+  label: string
+}
+
+export interface LinhaOpcaoItem {
+  id: string
+  code: string
+  name: string
+  werks?: string
+  label: string
+}
+
+export interface CentroOpcaoItem {
+  id?: string
+  code: string
+  name: string
+  lineCode?: string
+  werks?: string
+  label: string
+}
+
+export const MESES_FECHAMENTO = [
+  { value: '01', label: 'Janeiro' },
+  { value: '02', label: 'Fevereiro' },
+  { value: '03', label: 'Março' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Maio' },
+  { value: '06', label: 'Junho' },
+  { value: '07', label: 'Julho' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Setembro' },
+  { value: '10', label: 'Outubro' },
+  { value: '11', label: 'Novembro' },
+  { value: '12', label: 'Dezembro' },
+] as const
 
 interface Props {
   execucao: ChecklistFechamentoExecucao | null
@@ -53,13 +95,14 @@ interface Props {
   onAbrirAnaliseIa?: () => void
   onAbrirDestinatarios?: () => void
 
-  // Filtros em cascata e período (Etapa 2)
+  // Filtros em cascata e período (Etapa 2a)
   filtros?: ChecklistFiltrosAvancados
   onChangeFiltros?: (novosFiltros: ChecklistFiltrosAvancados) => void
   onLimparFiltros?: () => void
-  opcoesEmpresas?: string[]
-  opcoesLinhas?: string[]
-  opcoesCentros?: string[]
+  opcoesEmpresas?: (string | EmpresaOpcaoItem)[]
+  opcoesLinhas?: (string | LinhaOpcaoItem)[]
+  opcoesCentros?: (string | CentroOpcaoItem)[]
+  opcoesAnos?: string[]
 }
 
 export const ChecklistFechamentoHeader: React.FC<Props> = ({
@@ -86,10 +129,46 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
   },
   onChangeFiltros,
   onLimparFiltros,
-  opcoesEmpresas = ['CIAFAL'],
+  opcoesEmpresas = [],
   opcoesLinhas = [],
   opcoesCentros = [],
+  opcoesAnos = ['2025', '2026', '2027'],
 }) => {
+  // Normalizar lista de Empresas para objetos { werks, label }
+  const empresasNormalizadas = React.useMemo(() => {
+    return opcoesEmpresas.map((item) => {
+      if (typeof item === 'string') {
+        return { werks: item, label: item }
+      }
+      return { werks: item.werks, label: item.label || `${item.werks} — ${item.name}` }
+    })
+  }, [opcoesEmpresas])
+
+  // Normalizar lista de Linhas para objetos { value, label }
+  const linhasNormalizadas = React.useMemo(() => {
+    return opcoesLinhas.map((item) => {
+      if (typeof item === 'string') {
+        return { value: item, label: item }
+      }
+      return { value: item.code || item.id, label: item.label || `${item.code} — ${item.name}` }
+    })
+  }, [opcoesLinhas])
+
+  // Normalizar lista de Centros para objetos { value, label }
+  const centrosNormalizados = React.useMemo(() => {
+    return opcoesCentros.map((item) => {
+      if (typeof item === 'string') {
+        return { value: item, label: item }
+      }
+      return {
+        value: item.code || item.id || '',
+        label: item.label || `${item.code} — ${item.name}`,
+      }
+    })
+  }, [opcoesCentros])
+
+  const temEmpresaSelecionada = Boolean(filtros.empresa && filtros.empresa !== 'TODAS')
+  const temLinhaSelecionada = Boolean(filtros.linha && filtros.linha !== 'TODAS')
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'Fechado':
@@ -259,13 +338,13 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
       </div>
 
       {/* Barra de Filtros em Cascata da Etapa 2: Empresa -> Linha -> Centro, Ano, Mês, Datas e Limpar */}
-      <div className="bg-slate-50/90 p-3 rounded-lg border border-slate-200 space-y-2.5">
+      <div className="bg-slate-50/90 p-3 sm:p-3.5 rounded-xl border border-slate-200 space-y-2.5 shadow-2xs">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
             <Layers className="w-3.5 h-3.5 text-[#004C97]" />
             <span>Filtros do Check-list</span>
-            <span className="text-[11px] font-normal text-slate-500">
-              (Refinam as atividades exibidas por hierarquia e período)
+            <span className="text-[11px] font-normal text-slate-500 hidden sm:inline">
+              (Refinam as atividades por hierarquia e período histórico)
             </span>
           </div>
 
@@ -275,7 +354,7 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
               variant="ghost"
               size="sm"
               onClick={onLimparFiltros}
-              className="h-7 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 gap-1 px-2 font-medium"
+              className="h-7 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 gap-1.5 px-2.5 font-medium rounded-md"
             >
               <RotateCcw className="w-3 h-3 text-slate-500" />
               Limpar filtros
@@ -283,170 +362,205 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
-          {/* Empresa */}
+        {/* Desktop: linha única com os 7 filtros estruturados / Mobile: grade equilibrada responsiva */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5 text-xs">
+          {/* 1. EMPRESA (WERKS) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-[#004C97]" />
               Empresa
             </label>
             <select
+              aria-label="Empresa"
               value={filtros.empresa}
               onChange={(e) => {
+                const novoWerks = e.target.value
                 if (onChangeFiltros) {
+                  // Regra de cascata: ao alterar Empresa, limpar Linha e Centro
                   onChangeFiltros({
                     ...filtros,
-                    empresa: e.target.value,
+                    empresa: novoWerks,
                     linha: 'TODAS',
                     centro: 'TODOS',
                   })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+              className="w-full h-8 text-xs px-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-[#004C97]"
             >
-              <option value="TODAS">Todas Empresas</option>
-              {opcoesEmpresas.map((emp) => (
-                <option key={emp} value={emp}>
-                  {emp}
+              <option value="TODAS">Todas as Empresas</option>
+              {empresasNormalizadas.map((emp) => (
+                <option key={emp.werks} value={emp.werks}>
+                  {emp.label}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Linha (Cascata após Empresa) */}
+          {/* 2. LINHA (Desabilitada sem Empresa selecionada) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+              <GitBranch className="w-3 h-3 text-[#004C97]" />
               Linha
             </label>
             <select
+              aria-label="Linha"
               value={filtros.linha}
+              disabled={!temEmpresaSelecionada}
               onChange={(e) => {
+                const novaLinha = e.target.value
                 if (onChangeFiltros) {
+                  // Regra de cascata: ao alterar Linha, limpar Centro
                   onChangeFiltros({
                     ...filtros,
-                    linha: e.target.value,
+                    linha: novaLinha,
                     centro: 'TODOS',
                   })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+              className={`w-full h-8 text-xs px-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-[#004C97] ${
+                !temEmpresaSelecionada
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-dashed'
+                  : ''
+              }`}
             >
-              <option value="TODAS">Todas Linhas</option>
-              {opcoesLinhas.map((lin) => (
-                <option key={lin} value={lin}>
-                  {lin}
-                </option>
-              ))}
+              <option value="TODAS">
+                {!temEmpresaSelecionada
+                  ? 'Selecione primeiro a Empresa.'
+                  : linhasNormalizadas.length === 0
+                    ? 'Nenhuma linha nesta empresa'
+                    : 'Todas as Linhas'}
+              </option>
+              {temEmpresaSelecionada &&
+                linhasNormalizadas.map((lin) => (
+                  <option key={lin.value} value={lin.value}>
+                    {lin.label}
+                  </option>
+                ))}
             </select>
           </div>
 
-          {/* Centro (Cascata após Linha) */}
+          {/* 3. CENTRO (Desabilitado sem Linha selecionada) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+              <Factory className="w-3 h-3 text-[#004C97]" />
               Centro
             </label>
             <select
+              aria-label="Centro"
               value={filtros.centro}
+              disabled={!temLinhaSelecionada}
               onChange={(e) => {
+                const novoCentro = e.target.value
                 if (onChangeFiltros) {
                   onChangeFiltros({
                     ...filtros,
-                    centro: e.target.value,
+                    centro: novoCentro,
                   })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+              className={`w-full h-8 text-xs px-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-[#004C97] ${
+                !temLinhaSelecionada
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-dashed'
+                  : ''
+              }`}
             >
-              <option value="TODOS">Todos Centros</option>
-              {opcoesCentros.map((cen) => (
-                <option key={cen} value={cen}>
-                  {cen}
-                </option>
-              ))}
+              <option value="TODOS">
+                {!temLinhaSelecionada
+                  ? 'Selecione primeiro a Linha.'
+                  : centrosNormalizados.length === 0
+                    ? 'Nenhum centro vinculado'
+                    : 'Todos os Centros'}
+              </option>
+              {temLinhaSelecionada &&
+                centrosNormalizados.map((cen) => (
+                  <option key={cen.value} value={cen.value}>
+                    {cen.label}
+                  </option>
+                ))}
             </select>
           </div>
 
-          {/* Ano */}
+          {/* 4. ANO */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
               Ano
             </label>
             <select
+              aria-label="Ano"
               value={filtros.ano}
               onChange={(e) => {
                 if (onChangeFiltros) {
                   onChangeFiltros({ ...filtros, ano: e.target.value })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+              className="w-full h-8 text-xs px-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-[#004C97]"
             >
-              <option value="TODOS">Todos Anos</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2027">2027</option>
+              <option value="TODOS">Todos os Anos</option>
+              {opcoesAnos.map((ano) => (
+                <option key={ano} value={ano}>
+                  {ano}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* Mês */}
+          {/* 5. MÊS (Português internamente 01-12) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
               Mês
             </label>
             <select
+              aria-label="Mês"
               value={filtros.mes}
               onChange={(e) => {
                 if (onChangeFiltros) {
                   onChangeFiltros({ ...filtros, mes: e.target.value })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+              className="w-full h-8 text-xs px-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-[#004C97]"
             >
-              <option value="TODOS">Todos Meses</option>
-              <option value="01">01 - Janeiro</option>
-              <option value="02">02 - Fevereiro</option>
-              <option value="03">03 - Março</option>
-              <option value="04">04 - Abril</option>
-              <option value="05">05 - Maio</option>
-              <option value="06">06 - Junho</option>
-              <option value="07">07 - Julho</option>
-              <option value="08">08 - Agosto</option>
-              <option value="09">09 - Setembro</option>
-              <option value="10">10 - Outubro</option>
-              <option value="11">11 - Novembro</option>
-              <option value="12">12 - Dezembro</option>
+              <option value="TODOS">Todos os Meses</option>
+              {MESES_FECHAMENTO.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.value} — {m.label}
+                </option>
+              ))}
             </select>
           </div>
 
-          {/* Data Início */}
+          {/* 6. DATA INÍCIO (Padrão pt-BR dd/mm/aaaa) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
               Data Início
             </label>
-            <input
-              type="date"
+            <DateInputPtBr
+              id="filtro-data-inicio"
+              label="Data Início"
               value={filtros.dataInicio}
-              onChange={(e) => {
+              onChange={(val) => {
                 if (onChangeFiltros) {
-                  onChangeFiltros({ ...filtros, dataInicio: e.target.value })
+                  onChangeFiltros({ ...filtros, dataInicio: val })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800"
+              placeholder="dd/mm/aaaa"
             />
           </div>
 
-          {/* Data Fim */}
+          {/* 7. DATA FIM (Padrão pt-BR dd/mm/aaaa) */}
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
               Data Fim
             </label>
-            <input
-              type="date"
+            <DateInputPtBr
+              id="filtro-data-fim"
+              label="Data Fim"
               value={filtros.dataFim}
-              onChange={(e) => {
+              onChange={(val) => {
                 if (onChangeFiltros) {
-                  onChangeFiltros({ ...filtros, dataFim: e.target.value })
+                  onChangeFiltros({ ...filtros, dataFim: val })
                 }
               }}
-              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800"
+              placeholder="dd/mm/aaaa"
             />
           </div>
         </div>
