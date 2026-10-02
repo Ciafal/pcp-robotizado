@@ -135,6 +135,20 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('controle-producao/checklist-fechamento'),
   )
 
+  // Rota canônica de Carteira Mínima Não Atingida (/pcp/analise-carteira/carteira-minima-nao-atingida)
+  const isCarteiraMinimaRoute = Boolean(
+    currentPathname === '/pcp/analise-carteira/carteira-minima-nao-atingida' ||
+    currentPathname.startsWith('/pcp/analise-carteira/carteira-minima-nao-atingida') ||
+    currentPathname === '/pcp/analise-carteira/carteira-minima' ||
+    currentPathname.startsWith('/pcp/analise-carteira/carteira-minima') ||
+    currentPathname === '/carteira-minima-nao-atingida' ||
+    currentPathname.startsWith('/carteira-minima-nao-atingida') ||
+    currentPathname.includes('carteira-minima') ||
+    currentHash.includes('carteira-minima') ||
+    windowPath.includes('carteira-minima') ||
+    windowPath.includes('analise-carteira/carteira-minima-nao-atingida'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -245,6 +259,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
+    isCarteiraMinimaRoute ||
     isCadastrosOrMasterDataEarly
   ) {
     return <>{children}</>
@@ -290,6 +305,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
+    isCarteiraMinimaRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.mp_opt.view' ||
@@ -378,6 +394,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isEntregasRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
+    isCarteiraMinimaRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.mp_opt.view' ||
