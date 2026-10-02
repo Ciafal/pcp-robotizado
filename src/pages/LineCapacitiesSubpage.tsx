@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   Edit,
   Info,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -137,16 +138,23 @@ export default function LineCapacitiesSubpageContent() {
     centerCode: string
   } | null>(null)
 
-  // Diálogo shadcn de remoção de centro do card principal
-  const [centerToRemove, setCenterToRemove] = useState<{
+  // Estado para o fluxo de remoção / desativação com verificação de histórico
+  const [centerActionTarget, setCenterActionTarget] = useState<{
     lineId: string
+    lineCode: string
     centerIndex: number
     centerId: string
     centerCode: string
     centerName: string
     dependencyId?: string
+    hasHistory: boolean
+    historyCount: number
+    company?: string
   } | null>(null)
-  const [isRemovingCenter, setIsRemovingCenter] = useState(false)
+  const [isCheckingUsage, setIsCheckingUsage] = useState(false)
+  const [isExecutingAction, setIsExecutingAction] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [isReactivatingCenterId, setIsReactivatingCenterId] = useState<string | null>(null)
 
   // Modal de bloqueio quando centro possui dependências ativas
   const [blockingDependencies, setBlockingDependencies] = useState<{
@@ -1035,117 +1043,193 @@ export default function LineCapacitiesSubpageContent() {
     )
   }
 
-  // Iniciar solicitação de remoção de centro do card principal: checar dependências ativas primeiro
+  // Iniciar solicitação de remoção/desativação de centro do card: consultar histórico no servidor
   const handleRequestRemoveCenterCard = async (lineId: string, centerIndex: number) => {
+    if (isCheckingUsage || isExecutingAction) return
     const lineStruct = hierarchyLines.find((l) => l.id === lineId)
     if (!lineStruct) return
     const targetCenter = lineStruct.centers[centerIndex]
     if (!targetCenter) return
 
-    // Validação prévia de dependências ativas
+    setIsCheckingUsage(true)
+    setActionError(null)
     try {
-      const depCheck = await lineMasterService.checkCenterActiveDependencies(
-        targetCenter.centerId,
-        targetCenter.centerCode,
-      )
-      if (depCheck.hasActiveDependencies) {
-        setBlockingDependencies({
-          centerCode: targetCenter.centerCode,
-          centerName: targetCenter.centerName,
-          reasons: depCheck.blockingReasons,
-        })
-        return
-      }
-    } catch (err) {
-      console.warn('Erro ao verificar dependências ativas do centro:', err)
-    }
-
-    // Se não há dependências bloqueantes, abre o Dialog shadcn de confirmação
-    setCenterToRemove({
-      lineId,
-      centerIndex,
-      centerId: targetCenter.centerId,
-      centerCode: targetCenter.centerCode,
-      centerName: targetCenter.centerName,
-      dependencyId: targetCenter.dependencyId,
-    })
-  }
-
-  // Executar remoção de centro após confirmação no Dialog shadcn
-  const handleExecuteRemoveCenter = async () => {
-    if (!centerToRemove) return
-    const { lineId, centerIndex, centerId, centerCode, dependencyId } = centerToRemove
-
-    setIsRemovingCenter(true)
-    try {
-      // Resolver dependencyId: se targetCenter.dependencyId veio nulo, buscar registro real em line_sequencing_dependencies
-      let effDepId = dependencyId
-      if (!effDepId) {
-        const matchingDeps = await pb
-          .collection('line_sequencing_dependencies')
-          .getFullList<LineSequencingDependency>({
-            filter: `line_id = '${lineId}' && (next_line_id = '${centerId}' || line_id = '${centerId}')`,
-          })
-          .catch(() => [])
-
-        if (matchingDeps.length > 0) {
-          effDepId = matchingDeps[0].id
-        }
-      }
-
-      // Persistência real: remove estritamente o vínculo intermediário
-      if (effDepId) {
-        await lineMasterService.removeCenterFromLineSequence(effDepId)
-      }
-
-      // Recalcular sequência dos centros restantes com saltos de 10: (idx + 1) * 10
-      // e atualizar o estado local imediatamente
-      const currentLine = hierarchyLines.find((l) => l.id === lineId)
-      const remainingCenters = (currentLine?.centers || [])
-        .filter((_, idx) => idx !== centerIndex)
-        .map((c, idx) => ({
-          ...c,
-          sequenceOrder: (idx + 1) * 10,
-        }))
-
-      setHierarchyLines((prev) =>
-        prev.map((l) => {
-          if (l.id !== lineId) return l
-          return { ...l, centers: remainingCenters }
-        }),
-      )
-
-      // Atualizar no banco a numeração de sequência dos centros remanescentes se tinham dependências
-      for (let i = 0; i < remainingCenters.length; i++) {
-        const item = remainingCenters[i]
-        const newOrder = (i + 1) * 10
-        if (item.dependencyId) {
-          try {
-            await lineMasterService.updateSequencingDependencyOrder(item.dependencyId, newOrder)
-          } catch {
-            // Não bloqueia
-          }
-        }
-      }
-
-      // Sincronizar com o banco (loadData)
-      await loadData()
-
-      // Toast com descrição exata: "Centro removido da hierarquia com sucesso."
-      toast({
-        title: 'Sucesso',
-        description: 'Centro removido da hierarquia com sucesso.',
+      const usage = await lineMasterService.checkCenterUsageOnServer({
+        centerId: targetCenter.centerId,
+        centerCode: targetCenter.centerCode,
+        lineId: lineStruct.id,
+        lineCode: lineStruct.code,
       })
 
-      setCenterToRemove(null)
+      const hasHist = Boolean(usage.hasHistory || (usage.historyCount && usage.historyCount > 0))
+      const histCnt = usage.historyCount || 0
+
+      setCenterActionTarget({
+        lineId: lineStruct.id,
+        lineCode: lineStruct.code,
+        centerIndex,
+        centerId: targetCenter.centerId,
+        centerCode: targetCenter.centerCode,
+        centerName: targetCenter.centerName,
+        dependencyId: targetCenter.dependencyId,
+        hasHistory: hasHist,
+        historyCount: histCnt,
+        company: lineStruct.companyName || lineStruct.companyCode,
+      })
     } catch (err: any) {
+      console.error('Erro ao consultar histórico de uso do centro no servidor:', err)
       toast({
-        title: 'Erro ao remover vínculo',
-        description: err.message || 'Falha ao desvincular centro da hierarquia.',
+        title: 'Erro ao verificar centro',
+        description:
+          err.message ||
+          'Não foi possível consultar o histórico operacional do centro no servidor.',
         variant: 'destructive',
       })
     } finally {
-      setIsRemovingCenter(false)
+      setIsCheckingUsage(false)
+    }
+  }
+
+  // Executar remoção do vínculo (cenário sem histórico)
+  const handleConfirmRemoval = async () => {
+    if (!centerActionTarget || isExecutingAction) return
+    setIsExecutingAction(true)
+    setActionError(null)
+
+    try {
+      await lineMasterService.removeCenterViaHook({
+        lineId: centerActionTarget.lineId,
+        lineCode: centerActionTarget.lineCode,
+        centerId: centerActionTarget.centerId,
+        centerCode: centerActionTarget.centerCode,
+        centerName: centerActionTarget.centerName,
+        dependencyId: centerActionTarget.dependencyId,
+        company: centerActionTarget.company,
+      })
+
+      // Toast de sucesso obrigatório
+      toast({
+        title: 'Sucesso',
+        description: `Centro "${centerActionTarget.centerCode} — ${centerActionTarget.centerName}" removido da hierarquia com sucesso.`,
+      })
+
+      // Fechar modal apenas após o 200 do backend
+      setCenterActionTarget(null)
+
+      // Recarregar dados reais
+      await loadData()
+    } catch (err: any) {
+      console.error('Erro ao remover centro da hierarquia:', err)
+      // Concorrência: se a remoção retornar 400 CENTER_HAS_HISTORY, manter popup aberto, transicionar para cenário COM histórico
+      const isHistoryConflict =
+        err?.status === 400 &&
+        (err?.response?.code === 'CENTER_HAS_HISTORY' ||
+          err?.data?.code === 'CENTER_HAS_HISTORY' ||
+          String(err?.message || '').includes('CENTER_HAS_HISTORY'))
+
+      if (isHistoryConflict) {
+        setActionError(
+          'Não foi possível remover este Centro porque ele já possui utilização no PCP. Atualize a tela e utilize a opção Desativar.',
+        )
+        setCenterActionTarget((prev) =>
+          prev
+            ? {
+                ...prev,
+                hasHistory: true,
+                historyCount: prev.historyCount || 1,
+              }
+            : null,
+        )
+      } else {
+        const errorMsg =
+          err?.data?.error ||
+          err?.response?.error ||
+          err?.message ||
+          'Falha na comunicação com o servidor ao remover centro.'
+        setActionError(errorMsg)
+      }
+    } finally {
+      setIsExecutingAction(false)
+    }
+  }
+
+  // Executar desativação do centro na hierarquia (cenário com histórico)
+  const handleConfirmDeactivation = async () => {
+    if (!centerActionTarget || isExecutingAction) return
+    setIsExecutingAction(true)
+    setActionError(null)
+
+    try {
+      await lineMasterService.deactivateCenterInHierarchy({
+        lineId: centerActionTarget.lineId,
+        lineCode: centerActionTarget.lineCode,
+        centerId: centerActionTarget.centerId,
+        centerCode: centerActionTarget.centerCode,
+        centerName: centerActionTarget.centerName,
+        dependencyId: centerActionTarget.dependencyId,
+        company: centerActionTarget.company,
+      })
+
+      // Toast de sucesso obrigatório
+      toast({
+        title: 'Sucesso',
+        description: `Centro "${centerActionTarget.centerCode} — ${centerActionTarget.centerName}" desativado com sucesso. O histórico de programações foi preservado.`,
+      })
+
+      // Fechar popup só após o 200
+      setCenterActionTarget(null)
+
+      // Recarregar dados reais
+      await loadData()
+    } catch (err: any) {
+      console.error('Erro ao desativar centro na hierarquia:', err)
+      const errorMsg =
+        err?.data?.error ||
+        err?.response?.error ||
+        err?.message ||
+        'Falha ao desativar o centro na hierarquia.'
+      setActionError(errorMsg)
+    } finally {
+      setIsExecutingAction(false)
+    }
+  }
+
+  // Executar reativação de centro inativo
+  const handleReactivateCenter = async (
+    lineStruct: HierarchyLineStructure,
+    center: CenterSequenceItem,
+  ) => {
+    if (isReactivatingCenterId) return
+    setIsReactivatingCenterId(center.centerId)
+    try {
+      await lineMasterService.reactivateCenterInHierarchy({
+        lineId: lineStruct.id,
+        lineCode: lineStruct.code,
+        centerId: center.centerId,
+        centerCode: center.centerCode,
+        centerName: center.centerName,
+        dependencyId: center.dependencyId,
+        company: lineStruct.companyName || lineStruct.companyCode,
+      })
+
+      toast({
+        title: 'Sucesso',
+        description: `Centro "${center.centerCode} — ${center.centerName}" reativado com sucesso.`,
+      })
+
+      await loadData()
+    } catch (err: any) {
+      console.error('Erro ao reativar centro:', err)
+      toast({
+        title: 'Erro ao reativar centro',
+        description:
+          err?.data?.error ||
+          err?.message ||
+          'Falha na comunicação com o servidor ao reativar o centro.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsReactivatingCenterId(null)
     }
   }
 
@@ -1427,22 +1511,36 @@ export default function LineCapacitiesSubpageContent() {
                           key={center.centerId}
                           className={`flex flex-col md:flex-row md:items-center justify-between p-3.5 rounded-lg border transition-all ${
                             !center.isActive
-                              ? 'bg-amber-50/50 border-amber-200'
+                              ? 'bg-slate-50/80 border-slate-300 opacity-65'
                               : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
                           }`}
                         >
                           {/* Posição e Identificação */}
                           <div className="flex items-center gap-3">
-                            <div className="flex flex-col items-center justify-center w-8 h-8 rounded-md bg-[#004C97]/10 text-[#004C97] font-mono font-black text-xs shrink-0">
+                            <div
+                              className={`flex flex-col items-center justify-center w-8 h-8 rounded-md font-mono font-black text-xs shrink-0 ${
+                                !center.isActive
+                                  ? 'bg-slate-200 text-slate-500'
+                                  : 'bg-[#004C97]/10 text-[#004C97]'
+                              }`}
+                            >
                               {String(center.sequenceOrder).padStart(2, '0')}
                             </div>
 
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-xs font-black text-slate-900">
+                                <span
+                                  className={`font-mono text-xs font-black ${
+                                    !center.isActive ? 'text-slate-600' : 'text-slate-900'
+                                  }`}
+                                >
                                   {center.centerCode}
                                 </span>
-                                <span className="text-xs font-semibold text-slate-700">
+                                <span
+                                  className={`text-xs font-semibold ${
+                                    !center.isActive ? 'text-slate-500' : 'text-slate-700'
+                                  }`}
+                                >
                                   {center.centerName}
                                 </span>
 
@@ -1452,7 +1550,10 @@ export default function LineCapacitiesSubpageContent() {
                                     Ativo
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-slate-100 text-slate-600 border-slate-300 text-[10px] font-semibold px-1.5 py-0"
+                                  >
                                     Inativo
                                   </Badge>
                                 )}
@@ -1500,7 +1601,7 @@ export default function LineCapacitiesSubpageContent() {
                               </span>
                             </div>
 
-                            {/* Controles de Reordenação e Remoção */}
+                            {/* Controles de Reordenação e Ação (Lixeira para Ativo / Reativar para Inativo) */}
                             <div className="flex items-center gap-1">
                               <Button
                                 size="icon"
@@ -1524,15 +1625,45 @@ export default function LineCapacitiesSubpageContent() {
                                 <ArrowDown className="w-3.5 h-3.5" />
                               </Button>
 
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleRequestRemoveCenterCard(lineStruct.id, idx)}
-                                className="h-7 w-7 text-rose-600 hover:bg-rose-50"
-                                title="Remover da Hierarquia"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              {center.isActive ? (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  disabled={isCheckingUsage || isExecutingAction}
+                                  onClick={() => handleRequestRemoveCenterCard(lineStruct.id, idx)}
+                                  className="h-7 w-7 text-rose-600 hover:bg-rose-50"
+                                  title="Remover ou Desativar Centro da Hierarquia"
+                                >
+                                  {isCheckingUsage ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={
+                                    isReactivatingCenterId === center.centerId || isExecutingAction
+                                  }
+                                  onClick={() => handleReactivateCenter(lineStruct, center)}
+                                  className="h-7 px-2.5 text-xs text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:text-blue-800 font-semibold gap-1"
+                                  title="Reativar Centro na Hierarquia"
+                                >
+                                  {isReactivatingCenterId === center.centerId ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                      Reativando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="w-3 h-3" />
+                                      Reativar
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1960,54 +2091,110 @@ export default function LineCapacitiesSubpageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo shadcn de remoção de centro do card principal (A1) */}
+      {/* Diálogo de Remoção (Sem Histórico) ou Desativação (Com Histórico) */}
       <Dialog
-        open={Boolean(centerToRemove)}
-        onOpenChange={(open) => !open && !isRemovingCenter && setCenterToRemove(null)}
+        open={Boolean(centerActionTarget)}
+        onOpenChange={(open) => {
+          if (!open && !isExecutingAction) {
+            setCenterActionTarget(null)
+            setActionError(null)
+          }
+        }}
       >
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              Remover centro da hierarquia?
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed">
-              O centro{' '}
-              <strong className="text-slate-800">
-                {centerToRemove?.centerCode} — {centerToRemove?.centerName}
-              </strong>{' '}
-              será removido apenas desta Linha Produtiva. O cadastro mestre do Centro não será
-              excluído.
-            </DialogDescription>
+            {centerActionTarget?.hasHistory ? (
+              <>
+                <DialogTitle className="text-base font-bold text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                  Este Centro possui histórico de programação
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed text-left">
+                  O Centro{' '}
+                  <strong className="text-slate-900 font-bold">
+                    {centerActionTarget?.centerCode} — {centerActionTarget?.centerName}
+                  </strong>{' '}
+                  já foi utilizado em programações do PCP e não pode ser removido da hierarquia.
+                  Para preservar a rastreabilidade das programações anteriores, ele poderá ser
+                  desativado para novas programações.
+                </DialogDescription>
+              </>
+            ) : (
+              <>
+                <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                  Remover centro da hierarquia?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-600 pt-2 leading-relaxed text-left">
+                  <strong className="text-slate-900 font-bold">
+                    {centerActionTarget?.centerCode} — {centerActionTarget?.centerName}
+                  </strong>{' '}
+                  será removido desta Linha Produtiva. O cadastro mestre do Centro não será
+                  excluído. Essa ação somente remove o vínculo do Centro com esta hierarquia.
+                </DialogDescription>
+              </>
+            )}
           </DialogHeader>
-          <DialogFooter className="gap-2 pt-3">
+
+          {/* Mensagem de erro de concorrência ou falha de operação */}
+          {actionError && (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{actionError}</span>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={isRemovingCenter}
-              onClick={() => setCenterToRemove(null)}
+              disabled={isExecutingAction}
+              onClick={() => {
+                setCenterActionTarget(null)
+                setActionError(null)
+              }}
               className="text-xs h-8"
             >
               Cancelar
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              disabled={isRemovingCenter}
-              onClick={handleExecuteRemoveCenter}
-              className="text-xs h-8 font-bold gap-1.5"
-            >
-              {isRemovingCenter ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Removendo...
-                </>
-              ) : (
-                'Remover da Hierarquia'
-              )}
-            </Button>
+
+            {centerActionTarget?.hasHistory ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={isExecutingAction}
+                onClick={handleConfirmDeactivation}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 font-bold gap-1.5"
+              >
+                {isExecutingAction ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Gravando...
+                  </>
+                ) : (
+                  'Desativar'
+                )}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={isExecutingAction}
+                onClick={handleConfirmRemoval}
+                className="text-xs h-8 font-bold gap-1.5"
+              >
+                {isExecutingAction ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Gravando...
+                  </>
+                ) : (
+                  'Remover da Hierarquia'
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
