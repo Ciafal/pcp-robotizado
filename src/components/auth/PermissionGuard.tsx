@@ -28,18 +28,33 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   const [timedOut, setTimedOut] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const currentPathname =
-    location.pathname || (typeof window !== 'undefined' ? window.location?.pathname : '') || ''
+  // Normalização canônica de caminho para evitar travamento por query string, hash, case ou trailing slash
+  const normalizePath = (rawPath: string): string => {
+    if (!rawPath) return ''
+    try {
+      const decoded = decodeURIComponent(rawPath)
+      const clean = decoded.split('?')[0].split('#')[0].trim().toLowerCase()
+      // Remove barras finais redundantes mantendo raiz '/'
+      return clean.length > 1 && clean.endsWith('/') ? clean.replace(/\/+$/, '') : clean
+    } catch {
+      const clean = rawPath.split('?')[0].split('#')[0].trim().toLowerCase()
+      return clean.length > 1 && clean.endsWith('/') ? clean.replace(/\/+$/, '') : clean
+    }
+  }
 
-  // BYPASS IMEDIATO PRIORITÁRIO:
-  // Rotas de Entregas PCP (/pcp/entregas, /entregas, subrotas e aliases) NUNCA devem passar por
-  // checagem de timeout, skeleton ou validação de permissão - renderização imediata incondicional.
-  const windowPath =
-    typeof window !== 'undefined'
-      ? `${window.location?.pathname || ''} ${window.location?.hash || ''} ${window.location?.href || ''}`
-      : ''
-  const currentHash =
+  const rawPathname =
+    location.pathname || (typeof window !== 'undefined' ? window.location?.pathname : '') || ''
+  const currentPathname = normalizePath(rawPathname)
+
+  const rawHash =
     location.hash || (typeof window !== 'undefined' ? window.location?.hash : '') || ''
+  const currentHash = rawHash ? normalizePath(rawHash.replace(/^#/, '')) : ''
+
+  const rawWindowPath =
+    typeof window !== 'undefined'
+      ? `${window.location?.pathname || ''} ${window.location?.search || ''} ${window.location?.hash || ''} ${window.location?.href || ''}`
+      : ''
+  const windowPath = normalizePath(rawWindowPath)
 
   // Rota canônica estrita para Inventário de MP
   const isInventarioMpRoute = Boolean(

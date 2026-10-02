@@ -466,10 +466,11 @@ export const DadosIbgePage: React.FC = () => {
   }
 
   // Sucesso no Envio
-  const handleEnvioSucesso = () => {
+  const handleEnvioSucesso = (resultado?: any) => {
+    const msg = resultado?.mensagem || 'Dados IBGE enviados para a Contabilidade com sucesso.'
     toast({
-      title: 'Envio Realizado',
-      description: 'Dados IBGE enviados para a Contabilidade com sucesso.',
+      title: 'Dados enviados com sucesso',
+      description: msg,
       className: 'bg-emerald-600 text-white border-none',
     })
     setLinhasSelecionadasIds([])

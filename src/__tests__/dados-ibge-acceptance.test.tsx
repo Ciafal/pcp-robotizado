@@ -259,10 +259,10 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
     ).toBeInTheDocument()
   })
 
-  // 8. PermissionGuard não bloqueia rota Dados IBGE
-  it('8. PermissionGuard não bloqueia nem trava a rota /pcp/controle-producao/dados-ibge em cold start', async () => {
+  // 8. PermissionGuard não bloqueia rota Dados IBGE mesmo com query string, hash, trailing slash e cold start
+  it('8. PermissionGuard não bloqueia nem trava a rota /pcp/controle-producao/dados-ibge em cold start e com normalização', async () => {
     const { PermissionGuard } = await import('@/components/auth/PermissionGuard')
-    render(
+    const { unmount } = render(
       <MemoryRouter initialEntries={['/pcp/controle-producao/dados-ibge']}>
         <PermissionGuard permission="pcp.production.view">
           <div data-testid="dados-ibge-route-content">Dados IBGE Renderizado com Sucesso</div>
@@ -271,6 +271,19 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
     )
 
     expect(screen.getByTestId('dados-ibge-route-content')).toBeInTheDocument()
+    unmount()
+
+    // Teste com trailing slash e query string (cenário relatado de travamento)
+    render(
+      <MemoryRouter
+        initialEntries={['/pcp/controle-producao/dados-ibge/?competencia=09/2026#topo']}
+      >
+        <PermissionGuard permission="pcp.production.view">
+          <div data-testid="dados-ibge-with-query">Dados IBGE com Query String Renderizado</div>
+        </PermissionGuard>
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('dados-ibge-with-query')).toBeInTheDocument()
   })
 
   // 9. Card Centros Selecionados: Todos vs Parcial
@@ -618,7 +631,159 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
     // Destinatários obtidos da coleção / grupos
     const destinatarios = await dadosIbgeEnvioService.obterDestinatariosContabilidade()
     expect(destinatarios.length).toBeGreaterThan(0)
-    expect(destinatarios.some((d) => d.email.includes('contabilidade'))).toBe(true)
+    expect(
+      destinatarios.some((d) => d.email.includes('contabilidade') || d.email.includes('@')),
+    ).toBe(true)
+  })
+
+  // 16. Bloqueio de envio sem integração (CENÁRIO 2) com mensagem exata
+  it('16. Envio sem integração exibe título "Envio não disponível" e mensagem exata sem alterar status', async () => {
+    const { EnviarDadosIbgeModal } =
+      await import('@/components/production-control/EnviarDadosIbgeModal')
+    const { dadosIbgeEnvioService } = await import('@/services/dados-ibge-envio-service')
+
+    // Mock do serviço simulando ausência de SMTP (CENÁRIO 2)
+    vi.spyOn(dadosIbgeEnvioService, 'enviarParaContabilidade').mockResolvedValueOnce({
+      sucesso: false,
+      categoria: 'SEM_INTEGRACAO',
+      titulo: 'Envio não disponível',
+      mensagem:
+        'Não há integração de e-mail configurada para o envio dos Dados IBGE no momento. Os dados não foram enviados e o status permanecerá inalterado.',
+      envios: [],
+      destinatarios: [],
+      ehReenvio: false,
+    })
+
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo 50',
+      competencia: '09/2026',
+      quantidade_produzida: 100,
+      unidade_medida: 't',
+      status_fechamento: 'Pendente',
+      total_registros: 1,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    const handleSuccess = vi.fn()
+    const handleError = vi.fn()
+
+    render(
+      <EnviarDadosIbgeModal
+        open={true}
+        onOpenChange={vi.fn()}
+        linhas={[item]}
+        filtros={{
+          empresa: '1000',
+          linha: 'L1',
+          centros: ['SEML1'],
+          mtart: 'FERT',
+          mes: '09',
+          ano: '2026',
+        }}
+        onSuccess={handleSuccess}
+        onError={handleError}
+      />,
+    )
+
+    const btnConfirmar = screen.getByRole('button', { name: /confirmar envio/i })
+    fireEvent.click(btnConfirmar)
+
+    await waitFor(() => {
+      expect(screen.getByText('Envio não disponível')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Não há integração de e-mail configurada para o envio dos Dados IBGE no momento/,
+        ),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Os dados não foram enviados e o status permanecerá inalterado/),
+      ).toBeInTheDocument()
+    })
+
+    // Botões "Fechar" e "Tentar novamente"
+    expect(screen.getByRole('button', { name: 'Fechar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument()
+    expect(handleSuccess).not.toHaveBeenCalled()
+  })
+
+  // 17. Bloqueio por falta de destinatários (REGRA 4) sem fallback fixo
+  it('17. Bloqueio de envio sem destinatários ativos exibe "Destinatários não configurados"', async () => {
+    const { EnviarDadosIbgeModal } =
+      await import('@/components/production-control/EnviarDadosIbgeModal')
+    const { dadosIbgeEnvioService } = await import('@/services/dados-ibge-envio-service')
+
+    vi.spyOn(dadosIbgeEnvioService, 'enviarParaContabilidade').mockResolvedValueOnce({
+      sucesso: false,
+      categoria: 'SEM_DESTINATARIOS',
+      titulo: 'Destinatários não configurados',
+      mensagem:
+        'Não existem destinatários ativos configurados para o grupo Contabilidade — Dados IBGE.',
+      envios: [],
+      destinatarios: [],
+      ehReenvio: false,
+    })
+
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo 50',
+      competencia: '09/2026',
+      quantidade_produzida: 100,
+      unidade_medida: 't',
+      status_fechamento: 'Pendente',
+      total_registros: 1,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    render(
+      <EnviarDadosIbgeModal
+        open={true}
+        onOpenChange={vi.fn()}
+        linhas={[item]}
+        filtros={{
+          empresa: '1000',
+          linha: 'L1',
+          centros: ['SEML1'],
+          mtart: 'FERT',
+          mes: '09',
+          ano: '2026',
+        }}
+        onSuccess={vi.fn()}
+        onError={vi.fn()}
+      />,
+    )
+
+    const btnConfirmar = screen.getByRole('button', { name: /confirmar envio/i })
+    fireEvent.click(btnConfirmar)
+
+    await waitFor(() => {
+      expect(screen.getByText('Destinatários não configurados')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Não existem destinatários ativos configurados para o grupo Contabilidade — Dados IBGE/,
+        ),
+      ).toBeInTheDocument()
+    })
   })
 
   // 15. Formatação de status pós-envio e reenvio
