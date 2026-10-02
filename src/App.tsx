@@ -648,6 +648,13 @@ const ChecklistFechamentoPage = lazyWithRetry(
     })),
   'ChecklistFechamentoPage',
 )
+const DadosIbgePage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/DadosIbgePage').then((m) => ({
+      default: m.default ?? m.DadosIbgePage,
+    })),
+  'DadosIbgePage',
+)
 const IndicadoresControlePage = lazyWithRetry(
   () =>
     import('@/pages/production-control/IndicadoresControlePage').then((m) => ({
@@ -1750,6 +1757,16 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.production.view">
                           <ErrorBoundary moduleName="Check-list Fechamento — Controle de Produção">
                             <ChecklistFechamentoPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/controle-producao/dados-ibge"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ErrorBoundary moduleName="Dados IBGE — Controle de Produção">
+                            <DadosIbgePage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

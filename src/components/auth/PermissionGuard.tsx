@@ -95,15 +95,20 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('gestao-materia-prima'),
   )
 
-  // Rota canônica de Check-list de Fechamento (/pcp/controle-producao/checklist-fechamento e aliases de Controle de Produção)
+  // Rota canônica de Check-list de Fechamento e Dados IBGE (/pcp/controle-producao/dados-ibge)
   const isChecklistFechamentoRoute = Boolean(
     currentPathname === '/pcp/controle-producao/checklist-fechamento' ||
     currentPathname.startsWith('/pcp/controle-producao/checklist-fechamento') ||
+    currentPathname === '/pcp/controle-producao/dados-ibge' ||
+    currentPathname.startsWith('/pcp/controle-producao/dados-ibge') ||
     currentPathname.includes('checklist-fechamento') ||
+    currentPathname.includes('dados-ibge') ||
     currentPathname.includes('fechamento') ||
     currentHash.includes('checklist-fechamento') ||
+    currentHash.includes('dados-ibge') ||
     currentHash.includes('fechamento') ||
     windowPath.includes('checklist-fechamento') ||
+    windowPath.includes('dados-ibge') ||
     windowPath.includes('controle-producao/checklist-fechamento'),
   )
 

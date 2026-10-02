@@ -951,6 +951,12 @@ const officialNavGroups: NavGroup[] = [
         badge: 'Novo',
         permission: 'pcp.production.view',
       },
+      {
+        title: 'Dados IBGE',
+        href: '/pcp/controle-producao/dados-ibge',
+        icon: Database,
+        permission: 'pcp.production.view',
+      },
     ],
   },
   {
