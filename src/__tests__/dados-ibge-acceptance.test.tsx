@@ -331,7 +331,17 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
     }
 
     const handleVisualizar = vi.fn()
-    render(<DadosIbgeTable linhas={[item]} onVisualizar={handleVisualizar} />)
+    render(
+      <DadosIbgeTable
+        linhas={[item]}
+        onVisualizar={handleVisualizar}
+        onEnviarIndividual={vi.fn()}
+        onEnviarSelecionados={vi.fn()}
+        linhasSelecionadasIds={[]}
+        onToggleLinha={vi.fn()}
+        onToggleTodos={vi.fn()}
+      />,
+    )
 
     // Verifica que as 11 colunas estão no cabeçalho
     expect(screen.getByText('Empresa')).toBeInTheDocument()
@@ -351,5 +361,303 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
     expect(btnVisualizar).toBeInTheDocument()
     fireEvent.click(btnVisualizar)
     expect(handleVisualizar).toHaveBeenCalledWith(item)
+  })
+
+  // 11. Coluna Ações: botão Enviar p/ Contabilidade e botão Visualizar operacionais
+  it('11. Coluna Ações exibe "Visualizar" e "Enviar p/ Contabilidade" com funcionamento real', () => {
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo Galvanizado 50mm Industrial',
+      competencia: '09/2026',
+      quantidade_produzida: 455.9,
+      unidade_medida: 't',
+      status_fechamento: 'Conferida',
+      total_registros: 10,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    const handleVisualizar = vi.fn()
+    const handleEnviarIndividual = vi.fn()
+    const handleEnviarSelecionados = vi.fn()
+    const handleToggleLinha = vi.fn()
+    const handleToggleTodos = vi.fn()
+
+    render(
+      <DadosIbgeTable
+        linhas={[item]}
+        onVisualizar={handleVisualizar}
+        onEnviarIndividual={handleEnviarIndividual}
+        onEnviarSelecionados={handleEnviarSelecionados}
+        linhasSelecionadasIds={[]}
+        onToggleLinha={handleToggleLinha}
+        onToggleTodos={handleToggleTodos}
+      />,
+    )
+
+    // Ambos os botões com os títulos exatos
+    const btnVisualizar = screen.getAllByRole('button', { name: /visualizar/i })[0]
+    const btnEnviar = screen.getAllByRole('button', { name: /enviar p\/ contabilidade/i })[0]
+
+    expect(btnVisualizar).toBeInTheDocument()
+    expect(btnEnviar).toBeInTheDocument()
+
+    fireEvent.click(btnEnviar)
+    expect(handleEnviarIndividual).toHaveBeenCalledWith(item)
+  })
+
+  // 12. Modal de confirmação do envio individual com título exato e resumo estruturado
+  it('12. Modal de confirmação individual exibe título exato "Enviar Dados IBGE para Contabilidade" e campos requeridos', async () => {
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo Galvanizado 50mm Industrial',
+      competencia: '09/2026',
+      quantidade_produzida: 455.9,
+      unidade_medida: 't',
+      status_fechamento: 'Conferida',
+      total_registros: 10,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    const { EnviarDadosIbgeModal } =
+      await import('@/components/production-control/EnviarDadosIbgeModal')
+    const handleSuccess = vi.fn()
+    const handleError = vi.fn()
+    const handleOpenChange = vi.fn()
+
+    render(
+      <EnviarDadosIbgeModal
+        open={true}
+        onOpenChange={handleOpenChange}
+        linhas={[item]}
+        filtros={{
+          empresa: '1000',
+          linha: 'L1',
+          centros: ['SEML1'],
+          mtart: 'FERT',
+          mes: '09',
+          ano: '2026',
+        }}
+        onSuccess={handleSuccess}
+        onError={handleError}
+      />,
+    )
+
+    // Título exato
+    expect(screen.getByText('Enviar Dados IBGE para Contabilidade')).toBeInTheDocument()
+
+    // Resumo: Empresa, Linha, Centro, Tipo de Material, Material, Descrição, Período, Quantidade, UM, Usuário
+    expect(screen.getByText(/1000 — CIAFAL Matriz/)).toBeInTheDocument()
+    expect(screen.getByText(/L1 — Laminação 1/)).toBeInTheDocument()
+    expect(screen.getByText('SEML1')).toBeInTheDocument()
+    expect(screen.getByText('TB-GALV-50')).toBeInTheDocument()
+    expect(screen.getByText('Tubo Galvanizado 50mm Industrial')).toBeInTheDocument()
+    expect(screen.getByText('09/2026')).toBeInTheDocument()
+    expect(screen.getByText(/455,900 T/)).toBeInTheDocument()
+    expect(screen.getByText(/Usuário Responsável pelo Envio:/)).toBeInTheDocument()
+
+    // Botões com títulos exatos "Cancelar" e "Confirmar Envio"
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirmar envio/i })).toBeInTheDocument()
+  })
+
+  // 13. Envio Consolidado em Lote no cabeçalho do grid: desabilitado sem seleção / habilitado com contagem
+  it('13. Botão em lote no cabeçalho: "Enviar Selecionados p/ Contabilidade" desabilitado sem marcação e com contagem quando marcado', () => {
+    const itens: LinhaConsolidadaIbge[] = [
+      {
+        id: 'row-1',
+        empresa_code: '1000',
+        empresa_nome: 'CIAFAL Matriz',
+        linha_code: 'L1',
+        linha_nome: 'Laminação 1',
+        centro_code: 'SEML1',
+        centro_nome: 'SEML1',
+        tipo_material: 'FERT',
+        tipo_material_descricao: 'Produto Acabado',
+        material_code: 'TB-GALV-50',
+        material_descricao: 'Tubo 50',
+        competencia: '09/2026',
+        quantidade_produzida: 100,
+        unidade_medida: 't',
+        status_fechamento: 'Pendente',
+        total_registros: 1,
+        centros_envolvidos: ['SEML1'],
+        registros_rastreabilidade: [],
+      },
+      {
+        id: 'row-2',
+        empresa_code: '1000',
+        empresa_nome: 'CIAFAL Matriz',
+        linha_code: 'L1',
+        linha_nome: 'Laminação 1',
+        centro_code: 'FORNO1',
+        centro_nome: 'FORNO1',
+        tipo_material: 'HALB',
+        tipo_material_descricao: 'Semiacabado',
+        material_code: 'TAR-120',
+        material_descricao: 'Tarugo 120',
+        competencia: '09/2026',
+        quantidade_produzida: 200,
+        unidade_medida: 't',
+        status_fechamento: 'Pendente',
+        total_registros: 1,
+        centros_envolvidos: ['FORNO1'],
+        registros_rastreabilidade: [],
+      },
+    ]
+
+    const { rerender } = render(
+      <DadosIbgeTable
+        linhas={itens}
+        onVisualizar={vi.fn()}
+        onEnviarIndividual={vi.fn()}
+        onEnviarSelecionados={vi.fn()}
+        linhasSelecionadasIds={[]}
+        onToggleLinha={vi.fn()}
+        onToggleTodos={vi.fn()}
+      />,
+    )
+
+    // Sem seleção: desabilitado e com título padrão
+    const btnLoteDesabilitado = screen.getByRole('button', {
+      name: /enviar selecionados p\/ contabilidade/i,
+    })
+    expect(btnLoteDesabilitado).toBeDisabled()
+
+    // Com 2 itens selecionados: habilitado e com texto exibindo quantidade real
+    rerender(
+      <DadosIbgeTable
+        linhas={itens}
+        onVisualizar={vi.fn()}
+        onEnviarIndividual={vi.fn()}
+        onEnviarSelecionados={vi.fn()}
+        linhasSelecionadasIds={['row-1', 'row-2']}
+        onToggleLinha={vi.fn()}
+        onToggleTodos={vi.fn()}
+      />,
+    )
+
+    const btnLoteHabilitado = screen.getByRole('button', {
+      name: /enviar 2 selecionados p\/ contabilidade/i,
+    })
+    expect(btnLoteHabilitado).toBeEnabled()
+  })
+
+  // 14. Serviço de envio gera formulário estruturado DADOS IBGE — PRODUÇÃO
+  it('14. dadosIbgeEnvioService gera formulário estruturado com campos requeridos e não hardcode destinatários', async () => {
+    const { dadosIbgeEnvioService } = await import('@/services/dados-ibge-envio-service')
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo Galvanizado 50mm Industrial',
+      competencia: '09/2026',
+      quantidade_produzida: 455.9,
+      unidade_medida: 't',
+      status_fechamento: 'Conferida',
+      total_registros: 10,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    const formulario = dadosIbgeEnvioService.gerarFormularioEstruturado({
+      competencia: '09/2026',
+      empresa: '1000 — CIAFAL Matriz',
+      linha: 'L1',
+      centros: ['SEML1'],
+      filtros: {
+        empresa: '1000',
+        linha: 'L1',
+        centros: ['SEML1'],
+        mtart: 'FERT',
+        mes: '09',
+        ano: '2026',
+      },
+      linhas: [item],
+      responsavelNome: 'Analista PCP CIAFAL',
+      responsavelEmail: 'analista.pcp@ciafal.com.br',
+      dataHoraFormatada: '02/10/2026 às 15:30',
+    })
+
+    expect(formulario).toContain('DADOS IBGE — PRODUÇÃO')
+    expect(formulario).toContain('Competência:       09/2026')
+    expect(formulario).toContain('Empresa:           1000 — CIAFAL Matriz')
+    expect(formulario).toContain('WERKS (Empresa):')
+    expect(formulario).toContain('Total de Registros de Origem:')
+    expect(formulario).toContain('Volume Total Consolidado:')
+    expect(formulario).toContain('TB-GALV-50')
+    expect(formulario).toContain('455,900')
+    expect(formulario).toContain('Abrir Dados IBGE no HUB')
+
+    // Destinatários obtidos da coleção / grupos
+    const destinatarios = await dadosIbgeEnvioService.obterDestinatariosContabilidade()
+    expect(destinatarios.length).toBeGreaterThan(0)
+    expect(destinatarios.some((d) => d.email.includes('contabilidade'))).toBe(true)
+  })
+
+  // 15. Formatação de status pós-envio e reenvio
+  it('15. Exibição de "Enviado em dd/mm/aaaa às HH:mm" e reenvio no grid', () => {
+    const itemEnviado: LinhaConsolidadaIbge = {
+      id: 'row-env',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo Galvanizado',
+      competencia: '09/2026',
+      quantidade_produzida: 120,
+      unidade_medida: 't',
+      status_fechamento: 'Enviada à Contabilidade',
+      total_registros: 5,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+      data_envio_formatada: '02/10/2026 às 14:45',
+    }
+
+    render(
+      <DadosIbgeTable
+        linhas={[itemEnviado]}
+        onVisualizar={vi.fn()}
+        onEnviarIndividual={vi.fn()}
+        onEnviarSelecionados={vi.fn()}
+        linhasSelecionadasIds={[]}
+        onToggleLinha={vi.fn()}
+        onToggleTodos={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Enviado à Contabilidade')).toBeInTheDocument()
+    expect(screen.getByText('Enviado em 02/10/2026 às 14:45')).toBeInTheDocument()
   })
 })

@@ -32,6 +32,8 @@ import {
 import { DadosIbgeTotalizadores } from '@/components/production-control/DadosIbgeTotalizadores'
 import { DadosIbgeTable } from '@/components/production-control/DadosIbgeTable'
 import { DadosIbgeDetailModal } from '@/components/production-control/DadosIbgeDetailModal'
+import { EnviarDadosIbgeModal } from '@/components/production-control/EnviarDadosIbgeModal'
+import { dadosIbgeEnvioService } from '@/services/dados-ibge-envio-service'
 
 export const DadosIbgePage: React.FC = () => {
   const { toast } = useToast()
@@ -49,6 +51,9 @@ export const DadosIbgePage: React.FC = () => {
     contagem_por_status: { pendente: 0, conferida: 0, enviada: 0 },
   })
 
+  // Seleção de linhas no grid para envio em lote
+  const [linhasSelecionadasIds, setLinhasSelecionadasIds] = useState<string[]>([])
+
   // Opções para filtros em cascata
   const [opcoesEmpresas, setOpcoesEmpresas] = useState<EmpresaOpcao[]>([])
   const [opcoesLinhas, setOpcoesLinhas] = useState<LinhaOpcao[]>([])
@@ -58,6 +63,11 @@ export const DadosIbgePage: React.FC = () => {
   // Modal de Detalhamento
   const [selectedLinha, setSelectedLinha] = useState<LinhaConsolidadaIbge | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+
+  // Modal de Envio para a Contabilidade
+  const [modalEnvioOpen, setModalEnvioOpen] = useState(false)
+  const [linhasParaEnvio, setLinhasParaEnvio] = useState<LinhaConsolidadaIbge[]>([])
+  const [isEnviando, setIsEnviando] = useState(false)
 
   // Filtros ativos (Mês atual de competência padrão 09/2026 para os dados reais do projeto)
   const [filtros, setFiltros] = useState<DadosIbgeFiltros>({
@@ -365,6 +375,7 @@ export const DadosIbgePage: React.FC = () => {
   // Handlers de Filtros
   const handleAplicarFiltros = (novosFiltros: DadosIbgeFiltros) => {
     setFiltros(novosFiltros)
+    setLinhasSelecionadasIds([])
     executarConsolidacao(novosFiltros)
   }
 
@@ -378,7 +389,46 @@ export const DadosIbgePage: React.FC = () => {
       ano: '2026',
     }
     setFiltros(filtrosPadrao)
+    setLinhasSelecionadasIds([])
     executarConsolidacao(filtrosPadrao)
+  }
+
+  // Handlers de Seleção de Linhas (com auditoria)
+  const handleToggleLinha = (id: string) => {
+    setLinhasSelecionadasIds((prev) => {
+      const proximo = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+
+      dadosIbgeEnvioService.logAcaoAuditoria({
+        acao: 'SELECAO_LINHAS_IBGE',
+        descricao: `Seleção de linha ${id} alternada. Total selecionadas: ${proximo.length}.`,
+        detalhes: {
+          id_alterado: id,
+          total_selecionadas: proximo.length,
+          competencia: `${filtros.mes}/${filtros.ano}`,
+        },
+      })
+
+      return proximo
+    })
+  }
+
+  const handleToggleTodos = (selecionar: boolean, idsVisiveis: string[]) => {
+    if (selecionar) {
+      setLinhasSelecionadasIds((prev) => {
+        const uniao = Array.from(new Set([...prev, ...idsVisiveis]))
+        dadosIbgeEnvioService.logAcaoAuditoria({
+          acao: 'SELECAO_LINHAS_IBGE',
+          descricao: `Seleção em massa de todas as ${idsVisiveis.length} linhas visíveis.`,
+          detalhes: {
+            total_selecionadas: uniao.length,
+            competencia: `${filtros.mes}/${filtros.ano}`,
+          },
+        })
+        return uniao
+      })
+    } else {
+      setLinhasSelecionadasIds((prev) => prev.filter((id) => !idsVisiveis.includes(id)))
+    }
   }
 
   // Visualizar detalhamento da linha
@@ -400,6 +450,42 @@ export const DadosIbgePage: React.FC = () => {
         unidade: linha.unidade_medida,
       },
     })
+  }
+
+  // Disparar Envio Individual
+  const handleEnviarIndividual = (linha: LinhaConsolidadaIbge) => {
+    setLinhasParaEnvio([linha])
+    setModalEnvioOpen(true)
+  }
+
+  // Disparar Envio em Lote
+  const handleEnviarSelecionados = (linhasSelecionadas: LinhaConsolidadaIbge[]) => {
+    if (linhasSelecionadas.length === 0) return
+    setLinhasParaEnvio(linhasSelecionadas)
+    setModalEnvioOpen(true)
+  }
+
+  // Sucesso no Envio
+  const handleEnvioSucesso = () => {
+    toast({
+      title: 'Envio Realizado',
+      description: 'Dados IBGE enviados para a Contabilidade com sucesso.',
+      className: 'bg-emerald-600 text-white border-none',
+    })
+    setLinhasSelecionadasIds([])
+    // Atualiza os dados para refletir os status e horários gravados
+    executarConsolidacao(filtros)
+  }
+
+  // Erro no Envio
+  const handleEnvioErro = (mensagem: string) => {
+    toast({
+      title: 'Falha no Envio',
+      description: mensagem,
+      variant: 'destructive',
+    })
+    // Atualiza para refletir possíveis alterações no backend
+    executarConsolidacao(filtros)
   }
 
   return (
@@ -479,7 +565,17 @@ export const DadosIbgePage: React.FC = () => {
           <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       ) : (
-        <DadosIbgeTable linhas={linhas} onVisualizar={handleVisualizarLinha} carregando={loading} />
+        <DadosIbgeTable
+          linhas={linhas}
+          onVisualizar={handleVisualizarLinha}
+          onEnviarIndividual={handleEnviarIndividual}
+          onEnviarSelecionados={handleEnviarSelecionados}
+          linhasSelecionadasIds={linhasSelecionadasIds}
+          onToggleLinha={handleToggleLinha}
+          onToggleTodos={handleToggleTodos}
+          carregando={loading}
+          isEnviando={isEnviando}
+        />
       )}
 
       {/* 5. MODAL DE DETALHAMENTO ANALÍTICO */}
@@ -487,6 +583,16 @@ export const DadosIbgePage: React.FC = () => {
         open={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         item={selectedLinha}
+      />
+
+      {/* 6. MODAL DE CONFIRMAÇÃO DE ENVIO PARA CONTABILIDADE */}
+      <EnviarDadosIbgeModal
+        open={modalEnvioOpen}
+        onOpenChange={setModalEnvioOpen}
+        linhas={linhasParaEnvio}
+        filtros={filtros}
+        onSuccess={handleEnvioSucesso}
+        onError={handleEnvioErro}
       />
     </div>
   )

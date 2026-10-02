@@ -42,10 +42,73 @@ export interface LinhaConsolidadaIbge {
   competencia: string // ex: "09/2026"
   quantidade_produzida: number
   unidade_medida: string // ex: "t", "kg", "peça"
-  status_fechamento: 'Pendente' | 'Conferida' | 'Enviada à Contabilidade'
+  status_fechamento: 'Em processamento' | 'Pendente' | 'Conferida' | 'Enviada à Contabilidade'
   total_registros: number
   centros_envolvidos: string[]
   registros_rastreabilidade: RegistroRastreabilidadeIbge[]
+  // Metadados de Envio persistidos
+  data_envio?: string
+  data_envio_formatada?: string // "dd/mm/aaaa às HH:mm"
+  eh_reenvio?: boolean
+  data_reenvio_formatada?: string
+  enviado_por_nome?: string
+  ultimo_envio_id?: string
+}
+
+export interface DadosIbgeDestinatario {
+  id: string
+  grupo: string
+  nome: string
+  cargo?: string
+  email: string
+  ativo: boolean
+  created?: string
+  updated?: string
+}
+
+export interface DadosIbgeEnvioRegistro {
+  id: string
+  chave_consolidada: string
+  competencia: string
+  empresa_code: string
+  empresa_nome: string
+  linha_code: string
+  centro_code: string
+  tipo_material: string
+  material_code: string
+  material_descricao: string
+  quantidade_produzida: number
+  unidade_medida: string
+  total_registros: number
+  centros_envolvidos_json: string[]
+  filtros_utilizados_json: DadosIbgeFiltros
+  registros_resumo_json: Array<{
+    material_code: string
+    material_descricao: string
+    centro_code: string
+    tipo_material: string
+    quantidade_produzida: number
+    unidade_medida: string
+  }>
+  status: 'Em processamento' | 'Pendente' | 'Conferido' | 'Enviado à Contabilidade'
+  data_envio: string
+  data_envio_formatada: string
+  enviado_por_nome: string
+  enviado_por_email: string
+  enviado_por_id: string
+  eh_reenvio: boolean
+  data_reenvio_formatada?: string
+  envio_original_id?: string
+  grupo_destinatarios: string
+  destinatarios_json: Array<{ nome: string; email: string; cargo?: string }>
+  assunto: string
+  corpo_formulario: string
+  sucesso_envio_email: boolean
+  erro_detalhe?: string
+  anexo_pdf_status?: string
+  tipo_lote: boolean
+  created?: string
+  updated?: string
 }
 
 export interface TotalizadoresIbge {

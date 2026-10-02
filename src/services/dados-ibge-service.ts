@@ -440,6 +440,68 @@ class DadosIbgeService {
       },
     }
 
+    // 7. Enriquecer linhas com histórico de envios para a contabilidade se disponível
+    try {
+      const enviosRegistrados = await pb.collection('dados_ibge_envios').getFullList({
+        filter: `competencia = "${competenciaAlvo}"`,
+        sort: '-created',
+      })
+
+      if (enviosRegistrados && enviosRegistrados.length > 0) {
+        const mapaEnvios = new Map<string, any>()
+        for (const env of enviosRegistrados) {
+          if (!mapaEnvios.has(env.chave_consolidada)) {
+            mapaEnvios.set(env.chave_consolidada, env)
+          }
+        }
+
+        let novoEnviadaCount = 0
+        let novoConferidaCount = 0
+        let novoPendenteCount = 0
+
+        for (let i = 0; i < linhas.length; i++) {
+          const l = linhas[i]
+          const key = `${l.empresa_code}_${l.linha_code}_${l.centro_code}_${l.material_code}_${l.tipo_material}_${l.unidade_medida}_${l.competencia}`
+          const envio = mapaEnvios.get(key)
+          if (envio) {
+            linhas[i] = {
+              ...l,
+              status_fechamento:
+                envio.status === 'Enviado à Contabilidade'
+                  ? 'Enviada à Contabilidade'
+                  : envio.status,
+              data_envio: envio.data_envio,
+              data_envio_formatada: envio.data_envio_formatada,
+              eh_reenvio: envio.eh_reenvio,
+              data_reenvio_formatada: envio.data_reenvio_formatada,
+              enviado_por_nome: envio.enviado_por_nome,
+              ultimo_envio_id: envio.id,
+            }
+          }
+
+          if (linhas[i].status_fechamento === 'Enviada à Contabilidade') {
+            novoEnviadaCount++
+          } else if (linhas[i].status_fechamento === 'Conferida') {
+            novoConferidaCount++
+          } else {
+            novoPendenteCount++
+          }
+        }
+
+        totalizadores.contagem_por_status = {
+          pendente: novoPendenteCount,
+          conferida: novoConferidaCount,
+          enviada: novoEnviadaCount,
+        }
+
+        if (novoEnviadaCount === linhas.length && linhas.length > 0) {
+          totalizadores.status_geral = 'Enviada à Contabilidade'
+        }
+      }
+    } catch (_) {
+      // Falha silenciosa na leitura de envios não impede a exibição dos dados consolidados
+    }
+
     return {
       linhas,
       totalizadores,
