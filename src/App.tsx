@@ -641,6 +641,20 @@ const ProductionReferenceDocumentsPage = lazyWithRetry(
     })),
   'ProductionReferenceDocumentsPage',
 )
+const ChecklistFechamentoPage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/ChecklistFechamentoPage').then((m) => ({
+      default: m.default ?? m.ChecklistFechamentoPage,
+    })),
+  'ChecklistFechamentoPage',
+)
+const IndicadoresControlePage = lazyWithRetry(
+  () =>
+    import('@/pages/production-control/IndicadoresControlePage').then((m) => ({
+      default: m.default ?? m.IndicadoresControlePage,
+    })),
+  'IndicadoresControlePage',
+)
 const CogiPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
@@ -1726,6 +1740,26 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.production.view">
                           <ErrorBoundary moduleName="Documentos de Referência — Controle de Produção">
                             <ProductionReferenceDocumentsPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/controle-producao/checklist-fechamento"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ErrorBoundary moduleName="Check-list Fechamento — Controle de Produção">
+                            <ChecklistFechamentoPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/controle-producao/indicadores"
+                      element={
+                        <PermissionGuard permission="pcp.production.view">
+                          <ErrorBoundary moduleName="Indicadores do Controle de Produção">
+                            <IndicadoresControlePage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

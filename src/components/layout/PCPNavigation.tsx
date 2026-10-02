@@ -58,6 +58,7 @@ import {
   Gauge,
   CalendarOff,
   XCircle,
+  CheckSquare,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -934,6 +935,20 @@ const officialNavGroups: NavGroup[] = [
         title: 'Documentos de Referência',
         href: '/pcp/controle-producao/documentos-referencia',
         icon: FileText,
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Check-list Fechamento',
+        href: '/pcp/controle-producao/checklist-fechamento',
+        icon: CheckSquare,
+        badge: 'Novo',
+        permission: 'pcp.production.view',
+      },
+      {
+        title: 'Indicadores do Controle',
+        href: '/pcp/controle-producao/indicadores',
+        icon: BarChart3,
+        badge: 'Novo',
         permission: 'pcp.production.view',
       },
     ],
