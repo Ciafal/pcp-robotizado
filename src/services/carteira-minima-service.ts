@@ -115,13 +115,45 @@ export const carteiraMinimaService = {
       }
     }
 
+    let criticos = 0
+    let atencao = 0
+    let normais = 0
+    let diferencaTotal = 0
+
+    for (const it of itens) {
+      if (it.criticidade === 'Crítico') criticos++
+      else if (it.criticidade === 'Atenção') atencao++
+      else normais++
+      diferencaTotal += it.diferenca_minimo_tons || 0
+    }
+
     return {
       total_itens_abaixo_minimo: itens.length,
       carteira_total_tons: roundTons(carteiraTotal),
       estoque_livre_total_tons: roundTons(estoqueLivreTotal),
       saldo_total_produzir_tons: roundTons(saldoTotal),
       pedidos_afetados_count: pedidosSet.size,
+      totalItensAbaixoMinimo: itens.length,
+      totalItensCriticos: criticos,
+      totalItensAtencao: atencao,
+      totalItensNormais: normais,
+      totalSaldoProduzirTons: roundTons(saldoTotal),
+      totalDiferencaTons: roundTons(diferencaTotal),
     }
+  },
+
+  calcularKpis(itens: CarteiraMinimaItem[]): CarteiraMinimaTotalizadores {
+    return carteiraMinimaService.calcularTotalizadores(itens)
+  },
+
+  async obterItensCarteiraMinima(): Promise<CarteiraMinimaItem[]> {
+    const res = await carteiraMinimaService.sincronizarComSap()
+    return res.itens || []
+  },
+
+  async sincronizarDadosSap(): Promise<CarteiraMinimaItem[]> {
+    const res = await carteiraMinimaService.sincronizarComSap()
+    return res.itens || []
   },
 
   /**
@@ -433,9 +465,9 @@ export const carteiraMinimaService = {
         action: 'Geração de Relatório PDF — Carteira Mínima Não Atingida',
         reason: 'Emissão de relatório gerencial oficial da carteira mínima',
         status: 'Concluída',
-        filters: params.filtros as unknown as Record<string, unknown>,
         records_count: params.totalItens,
         technical_details: {
+          filters: params.filtros as unknown as Record<string, unknown>,
           totalCarteiraTons: params.totalCarteiraTons,
           totalSaldoTons: params.totalSaldoTons,
         },

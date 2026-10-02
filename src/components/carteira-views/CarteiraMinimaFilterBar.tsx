@@ -6,25 +6,47 @@ import { CarteiraMinimaFilterParams, CriticidadeCarteiraMinima } from '@/types/c
 
 interface CarteiraMinimaFilterBarProps {
   filtros: CarteiraMinimaFilterParams
-  aoMudarFiltro: (novos: Partial<CarteiraMinimaFilterParams>) => void
-  aoLimparFiltros: () => void
-  aoAtualizarSap: () => void
-  aoGerarPdf: () => void
+  aoMudarFiltro?: (novos: Partial<CarteiraMinimaFilterParams>) => void
+  onFiltroChange?: (filtros: any) => void
+  aoLimparFiltros?: () => void
+  onLimparFiltros?: () => void
+  aoAtualizarSap?: () => void
+  aoGerarPdf?: () => void
   carregandoAtualizacao?: boolean
-  totalFiltrado: number
-  totalOriginal: number
+  totalFiltrado?: number
+  totalOriginal?: number
+  totalItens?: number
+  totalFiltrados?: number
 }
 
 export const CarteiraMinimaFilterBar: React.FC<CarteiraMinimaFilterBarProps> = ({
   filtros,
-  aoMudarFiltro,
-  aoLimparFiltros,
-  aoAtualizarSap,
-  aoGerarPdf,
+  aoMudarFiltro: aoMudarFiltroProp,
+  onFiltroChange,
+  aoLimparFiltros: aoLimparFiltrosProp,
+  onLimparFiltros,
+  aoAtualizarSap = () => {},
+  aoGerarPdf = () => {},
   carregandoAtualizacao = false,
-  totalFiltrado,
-  totalOriginal,
+  totalFiltrado: totalFiltradoProp,
+  totalOriginal: totalOriginalProp,
+  totalItens,
+  totalFiltrados,
 }) => {
+  const aoMudarFiltro = (novos: Partial<CarteiraMinimaFilterParams>) => {
+    if (aoMudarFiltroProp) aoMudarFiltroProp(novos)
+    if (onFiltroChange) {
+      onFiltroChange((prev: any) => ({ ...prev, ...novos }))
+    }
+  }
+
+  const handleLimpar = () => {
+    if (aoLimparFiltrosProp) aoLimparFiltrosProp()
+    if (onLimparFiltros) onLimparFiltros()
+  }
+
+  const totalFiltrado = totalFiltradoProp ?? totalFiltrados ?? 0
+  const totalOriginal = totalOriginalProp ?? totalItens ?? 0
   const temFiltroAtivo = Boolean(
     filtros.empresa ||
     filtros.centro ||
@@ -59,7 +81,7 @@ export const CarteiraMinimaFilterBar: React.FC<CarteiraMinimaFilterBarProps> = (
               type="button"
               variant="ghost"
               size="sm"
-              onClick={aoLimparFiltros}
+              onClick={handleLimpar}
               className="text-xs h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100 gap-1.5"
             >
               <X className="w-3.5 h-3.5" />

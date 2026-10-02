@@ -4,7 +4,7 @@
  * HUB CIAFAL
  */
 
-export type CriticidadeCarteiraMinima = 'Crítico' | 'Atenção' | 'Monitoramento'
+export type CriticidadeCarteiraMinima = 'Crítico' | 'Atenção' | 'Monitoramento' | 'Normal'
 
 export interface CarteiraMinimaItem {
   id: string
@@ -31,25 +31,27 @@ export interface CarteiraMinimaItem {
   /** Data desejada pelo cliente (ISO ou YYYY-MM-DD) */
   data_desejada: string
   /** Tempo médio de ciclo do material/produto (minutos ou horas) */
-  tempo_ciclo_minutos: number
+  tempo_ciclo_minutos?: number
   /** Descrição legível do tempo de ciclo (ex: "45 min", "2.5 h") */
-  tempo_ciclo_formatado: string
+  tempo_ciclo_formatado?: string
   /** Centro produtivo SAP (ex: "1100", "SDPL") */
   centro: string
   /** Linha de produção (ex: "L1", "L2", "LAM-01") */
   linha?: string
   /** Empresa (ex: "CIAFAL", "SIDERCENTRO") */
-  empresa: string
+  empresa?: string
   /** Classificação quantitativa de criticidade */
   criticidade: CriticidadeCarteiraMinima
   /** Motivo quantitativo da criticidade */
-  motivo_criticidade: string
+  motivo_criticidade?: string
   /** Análise / Observação gerada pela IA (sempre objetiva, baseada em fatos reais) */
-  observacao_ia: string
+  observacao_ia?: string
   /** Diagnóstico aprofundado gerado pela IA para o modal de detalhamento */
   analise_detalhada_ia?: string
   /** Recomendações operacionais geradas pela IA */
   recomendacoes_ia?: string[]
+  cliente_nome?: string
+  percentual_atingido?: number
 }
 
 export interface CarteiraMinimaFilterParams {
@@ -58,6 +60,9 @@ export interface CarteiraMinimaFilterParams {
   linha?: string
   material?: string
   pedido?: string
+  busca?: string
+  periodoInicio?: string
+  periodoFim?: string
   dataDesejadaInicio?: string
   dataDesejadaFim?: string
   criticidade?: CriticidadeCarteiraMinima | 'TODAS'
@@ -72,10 +77,18 @@ export interface CarteiraMinimaTotalizadores {
   estoque_livre_total_tons: number
   /** Saldo total a produzir (t) */
   saldo_total_produzir_tons: number
-  /** Quantidade de pedidos afetados (pedidos distintos) */
+  /** Quantidade de pedidos afetados */
   pedidos_afetados_count: number
+  totalItensAbaixoMinimo?: number
+  totalItensCriticos?: number
+  totalItensAtencao?: number
+  totalItensNormais?: number
+  totalSaldoProduzirTons?: number
+  totalDiferencaTons?: number
 }
 
+export type CarteiraMinimaKpis = CarteiraMinimaTotalizadores
+export type CarteiraMinimaFiltros = CarteiraMinimaFilterParams
 export interface SapCarteiraMinimaSyncResult {
   success: boolean
   itens: CarteiraMinimaItem[]

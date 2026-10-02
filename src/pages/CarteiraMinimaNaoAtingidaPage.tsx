@@ -1,316 +1,394 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  AlertTriangle,
-  RefreshCw,
   FileText,
-  Clock,
+  RefreshCw,
+  Send,
+  AlertTriangle,
+  Layers,
   Sparkles,
   Info,
-  ServerOff,
   CheckCircle2,
-  Database,
-  Building2,
-  Layers,
-  ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  CarteiraMinimaItem,
-  CarteiraMinimaFilterParams,
-  CarteiraMinimaTotalizadores,
-} from '@/types/carteira-minima'
-import { carteiraMinimaService } from '@/services/carteira-minima-service'
 import { CarteiraMinimaCards } from '@/components/carteira-views/CarteiraMinimaCards'
 import { CarteiraMinimaFilterBar } from '@/components/carteira-views/CarteiraMinimaFilterBar'
 import { CarteiraMinimaTable } from '@/components/carteira-views/CarteiraMinimaTable'
 import { CarteiraMinimaDetailModal } from '@/components/carteira-views/CarteiraMinimaDetailModal'
 import { CarteiraMinimaPdfModal } from '@/components/carteira-views/CarteiraMinimaPdfModal'
-import { formatNumberPTBR } from '@/lib/number-format'
+import { EnviarComunicadoComercialModal } from '@/components/carteira-views/EnviarComunicadoComercialModal'
+import { HistoricoComunicadoItemModal } from '@/components/carteira-views/HistoricoComunicadoItemModal'
+import { VisualizadorComunicadoModal } from '@/components/carteira-views/VisualizadorComunicadoModal'
+import { carteiraMinimaService } from '@/services/carteira-minima-service'
+import { comercialComunicadoService } from '@/services/comercial-comunicado-service'
+import {
+  CarteiraMinimaFiltros,
+  CarteiraMinimaItem,
+  CarteiraMinimaKpis,
+} from '@/types/carteira-minima'
+import { EnvioComunicadoResult, ItemComercialStatus } from '@/types/comercial-comunicado'
 
 export const CarteiraMinimaNaoAtingidaPage: React.FC = () => {
-  // Estados principais
-  const [todosItens, setTodosItens] = useState<CarteiraMinimaItem[]>([])
+  const [itens, setItens] = useState<CarteiraMinimaItem[]>([])
+  const [filtros, setFiltros] = useState<CarteiraMinimaFiltros>({
+    busca: '',
+    centro: 'TODOS',
+    linha: 'TODAS',
+    criticidade: 'TODAS',
+    periodoInicio: '',
+    periodoFim: '',
+  })
   const [carregando, setCarregando] = useState<boolean>(true)
   const [atualizandoSap, setAtualizandoSap] = useState<boolean>(false)
-  const [erroSincronizacao, setErroSincronizacao] = useState<string | null>(null)
-  const [ultimaAtualizacaoSap, setUltimaAtualizacaoSap] = useState<string | null>(null)
-  const [isFcaPendente, setIsFcaPendente] = useState<boolean>(true)
+  const [ultimoUpdateSap, setUltimoUpdateSap] = useState<string>('')
+  const [itemSelecionadoDetalhe, setItemSelecionadoDetalhe] = useState<CarteiraMinimaItem | null>(
+    null,
+  )
+  const [modalPdfAberto, setModalPdfAberto] = useState<boolean>(false)
 
-  // Filtros
-  const [filtros, setFiltros] = useState<CarteiraMinimaFilterParams>({
-    criticidade: 'TODAS',
-  })
+  // 1. Seleção dos itens para comunicado ao Comercial
+  const [itensSelecionadosIds, setItensSelecionadosIds] = useState<string[]>([])
 
-  // Modais
-  const [itemSelecionado, setItemSelecionado] = useState<CarteiraMinimaItem | null>(null)
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false)
+  // 2. Modais do Envio ao Comercial, Histórico e Visualização
+  const [modalEnviarComercialAberto, setModalEnviarComercialAberto] = useState<boolean>(false)
+  const [itemHistoricoComercial, setItemHistoricoComercial] = useState<CarteiraMinimaItem | null>(
+    null,
+  )
+  const [comunicadoParaVisualizar, setComunicadoParaVisualizar] = useState<string | null>(null)
 
-  // Carregamento de dados inicial
-  const carregarDados = useCallback(async (isManualRefresh = false) => {
-    if (isManualRefresh) {
-      setAtualizandoSap(true)
-    } else {
-      setCarregando(true)
-    }
-    setErroSincronizacao(null)
+  // 3. Mapa de status comercial dos itens
+  const [mapaStatusComercial, setMapaStatusComercial] = useState<
+    Record<string, ItemComercialStatus>
+  >({})
 
+  // 4. Toast/Banner de confirmação do envio
+  const [notificacaoSucesso, setNotificacaoSucesso] = useState<string | null>(null)
+
+  const carregarDados = useCallback(async () => {
+    setCarregando(true)
     try {
-      const res = await carteiraMinimaService.sincronizarComSap()
+      const data = await carteiraMinimaService.obterItensCarteiraMinima()
+      setItens(data)
+      setUltimoUpdateSap(new Date().toLocaleTimeString('pt-BR'))
 
-      if (res.success) {
-        setTodosItens(res.itens)
-        setUltimaAtualizacaoSap(res.ultimaAtualizacaoSap)
-        setIsFcaPendente(!res.fcaConfigured)
-      } else {
-        // Falha no SAP: mantém últimos dados e exibe o aviso específico da especificação
-        setTodosItens(res.itens)
-        setUltimaAtualizacaoSap(res.ultimaAtualizacaoSap)
-        setErroSincronizacao(res.statusMessage)
-      }
-    } catch (err: any) {
+      // Carregar mapa de status comercial dos itens
+      const statusMap = await comercialComunicadoService.obterMapaStatusItens(data)
+      setMapaStatusComercial(statusMap)
+    } catch (err) {
       console.error('[CarteiraMinimaPage] Erro ao carregar dados:', err)
-      setErroSincronizacao(
-        'Não foi possível atualizar os dados do SAP. Os últimos dados disponíveis continuam sendo exibidos.',
-      )
     } finally {
       setCarregando(false)
-      setAtualizandoSap(false)
     }
   }, [])
 
   useEffect(() => {
-    carregarDados(false)
+    carregarDados()
   }, [carregarDados])
 
-  // Manipulação de Filtros
-  const handleMudarFiltro = useCallback((novos: Partial<CarteiraMinimaFilterParams>) => {
-    setFiltros((prev) => ({ ...prev, ...novos }))
-  }, [])
-
-  const handleLimparFiltros = useCallback(() => {
-    setFiltros({ criticidade: 'TODAS' })
-  }, [])
-
-  // Itens filtrados e Totalizadores recalculados
   const itensFiltrados = useMemo(() => {
-    return carteiraMinimaService.filtrarItens(todosItens, filtros)
-  }, [todosItens, filtros])
+    return itens.filter((it) => {
+      if (filtros.busca) {
+        const termo = filtros.busca.toLowerCase()
+        const mat = (it.material || '').toLowerCase()
+        const desc = (it.descricao_material || '').toLowerCase()
+        const ped = (it.pedido_formatado || `${it.pedido_venda}/${it.item_pedido}`).toLowerCase()
+        if (!mat.includes(termo) && !desc.includes(termo) && !ped.includes(termo)) {
+          return false
+        }
+      }
+      if (filtros.centro && filtros.centro !== 'TODOS' && it.centro !== filtros.centro) {
+        return false
+      }
+      if (filtros.linha && filtros.linha !== 'TODAS' && it.linha !== filtros.linha) {
+        return false
+      }
+      if (
+        filtros.criticidade &&
+        filtros.criticidade !== 'TODAS' &&
+        it.criticidade !== filtros.criticidade
+      ) {
+        return false
+      }
+      if (filtros.periodoInicio && it.data_desejada && it.data_desejada < filtros.periodoInicio) {
+        return false
+      }
+      if (filtros.periodoFim && it.data_desejada && it.data_desejada > filtros.periodoFim) {
+        return false
+      }
+      return true
+    })
+  }, [itens, filtros])
 
-  const totalizadores = useMemo(() => {
-    return carteiraMinimaService.calcularTotalizadores(itensFiltrados)
+  // Lista dos objetos de itens selecionados conforme a seleção atual
+  const itensSelecionadosObjetos = useMemo(() => {
+    return itensFiltrados.filter((it) => itensSelecionadosIds.includes(it.id))
+  }, [itensFiltrados, itensSelecionadosIds])
+
+  const kpis: CarteiraMinimaKpis = useMemo(() => {
+    return carteiraMinimaService.calcularKpis(itensFiltrados)
   }, [itensFiltrados])
 
-  // Abertura de Relatório PDF com auditoria
-  const handleAbrirPdf = useCallback(() => {
-    carteiraMinimaService.registrarAuditoriaPdf({
-      filtros,
-      totalItens: itensFiltrados.length,
-      totalCarteiraTons: totalizadores.carteira_total_tons,
-      totalSaldoTons: totalizadores.saldo_total_produzir_tons,
+  const handleToggleSelecionarItem = (id: string) => {
+    setItensSelecionadosIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id)
+      } else {
+        return [...prev, id]
+      }
     })
-    setIsPdfModalOpen(true)
-  }, [filtros, itensFiltrados.length, totalizadores])
+  }
 
-  // Data formatada para "Última atualização SAP: dd/mm/aaaa HH:mm"
-  const ultimaAtualizacaoFormatada = useMemo(() => {
-    if (!ultimaAtualizacaoSap) return null
-    try {
-      const d = new Date(ultimaAtualizacaoSap)
-      const dataStr = d.toLocaleDateString('pt-BR')
-      const horaStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      return `${dataStr} ${horaStr}`
-    } catch {
-      return null
+  const handleToggleSelecionarTodos = (selecionarTodos: boolean) => {
+    if (selecionarTodos) {
+      const todosIds = itensFiltrados.map((it) => it.id)
+      setItensSelecionadosIds(todosIds)
+    } else {
+      setItensSelecionadosIds([])
     }
-  }, [ultimaAtualizacaoSap])
+  }
+
+  const handleAtualizarSap = async () => {
+    setAtualizandoSap(true)
+    try {
+      const data = await carteiraMinimaService.sincronizarDadosSap()
+      setItens(data)
+      setUltimoUpdateSap(new Date().toLocaleTimeString('pt-BR'))
+      const statusMap = await comercialComunicadoService.obterMapaStatusItens(data)
+      setMapaStatusComercial(statusMap)
+    } catch (err) {
+      console.error('[CarteiraMinimaPage] Erro ao sincronizar SAP:', err)
+    } finally {
+      setAtualizandoSap(false)
+    }
+  }
+
+  // Ao concluir envio de comunicado com sucesso
+  const handleSucessoEnvioComunicado = async (resultado: EnvioComunicadoResult) => {
+    setNotificacaoSucesso(
+      `Comunicado ${resultado.numeroSequencial} enviado com sucesso: ${resultado.mensagemRetorno}`,
+    )
+    // Limpar seleção
+    setItensSelecionadosIds([])
+    // Atualizar tabela e status
+    await carregarDados()
+    setTimeout(() => {
+      setNotificacaoSucesso(null)
+    }, 8000)
+  }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1700px] mx-auto min-h-screen">
-      {/* 1. CABEÇALHO DA PÁGINA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+    <div className="min-h-screen bg-slate-50/60 p-4 sm:p-6 lg:p-8 space-y-6">
+      {/* CABEÇALHO PRINCIPAL DA TELA */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold tracking-widest text-[#004C97] uppercase">
-              PCP Robotizado • Análise de Carteira
+            <span className="text-[11px] font-bold tracking-wider text-[#004C97] uppercase">
+              PCP Robotizado &bull; Análise de Carteira
             </span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#004C97] border border-blue-200">
-              <Sparkles className="w-3 h-3 text-[#004C97]" />
-              IA + SAP FCA
-            </span>
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-[#004C97] border-blue-200 font-semibold text-[10px]"
+            >
+              Lote Mínimo &bull; Regra Saldo = Carteira − Estoque livre
+            </Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Carteira Mínima Não Atingida
+            Carteira mínima não atingida
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-4xl">
-            Identificação automática de materiais com saldo a produzir inferior ao lote mínimo
-            industrial de produção ou laminação. Cálculo estrito:{' '}
-            <strong>Saldo a Produzir = Carteira − Estoque Livre</strong>.
+          <p className="text-xs sm:text-sm text-slate-600 max-w-3xl">
+            Monitoramento preventivo de itens com saldo a produzir inferior à carteira mínima de
+            produção/laminação cadastrada. Identifique gargalos e comunique o Comercial para
+            avaliação de complementação ou reprogramação.
           </p>
         </div>
 
-        {/* Status de Conexão SAP e Botão de Ação */}
-        <div className="flex flex-col items-start sm:items-end gap-1.5 shrink-0">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="text-xs font-mono font-medium bg-slate-50 text-slate-700 border-slate-300"
-            >
-              <Database className="w-3.5 h-3.5 mr-1 text-[#004C97]" />
-              {ultimaAtualizacaoFormatada
-                ? `Última atualização SAP: ${ultimaAtualizacaoFormatada}`
-                : 'Última atualização SAP: aguardando sincronização'}
-            </Badge>
-          </div>
+        {/* GRUPO DE BOTÕES DE AÇÃO: DISPOSIÇÃO ORGANIZADA E RESPONSIVA
+            [Gerar relatório PDF] [Atualizar dados SAP] [Enviar p/ Comercial (qtd)]
+            Disposição flex-wrap limpa sem quebra feia, mantendo o alinhamento em celulares e telas pequenas. */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModalPdfAberto(true)}
+            className="text-xs font-semibold h-9 px-3.5 border-slate-300 hover:bg-slate-100 text-slate-700 shadow-2xs gap-1.5 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            <span>Gerar relatório PDF</span>
+          </Button>
 
-          <span className="text-[11px] text-slate-500">
-            Interface RFC: <code>Z_RFC_CARTEIRA_MINIMA_PROD</code> (FCA SAP)
-          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAtualizarSap}
+            disabled={atualizandoSap || carregando}
+            className="text-xs font-semibold h-9 px-3.5 border-slate-300 hover:bg-slate-100 text-slate-700 shadow-2xs gap-1.5 transition-colors"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${atualizandoSap ? 'animate-spin text-[#004C97]' : 'text-slate-500'}`}
+            />
+            <span>{atualizandoSap ? 'Atualizando...' : 'Atualizar dados SAP'}</span>
+          </Button>
+
+          {/* Botão Enviar p/ Comercial com contagem dinâmica e desabilitado sem seleção */}
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            disabled={itensSelecionadosIds.length === 0}
+            onClick={() => setModalEnviarComercialAberto(true)}
+            title={
+              itensSelecionadosIds.length === 0
+                ? 'Selecione pelo menos 1 item na tabela para enviar comunicado ao Comercial'
+                : 'Abrir popup de revisão e envio do comunicado ao Comercial'
+            }
+            className={`text-xs font-semibold h-9 px-4 gap-1.5 shadow-2xs transition-all ${
+              itensSelecionadosIds.length > 0
+                ? 'bg-[#004C97] hover:bg-[#003d7a] text-white'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>
+              Enviar p/ Comercial
+              {itensSelecionadosIds.length > 0 ? ` (${itensSelecionadosIds.length})` : ''}
+            </span>
+          </Button>
         </div>
       </div>
 
-      {/* 2. AVISO DE ERRO DE SINCRONIZAÇÃO (Se a consulta falhar, mantém dados e exibe aviso exigido) */}
-      {erroSincronizacao && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3 text-xs text-amber-900 shadow-2xs">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <span className="font-bold block text-sm">Aviso de Sincronização SAP</span>
-            <p>{erroSincronizacao}</p>
-          </div>
-        </div>
-      )}
-
-      {/* 3. AVISO TÉCNICO DE INTEGRAÇÃO PENDENTE (Se a RFC ainda não estiver ativa na ponta SAP PRD) */}
-      {isFcaPendente && todosItens.length === 0 && !carregando && (
-        <div className="p-5 bg-blue-50/80 border border-blue-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-blue-950 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-blue-100 text-[#004C97] rounded-lg shrink-0 mt-0.5">
-              <Info className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <span className="font-bold text-sm block text-blue-900">
-                Integração SAP FCA Catalogada • Interface RFC Z_RFC_CARTEIRA_MINIMA_PROD
-              </span>
-              <p className="text-blue-800 leading-relaxed max-w-3xl">
-                O submódulo está plenamente conectado ao catálogo de integrações e ao serviço de
-                auditoria. Para receber a carga direta em tempo real, a credencial{' '}
-                <code>SAP_FCA_BASE_URL</code> deve ser apontada pela equipe de infraestrutura.
-                Conforme diretriz de governança, nenhum dado fictício é injetado para simular
-                operação.
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0 flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => carregarDados(true)}
-              disabled={atualizandoSap}
-              className="text-xs h-8 bg-white border-blue-300 text-blue-900 hover:bg-blue-100 gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${atualizandoSap ? 'animate-spin' : ''}`} />
-              Verificar Conexão SAP
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* 4. TOTALIZADORES COMPACTOS (Cards padronizados com formatação pt-BR) */}
-      <CarteiraMinimaCards
-        totalizadores={totalizadores}
-        carregando={carregando || atualizandoSap}
-      />
-
-      {/* 5. BARRA DE FILTROS E AÇÕES */}
-      <CarteiraMinimaFilterBar
-        filtros={filtros}
-        aoMudarFiltro={handleMudarFiltro}
-        aoLimparFiltros={handleLimparFiltros}
-        aoAtualizarSap={() => carregarDados(true)}
-        aoGerarPdf={handleAbrirPdf}
-        carregandoAtualizacao={atualizandoSap}
-        totalFiltrado={itensFiltrados.length}
-        totalOriginal={todosItens.length}
-      />
-
-      {/* 6. CONTEÚDO PRINCIPAL: SKELETON / TABELA / ESTADO VAZIO */}
-      {carregando ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-6 w-32" />
-          </div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        </div>
-      ) : itensFiltrados.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-4 shadow-2xs">
-          <div className="mx-auto w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-800">
-              {todosItens.length === 0
-                ? 'Nenhum dado de produção encontrado para os filtros selecionados.'
-                : 'Nenhum material abaixo da carteira mínima com os filtros ativos.'}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-lg mx-auto">
-              {todosItens.length === 0
-                ? 'Aguardando sincronização de ordens com o SAP ou verifique os parâmetros de filtro.'
-                : 'Tente ajustar os filtros de Linha, Centro, Material ou Período para expandir os resultados.'}
+      {/* BANNER DE SUCESSO PÓS-ENVIO DO COMUNICADO */}
+      {notificacaoSucesso && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-emerald-900 shadow-2xs animate-in fade-in slide-in-from-top duration-300">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 flex-1">
+            <span className="font-bold text-xs block">Comunicado emitido com sucesso!</span>
+            <p className="text-xs text-emerald-800 leading-relaxed font-medium">
+              {notificacaoSucesso}
             </p>
           </div>
-          <div className="pt-2 flex items-center justify-center gap-3">
-            {todosItens.length > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleLimparFiltros}
-                className="text-xs"
-              >
-                Limpar Filtros
-              </Button>
+          <button
+            type="button"
+            onClick={() => setNotificacaoSucesso(null)}
+            className="text-xs text-emerald-700 hover:text-emerald-950 font-semibold"
+          >
+            Dispensar
+          </button>
+        </div>
+      )}
+
+      {/* KPI CARDS EXECUTIVOS */}
+      <CarteiraMinimaCards kpis={kpis} />
+
+      {/* BARRA DE FILTROS */}
+      <CarteiraMinimaFilterBar
+        filtros={filtros}
+        onFiltroChange={setFiltros}
+        onLimparFiltros={() =>
+          setFiltros({
+            busca: '',
+            centro: 'TODOS',
+            linha: 'TODAS',
+            criticidade: 'TODAS',
+            periodoInicio: '',
+            periodoFim: '',
+          })
+        }
+        totalItens={itens.length}
+        totalFiltrados={itensFiltrados.length}
+      />
+
+      {/* SEÇÃO DA TABELA PRINCIPAL COM CHECKBOX E STATUS COMERCIAL */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-[#004C97]" />
+              Itens com Carteira Mínima Não Atingida ({itensFiltrados.length})
+            </h2>
+            {itensSelecionadosIds.length > 0 && (
+              <Badge className="bg-[#004C97] text-white text-[10px] font-bold">
+                {itensSelecionadosIds.length} selecionado(s)
+              </Badge>
             )}
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => carregarDados(true)}
-              className="text-xs bg-[#004C97] hover:bg-[#003d7a] text-white gap-1.5"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Atualizar dados SAP
-            </Button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            {ultimoUpdateSap && (
+              <span>
+                Última leitura SAP: <strong>{ultimoUpdateSap}</strong>
+              </span>
+            )}
           </div>
         </div>
-      ) : (
+
         <CarteiraMinimaTable
-          itens={itensFiltrados}
-          aoSelecionarItem={(it) => setItemSelecionado(it)}
-          itemSelecionadoId={itemSelecionado?.id}
+          itens={itens}
+          itensFiltrados={itensFiltrados}
+          itensSelecionadosIds={itensSelecionadosIds}
+          onToggleSelecionarItem={handleToggleSelecionarItem}
+          onToggleSelecionarTodos={handleToggleSelecionarTodos}
+          onVisualizarItem={(item) => setItemSelecionadoDetalhe(item)}
+          onVerHistoricoComercial={(item) => setItemHistoricoComercial(item)}
+          mapaStatusComercial={mapaStatusComercial}
+        />
+      </div>
+
+      {/* MODAL 1: REVISÃO E ENVIO DO COMUNICADO AO COMERCIAL */}
+      {modalEnviarComercialAberto && (
+        <EnviarComunicadoComercialModal
+          isOpen={modalEnviarComercialAberto}
+          onClose={() => setModalEnviarComercialAberto(false)}
+          itens={itensSelecionadosObjetos}
+          onSucessoEnvio={(resultado) => {
+            setModalEnviarComercialAberto(false)
+            handleSucessoEnvioComunicado(resultado)
+          }}
         />
       )}
 
-      {/* 7. MODAIS DE DETALHE E PDF */}
-      <CarteiraMinimaDetailModal
-        item={itemSelecionado}
-        isOpen={Boolean(itemSelecionado)}
-        onClose={() => setItemSelecionado(null)}
-      />
+      {/* MODAL 2: HISTÓRICO COMERCIAL DO ITEM (Ao clicar no status da tabela) */}
+      {itemHistoricoComercial && (
+        <HistoricoComunicadoItemModal
+          isOpen={Boolean(itemHistoricoComercial)}
+          onClose={() => setItemHistoricoComercial(null)}
+          item={itemHistoricoComercial}
+          onVerComunicadoCompleto={(seq) => {
+            setItemHistoricoComercial(null)
+            setComunicadoParaVisualizar(seq)
+          }}
+        />
+      )}
 
+      {/* MODAL 3: VISUALIZADOR DE COMUNICADO NA ÍNTEGRA (Comercial / HUB / Meu Dia) */}
+      {comunicadoParaVisualizar && (
+        <VisualizadorComunicadoModal
+          isOpen={Boolean(comunicadoParaVisualizar)}
+          onClose={() => setComunicadoParaVisualizar(null)}
+          identificador={comunicadoParaVisualizar}
+          onVisualizarNoPcp={(itensIds) => {
+            setComunicadoParaVisualizar(null)
+            setItensSelecionadosIds(itensIds)
+          }}
+        />
+      )}
+
+      {/* MODAL 4: DETALHES DO ITEM */}
+      {itemSelecionadoDetalhe && (
+        <CarteiraMinimaDetailModal
+          isOpen={Boolean(itemSelecionadoDetalhe)}
+          onClose={() => setItemSelecionadoDetalhe(null)}
+          item={itemSelecionadoDetalhe}
+        />
+      )}
+
+      {/* MODAL 5: RELATÓRIO PDF */}
       <CarteiraMinimaPdfModal
-        isOpen={isPdfModalOpen}
-        onClose={() => setIsPdfModalOpen(false)}
+        isOpen={modalPdfAberto}
+        onClose={() => setModalPdfAberto(false)}
         itens={itensFiltrados}
-        filtros={filtros}
-        totalizadores={totalizadores}
-        ultimaAtualizacaoSap={ultimaAtualizacaoSap}
+        kpis={kpis}
       />
     </div>
   )

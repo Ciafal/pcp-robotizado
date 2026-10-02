@@ -231,6 +231,7 @@ export interface TechnicalDetails {
     errorMessage?: string
     stack?: string
   }
+  [key: string]: any
 }
 
 export interface PCPAuditLogRecord {

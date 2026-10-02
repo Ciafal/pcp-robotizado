@@ -24,9 +24,10 @@ interface CarteiraMinimaPdfModalProps {
   isOpen: boolean
   onClose: () => void
   itens: CarteiraMinimaItem[]
-  filtros: CarteiraMinimaFilterParams
-  totalizadores: CarteiraMinimaTotalizadores
-  ultimaAtualizacaoSap: string | null
+  filtros?: CarteiraMinimaFilterParams
+  totalizadores?: CarteiraMinimaTotalizadores
+  kpis?: CarteiraMinimaTotalizadores
+  ultimaAtualizacaoSap?: string | null
 }
 
 function formatarDataPtBr(dataIso?: string): string {
@@ -42,11 +43,21 @@ export const CarteiraMinimaPdfModal: React.FC<CarteiraMinimaPdfModalProps> = ({
   isOpen,
   onClose,
   itens,
-  filtros,
-  totalizadores,
-  ultimaAtualizacaoSap,
+  filtros = {},
+  totalizadores: totalizadoresProp,
+  kpis,
+  ultimaAtualizacaoSap = null,
 }) => {
   if (!isOpen) return null
+
+  const totalizadores = totalizadoresProp ||
+    kpis || {
+      total_itens_abaixo_minimo: itens.length,
+      carteira_total_tons: 0,
+      estoque_livre_total_tons: 0,
+      saldo_total_produzir_tons: 0,
+      pedidos_afetados_count: 0,
+    }
 
   const handlePrint = () => {
     window.print()

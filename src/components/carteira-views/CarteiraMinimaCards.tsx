@@ -4,14 +4,24 @@ import { CarteiraMinimaTotalizadores } from '@/types/carteira-minima'
 import { formatNumberPTBR } from '@/lib/number-format'
 
 interface CarteiraMinimaCardsProps {
-  totalizadores: CarteiraMinimaTotalizadores
+  totalizadores?: CarteiraMinimaTotalizadores
+  kpis?: CarteiraMinimaTotalizadores
   carregando?: boolean
 }
 
 export const CarteiraMinimaCards: React.FC<CarteiraMinimaCardsProps> = ({
-  totalizadores,
+  totalizadores: totalizadoresProp,
+  kpis,
   carregando = false,
 }) => {
+  const totalizadores = totalizadoresProp ||
+    kpis || {
+      total_itens_abaixo_minimo: 0,
+      carteira_total_tons: 0,
+      estoque_livre_total_tons: 0,
+      saldo_total_produzir_tons: 0,
+      pedidos_afetados_count: 0,
+    }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 w-full">
       {/* CARD 1: Itens abaixo da carteira mínima */}
