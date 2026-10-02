@@ -6,7 +6,7 @@ import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
 import { OeeDrilldownProvider } from '@/contexts/OeeDrilldownContext'
 import { OeeDrilldownModal } from '@/components/common/OeeDrilldownModal'
 import { PermissionGuard } from '@/components/auth/PermissionGuard'
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { ErrorBoundary, RouteErrorBoundary } from '@/components/common/ErrorBoundary'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
 // Loading Fallback visual discreto
@@ -1765,9 +1765,9 @@ export const App: React.FC = () => {
                       path="/pcp/controle-producao/dados-ibge"
                       element={
                         <PermissionGuard permission="pcp.production.view">
-                          <ErrorBoundary moduleName="Dados IBGE — Controle de Produção">
+                          <RouteErrorBoundary moduleName="Dados IBGE — Controle de Produção">
                             <DadosIbgePage />
-                          </ErrorBoundary>
+                          </RouteErrorBoundary>
                         </PermissionGuard>
                       }
                     />

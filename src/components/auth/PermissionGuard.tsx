@@ -95,20 +95,28 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('gestao-materia-prima'),
   )
 
-  // Rota canônica de Check-list de Fechamento e Dados IBGE (/pcp/controle-producao/dados-ibge)
-  const isChecklistFechamentoRoute = Boolean(
-    currentPathname === '/pcp/controle-producao/checklist-fechamento' ||
-    currentPathname.startsWith('/pcp/controle-producao/checklist-fechamento') ||
+  // Rota canônica de Dados IBGE (/pcp/controle-producao/dados-ibge)
+  const isDadosIbgeRoute = Boolean(
     currentPathname === '/pcp/controle-producao/dados-ibge' ||
     currentPathname.startsWith('/pcp/controle-producao/dados-ibge') ||
-    currentPathname.includes('checklist-fechamento') ||
+    currentPathname === '/dados-ibge' ||
+    currentPathname.startsWith('/dados-ibge') ||
     currentPathname.includes('dados-ibge') ||
+    currentHash.includes('dados-ibge') ||
+    windowPath.includes('dados-ibge') ||
+    windowPath.includes('controle-producao/dados-ibge'),
+  )
+
+  // Rota canônica de Check-list de Fechamento (/pcp/controle-producao/checklist-fechamento)
+  const isChecklistFechamentoRoute = Boolean(
+    isDadosIbgeRoute ||
+    currentPathname === '/pcp/controle-producao/checklist-fechamento' ||
+    currentPathname.startsWith('/pcp/controle-producao/checklist-fechamento') ||
+    currentPathname.includes('checklist-fechamento') ||
     currentPathname.includes('fechamento') ||
     currentHash.includes('checklist-fechamento') ||
-    currentHash.includes('dados-ibge') ||
     currentHash.includes('fechamento') ||
     windowPath.includes('checklist-fechamento') ||
-    windowPath.includes('dados-ibge') ||
     windowPath.includes('controle-producao/checklist-fechamento'),
   )
 
@@ -216,6 +224,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   )
 
   if (
+    isDadosIbgeRoute ||
     isInventarioMpRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
@@ -259,6 +268,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('/pedidos-cancelados')
 
   if (
+    isDadosIbgeRoute ||
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
@@ -347,6 +357,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // 3) Rotas de Análise de Carteira, Programação de Testes, Inventário MP e Entregas PCP
   // Devem SEMPRE renderizar imediatamente o componente filho sem depender de authStore/timeout de fallback
   if (
+    isDadosIbgeRoute ||
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
@@ -520,6 +531,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.weekly_schedule.view' ||
       permission === 'pcp.production.view' ||
       permission === 'pcp.mp_opt.view' ||
+      isDadosIbgeRoute ||
       isHierarquiaRoute ||
       isGestaoMpRoute ||
       isChecklistFechamentoRoute ||
@@ -544,6 +556,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     user ||
     hasValidAuthStore ||
     isDirectOperationalView ||
+    isDadosIbgeRoute ||
     isChecklistFechamentoRoute ||
     isCadastrosOrMasterDataEarly ||
     isCadastrosOrMasterData,
@@ -625,6 +638,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/principal') ||
     currentPathname.startsWith('/pcp-robotizado') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+    isDadosIbgeRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||

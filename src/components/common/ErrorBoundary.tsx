@@ -17,6 +17,7 @@ interface State {
   errorInfo: ErrorInfo | null
 }
 
+export { ErrorBoundary as RouteErrorBoundary }
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,

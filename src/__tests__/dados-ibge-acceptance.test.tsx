@@ -19,6 +19,7 @@ import { dadosIbgeService } from '@/services/dados-ibge-service'
 import { DadosIbgeFilterBar } from '@/components/production-control/DadosIbgeFilterBar'
 import { DadosIbgeTotalizadores } from '@/components/production-control/DadosIbgeTotalizadores'
 import { DadosIbgeDetailModal } from '@/components/production-control/DadosIbgeDetailModal'
+import { DadosIbgeTable } from '@/components/production-control/DadosIbgeTable'
 import { DadosIbgePage } from '@/pages/production-control/DadosIbgePage'
 import { LinhaConsolidadaIbge, TotalizadoresIbge } from '@/types/dados-ibge'
 
@@ -65,10 +66,10 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
 
     render(<DadosIbgeTotalizadores totalizadores={totalizadoresMisto} />)
 
-    // Deve exibir 125,500 t e 400,000 PEÇA discriminados, jamais 525,500
+    // Com múltiplas unidades incompatíveis, exibe a contagem de unidades distintas e permite detalhar
+    expect(screen.getByText(/2 unidades distintas/i)).toBeInTheDocument()
     expect(screen.getByText(/125,500/)).toBeInTheDocument()
     expect(screen.getByText(/400,000/)).toBeInTheDocument()
-    expect(screen.getByText(/Discriminado por unidade/i)).toBeInTheDocument()
     expect(screen.queryByText(/525,500/)).not.toBeInTheDocument()
   })
 
@@ -256,5 +257,99 @@ describe('Peça 1 — Dados IBGE (Controle de Produção)', () => {
         'Consolidação mensal dos dados de produção para fechamento e envio à Contabilidade.',
       ),
     ).toBeInTheDocument()
+  })
+
+  // 8. PermissionGuard não bloqueia rota Dados IBGE
+  it('8. PermissionGuard não bloqueia nem trava a rota /pcp/controle-producao/dados-ibge em cold start', async () => {
+    const { PermissionGuard } = await import('@/components/auth/PermissionGuard')
+    render(
+      <MemoryRouter initialEntries={['/pcp/controle-producao/dados-ibge']}>
+        <PermissionGuard permission="pcp.production.view">
+          <div data-testid="dados-ibge-route-content">Dados IBGE Renderizado com Sucesso</div>
+        </PermissionGuard>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('dados-ibge-route-content')).toBeInTheDocument()
+  })
+
+  // 9. Card Centros Selecionados: Todos vs Parcial
+  it('9. Card Centros Selecionados exibe "Todos" e subtítulo "Todos os centros da linha" quando count = 0', () => {
+    const totalizadoresTodos: TotalizadoresIbge = {
+      centros_selecionados_count: 0,
+      materiais_distintos_count: 1,
+      quantidades_por_unidade: { t: 455.9 },
+      total_registros: 10,
+      status_geral: 'Conferida',
+      contagem_por_status: { pendente: 0, conferida: 1, enviada: 0 },
+    }
+
+    render(<DadosIbgeTotalizadores totalizadores={totalizadoresTodos} />)
+    expect(screen.getByText('Todos')).toBeInTheDocument()
+    expect(screen.getByText('Todos os centros da linha')).toBeInTheDocument()
+    expect(screen.getByText(/455,900 t/)).toBeInTheDocument()
+  })
+
+  it('9.1 Card Centros Selecionados exibe número e "centros selecionados" quando contagem parcial', () => {
+    const totalizadoresParcial: TotalizadoresIbge = {
+      centros_selecionados_count: 3,
+      materiais_distintos_count: 5,
+      quantidades_por_unidade: { t: 1250.75 },
+      total_registros: 25,
+      status_geral: 'Pendente',
+      contagem_por_status: { pendente: 3, conferida: 2, enviada: 0 },
+    }
+
+    render(<DadosIbgeTotalizadores totalizadores={totalizadoresParcial} />)
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('centros selecionados')).toBeInTheDocument()
+    expect(screen.getByText(/1.250,750 t/)).toBeInTheDocument()
+    expect(screen.getByText('3 pendência(s)')).toBeInTheDocument()
+  })
+
+  // 10. Tabela Consolidada com todas as 11 colunas acessíveis e botão Visualizar
+  it('10. Grid Consolidado exibe as 11 colunas e botão Visualizar acessível sem corte', () => {
+    const item: LinhaConsolidadaIbge = {
+      id: 'row-1',
+      empresa_code: '1000',
+      empresa_nome: 'CIAFAL Matriz',
+      linha_code: 'L1',
+      linha_nome: 'Laminação 1',
+      centro_code: 'SEML1',
+      centro_nome: 'SEML1',
+      tipo_material: 'FERT',
+      tipo_material_descricao: 'Produto Acabado',
+      material_code: 'TB-GALV-50',
+      material_descricao: 'Tubo Galvanizado 50mm Industrial',
+      competencia: '09/2026',
+      quantidade_produzida: 455.9,
+      unidade_medida: 't',
+      status_fechamento: 'Conferida',
+      total_registros: 10,
+      centros_envolvidos: ['SEML1'],
+      registros_rastreabilidade: [],
+    }
+
+    const handleVisualizar = vi.fn()
+    render(<DadosIbgeTable linhas={[item]} onVisualizar={handleVisualizar} />)
+
+    // Verifica que as 11 colunas estão no cabeçalho
+    expect(screen.getByText('Empresa')).toBeInTheDocument()
+    expect(screen.getByText('Linha')).toBeInTheDocument()
+    expect(screen.getByText('Centro')).toBeInTheDocument()
+    expect(screen.getByText('Tipo material')).toBeInTheDocument()
+    expect(screen.getByText('Material')).toBeInTheDocument()
+    expect(screen.getByText('Descrição')).toBeInTheDocument()
+    expect(screen.getByText('Período')).toBeInTheDocument()
+    expect(screen.getByText('Quantidade Produzida')).toBeInTheDocument()
+    expect(screen.getByText('UM')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('Ações')).toBeInTheDocument()
+
+    // Botão visualizar clicável
+    const btnVisualizar = screen.getAllByRole('button', { name: /visualizar/i })[0]
+    expect(btnVisualizar).toBeInTheDocument()
+    fireEvent.click(btnVisualizar)
+    expect(handleVisualizar).toHaveBeenCalledWith(item)
   })
 })
