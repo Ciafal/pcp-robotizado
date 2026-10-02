@@ -32,6 +32,17 @@ import { SolicitarInventarioModal } from '@/components/production-control/Solici
 import { RastrearDivergenciaModal } from '@/components/production-control/RastrearDivergenciaModal'
 import { AtividadeMestreModal } from '@/components/production-control/AtividadeMestreModal'
 import { RelatorioPendenciasModal } from '@/components/production-control/RelatorioPendenciasModal'
+import { FormularioFinalFechamentoModal } from '@/components/production-control/FormularioFinalFechamentoModal'
+import { EnviarFechamentoModal } from '@/components/production-control/EnviarFechamentoModal'
+import { AnaliseFechamentoIaModal } from '@/components/production-control/AnaliseFechamentoIaModal'
+import { GestaoDestinatariosModal } from '@/components/production-control/GestaoDestinatariosModal'
+import { fechamentoAiService } from '@/services/fechamento-ai-service'
+import { fechamentoEnvioService } from '@/services/fechamento-envio-service'
+import {
+  FechamentoAnaliseIaResultado,
+  FechamentoComunicacao,
+  DestinatarioGrupo,
+} from '@/types/checklist-fechamento'
 import { authService } from '@/services/pcp-auth'
 
 export const ChecklistFechamentoPage: React.FC = () => {
@@ -54,6 +65,19 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const [selectedModelo, setSelectedModelo] = useState<ChecklistAtividadeModelo | null>(null)
   const [relatorioModalOpen, setRelatorioModalOpen] = useState(false)
 
+  // Modais da Etapa 2
+  const [formularioModalOpen, setFormularioModalOpen] = useState(false)
+  const [enviarModalOpen, setEnviarModalOpen] = useState(false)
+  const [grupoEnvioModal, setGrupoEnvioModal] = useState<DestinatarioGrupo>('Contabilidade')
+  const [analiseIaModalOpen, setAnaliseIaModalOpen] = useState(false)
+  const [destinatariosModalOpen, setDestinatariosModalOpen] = useState(false)
+
+  // Estados de IA e Comunicação
+  const [analiseIa, setAnaliseIa] = useState<FechamentoAnaliseIaResultado | null>(null)
+  const [carregandoIa, setCarregandoIa] = useState(false)
+  const [comunicacoes, setComunicacoes] = useState<FechamentoComunicacao[]>([])
+  const [podeAdministrar, setPodeAdministrar] = useState(true)
+
   // Permissões
   const [canEdit, setCanEdit] = useState(true)
 
@@ -68,8 +92,12 @@ export const ChecklistFechamentoPage: React.FC = () => {
       const role = perms.user.role?.toUpperCase() || ''
       const isViewer = role === 'EXECUTIVE_VIEWER' || role === 'OPERATOR'
       setCanEdit(!isViewer)
+      setPodeAdministrar(
+        role.includes('ADMIN') || role.includes('GERENTE') || role.includes('MANAGER'),
+      )
     } catch (_) {
       setCanEdit(true)
+      setPodeAdministrar(true)
     }
   }
 
@@ -100,6 +128,12 @@ export const ChecklistFechamentoPage: React.FC = () => {
       const res = await checklistFechamentoService.obterOuGerarExecucao(comp)
       setExecucao(res.execucao)
       setItens(res.itens)
+
+      // Carregar comunicações da competência
+      if (res.execucao?.id) {
+        const comms = await fechamentoEnvioService.listarComunicacoes(res.execucao.id)
+        setComunicacoes(comms)
+      }
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar competência',
@@ -284,6 +318,97 @@ export const ChecklistFechamentoPage: React.FC = () => {
     }
   }
 
+  // Análise com IA
+  const handleExecutarAnaliseIa = async () => {
+    if (!execucao) return
+    setCarregandoIa(true)
+    setAnaliseIaModalOpen(true)
+    try {
+      const ocorrencias = await checklistFechamentoService.listarOcorrencias(execucao.id)
+      const resIa = await fechamentoAiService.gerarAnaliseFechamento(execucao, itens, ocorrencias)
+      setAnaliseIa(resIa)
+      // Se não havia resumo salvo, salvar o inicial gerado
+      if (!execucao.analise_ia_resumo) {
+        await checklistFechamentoService.salvarResumoIaExecucao(
+          execucao.id,
+          resIa.texto_resumo_editavel,
+        )
+        setExecucao((prev) =>
+          prev ? { ...prev, analise_ia_resumo: resIa.texto_resumo_editavel } : prev,
+        )
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro na Análise de IA',
+        description: err.message || 'Falha ao processar análise do fechamento.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCarregandoIa(false)
+    }
+  }
+
+  // Abrir Formulário de Fechamento (Gera análise IA prévia se ainda não existir)
+  const handleAbrirFormulario = async () => {
+    if (!analiseIa && execucao) {
+      handleExecutarAnaliseIa()
+    }
+    setFormularioModalOpen(true)
+  }
+
+  // Confirmar Fechamento (Bloqueia se houver obrigatória pendente ou com erro)
+  const handleConfirmarFechamento = async () => {
+    if (!execucao) return
+    try {
+      const atualizada = await checklistFechamentoService.confirmarFechamento(execucao.id)
+      setExecucao(atualizada)
+      toast({
+        title: 'Fechamento Confirmado com Sucesso',
+        description: `Competência ${atualizada.competencia} formalmente fechada e auditada em pcp_audit_logs.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Bloqueio de Fechamento',
+        description: err.message,
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
+
+  // Salvar Resumo Executivo editado
+  const handleSalvarResumoIa = async (texto: string) => {
+    if (!execucao) return
+    try {
+      await checklistFechamentoService.salvarResumoIaExecucao(execucao.id, texto)
+      setExecucao((prev) => (prev ? { ...prev, analise_ia_resumo: texto } : prev))
+      toast({
+        title: 'Resumo executivo salvo',
+        description: 'Texto atualizado com sucesso para os comunicados.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar resumo',
+        description: err.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Abrir Envio de E-mail para Grupo
+  const handleAbrirEnvioEmail = (grupo: DestinatarioGrupo) => {
+    setGrupoEnvioModal(grupo)
+    setEnviarModalOpen(true)
+  }
+
+  // Recarregar comunicações após envio
+  const handleEnvioSucesso = async () => {
+    if (execucao?.id) {
+      const comms = await fechamentoEnvioService.listarComunicacoes(execucao.id)
+      setComunicacoes(comms)
+    }
+  }
+
   return (
     <div className="space-y-4 p-1 sm:p-2">
       {/* 1. Header Oficial do Check-list */}
@@ -301,6 +426,9 @@ export const ChecklistFechamentoPage: React.FC = () => {
             filtroAtivo={filtroStatusRapido}
             onFilterStatus={(st) => setFiltroStatusRapido(st)}
             isGenerating={isGenerating}
+            onAbrirFormulario={handleAbrirFormulario}
+            onAbrirAnaliseIa={handleExecutarAnaliseIa}
+            onAbrirDestinatarios={() => setDestinatariosModalOpen(true)}
           />
         )}
       </ErrorBoundary>
@@ -365,6 +493,44 @@ export const ChecklistFechamentoPage: React.FC = () => {
         onClose={() => setRelatorioModalOpen(false)}
         execucao={execucao}
         itens={itens}
+      />
+
+      {/* 4. Modais da Etapa 2: Formulário Final, Envio, IA e Destinatários */}
+      <FormularioFinalFechamentoModal
+        open={formularioModalOpen}
+        onClose={() => setFormularioModalOpen(false)}
+        execucao={execucao}
+        itens={itens}
+        analiseIa={analiseIa}
+        onConfirmarFechamento={handleConfirmarFechamento}
+        onAbrirEnvioEmail={handleAbrirEnvioEmail}
+        onSalvarResumoIa={handleSalvarResumoIa}
+        comunicacoes={comunicacoes}
+        podeConfirmar={canEdit}
+      />
+
+      <EnviarFechamentoModal
+        open={enviarModalOpen}
+        onClose={() => setEnviarModalOpen(false)}
+        execucao={execucao}
+        grupoInicial={grupoEnvioModal}
+        resumoIaTexto={execucao?.analise_ia_resumo || analiseIa?.texto_resumo_editavel || ''}
+        onEnvioSucesso={handleEnvioSucesso}
+      />
+
+      <AnaliseFechamentoIaModal
+        open={analiseIaModalOpen}
+        onClose={() => setAnaliseIaModalOpen(false)}
+        execucao={execucao}
+        analiseIa={analiseIa}
+        carregando={carregandoIa}
+        onAbrirFormulario={() => setFormularioModalOpen(true)}
+      />
+
+      <GestaoDestinatariosModal
+        open={destinatariosModalOpen}
+        onClose={() => setDestinatariosModalOpen(false)}
+        podeAdministrar={podeAdministrar}
       />
     </div>
   )

@@ -75,8 +75,71 @@ export interface ChecklistFechamentoExecucao {
   ordens_pendentes: number
   snapshot_regras?: any
   observacoes_gerais?: string
+  analise_ia_resumo?: string
   created?: string
   updated?: string
+}
+
+export type DestinatarioGrupo = 'Contabilidade' | 'Produção' | 'PCP' | 'Diretoria' | 'Outro'
+
+export interface FechamentoDestinatario {
+  id: string
+  grupo: DestinatarioGrupo
+  nome: string
+  usuario?: string
+  email: string
+  ativo: boolean
+  created?: string
+  updated?: string
+}
+
+export type FechamentoComunicacaoStatus = 'Rascunho' | 'Enviado' | 'Erro'
+
+export interface FechamentoComunicacao {
+  id: string
+  execucao_id: string
+  competencia: string
+  assunto: string
+  corpo_mensagem: string
+  destinatarios_json: { nome: string; email: string; grupo?: string }[]
+  grupo_destinatario?: string
+  data_envio: string
+  enviado_por: string
+  remetente_email?: string
+  status: FechamentoComunicacaoStatus
+  sucesso?: boolean
+  erro_detalhe?: string
+  eh_reenvio?: boolean
+  comunicacao_original_id?: string
+  created?: string
+  updated?: string
+}
+
+export interface FechamentoAnaliseIaResultado {
+  resumo_executivo: {
+    situacao_geral: string
+    principais_pendencias: string[]
+    principais_erros: string[]
+    risco_prazo: 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO'
+    atividades_criticas: string[]
+  }
+  analise_ordens: {
+    ordens_nao_encerradas: number
+    fechamento_divergente: string[]
+    desvios_rendimento: string[]
+    possiveis_apontamentos_faltantes: string[]
+    movimentos_inconsistentes: string[]
+    reincidencias: string[]
+  }
+  analise_historica: {
+    erros_recorrentes: string[]
+    depositos_mais_divergencias: string[]
+    linhas_fechamento_mais_demorado: string[]
+    tipos_erro_repetidos: string[]
+    atividades_frequentemente_fora_prazo: string[]
+  }
+  proximas_acoes_sugeridas: string[]
+  texto_resumo_editavel: string
 }
 
 export interface ChecklistFechamentoItem {

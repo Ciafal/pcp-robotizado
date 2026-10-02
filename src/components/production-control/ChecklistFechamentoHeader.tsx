@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Ban,
   FileText,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +38,9 @@ interface Props {
   onFilterStatus?: (status: 'TODOS' | 'OK' | 'ERRO' | 'PENDENTE') => void
   filtroAtivo?: string
   isGenerating?: boolean
+  onAbrirFormulario?: () => void
+  onAbrirAnaliseIa?: () => void
+  onAbrirDestinatarios?: () => void
 }
 
 export const ChecklistFechamentoHeader: React.FC<Props> = ({
@@ -49,6 +53,9 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
   onFilterStatus,
   filtroAtivo = 'TODOS',
   isGenerating = false,
+  onAbrirFormulario,
+  onAbrirAnaliseIa,
+  onAbrirDestinatarios,
 }) => {
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -177,6 +184,44 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
             <RotateCcw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
             {execucao ? 'Recarregar / Atualizar' : 'Gerar Competência'}
           </Button>
+
+          {onAbrirAnaliseIa && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAbrirAnaliseIa}
+              className="h-8 text-xs font-semibold border-amber-300 bg-amber-50/80 text-amber-950 hover:bg-amber-100 gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              Analisar fechamento com IA
+            </Button>
+          )}
+
+          {onAbrirFormulario && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onAbrirFormulario}
+              className="h-8 text-xs font-semibold bg-[#004C97] hover:bg-[#003870] text-white gap-1.5 shadow-2xs"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Gerar formulário de fechamento
+            </Button>
+          )}
+
+          {onAbrirDestinatarios && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAbrirDestinatarios}
+              className="h-8 text-xs font-medium border-slate-300 text-slate-700 hover:bg-slate-50 gap-1.5"
+            >
+              <Users className="w-3.5 h-3.5 text-slate-500" />
+              Destinatários
+            </Button>
+          )}
         </div>
       </div>
 

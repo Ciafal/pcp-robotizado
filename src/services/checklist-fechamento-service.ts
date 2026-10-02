@@ -662,6 +662,69 @@ class ChecklistFechamentoService {
   }
 
   /**
+   * Confirmação formal do fechamento mensal:
+   * Regra estrita: Se houver qualquer atividade obrigatória em Erro ou Pendente, bloqueia.
+   * Mensagem: "Existem atividades obrigatórias ainda não concluídas. Regularize as pendências antes de confirmar o fechamento."
+   * Quando todos obrigatórios OK, altera status_geral para 'Fechado' com log imutável.
+   */
+  async confirmarFechamento(execucaoId: string): Promise<ChecklistFechamentoExecucao> {
+    const itens = await pb.collection('checklist_fechamento_itens').getFullList({
+      filter: `execucao_id="${execucaoId}"`,
+    })
+
+    const obrigatoriasNaoConcluidas = itens.filter(
+      (it: any) => it.obrigatoria && it.status !== 'OK',
+    )
+
+    if (obrigatoriasNaoConcluidas.length > 0) {
+      throw new Error(
+        'Existem atividades obrigatórias ainda não concluídas. Regularize as pendências antes de confirmar o fechamento.',
+      )
+    }
+
+    const execAnterior: any = await pb
+      .collection('checklist_fechamento_execucoes')
+      .getOne(execucaoId)
+    const user = pb.authStore.record
+    const usuarioNome = user?.name || user?.email || 'Controle de Produção'
+
+    const payload = {
+      status_geral: 'Fechado',
+      data_fechamento: new Date().toISOString(),
+      fechado_por: usuarioNome,
+    }
+
+    const atualizada = await pb
+      .collection('checklist_fechamento_execucoes')
+      .update(execucaoId, payload)
+
+    await this.logAuditoria({
+      acao: 'CONFIRMAR_FECHAMENTO',
+      descricao: `Fechamento confirmado para a competência ${execAnterior.competencia} por ${usuarioNome}. Todos os itens obrigatórios validados.`,
+      competencia: execAnterior.competencia,
+      valor_anterior: execAnterior.status_geral,
+      valor_novo: 'Fechado',
+      detalhes: {
+        total_atividades: itens.length,
+        total_ok: itens.filter((i: any) => i.status === 'OK').length,
+        fechado_por: usuarioNome,
+        data_fechamento: payload.data_fechamento,
+      },
+    })
+
+    return atualizada as any
+  }
+
+  /**
+   * Salva o resumo executivo gerado/editado pela IA na execução
+   */
+  async salvarResumoIaExecucao(execucaoId: string, textoResumo: string): Promise<void> {
+    await pb.collection('checklist_fechamento_execucoes').update(execucaoId, {
+      analise_ia_resumo: textoResumo,
+    })
+  }
+
+  /**
    * Gera lista de competências disponíveis
    */
   async listarCompetencias(): Promise<string[]> {
