@@ -992,6 +992,90 @@ export const lineMasterService = {
     }
   },
 
+  /**
+   * Consulta de Histórico abrangente do Centro no Servidor PCP via hook /check-center-usage
+   */
+  async checkCenterUsageOnServer(params: { centerId?: string; centerCode?: string }): Promise<{
+    centerId?: string
+    centerCode?: string
+    centerName?: string
+    hasHistory: boolean
+    historyCount: number
+    details: Array<{
+      entity: string
+      label: string
+      count: number
+      sampleId?: string
+    }>
+    canRemove: boolean
+    message: string
+  }> {
+    const query = new URLSearchParams()
+    if (params.centerId) query.set('centerId', params.centerId)
+    if (params.centerCode) query.set('centerCode', params.centerCode)
+
+    return pb.send(`/backend/v1/pcp/hierarchy/check-center-usage?${query.toString()}`, {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Remoção de vínculo de Centro sem histórico via hook /remove-center
+   */
+  async removeCenterViaHook(params: {
+    lineId?: string
+    lineCode?: string
+    centerId?: string
+    centerCode?: string
+    centerName?: string
+    dependencyId?: string
+    company?: string
+    motivo?: string
+  }): Promise<{ success: boolean; message: string; operation: string }> {
+    return pb.send('/backend/v1/pcp/hierarchy/remove-center', {
+      method: 'POST',
+      body: params,
+    })
+  },
+
+  /**
+   * Desativação de Centro na hierarquia (mantendo cadastro e integridade histórica) via hook /deactivate-center
+   */
+  async deactivateCenterInHierarchy(params: {
+    lineId?: string
+    lineCode?: string
+    centerId?: string
+    centerCode?: string
+    centerName?: string
+    dependencyId?: string
+    company?: string
+    motivo?: string
+  }): Promise<{ success: boolean; message: string; operation: string; historyCount?: number }> {
+    return pb.send('/backend/v1/pcp/hierarchy/deactivate-center', {
+      method: 'POST',
+      body: params,
+    })
+  },
+
+  /**
+   * Reativação de Centro na hierarquia via hook /reactivate-center
+   */
+  async reactivateCenterInHierarchy(params: {
+    lineId?: string
+    lineCode?: string
+    centerId?: string
+    centerCode?: string
+    centerName?: string
+    dependencyId?: string
+    company?: string
+    motivo?: string
+  }): Promise<{ success: boolean; message: string; operation: string }> {
+    return pb.send('/backend/v1/pcp/hierarchy/reactivate-center', {
+      method: 'POST',
+      body: params,
+    })
+  },
+
   async removeCenterFromLineSequence(dependencyId: string): Promise<void> {
     await pb.collection('line_sequencing_dependencies').delete(dependencyId)
 

@@ -340,6 +340,7 @@ export interface LineSequencingDependency {
   intermediate_buffer_unit?: string
   notes?: string
   active: boolean
+  status?: 'ATIVO' | 'INATIVO' | string
   created?: string
   updated?: string
   expand?: {

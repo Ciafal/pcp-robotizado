@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase'
 
-const url = import.meta.env.VITE_POCKETBASE_URL || '/'
-export const pb = new PocketBase(url)
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
+pb.autoCancellation(false)
 
-// Regra permanente do projeto: SEMPRE export nomeado { pb } + export default pb
+export { pb }
 export default pb
