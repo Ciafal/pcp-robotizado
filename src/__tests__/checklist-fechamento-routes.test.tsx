@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import App from '@/App'
 
 // Mock dos serviços para isolamento
@@ -100,6 +101,19 @@ describe('Check-list Fechamento — Rota e Interface (Etapa 1)', () => {
     // Botões funcionais da Etapa 1
     expect(screen.getByText('Gerar Relatório de Pendências')).toBeInTheDocument()
     expect(screen.getByText('+ Nova Atividade')).toBeInTheDocument()
+  })
+
+  it('1.1 PermissionGuard não bloqueia nem trava a rota /pcp/controle-producao/checklist-fechamento', async () => {
+    const { PermissionGuard } = await import('@/components/auth/PermissionGuard')
+    render(
+      <MemoryRouter initialEntries={['/pcp/controle-producao/checklist-fechamento']}>
+        <PermissionGuard permission="pcp.production.view">
+          <div data-testid="checklist-route-content">Checklist Acessível Sem Bloqueio</div>
+        </PermissionGuard>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('checklist-route-content')).toBeInTheDocument()
   })
 
   it('2. Acessa a rota /pcp/controle-producao/indicadores e renderiza os indicadores do controle', async () => {

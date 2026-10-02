@@ -830,3 +830,8 @@ class ChecklistFechamentoService {
 
 export const checklistFechamentoService = new ChecklistFechamentoService()
 export default checklistFechamentoService
+
+export * from './gestor-linha-service'
+export * from './ajuste-operacional-service'
+export * from './ajuste-operacional-ia-service'
+export * from './relatorio-pendencias-service'

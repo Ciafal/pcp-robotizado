@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
+import { pb } from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import {
   ChecklistAtividadeModelo,

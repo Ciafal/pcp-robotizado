@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   FileText,
   Printer,
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ChecklistFechamentoExecucao, ChecklistFechamentoItem } from '@/types/checklist-fechamento'
+import {
+  relatorioPendenciasService,
+  RelatorioPendenciasEnriquecidoResult,
+} from '@/services/relatorio-pendencias-service'
 
 interface Props {
   open: boolean
@@ -27,6 +32,25 @@ interface Props {
 }
 
 export const RelatorioPendenciasModal: React.FC<Props> = ({ open, onClose, execucao, itens }) => {
+  const [relatorioEnriquecido, setRelatorioEnriquecido] =
+    useState<RelatorioPendenciasEnriquecidoResult | null>(null)
+  const [carregando, setCarregando] = useState(false)
+
+  useEffect(() => {
+    if (open && itens.length > 0) {
+      setCarregando(true)
+      relatorioPendenciasService
+        .gerarRelatorioPendencias(itens, execucao?.competencia || '')
+        .then((res) => {
+          setRelatorioEnriquecido(res)
+        })
+        .catch(() => {
+          setRelatorioEnriquecido(null)
+        })
+        .finally(() => setCarregando(false))
+    }
+  }, [open, itens, execucao?.competencia])
+
   const itensPendentesOuErro = itens.filter((i) => i.status === 'ERRO' || i.status === 'PENDENTE')
 
   const handlePrint = () => {
@@ -132,6 +156,76 @@ export const RelatorioPendenciasModal: React.FC<Props> = ({ open, onClose, execu
                   <p className="text-slate-600 leading-relaxed text-[11px]">
                     {item.descricao_detalhada}
                   </p>
+
+                  {/* Bloco Enriquecido: Ajuste Operacional e Meu Dia */}
+                  {(() => {
+                    const info = relatorioEnriquecido?.itensEnriquecidos.find(
+                      (x) => x.item.id === item.id,
+                    )
+                    if (!info) return null
+
+                    return (
+                      <div className="p-2 mt-1 rounded bg-slate-50 border border-slate-200/70 text-[10px] space-y-1">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-700">
+                              Ajuste Operacional:
+                            </span>
+                            {info.possuiAjuste ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-blue-50 text-blue-700 border-blue-200 text-[9px] font-mono font-bold"
+                              >
+                                {info.ajusteNumero}
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-medium"
+                              >
+                                Ajuste Operacional não aberto
+                              </Badge>
+                            )}
+                          </div>
+
+                          {info.possuiAjuste && (
+                            <div className="flex items-center gap-2">
+                              {info.prioridade && (
+                                <Badge
+                                  className={`text-[9px] ${
+                                    info.prioridade === 'Crítica' || info.prioridade === 'Alta'
+                                      ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  Prioridade: {info.prioridade}
+                                </Badge>
+                              )}
+                              <Badge
+                                variant="outline"
+                                className="bg-purple-50 text-purple-700 border-purple-200 text-[9px]"
+                              >
+                                Meu Dia: {info.statusMeuDia}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+
+                        {info.possuiAjuste && (
+                          <div className="flex flex-wrap items-center gap-3 text-slate-600 pt-0.5">
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-slate-400" />
+                              Resp: <strong>{info.responsavelNome || '-'}</strong>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              Prazo: <strong>{info.prazoFormatado || '-'}</strong>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
                     <span>

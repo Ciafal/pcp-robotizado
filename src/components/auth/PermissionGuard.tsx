@@ -95,6 +95,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('gestao-materia-prima'),
   )
 
+  // Rota canônica de Check-list de Fechamento (/pcp/controle-producao/checklist-fechamento e aliases de Controle de Produção)
+  const isChecklistFechamentoRoute = Boolean(
+    currentPathname === '/pcp/controle-producao/checklist-fechamento' ||
+    currentPathname.startsWith('/pcp/controle-producao/checklist-fechamento') ||
+    currentPathname.includes('checklist-fechamento') ||
+    currentPathname.includes('fechamento') ||
+    currentHash.includes('checklist-fechamento') ||
+    currentHash.includes('fechamento') ||
+    windowPath.includes('checklist-fechamento') ||
+    windowPath.includes('controle-producao/checklist-fechamento'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -203,6 +215,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isEntregasRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
+    isChecklistFechamentoRoute ||
     isCadastrosOrMasterDataEarly
   ) {
     return <>{children}</>
@@ -246,6 +259,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isEntregasRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
+    isChecklistFechamentoRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.mp_opt.view' ||
@@ -503,6 +517,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.mp_opt.view' ||
       isHierarquiaRoute ||
       isGestaoMpRoute ||
+      isChecklistFechamentoRoute ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
       currentPathname.startsWith('/pcp/cadastros') ||
@@ -524,6 +539,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     user ||
     hasValidAuthStore ||
     isDirectOperationalView ||
+    isChecklistFechamentoRoute ||
     isCadastrosOrMasterDataEarly ||
     isCadastrosOrMasterData,
   )
@@ -606,6 +622,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
+    isChecklistFechamentoRoute ||
     currentPathname === '/pcp/cadastros/hierarquia' ||
     currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
     currentPathname.startsWith('/pcp/cadastros') ||

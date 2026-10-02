@@ -267,6 +267,8 @@ export interface ChecklistFeriado {
   ativo: boolean
 }
 
+export * from './ajuste-operacional'
+
 export interface PrazoFechamentoInfo {
   segundoDiaUtil: string // DD/MM/AAAA
   segundoDiaUtilIso: string // YYYY-MM-DD
