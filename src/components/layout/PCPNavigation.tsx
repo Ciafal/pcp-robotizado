@@ -59,6 +59,7 @@ import {
   CalendarOff,
   XCircle,
   CheckSquare,
+  Scale,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -521,6 +522,13 @@ const navSections: NavSectionItem[] = [
         title: 'Pedidos Cancelados',
         href: '/pcp/analise-carteira/cancelados',
         icon: XCircle,
+        badge: 'Novo',
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: 'Carteira mínima não atingida',
+        href: '/pcp/analise-carteira/carteira-minima-nao-atingida',
+        icon: Scale,
         badge: 'Novo',
         permission: 'pcp.carteira.view',
       },
@@ -1047,6 +1055,13 @@ export const officialNavGroups: NavGroup[] = [
         badge: 'Novo',
         permission: 'pcp.carteira.view',
       },
+      {
+        title: 'Carteira mínima não atingida',
+        href: '/pcp/analise-carteira/carteira-minima-nao-atingida',
+        icon: Scale,
+        badge: 'Novo',
+        permission: 'pcp.carteira.view',
+      },
     ],
   },
   {
@@ -1549,33 +1564,41 @@ export const PCPSidebar: React.FC = () => {
                                                     ? location.pathname ===
                                                       '/pcp/analise-carteira/kpis'
                                                     : item.href ===
-                                                        '/pcp/analise-carteira/cancelados'
+                                                        '/pcp/analise-carteira/carteira-minima-nao-atingida'
                                                       ? location.pathname ===
-                                                          '/pcp/analise-carteira/cancelados' ||
+                                                          '/pcp/analise-carteira/carteira-minima-nao-atingida' ||
                                                         location.pathname.startsWith(
-                                                          '/pcp/pedidos-cancelados',
+                                                          '/pcp/analise-carteira/carteira-minima',
                                                         )
-                                                      : item.href === '/pcp/motivos-justificativas'
-                                                        ? location.pathname.startsWith(
-                                                            '/pcp/motivos',
-                                                          ) ||
+                                                      : item.href ===
+                                                          '/pcp/analise-carteira/cancelados'
+                                                        ? location.pathname ===
+                                                            '/pcp/analise-carteira/cancelados' ||
                                                           location.pathname.startsWith(
-                                                            '/pcp/justificativas',
+                                                            '/pcp/pedidos-cancelados',
                                                           )
-                                                        : item.href === '/pcp/admin/acessos'
+                                                        : item.href ===
+                                                            '/pcp/motivos-justificativas'
                                                           ? location.pathname.startsWith(
-                                                              '/pcp/admin',
+                                                              '/pcp/motivos',
                                                             ) ||
                                                             location.pathname.startsWith(
-                                                              '/pcp/configuracoes',
+                                                              '/pcp/justificativas',
                                                             )
-                                                          : group.groupTitle === 'CADASTROS'
-                                                            ? location.pathname === item.href
-                                                            : location.pathname === item.href ||
-                                                              (item.href.includes('?') &&
-                                                                location.pathname +
-                                                                  location.search ===
-                                                                  item.href)
+                                                          : item.href === '/pcp/admin/acessos'
+                                                            ? location.pathname.startsWith(
+                                                                '/pcp/admin',
+                                                              ) ||
+                                                              location.pathname.startsWith(
+                                                                '/pcp/configuracoes',
+                                                              )
+                                                            : group.groupTitle === 'CADASTROS'
+                                                              ? location.pathname === item.href
+                                                              : location.pathname === item.href ||
+                                                                (item.href.includes('?') &&
+                                                                  location.pathname +
+                                                                    location.search ===
+                                                                    item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 

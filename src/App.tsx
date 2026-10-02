@@ -125,6 +125,13 @@ const PedidosCanceladosPage = lazyWithRetry(
     })),
   'PedidosCanceladosPage',
 )
+const CarteiraMinimaNaoAtingidaPage = lazyWithRetry(
+  () =>
+    import('@/pages/CarteiraMinimaNaoAtingidaPage').then((m) => ({
+      default: m.default ?? m.CarteiraMinimaNaoAtingidaPage,
+    })),
+  'CarteiraMinimaNaoAtingidaPage',
+)
 const KpisCarteiraPage = lazyWithRetry(
   () =>
     import('@/pages/KpisCarteiraPage').then((m) => ({
@@ -1001,6 +1008,28 @@ export const App: React.FC = () => {
                         <PermissionGuard permission="pcp.carteira.view">
                           <PedidosCanceladosPage />
                         </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/analise-carteira/carteira-minima-nao-atingida"
+                      element={
+                        <PermissionGuard permission="pcp.carteira.view">
+                          <RouteErrorBoundary moduleName="Carteira Mínima Não Atingida">
+                            <CarteiraMinimaNaoAtingidaPage />
+                          </RouteErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/analise-carteira/carteira-minima"
+                      element={
+                        <Navigate to="/pcp/analise-carteira/carteira-minima-nao-atingida" replace />
+                      }
+                    />
+                    <Route
+                      path="/carteira-minima-nao-atingida"
+                      element={
+                        <Navigate to="/pcp/analise-carteira/carteira-minima-nao-atingida" replace />
                       }
                     />
                     <Route
