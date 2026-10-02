@@ -26,9 +26,16 @@ import {
   checklistFechamentoService,
   avaliarStatusPrazo,
 } from '@/services/checklist-fechamento-service'
-import { ChecklistFechamentoHeader } from '@/components/production-control/ChecklistFechamentoHeader'
+import { useSearchParams } from 'react-router-dom'
+import {
+  ChecklistFechamentoHeader,
+  ChecklistFiltrosAvancados,
+} from '@/components/production-control/ChecklistFechamentoHeader'
 import { ChecklistFechamentoLista } from '@/components/production-control/ChecklistFechamentoLista'
 import { ChecklistItemDetailModal } from '@/components/production-control/ChecklistItemDetailModal'
+import { AjusteOperacionalModal } from '@/components/production-control/AjusteOperacionalModal'
+import { AjusteOperacional } from '@/types/ajuste-operacional'
+import { ajusteOperacionalService } from '@/services/ajuste-operacional-service'
 import { SolicitarInventarioModal } from '@/components/production-control/SolicitarInventarioModal'
 import { RastrearDivergenciaModal } from '@/components/production-control/RastrearDivergenciaModal'
 import { AtividadeMestreModal } from '@/components/production-control/AtividadeMestreModal'
@@ -48,6 +55,7 @@ import { authService } from '@/services/pcp-auth'
 
 export const ChecklistFechamentoPage: React.FC = () => {
   const { toast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [loading, setLoading] = useState(true)
   const [competencias, setCompetencias] = useState<string[]>([])
@@ -57,9 +65,24 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [filtroStatusRapido, setFiltroStatusRapido] = useState<string>('TODOS')
 
+  // Filtros Avançados em Cascata (Etapa 2: Empresa -> Linha -> Centro, Ano, Mês, Datas)
+  const [filtros, setFiltros] = useState<ChecklistFiltrosAvancados>({
+    empresa: 'TODAS',
+    linha: 'TODAS',
+    centro: 'TODOS',
+    ano: 'TODOS',
+    mes: 'TODOS',
+    dataInicio: '',
+    dataFim: '',
+  })
+
+  // Mapa de Ajustes Operacionais por item do check-list
+  const [ajustesPorItem, setAjustesPorItem] = useState<Record<string, AjusteOperacional[]>>({})
+
   // Modais
   const [selectedItem, setSelectedItem] = useState<ChecklistFechamentoItem | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [ajusteModalOpen, setAjusteModalOpen] = useState(false)
   const [inventarioModalOpen, setInventarioModalOpen] = useState(false)
   const [divergenciaModalOpen, setDivergenciaModalOpen] = useState(false)
   const [mestreModalOpen, setMestreModalOpen] = useState(false)
@@ -105,20 +128,40 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const carregarInicial = async () => {
     setLoading(true)
     try {
+      // Ler parâmetros da URL (Link vindo do Meu Dia ou notificação)
+      const paramComp = searchParams.get('competencia')
+      const paramItemId = searchParams.get('item_id')
+      const paramAjusteId = searchParams.get('ajuste_id')
+
       const comps = await checklistFechamentoService.listarCompetencias()
-      let compAtiva = competenciaSelecionada
+      let compAtiva = paramComp || competenciaSelecionada
       if (comps.length > 0) {
         setCompetencias(comps)
-        if (!comps.includes(compAtiva)) {
+        if (!comps.includes(compAtiva) && !paramComp) {
           compAtiva = comps[0]
-          setCompetenciaSelecionada(compAtiva)
         }
       } else {
         const padrão = ['09/2026', '08/2026', '10/2026']
         setCompetencias(padrão)
       }
+      setCompetenciaSelecionada(compAtiva)
 
-      await carregarCompetencia(compAtiva)
+      const itensCarregados = await carregarCompetencia(compAtiva)
+
+      // Se houver item_id na query param (ex: link do Meu Dia), abrir o detalhe automaticamente
+      if (paramItemId && itensCarregados && itensCarregados.length > 0) {
+        const itemAlvo = itensCarregados.find(
+          (it) => it.id === paramItemId || it.codigo === paramItemId,
+        )
+        if (itemAlvo) {
+          setSelectedItem(itemAlvo)
+          setDetailModalOpen(true)
+          toast({
+            title: 'Navegação direta do Meu Dia',
+            description: `Atividade [${itemAlvo.codigo}] ${itemAlvo.titulo} aberta com sucesso.`,
+          })
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -135,12 +178,37 @@ export const ChecklistFechamentoPage: React.FC = () => {
         const comms = await fechamentoEnvioService.listarComunicacoes(res.execucao.id)
         setComunicacoes(comms)
       }
+
+      // Carregar ajustes operacionais da competência e indexar por item
+      await carregarAjustesOperacionais(comp)
+
+      return res.itens
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar competência',
         description: err.message || 'Falha ao recuperar dados do check-list.',
         variant: 'destructive',
       })
+      return []
+    }
+  }
+
+  const carregarAjustesOperacionais = async (comp: string) => {
+    try {
+      const ajustes = await pb.collection('ajustes_operacionais').getFullList<AjusteOperacional>({
+        filter: `competencia = '${comp}' && excluido != true`,
+      })
+
+      const map: Record<string, AjusteOperacional[]> = {}
+      ajustes.forEach((a) => {
+        if (!map[a.checklist_item_id]) {
+          map[a.checklist_item_id] = []
+        }
+        map[a.checklist_item_id].push(a)
+      })
+      setAjustesPorItem(map)
+    } catch {
+      setAjustesPorItem({})
     }
   }
 
@@ -177,6 +245,32 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const handleOpenDetalhe = (item: ChecklistFechamentoItem) => {
     setSelectedItem(item)
     setDetailModalOpen(true)
+  }
+
+  // Ação de Ajuste Operacional (Etapa 2)
+  const handleOpenAjusteOperacional = (item: ChecklistFechamentoItem) => {
+    setSelectedItem(item)
+    setAjusteModalOpen(true)
+  }
+
+  const handleAjusteCriado = async (ajuste: AjusteOperacional) => {
+    // Recarregar os ajustes da competência
+    await carregarAjustesOperacionais(competenciaSelecionada)
+    // Se o modal de detalhes estiver aberto, ele atualizará
+    if (selectedItem) {
+      setDetailModalOpen(true)
+    }
+  }
+
+  const handleValidarPcpAjuste = async (ajusteId: string, mudarAtividadeParaOk: boolean) => {
+    const user = pb.authStore.record
+    const usuarioNome = user?.name || user?.username || 'PCP Analista'
+    await ajusteOperacionalService.validarPeloPcp({
+      ajusteId,
+      usuarioNome,
+      mudarAtividadeParaOk,
+    })
+    await carregarCompetencia(competenciaSelecionada)
   }
 
   const handleAtualizarStatusRapido = async (
@@ -450,6 +544,106 @@ export const ChecklistFechamentoPage: React.FC = () => {
     }
   }
 
+  // Opções em cascata para filtros
+  const opcoesEmpresas = useMemo(() => {
+    const s = new Set<string>()
+    itens.forEach((it) => {
+      if (it.empresa) s.add(it.empresa)
+    })
+    if (s.size === 0) s.add('CIAFAL')
+    return Array.from(s)
+  }, [itens])
+
+  const opcoesLinhas = useMemo(() => {
+    const s = new Set<string>()
+    itens.forEach((it) => {
+      const linha = it.line_name || it.line_code || it.linha_centro_relacionado
+      if (linha) {
+        if (filtros.empresa === 'TODAS' || it.empresa === filtros.empresa) {
+          s.add(linha)
+        }
+      }
+    })
+    return Array.from(s)
+  }, [itens, filtros.empresa])
+
+  const opcoesCentros = useMemo(() => {
+    const s = new Set<string>()
+    itens.forEach((it) => {
+      const linha = it.line_name || it.line_code || it.linha_centro_relacionado
+      const centro = it.center_code || it.center_name
+      if (centro) {
+        const matchEmpresa = filtros.empresa === 'TODAS' || it.empresa === filtros.empresa
+        const matchLinha = filtros.linha === 'TODAS' || linha === filtros.linha
+        if (matchEmpresa && matchLinha) {
+          s.add(centro)
+        }
+      }
+    })
+    return Array.from(s)
+  }, [itens, filtros.empresa, filtros.linha])
+
+  // Filtragem dos itens exibidos considerando os novos filtros do cabeçalho
+  const itensExibidos = useMemo(() => {
+    return itens.filter((it) => {
+      // 1. Empresa
+      if (filtros.empresa !== 'TODAS' && it.empresa && it.empresa !== filtros.empresa) {
+        return false
+      }
+
+      // 2. Linha
+      const linhaItem = it.line_name || it.line_code || it.linha_centro_relacionado || ''
+      if (filtros.linha !== 'TODAS' && linhaItem !== filtros.linha) {
+        return false
+      }
+
+      // 3. Centro
+      const centroItem = it.center_code || it.center_name || ''
+      if (filtros.centro !== 'TODOS' && centroItem !== filtros.centro) {
+        return false
+      }
+
+      // 4. Ano
+      if (filtros.ano !== 'TODOS') {
+        const anoCompetencia = it.competencia?.split('/')[1] || ''
+        if (anoCompetencia !== filtros.ano) return false
+      }
+
+      // 5. Mês
+      if (filtros.mes !== 'TODOS') {
+        const mesCompetencia = it.competencia?.split('/')[0] || ''
+        if (mesCompetencia !== filtros.mes) return false
+      }
+
+      // 6. Data Início
+      if (filtros.dataInicio && it.data_hora_execucao) {
+        const dataExec = it.data_hora_execucao.split('T')[0]
+        if (dataExec < filtros.dataInicio) return false
+      }
+
+      // 7. Data Fim
+      if (filtros.dataFim && it.data_hora_execucao) {
+        const dataExec = it.data_hora_execucao.split('T')[0]
+        if (dataExec > filtros.dataFim) return false
+      }
+
+      return true
+    })
+  }, [itens, filtros])
+
+  const handleLimparFiltros = () => {
+    setFiltros({
+      empresa: 'TODAS',
+      linha: 'TODAS',
+      centro: 'TODOS',
+      ano: 'TODOS',
+      mes: 'TODOS',
+      dataInicio: '',
+      dataFim: '',
+    })
+    setFiltroStatusRapido('TODOS')
+  }
+
   return (
     <div className="space-y-4 p-1 sm:p-2">
       {/* 1. Header Oficial do Check-list */}
@@ -470,6 +664,12 @@ export const ChecklistFechamentoPage: React.FC = () => {
             onAbrirFormulario={handleAbrirFormulario}
             onAbrirAnaliseIa={handleExecutarAnaliseIa}
             onAbrirDestinatarios={() => setDestinatariosModalOpen(true)}
+            filtros={filtros}
+            onChangeFiltros={setFiltros}
+            onLimparFiltros={handleLimparFiltros}
+            opcoesEmpresas={opcoesEmpresas}
+            opcoesLinhas={opcoesLinhas}
+            opcoesCentros={opcoesCentros}
           />
         )}
       </ErrorBoundary>
@@ -483,7 +683,7 @@ export const ChecklistFechamentoPage: React.FC = () => {
           </div>
         ) : (
           <ChecklistFechamentoLista
-            itens={itens}
+            itens={itensExibidos}
             onOpenDetalhe={handleOpenDetalhe}
             onAtualizarStatusRapido={handleAtualizarStatusRapido}
             onSolicitarInventario={handleOpenSolicitarInventario}
@@ -494,6 +694,8 @@ export const ChecklistFechamentoPage: React.FC = () => {
             onGerarRelatorioPendencias={() => setRelatorioModalOpen(true)}
             canEdit={canEdit}
             filtroStatusRapido={filtroStatusRapido}
+            onAbrirAjusteOperacional={handleOpenAjusteOperacional}
+            ajustesPorItemMap={ajustesPorItem}
           />
         )}
       </ErrorBoundary>
@@ -507,6 +709,16 @@ export const ChecklistFechamentoPage: React.FC = () => {
         onSolicitarInventario={handleOpenSolicitarInventario}
         onRastrearDivergencia={handleOpenRastrearDivergencia}
         canEdit={canEdit}
+        onAbrirAjusteOperacional={handleOpenAjusteOperacional}
+        onValidarPcp={handleValidarPcpAjuste}
+      />
+
+      <AjusteOperacionalModal
+        open={ajusteModalOpen}
+        onClose={() => setAjusteModalOpen(false)}
+        item={selectedItem}
+        competencia={competenciaSelecionada}
+        onAjusteCriado={handleAjusteCriado}
       />
 
       <SolicitarInventarioModal

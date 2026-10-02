@@ -33,6 +33,8 @@ import {
 } from '@/types/checklist-fechamento'
 import { checklistFechamentoService } from '@/services/checklist-fechamento-service'
 import { useToast } from '@/hooks/use-toast'
+import { AjusteOperacional } from '@/types/ajuste-operacional'
+import { ajusteOperacionalService } from '@/services/ajuste-operacional-service'
 
 interface Props {
   open: boolean
@@ -52,6 +54,10 @@ interface Props {
   onSolicitarInventario: (item: ChecklistFechamentoItem) => void
   onRastrearDivergencia: (item: ChecklistFechamentoItem) => void
   canEdit: boolean
+
+  // Ajustes Operacionais vinculados (Etapa 2)
+  onAbrirAjusteOperacional?: (item: ChecklistFechamentoItem) => void
+  onValidarPcp?: (ajusteId: string, mudarAtividadeParaOk: boolean) => Promise<void>
 }
 
 export const ChecklistItemDetailModal: React.FC<Props> = ({
@@ -62,11 +68,13 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
   onSolicitarInventario,
   onRastrearDivergencia,
   canEdit,
+  onAbrirAjusteOperacional,
+  onValidarPcp,
 }) => {
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<
-    'execucao' | 'ocorrencias' | 'evidencias' | 'historico'
+    'execucao' | 'ajustes' | 'ocorrencias' | 'evidencias' | 'historico'
   >('execucao')
   const [status, setStatus] = useState<ChecklistItemStatus>('PENDENTE')
   const [observacao, setObservacao] = useState('')
@@ -83,6 +91,11 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
   const [novaEvidenciaDesc, setNovaEvidenciaDesc] = useState('')
   const [adicionandoEvidencia, setAdicionandoEvidencia] = useState(false)
 
+  // Ajustes Operacionais Vinculados
+  const [ajustesVinculados, setAjustesVinculados] = useState<AjusteOperacional[]>([])
+  const [carregandoAjustes, setCarregandoAjustes] = useState(false)
+  const [validandoAjusteId, setValidandoAjusteId] = useState<string | null>(null)
+
   useEffect(() => {
     if (item && open) {
       setStatus(item.status)
@@ -94,6 +107,7 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
       setActiveTab('execucao')
 
       carregarOcorrenciasEEvidencias(item)
+      carregarAjustesVinculados(item.id)
     }
   }, [item, open])
 
@@ -102,6 +116,52 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
     setOcorrencias(ocs)
     const evs = await checklistFechamentoService.listarEvidencias(i.id)
     setEvidencias(evs)
+  }
+
+  const carregarAjustesVinculados = async (itemId: string) => {
+    setCarregandoAjustes(true)
+    try {
+      const lista = await ajusteOperacionalService.listarPorItem(itemId)
+      setAjustesVinculados(lista)
+    } catch {
+      setAjustesVinculados([])
+    } finally {
+      setCarregandoAjustes(false)
+    }
+  }
+
+  const handleValidarAjuste = async (ajuste: AjusteOperacional, mudarParaOk: boolean) => {
+    setValidandoAjusteId(ajuste.id)
+    try {
+      if (onValidarPcp) {
+        await onValidarPcp(ajuste.id, mudarParaOk)
+      } else {
+        const user = checklistFechamentoService
+        await ajusteOperacionalService.validarPeloPcp({
+          ajusteId: ajuste.id,
+          usuarioNome: 'PCP Analista',
+          mudarAtividadeParaOk: mudarParaOk,
+        })
+      }
+      if (item) {
+        await carregarAjustesVinculados(item.id)
+      }
+      if (mudarParaOk) {
+        setStatus('OK')
+      }
+      toast({
+        title: 'Validação PCP Concluída',
+        description: `Ajuste ${ajuste.numero} validado. ${mudarParaOk ? 'Atividade marcada como OK.' : ''}`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro na validação',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setValidandoAjusteId(null)
+    }
   }
 
   const handleSalvar = async () => {
@@ -202,6 +262,18 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
               }`}
             >
               Execução & Status
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ajustes')}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                activeTab === 'ajustes'
+                  ? 'bg-white text-[#004C97] shadow-2xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Ajustes Operacionais ({ajustesVinculados.length})
             </button>
             <button
               type="button"
@@ -403,6 +475,177 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
                   Solicitar Inventário
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Aba de Ajustes Operacionais Vinculados (Etapa 2) */}
+          {activeTab === 'ajustes' && (
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-slate-800 text-sm">
+                    Ajustes Operacionais Vinculados
+                  </span>
+                  <p className="text-slate-500 text-[11px]">
+                    Ajustes abertos para resolução de divergências junto aos gestores de linha.
+                  </p>
+                </div>
+
+                {onAbrirAjusteOperacional && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={status === 'OK' || !canEdit}
+                    onClick={() => onAbrirAjusteOperacional(item)}
+                    className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold gap-1 shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Novo Ajuste
+                  </Button>
+                )}
+              </div>
+
+              {carregandoAjustes ? (
+                <div className="py-8 text-center text-slate-500 text-xs">
+                  Carregando ajustes vinculados...
+                </div>
+              ) : ajustesVinculados.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-lg space-y-2">
+                  <p className="font-medium text-slate-700">
+                    Nenhum ajuste operacional vinculado a esta atividade.
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Quando a atividade estiver com erro ou pendência, utilize o botão "Ajuste
+                    Operacional" para acionar o gestor da linha.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {ajustesVinculados.map((ajuste) => {
+                    const statusColor =
+                      ajuste.status === 'Concluída'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : ajuste.status === 'Cancelada'
+                          ? 'bg-slate-100 text-slate-600 border-slate-300'
+                          : 'bg-blue-100 text-[#004C97] border-blue-300'
+
+                    const prioridadeColor =
+                      ajuste.prioridade === 'Crítica' || ajuste.prioridade === 'Alta'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+
+                    return (
+                      <div
+                        key={ajuste.id}
+                        className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2.5 shadow-2xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs bg-[#004C97] text-white px-2 py-0.5 rounded">
+                              {ajuste.numero}
+                            </span>
+                            <Badge className={`text-[10px] font-semibold ${statusColor}`}>
+                              {ajuste.status}
+                            </Badge>
+                            <Badge className={`text-[10px] ${prioridadeColor}`}>
+                              {ajuste.prioridade}
+                            </Badge>
+                            <span className="text-slate-500 font-medium text-[11px]">
+                              Tipo: <strong>{ajuste.tipo}</strong>
+                            </span>
+                          </div>
+
+                          <div className="text-slate-500 text-[11px] flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            Prazo:{' '}
+                            <strong>
+                              {ajuste.prazo
+                                ? new Date(ajuste.prazo).toLocaleDateString('pt-BR')
+                                : '-'}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* Detalhes: Responsável, SAP e Descrição */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] bg-slate-50 p-2 rounded">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Responsável</span>
+                            <span className="font-semibold text-slate-800">
+                              {ajuste.responsavel_nome}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">
+                              Ordem / Material
+                            </span>
+                            <span className="font-semibold text-slate-800">
+                              {ajuste.ordem_sap || ajuste.material || 'N/A'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Validação PCP</span>
+                            <span
+                              className={`font-semibold ${ajuste.validada_pcp ? 'text-emerald-700' : 'text-amber-700'}`}
+                            >
+                              {ajuste.validada_pcp
+                                ? `Validado (${ajuste.validada_por_nome || 'PCP'})`
+                                : 'Aguardando validação PCP'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-700">
+                            Descrição:
+                          </span>
+                          <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">
+                            {ajuste.descricao}
+                          </p>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-700">
+                            Ação Solicitada:
+                          </span>
+                          <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">
+                            {ajuste.acao_necessaria}
+                          </p>
+                        </div>
+
+                        {/* Ações de validação humana pelo PCP */}
+                        {canEdit && !ajuste.validada_pcp && ajuste.status === 'Concluída' && (
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 bg-emerald-50/60 p-2 rounded">
+                            <span className="text-[11px] text-emerald-900 font-medium">
+                              Gestor concluiu o ajuste no Meu Dia. Validar regularização no PCP:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={validandoAjusteId === ajuste.id}
+                                onClick={() => handleValidarAjuste(ajuste, false)}
+                                className="h-7 text-xs bg-slate-200 text-slate-800 hover:bg-slate-300"
+                              >
+                                Validar (Manter status)
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={validandoAjusteId === ajuste.id}
+                                onClick={() => handleValidarAjuste(ajuste, true)}
+                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                Validar e Mudar para OK
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -1,3 +1,4 @@
+// HEADER
 import React, { useState } from 'react'
 import {
   Calendar,
@@ -28,6 +29,16 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ChecklistFechamentoExecucao, PrazoFechamentoInfo } from '@/types/checklist-fechamento'
 
+export interface ChecklistFiltrosAvancados {
+  empresa: string
+  linha: string
+  centro: string
+  ano: string
+  mes: string
+  dataInicio: string
+  dataFim: string
+}
+
 interface Props {
   execucao: ChecklistFechamentoExecucao | null
   competencias: string[]
@@ -41,6 +52,14 @@ interface Props {
   onAbrirFormulario?: () => void
   onAbrirAnaliseIa?: () => void
   onAbrirDestinatarios?: () => void
+
+  // Filtros em cascata e período (Etapa 2)
+  filtros?: ChecklistFiltrosAvancados
+  onChangeFiltros?: (novosFiltros: ChecklistFiltrosAvancados) => void
+  onLimparFiltros?: () => void
+  opcoesEmpresas?: string[]
+  opcoesLinhas?: string[]
+  opcoesCentros?: string[]
 }
 
 export const ChecklistFechamentoHeader: React.FC<Props> = ({
@@ -56,6 +75,20 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
   onAbrirFormulario,
   onAbrirAnaliseIa,
   onAbrirDestinatarios,
+  filtros = {
+    empresa: 'TODAS',
+    linha: 'TODAS',
+    centro: 'TODOS',
+    ano: 'TODOS',
+    mes: 'TODOS',
+    dataInicio: '',
+    dataFim: '',
+  },
+  onChangeFiltros,
+  onLimparFiltros,
+  opcoesEmpresas = ['CIAFAL'],
+  opcoesLinhas = [],
+  opcoesCentros = [],
 }) => {
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -222,6 +255,200 @@ export const ChecklistFechamentoHeader: React.FC<Props> = ({
               Destinatários
             </Button>
           )}
+        </div>
+      </div>
+
+      {/* Barra de Filtros em Cascata da Etapa 2: Empresa -> Linha -> Centro, Ano, Mês, Datas e Limpar */}
+      <div className="bg-slate-50/90 p-3 rounded-lg border border-slate-200 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+            <Layers className="w-3.5 h-3.5 text-[#004C97]" />
+            <span>Filtros do Check-list</span>
+            <span className="text-[11px] font-normal text-slate-500">
+              (Refinam as atividades exibidas por hierarquia e período)
+            </span>
+          </div>
+
+          {onLimparFiltros && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onLimparFiltros}
+              className="h-7 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 gap-1 px-2 font-medium"
+            >
+              <RotateCcw className="w-3 h-3 text-slate-500" />
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+          {/* Empresa */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Empresa
+            </label>
+            <select
+              value={filtros.empresa}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({
+                    ...filtros,
+                    empresa: e.target.value,
+                    linha: 'TODAS',
+                    centro: 'TODOS',
+                  })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="TODAS">Todas Empresas</option>
+              {opcoesEmpresas.map((emp) => (
+                <option key={emp} value={emp}>
+                  {emp}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Linha (Cascata após Empresa) */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Linha
+            </label>
+            <select
+              value={filtros.linha}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({
+                    ...filtros,
+                    linha: e.target.value,
+                    centro: 'TODOS',
+                  })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="TODAS">Todas Linhas</option>
+              {opcoesLinhas.map((lin) => (
+                <option key={lin} value={lin}>
+                  {lin}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Centro (Cascata após Linha) */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Centro
+            </label>
+            <select
+              value={filtros.centro}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({
+                    ...filtros,
+                    centro: e.target.value,
+                  })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="TODOS">Todos Centros</option>
+              {opcoesCentros.map((cen) => (
+                <option key={cen} value={cen}>
+                  {cen}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ano */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Ano
+            </label>
+            <select
+              value={filtros.ano}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({ ...filtros, ano: e.target.value })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="TODOS">Todos Anos</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+
+          {/* Mês */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Mês
+            </label>
+            <select
+              value={filtros.mes}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({ ...filtros, mes: e.target.value })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800 font-medium"
+            >
+              <option value="TODOS">Todos Meses</option>
+              <option value="01">01 - Janeiro</option>
+              <option value="02">02 - Fevereiro</option>
+              <option value="03">03 - Março</option>
+              <option value="04">04 - Abril</option>
+              <option value="05">05 - Maio</option>
+              <option value="06">06 - Junho</option>
+              <option value="07">07 - Julho</option>
+              <option value="08">08 - Agosto</option>
+              <option value="09">09 - Setembro</option>
+              <option value="10">10 - Outubro</option>
+              <option value="11">11 - Novembro</option>
+              <option value="12">12 - Dezembro</option>
+            </select>
+          </div>
+
+          {/* Data Início */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Data Início
+            </label>
+            <input
+              type="date"
+              value={filtros.dataInicio}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({ ...filtros, dataInicio: e.target.value })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800"
+            />
+          </div>
+
+          {/* Data Fim */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Data Fim
+            </label>
+            <input
+              type="date"
+              value={filtros.dataFim}
+              onChange={(e) => {
+                if (onChangeFiltros) {
+                  onChangeFiltros({ ...filtros, dataFim: e.target.value })
+                }
+              }}
+              className="w-full h-8 text-xs px-2 rounded-md border border-slate-200 bg-white text-slate-800"
+            />
+          </div>
         </div>
       </div>
 

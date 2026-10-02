@@ -27,6 +27,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { ChecklistFechamentoItem, ChecklistItemStatus } from '@/types/checklist-fechamento'
+import { AjusteOperacional } from '@/types/ajuste-operacional'
 
 interface Props {
   itens: ChecklistFechamentoItem[]
@@ -40,6 +41,10 @@ interface Props {
   onGerarRelatorioPendencias: () => void
   canEdit: boolean
   filtroStatusRapido?: string
+
+  // Ação de Ajuste Operacional (Etapa 2)
+  onAbrirAjusteOperacional?: (item: ChecklistFechamentoItem) => void
+  ajustesPorItemMap?: Record<string, AjusteOperacional[]>
 }
 
 export const ChecklistFechamentoLista: React.FC<Props> = ({
@@ -54,6 +59,8 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
   onGerarRelatorioPendencias,
   canEdit,
   filtroStatusRapido = 'TODOS',
+  onAbrirAjusteOperacional,
+  ajustesPorItemMap = {},
 }) => {
   const [busca, setBusca] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('TODAS')
@@ -269,6 +276,16 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                               ⚠️ {item.status_regra}
                             </Badge>
                           )}
+
+                          {/* Badge de Ajuste Operacional Ativo */}
+                          {ajustesPorItemMap[item.id] && ajustesPorItemMap[item.id].length > 0 && (
+                            <Badge className="bg-blue-100 text-[#004C97] border-blue-300 text-[10px] shrink-0 font-semibold gap-1">
+                              <Sparkles className="w-3 h-3 text-[#004C97]" />
+                              {ajustesPorItemMap[item.id].length === 1
+                                ? ajustesPorItemMap[item.id][0].numero
+                                : `${ajustesPorItemMap[item.id].length} Ajustes`}
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Status e Ações Rápidas */}
@@ -320,6 +337,29 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                                 PEND
                               </Button>
                             </div>
+                          )}
+
+                          {/* Botão Ajuste Operacional: Habilitado SOMENTE quando status != OK */}
+                          {onAbrirAjusteOperacional && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={item.status === 'OK' || !canEdit}
+                              onClick={() => onAbrirAjusteOperacional(item)}
+                              title={
+                                item.status === 'OK'
+                                  ? 'Ajuste Operacional desabilitado para atividades com status OK.'
+                                  : 'Abrir fluxo de Ajuste Operacional — PCP Robotizado'
+                              }
+                              className={`h-7 px-2.5 text-xs font-semibold gap-1 transition-all ${
+                                item.status === 'OK'
+                                  ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
+                                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
+                              }`}
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Ajuste Operacional
+                            </Button>
                           )}
 
                           <Button
