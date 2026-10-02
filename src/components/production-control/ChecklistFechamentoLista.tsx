@@ -16,6 +16,7 @@ import {
   ExternalLink,
   History,
   ShieldAlert,
+  Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -45,6 +46,7 @@ interface Props {
   // Ação de Ajuste Operacional (Etapa 2)
   onAbrirAjusteOperacional?: (item: ChecklistFechamentoItem) => void
   ajustesPorItemMap?: Record<string, AjusteOperacional[]>
+  onVerAjuste?: (item: ChecklistFechamentoItem, ajuste: AjusteOperacional) => void
 }
 
 export const ChecklistFechamentoLista: React.FC<Props> = ({
@@ -354,11 +356,28 @@ export const ChecklistFechamentoLista: React.FC<Props> = ({
                               className={`h-7 px-2.5 text-xs font-semibold gap-1 transition-all ${
                                 item.status === 'OK'
                                   ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
-                                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
+                                  : item.status === 'ERRO'
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs ring-1 ring-amber-400/50'
+                                    : 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs'
                               }`}
                             >
-                              <Sparkles className="w-3 h-3" />
+                              <Wrench className="w-3 h-3" />
                               Ajuste Operacional
+                            </Button>
+                          )}
+
+                          {/* Botão "Ver Ajuste" quando a atividade possuir ajuste aberto ou histórico */}
+                          {ajustesPorItemMap[item.id] && ajustesPorItemMap[item.id].length > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onOpenDetalhe(item)}
+                              title="Ver histórico e detalhes do Ajuste Operacional"
+                              className="h-7 px-2 text-xs border-amber-300 text-amber-900 bg-amber-50/80 hover:bg-amber-100 font-semibold gap-1"
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-600" />
+                              Ver Ajuste
                             </Button>
                           )}
 

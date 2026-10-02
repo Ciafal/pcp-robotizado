@@ -13,6 +13,10 @@ import {
   Calendar,
   Sparkles,
   ShieldAlert,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +37,7 @@ import {
 } from '@/types/checklist-fechamento'
 import { checklistFechamentoService } from '@/services/checklist-fechamento-service'
 import { useToast } from '@/hooks/use-toast'
-import { AjusteOperacional } from '@/types/ajuste-operacional'
+import { AjusteOperacional, AjusteOperacionalHistorico } from '@/types/ajuste-operacional'
 import { ajusteOperacionalService } from '@/services/ajuste-operacional-service'
 
 interface Props {
@@ -95,6 +99,31 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
   const [ajustesVinculados, setAjustesVinculados] = useState<AjusteOperacional[]>([])
   const [carregandoAjustes, setCarregandoAjustes] = useState(false)
   const [validandoAjusteId, setValidandoAjusteId] = useState<string | null>(null)
+  const [ajusteExpandidoId, setAjusteExpandidoId] = useState<string | null>(null)
+  const [historicoPorAjusteMap, setHistoricoPorAjusteMap] = useState<
+    Record<string, AjusteOperacionalHistorico[]>
+  >({})
+  const [carregandoHistoricoId, setCarregandoHistoricoId] = useState<string | null>(null)
+
+  const handleToggleHistoricoAjuste = async (ajusteId: string) => {
+    if (ajusteExpandidoId === ajusteId) {
+      setAjusteExpandidoId(null)
+      return
+    }
+
+    setAjusteExpandidoId(ajusteId)
+    if (!historicoPorAjusteMap[ajusteId]) {
+      setCarregandoHistoricoId(ajusteId)
+      try {
+        const hist = await ajusteOperacionalService.listarHistorico(ajusteId)
+        setHistoricoPorAjusteMap((prev) => ({ ...prev, [ajusteId]: hist }))
+      } catch {
+        setHistoricoPorAjusteMap((prev) => ({ ...prev, [ajusteId]: [] }))
+      } finally {
+        setCarregandoHistoricoId(null)
+      }
+    }
+  }
 
   useEffect(() => {
     if (item && open) {
@@ -487,7 +516,8 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
                     Ajustes Operacionais Vinculados
                   </span>
                   <p className="text-slate-500 text-[11px]">
-                    Ajustes abertos para resolução de divergências junto aos gestores de linha.
+                    Histórico completo e tabela estruturada: Ajuste | Data | Status origem |
+                    Pendência | Responsável | Prioridade | Prazo | Status ajuste.
                   </p>
                 </div>
 
@@ -520,130 +550,289 @@ export const ChecklistItemDetailModal: React.FC<Props> = ({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {ajustesVinculados.map((ajuste) => {
-                    const statusColor =
-                      ajuste.status === 'Concluída'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : ajuste.status === 'Cancelada'
-                          ? 'bg-slate-100 text-slate-600 border-slate-300'
-                          : 'bg-blue-100 text-[#004C97] border-blue-300'
+                <div className="space-y-4">
+                  {/* Tabela Estruturada de Ajustes (Desktop / Tablet) */}
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-2xs bg-white">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                        <tr>
+                          <th className="p-2.5">Ajuste</th>
+                          <th className="p-2.5">Data</th>
+                          <th className="p-2.5">Status origem</th>
+                          <th className="p-2.5">Pendência</th>
+                          <th className="p-2.5">Responsável</th>
+                          <th className="p-2.5">Prioridade</th>
+                          <th className="p-2.5">Prazo</th>
+                          <th className="p-2.5">Status ajuste</th>
+                          <th className="p-2.5 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {ajustesVinculados.map((ajuste) => {
+                          const statusColor =
+                            ajuste.status === 'Concluída'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : ajuste.status === 'Cancelada'
+                                ? 'bg-slate-100 text-slate-600 border-slate-300'
+                                : 'bg-blue-100 text-[#004C97] border-blue-300'
 
-                    const prioridadeColor =
-                      ajuste.prioridade === 'Crítica' || ajuste.prioridade === 'Alta'
-                        ? 'bg-rose-100 text-rose-800 border-rose-300'
-                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                          const prioridadeColor =
+                            ajuste.prioridade === 'Crítica' || ajuste.prioridade === 'Alta'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
 
-                    return (
-                      <div
-                        key={ajuste.id}
-                        className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2.5 shadow-2xs"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs bg-[#004C97] text-white px-2 py-0.5 rounded">
-                              {ajuste.numero}
-                            </span>
-                            <Badge className={`text-[10px] font-semibold ${statusColor}`}>
-                              {ajuste.status}
-                            </Badge>
-                            <Badge className={`text-[10px] ${prioridadeColor}`}>
-                              {ajuste.prioridade}
-                            </Badge>
-                            <span className="text-slate-500 font-medium text-[11px]">
-                              Tipo: <strong>{ajuste.tipo}</strong>
-                            </span>
-                          </div>
+                          const statusOrigemColor =
+                            ajuste.status_origem === 'ERRO'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
 
-                          <div className="text-slate-500 text-[11px] flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            Prazo:{' '}
-                            <strong>
-                              {ajuste.prazo
-                                ? new Date(ajuste.prazo).toLocaleDateString('pt-BR')
-                                : '-'}
-                            </strong>
-                          </div>
-                        </div>
+                          const dataCriacaoFormatada = ajuste.created
+                            ? new Date(ajuste.created).toLocaleDateString('pt-BR')
+                            : '-'
 
-                        {/* Detalhes: Responsável, SAP e Descrição */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] bg-slate-50 p-2 rounded">
-                          <div>
-                            <span className="text-slate-400 block text-[10px]">Responsável</span>
-                            <span className="font-semibold text-slate-800">
-                              {ajuste.responsavel_nome}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 block text-[10px]">
-                              Ordem / Material
-                            </span>
-                            <span className="font-semibold text-slate-800">
-                              {ajuste.ordem_sap || ajuste.material || 'N/A'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 block text-[10px]">Validação PCP</span>
-                            <span
-                              className={`font-semibold ${ajuste.validada_pcp ? 'text-emerald-700' : 'text-amber-700'}`}
-                            >
-                              {ajuste.validada_pcp
-                                ? `Validado (${ajuste.validada_por_nome || 'PCP'})`
-                                : 'Aguardando validação PCP'}
-                            </span>
-                          </div>
-                        </div>
+                          const prazoFormatado = ajuste.prazo
+                            ? new Date(ajuste.prazo).toLocaleDateString('pt-BR')
+                            : '-'
 
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-semibold text-slate-700">
-                            Descrição:
-                          </span>
-                          <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">
-                            {ajuste.descricao}
-                          </p>
-                        </div>
+                          const isExpanded = ajusteExpandidoId === ajuste.id
 
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-semibold text-slate-700">
-                            Ação Solicitada:
-                          </span>
-                          <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">
-                            {ajuste.acao_necessaria}
-                          </p>
-                        </div>
-
-                        {/* Ações de validação humana pelo PCP */}
-                        {canEdit && !ajuste.validada_pcp && ajuste.status === 'Concluída' && (
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 bg-emerald-50/60 p-2 rounded">
-                            <span className="text-[11px] text-emerald-900 font-medium">
-                              Gestor concluiu o ajuste no Meu Dia. Validar regularização no PCP:
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={validandoAjusteId === ajuste.id}
-                                onClick={() => handleValidarAjuste(ajuste, false)}
-                                className="h-7 text-xs bg-slate-200 text-slate-800 hover:bg-slate-300"
+                          return (
+                            <React.Fragment key={ajuste.id}>
+                              <tr
+                                onClick={() => handleToggleHistoricoAjuste(ajuste.id)}
+                                className={`hover:bg-blue-50/40 cursor-pointer transition-colors ${
+                                  isExpanded ? 'bg-blue-50/30' : ''
+                                }`}
                               >
-                                Validar (Manter status)
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={validandoAjusteId === ajuste.id}
-                                onClick={() => handleValidarAjuste(ajuste, true)}
-                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                Validar e Mudar para OK
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                                <td className="p-2.5 font-mono font-bold text-[#004C97] whitespace-nowrap">
+                                  {ajuste.numero}
+                                </td>
+                                <td className="p-2.5 text-slate-600 whitespace-nowrap">
+                                  {dataCriacaoFormatada}
+                                </td>
+                                <td className="p-2.5 whitespace-nowrap">
+                                  <Badge
+                                    className={`text-[10px] font-semibold ${statusOrigemColor}`}
+                                  >
+                                    {ajuste.status_origem}
+                                  </Badge>
+                                </td>
+                                <td
+                                  className="p-2.5 text-slate-800 max-w-[200px] truncate"
+                                  title={ajuste.descricao}
+                                >
+                                  <span className="font-semibold block text-[11px] text-slate-700">
+                                    {ajuste.tipo}
+                                  </span>
+                                  <span className="text-slate-500 text-[10px] truncate block">
+                                    {ajuste.descricao}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-slate-700 whitespace-nowrap font-medium">
+                                  {ajuste.responsavel_nome}
+                                </td>
+                                <td className="p-2.5 whitespace-nowrap">
+                                  <Badge className={`text-[10px] font-semibold ${prioridadeColor}`}>
+                                    {ajuste.prioridade}
+                                  </Badge>
+                                </td>
+                                <td className="p-2.5 text-slate-600 whitespace-nowrap">
+                                  {prazoFormatado}
+                                </td>
+                                <td className="p-2.5 whitespace-nowrap">
+                                  <Badge className={`text-[10px] font-semibold ${statusColor}`}>
+                                    {ajuste.status}
+                                  </Badge>
+                                  {ajuste.validada_pcp && (
+                                    <span className="block text-[9px] text-emerald-700 font-semibold mt-0.5">
+                                      ✓ Validado PCP
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-2.5 text-right whitespace-nowrap">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleToggleHistoricoAjuste(ajuste.id)
+                                    }}
+                                    className="h-6 px-2 text-[11px] text-[#004C97] hover:bg-blue-100/60"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    )}
+                                    {isExpanded ? 'Ocultar' : 'Histórico'}
+                                  </Button>
+                                </td>
+                              </tr>
+
+                              {/* Linha de Detalhe e Histórico Expandido */}
+                              {isExpanded && (
+                                <tr>
+                                  <td
+                                    colSpan={9}
+                                    className="p-4 bg-slate-50/80 border-t border-b border-slate-200"
+                                  >
+                                    <div className="space-y-3">
+                                      {/* Card de Detalhes da Ocorrência */}
+                                      <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] border-b border-slate-100 pb-2">
+                                          <div>
+                                            <span className="text-slate-400 block text-[10px]">
+                                              Ordem / Material / Lote
+                                            </span>
+                                            <span className="font-semibold text-slate-800">
+                                              {ajuste.ordem_sap ||
+                                                ajuste.material ||
+                                                ajuste.lote ||
+                                                'N/A'}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 block text-[10px]">
+                                              Transação SAP
+                                            </span>
+                                            <span className="font-semibold text-slate-800">
+                                              {ajuste.transacao_sap || 'N/A'}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 block text-[10px]">
+                                              Validação Humana PCP
+                                            </span>
+                                            <span
+                                              className={`font-semibold ${ajuste.validada_pcp ? 'text-emerald-700' : 'text-amber-700'}`}
+                                            >
+                                              {ajuste.validada_pcp
+                                                ? `Validado por ${ajuste.validada_por_nome || 'PCP'}`
+                                                : 'Aguardando validação do PCP'}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                          <span className="font-semibold text-slate-700 text-[11px]">
+                                            Descrição Completa da Pendência:
+                                          </span>
+                                          <p className="text-slate-700 text-xs whitespace-pre-line leading-relaxed bg-slate-50/60 p-2 rounded border border-slate-100">
+                                            {ajuste.descricao}
+                                          </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                          <span className="font-semibold text-slate-700 text-[11px]">
+                                            Ação Necessária para Regularização:
+                                          </span>
+                                          <p className="text-slate-700 text-xs whitespace-pre-line leading-relaxed bg-slate-50/60 p-2 rounded border border-slate-100">
+                                            {ajuste.acao_necessaria}
+                                          </p>
+                                        </div>
+
+                                        {ajuste.observacao_adicional && (
+                                          <div className="space-y-0.5">
+                                            <span className="font-semibold text-slate-600 text-[10px]">
+                                              Observação Adicional:
+                                            </span>
+                                            <p className="text-slate-500 text-[11px] italic">
+                                              {ajuste.observacao_adicional}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Ações de validação humana pelo PCP */}
+                                        {canEdit &&
+                                          !ajuste.validada_pcp &&
+                                          ajuste.status === 'Concluída' && (
+                                            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-emerald-50/80 p-2.5 rounded-md mt-2">
+                                              <span className="text-[11px] text-emerald-950 font-medium">
+                                                Gestor concluiu no Meu Dia:{' '}
+                                                <em>
+                                                  "Ajuste operacional concluído — aguardando
+                                                  validação do PCP."
+                                                </em>
+                                              </span>
+                                              <div className="flex items-center gap-2">
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  disabled={validandoAjusteId === ajuste.id}
+                                                  onClick={() => handleValidarAjuste(ajuste, false)}
+                                                  className="h-7 text-xs bg-slate-200 text-slate-800 hover:bg-slate-300"
+                                                >
+                                                  Validar (Manter status da atividade)
+                                                </Button>
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  disabled={validandoAjusteId === ajuste.id}
+                                                  onClick={() => handleValidarAjuste(ajuste, true)}
+                                                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-2xs"
+                                                >
+                                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                                  Validar e Mudar Atividade para OK
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          )}
+                                      </div>
+
+                                      {/* Trilha de Histórico Completo do Ajuste */}
+                                      <div className="space-y-1.5">
+                                        <span className="font-bold text-slate-800 text-[11px] flex items-center gap-1.5 text-[#004C97]">
+                                          <History className="w-3.5 h-3.5" />
+                                          Histórico Completo do Ajuste {ajuste.numero}
+                                        </span>
+
+                                        {carregandoHistoricoId === ajuste.id ? (
+                                          <p className="text-slate-400 text-xs italic">
+                                            Carregando trilha histórica...
+                                          </p>
+                                        ) : !historicoPorAjusteMap[ajuste.id] ||
+                                          historicoPorAjusteMap[ajuste.id].length === 0 ? (
+                                          <p className="text-slate-400 text-xs italic">
+                                            Nenhum evento histórico adicional registrado para este
+                                            ajuste.
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-1.5">
+                                            {historicoPorAjusteMap[ajuste.id].map((h, hIdx) => (
+                                              <div
+                                                key={h.id || hIdx}
+                                                className="p-2 bg-white border border-slate-200 rounded text-[11px] space-y-0.5"
+                                              >
+                                                <div className="flex items-center justify-between text-slate-500">
+                                                  <span className="font-semibold text-slate-700">
+                                                    {h.acao}
+                                                  </span>
+                                                  <span className="text-[10px] text-slate-400">
+                                                    {h.data_hora}
+                                                  </span>
+                                                </div>
+                                                <p className="text-slate-800 leading-snug">
+                                                  {h.valor_novo}
+                                                </p>
+                                                <span className="text-[10px] text-slate-400 block">
+                                                  Registrado por: <strong>{h.usuario}</strong>
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

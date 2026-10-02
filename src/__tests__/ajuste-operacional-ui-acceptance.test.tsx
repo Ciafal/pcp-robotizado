@@ -5,11 +5,15 @@ import { ChecklistFechamentoHeader } from '@/components/production-control/Check
 import { ChecklistFechamentoLista } from '@/components/production-control/ChecklistFechamentoLista'
 import { ChecklistItemDetailModal } from '@/components/production-control/ChecklistItemDetailModal'
 import { AjusteOperacionalModal } from '@/components/production-control/AjusteOperacionalModal'
+import { RelatorioPendenciasModal } from '@/components/production-control/RelatorioPendenciasModal'
 import { ChecklistFechamentoItem } from '@/types/checklist-fechamento'
 import { AjusteOperacional } from '@/types/ajuste-operacional'
 import { ajusteOperacionalService } from '@/services/ajuste-operacional-service'
+import { gestorLinhaService, MENSAGEM_ERRO_SEM_GESTOR } from '@/services/gestor-linha-service'
+import { ajusteOperacionalIaService } from '@/services/ajuste-operacional-ia-service'
+import { relatorioPendenciasService } from '@/services/relatorio-pendencias-service'
 
-// Mock do service de ajuste
+// Mock dos services
 vi.mock('@/services/ajuste-operacional-service', () => ({
   ajusteOperacionalService: {
     gerarProximoNumero: vi.fn().mockResolvedValue({
@@ -31,7 +35,54 @@ vi.mock('@/services/ajuste-operacional-service', () => ({
       },
     }),
     listarPorItem: vi.fn().mockResolvedValue([]),
+    listarHistorico: vi.fn().mockResolvedValue([]),
     validarPeloPcp: vi.fn().mockResolvedValue({ sucesso: true }),
+  },
+}))
+
+vi.mock('@/services/gestor-linha-service', () => ({
+  MENSAGEM_ERRO_SEM_GESTOR:
+    'Não foi encontrado Gestor da Linha configurado para este Centro. Configure o responsável antes de gerar o Ajuste Operacional.',
+  gestorLinhaService: {
+    localizarGestor: vi.fn().mockResolvedValue({
+      usuario_id: 'usr_gestor_1',
+      usuario_nome: 'Carlos Supervisor de Linha',
+      usuario_email: 'carlos.supervisor@ciafal.com.br',
+      cargo: 'Supervisor Operacional',
+      tipo_responsabilidade: 'PRIMARY_MANAGER',
+    }),
+    obterGestorObrigatorio: vi.fn().mockResolvedValue({
+      usuario_id: 'usr_gestor_1',
+      usuario_nome: 'Carlos Supervisor de Linha',
+      usuario_email: 'carlos.supervisor@ciafal.com.br',
+      cargo: 'Supervisor Operacional',
+      tipo_responsabilidade: 'PRIMARY_MANAGER',
+    }),
+  },
+}))
+
+vi.mock('@/services/ajuste-operacional-ia-service', () => ({
+  ajusteOperacionalIaService: {
+    analisarPendencia: vi.fn().mockResolvedValue({
+      resumo_ocorrencia: 'Divergência detectada no apontamento de bobinas.',
+      descricao_revisada: 'Descrição detalhada e revisada por IA para auditoria.',
+      causa_provavel: 'Atraso na confirmação de movimento no SAP.',
+      proximos_passos: ['Conferir saldo no pátio', 'Verificar COGI/CO1P'],
+      ocorrencias_semelhantes: [
+        {
+          competencia: '08/2026',
+          descricao: 'Divergência similar na linha LAM-01',
+          solucao_adotada: 'Reversão de apontamento e reprocessamento.',
+        },
+      ],
+      dados_para_conferir: ['Saldo no posto de trabalho', 'Ordem de produção'],
+      restricoes_respeitadas: {
+        nao_alterou_status: true,
+        nao_concluiu_pendencia: true,
+        nao_executou_sap: true,
+        nao_enviou_email_sem_confirmacao: true,
+      },
+    }),
   },
 }))
 
@@ -40,6 +91,53 @@ vi.mock('@/services/checklist-fechamento-service', () => ({
     listarOcorrencias: vi.fn().mockResolvedValue([]),
     listarEvidencias: vi.fn().mockResolvedValue([]),
     adicionarEvidencia: vi.fn().mockResolvedValue({}),
+  },
+}))
+
+vi.mock('@/services/relatorio-pendencias-service', () => ({
+  relatorioPendenciasService: {
+    gerarRelatorioPendencias: vi.fn().mockResolvedValue({
+      competencia: '09/2026',
+      totalItens: 3,
+      totalPendencias: 2,
+      totalErros: 1,
+      totalObrigatoriasAbertas: 1,
+      totalComAjusteAberto: 1,
+      totalSemAjuste: 1,
+      itensEnriquecidos: [
+        {
+          item: {
+            id: 'item_2',
+            codigo: '1.2',
+            titulo: 'Consistência de Saldo de Sucata',
+            status: 'ERRO',
+            obrigatoria: true,
+            descricao_detalhada: 'Divergência apurada no pátio',
+          },
+          possuiAjuste: true,
+          ajusteNumero: 'AOP-000005/2026',
+          ajusteId: 'aj_999',
+          responsavelNome: 'Carlos Supervisor de Linha',
+          prioridade: 'Alta',
+          prazoFormatado: '15/09/2026',
+          statusMeuDia: 'Em andamento',
+          statusAjuste: 'Em andamento',
+          destaqueTexto: 'AOP: AOP-000005/2026 (Em andamento)',
+        },
+        {
+          item: {
+            id: 'item_3',
+            codigo: '1.3',
+            titulo: 'Inventário Físico do Almoxarifado',
+            status: 'PENDENTE',
+            obrigatoria: false,
+            descricao_detalhada: 'Aguardando contagem física',
+          },
+          possuiAjuste: false,
+          destaqueTexto: 'Ajuste Operacional não aberto',
+        },
+      ],
+    }),
   },
 }))
 
@@ -175,14 +273,37 @@ describe('Check-list Fechamento — Ajuste Operacional (Interface Etapa 2)', () 
       />,
     )
 
-    expect(screen.getByText('AJUSTE OPERACIONAL — PCP ROBOTIZADO')).toBeInTheDocument()
-    expect(screen.getByText('Atividade de Origem:')).toBeInTheDocument()
+    expect(screen.getByText('Ajuste Operacional')).toBeInTheDocument()
+    expect(screen.getByText('1. Identificação da Atividade')).toBeInTheDocument()
     expect(screen.getByText(/Consistência de Saldo de Sucata/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Criar Ajuste Operacional/i })).toBeInTheDocument()
   })
 
-  // 4. Seção de ajustes no detalhe da atividade
-  it('4. Detalhe da atividade contém a aba de Ajustes Operacionais Vinculados', async () => {
+  // 4. Análise com IA no Popup
+  it('4. Botão "Analisar Pendência com IA" aciona o service e apresenta diagnóstico com causas e próximos passos', async () => {
+    render(
+      <AjusteOperacionalModal
+        open={true}
+        onClose={vi.fn()}
+        item={itemMockErro}
+        competencia="09/2026"
+        onAjusteCriado={vi.fn()}
+      />,
+    )
+
+    const botaoIa = screen.getByRole('button', { name: /Analisar Pendência com IA/i })
+    expect(botaoIa).toBeInTheDocument()
+    fireEvent.click(botaoIa)
+
+    await waitFor(() => {
+      expect(ajusteOperacionalIaService.analisarPendencia).toHaveBeenCalled()
+      expect(screen.getByText('Diagnóstico IA do PCP Robotizado')).toBeInTheDocument()
+      expect(screen.getByText(/Atraso na confirmação de movimento no SAP/i)).toBeInTheDocument()
+    })
+  })
+
+  // 5. Seção de ajustes no detalhe da atividade com tabela estruturada
+  it('5. Detalhe da atividade contém a aba de Ajustes Operacionais Vinculados com tabela estruturada', async () => {
     const mockAjuste: AjusteOperacional = {
       id: 'aj_999',
       numero: 'AOP-000005/2026',
@@ -225,6 +346,45 @@ describe('Check-list Fechamento — Ajuste Operacional (Interface Etapa 2)', () 
       expect(screen.getByText('AOP-000005/2026')).toBeInTheDocument()
       expect(screen.getByText('Carlos Supervisor')).toBeInTheDocument()
       expect(screen.getByText(/Divergência de 3 bobinas no pátio/i)).toBeInTheDocument()
+      // Tabela estruturada com cabeçalhos requeridos
+      expect(screen.getByText('Status origem')).toBeInTheDocument()
+      expect(screen.getByText('Status ajuste')).toBeInTheDocument()
+    })
+  })
+
+  // 6. Relatório de Pendências enriquecido
+  it('6. Relatório de Pendências exibe status do Ajuste Operacional e destaque de não aberto', async () => {
+    render(
+      <RelatorioPendenciasModal
+        open={true}
+        onClose={vi.fn()}
+        execucao={{
+          id: 'exec_1',
+          competencia: '09/2026',
+          ano: 2026,
+          mes: 9,
+          empresa: 'CIAFAL',
+          responsavel: 'PCP Analista',
+          status_geral: 'Em andamento',
+          data_inicio: '2026-09-01',
+          data_limite: '2026-09-05',
+          total_atividades: 3,
+          total_ok: 1,
+          total_erro: 1,
+          total_pendente: 1,
+          total_obrigatorias: 1,
+          ordens_fechadas: 0,
+          ordens_pendentes: 0,
+          percentual_concluido: 33,
+        }}
+        itens={[itemMockOk, itemMockErro, itemMockPendente]}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(relatorioPendenciasService.gerarRelatorioPendencias).toHaveBeenCalled()
+      expect(screen.getByText('AOP-000005/2026')).toBeInTheDocument()
+      expect(screen.getByText('Ajuste Operacional não aberto')).toBeInTheDocument()
     })
   })
 })

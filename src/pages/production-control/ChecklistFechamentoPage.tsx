@@ -94,6 +94,8 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<ChecklistFechamentoItem | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [ajusteModalOpen, setAjusteModalOpen] = useState(false)
+  const [ajusteParaAbrirNoDetalhe, setAjusteParaAbrirNoDetalhe] =
+    useState<AjusteOperacional | null>(null)
   const [inventarioModalOpen, setInventarioModalOpen] = useState(false)
   const [divergenciaModalOpen, setDivergenciaModalOpen] = useState(false)
   const [mestreModalOpen, setMestreModalOpen] = useState(false)
@@ -427,6 +429,12 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const handleOpenAjusteOperacional = (item: ChecklistFechamentoItem) => {
     setSelectedItem(item)
     setAjusteModalOpen(true)
+  }
+
+  const handleAbrirAjusteExistente = (ajuste: AjusteOperacional) => {
+    if (selectedItem) {
+      setDetailModalOpen(true)
+    }
   }
 
   const handleAjusteCriado = async (ajuste: AjusteOperacional) => {
@@ -1008,6 +1016,7 @@ export const ChecklistFechamentoPage: React.FC = () => {
             filtroStatusRapido={filtroStatusRapido}
             onAbrirAjusteOperacional={handleOpenAjusteOperacional}
             ajustesPorItemMap={ajustesPorItem}
+            onVerAjuste={handleOpenDetalhe}
           />
         )}
       </ErrorBoundary>
@@ -1031,6 +1040,7 @@ export const ChecklistFechamentoPage: React.FC = () => {
         item={selectedItem}
         competencia={competenciaSelecionada}
         onAjusteCriado={handleAjusteCriado}
+        onAbrirAjusteExistente={handleAbrirAjusteExistente}
       />
 
       <SolicitarInventarioModal
