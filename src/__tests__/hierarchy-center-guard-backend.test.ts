@@ -10,15 +10,26 @@ describe('Backend Governança Hierarquia de Linhas e Centros (Etapa 1)', () => {
     try {
       if (!pb.authStore.isValid) {
         try {
-          await pb.collection('users').authWithPassword('ciafal@ciafal.com.br', 'Skip@Pass')
-        } catch (_) {
           await pb
             .collection('users')
             .authWithPassword('programador.pcp@ciafal.com.br', 'Skip@Pass')
+        } catch (e1) {
+          console.warn('Falha ao autenticar programador.pcp:', e1)
+          try {
+            await pb.collection('users').authWithPassword('admin@pcp.ciafal.com.br', 'Skip@Pass')
+          } catch (e2) {
+            console.warn('Falha ao autenticar admin:', e2)
+          }
         }
       }
       adminAuth = pb.authStore.isValid
-    } catch (_) {
+      console.log('TEST_POCKETBASE_AUTH_STATE:', {
+        isValid: pb.authStore.isValid,
+        token: pb.authStore.token ? 'PRESENT' : 'EMPTY',
+        user: (pb.authStore.record as any)?.email,
+      })
+    } catch (err) {
+      console.warn('Erro geral de auth:', err)
       adminAuth = pb.authStore.isValid
     }
   })
