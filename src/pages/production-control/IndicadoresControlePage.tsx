@@ -54,7 +54,9 @@ export const IndicadoresControlePage: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   // Filtros
-  const [visao, setVisao] = useState<'MES' | 'TRIMESTRE' | 'ANO' | 'ULTIMOS_12_MESES'>('ULTIMOS_12_MESES')
+  const [visao, setVisao] = useState<'MES' | 'TRIMESTRE' | 'ANO' | 'ULTIMOS_12_MESES'>(
+    'ULTIMOS_12_MESES',
+  )
   const [filtroEmpresa, setFiltroEmpresa] = useState('CIAFAL')
   const [filtroLinha, setFiltroLinha] = useState('TODAS')
   const [filtroCentro, setFiltroCentro] = useState('TODOS')
@@ -145,7 +147,9 @@ export const IndicadoresControlePage: React.FC = () => {
     }
 
     setTituloModalDetalhe(`Detalhamento: ${card.titulo}`)
-    setSubtituloModalDetalhe(`${card.subtexto} — Total de registros vinculados: ${filtradas.length}`)
+    setSubtituloModalDetalhe(
+      `${card.subtexto} — Total de registros vinculados: ${filtradas.length}`,
+    )
     setListaModalOrdens(filtradas)
     setModalDetalheAberto(true)
   }
@@ -155,7 +159,9 @@ export const IndicadoresControlePage: React.FC = () => {
     if (!entry || !entry.activePayload || entry.activePayload.length === 0) return
     const dataRow = entry.activePayload[0].payload as HistoricoMensalLinha
     const comp = dataRow.competencia
-    const filtradas = ordensDetalhadas.filter((o) => o.id.includes(comp) || true).slice(0, dataRow.totalOrdens)
+    const filtradas = ordensDetalhadas
+      .filter((o) => o.id.includes(comp) || true)
+      .slice(0, dataRow.totalOrdens)
 
     setTituloModalDetalhe(`Detalhamento da Competência ${comp}`)
     setSubtituloModalDetalhe(
@@ -284,7 +290,9 @@ export const IndicadoresControlePage: React.FC = () => {
 
           {/* Centro */}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Centro</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+              Centro
+            </label>
             <select
               value={filtroCentro}
               onChange={(e) => setFiltroCentro(e.target.value)}
@@ -403,8 +411,18 @@ export const IndicadoresControlePage: React.FC = () => {
                 }
                 wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
               />
-              <Bar dataKey="ordensFechadas" fill="#004C97" radius={[4, 4, 0, 0]} name="ordensFechadas" />
-              <Bar dataKey="ordensPendentes" fill="#F59E0B" radius={[4, 4, 0, 0]} name="ordensPendentes" />
+              <Bar
+                dataKey="ordensFechadas"
+                fill="#004C97"
+                radius={[4, 4, 0, 0]}
+                name="ordensFechadas"
+              />
+              <Bar
+                dataKey="ordensPendentes"
+                fill="#F59E0B"
+                radius={[4, 4, 0, 0]}
+                name="ordensPendentes"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -443,7 +461,9 @@ export const IndicadoresControlePage: React.FC = () => {
               <div key={i} className="text-xs space-y-0.5">
                 <div className="flex justify-between font-medium text-slate-700">
                   <span className="truncate">{pl.linha}</span>
-                  <span className="font-bold">{pl.quantidade} ({pl.percentual}%)</span>
+                  <span className="font-bold">
+                    {pl.quantidade} ({pl.percentual}%)
+                  </span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                   <div
@@ -463,7 +483,10 @@ export const IndicadoresControlePage: React.FC = () => {
           </span>
           <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
             {pendenciasOrigem.map((po, i) => (
-              <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-slate-100 last:border-0">
+              <div
+                key={i}
+                className="flex items-center justify-between text-xs py-0.5 border-b border-slate-100 last:border-0"
+              >
                 <span className="text-slate-600 truncate pr-2">{po.origem}</span>
                 <span className="font-bold text-slate-900 shrink-0">{po.quantidade}</span>
               </div>
@@ -627,7 +650,9 @@ export const IndicadoresControlePage: React.FC = () => {
                             </span>
                           </td>
                           <td className="p-2.5 text-center font-mono text-slate-600">{o.centro}</td>
-                          <td className="p-2.5 text-center font-semibold text-slate-700">{o.linha}</td>
+                          <td className="p-2.5 text-center font-semibold text-slate-700">
+                            {o.linha}
+                          </td>
                           <td className="p-2.5 text-right font-mono font-semibold text-slate-800">
                             {formatPtBrNumber(o.quantidade, 1)}
                           </td>
@@ -646,7 +671,9 @@ export const IndicadoresControlePage: React.FC = () => {
                           </td>
                           <td className="p-2.5 text-slate-500 text-[10px]">
                             {o.dataFechamento
-                              ? new Date(o.dataFechamento + 'T12:00:00Z').toLocaleDateString('pt-BR')
+                              ? new Date(o.dataFechamento + 'T12:00:00Z').toLocaleDateString(
+                                  'pt-BR',
+                                )
                               : '-'}
                           </td>
                           <td className="p-2.5 text-slate-600 text-[11px] truncate max-w-xs">
