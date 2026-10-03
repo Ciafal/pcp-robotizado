@@ -448,3 +448,201 @@ describe('Fase 1 & Preparação Fase 2: Regras de Negócio e Rastreabilidade Té
     )
   })
 })
+
+describe('Fase 2 / v0.0.413: Reestruturação do Modal — Blocos 2 a 5 (t, mm, multisseleções, vigência, sincronismo)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('Bloco 2: Fornecedor Não aplicável -> permite salvar sem fornecedores e sem erro', () => {
+    const data: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      raw_material_type: 'Tarugo 130x130',
+      application: 'Laminação Direta',
+      supplier_applicable: false,
+      suppliers_json: [],
+      validity_start_date: '01/01/2026',
+      validity_end_date: '31/12/2026',
+      average_weight_t: '1,2505',
+      ideal_mp_length_mm: '6.000',
+    }
+
+    const errors = rawMaterialApplicationService.validateFormData(data)
+    expect(errors.suppliers).toBeUndefined()
+    expect(Object.keys(errors)).toHaveLength(0)
+  })
+
+  it('Bloco 2: Fornecedor Aplicável com lista vazia -> erro de validação obrigatório', () => {
+    const data: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      application: 'Laminação Direta',
+      supplier_applicable: true,
+      suppliers_json: [],
+    }
+
+    const errors = rawMaterialApplicationService.validateFormData(data)
+    expect(errors.suppliers).toBe('Selecione pelo menos um fornecedor homologado.')
+  })
+
+  it('Bloco 2 & 3: Fornecedor Aplicável com 2 fornecedores, 2 bitolas e 2 tipos de aço homologados', () => {
+    const data: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      raw_material_type: 'Tarugo 130x130',
+      application: 'Laminação Direta',
+      supplier_applicable: true,
+      suppliers_json: [
+        { code: 'GERDAU', name: 'Gerdau Aços Especiais' },
+        { code: 'ARCELOR', name: 'ArcelorMittal Tubarão' },
+      ],
+      bitolas_json: ['Ø 32 mm', 'Ø 40 mm'],
+      steel_types_json: ['SAE 1045', 'SAE 4140'],
+      validity_start_date: '01/01/2026',
+      validity_end_date: '31/12/2026',
+      reduction_ratio_x: '5',
+      reduction_percentage: '80,00',
+      min_weight_t: '1,2000',
+      average_weight_t: '1,2505',
+      max_weight_t: '1,3000',
+      min_mp_length_mm: '5.500',
+      ideal_mp_length_mm: '6.000',
+      max_mp_length_mm: '6.500',
+    }
+
+    const errors = rawMaterialApplicationService.validateFormData(data)
+    expect(Object.keys(errors)).toHaveLength(0)
+  })
+
+  it('Bloco 3: Sincronismo bidirecional 1:X ↔ % — X=5 gera 80,00% e 80% recalcula X=5', () => {
+    // 1:X -> %
+    const fromRatio = calculateReductionFromRatioX('5')
+    expect(fromRatio.isValid).toBe(true)
+    expect(fromRatio.percentage).toBe(80)
+    expect(formatBrNumber(fromRatio.percentage, 2)).toBe('80,00')
+
+    // % -> 1:X
+    const fromPct = calculateReductionFromPercentage('80,00')
+    expect(fromPct.isValid).toBe(true)
+    expect(fromPct.ratioX).toBe(5)
+    expect(formatBrNumber(fromPct.ratioX, 2)).toBe('5,00')
+  })
+
+  it('Bloco 3: Rejeição de vigência invertida (início posterior ao fim)', () => {
+    const data: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      application: 'Laminação Direta',
+      supplier_applicable: false,
+      validity_start_date: '31/12/2026',
+      validity_end_date: '01/01/2026',
+    }
+
+    const errors = rawMaterialApplicationService.validateFormData(data)
+    expect(errors.validity).toBe('Data de fim da vigência não pode ser anterior à data de início.')
+  })
+
+  it('Bloco 4: Validação de pesos exclusivamente em toneladas (t)', () => {
+    // min_weight_t > max_weight_t
+    const dataInvalida: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      application: 'Laminação Direta',
+      supplier_applicable: false,
+      min_weight_t: '1,4000',
+      average_weight_t: '1,2505',
+      max_weight_t: '1,3000',
+    }
+    const errors = rawMaterialApplicationService.validateFormData(dataInvalida)
+    expect(errors.min_weight_t).toBe('Peso mínimo não pode ser maior que o peso máximo.')
+    expect(errors.average_weight_t).toBe('Peso médio não pode ser menor que o peso mínimo.')
+  })
+
+  it('Bloco 5: Validação de comprimentos exclusivamente em milímetros (mm)', () => {
+    // min_mp_length_mm > max_mp_length_mm
+    const dataInvalida: RawMaterialApplicationFormData = {
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      application: 'Laminação Direta',
+      supplier_applicable: false,
+      min_mp_length_mm: '7.000',
+      ideal_mp_length_mm: '6.000',
+      max_mp_length_mm: '6.500',
+    }
+    const errors = rawMaterialApplicationService.validateFormData(dataInvalida)
+    expect(errors.min_mp_length_mm).toBe(
+      'Comprimento mínimo da MP não pode ser maior que o comprimento máximo.',
+    )
+  })
+
+  it('Persistência integral: Salvar -> Simular retorno -> Editar -> Salvar sem duplicação', async () => {
+    const savedRecord = {
+      id: 'rec_mp_app_123',
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      raw_material_type: 'Tarugo 130x130',
+      application: 'Laminação Direta',
+      supplier_applicable: true,
+      suppliers_json: [{ code: 'GERDAU', name: 'Gerdau Aços Especiais' }],
+      bitolas_json: ['Ø 32 mm'],
+      steel_types_json: ['SAE 1045'],
+      min_weight_t: 1.2,
+      average_weight_t: 1.2505,
+      max_weight_t: 1.3,
+      min_mp_length_mm: 5500,
+      ideal_mp_length_mm: 6000,
+      max_mp_length_mm: 6500,
+      validity_start_date: '2026-01-01',
+      validity_end_date: '2026-12-31',
+      reduction_ratio_x: 5,
+      reduction_percentage: 80,
+      status: 'Ativo',
+    }
+
+    const updateSpy = vi
+      .spyOn(pb.collection('line_raw_material_applications'), 'update')
+      .mockResolvedValue(savedRecord as any)
+    vi.spyOn(pb.collection('pcp_audit_logs'), 'create').mockResolvedValue({} as any)
+
+    // Editar registro existente mantendo o ID -> updateSpy deve ser chamado, não duplicando
+    await rawMaterialApplicationService.save({
+      id: 'rec_mp_app_123',
+      line_id: 'line_test_01',
+      center_code: 'LAM-01',
+      product_code: 'PROD-1045-30',
+      raw_material_code: 'MP-TAR-130-1045',
+      raw_material_type: 'Tarugo 130x130',
+      application: 'Laminação Direta',
+      supplier_applicable: true,
+      suppliers_json: [{ code: 'GERDAU', name: 'Gerdau Aços Especiais' }],
+      average_weight_t: '1,2505',
+      ideal_mp_length_mm: '6.000',
+      validity_start_date: '01/01/2026',
+      validity_end_date: '31/12/2026',
+    })
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      'rec_mp_app_123',
+      expect.objectContaining({
+        raw_material_code: 'MP-TAR-130-1045',
+        average_weight_t: 1.2505,
+        ideal_mp_length_mm: 6000,
+      }),
+    )
+  })
+})

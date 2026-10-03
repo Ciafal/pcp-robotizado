@@ -127,45 +127,45 @@ export interface RawMaterialApplicationFormData {
   raw_material_description?: string
 
   // Tópico 2: Fornecedor da MP
-  supplier_applicable: boolean
-  suppliers_json: StructuredSupplier[]
-  raw_material_type: string
+  supplier_applicable?: boolean
+  suppliers_json?: StructuredSupplier[]
+  raw_material_type?: string
 
   // Tópico 3: Aplicação do Produto
-  application: string
-  bitolas_json: string[]
-  steel_types_json: string[]
-  rolled_min_length_mm: string
-  rolled_ideal_length_mm: string
-  rolled_max_length_mm: string
-  reduction_min_pct: string
-  reduction_ideal_pct: string
-  reduction_max_pct: string
-  reduction_ratio_x: string
-  reduction_percentage: string
-  validity_start_date: string // formato dd/mm/aaaa
-  validity_end_date: string // formato dd/mm/aaaa
+  application?: string
+  bitolas_json?: string[]
+  steel_types_json?: string[]
+  rolled_min_length_mm?: string
+  rolled_ideal_length_mm?: string
+  rolled_max_length_mm?: string
+  reduction_min_pct?: string
+  reduction_ideal_pct?: string
+  reduction_max_pct?: string
+  reduction_ratio_x?: string
+  reduction_percentage?: string
+  validity_start_date?: string // formato dd/mm/aaaa
+  validity_end_date?: string // formato dd/mm/aaaa
 
   // Tópico 4: Pesos da Matéria-prima (t)
-  min_weight_t: string
-  average_weight_t: string
-  max_weight_t: string
+  min_weight_t?: string
+  average_weight_t?: string
+  max_weight_t?: string
 
   // Tópico 5: Comprimento Matéria-prima (mm)
-  min_mp_length_mm: string
-  ideal_mp_length_mm: string
-  max_mp_length_mm: string
+  min_mp_length_mm?: string
+  ideal_mp_length_mm?: string
+  max_mp_length_mm?: string
 
   // Tópico 6: Controle de Sequenciamento & Execução Técnica
-  first_run: boolean
-  allow_out_of_standard_mp: boolean
+  first_run?: boolean
+  allow_out_of_standard_mp?: boolean
 
   // Tópico 7: Tempo Mínimo PCP
   tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
   tempo_minimo_pcp_valor?: string
 
   // Tópico 8: Status & Observações
-  status: 'Ativo' | 'Inativo'
+  status?: 'Ativo' | 'Inativo'
   notes?: string
 
   // Campos legados para compatibilidade reversa opcional

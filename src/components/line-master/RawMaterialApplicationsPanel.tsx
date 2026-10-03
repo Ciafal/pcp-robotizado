@@ -1,7 +1,16 @@
 /**
  * Painel: Matéria-Prima por Aplicação
  * Tópico na Ficha Mestra Expandida (PCP Robotizado HUB Ciafal)
- * Suporta múltiplas MPs e múltiplas aplicações para o mesmo centro/produto
+ *
+ * Estrutura oficial dos tópicos no modal:
+ * BLOCO 1: Produto Acabado & Matéria-Prima
+ * BLOCO 2: FORNECEDOR DA MP (Aplicabilidade: Aplicável/Não aplicável, Fornecedores múltiplos com SYSTEM_HOMOLOGATED_SUPPLIERS, Tipo de MP com SYSTEM_RAW_MATERIAL_TYPES)
+ * BLOCO 3: APLICAÇÃO DO PRODUTO (Bitolas múltiplas, Tipos de Aço múltiplos, Comprimentos Laminado mm, Redução min/ideal/max %, Vigência dd/mm/aaaa, Redução 1:X <-> %)
+ * BLOCO 4: PESOS DA MATÉRIA-PRIMA (t) (Mínimo, Médio, Máximo em toneladas)
+ * BLOCO 5: COMPRIMENTO MATÉRIA-PRIMA (mm) (Mínimo, Ideal, Máximo em mm)
+ * BLOCO 6: CONTROLE DE SEQUENCIAMENTO & EXECUÇÃO TÉCNICA
+ * BLOCO 7: TEMPO MÍNIMO PCP
+ * BLOCO 8: STATUS & OBSERVAÇÕES
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
@@ -9,18 +18,14 @@ import {
   Layers,
   Plus,
   Search,
-  Filter,
   RefreshCw,
-  Edit2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Scale,
   Ruler,
   Percent,
-  Check,
-  ShieldCheck,
-  Building,
+  AlertTriangle,
+  Building2,
+  Calendar,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +45,9 @@ import {
   LineRawMaterialApplication,
   RawMaterialApplicationFormData,
   RawMaterialApplicationValidationErrors,
+  StructuredSupplier,
+  SYSTEM_RAW_MATERIAL_TYPES,
+  SYSTEM_HOMOLOGATED_SUPPLIERS,
 } from '@/types/raw-material-application'
 import { rawMaterialApplicationService } from '@/services/raw-material-application-service'
 import {
@@ -49,8 +57,9 @@ import {
   calculateReductionFromPercentage,
 } from '@/utils/number-br-formatters'
 import { MaterialSelector } from '@/components/common/MaterialSelector'
-import { BitolaSelector } from '@/components/line-master/BitolaSelector'
-import { TipoAcoSelector } from '@/components/line-master/TipoAcoSelector'
+import { SupplierMultiSelect } from '@/components/line-master/SupplierMultiSelect'
+import { BitolaMultiSelect } from '@/components/line-master/BitolaMultiSelect'
+import { TipoAcoMultiSelect } from '@/components/line-master/TipoAcoMultiSelect'
 
 interface RawMaterialApplicationsPanelProps {
   lineId: string
@@ -60,16 +69,17 @@ interface RawMaterialApplicationsPanelProps {
   onRefreshParent?: () => void
 }
 
-const FORNECEDORES_SUGERIDOS = [
-  'Gerdau Aços Especiais',
-  'ArcelorMittal',
-  'Siderúrgica Barra Mansa',
-  'Sinobras',
-  'Villares Metals',
-  'Aperam South America',
-  'Usiminas',
-  'Importado / Outros',
-]
+/** Formata data ISO (YYYY-MM-DD) para dd/mm/aaaa */
+function isoToPtBrDate(iso?: string | null): string {
+  if (!iso) return ''
+  const trimmed = iso.trim()
+  if (trimmed.includes('/')) return trimmed
+  const parts = trimmed.split('T')[0].split('-')
+  if (parts.length === 3) {
+    return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`
+  }
+  return trimmed
+}
 
 export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanelProps> = ({
   lineId,
@@ -83,7 +93,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
   const [items, setItems] = useState<LineRawMaterialApplication[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
-  // Filtros
+  // Filtros da listagem
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [filterProduct, setFilterProduct] = useState<string>('Todos')
   const [filterRawMaterial, setFilterRawMaterial] = useState<string>('Todos')
@@ -99,45 +109,57 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
   const [isSaving, setIsSaving] = useState<boolean>(false)
   const [fieldErrors, setFieldErrors] = useState<RawMaterialApplicationValidationErrors>({})
 
-  // Estado do formulário
+  // Estado do formulário — Bloco 1: Produto Acabado & Matéria-Prima
   const [formProductCode, setFormProductCode] = useState<string>('')
   const [formProductDesc, setFormProductDesc] = useState<string>('')
   const [formRawCode, setFormRawCode] = useState<string>('')
   const [formRawDesc, setFormRawDesc] = useState<string>('')
-  const [formSupplier, setFormSupplier] = useState<string>('')
+
+  // Bloco 2: FORNECEDOR DA MP
+  const [formSupplierApplicable, setFormSupplierApplicable] = useState<boolean>(true)
+  const [formSuppliersJson, setFormSuppliersJson] = useState<StructuredSupplier[]>([])
+  const [formRawMaterialType, setFormRawMaterialType] = useState<string>('')
+
+  // Bloco 3: APLICAÇÃO DO PRODUTO
   const [formApplication, setFormApplication] = useState<string>('')
-  const [formBitolaRef, setFormBitolaRef] = useState<string>('')
-  const [formSteelType, setFormSteelType] = useState<string>('')
-
-  // Pesos
-  const [formAvgWeight, setFormAvgWeight] = useState<string>('')
-  const [formMaxWeight, setFormMaxWeight] = useState<string>('')
-  const [formMinWeight, setFormMinWeight] = useState<string>('')
-
-  // Comprimentos
-  const [formRolledLength, setFormRolledLength] = useState<string>('')
-  const [formMultipleLength, setFormMultipleLength] = useState<string>('')
-  const [formMaxMpLength, setFormMaxMpLength] = useState<string>('')
-  const [formMinMpLength, setFormMinMpLength] = useState<string>('')
-
-  // Redução
+  const [formBitolasJson, setFormBitolasJson] = useState<string[]>([])
+  const [formSteelTypesJson, setFormSteelTypesJson] = useState<string[]>([])
+  const [formRolledMinLengthMm, setFormRolledMinLengthMm] = useState<string>('')
+  const [formRolledIdealLengthMm, setFormRolledIdealLengthMm] = useState<string>('')
+  const [formRolledMaxLengthMm, setFormRolledMaxLengthMm] = useState<string>('')
+  const [formReductionMinPct, setFormReductionMinPct] = useState<string>('')
+  const [formReductionIdealPct, setFormReductionIdealPct] = useState<string>('')
+  const [formReductionMaxPct, setFormReductionMaxPct] = useState<string>('')
+  const [formValidityStart, setFormValidityStart] = useState<string>('')
+  const [formValidityEnd, setFormValidityEnd] = useState<string>('')
   const [formRatioX, setFormRatioX] = useState<string>('')
   const [formReductionPct, setFormReductionPct] = useState<string>('')
 
-  // Flags
+  // Bloco 4: PESOS DA MATÉRIA-PRIMA (t)
+  const [formMinWeightT, setFormMinWeightT] = useState<string>('')
+  const [formAvgWeightT, setFormAvgWeightT] = useState<string>('')
+  const [formMaxWeightT, setFormMaxWeightT] = useState<string>('')
+
+  // Bloco 5: COMPRIMENTO MATÉRIA-PRIMA (mm)
+  const [formMinMpLengthMm, setFormMinMpLengthMm] = useState<string>('')
+  const [formIdealMpLengthMm, setFormIdealMpLengthMm] = useState<string>('')
+  const [formMaxMpLengthMm, setFormMaxMpLengthMm] = useState<string>('')
+
+  // Bloco 6: CONTROLE DE SEQUENCIAMENTO & EXECUÇÃO TÉCNICA
   const [formFirstRun, setFormFirstRun] = useState<boolean>(false)
   const [formAllowOutOfStd, setFormAllowOutOfStd] = useState<boolean>(false)
 
-  // Bloco 7: Tempo Mínimo PCP
+  // Bloco 7: TEMPO MÍNIMO PCP
   const [formTempoUnidade, setFormTempoUnidade] = useState<
     'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
   >('')
   const [formTempoValor, setFormTempoValor] = useState<string>('')
 
+  // Bloco 8: STATUS & OBSERVAÇÕES
   const [formStatus, setFormStatus] = useState<'Ativo' | 'Inativo'>('Ativo')
   const [formNotes, setFormNotes] = useState<string>('')
 
-  // Carregar dados
+  // Carregar dados da linha
   const loadData = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -159,7 +181,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     loadData()
   }, [loadData])
 
-  // Listas de opções para filtros
+  // Listas de opções para filtros do cabeçalho
   const distinctProducts = useMemo(() => {
     const set = new Set<string>()
     items.forEach((i) => {
@@ -179,6 +201,11 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
   const distinctSuppliers = useMemo(() => {
     const set = new Set<string>()
     items.forEach((i) => {
+      if (i.suppliers_json && Array.isArray(i.suppliers_json)) {
+        i.suppliers_json.forEach((s) => {
+          if (s && s.name) set.add(s.name)
+        })
+      }
       if (i.supplier) set.add(i.supplier)
     })
     return Array.from(set).sort()
@@ -198,7 +225,13 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
       if (filterProduct !== 'Todos' && item.product_code !== filterProduct) return false
       if (filterRawMaterial !== 'Todos' && item.raw_material_code !== filterRawMaterial)
         return false
-      if (filterSupplier !== 'Todos' && item.supplier !== filterSupplier) return false
+      if (filterSupplier !== 'Todos') {
+        const hasInJson =
+          Array.isArray(item.suppliers_json) &&
+          item.suppliers_json.some((s) => s.name === filterSupplier || s.code === filterSupplier)
+        const hasLegacy = item.supplier === filterSupplier
+        if (!hasInJson && !hasLegacy) return false
+      }
       if (filterApplication !== 'Todos' && item.application !== filterApplication) return false
       if (filterStatus !== 'Todos' && item.status !== filterStatus) return false
       if (filterFirstRun !== 'Todos') {
@@ -211,14 +244,20 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
       }
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
+        const suppliersText = Array.isArray(item.suppliers_json)
+          ? item.suppliers_json.map((s) => `${s.code} ${s.name}`).join(' ')
+          : ''
         const text = [
           item.product_code,
           item.product_description,
           item.raw_material_code,
           item.raw_material_description,
+          item.raw_material_type,
           item.supplier,
+          suppliersText,
           item.application,
-          item.steel_type,
+          (item.bitolas_json || []).join(' '),
+          (item.steel_types_json || []).join(' '),
           item.notes,
         ]
           .filter(Boolean)
@@ -244,65 +283,213 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
   const handleOpenAdd = () => {
     setEditingItem(null)
     setFieldErrors({})
+
+    // Bloco 1
     setFormProductCode('')
     setFormProductDesc('')
     setFormRawCode('')
     setFormRawDesc('')
-    setFormSupplier('')
+
+    // Bloco 2
+    setFormSupplierApplicable(true)
+    setFormSuppliersJson([])
+    setFormRawMaterialType('')
+
+    // Bloco 3
     setFormApplication('')
-    setFormBitolaRef('')
-    setFormSteelType('')
-    setFormAvgWeight('')
-    setFormMaxWeight('')
-    setFormMinWeight('')
-    setFormRolledLength('')
-    setFormMultipleLength('')
-    setFormMaxMpLength('')
-    setFormMinMpLength('')
+    setFormBitolasJson([])
+    setFormSteelTypesJson([])
+    setFormRolledMinLengthMm('')
+    setFormRolledIdealLengthMm('')
+    setFormRolledMaxLengthMm('')
+    setFormReductionMinPct('')
+    setFormReductionIdealPct('')
+    setFormReductionMaxPct('')
+    setFormValidityStart('')
+    setFormValidityEnd('')
     setFormRatioX('')
     setFormReductionPct('')
+
+    // Bloco 4
+    setFormMinWeightT('')
+    setFormAvgWeightT('')
+    setFormMaxWeightT('')
+
+    // Bloco 5
+    setFormMinMpLengthMm('')
+    setFormIdealMpLengthMm('')
+    setFormMaxMpLengthMm('')
+
+    // Bloco 6
     setFormFirstRun(false)
     setFormAllowOutOfStd(false)
+
+    // Bloco 7
     setFormTempoUnidade('')
     setFormTempoValor('')
+
+    // Bloco 8
     setFormStatus('Ativo')
     setFormNotes('')
+
     setIsModalOpen(true)
   }
 
-  // Abertura para edição
+  // Abertura para edição com conversão integral dos campos legados (kg -> t, m -> mm)
   const handleOpenEdit = (item: LineRawMaterialApplication) => {
     setEditingItem(item)
     setFieldErrors({})
+
+    // Bloco 1
     setFormProductCode(item.product_code || '')
     setFormProductDesc(item.product_description || '')
     setFormRawCode(item.raw_material_code || '')
     setFormRawDesc(item.raw_material_description || '')
-    setFormSupplier(item.supplier || '')
+
+    // Bloco 2: Fornecedor da MP
+    const isApplicable =
+      item.supplier_applicable !== undefined && item.supplier_applicable !== null
+        ? Boolean(item.supplier_applicable)
+        : true
+    setFormSupplierApplicable(isApplicable)
+
+    let loadedSuppliers: StructuredSupplier[] = []
+    if (Array.isArray(item.suppliers_json) && item.suppliers_json.length > 0) {
+      loadedSuppliers = item.suppliers_json
+    } else if (item.supplier) {
+      // Conversão retrocompatível de fornecedor legado em texto
+      const matched = SYSTEM_HOMOLOGATED_SUPPLIERS.find(
+        (s) =>
+          s.name.toLowerCase() === item.supplier!.toLowerCase() ||
+          s.code.toLowerCase() === (item.supplier_id || '').toLowerCase(),
+      )
+      if (matched) {
+        loadedSuppliers = [{ code: matched.code, name: matched.name }]
+      } else {
+        loadedSuppliers = [{ code: item.supplier_id || 'HOMOLOGADO', name: item.supplier }]
+      }
+    }
+    setFormSuppliersJson(loadedSuppliers)
+    setFormRawMaterialType(item.raw_material_type || '')
+
+    // Bloco 3: Aplicação do Produto
     setFormApplication(item.application || '')
-    setFormBitolaRef(item.bitola_ref || '')
-    setFormSteelType(item.steel_type || '')
 
-    setFormAvgWeight(
-      item.average_weight_kg != null ? formatBrNumber(item.average_weight_kg, 2) : '',
-    )
-    setFormMaxWeight(item.max_weight_kg != null ? formatBrNumber(item.max_weight_kg, 2) : '')
-    setFormMinWeight(item.min_weight_kg != null ? formatBrNumber(item.min_weight_kg, 2) : '')
+    // Bitolas
+    let loadedBitolas: string[] = []
+    if (Array.isArray(item.bitolas_json) && item.bitolas_json.length > 0) {
+      loadedBitolas = item.bitolas_json
+    } else if (item.bitola_ref) {
+      loadedBitolas = [item.bitola_ref]
+    }
+    setFormBitolasJson(loadedBitolas)
 
-    setFormRolledLength(item.rolled_length_m != null ? formatBrNumber(item.rolled_length_m, 2) : '')
-    setFormMultipleLength(
-      item.multiple_length_m != null ? formatBrNumber(item.multiple_length_m, 2) : '',
-    )
-    setFormMaxMpLength(item.max_mp_length_m != null ? formatBrNumber(item.max_mp_length_m, 2) : '')
-    setFormMinMpLength(item.min_mp_length_m != null ? formatBrNumber(item.min_mp_length_m, 2) : '')
+    // Tipos de Aço
+    let loadedSteels: string[] = []
+    if (Array.isArray(item.steel_types_json) && item.steel_types_json.length > 0) {
+      loadedSteels = item.steel_types_json
+    } else if (item.steel_type) {
+      loadedSteels = [item.steel_type]
+    }
+    setFormSteelTypesJson(loadedSteels)
 
+    // Comprimentos Laminado (mm com fallback m -> mm)
+    const rolledIdealMm =
+      item.rolled_ideal_length_mm != null
+        ? item.rolled_ideal_length_mm
+        : item.rolled_length_m != null
+          ? Math.round(item.rolled_length_m * 1000)
+          : null
+    const rolledMinMm =
+      item.rolled_min_length_mm != null ? item.rolled_min_length_mm : rolledIdealMm
+    const rolledMaxMm =
+      item.rolled_max_length_mm != null ? item.rolled_max_length_mm : rolledIdealMm
+
+    setFormRolledMinLengthMm(rolledMinMm != null ? formatBrNumber(rolledMinMm, 0) : '')
+    setFormRolledIdealLengthMm(rolledIdealMm != null ? formatBrNumber(rolledIdealMm, 0) : '')
+    setFormRolledMaxLengthMm(rolledMaxMm != null ? formatBrNumber(rolledMaxMm, 0) : '')
+
+    // Redução (%) faixas mín/ideal/máx
+    const redIdeal =
+      item.reduction_ideal_pct != null
+        ? item.reduction_ideal_pct
+        : item.reduction_percentage != null
+          ? item.reduction_percentage
+          : null
+    const redMin = item.reduction_min_pct != null ? item.reduction_min_pct : redIdeal
+    const redMax = item.reduction_max_pct != null ? item.reduction_max_pct : redIdeal
+
+    setFormReductionMinPct(redMin != null ? formatBrNumber(redMin, 2) : '')
+    setFormReductionIdealPct(redIdeal != null ? formatBrNumber(redIdeal, 2) : '')
+    setFormReductionMaxPct(redMax != null ? formatBrNumber(redMax, 2) : '')
+
+    // Vigência (dd/mm/aaaa)
+    setFormValidityStart(isoToPtBrDate(item.validity_start_date))
+    setFormValidityEnd(isoToPtBrDate(item.validity_end_date))
+
+    // Redução sincronizada (1:X e %)
     setFormRatioX(item.reduction_ratio_x != null ? formatBrNumber(item.reduction_ratio_x, 2) : '')
     setFormReductionPct(
-      item.reduction_percentage != null ? formatBrNumber(item.reduction_percentage, 2) : '',
+      item.reduction_percentage != null
+        ? formatBrNumber(item.reduction_percentage, 2)
+        : redIdeal != null
+          ? formatBrNumber(redIdeal, 2)
+          : '',
     )
 
+    // Bloco 4: Pesos (t com conversão de kg legados se t vazio)
+    const minWt =
+      item.min_weight_t != null
+        ? item.min_weight_t
+        : item.min_weight_kg != null
+          ? item.min_weight_kg / 1000
+          : null
+    const avgWt =
+      item.average_weight_t != null
+        ? item.average_weight_t
+        : item.average_weight_kg != null
+          ? item.average_weight_kg / 1000
+          : null
+    const maxWt =
+      item.max_weight_t != null
+        ? item.max_weight_t
+        : item.max_weight_kg != null
+          ? item.max_weight_kg / 1000
+          : null
+
+    setFormMinWeightT(minWt != null ? formatBrNumber(minWt, 4) : '')
+    setFormAvgWeightT(avgWt != null ? formatBrNumber(avgWt, 4) : '')
+    setFormMaxWeightT(maxWt != null ? formatBrNumber(maxWt, 4) : '')
+
+    // Bloco 5: Comprimento MP (mm com conversão de m legados se mm vazio)
+    const minMpMm =
+      item.min_mp_length_mm != null
+        ? item.min_mp_length_mm
+        : item.min_mp_length_m != null
+          ? Math.round(item.min_mp_length_m * 1000)
+          : null
+    const maxMpMm =
+      item.max_mp_length_mm != null
+        ? item.max_mp_length_mm
+        : item.max_mp_length_m != null
+          ? Math.round(item.max_mp_length_m * 1000)
+          : null
+    const idealMpMm =
+      item.ideal_mp_length_mm != null
+        ? item.ideal_mp_length_mm
+        : minMpMm != null && maxMpMm != null
+          ? Math.round((minMpMm + maxMpMm) / 2)
+          : null
+
+    setFormMinMpLengthMm(minMpMm != null ? formatBrNumber(minMpMm, 0) : '')
+    setFormIdealMpLengthMm(idealMpMm != null ? formatBrNumber(idealMpMm, 0) : '')
+    setFormMaxMpLengthMm(maxMpMm != null ? formatBrNumber(maxMpMm, 0) : '')
+
+    // Bloco 6
     setFormFirstRun(Boolean(item.first_run))
     setFormAllowOutOfStd(Boolean(item.allow_out_of_standard_mp))
+
+    // Bloco 7: Tempo Mínimo PCP
     setFormTempoUnidade(
       (item.tempo_minimo_pcp_unidade as 'Minutos' | 'Horas' | 'Dias' | 'Semanas') || '',
     )
@@ -311,8 +498,11 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
         ? formatBrNumber(item.tempo_minimo_pcp_valor, item.tempo_minimo_pcp_valor % 1 === 0 ? 0 : 2)
         : '',
     )
+
+    // Bloco 8
     setFormStatus(item.status || 'Ativo')
     setFormNotes(item.notes || '')
+
     setIsModalOpen(true)
   }
 
@@ -327,7 +517,12 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
 
     const res = calculateReductionFromRatioX(val)
     if (res.isValid) {
-      setFormReductionPct(formatBrNumber(res.percentage, 2))
+      const pctFormatted = formatBrNumber(res.percentage, 2)
+      setFormReductionPct(pctFormatted)
+      // Se a redução ideal estiver vazia, preencher automaticamente
+      if (!formReductionIdealPct) {
+        setFormReductionIdealPct(pctFormatted)
+      }
       setFieldErrors((prev) => ({ ...prev, reduction: undefined }))
     } else {
       setFieldErrors((prev) => ({
@@ -349,6 +544,9 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     const res = calculateReductionFromPercentage(val)
     if (res.isValid) {
       setFormRatioX(formatBrNumber(res.ratioX, 2))
+      if (!formReductionIdealPct) {
+        setFormReductionIdealPct(val)
+      }
       setFieldErrors((prev) => ({ ...prev, reduction: undefined }))
     } else {
       setFieldErrors((prev) => ({
@@ -363,7 +561,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     try {
       const updated = await rawMaterialApplicationService.toggleStatus(item)
       toast({
-        title: 'Status atualizado',
+        title: 'Status atualizado com sucesso',
         description: `Matéria-prima ${item.raw_material_code} (${item.application}) agora está ${updated.status}.`,
       })
       loadData()
@@ -390,31 +588,53 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
       product_description: formProductDesc.trim(),
       raw_material_code: formRawCode.trim(),
       raw_material_description: formRawDesc.trim(),
-      supplier: formSupplier.trim(),
+
+      // Bloco 2: Fornecedor da MP
+      supplier_applicable: formSupplierApplicable,
+      suppliers_json: formSupplierApplicable ? formSuppliersJson : [],
+      raw_material_type: formRawMaterialType.trim(),
+
+      // Bloco 3: Aplicação do Produto
       application: formApplication.trim(),
-      bitola_ref: formBitolaRef.trim(),
-      steel_type: formSteelType.trim(),
-      average_weight_kg: formAvgWeight,
-      max_weight_kg: formMaxWeight,
-      min_weight_kg: formMinWeight,
-      rolled_length_m: formRolledLength,
-      multiple_length_m: formMultipleLength,
-      max_mp_length_m: formMaxMpLength,
-      min_mp_length_m: formMinMpLength,
+      bitolas_json: formBitolasJson,
+      steel_types_json: formSteelTypesJson,
+      rolled_min_length_mm: formRolledMinLengthMm,
+      rolled_ideal_length_mm: formRolledIdealLengthMm,
+      rolled_max_length_mm: formRolledMaxLengthMm,
+      reduction_min_pct: formReductionMinPct,
+      reduction_ideal_pct: formReductionIdealPct,
+      reduction_max_pct: formReductionMaxPct,
       reduction_ratio_x: formRatioX,
       reduction_percentage: formReductionPct,
+      validity_start_date: formValidityStart,
+      validity_end_date: formValidityEnd,
+
+      // Bloco 4: Pesos (t)
+      min_weight_t: formMinWeightT,
+      average_weight_t: formAvgWeightT,
+      max_weight_t: formMaxWeightT,
+
+      // Bloco 5: Comprimento MP (mm)
+      min_mp_length_mm: formMinMpLengthMm,
+      ideal_mp_length_mm: formIdealMpLengthMm,
+      max_mp_length_mm: formMaxMpLengthMm,
+
+      // Bloco 6: Sequenciamento
       first_run: formFirstRun,
       allow_out_of_standard_mp: formAllowOutOfStd,
+
+      // Bloco 7: Tempo Mínimo PCP
       tempo_minimo_pcp_unidade: formTempoUnidade,
       tempo_minimo_pcp_valor: formTempoValor,
+
+      // Bloco 8: Status & Observações
       status: formStatus,
       notes: formNotes.trim(),
     }
 
-    // 1. Validar e exibir erros sob os campos
+    // 1. Validar campos
     const errors = rawMaterialApplicationService.validateFormData(formData)
 
-    // Validação de produto vazio
     if (!formProductCode.trim()) {
       errors.general = 'Informe o Produto correspondente.'
     }
@@ -459,8 +679,8 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
     try {
       await rawMaterialApplicationService.save(formData)
       toast({
-        title: 'Sucesso',
-        description: 'Matéria-prima por aplicação salva com sucesso.',
+        title: 'Matéria-prima salva com sucesso!',
+        description: `Especificação da MP ${formRawCode} cadastrada para ${formProductCode} (${formApplication}).`,
       })
       setIsModalOpen(false)
       loadData()
@@ -496,8 +716,8 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               </Badge>
             </CardTitle>
             <CardDescription className="text-xs text-slate-500 pt-0.5">
-              Cadastro técnico de múltiplas matérias-primas e aplicações para o mesmo centro/produto
-              (HUB Ciafal).
+              Cadastro técnico de múltiplas matérias-primas e aplicações para o centro/produto (HUB
+              Ciafal). Pesos em toneladas (t) e comprimentos em milímetros (mm).
             </CardDescription>
           </div>
 
@@ -662,20 +882,21 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
             </span>
           </div>
 
-          {/* Tabela Responsiva */}
+          {/* Tabela Responsiva com Formatação ABNT/pt-BR (t e mm) */}
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200 font-bold tracking-wider">
                 <tr>
                   <th className="p-2.5 whitespace-nowrap">Código MP</th>
+                  <th className="p-2.5 whitespace-nowrap">Tipo MP</th>
                   <th className="p-2.5 whitespace-nowrap">Fornecedor</th>
                   <th className="p-2.5 whitespace-nowrap">Produto / Ref.</th>
                   <th className="p-2.5 whitespace-nowrap">Aplicação</th>
-                  <th className="p-2.5 whitespace-nowrap text-right">Peso Médio (kg)</th>
-                  <th className="p-2.5 whitespace-nowrap text-right">Faixa Peso (kg)</th>
-                  <th className="p-2.5 whitespace-nowrap text-right">Comp. Laminado</th>
-                  <th className="p-2.5 whitespace-nowrap text-right">Faixa Comp. MP</th>
-                  <th className="p-2.5 whitespace-nowrap text-center">Redução (1:X | %)</th>
+                  <th className="p-2.5 whitespace-nowrap text-right">Peso Médio (t)</th>
+                  <th className="p-2.5 whitespace-nowrap text-right">Faixa Peso (t)</th>
+                  <th className="p-2.5 whitespace-nowrap text-right">Comp. Ideal MP (mm)</th>
+                  <th className="p-2.5 whitespace-nowrap text-right">Faixa Comp. MP (mm)</th>
+                  <th className="p-2.5 whitespace-nowrap text-center">Redução</th>
                   <th className="p-2.5 whitespace-nowrap text-center">Tempo Mínimo PCP</th>
                   <th className="p-2.5 whitespace-nowrap text-center">1ª Corrida</th>
                   <th className="p-2.5 whitespace-nowrap text-center">Fora Padrão MP</th>
@@ -686,7 +907,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               <tbody className="divide-y divide-slate-100">
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="p-6 text-center text-slate-400 italic text-xs">
+                    <td colSpan={15} className="p-6 text-center text-slate-400 italic text-xs">
                       Nenhuma matéria-prima por aplicação encontrada com os filtros selecionados.
                       Clique em &quot;Adicionar matéria-prima&quot; para cadastrar.
                     </td>
@@ -694,6 +915,66 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                 ) : (
                   filteredItems.map((item) => {
                     const isActive = item.status === 'Ativo'
+
+                    // Obter valores em t com fallback para kg legados
+                    const displayAvgT =
+                      item.average_weight_t != null
+                        ? item.average_weight_t
+                        : item.average_weight_kg != null
+                          ? item.average_weight_kg / 1000
+                          : null
+
+                    const displayMinT =
+                      item.min_weight_t != null
+                        ? item.min_weight_t
+                        : item.min_weight_kg != null
+                          ? item.min_weight_kg / 1000
+                          : null
+
+                    const displayMaxT =
+                      item.max_weight_t != null
+                        ? item.max_weight_t
+                        : item.max_weight_kg != null
+                          ? item.max_weight_kg / 1000
+                          : null
+
+                    // Obter valores em mm com fallback para m legados
+                    const displayIdealMm =
+                      item.ideal_mp_length_mm != null
+                        ? item.ideal_mp_length_mm
+                        : item.min_mp_length_mm != null && item.max_mp_length_mm != null
+                          ? Math.round((item.min_mp_length_mm + item.max_mp_length_mm) / 2)
+                          : item.min_mp_length_m != null && item.max_mp_length_m != null
+                            ? Math.round(((item.min_mp_length_m + item.max_mp_length_m) / 2) * 1000)
+                            : null
+
+                    const displayMinMm =
+                      item.min_mp_length_mm != null
+                        ? item.min_mp_length_mm
+                        : item.min_mp_length_m != null
+                          ? Math.round(item.min_mp_length_m * 1000)
+                          : null
+
+                    const displayMaxMm =
+                      item.max_mp_length_mm != null
+                        ? item.max_mp_length_mm
+                        : item.max_mp_length_m != null
+                          ? Math.round(item.max_mp_length_m * 1000)
+                          : null
+
+                    // Fornecedor label
+                    const isApplicable = item.supplier_applicable !== false
+                    let supplierLabel = 'Não aplicável'
+                    if (isApplicable) {
+                      if (Array.isArray(item.suppliers_json) && item.suppliers_json.length > 0) {
+                        supplierLabel = item.suppliers_json.map((s) => s.name || s.code).join(', ')
+                      } else if (item.supplier) {
+                        supplierLabel = item.supplier
+                      } else {
+                        supplierLabel = '—'
+                      }
+                    }
+
                     return (
                       <tr
                         key={item.id}
@@ -708,7 +989,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                           </span>
                           {item.raw_material_description && (
                             <span
-                              className="text-[11px] text-slate-500 block truncate max-w-[180px]"
+                              className="text-[11px] text-slate-500 block truncate max-w-[160px]"
                               title={item.raw_material_description}
                             >
                               {item.raw_material_description}
@@ -716,11 +997,30 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                           )}
                         </td>
 
-                        {/* Fornecedor */}
+                        {/* Tipo de MP */}
                         <td className="p-2.5 whitespace-nowrap">
                           <span className="text-slate-800 font-medium">
-                            {item.supplier || <span className="text-slate-400">—</span>}
+                            {item.raw_material_type || <span className="text-slate-400">—</span>}
                           </span>
+                        </td>
+
+                        {/* Fornecedor */}
+                        <td className="p-2.5 whitespace-nowrap">
+                          {isApplicable ? (
+                            <span
+                              className="text-slate-800 font-medium truncate block max-w-[180px]"
+                              title={supplierLabel}
+                            >
+                              {supplierLabel}
+                            </span>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-slate-100 text-slate-500 border-slate-300"
+                            >
+                              Não aplicável
+                            </Badge>
+                          )}
                         </td>
 
                         {/* Produto */}
@@ -730,7 +1030,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                           </span>
                           {item.product_description && (
                             <span
-                              className="text-[11px] text-slate-500 block truncate max-w-[160px]"
+                              className="text-[11px] text-slate-500 block truncate max-w-[150px]"
                               title={item.product_description}
                             >
                               {item.product_description}
@@ -743,60 +1043,48 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                           <span className="font-semibold text-slate-900 block">
                             {item.application}
                           </span>
-                          {item.bitola_ref && (
+                          {Array.isArray(item.bitolas_json) && item.bitolas_json.length > 0 ? (
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {item.bitolas_json.join(', ')}
+                            </span>
+                          ) : item.bitola_ref ? (
                             <Badge
                               variant="outline"
                               className="text-[9px] py-0 px-1 bg-slate-50 border-slate-300 text-slate-600"
                             >
                               {item.bitola_ref}
                             </Badge>
-                          )}
+                          ) : null}
                         </td>
 
-                        {/* Peso Médio (kg) */}
+                        {/* Peso Médio (t) */}
                         <td className="p-2.5 font-mono font-bold text-slate-900 text-right whitespace-nowrap">
-                          {item.average_weight_kg != null
-                            ? `${formatBrNumber(item.average_weight_kg, 2)} kg`
-                            : '—'}
+                          {displayAvgT != null ? formatBrWithUnit(displayAvgT, 't', 4) : '—'}
                         </td>
 
-                        {/* Faixa Peso (kg) */}
+                        {/* Faixa Peso (t) */}
                         <td className="p-2.5 font-mono text-slate-600 text-right whitespace-nowrap text-[11px]">
-                          {item.min_weight_kg != null || item.max_weight_kg != null ? (
+                          {displayMinT != null || displayMaxT != null ? (
                             <span>
-                              {item.min_weight_kg != null
-                                ? formatBrNumber(item.min_weight_kg, 2)
-                                : '0,00'}{' '}
-                              a{' '}
-                              {item.max_weight_kg != null
-                                ? formatBrNumber(item.max_weight_kg, 2)
-                                : '∞'}{' '}
-                              kg
+                              {displayMinT != null ? formatBrNumber(displayMinT, 4) : '0,0000'} a{' '}
+                              {displayMaxT != null ? formatBrNumber(displayMaxT, 4) : '∞'} t
                             </span>
                           ) : (
                             '—'
                           )}
                         </td>
 
-                        {/* Comprimento Laminado */}
-                        <td className="p-2.5 font-mono text-slate-700 text-right whitespace-nowrap">
-                          {item.rolled_length_m != null
-                            ? `${formatBrNumber(item.rolled_length_m, 2)} m`
-                            : '—'}
+                        {/* Comp. Ideal MP (mm) */}
+                        <td className="p-2.5 font-mono font-bold text-slate-800 text-right whitespace-nowrap">
+                          {displayIdealMm != null ? formatBrWithUnit(displayIdealMm, 'mm', 0) : '—'}
                         </td>
 
-                        {/* Faixa Comp MP */}
+                        {/* Faixa Comp. MP (mm) */}
                         <td className="p-2.5 font-mono text-slate-600 text-right whitespace-nowrap text-[11px]">
-                          {item.min_mp_length_m != null || item.max_mp_length_m != null ? (
+                          {displayMinMm != null || displayMaxMm != null ? (
                             <span>
-                              {item.min_mp_length_m != null
-                                ? formatBrNumber(item.min_mp_length_m, 2)
-                                : '0,00'}{' '}
-                              a{' '}
-                              {item.max_mp_length_m != null
-                                ? formatBrNumber(item.max_mp_length_m, 2)
-                                : '∞'}{' '}
-                              m
+                              {displayMinMm != null ? formatBrNumber(displayMinMm, 0) : '0'} a{' '}
+                              {displayMaxMm != null ? formatBrNumber(displayMaxMm, 0) : '∞'} mm
                             </span>
                           ) : (
                             '—'
@@ -807,15 +1095,17 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                         <td className="p-2.5 text-center whitespace-nowrap">
                           {item.reduction_ratio_text || item.reduction_percentage != null ? (
                             <div className="inline-flex items-center gap-1.5">
-                              <Badge
-                                variant="outline"
-                                className="font-mono text-[10px] bg-blue-50 text-[#004C97] border-blue-200 font-bold"
-                              >
-                                {item.reduction_ratio_text || '—'}
-                              </Badge>
+                              {item.reduction_ratio_text && (
+                                <Badge
+                                  variant="outline"
+                                  className="font-mono text-[10px] bg-blue-50 text-[#004C97] border-blue-200 font-bold"
+                                >
+                                  {item.reduction_ratio_text}
+                                </Badge>
+                              )}
                               <span className="font-mono font-bold text-emerald-700 text-xs">
                                 {item.reduction_percentage != null
-                                  ? `${formatBrNumber(item.reduction_percentage, 2)}%`
+                                  ? `${formatBrNumber(item.reduction_percentage, 2)} %`
                                   : ''}
                               </span>
                             </div>
@@ -919,18 +1209,19 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
         </CardContent>
       </Card>
 
-      {/* MODAL: Cadastrar / Editar Matéria-Prima por Aplicação */}
+      {/* MODAL: Cadastrar / Editar Matéria-Prima por Aplicação (Grande Área Útil & Responsivo) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="bg-white border-slate-200 text-slate-900 max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900 text-base flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#004C97]" />
+        <DialogContent className="bg-white border-slate-200 text-slate-900 w-[95vw] sm:max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl">
+          <DialogHeader className="border-b border-slate-100 pb-3">
+            <DialogTitle className="text-slate-900 text-base sm:text-lg font-bold flex items-center gap-2">
+              <Layers className="w-5 h-5 text-[#004C97]" />
               {editingItem
                 ? 'Editar Matéria-Prima por Aplicação'
-                : 'Adicionar Matéria-Prima por Aplicação'}
+                : 'Cadastrar Matéria-Prima por Aplicação'}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Centro: <strong>{centerCode}</strong> — {centerName || 'Ficha Mestra'}
+              Centro de Trabalho: <strong className="text-slate-700">{centerCode}</strong> —{' '}
+              {centerName || 'Ficha Mestra Ciafal'}. Preencha os 8 blocos técnicos abaixo.
             </DialogDescription>
           </DialogHeader>
 
@@ -943,14 +1234,16 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
           )}
 
           <div className="space-y-4 py-2 text-xs">
-            {/* Bloco 1: Produto Acabado & Código MP (Obrigatórios) */}
-            <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
-              <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
+            {/* ========================================================= */}
+            {/* BLOCO 1: Produto Acabado & Matéria-Prima (MANTER)         */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
+              <span className="font-bold text-[#004C97] text-xs uppercase tracking-wider block">
                 1. Produto Acabado & Matéria-Prima (Obrigatório)
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Produto */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Produto Acabado */}
                 <div className="space-y-1">
                   <Label className="text-xs text-slate-700 font-semibold">
                     Produto Acabado / Referência *
@@ -966,7 +1259,10 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                     placeholder="Pesquise o produto no catálogo..."
                   />
                   {formProductDesc && (
-                    <span className="text-[11px] text-slate-500 block truncate">
+                    <span
+                      className="text-[11px] text-slate-500 block truncate"
+                      title={formProductDesc}
+                    >
                       {formProductDesc}
                     </span>
                   )}
@@ -991,7 +1287,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                         raw_material_code: undefined,
                       }))
                     }}
-                    className={`h-8 text-xs font-mono uppercase bg-white ${
+                    className={`h-9 text-xs font-mono uppercase bg-white ${
                       fieldErrors.raw_material_code ? 'border-red-500 ring-1 ring-red-500' : ''
                     }`}
                   />
@@ -1012,408 +1308,749 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                   Descrição da Matéria-Prima
                 </Label>
                 <Input
-                  placeholder="Ex: Tarugo Aço 1045 130x130mm corrida contínua"
+                  placeholder="Ex: Tarugo Aço 1045 130x130 mm corrida contínua"
                   value={formRawDesc}
                   onChange={(e) => setFormRawDesc(e.target.value)}
-                  className="h-8 text-xs bg-white"
+                  className="h-9 text-xs bg-white"
                 />
               </div>
             </div>
 
-            {/* Bloco 2: Fornecedor, Aplicação e Bitola */}
-            <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
-              <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
-                2. Fornecedor & Aplicação
+            {/* ========================================================= */}
+            {/* BLOCO 2: FORNECEDOR DA MP (Reestruturado)                  */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
+              <span className="font-bold text-[#004C97] text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-[#004C97]" /> 2. FORNECEDOR DA MP
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Fornecedor */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-semibold">Fornecedor</Label>
-                  <div className="space-y-1.5">
-                    <select
-                      value={formSupplier}
-                      onChange={(e) => setFormSupplier(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded text-xs text-slate-900 h-8 px-2 focus:ring-1 focus:ring-[#004C97] outline-none"
-                    >
-                      <option value="">Selecione ou digite abaixo...</option>
-                      {FORNECEDORES_SUGERIDOS.map((forn) => (
-                        <option key={forn} value={forn}>
-                          {forn}
-                        </option>
-                      ))}
-                    </select>
-                    <Input
-                      placeholder="Ou digite o nome/código do fornecedor"
-                      value={formSupplier}
-                      onChange={(e) => setFormSupplier(e.target.value)}
-                      className="h-8 text-xs bg-white"
+              {/* Aplicabilidade do fornecedor */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Aplicabilidade do Fornecedor *
+                </Label>
+                <div className="flex items-center gap-4">
+                  <label
+                    data-testid="radio-supplier-applicable"
+                    className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-md border text-xs font-semibold transition-all ${
+                      formSupplierApplicable
+                        ? 'bg-blue-50 border-[#004C97] text-[#004C97] shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="supplierApplicable"
+                      checked={formSupplierApplicable}
+                      onChange={() => {
+                        setFormSupplierApplicable(true)
+                        setFieldErrors((prev) => ({ ...prev, suppliers: undefined }))
+                      }}
+                      className="text-[#004C97] focus:ring-[#004C97]"
                     />
-                  </div>
-                </div>
+                    <span>Aplicável</span>
+                  </label>
 
-                {/* Aplicação */}
+                  <label
+                    data-testid="radio-supplier-not-applicable"
+                    className={`flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-md border text-xs font-semibold transition-all ${
+                      !formSupplierApplicable
+                        ? 'bg-slate-100 border-slate-400 text-slate-800 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="supplierApplicable"
+                      checked={!formSupplierApplicable}
+                      onChange={() => {
+                        setFormSupplierApplicable(false)
+                        setFieldErrors((prev) => ({ ...prev, suppliers: undefined }))
+                      }}
+                      className="text-slate-600 focus:ring-slate-500"
+                    />
+                    <span>Não aplicável</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {formSupplierApplicable
+                    ? 'Selecione uma ou mais siderúrgicas homologadas pelo SGQ Ciafal.'
+                    : 'MP sem restrição por fornecedor específico (seleção de fornecedores desabilitada sem erro).'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* Fornecedores da MP (Multisseleção) */}
                 <div className="space-y-1">
                   <Label className="text-xs text-slate-700 font-semibold">
-                    Aplicação da Matéria-Prima *
+                    Fornecedores da MP {formSupplierApplicable && '*'}
                   </Label>
-                  <Input
-                    placeholder="Ex: Laminação direta, Forjaria, Trefilação L02"
-                    value={formApplication}
-                    data-testid="input-application"
-                    onChange={(e) => {
-                      setFormApplication(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, application: undefined }))
+                  <SupplierMultiSelect
+                    selectedSuppliers={formSuppliersJson}
+                    onChange={(sups) => {
+                      setFormSuppliersJson(sups)
+                      setFieldErrors((prev) => ({ ...prev, suppliers: undefined }))
                     }}
-                    className={`h-8 text-xs bg-white ${
-                      fieldErrors.application ? 'border-red-500 ring-1 ring-red-500' : ''
-                    }`}
+                    disabled={!formSupplierApplicable}
+                    hasError={Boolean(fieldErrors.suppliers)}
                   />
-                  {fieldErrors.application && (
+                  {fieldErrors.suppliers && (
                     <p
                       className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-application"
+                      data-testid="error-suppliers"
                     >
-                      {fieldErrors.application}
+                      {fieldErrors.suppliers}
+                    </p>
+                  )}
+                </div>
+
+                {/* Tipo de Matéria-prima (Seleção Única de SYSTEM_RAW_MATERIAL_TYPES) */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Tipo de Matéria-prima *
+                  </Label>
+                  <select
+                    value={formRawMaterialType}
+                    data-testid="select-raw-material-type"
+                    onChange={(e) => {
+                      setFormRawMaterialType(e.target.value)
+                      setFieldErrors((prev) => ({ ...prev, raw_material_type: undefined }))
+                    }}
+                    className={`w-full bg-white border rounded text-xs text-slate-900 h-9 px-2.5 focus:ring-1 focus:ring-[#004C97] outline-none ${
+                      fieldErrors.raw_material_type
+                        ? 'border-red-500 ring-1 ring-red-500'
+                        : 'border-slate-300'
+                    }`}
+                  >
+                    <option value="">Selecione o Tipo de MP homologado...</option>
+                    {SYSTEM_RAW_MATERIAL_TYPES.map((type) => (
+                      <option key={type.code} value={type.code}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    Ex: Placa, Bloco, Palanquilha, Tarugo 155, Tarugo 130x130, Lingote.
+                  </p>
+                  {fieldErrors.raw_material_type && (
+                    <p className="text-[11px] text-red-600 font-medium">
+                      {fieldErrors.raw_material_type}
                     </p>
                   )}
                 </div>
               </div>
+            </div>
 
-              {/* Bitola ZPPT052 & Tipo de Aço */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* ========================================================= */}
+            {/* BLOCO 3: APLICAÇÃO DO PRODUTO (Novo e Completo)            */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-blue-50/40 rounded-lg border border-blue-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#004C97] text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-[#004C97]" /> 3. APLICAÇÃO DO PRODUTO
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Bitolas, aços, conformação e vigência
+                </span>
+              </div>
+
+              {/* Aplicação da Matéria-Prima */}
+              <div className="space-y-1">
+                <Label className="text-xs text-slate-700 font-semibold">
+                  Aplicação da Matéria-Prima *
+                </Label>
+                <Input
+                  placeholder="Ex: Laminação direta, Forjaria pesada, Trefilação L02"
+                  value={formApplication}
+                  data-testid="input-application"
+                  onChange={(e) => {
+                    setFormApplication(e.target.value)
+                    setFieldErrors((prev) => ({ ...prev, application: undefined }))
+                  }}
+                  className={`h-9 text-xs bg-white ${
+                    fieldErrors.application ? 'border-red-500 ring-1 ring-red-500' : ''
+                  }`}
+                />
+                {fieldErrors.application && (
+                  <p
+                    className="text-[11px] text-red-600 font-medium"
+                    data-testid="error-application"
+                  >
+                    {fieldErrors.application}
+                  </p>
+                )}
+              </div>
+
+              {/* Multisseleção de Bitolas e Tipos de Aço */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">
-                    Bitola de Referência (SAP ZPPT052)
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Bitolas Homologadas (ZPPT052)
                   </Label>
-                  <BitolaSelector
-                    value={formBitolaRef}
+                  <BitolaMultiSelect
+                    selectedBitolas={formBitolasJson}
+                    onChange={(bits) => setFormBitolasJson(bits)}
                     centerCode={centerCode}
-                    onChange={(val) => {
-                      setFormBitolaRef(val)
-                      if (!formApplication && val && val !== 'Não há') {
-                        setFormApplication(`Bitola ${val}`)
-                      }
-                    }}
                   />
+                  <p className="text-[11px] text-slate-500">
+                    Selecione uma ou mais bitolas aplicáveis a esta MP.
+                  </p>
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Tipo de Aço</Label>
-                  <TipoAcoSelector
-                    value={formSteelType}
-                    onChange={(val) => setFormSteelType(val)}
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Tipos de Aço Homologados (ZPPT002)
+                  </Label>
+                  <TipoAcoMultiSelect
+                    selectedSteelTypes={formSteelTypesJson}
+                    onChange={(steels) => setFormSteelTypesJson(steels)}
+                    centerCode={centerCode}
                   />
+                  <p className="text-[11px] text-slate-500">
+                    Selecione os tipos de aço atendidos por esta aplicação.
+                  </p>
                 </div>
+              </div>
+
+              {/* Comprimentos Laminados (mm) */}
+              <div className="pt-2 border-t border-blue-100 space-y-2">
+                <span className="text-xs font-semibold text-slate-800 block">
+                  Comprimento Laminado (mm) — Mínimo / Ideal / Máximo
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Comp. Mín. Laminado (mm)</Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 5.500"
+                        value={formRolledMinLengthMm}
+                        data-testid="input-rolled-min-length-mm"
+                        onChange={(e) => {
+                          setFormRolledMinLengthMm(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            rolled_min_length_mm: undefined,
+                            rolled_length: undefined,
+                          }))
+                        }}
+                        className={`h-9 text-xs font-mono bg-white pr-9 ${
+                          fieldErrors.rolled_min_length_mm
+                            ? 'border-red-500 ring-1 ring-red-500'
+                            : ''
+                        }`}
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        mm
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Comprimento Ideal Laminado (mm)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 6.000"
+                        value={formRolledIdealLengthMm}
+                        data-testid="input-rolled-ideal-length-mm"
+                        onChange={(e) => {
+                          setFormRolledIdealLengthMm(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            rolled_ideal_length_mm: undefined,
+                            rolled_length: undefined,
+                          }))
+                        }}
+                        className={`h-9 text-xs font-mono bg-white font-bold pr-9 ${
+                          fieldErrors.rolled_ideal_length_mm
+                            ? 'border-red-500 ring-1 ring-red-500'
+                            : ''
+                        }`}
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        mm
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Comp. Máx. Laminado (mm)</Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 6.500"
+                        value={formRolledMaxLengthMm}
+                        data-testid="input-rolled-max-length-mm"
+                        onChange={(e) => {
+                          setFormRolledMaxLengthMm(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            rolled_max_length_mm: undefined,
+                            rolled_length: undefined,
+                          }))
+                        }}
+                        className={`h-9 text-xs font-mono bg-white pr-9 ${
+                          fieldErrors.rolled_max_length_mm
+                            ? 'border-red-500 ring-1 ring-red-500'
+                            : ''
+                        }`}
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        mm
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {fieldErrors.rolled_length && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {fieldErrors.rolled_length}
+                  </p>
+                )}
+              </div>
+
+              {/* Reduções (%) Faixas */}
+              <div className="pt-2 border-t border-blue-100 space-y-2">
+                <span className="text-xs font-semibold text-slate-800 block">
+                  Faixa de Redução (%) — Mínima / Ideal / Máxima
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Redução Mínima (%)</Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 70,00"
+                        value={formReductionMinPct}
+                        data-testid="input-reduction-min-pct"
+                        onChange={(e) => {
+                          setFormReductionMinPct(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            reduction_min_pct: undefined,
+                            reduction_order: undefined,
+                          }))
+                        }}
+                        className="h-9 text-xs font-mono bg-white pr-7"
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Redução Ideal (%)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 80,00"
+                        value={formReductionIdealPct}
+                        data-testid="input-reduction-ideal-pct"
+                        onChange={(e) => {
+                          setFormReductionIdealPct(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            reduction_ideal_pct: undefined,
+                            reduction_order: undefined,
+                          }))
+                        }}
+                        className="h-9 text-xs font-mono bg-white font-bold text-emerald-700 pr-7"
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-600">Redução Máxima (%)</Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 85,00"
+                        value={formReductionMaxPct}
+                        data-testid="input-reduction-max-pct"
+                        onChange={(e) => {
+                          setFormReductionMaxPct(e.target.value)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            reduction_max_pct: undefined,
+                            reduction_order: undefined,
+                          }))
+                        }}
+                        className="h-9 text-xs font-mono bg-white pr-7"
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {fieldErrors.reduction_order && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {fieldErrors.reduction_order}
+                  </p>
+                )}
+              </div>
+
+              {/* Sincronismo Razão 1:X <-> Redução Percentual (%) */}
+              <div className="pt-2 border-t border-blue-100 p-3 bg-white/80 rounded-md border border-blue-200/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#004C97] text-xs">
+                    Sincronismo Bidirecional de Redução (1:X ↔ %)
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    Redução (%) = (1 - 1/X) × 100
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Razão de Redução (1:X) — Valor de X
+                    </Label>
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono font-bold text-[#004C97] text-sm bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5">
+                        1 :
+                      </span>
+                      <Input
+                        placeholder="Ex: 5 ou 5,00"
+                        value={formRatioX}
+                        data-testid="input-reduction-ratio-x"
+                        onChange={(e) => handleRatioXChange(e.target.value)}
+                        className={`h-9 text-xs font-mono bg-white font-bold ${
+                          fieldErrors.reduction ? 'border-red-500 ring-1 ring-red-500' : ''
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Redução Percentual Sincronizada (%)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        placeholder="Ex: 80,00"
+                        value={formReductionPct}
+                        data-testid="input-reduction-percentage"
+                        onChange={(e) => handleReductionPctChange(e.target.value)}
+                        className={`h-9 text-xs font-mono bg-white font-bold text-emerald-700 pr-7 ${
+                          fieldErrors.reduction ? 'border-red-500 ring-1 ring-red-500' : ''
+                        }`}
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400 font-bold">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {fieldErrors.reduction && (
+                  <p className="text-[11px] text-red-600 font-medium" data-testid="error-reduction">
+                    {fieldErrors.reduction}
+                  </p>
+                )}
+              </div>
+
+              {/* Datas de Vigência (dd/mm/aaaa) */}
+              <div className="pt-2 border-t border-blue-100 space-y-2">
+                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#004C97]" /> Período de Vigência Técnica *
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Data de Início da Vigência * (dd/mm/aaaa)
+                    </Label>
+                    <Input
+                      placeholder="01/01/2026"
+                      value={formValidityStart}
+                      data-testid="input-validity-start-date"
+                      onChange={(e) => {
+                        setFormValidityStart(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          validity_start_date: undefined,
+                          validity: undefined,
+                        }))
+                      }}
+                      className="h-9 text-xs font-mono bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-slate-700 font-semibold">
+                      Data de Fim da Vigência * (dd/mm/aaaa)
+                    </Label>
+                    <Input
+                      placeholder="31/12/2026"
+                      value={formValidityEnd}
+                      data-testid="input-validity-end-date"
+                      onChange={(e) => {
+                        setFormValidityEnd(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          validity_end_date: undefined,
+                          validity: undefined,
+                        }))
+                      }}
+                      className={`h-9 text-xs font-mono bg-white ${
+                        fieldErrors.validity_end_date || fieldErrors.validity
+                          ? 'border-red-500 ring-1 ring-red-500'
+                          : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+                {(fieldErrors.validity_end_date || fieldErrors.validity) && (
+                  <p className="text-[11px] text-red-600 font-medium" data-testid="error-validity">
+                    {fieldErrors.validity_end_date || fieldErrors.validity}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Bloco 3: Pesos (kg) com validações e padrão brasileiro */}
-            <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
+            {/* ========================================================= */}
+            {/* BLOCO 4: PESOS DA MATÉRIA-PRIMA (t)                       */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Scale className="w-3.5 h-3.5 text-[#004C97]" /> 3. Pesos da Matéria-Prima (kg)
+                  <Scale className="w-3.5 h-3.5 text-[#004C97]" /> 4. PESOS DA MATÉRIA-PRIMA (t)
                 </span>
-                <span className="text-[11px] text-slate-500">Padrão pt-BR: 1.250,50 kg</span>
+                <span className="text-[11px] text-slate-500">Padrão pt-BR: 1,2505 t</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Peso Mínimo */}
+                {/* Peso Mínimo (t) */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Peso Mínimo (kg)</Label>
+                  <Label className="text-xs text-slate-700 font-medium">Peso Mínimo (t)</Label>
                   <div className="relative">
                     <Input
-                      placeholder="Ex: 1.200,00"
-                      value={formMinWeight}
-                      data-testid="input-min-weight"
+                      placeholder="Ex: 1,2000"
+                      value={formMinWeightT}
+                      data-testid="input-min-weight-t"
                       onChange={(e) => {
-                        setFormMinWeight(e.target.value)
-                        setFieldErrors((prev) => ({ ...prev, min_weight_kg: undefined }))
-                      }}
-                      className={`h-8 text-xs font-mono bg-white pr-8 ${
-                        fieldErrors.min_weight_kg ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">kg</span>
-                  </div>
-                  {fieldErrors.min_weight_kg && (
-                    <p
-                      className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-min-weight"
-                    >
-                      {fieldErrors.min_weight_kg}
-                    </p>
-                  )}
-                </div>
-
-                {/* Peso Médio */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-semibold">Peso Médio (kg)</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 1.250,50"
-                      value={formAvgWeight}
-                      data-testid="input-avg-weight"
-                      onChange={(e) => {
-                        setFormAvgWeight(e.target.value)
+                        setFormMinWeightT(e.target.value)
                         setFieldErrors((prev) => ({
                           ...prev,
-                          average_weight_kg: undefined,
+                          min_weight_t: undefined,
+                          weight: undefined,
                         }))
                       }}
-                      className={`h-8 text-xs font-mono bg-white pr-8 font-bold text-slate-900 ${
-                        fieldErrors.average_weight_kg ? 'border-red-500 ring-1 ring-red-500' : ''
+                      className={`h-9 text-xs font-mono bg-white pr-8 ${
+                        fieldErrors.min_weight_t ? 'border-red-500 ring-1 ring-red-500' : ''
                       }`}
                     />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">kg</span>
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">t</span>
                   </div>
-                  {fieldErrors.average_weight_kg && (
+                  {fieldErrors.min_weight_t && (
                     <p
                       className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-avg-weight"
+                      data-testid="error-min-weight-t"
                     >
-                      {fieldErrors.average_weight_kg}
+                      {fieldErrors.min_weight_t}
                     </p>
                   )}
                 </div>
 
-                {/* Peso Máximo */}
+                {/* Peso Médio (t) */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Peso Máximo (kg)</Label>
+                  <Label className="text-xs text-slate-700 font-semibold">Peso Médio (t)</Label>
                   <div className="relative">
                     <Input
-                      placeholder="Ex: 1.300,00"
-                      value={formMaxWeight}
-                      data-testid="input-max-weight"
+                      placeholder="Ex: 1,2505"
+                      value={formAvgWeightT}
+                      data-testid="input-avg-weight-t"
                       onChange={(e) => {
-                        setFormMaxWeight(e.target.value)
-                        setFieldErrors((prev) => ({ ...prev, max_weight_kg: undefined }))
+                        setFormAvgWeightT(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          average_weight_t: undefined,
+                          weight: undefined,
+                        }))
                       }}
-                      className={`h-8 text-xs font-mono bg-white pr-8 ${
-                        fieldErrors.max_weight_kg ? 'border-red-500 ring-1 ring-red-500' : ''
+                      className={`h-9 text-xs font-mono bg-white pr-8 font-bold text-slate-900 ${
+                        fieldErrors.average_weight_t ? 'border-red-500 ring-1 ring-red-500' : ''
                       }`}
                     />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">kg</span>
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">t</span>
                   </div>
-                  {fieldErrors.max_weight_kg && (
+                  {fieldErrors.average_weight_t && (
                     <p
                       className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-max-weight"
+                      data-testid="error-avg-weight-t"
                     >
-                      {fieldErrors.max_weight_kg}
+                      {fieldErrors.average_weight_t}
+                    </p>
+                  )}
+                </div>
+
+                {/* Peso Máximo (t) */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-medium">Peso Máximo (t)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 1,3000"
+                      value={formMaxWeightT}
+                      data-testid="input-max-weight-t"
+                      onChange={(e) => {
+                        setFormMaxWeightT(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          max_weight_t: undefined,
+                          weight: undefined,
+                        }))
+                      }}
+                      className={`h-9 text-xs font-mono bg-white pr-8 ${
+                        fieldErrors.max_weight_t ? 'border-red-500 ring-1 ring-red-500' : ''
+                      }`}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">t</span>
+                  </div>
+                  {fieldErrors.max_weight_t && (
+                    <p
+                      className="text-[11px] text-red-600 font-medium"
+                      data-testid="error-max-weight-t"
+                    >
+                      {fieldErrors.max_weight_t}
                     </p>
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Bloco 4: Comprimentos (m) */}
-            <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Ruler className="w-3.5 h-3.5 text-[#004C97]" /> 4. Comprimentos (m)
-                </span>
-                <span className="text-[11px] text-slate-500">Padrão pt-BR: 6,00 m</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Comprimento Laminado */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Comp. Laminado (m)</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 6,00"
-                      value={formRolledLength}
-                      data-testid="input-rolled-length"
-                      onChange={(e) => {
-                        setFormRolledLength(e.target.value)
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          rolled_length_m: undefined,
-                        }))
-                      }}
-                      className={`h-8 text-xs font-mono bg-white pr-7 ${
-                        fieldErrors.rolled_length_m ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">m</span>
-                  </div>
-                  {fieldErrors.rolled_length_m && (
-                    <p
-                      className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-rolled-length"
-                    >
-                      {fieldErrors.rolled_length_m}
-                    </p>
-                  )}
-                </div>
-
-                {/* Comprimento Múltiplo */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Comp. Múltiplo (m)</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 12,00"
-                      value={formMultipleLength}
-                      data-testid="input-multiple-length"
-                      onChange={(e) => {
-                        setFormMultipleLength(e.target.value)
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          multiple_length_m: undefined,
-                        }))
-                      }}
-                      className={`h-8 text-xs font-mono bg-white pr-7 ${
-                        fieldErrors.multiple_length_m ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">m</span>
-                  </div>
-                  {fieldErrors.multiple_length_m && (
-                    <p
-                      className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-multiple-length"
-                    >
-                      {fieldErrors.multiple_length_m}
-                    </p>
-                  )}
-                </div>
-
-                {/* Comprimento Mínimo MP */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Comp. Mínimo MP (m)</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 5,50"
-                      value={formMinMpLength}
-                      data-testid="input-min-mp-length"
-                      onChange={(e) => {
-                        setFormMinMpLength(e.target.value)
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          min_mp_length_m: undefined,
-                        }))
-                      }}
-                      className={`h-8 text-xs font-mono bg-white pr-7 ${
-                        fieldErrors.min_mp_length_m ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">m</span>
-                  </div>
-                  {fieldErrors.min_mp_length_m && (
-                    <p
-                      className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-min-mp-length"
-                    >
-                      {fieldErrors.min_mp_length_m}
-                    </p>
-                  )}
-                </div>
-
-                {/* Comprimento Máximo MP */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-medium">Comp. Máximo MP (m)</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 6,50"
-                      value={formMaxMpLength}
-                      data-testid="input-max-mp-length"
-                      onChange={(e) => {
-                        setFormMaxMpLength(e.target.value)
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          max_mp_length_m: undefined,
-                        }))
-                      }}
-                      className={`h-8 text-xs font-mono bg-white pr-7 ${
-                        fieldErrors.max_mp_length_m ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400">m</span>
-                  </div>
-                  {fieldErrors.max_mp_length_m && (
-                    <p
-                      className="text-[11px] text-red-600 font-medium"
-                      data-testid="error-max-mp-length"
-                    >
-                      {fieldErrors.max_mp_length_m}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Bloco 5: Redução Técnica (Duas representações sincronizadas) */}
-            <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-[#004C97] text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Percent className="w-3.5 h-3.5" /> 5. Regra de Redução Sincronizada
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Fórmula: Redução (%) = (1 - 1/X) × 100
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Razão 1:X */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-semibold">
-                    Razão de Redução (1:X) — Informe o valor de X
-                  </Label>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono font-bold text-[#004C97] text-sm bg-white border border-slate-300 rounded px-2.5 py-1">
-                      1 :
-                    </span>
-                    <Input
-                      placeholder="Ex: 5 ou 5,00"
-                      value={formRatioX}
-                      data-testid="input-reduction-ratio-x"
-                      onChange={(e) => handleRatioXChange(e.target.value)}
-                      className={`h-8 text-xs font-mono bg-white font-bold ${
-                        fieldErrors.reduction ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Ex: se digitar <strong>5</strong>, calcula 1:5 → (1 - 1/5) × 100 ={' '}
-                    <strong>80,00%</strong>.
-                  </p>
-                </div>
-
-                {/* Redução Percentual */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-700 font-semibold">
-                    Redução Percentual (%)
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Ex: 80,00"
-                      value={formReductionPct}
-                      data-testid="input-reduction-percentage"
-                      onChange={(e) => handleReductionPctChange(e.target.value)}
-                      className={`h-8 text-xs font-mono bg-white font-bold text-emerald-700 pr-7 ${
-                        fieldErrors.reduction ? 'border-red-500 ring-1 ring-red-500' : ''
-                      }`}
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] text-slate-400 font-bold">
-                      %
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Sincronizado bidirecionalmente com a razão 1:X.
-                  </p>
-                </div>
-              </div>
-
-              {fieldErrors.reduction && (
-                <p className="text-[11px] text-red-600 font-medium" data-testid="error-reduction">
-                  {fieldErrors.reduction}
+              {fieldErrors.weight && (
+                <p className="text-[11px] text-red-600 font-medium" data-testid="error-weight">
+                  {fieldErrors.weight}
                 </p>
               )}
             </div>
 
-            {/* Bloco 6: Flags de Sequenciamento & Autorização Técnica */}
-            <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3">
+            {/* ========================================================= */}
+            {/* BLOCO 5: COMPRIMENTO MATÉRIA-PRIMA (mm)                   */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5 text-[#004C97]" /> 5. COMPRIMENTO MATÉRIA-PRIMA (mm)
+                </span>
+                <span className="text-[11px] text-slate-500">Padrão pt-BR: 6.000 mm</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Comp. Mínimo (mm) */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-medium">Comp. Mín. MP (mm)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 5.500"
+                      value={formMinMpLengthMm}
+                      data-testid="input-min-mp-length-mm"
+                      onChange={(e) => {
+                        setFormMinMpLengthMm(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          min_mp_length_mm: undefined,
+                          mp_length: undefined,
+                        }))
+                      }}
+                      className={`h-9 text-xs font-mono bg-white pr-9 ${
+                        fieldErrors.min_mp_length_mm ? 'border-red-500 ring-1 ring-red-500' : ''
+                      }`}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                      mm
+                    </span>
+                  </div>
+                  {fieldErrors.min_mp_length_mm && (
+                    <p
+                      className="text-[11px] text-red-600 font-medium"
+                      data-testid="error-min-mp-length-mm"
+                    >
+                      {fieldErrors.min_mp_length_mm}
+                    </p>
+                  )}
+                </div>
+
+                {/* Comp. Ideal (mm) */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">
+                    Comp. Ideal MP (mm)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 6.000"
+                      value={formIdealMpLengthMm}
+                      data-testid="input-ideal-mp-length-mm"
+                      onChange={(e) => {
+                        setFormIdealMpLengthMm(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          ideal_mp_length_mm: undefined,
+                          mp_length: undefined,
+                        }))
+                      }}
+                      className={`h-9 text-xs font-mono bg-white font-bold text-slate-900 pr-9 ${
+                        fieldErrors.ideal_mp_length_mm ? 'border-red-500 ring-1 ring-red-500' : ''
+                      }`}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                      mm
+                    </span>
+                  </div>
+                  {fieldErrors.ideal_mp_length_mm && (
+                    <p
+                      className="text-[11px] text-red-600 font-medium"
+                      data-testid="error-ideal-mp-length-mm"
+                    >
+                      {fieldErrors.ideal_mp_length_mm}
+                    </p>
+                  )}
+                </div>
+
+                {/* Comp. Máximo (mm) */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-medium">Comp. Máx. MP (mm)</Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Ex: 6.500"
+                      value={formMaxMpLengthMm}
+                      data-testid="input-max-mp-length-mm"
+                      onChange={(e) => {
+                        setFormMaxMpLengthMm(e.target.value)
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          max_mp_length_mm: undefined,
+                          mp_length: undefined,
+                        }))
+                      }}
+                      className={`h-9 text-xs font-mono bg-white pr-9 ${
+                        fieldErrors.max_mp_length_mm ? 'border-red-500 ring-1 ring-red-500' : ''
+                      }`}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-400">
+                      mm
+                    </span>
+                  </div>
+                  {fieldErrors.max_mp_length_mm && (
+                    <p
+                      className="text-[11px] text-red-600 font-medium"
+                      data-testid="error-max-mp-length-mm"
+                    >
+                      {fieldErrors.max_mp_length_mm}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {fieldErrors.mp_length && (
+                <p className="text-[11px] text-red-600 font-medium" data-testid="error-mp-length">
+                  {fieldErrors.mp_length}
+                </p>
+              )}
+            </div>
+
+            {/* ========================================================= */}
+            {/* BLOCO 6: CONTROLE DE SEQUENCIAMENTO & EXECUÇÃO TÉCNICA    */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
               <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
                 6. CONTROLE DE SEQUENCIAMENTO & EXECUÇÃO TÉCNICA
               </span>
@@ -1437,8 +2074,8 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                       1ª corrida: Sim
                     </Label>
                     <p className="text-[11px] text-slate-500 leading-tight">
-                      Identifica matéria-prima inaugural/piloto. Disponível para regras de
-                      sequenciamento e programação prioritária.
+                      Identifica matéria-prima inaugural/piloto para regras de sequenciamento e
+                      programação prioritária.
                     </p>
                   </div>
                 </div>
@@ -1474,9 +2111,11 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               </div>
             </div>
 
-            {/* Bloco 7: TEMPO MÍNIMO PCP */}
+            {/* ========================================================= */}
+            {/* BLOCO 7: TEMPO MÍNIMO PCP                                 */}
+            {/* ========================================================= */}
             <div
-              className="p-3 bg-slate-50/80 rounded-lg border border-slate-200 space-y-3"
+              className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3"
               data-testid="bloco-tempo-minimo-pcp"
             >
               <div>
@@ -1515,7 +2154,7 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                       }
                       setFieldErrors((prev) => ({ ...prev, tempo_minimo_pcp: undefined }))
                     }}
-                    className={`w-full bg-white border rounded text-xs text-slate-900 h-8 px-2 focus:ring-1 focus:ring-[#004C97] outline-none ${
+                    className={`w-full bg-white border rounded text-xs text-slate-900 h-9 px-2.5 focus:ring-1 focus:ring-[#004C97] outline-none ${
                       fieldErrors.tempo_minimo_pcp
                         ? 'border-red-500 ring-1 ring-red-500'
                         : 'border-slate-300'
@@ -1548,14 +2187,14 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
                         setFormTempoValor(e.target.value)
                         setFieldErrors((prev) => ({ ...prev, tempo_minimo_pcp: undefined }))
                       }}
-                      className={`h-8 text-xs font-mono bg-white disabled:bg-slate-100 disabled:text-slate-400 ${
+                      className={`h-9 text-xs font-mono bg-white disabled:bg-slate-100 disabled:text-slate-400 ${
                         fieldErrors.tempo_minimo_pcp
                           ? 'border-red-500 ring-1 ring-red-500'
                           : 'border-slate-300'
                       }`}
                     />
                     {formTempoUnidade && (
-                      <span className="absolute right-2.5 top-2 text-[11px] text-slate-500 font-medium pointer-events-none">
+                      <span className="absolute right-2.5 top-2.5 text-[11px] text-slate-500 font-medium pointer-events-none">
                         {formTempoUnidade.toLowerCase()}
                       </span>
                     )}
@@ -1573,51 +2212,59 @@ export const RawMaterialApplicationsPanel: React.FC<RawMaterialApplicationsPanel
               )}
             </div>
 
-            {/* Bloco 8: Status & Observações */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-semibold">Status *</Label>
-                <div className="flex items-center gap-4 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="mpStatus"
-                      checked={formStatus === 'Ativo'}
-                      data-testid="radio-status-ativo"
-                      onChange={() => setFormStatus('Ativo')}
-                      className="text-[#004C97] focus:ring-[#004C97]"
-                    />
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Ativo
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="mpStatus"
-                      checked={formStatus === 'Inativo'}
-                      data-testid="radio-status-inativo"
-                      onChange={() => setFormStatus('Inativo')}
-                      className="text-[#004C97] focus:ring-[#004C97]"
-                    />
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                      Inativo
-                    </span>
-                  </label>
-                </div>
-                <p className="text-[11px] text-slate-500 pt-0.5">
-                  A Programação Mensal não permitirá uso de MPs inativas.
-                </p>
-              </div>
+            {/* ========================================================= */}
+            {/* BLOCO 8: STATUS & OBSERVAÇÕES                             */}
+            {/* ========================================================= */}
+            <div className="p-3.5 bg-slate-50/90 rounded-lg border border-slate-200 space-y-3">
+              <span className="font-bold text-slate-800 text-xs uppercase tracking-wider block">
+                8. STATUS & OBSERVAÇÕES
+              </span>
 
-              <div className="space-y-1">
-                <Label className="text-xs text-slate-700 font-medium">Observações / Notas</Label>
-                <Input
-                  placeholder="Instruções de laminação ou observação técnica"
-                  value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
-                  className="h-8 text-xs bg-white"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-semibold">Status *</Label>
+                  <div className="flex items-center gap-4 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                      <input
+                        type="radio"
+                        name="mpStatus"
+                        checked={formStatus === 'Ativo'}
+                        data-testid="radio-status-ativo"
+                        onChange={() => setFormStatus('Ativo')}
+                        className="text-[#004C97] focus:ring-[#004C97]"
+                      />
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Ativo
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-800">
+                      <input
+                        type="radio"
+                        name="mpStatus"
+                        checked={formStatus === 'Inativo'}
+                        data-testid="radio-status-inativo"
+                        onChange={() => setFormStatus('Inativo')}
+                        className="text-[#004C97] focus:ring-[#004C97]"
+                      />
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                        Inativo
+                      </span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500 pt-0.5">
+                    A Programação Mensal bloqueará o uso de matérias-primas com status inativo.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-700 font-medium">Observações / Notas</Label>
+                  <Input
+                    placeholder="Instruções técnicas, especificações de corrida ou notas operacionais"
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    className="h-9 text-xs bg-white"
+                  />
+                </div>
               </div>
             </div>
           </div>
