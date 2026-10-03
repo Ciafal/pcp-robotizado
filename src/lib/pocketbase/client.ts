@@ -5,6 +5,7 @@ const backendUrl =
   (typeof window !== 'undefined' && (window as any)?.__ENV__?.VITE_BACKEND_URL) ||
   ''
 
-export const pb = new PocketBase(backendUrl)
+const pbInstance = new PocketBase(backendUrl)
 
-export default pb
+export const pb = pbInstance
+export default pbInstance

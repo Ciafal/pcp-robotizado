@@ -101,6 +101,8 @@ import { rawMaterialApplicationService } from '@/services/raw-material-applicati
 import { CenterBuffersAndLungsPanel } from '@/components/line-master/CenterBuffersAndLungsPanel'
 import { TheoreticalLossesPanel } from '@/components/line-master/TheoreticalLossesPanel'
 import { theoreticalLossesService } from '@/services/theoretical-losses-service'
+import { LineProductFamiliesPanel } from '@/components/line-master/LineProductFamiliesPanel'
+import { lineProductFamiliesService } from '@/services/line-product-families-service'
 
 // Dicionários de tradução de enums para labels de interface em Português (identidade CIAFAL)
 const RESPONSIBILITY_TYPE_LABELS: Record<string, string> = {
@@ -336,7 +338,24 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
     | 'BUFFERS'
     | 'PULMOES'
     | 'THEORETICAL_LOSSES'
+    | 'FAMILIES'
   >('CAPACITY')
+
+  // Contagem de famílias técnicas cadastradas na linha
+  const [familiesCount, setFamiliesCount] = useState<number>(0)
+
+  const loadFamiliesCount = React.useCallback(async () => {
+    try {
+      const list = await lineProductFamiliesService.listByLine(line.id)
+      setFamiliesCount(list.length)
+    } catch (err) {
+      console.warn('Erro ao carregar contagem de famílias:', err)
+    }
+  }, [line.id])
+
+  React.useEffect(() => {
+    loadFamiliesCount()
+  }, [loadFamiliesCount, overview])
 
   // Contagem de perdas teóricas cadastradas na linha
   const [theoreticalLossesCount, setTheoreticalLossesCount] = useState<number>(0)
@@ -2612,6 +2631,23 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               </span>
             </Button>
 
+            {/* Nova Sub-aba: Famílias Técnicas de Produtos da Ficha Mestra */}
+            <Button
+              size="sm"
+              data-testid="tab-line-families"
+              variant={masterSubTab === 'FAMILIES' ? 'default' : 'ghost'}
+              onClick={() => setMasterSubTab('FAMILIES')}
+              className={`text-xs h-9 gap-1 font-bold justify-start px-2.5 whitespace-nowrap overflow-hidden ${
+                masterSubTab === 'FAMILIES'
+                  ? 'bg-[#004C97] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+              }`}
+              title="Famílias Técnicas da Linha / Centro"
+            >
+              <Layers className="w-3.5 h-3.5 shrink-0 text-[#004C97]" />
+              <span className="truncate">Famílias ({familiesCount})</span>
+            </Button>
+
             {/* Nova Sub-aba: Perdas Teóricas da Ficha Mestra */}
             <Button
               size="sm"
@@ -3230,6 +3266,20 @@ export const LineMasterDetailView: React.FC<LineMasterDetailViewProps> = ({
               lineMasterId={master?.id}
               onRefreshParent={() => {
                 loadRawMaterialApplicationsCount()
+                onRefresh()
+              }}
+            />
+          )}
+
+          {/* Sub-aba: Famílias Técnicas de Produtos */}
+          {masterSubTab === 'FAMILIES' && (
+            <LineProductFamiliesPanel
+              lineId={line.id}
+              centerCode={line.code}
+              centerName={line.name}
+              lineMasterId={master?.id}
+              onRefreshParent={() => {
+                loadFamiliesCount()
                 onRefresh()
               }}
             />
