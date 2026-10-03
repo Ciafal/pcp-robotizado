@@ -51,6 +51,7 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
   isLoading = false,
   showCenterFilter = true,
   showLine2 = true,
+  onApply,
 }) => {
   // Cascata reativa:
   // Empresa -> Plantas da empresa

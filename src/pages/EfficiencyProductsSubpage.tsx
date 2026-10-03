@@ -255,6 +255,8 @@ export const EfficiencyProductsSubpage: React.FC = () => {
             lineCode: drilldownItem.lineCode,
             centerCode: drilldownItem.centerCode,
             materialCode: drilldownItem.materialCode,
+            startDate: filters.startDate,
+            endDate: filters.endDate,
           }}
         />
       )}

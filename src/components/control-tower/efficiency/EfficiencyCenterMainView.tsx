@@ -296,6 +296,8 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
             plantCode: drilldownItem.plantCode,
             lineCode: drilldownItem.lineCode,
             centerCode: drilldownItem.centerCode,
+            startDate: filters.startDate,
+            endDate: filters.endDate,
           }}
         />
       )}

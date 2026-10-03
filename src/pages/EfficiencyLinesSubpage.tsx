@@ -246,6 +246,8 @@ export const EfficiencyLinesSubpage: React.FC = () => {
           filters={{
             plantCode: drilldownItem.plantCode,
             lineCode: drilldownItem.lineCode,
+            startDate: filters.startDate,
+            endDate: filters.endDate,
           }}
         />
       )}
