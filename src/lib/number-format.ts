@@ -62,6 +62,23 @@ export function formatPtBrNumber(
 // Aliases para compatibilidade com módulos legados
 export const formatBrNumber = formatPtBrNumber
 export const parseBrNumber = parsePtBrNumber
+
+/**
+ * Formata número no padrão brasileiro pt-BR aceitando opções (ex: min/max fraction digits).
+ */
+export function formatNumberPtBr(
+  val: number | string | null | undefined,
+  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number },
+): string {
+  if (val == null || val === '') return ''
+  const num = typeof val === 'number' ? val : parsePtBrNumber(val)
+  if (isNaN(num)) return ''
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: options?.minimumFractionDigits ?? 0,
+    maximumFractionDigits: options?.maximumFractionDigits ?? 3,
+  })
+}
+
 export const formatNumberPTBR = (
   val: number | string | null | undefined,
   minDecimals: number = 0,
