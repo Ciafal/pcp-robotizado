@@ -597,6 +597,13 @@ const navSections: NavSectionItem[] = [
         description: 'ZPP86 (modificar aplicação), ZPP88 (fora do padrão), Matriz e Projeção 3D',
       },
       {
+        title: 'Aproveitamento MP fora do padrão',
+        href: '/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao',
+        icon: ShieldCheck,
+        description:
+          'Avaliação técnica ZPP86/ZPP88 de peça fora do padrão dimensional com sequencial AMP',
+      },
+      {
         title: 'Matéria-prima – Industrializador',
         href: '/pcp/gestao-materia-prima/industrializador',
         icon: Sparkles,
@@ -1120,6 +1127,12 @@ export const officialNavGroups: NavGroup[] = [
         href: '/pcp/gestao-materia-prima/otimizar-aplicacoes',
         icon: RefreshCw,
         permission: 'pcp.mp_opt.view',
+      },
+      {
+        title: 'Aproveitamento MP fora do padrão',
+        href: '/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao',
+        icon: ShieldCheck,
+        permission: 'pcp.mp_out_of_standard.view',
       },
       {
         title: 'Matéria-prima – Industrializador',

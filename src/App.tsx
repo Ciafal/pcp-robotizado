@@ -569,6 +569,13 @@ const MPSidercentroSubpage = lazyWithRetry(
     })),
   'MPSidercentroSubpage',
 )
+const MPAproveitamentoForaPadraoPage = lazyWithRetry(
+  () =>
+    import('@/pages/mp-optimization/MPAproveitamentoForaPadraoPage').then((m) => ({
+      default: m.MPAproveitamentoForaPadraoPage,
+    })),
+  'MPAproveitamentoForaPadraoPage',
+)
 const RulesEnginePage = lazyWithRetry(
   () =>
     import('@/pages/RulesEnginePage').then((m) => ({
@@ -1385,6 +1392,17 @@ export const App: React.FC = () => {
                       element={
                         <PermissionGuard permission="pcp.mp_opt.view">
                           <MPSidercentroSubpage />
+                        </PermissionGuard>
+                      }
+                    />
+                    {/* 11. Aproveitamento MP fora do padrão (ZPP86/ZPP88) */}
+                    <Route
+                      path="/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao"
+                      element={
+                        <PermissionGuard permission="pcp.mp_out_of_standard.view">
+                          <ErrorBoundary moduleName="Aproveitamento MP Fora do Padrão">
+                            <MPAproveitamentoForaPadraoPage />
+                          </ErrorBoundary>
                         </PermissionGuard>
                       }
                     />

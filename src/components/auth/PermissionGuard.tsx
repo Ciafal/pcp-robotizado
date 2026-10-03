@@ -98,8 +98,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('cadastros/hierarquia'),
   )
 
+  // Rota canônica de Aproveitamento MP fora do padrão (/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao)
+  const isAproveitamentoMpForaPadraoRoute = Boolean(
+    currentPathname === '/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao' ||
+    currentPathname.startsWith('/pcp/gestao-materia-prima/aproveitamento-mp-fora-do-padrao') ||
+    currentPathname.includes('aproveitamento-mp-fora-do-padrao') ||
+    currentHash.includes('aproveitamento-mp-fora-do-padrao') ||
+    windowPath.includes('aproveitamento-mp-fora-do-padrao'),
+  )
+
   // Rota canônica de Projeções de MP (/pcp/gestao-materia-prima/projecoes-mp e aliases de Gestão de MP)
   const isGestaoMpRoute = Boolean(
+    isAproveitamentoMpForaPadraoRoute ||
     currentPathname === '/pcp/gestao-materia-prima/projecoes-mp' ||
     currentPathname.startsWith('/pcp/gestao-materia-prima/projecoes-mp') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
@@ -187,6 +197,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     permission === 'pcp.rules.view' ||
     permission === 'pcp.carteira.view' ||
     permission === 'pcp.mp_opt.view' ||
+    permission === 'pcp.mp_out_of_standard.view' ||
+    permission.startsWith('pcp.mp_out_of_standard.') ||
     permission === 'pcp.meeting.view' ||
     permission === 'pcp.executive.view' ||
     permission === 'pcp.production.view'
@@ -255,6 +267,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   if (
     isDadosIbgeRoute ||
     isInventarioMpRoute ||
+    isAproveitamentoMpForaPadraoRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
