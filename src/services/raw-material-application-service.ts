@@ -48,54 +48,209 @@ export const rawMaterialApplicationService = {
       errors.application = 'Aplicação é obrigatória.'
     }
 
-    // Parse dos números (suporta pt-BR com vírgula ou number puro)
-    const avgW = parseBrNumber(data.average_weight_kg)
-    const maxW = parseBrNumber(data.max_weight_kg)
-    const minW = parseBrNumber(data.min_weight_kg)
+    // 2. Regra de Fornecedor:
+    // quando supplier_applicable = false -> não exigir fornecedores, sem erro de validação
+    // quando supplier_applicable = true -> exigir ao menos 1 fornecedor estruturado ({code, name}) — nunca texto livre
+    if (data.supplier_applicable) {
+      const suppliers = Array.isArray(data.suppliers_json) ? data.suppliers_json : []
+      const validSuppliers = suppliers.filter(
+        (s) => s && typeof s === 'object' && s.code && s.code.trim() && s.name && s.name.trim(),
+      )
+      if (validSuppliers.length === 0) {
+        errors.suppliers = 'Selecione ao menos um fornecedor homologado estruturado.'
+      }
+    }
 
+    // Parse dos campos numéricos em toneladas (t) e suporte retrocompatível em kg
+    const minWt = parseBrNumber(data.min_weight_t)
+    const avgWt = parseBrNumber(data.average_weight_t)
+    const maxWt = parseBrNumber(data.max_weight_t)
+
+    const minWkg = parseBrNumber(data.min_weight_kg)
+    const avgWkg = parseBrNumber(data.average_weight_kg)
+    const maxWkg = parseBrNumber(data.max_weight_kg)
+
+    // Validação de valores negativos em peso (t)
+    if (minWt !== null && minWt < 0) {
+      errors.min_weight_t = 'O Peso Mínimo não pode ser negativo.'
+    }
+    if (avgWt !== null && avgWt < 0) {
+      errors.average_weight_t = 'O Peso Médio não pode ser negativo.'
+    }
+    if (maxWt !== null && maxWt < 0) {
+      errors.max_weight_t = 'O Peso Máximo não pode ser negativo.'
+    }
+
+    // Compatibilidade reversa de negativos em kg
+    if (minWkg !== null && minWkg < 0) errors.min_weight_kg = 'Peso mínimo não pode ser negativo.'
+    if (avgWkg !== null && avgWkg < 0)
+      errors.average_weight_kg = 'Peso médio não pode ser negativo.'
+    if (maxWkg !== null && maxWkg < 0) errors.max_weight_kg = 'Peso máximo não pode ser negativo.'
+
+    // Validações de consistência de Peso: min_weight_t <= average_weight_t <= max_weight_t
+    if (minWt !== null && maxWt !== null && minWt > maxWt) {
+      errors.min_weight_t = 'O Peso Mínimo não pode ser maior que o Peso Máximo.'
+      errors.weight = 'O Peso Médio deve estar entre o Peso Mínimo e o Peso Máximo.'
+    }
+    if (avgWt !== null && minWt !== null && avgWt < minWt) {
+      errors.average_weight_t = 'O Peso Médio deve estar entre o Peso Mínimo e o Peso Máximo.'
+      if (!errors.weight)
+        errors.weight = 'O Peso Médio deve estar entre o Peso Mínimo e o Peso Máximo.'
+    }
+    if (avgWt !== null && maxWt !== null && avgWt > maxWt) {
+      errors.average_weight_t = 'O Peso Médio deve estar entre o Peso Mínimo e o Peso Máximo.'
+      if (!errors.weight)
+        errors.weight = 'O Peso Médio deve estar entre o Peso Mínimo e o Peso Máximo.'
+    }
+
+    // Compatibilidade legada com kg se campos t não fornecidos
+    if (minWt === null && avgWt === null && maxWt === null) {
+      if (minWkg !== null && maxWkg !== null && minWkg > maxWkg) {
+        errors.min_weight_kg = 'Peso mínimo não pode ser maior que o peso máximo.'
+      }
+      if (avgWkg !== null && minWkg !== null && avgWkg < minWkg) {
+        errors.average_weight_kg = 'Peso médio não pode ser menor que o peso mínimo.'
+      }
+      if (avgWkg !== null && maxWkg !== null && avgWkg > maxWkg) {
+        errors.average_weight_kg = 'Peso médio não pode ser maior que o peso máximo.'
+      }
+    }
+
+    // Parse dos comprimentos da MP em mm e compatibilidade em metros
+    const minMpMm = parseBrNumber(data.min_mp_length_mm)
+    const idealMpMm = parseBrNumber(data.ideal_mp_length_mm)
+    const maxMpMm = parseBrNumber(data.max_mp_length_mm)
+
+    const minMpM = parseBrNumber(data.min_mp_length_m)
+    const maxMpM = parseBrNumber(data.max_mp_length_m)
+
+    if (minMpMm !== null && minMpMm < 0) {
+      errors.min_mp_length_mm = 'O Comprimento Mínimo da MP não pode ser negativo.'
+    }
+    if (idealMpMm !== null && idealMpMm < 0) {
+      errors.ideal_mp_length_mm = 'O Comprimento Ideal da MP não pode ser negativo.'
+    }
+    if (maxMpMm !== null && maxMpMm < 0) {
+      errors.max_mp_length_mm = 'O Comprimento Máximo da MP não pode ser negativo.'
+    }
+
+    // Consistência de Comprimento MP: min_mp_length_mm <= ideal_mp_length_mm <= max_mp_length_mm
+    if (minMpMm !== null && maxMpMm !== null && minMpMm > maxMpMm) {
+      errors.min_mp_length_mm =
+        'O Comprimento Mínimo da MP não pode ser maior que o Comprimento Máximo.'
+      errors.mp_length =
+        'O Comprimento Ideal da MP deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+    }
+    if (idealMpMm !== null && minMpMm !== null && idealMpMm < minMpMm) {
+      errors.ideal_mp_length_mm =
+        'O Comprimento Ideal da MP deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      if (!errors.mp_length) {
+        errors.mp_length =
+          'O Comprimento Ideal da MP deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      }
+    }
+    if (idealMpMm !== null && maxMpMm !== null && idealMpMm > maxMpMm) {
+      errors.ideal_mp_length_mm =
+        'O Comprimento Ideal da MP deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      if (!errors.mp_length) {
+        errors.mp_length =
+          'O Comprimento Ideal da MP deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      }
+    }
+
+    // Compatibilidade legada com metros
+    if (minMpMm === null && idealMpMm === null && maxMpMm === null) {
+      if (minMpM !== null && minMpM < 0)
+        errors.min_mp_length_m = 'Comprimento mínimo MP não pode ser negativo.'
+      if (maxMpM !== null && maxMpM < 0)
+        errors.max_mp_length_m = 'Comprimento máximo MP não pode ser negativo.'
+      if (minMpM !== null && maxMpM !== null && minMpM > maxMpM) {
+        errors.min_mp_length_m =
+          'Comprimento mínimo da MP não pode ser maior que o comprimento máximo.'
+      }
+    }
+
+    // Parse Comprimento Laminado em mm (min <= ideal <= max)
+    const rolledMinMm = parseBrNumber(data.rolled_min_length_mm)
+    const rolledIdealMm = parseBrNumber(data.rolled_ideal_length_mm)
+    const rolledMaxMm = parseBrNumber(data.rolled_max_length_mm)
+
+    if (rolledMinMm !== null && rolledMinMm < 0) {
+      errors.rolled_min_length_mm = 'O Comprimento Mínimo Laminado não pode ser negativo.'
+    }
+    if (rolledIdealMm !== null && rolledIdealMm < 0) {
+      errors.rolled_ideal_length_mm = 'O Comprimento Ideal Laminado não pode ser negativo.'
+    }
+    if (rolledMaxMm !== null && rolledMaxMm < 0) {
+      errors.rolled_max_length_mm = 'O Comprimento Máximo Laminado não pode ser negativo.'
+    }
+
+    if (rolledMinMm !== null && rolledMaxMm !== null && rolledMinMm > rolledMaxMm) {
+      errors.rolled_min_length_mm =
+        'O Comprimento Mínimo Laminado não pode ser maior que o Comprimento Máximo.'
+      errors.rolled_length =
+        'O Comprimento Ideal Laminado deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+    }
+    if (rolledIdealMm !== null && rolledMinMm !== null && rolledIdealMm < rolledMinMm) {
+      errors.rolled_ideal_length_mm =
+        'O Comprimento Ideal Laminado deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      if (!errors.rolled_length) {
+        errors.rolled_length =
+          'O Comprimento Ideal Laminado deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      }
+    }
+    if (rolledIdealMm !== null && rolledMaxMm !== null && rolledIdealMm > rolledMaxMm) {
+      errors.rolled_ideal_length_mm =
+        'O Comprimento Ideal Laminado deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      if (!errors.rolled_length) {
+        errors.rolled_length =
+          'O Comprimento Ideal Laminado deve estar entre o Comprimento Mínimo e o Comprimento Máximo.'
+      }
+    }
+
+    // Compatibilidade legada com m
     const rolledL = parseBrNumber(data.rolled_length_m)
     const multL = parseBrNumber(data.multiple_length_m)
-    const maxMpL = parseBrNumber(data.max_mp_length_m)
-    const minMpL = parseBrNumber(data.min_mp_length_m)
-
-    // Validação de valores negativos
-    if (avgW !== null && avgW < 0) {
-      errors.average_weight_kg = 'Peso médio não pode ser negativo.'
-    }
-    if (maxW !== null && maxW < 0) {
-      errors.max_weight_kg = 'Peso máximo não pode ser negativo.'
-    }
-    if (minW !== null && minW < 0) {
-      errors.min_weight_kg = 'Peso mínimo não pode ser negativo.'
-    }
-    if (rolledL !== null && rolledL < 0) {
+    if (rolledL !== null && rolledL < 0)
       errors.rolled_length_m = 'Comprimento laminado não pode ser negativo.'
-    }
-    if (multL !== null && multL < 0) {
+    if (multL !== null && multL < 0)
       errors.multiple_length_m = 'Comprimento múltiplo não pode ser negativo.'
+
+    // Parse Reduções mín/ideal/máx (%) (min <= ideal <= max)
+    const redMin = parseBrNumber(data.reduction_min_pct)
+    const redIdeal = parseBrNumber(data.reduction_ideal_pct)
+    const redMax = parseBrNumber(data.reduction_max_pct)
+
+    if (redMin !== null && (redMin < 0 || redMin > 100)) {
+      errors.reduction_min_pct = 'A Redução Mínima deve estar entre 0% e 100%.'
     }
-    if (maxMpL !== null && maxMpL < 0) {
-      errors.max_mp_length_m = 'Comprimento máximo MP não pode ser negativo.'
+    if (redIdeal !== null && (redIdeal < 0 || redIdeal > 100)) {
+      errors.reduction_ideal_pct = 'A Redução Ideal deve estar entre 0% e 100%.'
     }
-    if (minMpL !== null && minMpL < 0) {
-      errors.min_mp_length_m = 'Comprimento mínimo MP não pode ser negativo.'
+    if (redMax !== null && (redMax < 0 || redMax > 100)) {
+      errors.reduction_max_pct = 'A Redução Máxima deve estar entre 0% e 100%.'
     }
 
-    // Validações de consistência de Peso
-    if (minW !== null && maxW !== null && minW > maxW) {
-      errors.min_weight_kg = 'Peso mínimo não pode ser maior que o peso máximo.'
+    if (redMin !== null && redMax !== null && redMin > redMax) {
+      errors.reduction_min_pct = 'A Redução Mínima não pode ser maior que a Redução Máxima.'
+      errors.reduction_order =
+        'A Redução Ideal deve estar entre a Redução Mínima e a Redução Máxima.'
     }
-    if (avgW !== null && minW !== null && avgW < minW) {
-      errors.average_weight_kg = 'Peso médio não pode ser menor que o peso mínimo.'
+    if (redIdeal !== null && redMin !== null && redIdeal < redMin) {
+      errors.reduction_ideal_pct =
+        'A Redução Ideal deve estar entre a Redução Mínima e a Redução Máxima.'
+      if (!errors.reduction_order) {
+        errors.reduction_order =
+          'A Redução Ideal deve estar entre a Redução Mínima e a Redução Máxima.'
+      }
     }
-    if (avgW !== null && maxW !== null && avgW > maxW) {
-      errors.average_weight_kg = 'Peso médio não pode ser maior que o peso máximo.'
-    }
-
-    // Validações de consistência de Comprimento
-    if (minMpL !== null && maxMpL !== null && minMpL > maxMpL) {
-      errors.min_mp_length_m =
-        'Comprimento mínimo da MP não pode ser maior que o comprimento máximo.'
+    if (redIdeal !== null && redMax !== null && redIdeal > redMax) {
+      errors.reduction_ideal_pct =
+        'A Redução Ideal deve estar entre a Redução Mínima e a Redução Máxima.'
+      if (!errors.reduction_order) {
+        errors.reduction_order =
+          'A Redução Ideal deve estar entre a Redução Mínima e a Redução Máxima.'
+      }
     }
 
     // Validação de Redução (se preenchida razão 1:X)
@@ -107,6 +262,21 @@ export const rawMaterialApplicationService = {
       const redResult = calculateReductionFromRatioX(data.reduction_ratio_x)
       if (!redResult.isValid) {
         errors.reduction = redResult.error || 'Redução inválida.'
+      }
+    }
+
+    // Validação de Vigência (validity_start_date <= validity_end_date em dd/mm/aaaa)
+    if (data.validity_start_date && data.validity_end_date) {
+      const startParts = String(data.validity_start_date).trim().split('/')
+      const endParts = String(data.validity_end_date).trim().split('/')
+      if (startParts.length === 3 && endParts.length === 3) {
+        const startIso = `${startParts[2]}-${startParts[1].padStart(2, '0')}-${startParts[0].padStart(2, '0')}`
+        const endIso = `${endParts[2]}-${endParts[1].padStart(2, '0')}-${endParts[0].padStart(2, '0')}`
+        if (startIso > endIso) {
+          const vigMsg = 'A Data de Fim da Vigência não pode ser anterior à Data de Início.'
+          errors.validity_end_date = vigMsg
+          errors.validity = vigMsg
+        }
       }
     }
 
@@ -269,16 +439,61 @@ export const rawMaterialApplicationService = {
       }
     }
 
-    // Parse dos campos numéricos
-    const avgW = parseBrNumber(formData.average_weight_kg)
-    const maxW = parseBrNumber(formData.max_weight_kg)
-    const minW = parseBrNumber(formData.min_weight_kg)
+    // Parse dos campos de pesos em t (com fallback para kg se aplicável)
+    const minWt = parseBrNumber(formData.min_weight_t)
+    const avgWt = parseBrNumber(formData.average_weight_t)
+    const maxWt = parseBrNumber(formData.max_weight_t)
+
+    const minWkg = parseBrNumber(formData.min_weight_kg)
+    const avgWkg = parseBrNumber(formData.average_weight_kg)
+    const maxWkg = parseBrNumber(formData.max_weight_kg)
+
+    // Converter ou sincronizar t <-> kg
+    const finalMinWt = minWt !== null ? minWt : minWkg !== null ? minWkg / 1000 : null
+    const finalAvgWt = avgWt !== null ? avgWt : avgWkg !== null ? avgWkg / 1000 : null
+    const finalMaxWt = maxWt !== null ? maxWt : maxWkg !== null ? maxWkg / 1000 : null
+
+    const finalMinWkg = minWkg !== null ? minWkg : minWt !== null ? minWt * 1000 : null
+    const finalAvgWkg = avgWkg !== null ? avgWkg : avgWt !== null ? avgWt * 1000 : null
+    const finalMaxWkg = maxWkg !== null ? maxWkg : maxWt !== null ? maxWt * 1000 : null
+
+    // Parse dos comprimentos de MP em mm (com fallback para m)
+    const minMpMm = parseBrNumber(formData.min_mp_length_mm)
+    const idealMpMm = parseBrNumber(formData.ideal_mp_length_mm)
+    const maxMpMm = parseBrNumber(formData.max_mp_length_mm)
+
+    const minMpM = parseBrNumber(formData.min_mp_length_m)
+    const maxMpM = parseBrNumber(formData.max_mp_length_m)
+
+    const finalMinMpMm =
+      minMpMm !== null ? minMpMm : minMpM !== null ? Math.round(minMpM * 1000) : null
+    const finalMaxMpMm =
+      maxMpMm !== null ? maxMpMm : maxMpM !== null ? Math.round(maxMpM * 1000) : null
+    const finalIdealMpMm =
+      idealMpMm !== null
+        ? idealMpMm
+        : finalMinMpMm !== null && finalMaxMpMm !== null
+          ? Math.round((finalMinMpMm + finalMaxMpMm) / 2)
+          : null
+
+    const finalMinMpM = minMpM !== null ? minMpM : minMpMm !== null ? minMpMm / 1000 : null
+    const finalMaxMpM = maxMpM !== null ? maxMpM : maxMpMm !== null ? maxMpMm / 1000 : null
+
+    // Parse comprimentos laminado em mm
+    const rolledMinMm = parseBrNumber(formData.rolled_min_length_mm)
+    const rolledIdealMm = parseBrNumber(formData.rolled_ideal_length_mm)
+    const rolledMaxMm = parseBrNumber(formData.rolled_max_length_mm)
     const rolledL = parseBrNumber(formData.rolled_length_m)
     const multL = parseBrNumber(formData.multiple_length_m)
-    const maxMpL = parseBrNumber(formData.max_mp_length_m)
-    const minMpL = parseBrNumber(formData.min_mp_length_m)
 
-    // Redução sincronizada
+    const finalRolledIdealMm =
+      rolledIdealMm !== null ? rolledIdealMm : rolledL !== null ? Math.round(rolledL * 1000) : null
+    const finalRolledMinMm = rolledMinMm !== null ? rolledMinMm : finalRolledIdealMm
+    const finalRolledMaxMm = rolledMaxMm !== null ? rolledMaxMm : finalRolledIdealMm
+    const finalRolledL =
+      rolledL !== null ? rolledL : finalRolledIdealMm !== null ? finalRolledIdealMm / 1000 : null
+
+    // Redução sincronizada e faixas mín/ideal/máx (%)
     let redRatioX: number | null = null
     let redRatioText: string | null = null
     let redPercentage: number | null = null
@@ -294,11 +509,61 @@ export const rawMaterialApplicationService = {
         redRatioText = redResult.ratioText
         redPercentage = redResult.percentage
       }
+    } else if (
+      formData.reduction_percentage !== undefined &&
+      formData.reduction_percentage !== null &&
+      formData.reduction_percentage !== ''
+    ) {
+      const p = parseBrNumber(formData.reduction_percentage)
+      if (p !== null) {
+        redPercentage = p
+      }
     }
+
+    const redMinPct = parseBrNumber(formData.reduction_min_pct)
+    const redIdealPct =
+      parseBrNumber(formData.reduction_ideal_pct) !== null
+        ? parseBrNumber(formData.reduction_ideal_pct)
+        : redPercentage
+    const redMaxPct = parseBrNumber(formData.reduction_max_pct)
+
+    // Fornecedores estruturados
+    const isSupplierApplicable = Boolean(formData.supplier_applicable)
+    const cleanSuppliers =
+      isSupplierApplicable && Array.isArray(formData.suppliers_json)
+        ? formData.suppliers_json.filter((s) => s && s.code && s.name)
+        : []
+
+    // Bitolas e Tipos de Aço estruturados
+    const cleanBitolas = Array.isArray(formData.bitolas_json)
+      ? formData.bitolas_json.filter(Boolean)
+      : formData.bitola_ref
+        ? [formData.bitola_ref]
+        : []
+
+    const cleanSteelTypes = Array.isArray(formData.steel_types_json)
+      ? formData.steel_types_json.filter(Boolean)
+      : formData.steel_type
+        ? [formData.steel_type]
+        : []
+
+    // Vigência (converter dd/mm/aaaa para YYYY-MM-DD se necessário)
+    const formatToIsoDate = (d?: string | null) => {
+      if (!d) return null
+      const str = String(d).trim()
+      if (str.includes('/')) {
+        const p = str.split('/')
+        if (p.length === 3) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`
+      }
+      return str
+    }
+
+    const validityStartIso = formatToIsoDate(formData.validity_start_date)
+    const validityEndIso = formatToIsoDate(formData.validity_end_date)
 
     const currentUser = pb.authStore.record || pb.authStore.model
 
-    const payload: Partial<LineRawMaterialApplication> = {
+    const payload: Record<string, any> = {
       line_id: formData.line_id,
       line_master_id: formData.line_master_id || undefined,
       center_code: formData.center_code.trim(),
@@ -306,24 +571,65 @@ export const rawMaterialApplicationService = {
       product_description: formData.product_description?.trim() || '',
       raw_material_code: formData.raw_material_code.trim().toUpperCase(),
       raw_material_description: formData.raw_material_description?.trim() || '',
-      supplier: formData.supplier?.trim() || '',
-      supplier_id: formData.supplier_id?.trim() || '',
+
+      // Tópico 2: Fornecedor da MP
+      supplier_applicable: isSupplierApplicable,
+      suppliers_json: cleanSuppliers,
+      raw_material_type: formData.raw_material_type?.trim() || '',
+      supplier:
+        isSupplierApplicable && cleanSuppliers.length > 0
+          ? cleanSuppliers.map((s) => s.name).join(', ')
+          : formData.supplier?.trim() || '',
+      supplier_id:
+        isSupplierApplicable && cleanSuppliers.length > 0
+          ? cleanSuppliers[0].code
+          : formData.supplier_id?.trim() || '',
+
+      // Tópico 3: Aplicação do Produto
       application: formData.application.trim(),
-      bitola_ref: formData.bitola_ref?.trim() || '',
-      steel_type: formData.steel_type?.trim() || '',
-      average_weight_kg: avgW,
-      max_weight_kg: maxW,
-      min_weight_kg: minW,
-      rolled_length_m: rolledL,
-      multiple_length_m: multL,
-      max_mp_length_m: maxMpL,
-      min_mp_length_m: minMpL,
+      bitolas_json: cleanBitolas,
+      steel_types_json: cleanSteelTypes,
+      rolled_min_length_mm: finalRolledMinMm,
+      rolled_ideal_length_mm: finalRolledIdealMm,
+      rolled_max_length_mm: finalRolledMaxMm,
+      reduction_min_pct: redMinPct !== null ? redMinPct : redPercentage,
+      reduction_ideal_pct: redIdealPct !== null ? redIdealPct : redPercentage,
+      reduction_max_pct: redMaxPct !== null ? redMaxPct : redPercentage,
+      validity_start_date: validityStartIso,
+      validity_end_date: validityEndIso,
+
+      // Redução sincronizada
       reduction_ratio_x: redRatioX,
       reduction_ratio_text: redRatioText,
-      reduction_percentage: redPercentage,
+      reduction_percentage: redPercentage ?? redIdealPct,
+
+      // Campos legados mantidos
+      bitola_ref: cleanBitolas.length > 0 ? cleanBitolas[0] : formData.bitola_ref?.trim() || '',
+      steel_type:
+        cleanSteelTypes.length > 0 ? cleanSteelTypes[0] : formData.steel_type?.trim() || '',
+      rolled_length_m: finalRolledL,
+      multiple_length_m: multL,
+
+      // Tópico 4: Pesos da Matéria-Prima (t)
+      min_weight_t: finalMinWt,
+      average_weight_t: finalAvgWt,
+      max_weight_t: finalMaxWt,
+      min_weight_kg: finalMinWkg,
+      average_weight_kg: finalAvgWkg,
+      max_weight_kg: finalMaxWkg,
+
+      // Tópico 5: Comprimentos Matéria-Prima (mm)
+      min_mp_length_mm: finalMinMpMm,
+      ideal_mp_length_mm: finalIdealMpMm,
+      max_mp_length_mm: finalMaxMpMm,
+      min_mp_length_m: finalMinMpM,
+      max_mp_length_m: finalMaxMpM,
+
+      // Tópico 6: Sequenciamento
       first_run: Boolean(formData.first_run),
       allow_out_of_standard_mp: Boolean(formData.allow_out_of_standard_mp),
-      // Bloco 7: Tempo Mínimo PCP
+
+      // Tópico 7: Tempo Mínimo PCP
       tempo_minimo_pcp_unidade: formData.tempo_minimo_pcp_unidade || null,
       tempo_minimo_pcp_valor:
         formData.tempo_minimo_pcp_valor !== undefined &&
@@ -344,6 +650,8 @@ export const rawMaterialApplicationService = {
               return pVal * mult
             })()
           : null,
+
+      // Tópico 8: Status & Observações
       status: formData.status,
       notes: formData.notes?.trim() || '',
     }
@@ -383,55 +691,98 @@ export const rawMaterialApplicationService = {
             `Código MP: ${previousRecord.raw_material_code} → ${saved.raw_material_code}`,
           )
         }
-        if (previousRecord.supplier !== saved.supplier) {
-          diffList.push(`Fornecedor: ${previousRecord.supplier || '-'} → ${saved.supplier || '-'}`)
+        if (previousRecord.supplier_applicable !== saved.supplier_applicable) {
+          diffList.push(
+            `Aplicabilidade do Fornecedor: ${previousRecord.supplier_applicable ? 'Aplicável' : 'Não aplicável'} → ${saved.supplier_applicable ? 'Aplicável' : 'Não aplicável'}`,
+          )
+        }
+        if (
+          JSON.stringify(previousRecord.suppliers_json || []) !==
+          JSON.stringify(saved.suppliers_json || [])
+        ) {
+          const prevS =
+            (previousRecord.suppliers_json || []).map((s) => s.name || s.code).join(', ') ||
+            'Nenhum'
+          const newS =
+            (saved.suppliers_json || []).map((s) => s.name || s.code).join(', ') || 'Nenhum'
+          diffList.push(`Fornecedores: ${prevS} → ${newS}`)
+        }
+        if (previousRecord.raw_material_type !== saved.raw_material_type) {
+          diffList.push(
+            `Tipo de MP: ${previousRecord.raw_material_type || '-'} → ${saved.raw_material_type || '-'}`,
+          )
         }
         if (previousRecord.application !== saved.application) {
           diffList.push(`Aplicação: ${previousRecord.application} → ${saved.application}`)
         }
-        if (previousRecord.average_weight_kg !== saved.average_weight_kg) {
+        if (
+          JSON.stringify(previousRecord.bitolas_json || []) !==
+          JSON.stringify(saved.bitolas_json || [])
+        ) {
+          const prevB =
+            (previousRecord.bitolas_json || []).join(', ') || previousRecord.bitola_ref || 'Nenhuma'
+          const newB = (saved.bitolas_json || []).join(', ') || 'Nenhuma'
+          diffList.push(`Bitolas: ${prevB} → ${newB}`)
+        }
+        if (
+          JSON.stringify(previousRecord.steel_types_json || []) !==
+          JSON.stringify(saved.steel_types_json || [])
+        ) {
+          const prevSt =
+            (previousRecord.steel_types_json || []).join(', ') ||
+            previousRecord.steel_type ||
+            'Nenhum'
+          const newSt = (saved.steel_types_json || []).join(', ') || 'Nenhum'
+          diffList.push(`Tipos de Aço: ${prevSt} → ${newSt}`)
+        }
+        if (previousRecord.rolled_ideal_length_mm !== saved.rolled_ideal_length_mm) {
           diffList.push(
-            `Peso médio: ${formatBrNumber(previousRecord.average_weight_kg)} kg → ${formatBrNumber(saved.average_weight_kg)} kg`,
+            `Comp. Ideal Laminado: ${formatBrNumber(previousRecord.rolled_ideal_length_mm)} mm → ${formatBrNumber(saved.rolled_ideal_length_mm)} mm`,
           )
         }
-        if (previousRecord.max_weight_kg !== saved.max_weight_kg) {
+        if (previousRecord.min_weight_t !== saved.min_weight_t) {
           diffList.push(
-            `Peso máximo: ${formatBrNumber(previousRecord.max_weight_kg)} kg → ${formatBrNumber(saved.max_weight_kg)} kg`,
+            `Peso Mínimo: ${formatBrNumber(previousRecord.min_weight_t, 4)} t → ${formatBrNumber(saved.min_weight_t, 4)} t`,
           )
         }
-        if (previousRecord.min_weight_kg !== saved.min_weight_kg) {
+        if (previousRecord.average_weight_t !== saved.average_weight_t) {
           diffList.push(
-            `Peso mínimo: ${formatBrNumber(previousRecord.min_weight_kg)} kg → ${formatBrNumber(saved.min_weight_kg)} kg`,
+            `Peso Médio: ${formatBrNumber(previousRecord.average_weight_t, 4)} t → ${formatBrNumber(saved.average_weight_t, 4)} t`,
           )
         }
-        if (previousRecord.rolled_length_m !== saved.rolled_length_m) {
+        if (previousRecord.max_weight_t !== saved.max_weight_t) {
           diffList.push(
-            `Comprimento laminado: ${formatBrNumber(previousRecord.rolled_length_m)} m → ${formatBrNumber(saved.rolled_length_m)} m`,
+            `Peso Máximo: ${formatBrNumber(previousRecord.max_weight_t, 4)} t → ${formatBrNumber(saved.max_weight_t, 4)} t`,
           )
         }
-        if (previousRecord.multiple_length_m !== saved.multiple_length_m) {
+        if (previousRecord.min_mp_length_mm !== saved.min_mp_length_mm) {
           diffList.push(
-            `Comprimento múltiplo: ${formatBrNumber(previousRecord.multiple_length_m)} m → ${formatBrNumber(saved.multiple_length_m)} m`,
+            `Comp. Mínimo MP: ${formatBrNumber(previousRecord.min_mp_length_mm)} mm → ${formatBrNumber(saved.min_mp_length_mm)} mm`,
           )
         }
-        if (previousRecord.max_mp_length_m !== saved.max_mp_length_m) {
+        if (previousRecord.ideal_mp_length_mm !== saved.ideal_mp_length_mm) {
           diffList.push(
-            `Comprimento máx MP: ${formatBrNumber(previousRecord.max_mp_length_m)} m → ${formatBrNumber(saved.max_mp_length_m)} m`,
+            `Comp. Ideal MP: ${formatBrNumber(previousRecord.ideal_mp_length_mm)} mm → ${formatBrNumber(saved.ideal_mp_length_mm)} mm`,
           )
         }
-        if (previousRecord.min_mp_length_m !== saved.min_mp_length_m) {
+        if (previousRecord.max_mp_length_mm !== saved.max_mp_length_mm) {
           diffList.push(
-            `Comprimento mín MP: ${formatBrNumber(previousRecord.min_mp_length_m)} m → ${formatBrNumber(saved.min_mp_length_m)} m`,
+            `Comp. Máximo MP: ${formatBrNumber(previousRecord.max_mp_length_mm)} mm → ${formatBrNumber(saved.max_mp_length_mm)} mm`,
           )
         }
-        if (previousRecord.reduction_ratio_text !== saved.reduction_ratio_text) {
+        if (previousRecord.reduction_ideal_pct !== saved.reduction_ideal_pct) {
           diffList.push(
-            `Redução (razão): ${previousRecord.reduction_ratio_text || '-'} → ${saved.reduction_ratio_text || '-'}`,
+            `Redução Ideal (%): ${formatBrNumber(previousRecord.reduction_ideal_pct)}% → ${formatBrNumber(saved.reduction_ideal_pct)}%`,
           )
         }
-        if (previousRecord.reduction_percentage !== saved.reduction_percentage) {
+        if (previousRecord.validity_start_date !== saved.validity_start_date) {
           diffList.push(
-            `Redução (%): ${formatBrNumber(previousRecord.reduction_percentage)}% → ${formatBrNumber(saved.reduction_percentage)}%`,
+            `Início Vigência: ${previousRecord.validity_start_date || '-'} → ${saved.validity_start_date || '-'}`,
+          )
+        }
+        if (previousRecord.validity_end_date !== saved.validity_end_date) {
+          diffList.push(
+            `Fim Vigência: ${previousRecord.validity_end_date || '-'} → ${saved.validity_end_date || '-'}`,
           )
         }
         if (previousRecord.first_run !== saved.first_run) {
@@ -462,10 +813,12 @@ export const rawMaterialApplicationService = {
           diffList.push(`Tempo mínimo PCP: ${beforeStr} → ${afterStr}`)
         }
       } else {
-        if (saved.tempo_minimo_pcp_valor != null) {
-          diffList.push(
-            `Tempo mínimo PCP inicial: ${formatBrNumber(saved.tempo_minimo_pcp_valor)} ${saved.tempo_minimo_pcp_unidade || ''}`,
-          )
+        diffList.push(`Cadastro inicial criado com centro ${saved.center_code}`)
+        if (saved.average_weight_t != null) {
+          diffList.push(`Peso Médio inicial: ${formatBrNumber(saved.average_weight_t, 4)} t`)
+        }
+        if (saved.ideal_mp_length_mm != null) {
+          diffList.push(`Comp. Ideal MP inicial: ${formatBrNumber(saved.ideal_mp_length_mm)} mm`)
         }
       }
 
@@ -497,8 +850,35 @@ export const rawMaterialApplicationService = {
           center: saved.center_code,
           product_code: saved.product_code,
           raw_material_code: saved.raw_material_code,
-          supplier: saved.supplier,
+          supplier_applicable: saved.supplier_applicable,
+          suppliers: saved.suppliers_json,
+          raw_material_type: saved.raw_material_type,
           application: saved.application,
+          bitolas: saved.bitolas_json,
+          steel_types: saved.steel_types_json,
+          pesos_t: {
+            min: saved.min_weight_t,
+            avg: saved.average_weight_t,
+            max: saved.max_weight_t,
+          },
+          comprimentos_mm: {
+            rolled_min: saved.rolled_min_length_mm,
+            rolled_ideal: saved.rolled_ideal_length_mm,
+            rolled_max: saved.rolled_max_length_mm,
+            mp_min: saved.min_mp_length_mm,
+            mp_ideal: saved.ideal_mp_length_mm,
+            mp_max: saved.max_mp_length_mm,
+          },
+          reducoes_pct: {
+            min: saved.reduction_min_pct,
+            ideal: saved.reduction_ideal_pct,
+            max: saved.reduction_max_pct,
+            ratio_x: saved.reduction_ratio_x,
+          },
+          vigencia: {
+            start: saved.validity_start_date,
+            end: saved.validity_end_date,
+          },
           previous_value: previousRecord,
           new_value: saved,
           origin: 'Ficha Mestra Expandida',

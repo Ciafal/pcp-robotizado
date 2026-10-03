@@ -19,6 +19,28 @@ export type RawMaterialType =
   | 'Lingote'
   | string
 
+export const SYSTEM_RAW_MATERIAL_TYPES: { code: string; label: string }[] = [
+  { code: 'Placa', label: 'Placa' },
+  { code: 'Bloco', label: 'Bloco' },
+  { code: 'Palanquilha', label: 'Palanquilha' },
+  { code: 'Tarugo 155', label: 'Tarugo 155' },
+  { code: 'Tarugo 130x130', label: 'Tarugo 130x130' },
+  { code: 'Tarugo 150x150', label: 'Tarugo 150x150' },
+  { code: 'Tarugo', label: 'Tarugo' },
+  { code: 'Lingote', label: 'Lingote' },
+]
+
+export const SYSTEM_HOMOLOGATED_SUPPLIERS: SupplierOptionItem[] = [
+  { code: 'GERDAU', name: 'Gerdau Aços Especiais', cityState: 'Charqueadas / Brasil' },
+  { code: 'ARCELOR', name: 'ArcelorMittal', cityState: 'Juiz de Fora / Brasil' },
+  { code: 'BARRA_MANSA', name: 'Siderúrgica Barra Mansa', cityState: 'Barra Mansa / RJ' },
+  { code: 'SINOBRAS', name: 'Sinobras', cityState: 'Marabá / PA' },
+  { code: 'VILLARES', name: 'Villares Metals', cityState: 'Sumaré / SP' },
+  { code: 'APERAM', name: 'Aperam South America', cityState: 'Timóteo / MG' },
+  { code: 'USIMINAS', name: 'Usiminas', cityState: 'Ipatinga / MG' },
+  { code: 'IMPORTADO', name: 'Importado / Outros', cityState: 'Internacional' },
+]
+
 export interface LineRawMaterialApplication {
   id: string
   line_id: string
