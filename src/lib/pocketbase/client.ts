@@ -1,11 +1,7 @@
 import PocketBase from 'pocketbase'
 
-const backendUrl =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
-  (typeof window !== 'undefined' && (window as any)?.__ENV__?.VITE_BACKEND_URL) ||
-  ''
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL)
+pb.autoCancellation(false)
 
-const pbInstance = new PocketBase(backendUrl)
-
-export const pb = pbInstance
-export default pbInstance
+export { pb }
+export default pb

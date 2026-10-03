@@ -291,7 +291,7 @@ export const ChecklistFechamentoPage: React.FC = () => {
   const verificarPermissoes = async () => {
     try {
       const perms = await authService.resolvePermissions()
-      const role = perms.user.role?.toUpperCase() || ''
+      const role = perms?.user?.role?.toUpperCase() || ''
       const isViewer = role === 'EXECUTIVE_VIEWER' || role === 'OPERATOR'
       setCanEdit(!isViewer)
       setPodeAdministrar(

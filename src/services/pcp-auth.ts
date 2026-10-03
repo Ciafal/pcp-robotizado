@@ -314,7 +314,7 @@ export const authService = {
 
     // Se temos cache no localStorage para este usuário, usar enquanto busca
     const localCached = getCachedPermissions()
-    if (!forceRefresh && localCached && localCached.user.id === currentUserId) {
+    if (!forceRefresh && localCached && localCached.user?.id === currentUserId) {
       // Validar se o cache local contém as chaves essenciais de produção antes de usá-lo; se não, invalida
       const permKeys = localCached.permission_keys || []
       const hasProductionView = permKeys.includes('pcp.production.view')
@@ -343,7 +343,7 @@ export const authService = {
         console.warn('Fallback de permissões locais:', err)
         // Se temos cache local existente, preserva
         const existingCache = getCachedPermissions()
-        if (existingCache && existingCache.user.id === currentUserId) {
+        if (existingCache && existingCache.user?.id === currentUserId) {
           return existingCache
         }
 

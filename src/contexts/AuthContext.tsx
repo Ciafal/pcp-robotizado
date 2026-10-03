@@ -73,9 +73,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       : defaultCiafalAdmin)
 
-  const defaultRole = defaultUser.role || 'PCP_PROGRAMMER'
+  const defaultRole = defaultUser?.role || 'PCP_PROGRAMMER'
   const defaultIsGlobal = cached
-    ? cached.is_global || cached.user.role === 'PCP_ADMIN'
+    ? Boolean(cached.is_global || cached.user?.role === 'PCP_ADMIN')
     : defaultRole === 'PCP_ADMIN'
   const defaultPermissionKeys = cached
     ? new Set(cached.permission_keys || [])
@@ -218,18 +218,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             forceRefresh: force,
           })
 
-          const res: AuthPermissionsResponse = await Promise.race([
+          const res: AuthPermissionsResponse | null | undefined = await Promise.race([
             resolvePromise,
             createTimeoutPromise(2500),
           ])
 
-          setUser((prev) => (JSON.stringify(prev) === JSON.stringify(res.user) ? prev : res.user))
+          // Tratamento defensivo rigoroso: se res ou res.user for indefinido/nulo
+          const resUser = res?.user || null
+          const resUserRole = resUser?.role
+
+          setUser((prev) => (JSON.stringify(prev) === JSON.stringify(resUser) ? prev : resUser))
           setIsGlobal((prev) => {
-            const nextVal = res.is_global || res.user.role === 'PCP_ADMIN'
+            const nextVal = Boolean(res?.is_global || resUserRole === 'PCP_ADMIN')
             return prev === nextVal ? prev : nextVal
           })
           setScopes((prev) => {
-            const nextScopes = res.scopes || []
+            const nextScopes = res?.scopes || []
             if (
               prev.length === nextScopes.length &&
               prev.every(
@@ -241,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return nextScopes
           })
           setDelegations((prev) => {
-            const nextDelegations = res.delegations || []
+            const nextDelegations = res?.delegations || []
             if (
               prev.length === nextDelegations.length &&
               prev.every(
@@ -254,7 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return nextDelegations
           })
           setPermissions((prev) => {
-            const nextPerms = res.permissions || []
+            const nextPerms = res?.permissions || []
             if (
               prev.length === nextPerms.length &&
               prev.every(
@@ -266,10 +270,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return nextPerms
           })
           setPermissionKeys((prev) => {
-            const nextKeys = new Set(res.permission_keys || [])
-            // Salvaguarda: pcp.production.view e pcp.production.close garantidas para programadores/gestores
-            nextKeys.add('pcp.production.view')
-            nextKeys.add('pcp.production.close')
+            const nextKeys = new Set(res?.permission_keys || [])
+            // Salvaguarda: se houver usuário autenticado ou role ativa, assegurar pcp.production.view e pcp.production.close
+            if (resUser) {
+              nextKeys.add('pcp.production.view')
+              nextKeys.add('pcp.production.close')
+            }
             if (prev.size === nextKeys.size && Array.from(nextKeys).every((k) => prev.has(k))) {
               return prev
             }
