@@ -138,6 +138,15 @@ onRecordAfterCreateSuccess((e) => {
   }
 }, 'mp_out_of_standard_evaluations')
 
+// Bloquear exclusão física (regra de governança irrestrita)
+onRecordDeleteRequest((e) => {
+  return e.json(403, {
+    code: 'FORBIDDEN_PHYSICAL_DELETE',
+    message:
+      'Acesso negado: A exclusão física de avaliações de aproveitamento de MP é proibida pela governança CIAFAL. Utilize o cancelamento lógico com justificativa obrigatória.',
+  })
+}, 'mp_out_of_standard_evaluations')
+
 // 2. Interceptar Atualização de Avaliação (edição, decisão e cancelamento)
 onRecordUpdateRequest((e) => {
   const authRecord = e.auth

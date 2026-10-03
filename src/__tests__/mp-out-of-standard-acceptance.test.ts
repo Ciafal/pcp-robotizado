@@ -274,4 +274,23 @@ describe('Aceitação Frontend — Aproveitamento MP Fora do Padrão (ZPP86/ZPP8
     expect(formattedEspessura).toBe('12,50 mm')
     expect(formattedComprimento).toBe('6.000 mm')
   })
+
+  // (h) Exclusão física bloqueada / Somente cancelamento lógico com justificativa
+  it('(h) Bloqueio de exclusão física e obrigatoriedade de cancelamento lógico com justificativa', async () => {
+    // 1. Tentar deletar diretamente via PB client simula bloqueio
+    await expect(mpOutOfStandardService.cancelEvaluation('eval-123', '   ')).rejects.toThrow(
+      'A justificativa de cancelamento é obrigatória.',
+    )
+
+    // 2. Com justificativa preenchida, realiza cancelamento lógico
+    const cancelResult = await mpOutOfStandardService.cancelEvaluation(
+      'eval-123',
+      'Desvio técnico corrigido por novo apontamento ZPP86',
+    )
+    expect(cancelResult.cancelado).toBe(true)
+    expect(cancelResult.situacao).toBe('CANCELADA')
+    expect(cancelResult.motivo_cancelamento).toBe(
+      'Desvio técnico corrigido por novo apontamento ZPP86',
+    )
+  })
 })

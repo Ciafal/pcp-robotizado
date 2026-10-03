@@ -13,6 +13,7 @@ import {
   OutOfStandardCompatibility,
 } from '@/types/mp-out-of-standard'
 import { formatNumberPtBr } from '@/lib/number-format'
+import { formatDateTimePTBR } from '@/lib/formatters-ptbr'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -1213,9 +1214,7 @@ export const MPAproveitamentoForaPadraoPage: React.FC = () => {
                         {ev.avaliador_nome}
                       </td>
                       <td className="py-3 px-4 text-slate-600 text-[11px]">
-                        {ev.data_avaliacao
-                          ? new Date(ev.data_avaliacao).toLocaleDateString('pt-BR')
-                          : '-'}
+                        {ev.data_avaliacao ? formatDateTimePTBR(ev.data_avaliacao) : '-'}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -1290,7 +1289,7 @@ export const MPAproveitamentoForaPadraoPage: React.FC = () => {
             <DialogDescription className="text-xs text-slate-600">
               Registrado por {viewingRecord?.avaliador_nome} em{' '}
               {viewingRecord?.data_avaliacao
-                ? new Date(viewingRecord.data_avaliacao).toLocaleString('pt-BR')
+                ? formatDateTimePTBR(viewingRecord.data_avaliacao)
                 : '-'}
             </DialogDescription>
           </DialogHeader>
@@ -1382,7 +1381,7 @@ export const MPAproveitamentoForaPadraoPage: React.FC = () => {
                   <p className="text-[10px] text-rose-600">
                     Cancelado por {viewingRecord.cancelado_por_nome} em{' '}
                     {viewingRecord.data_cancelamento
-                      ? new Date(viewingRecord.data_cancelamento).toLocaleString('pt-BR')
+                      ? formatDateTimePTBR(viewingRecord.data_cancelamento)
                       : '-'}
                   </p>
                 </div>
