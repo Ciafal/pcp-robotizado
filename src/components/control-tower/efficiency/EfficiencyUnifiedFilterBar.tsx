@@ -39,6 +39,7 @@ interface EfficiencyUnifiedFilterBarProps {
   isLoading?: boolean
   showCenterFilter?: boolean
   showLine2?: boolean
+  onApply?: (filters: UnifiedEfficiencyFilters) => void
 }
 
 export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProps> = ({
@@ -149,7 +150,11 @@ export const EfficiencyUnifiedFilterBar: React.FC<EfficiencyUnifiedFilterBarProp
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => onChange({ ...filters })}
+            onClick={() => {
+              onChange({ ...filters })
+              if (onApply) onApply({ ...filters })
+              if (onRefresh) onRefresh()
+            }}
             disabled={isLoading}
             title="Aplicar filtros atuais"
             className="h-8 px-2.5 text-xs text-[#004C97] hover:text-[#003870] hover:bg-white gap-1 font-semibold transition-colors"

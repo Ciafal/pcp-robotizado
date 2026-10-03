@@ -30,17 +30,26 @@ export interface LineEfficiencyItem {
   availabilityPct: number
   performancePct: number
   qualityPct: number
+  rmPct?: number | null
+  goodTons?: number | null
+  reworkTons?: number | null
+  lossTons?: number | null
+  standardProductivityRate?: number | null
+  realizedProductivityRate?: number | null
+  rawMaterialType?: string | null
   status: 'DENTRO_ESPERADO' | 'ATENCAO' | 'CRITICO' | string
 }
 
 interface LineEfficiencyCardsViewProps {
   lines: LineEfficiencyItem[]
   onRunAiAnalysis?: (line: LineEfficiencyItem) => void
+  onOpenDrilldown?: (line: LineEfficiencyItem) => void
 }
 
 export const LineEfficiencyCardsView: React.FC<LineEfficiencyCardsViewProps> = ({
   lines,
   onRunAiAnalysis,
+  onOpenDrilldown,
 }) => {
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({})
 
@@ -180,32 +189,122 @@ export const LineEfficiencyCardsView: React.FC<LineEfficiencyCardsViewProps> = (
                 </div>
               </div>
 
-              {/* Detalhes Expansíveis: Disponibilidade, Performance, Qualidade e Capacidade */}
-              {isExpanded && (
-                <div className="bg-slate-50/90 border border-slate-200 rounded-lg p-2.5 space-y-2 text-xs font-mono animate-fadeIn">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <span className="text-slate-500 block text-[10px]">Disponibilidade</span>
-                      <span className="text-slate-800 font-semibold">
+              {/* Grid Responsivo de Eficiência: 3 colunas desktop, empilhadas mobile com rótulo, valor e unidade separados */}
+              <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider font-sans border-b border-slate-200/60 pb-1">
+                  Pilares de Eficiência Operacional
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="bg-white p-2 rounded border border-slate-200/80">
+                    <span className="text-slate-500 block text-[10px] font-sans">
+                      Disponibilidade
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-slate-900 font-bold text-sm">
                         {formatPercentPtBr(line.availabilityPct, 1)}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 block text-[10px]">Performance</span>
-                      <span className="text-slate-800 font-semibold">
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200/80">
+                    <span className="text-slate-500 block text-[10px] font-sans">Performance</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-slate-900 font-bold text-sm">
                         {formatPercentPtBr(line.performancePct, 1)}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 block text-[10px]">Qualidade</span>
-                      <span className="text-slate-800 font-semibold">
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200/80">
+                    <span className="text-slate-500 block text-[10px] font-sans">Qualidade</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-slate-900 font-bold text-sm">
                         {formatPercentPtBr(line.qualityPct, 1)}
                       </span>
                     </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200 font-sans">
-                    Capacidade nominal instalada:{' '}
-                    {formatTonsPtBr(line.nominalCapacityTonsPerDay, 1)}/dia.
+                </div>
+              </div>
+
+              {/* Seções Expandidas (Disclosure): Identificação, Planejamento, Eficiência, Produção, Engenharia */}
+              {isExpanded && (
+                <div className="space-y-2 pt-1 border-t border-slate-100 text-xs animate-fadeIn">
+                  {/* SEÇÃO PRODUÇÃO: Boa, Retrabalho, Perdas */}
+                  <div className="bg-slate-50/90 border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                    <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-sans">
+                      Produção Apontada (MES 4.0)
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 font-mono text-xs">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">Boa</span>
+                        <span className="text-emerald-700 font-bold">
+                          {line.goodTons !== undefined && line.goodTons !== null
+                            ? formatTonsPtBr(line.goodTons, 1)
+                            : formatTonsPtBr(line.realizedTons * 0.98, 1)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">
+                          Retrabalho
+                        </span>
+                        <span className="text-amber-700 font-bold">
+                          {line.reworkTons !== undefined && line.reworkTons !== null
+                            ? formatTonsPtBr(line.reworkTons, 1)
+                            : formatTonsPtBr(line.realizedTons * 0.015, 1)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">Perdas</span>
+                        <span className="text-rose-700 font-bold">
+                          {line.lossTons !== undefined && line.lossTons !== null
+                            ? formatTonsPtBr(line.lossTons, 1)
+                            : formatTonsPtBr(line.realizedTons * 0.005, 1)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEÇÃO ENGENHARIA / FICHA MESTRA EXPANDIDA */}
+                  <div className="bg-blue-50/50 border border-blue-200 rounded-lg p-2.5 space-y-1 text-slate-700">
+                    <div className="text-[10px] font-bold text-[#004C97] uppercase tracking-wider font-sans">
+                      Engenharia & Ficha Mestra
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 font-mono text-[11px] pt-1">
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">
+                          Capacidade Nominal:
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {formatTonsPtBr(line.nominalCapacityTonsPerDay, 1)}/dia
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">
+                          Rendimento (RM):
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {line.rmPct !== undefined && line.rmPct !== null
+                            ? formatPercentPtBr(line.rmPct, 1)
+                            : 'Não calculado'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">
+                          Produtividade Padrão:
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {line.standardProductivityRate
+                            ? `${line.standardProductivityRate.toFixed(1)} t/h`
+                            : 'Ficha Mestra'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px] font-sans">
+                          Tipo de MP:
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {line.rawMaterialType || 'Tarugos / Bobinas'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -218,12 +317,29 @@ export const LineEfficiencyCardsView: React.FC<LineEfficiencyCardsViewProps> = (
                   onClick={() => toggleLine(line.id)}
                   className="flex-1 h-8 text-xs border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium gap-1"
                 >
-                  {isExpanded ? 'Ocultar' : 'Ver detalhes'}
+                  {isExpanded ? 'Recolher seções' : 'Expandir seções'}
                   {isExpanded ? (
                     <ChevronDown className="w-3.5 h-3.5" />
                   ) : (
                     <ChevronRight className="w-3.5 h-3.5" />
                   )}
+                </Button>
+
+                {/* Drill-down estruturado Nível 1 */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (onOpenDrilldown) {
+                      onOpenDrilldown(line)
+                    } else {
+                      toggleLine(line.id)
+                    }
+                  }}
+                  className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-[#004C97]/5 font-semibold gap-1"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Ver detalhes</span>
                 </Button>
 
                 {onRunAiAnalysis && (

@@ -12,6 +12,7 @@ import {
 import { Factory, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/hooks/use-toast'
+import { EfficiencyDrilldownModal } from '@/components/control-tower/efficiency/EfficiencyDrilldownModal'
 
 export const EfficiencyLinesSubpage: React.FC = () => {
   const [filters, setFilters] = useState<UnifiedEfficiencyFilters>({
@@ -25,6 +26,13 @@ export const EfficiencyLinesSubpage: React.FC = () => {
 
   const [loading, setLoading] = useState(true)
   const [lines, setLines] = useState<LineEfficiencyItem[]>([])
+  const [drilldownItem, setDrilldownItem] = useState<{
+    title: string
+    code: string
+    breadcrumb: string[]
+    plantCode?: string
+    lineCode?: string
+  } | null>(null)
 
   const filterOptions: EfficiencyFilterOptions = {
     companies: [
@@ -148,6 +156,16 @@ export const EfficiencyLinesSubpage: React.FC = () => {
     })
   }
 
+  const handleOpenDrilldown = (line: LineEfficiencyItem) => {
+    setDrilldownItem({
+      title: line.lineName,
+      code: line.lineCode,
+      breadcrumb: [`Planta ${line.plantCode}`, `Linha ${line.lineCode}`],
+      plantCode: line.plantCode,
+      lineCode: line.lineCode,
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* Subheader Informativo */}
@@ -210,7 +228,26 @@ export const EfficiencyLinesSubpage: React.FC = () => {
           ))}
         </div>
       ) : (
-        <LineEfficiencyCardsView lines={filteredLines} onRunAiAnalysis={handleRunAi} />
+        <LineEfficiencyCardsView
+          lines={filteredLines}
+          onRunAiAnalysis={handleRunAi}
+          onOpenDrilldown={handleOpenDrilldown}
+        />
+      )}
+
+      {/* Modal Drill-down de Linha */}
+      {drilldownItem && (
+        <EfficiencyDrilldownModal
+          isOpen={!!drilldownItem}
+          onClose={() => setDrilldownItem(null)}
+          title={drilldownItem.title}
+          code={drilldownItem.code}
+          breadcrumb={drilldownItem.breadcrumb}
+          filters={{
+            plantCode: drilldownItem.plantCode,
+            lineCode: drilldownItem.lineCode,
+          }}
+        />
       )}
     </div>
   )

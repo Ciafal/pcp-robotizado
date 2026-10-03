@@ -41,12 +41,10 @@ import { EfficiencyPlantsSubpage } from '@/pages/EfficiencyPlantsSubpage'
 import { EfficiencyAssertivenessSubpage } from '@/pages/EfficiencyAssertivenessSubpage'
 
 interface EfficiencyViewProps {
-  initialTab?: 'produtos' | 'linhas' | 'centros' | 'plantas' | 'assertividade' | 'aprendizado'
+  initialTab?: 'linhas' | 'centros' | 'produtos' | 'plantas' | 'assertividade' | 'aprendizado'
 }
 
-export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
-  initialTab = 'produtos',
-}) => {
+export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({ initialTab = 'linhas' }) => {
   const {
     filters,
     setCompanyScope,
@@ -158,66 +156,93 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
         </div>
       </div>
 
-      {/* Tabs Principais da Eficiência — Rolagem horizontal INTERNA sem overflow-x hidden global */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <div className="w-full overflow-x-auto pb-1 scrollbar-thin">
+      {/* Seletor Dropdown em mobile para troca instantânea sem gerar rolagem na página */}
+      <div className="block sm:hidden">
+        <label className="text-[11px] font-semibold text-slate-500 mb-1 block">
+          Visão de Eficiência:
+        </label>
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value)}
+          className="w-full text-xs font-semibold bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#004C97]/30 shadow-2xs"
+        >
+          <option value="linhas">1. Eficiência por Linha</option>
+          <option value="centros">2. Eficiência por Centro</option>
+          <option value="produtos">3. Eficiência por Produto (Nova)</option>
+          <option value="plantas">4. Eficiência por Planta</option>
+          <option value="assertividade">5. Assertividade da Programação</option>
+          <option value="aprendizado">
+            6. Ciclo de Aprendizado ({productionDeviations.length})
+          </option>
+        </select>
+      </div>
+
+      {/* Tabs Principais da Eficiência — Ordem estrita:
+          1. Eficiência por Linha
+          2. Eficiência por Centro
+          3. Eficiência por Produto (NOVA)
+          4. Eficiência por Planta
+          5. Assertividade da Programação
+          Desktop: rótulos inteiros sem corte nem reticências
+          Tablet: scroll horizontal apenas dentro do trilho de abas
+          Mobile: nunca scroll horizontal na página */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4 max-w-full">
+        <div className="hidden sm:block w-full overflow-x-auto pb-1 scrollbar-thin">
           <TabsList className="bg-slate-100/90 border border-slate-200 p-1 rounded-xl h-auto flex flex-nowrap w-max min-w-full sm:w-auto gap-1">
             <TabsTrigger
-              value="produtos"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
-            >
-              <Layers className="w-3.5 h-3.5 mr-1.5" />
-              Eficiência por Produto
-            </TabsTrigger>
-            <TabsTrigger
               value="linhas"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
             >
-              <Factory className="w-3.5 h-3.5 mr-1.5" />
-              Eficiência por Linha
+              <Factory className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Eficiência por Linha</span>
             </TabsTrigger>
             <TabsTrigger
               value="centros"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
             >
-              <Building2 className="w-3.5 h-3.5 mr-1.5" />
-              Eficiência Centro
+              <Building2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Eficiência por Centro</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="produtos"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
+            >
+              <Layers className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Eficiência por Produto</span>
+              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full uppercase ml-1.5 leading-none">
+                Nova
+              </span>
             </TabsTrigger>
             <TabsTrigger
               value="plantas"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
             >
-              <Building2 className="w-3.5 h-3.5 mr-1.5" />
-              Eficiência por Planta
+              <Building2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Eficiência por Planta</span>
             </TabsTrigger>
             <TabsTrigger
               value="assertividade"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
             >
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
-              Assertividade da Programação
+              <BarChart3 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Assertividade da Programação</span>
             </TabsTrigger>
             <TabsTrigger
               value="aprendizado"
-              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg"
+              className="text-xs text-slate-700 data-[state=active]:bg-[#004C97] data-[state=active]:text-white data-[state=active]:shadow-xs font-semibold px-3.5 py-2 whitespace-nowrap rounded-lg shrink-0"
             >
-              <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-500 data-[state=active]:text-amber-300" />
-              Ciclo de Aprendizado ({productionDeviations.length})
+              <Zap className="w-3.5 h-3.5 mr-1.5 text-amber-500 data-[state=active]:text-amber-300 shrink-0" />
+              <span>Ciclo de Aprendizado ({productionDeviations.length})</span>
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* 1. Eficiência por Produto — Subpágina Modular e Clara */}
-        <TabsContent value="produtos" className="space-y-4">
-          <EfficiencyProductsSubpage />
-        </TabsContent>
-
-        {/* 2. Eficiência por Linha — Subpágina Modular e Clara */}
+        {/* 1. Eficiência por Linha */}
         <TabsContent value="linhas" className="space-y-4">
           <EfficiencyLinesSubpage />
         </TabsContent>
 
-        {/* 3. Eficiência Centro — Agrupamento Planta > Linha > Centro com cards expansíveis */}
+        {/* 2. Eficiência por Centro */}
         <TabsContent value="centros" className="space-y-4">
           <EfficiencyCenterMainView
             initialLineCode={filters.lineCode}
@@ -225,12 +250,17 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
           />
         </TabsContent>
 
-        {/* 4. Eficiência por Planta — Subpágina Modular e Clara */}
+        {/* 3. Eficiência por Produto (NOVA) */}
+        <TabsContent value="produtos" className="space-y-4">
+          <EfficiencyProductsSubpage />
+        </TabsContent>
+
+        {/* 4. Eficiência por Planta */}
         <TabsContent value="plantas" className="space-y-4">
           <EfficiencyPlantsSubpage />
         </TabsContent>
 
-        {/* 5. Assertividade da Programação PCP — Subpágina Modular e Clara */}
+        {/* 5. Assertividade da Programação */}
         <TabsContent value="assertividade" className="space-y-4">
           <EfficiencyAssertivenessSubpage />
         </TabsContent>
@@ -458,52 +488,61 @@ export const EfficiencyModuleView: React.FC<EfficiencyViewProps> = ({
                     </span>
                   </div>
                 </div>
-
-                {/* Decomposição do Gap por Fator */}
+                {/* Categorização obrigatória: Dado | Desvio | Hipótese | Causa Registrada | Recomendação */}
                 <div className="space-y-2">
                   <span className="text-[11px] font-mono text-slate-600 uppercase font-semibold">
-                    Impacto Estimado por Causa Raiz (Confiança do Modelo: 86%):
+                    Evidências e Diagnóstico Estruturado:
                   </span>
-                  <div className="space-y-1.5 font-mono">
-                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-200">
-                      <span className="text-slate-700 text-xs">
-                        🔧 Paradas Corretivas e Troca de Guias
+                  <div className="space-y-1.5">
+                    <div className="bg-slate-50 p-2 rounded border border-slate-200 text-xs flex items-start gap-2">
+                      <Badge className="bg-slate-200 text-slate-800 text-[9px] shrink-0 font-mono">
+                        DADO REAL
+                      </Badge>
+                      <span className="text-slate-700">
+                        Produção física de 1.612,5 t realizada no período vs 1.650,0 t programadas.
                       </span>
-                      <span className="text-rose-600 font-bold">-3.2 p.p.</span>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-200">
-                      <span className="text-slate-700 text-xs">
-                        ⚙️ Ritmo de Laminação Abaixo da Premissa
+                    <div className="bg-rose-50/50 p-2 rounded border border-rose-200 text-xs flex items-start gap-2">
+                      <Badge className="bg-rose-100 text-rose-800 text-[9px] shrink-0 font-mono">
+                        DESVIO
+                      </Badge>
+                      <span className="text-rose-900">
+                        Gap negativo de 37,5 t (-2,3%) na velocidade de acabamento da bitola.
                       </span>
-                      <span className="text-amber-600 font-bold">-2.1 p.p.</span>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-200">
-                      <span className="text-slate-700 text-xs">
-                        ⏱️ Setup Excessivo de Alinhamento de Rolos
+                    <div className="bg-blue-50/50 p-2 rounded border border-blue-200 text-xs flex items-start gap-2">
+                      <Badge className="bg-blue-100 text-blue-800 text-[9px] shrink-0 font-mono">
+                        CAUSA REGISTRADA
+                      </Badge>
+                      <span className="text-blue-950 font-medium">
+                        Apontamento MES: Paradas corretivas de troca de guias térmicas (3.2 p.p. de
+                        perda de disponibilidade).
                       </span>
-                      <span className="text-amber-600 font-bold">-1.0 p.p.</span>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-200">
-                      <span className="text-slate-700 text-xs">
-                        📦 Outros (Microparadas e Espera de Ponte)
+                    <div className="bg-amber-50/50 p-2 rounded border border-amber-200 text-xs flex items-start gap-2">
+                      <Badge className="bg-amber-100 text-amber-800 text-[9px] shrink-0 font-mono">
+                        HIPÓTESE IA
+                      </Badge>
+                      <span className="text-amber-950 italic">
+                        Hipótese probabilística: Superaquecimento em passagens de alta velocidade
+                        (nunca tratada como causa confirmada sem laudo de engenharia).
                       </span>
-                      <span className="text-slate-500">-0.7 p.p.</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Recomendação Proativa */}
+                {/* Recomendação Proativa Consultiva */}
                 <div className="bg-blue-50/80 border border-blue-200 p-3 rounded-lg text-slate-800 space-y-1 text-xs">
                   <div className="font-bold flex items-center gap-1.5 text-[#004C97]">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Recomendação de Otimização Prescritiva:</span>
+                    <span>Recomendação de Otimização Prescritiva (Consultiva):</span>
                   </div>
                   <p className="text-slate-600">
-                    O ritmo cadastrado na Ficha Mestre (70 t/h) está 4 t/h acima da média térmica
-                    sustentada para a bitola 50x50. Sugere-se manter a cadência em 68 t/h para
-                    eliminar microparadas por superaquecimento de guias.
+                    O ritmo cadastrado na Ficha Mestra (70 t/h) está 4 t/h acima da média térmica
+                    sustentada para a bitola 50x50. Sugere-se avaliar junto à Engenharia a
+                    calibração de cadência em 68 t/h para eliminar microparadas por superaquecimento
+                    de guias.
                   </p>
-                </div>
+                </div>{' '}
               </div>
             )
           )}

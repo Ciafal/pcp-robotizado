@@ -8,8 +8,9 @@ import { EfficiencyCenterCards } from './EfficiencyCenterCards'
 import { EfficiencyCenterFiltersBar } from './EfficiencyCenterFiltersBar'
 import { EfficiencyCenterTable } from './EfficiencyCenterTable'
 import { EfficiencyCenterHierarchyView } from './EfficiencyCenterHierarchyView'
+import { EfficiencyDrilldownModal } from './EfficiencyDrilldownModal'
 import { Badge } from '@/components/ui/badge'
-import { Building2, RefreshCw, Radio, Table, ListTree } from 'lucide-react'
+import { Building2, RefreshCw, Radio, Table, ListTree, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface EfficiencyCenterMainViewProps {
@@ -46,6 +47,16 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'hierarchy' | 'table'>('hierarchy')
+
+  // Drill-down para Centro de Trabalho
+  const [drilldownItem, setDrilldownItem] = useState<{
+    title: string
+    code: string
+    breadcrumb: string[]
+    plantCode?: string
+    lineCode?: string
+    centerCode?: string
+  } | null>(null)
 
   // Controle de debounce e cancelamento para performance
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -108,7 +119,7 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
 
   return (
     <div className="space-y-4" data-testid="efficiency-center-view">
-      {/* Barra de Status de Fontes e Seletor de Modo (Hierárquico / Analítico) */}
+      {/* BLOCO 1: CABEÇALHO (Título + Subtítulo curto + Status MES e alternadores) */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#004C97]/10 flex items-center justify-center text-[#004C97] shrink-0">
@@ -133,6 +144,32 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Botão para Drill-down do centro selecionado */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const currentCenter =
+                filters.centerCode && filters.centerCode !== 'ALL' ? filters.centerCode : 'SEML1'
+              setDrilldownItem({
+                title: `Detalhamento de Ordens &bull; ${currentCenter}`,
+                code: currentCenter,
+                breadcrumb: [
+                  `Planta ${filters.plantCode || 'DIV'}`,
+                  `Linha ${filters.lineCode || 'L1'}`,
+                  `Centro ${currentCenter}`,
+                ],
+                plantCode: filters.plantCode,
+                lineCode: filters.lineCode,
+                centerCode: currentCenter,
+              })
+            }}
+            className="h-8 text-xs border-[#004C97]/30 text-[#004C97] hover:bg-[#004C97]/10 font-semibold gap-1.5 shadow-2xs"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Ver detalhes</span>
+          </Button>
+
           {/* Alternador de visualização: Árvore Hierárquica vs Tabela Analítica */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
             <button
@@ -190,25 +227,7 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
         </div>
       </div>
 
-      {/* 1. CARDS SINTÉTICOS */}
-      <EfficiencyCenterCards
-        summary={
-          data?.summary || {
-            totalCenters: 0,
-            totalPlannedTons: 0,
-            totalRealizedTons: null,
-            overallAdherencePct: null,
-            withinPlannedCount: 0,
-            withinPlannedPct: 0,
-            delayedCount: 0,
-            delayedPct: 0,
-            estimatedImpactTons: 0,
-          }
-        }
-        loading={loading}
-      />
-
-      {/* 2. FILTROS OPERACIONAIS INTERNOS (SE NÃO OCULTOS PELO PAI) */}
+      {/* BLOCO 2: FILTROS OPERACIONAIS (LOGO ABAIXO DO CABEÇALHO, ANTES DE QUALQUER CARD) */}
       {!hideInternalFiltersBar && (
         <EfficiencyCenterFiltersBar
           initialFilters={filters}
@@ -225,6 +244,24 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
           isLoading={loading}
         />
       )}
+
+      {/* BLOCO 3: KPIS DO PERÍODO */}
+      <EfficiencyCenterCards
+        summary={
+          data?.summary || {
+            totalCenters: 0,
+            totalPlannedTons: 0,
+            totalRealizedTons: null,
+            overallAdherencePct: null,
+            withinPlannedCount: 0,
+            withinPlannedPct: 0,
+            delayedCount: 0,
+            delayedPct: 0,
+            estimatedImpactTons: 0,
+          }
+        }
+        loading={loading}
+      />
 
       {/* 3. VISÃO PRINCIPAL: HIERARQUIA PLANTA -> LINHA -> CENTRO COM CARDS EXPANSÍVEIS */}
       {viewMode === 'hierarchy' ? (
@@ -244,6 +281,22 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
           onRetry={() => loadData(filters)}
           activeProgramacaoId={data?.metadata.activeProgramacaoId}
           activeProgramacaoVersion={data?.metadata.activeProgramacaoVersion}
+        />
+      )}
+
+      {/* MODAL DRILL-DOWN DE CENTRO */}
+      {drilldownItem && (
+        <EfficiencyDrilldownModal
+          isOpen={!!drilldownItem}
+          onClose={() => setDrilldownItem(null)}
+          title={drilldownItem.title}
+          code={drilldownItem.code}
+          breadcrumb={drilldownItem.breadcrumb}
+          filters={{
+            plantCode: drilldownItem.plantCode,
+            lineCode: drilldownItem.lineCode,
+            centerCode: drilldownItem.centerCode,
+          }}
         />
       )}
     </div>
