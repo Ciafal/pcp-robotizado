@@ -63,6 +63,38 @@ export function formatBrWithUnit(
 }
 
 /**
+ * Converte kg para toneladas (t = kg / 1000)
+ */
+export function kgToTons(valKg: number | null | undefined): number | null {
+  if (valKg === null || valKg === undefined || isNaN(valKg)) return null
+  return Number((valKg / 1000).toFixed(6))
+}
+
+/**
+ * Converte toneladas para kg (kg = t * 1000)
+ */
+export function tonsToKg(valT: number | null | undefined): number | null {
+  if (valT === null || valT === undefined || isNaN(valT)) return null
+  return Number((valT * 1000).toFixed(3))
+}
+
+/**
+ * Converte metros para milímetros (mm = m * 1000)
+ */
+export function metersToMm(valM: number | null | undefined): number | null {
+  if (valM === null || valM === undefined || isNaN(valM)) return null
+  return Math.round(valM * 1000)
+}
+
+/**
+ * Converte milímetros para metros (m = mm / 1000)
+ */
+export function mmToMeters(valMm: number | null | undefined): number | null {
+  if (valMm === null || valMm === undefined || isNaN(valMm)) return null
+  return Number((valMm / 1000).toFixed(4))
+}
+
+/**
  * Formata data e hora no padrão brasileiro (dd/mm/aaaa, 24 h).
  * Ex: 25/09/2026, 14:35
  */

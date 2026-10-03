@@ -1,7 +1,23 @@
 /**
- * Tipos Oficiais — Matéria-Prima por Aplicação (Ficha Mestra Expandida & Programação Mensal)
- * Módulo PCP Robotizado - HUB Ciafal
+ * Definições de Tipos: Matéria-Prima por Aplicação
+ * PCP Robotizado HUB Ciafal
  */
+
+export interface StructuredSupplier {
+  code: string
+  name: string
+}
+
+export type RawMaterialType =
+  | 'Placa'
+  | 'Bloco'
+  | 'Palanquilha'
+  | 'Tarugo 155'
+  | 'Tarugo 130x130'
+  | 'Tarugo 150x150'
+  | 'Tarugo'
+  | 'Lingote'
+  | string
 
 export interface LineRawMaterialApplication {
   id: string
@@ -10,39 +26,70 @@ export interface LineRawMaterialApplication {
   center_code: string
   product_code: string
   product_description?: string
-  raw_material_code: string // Obrigatório
+  raw_material_code: string
   raw_material_description?: string
-  supplier?: string // Fornecedor
+
+  // Tópico 2: Fornecedor da MP
+  supplier_applicable?: boolean
+  suppliers_json?: StructuredSupplier[]
+  raw_material_type?: string
+  // Campos legados para compatibilidade
+  supplier?: string
   supplier_id?: string
-  application: string // Aplicação / bitola
+
+  // Tópico 3: Aplicação do Produto
+  application: string
+  bitolas_json?: string[]
+  steel_types_json?: string[]
+  rolled_min_length_mm?: number | null
+  rolled_ideal_length_mm?: number | null
+  rolled_max_length_mm?: number | null
+  reduction_min_pct?: number | null
+  reduction_ideal_pct?: number | null
+  reduction_max_pct?: number | null
+  validity_start_date?: string | null
+  validity_end_date?: string | null
+
+  // Redução Sincronizada (mantida com cálculo 1:X <-> %)
+  reduction_ratio_x?: number | null
+  reduction_ratio_text?: string | null
+  reduction_percentage?: number | null
+
+  // Campos legados de aplicação
   bitola_ref?: string
   steel_type?: string
-  // Pesos (kg)
-  average_weight_kg?: number | null
-  max_weight_kg?: number | null
-  min_weight_kg?: number | null
-  // Comprimentos (m)
   rolled_length_m?: number | null
   multiple_length_m?: number | null
-  max_mp_length_m?: number | null
+
+  // Tópico 4: Pesos da Matéria-prima (t)
+  min_weight_t?: number | null
+  average_weight_t?: number | null
+  max_weight_t?: number | null
+  // Campos legados em kg
+  min_weight_kg?: number | null
+  average_weight_kg?: number | null
+  max_weight_kg?: number | null
+
+  // Tópico 5: Comprimento Matéria-prima (mm)
+  min_mp_length_mm?: number | null
+  ideal_mp_length_mm?: number | null
+  max_mp_length_mm?: number | null
+  // Campos legados em m
   min_mp_length_m?: number | null
-  // Redução calculada
-  reduction_ratio_x?: number | null
-  reduction_ratio_text?: string | null // ex. "1:5" ou "1:5,00"
-  reduction_percentage?: number | null // ex. 80.00
-  // Flags de controle técnico
-  first_run: boolean // 1ª corrida: Sim/Não
-  allow_out_of_standard_mp: boolean // Permitir fora padrão MP: Sim/Não
-  // Bloco 7: Tempo Mínimo PCP
-  tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | string | null
+  max_mp_length_m?: number | null
+
+  // Tópico 6: Controle de Sequenciamento & Execução Técnica
+  first_run?: boolean
+  allow_out_of_standard_mp?: boolean
+
+  // Tópico 7: Tempo Mínimo PCP
+  tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
   tempo_minimo_pcp_valor?: number | null
-  tempo_minimo_pcp_minutos?: number | null
-  status: 'Ativo' | 'Inativo' // Status
+
+  // Tópico 8: Status & Observações
+  status?: 'Ativo' | 'Inativo'
   notes?: string
-  created_by_user_id?: string
-  created_by_user_name?: string
-  updated_by_user_id?: string
-  updated_by_user_name?: string
+
   created?: string
   updated?: string
 }
@@ -56,48 +103,94 @@ export interface RawMaterialApplicationFormData {
   product_description?: string
   raw_material_code: string
   raw_material_description?: string
-  supplier?: string
-  supplier_id?: string
+
+  // Tópico 2: Fornecedor da MP
+  supplier_applicable: boolean
+  suppliers_json: StructuredSupplier[]
+  raw_material_type: string
+
+  // Tópico 3: Aplicação do Produto
   application: string
-  bitola_ref?: string
-  steel_type?: string
-  // Valores numéricos ou string no padrão pt-BR
-  average_weight_kg?: number | string | null
-  max_weight_kg?: number | string | null
-  min_weight_kg?: number | string | null
-  rolled_length_m?: number | string | null
-  multiple_length_m?: number | string | null
-  max_mp_length_m?: number | string | null
-  min_mp_length_m?: number | string | null
-  reduction_ratio_x?: number | string | null
-  reduction_ratio_text?: string | null
-  reduction_percentage?: number | string | null
+  bitolas_json: string[]
+  steel_types_json: string[]
+  rolled_min_length_mm: string
+  rolled_ideal_length_mm: string
+  rolled_max_length_mm: string
+  reduction_min_pct: string
+  reduction_ideal_pct: string
+  reduction_max_pct: string
+  reduction_ratio_x: string
+  reduction_percentage: string
+  validity_start_date: string // formato dd/mm/aaaa
+  validity_end_date: string // formato dd/mm/aaaa
+
+  // Tópico 4: Pesos da Matéria-prima (t)
+  min_weight_t: string
+  average_weight_t: string
+  max_weight_t: string
+
+  // Tópico 5: Comprimento Matéria-prima (mm)
+  min_mp_length_mm: string
+  ideal_mp_length_mm: string
+  max_mp_length_mm: string
+
+  // Tópico 6: Controle de Sequenciamento & Execução Técnica
   first_run: boolean
   allow_out_of_standard_mp: boolean
-  // Bloco 7: Tempo Mínimo PCP
+
+  // Tópico 7: Tempo Mínimo PCP
   tempo_minimo_pcp_unidade?: 'Minutos' | 'Horas' | 'Dias' | 'Semanas' | ''
-  tempo_minimo_pcp_valor?: number | string | null
+  tempo_minimo_pcp_valor?: string
+
+  // Tópico 8: Status & Observações
   status: 'Ativo' | 'Inativo'
   notes?: string
+
+  // Campos legados para compatibilidade reversa opcional
+  supplier?: string
+  supplier_id?: string
+  bitola_ref?: string
+  steel_type?: string
+  min_weight_kg?: string
+  average_weight_kg?: string
+  max_weight_kg?: string
+  min_mp_length_m?: string
+  max_mp_length_m?: string
+  rolled_length_m?: string
+  multiple_length_m?: string
 }
 
 export interface RawMaterialApplicationValidationErrors {
-  raw_material_code?: string
-  supplier?: string
-  application?: string
-  weights?: string
-  average_weight_kg?: string
-  max_weight_kg?: string
-  min_weight_kg?: string
-  lengths?: string
-  rolled_length_m?: string
-  multiple_length_m?: string
-  max_mp_length_m?: string
-  min_mp_length_m?: string
-  reduction?: string
-  tempo_minimo_pcp?: string
-  duplicate?: string
   general?: string
+  raw_material_code?: string
+  application?: string
+  raw_material_type?: string
+  suppliers?: string
+  bitolas?: string
+  steel_types?: string
+  rolled_length?: string
+  rolled_min_length_mm?: string
+  rolled_ideal_length_mm?: string
+  rolled_max_length_mm?: string
+  reduction?: string
+  reduction_order?: string
+  reduction_min_pct?: string
+  reduction_ideal_pct?: string
+  reduction_max_pct?: string
+  validity?: string
+  validity_start_date?: string
+  validity_end_date?: string
+  weight?: string
+  min_weight_t?: string
+  average_weight_t?: string
+  max_weight_t?: string
+  mp_length?: string
+  min_mp_length_mm?: string
+  ideal_mp_length_mm?: string
+  max_mp_length_mm?: string
+  duplicate?: string
+  tempo_minimo_pcp?: string
+  [key: string]: string | undefined
 }
 
 export interface RawMaterialApplicationFilters {
@@ -112,30 +205,8 @@ export interface RawMaterialApplicationFilters {
   search?: string
 }
 
-/**
- * Registro de Rastreabilidade e Validação para Fase 2 (Programação Mensal)
- */
-export interface MonthlyScheduleMpValidation {
-  id: string
-  schedule_id?: string
-  monthly_period?: string
-  center_code: string
-  product_code: string
-  raw_material_code: string
-  application: string
-  mp_application_id?: string
-  line_master_version?: number
-  validation_result:
-    | 'APPROVED'
-    | 'REJECTED_INACTIVE'
-    | 'REJECTED_OUT_OF_STANDARD'
-    | 'APPROVED_WITH_EXCEPTION'
-  evaluated_parameters_json?: Record<string, unknown>
-  exception_used: boolean
-  exception_alert_message?: string
-  user_id?: string
-  user_name?: string
-  user_role?: string
-  validated_at_formatted?: string
-  created?: string
+export interface SupplierOptionItem {
+  code: string
+  name: string
+  cityState?: string
 }
