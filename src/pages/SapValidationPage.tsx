@@ -7,6 +7,7 @@ import {
   History,
   FileText,
   PlusCircle,
+  BookmarkCheck,
   Database,
   Layers,
   ArrowRight,
@@ -18,6 +19,7 @@ import { NovaValidacaoTab } from '@/components/sap-validation/NovaValidacaoTab'
 import { CodigosValidadosTab } from '@/components/sap-validation/CodigosValidadosTab'
 import { CodigosComDivergenciasTab } from '@/components/sap-validation/CodigosComDivergenciasTab'
 import { CodigosSapPendentesTab } from '@/components/sap-validation/CodigosSapPendentesTab'
+import { CodigosModelosPadraoTab } from '@/components/sap-validation/CodigosModelosPadraoTab'
 import { HistoricoAuditoriaTab } from '@/components/sap-validation/HistoricoAuditoriaTab'
 import { RelatoriosValidacaoTab } from '@/components/sap-validation/RelatoriosValidacaoTab'
 import {
@@ -169,6 +171,15 @@ export const SapValidationPage: React.FC = () => {
             value="historico-auditoria"
             className="data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs text-xs py-2 px-3.5 gap-2 font-semibold"
           >
+            <BookmarkCheck className="w-3.5 h-3.5 text-[#004C97]" />
+            Códigos Modelos Padrão
+          </TabsTrigger>
+
+          {/* Aba 6: Histórico / Auditoria */}
+          <TabsTrigger
+            value="historico-auditoria"
+            className="data-[state=active]:bg-white data-[state=active]:text-[#004C97] data-[state=active]:shadow-xs text-xs py-2 px-3.5 gap-2 font-semibold"
+          >
             <History className="w-3.5 h-3.5 text-[#004C97]" />
             Histórico / Auditoria
           </TabsTrigger>
@@ -214,6 +225,10 @@ export const SapValidationPage: React.FC = () => {
               setActiveTab('nova-validacao')
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="modelos-padrao" className="m-0 focus-visible:outline-hidden">
+          <CodigosModelosPadraoTab />
         </TabsContent>
 
         <TabsContent value="historico-auditoria" className="m-0 focus-visible:outline-hidden">

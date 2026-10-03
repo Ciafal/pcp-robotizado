@@ -198,6 +198,41 @@ export interface OfficialValidationGroup {
   subgroups: string[]
 }
 
+export interface SapStandardModelRecord {
+  id: string
+  material_code: string
+  description?: string
+  material_type: string
+  line_id: string
+  line_code?: string
+  company_id: string
+  company_code?: string
+  company_name?: string
+  center: string
+  status: 'ATIVO' | 'INATIVO'
+  created_by_user_id?: string
+  created_by_user_name?: string
+  updated_by_user_id?: string
+  updated_by_user_name?: string
+  notes?: string
+  created: string
+  updated: string
+}
+
+export interface SapStandardModelInput {
+  material_code: string
+  description?: string
+  material_type: string
+  line_id: string
+  line_code?: string
+  company_id: string
+  company_code?: string
+  company_name?: string
+  center: string
+  status: 'ATIVO' | 'INATIVO'
+  notes?: string
+}
+
 export const OFFICIAL_VALIDATION_GROUPS: OfficialValidationGroup[] = [
   {
     id: 'MM03',
