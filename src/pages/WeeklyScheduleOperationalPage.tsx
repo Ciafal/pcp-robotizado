@@ -119,6 +119,7 @@ import { PrePublishImpactModal } from '@/components/weekly-schedule/PrePublishIm
 import { MesAlertBanner } from '@/components/weekly-schedule/MesAlertBanner'
 import { WorkflowTransitionModal } from '@/components/weekly-schedule/WorkflowTransitionModal'
 import { DraftsConsultationModal } from '@/components/weekly-schedule/DraftsConsultationModal'
+import { CreateSapProductionOrdersModal } from '@/components/weekly-schedule/CreateSapProductionOrdersModal'
 import {
   Dialog,
   DialogContent,
@@ -204,6 +205,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [currentVersion, setCurrentVersion] = useState<number>(1)
   const [selectedVersionFilter, setSelectedVersionFilter] = useState<number | 'LATEST' | ''>('')
   const [isDraftsModalOpen, setIsDraftsModalOpen] = useState<boolean>(false)
+  const [isCreateSapOrdersModalOpen, setIsCreateSapOrdersModalOpen] = useState<boolean>(false)
   const [draftToDelete, setDraftToDelete] = useState<WeeklyScheduleVersionRecord | null>(null)
 
   // Modo de visualização da grade operacional: "Dia | Semana | Mês | Linha do Tempo | Oficina de Cilindros"
@@ -3699,6 +3701,17 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
             <Send className="w-3 h-3 mr-1 shrink-0" />
             <span>{isSendingApproval ? 'Enviando...' : 'Enviar para Aprovação'}</span>
           </Button>
+
+          {/* 6. Criar Ordens Produção (SAP ECC via RFC/BAPI) */}
+          <Button
+            size="sm"
+            onClick={() => setIsCreateSapOrdersModalOpen(true)}
+            className="h-7 px-3 text-xs font-bold text-white bg-[#004C97] hover:bg-[#003d7a] shadow-xs inline-flex items-center justify-center"
+            title="Criar Ordens de Produção no SAP ECC via RFC/BAPI"
+          >
+            <Send className="w-3 h-3 mr-1 shrink-0 text-blue-200" />
+            <span>Criar Ordens Produção</span>
+          </Button>
         </div>
       </div>
 
@@ -5232,6 +5245,20 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           const scheduleCode = `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`
           const vers = await weeklyScheduleService.getScheduleVersions(scheduleCode)
           setVersionHistoryList(vers)
+        }}
+      />
+
+      {/* 12.2 MODAL DE CRIAÇÃO DE ORDENS DE PRODUÇÃO NO SAP (BAPI_PRODORD_CREATE) */}
+      <CreateSapProductionOrdersModal
+        isOpen={isCreateSapOrdersModalOpen}
+        onClose={() => setIsCreateSapOrdersModalOpen(false)}
+        items={calculatedItems}
+        lineCode={selectedLineCode}
+        companyCode={companyCode || '1001'}
+        scheduleCode={`WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`}
+        onOrdersCreated={(updatedItems) => {
+          setItems(updatedItems)
+          setSavedBaselineItems(updatedItems)
         }}
       />
 
