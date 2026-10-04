@@ -182,7 +182,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   // - Cockpit Operacional PCP (pcp.cockpit.view)
   // - Centros e Ficha Mestra (pcp.masterdata.view, pcp.lines.view)
   // - Regras e Cadastros (pcp.rules.view, rotas /pcp/cadastros/*)
-  // - Montagem Semanal e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
+  // - Montagem Programação e Programação Operacional (pcp.schedule.view, pcp.weekly_schedule.view)
   // - Análise de Carteira (pcp.carteira.view)
   // - Gestão de MP (pcp.mp_opt.view)
   // - Reunião PCP (pcp.meeting.view)

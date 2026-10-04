@@ -181,7 +181,7 @@ export const EfficiencyCenterTable: React.FC<EfficiencyCenterTableProps> = ({
             )}
           </div>
           <p className="text-xs text-slate-500">
-            Comparativo oficial entre Montagem Semanal e telemetria de apontamentos do MES 4.0.
+            Comparativo oficial entre Montagem Programação e telemetria de apontamentos do MES 4.0.
           </p>
         </div>
 
@@ -467,8 +467,8 @@ export const EfficiencyCenterTable: React.FC<EfficiencyCenterTableProps> = ({
                               </Badge>
                             </div>
                             <span className="text-[11px] text-slate-500 font-mono">
-                              Fonte Previsto: Montagem Semanal &bull; Fonte Realizado: Apontamentos
-                              MES 4.0
+                              Fonte Previsto: Montagem Programação &bull; Fonte Realizado:
+                              Apontamentos MES 4.0
                             </span>
                           </div>
 

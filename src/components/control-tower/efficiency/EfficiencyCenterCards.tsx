@@ -55,7 +55,7 @@ export const EfficiencyCenterCards: React.FC<EfficiencyCenterCardsProps> = ({
       legacyTitle: 'Produção prevista',
       value: loading ? '-' : formatTonsOrUnavailable(summary.totalPlannedTons),
       subtext: 'Soma programada no período',
-      tooltip: 'Volume total planejado na Montagem Semanal oficial para o período selecionado',
+      tooltip: 'Volume total planejado na Montagem Programação oficial para o período selecionado',
       icon: CalendarCheck,
       iconBg: 'bg-indigo-50 text-indigo-600',
       borderTop: 'border-t-indigo-500',

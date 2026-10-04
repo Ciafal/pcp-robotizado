@@ -738,7 +738,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
     setConflictWarning(null)
 
     try {
-      // Etapa 1: Checagem de Conflitos na Montagem Semanal
+      // Etapa 1: Checagem de Conflitos na Montagem Programação
       const conflictCheck = await testProgrammingService.checkScheduleConflicts({
         center: productionLine,
         startDate: expectedStartDate,
@@ -804,7 +804,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         )
         toast({
           title: 'Teste Atualizado',
-          description: `✅ Teste ${updated.test_id} atualizado com sucesso. A Montagem Semanal foi sincronizada automaticamente.`,
+          description: `✅ Teste ${updated.test_id} atualizado com sucesso. A Montagem Programação foi sincronizada automaticamente.`,
         })
       } else {
         const created = await testProgrammingService.create(payload, {
@@ -814,7 +814,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
         })
         toast({
           title: 'Teste Salvo',
-          description: `Teste ${created.test_id} salvo com sucesso. Programação integrada à Montagem Semanal do centro [${created.production_line || productionLine}].`,
+          description: `Teste ${created.test_id} salvo com sucesso. Programação integrada à Montagem Programação do centro [${created.production_line || productionLine}].`,
         })
       }
 
@@ -861,7 +861,7 @@ export const TestProgrammingFormModal: React.FC<TestProgrammingFormModalProps> =
             <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
             <div>
               <p className="font-bold">
-                Aviso de Sobreposição de Horário / Conflito na Montagem Semanal:
+                Aviso de Sobreposição de Horário / Conflito na Montagem Programação:
               </p>
               <p className="text-amber-800">{conflictWarning}</p>
             </div>

@@ -335,8 +335,8 @@ export const CenterDerivationSection: React.FC<CenterDerivationSectionProps> = (
               <p className="text-[11px] text-slate-500 leading-snug">
                 Configure se este Centro deriva sua programação de outro Centro. Quando ativo, o PCP
                 poderá gerar de forma integrada e automatizada a programação deste Centro na
-                Montagem Semanal, considerando o Centro de origem, grupos de mercadorias e regras
-                técnicas cadastradas.
+                Montagem Programação, considerando o Centro de origem, grupos de mercadorias e
+                regras técnicas cadastradas.
               </p>
             </div>
           </div>

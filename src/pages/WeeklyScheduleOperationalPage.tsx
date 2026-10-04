@@ -256,7 +256,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<WeeklyScheduleItem | null>(null)
 
-  // Estados de Derivação de Centro na Montagem Semanal (Requisito C)
+  // Estados de Derivação de Centro na Montagem Programação (Requisito C)
   const [isAutoDerivationActive, setIsAutoDerivationActive] = useState<boolean>(false)
   const [contextualDerivationMatch, setContextualDerivationMatch] =
     useState<DerivationMatchResult | null>(null)
@@ -1196,7 +1196,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         action: `Recálculo da Programação Aprovada com Ficha Mestra Vigente`,
         event_type: 'Alteração',
         module: 'Programação',
-        screen: 'Montagem Semanal',
+        screen: 'Montagem Programação',
         company: headerFilter.companyCode || 'CIAFAL',
         line: headerFilter.lineCode,
         record_id: `WS-${selectedLineCode}-${selectedYear}-W${String(selectedWeekNumber).padStart(2, '0')}`,
@@ -2008,7 +2008,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           action: `Alteração na Programação: Item #${updatedItem.sequence_order} (${updatedItem.material_code})`,
           event_type: 'Alteração',
           module: 'Programação',
-          screen: 'Montagem Semanal',
+          screen: 'Montagem Programação',
           company: headerFilter.companyCode || 'CIAFAL',
           line: headerFilter.lineCode,
           record_id: updatedItem.id || updatedItem.material_code,
@@ -2050,7 +2050,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         await pcpAuditService.recordFailureAttempt({
           operation: `Edição do item #${updatedItem.sequence_order} (${updatedItem.material_code})`,
           module: 'Programação',
-          screen: 'Montagem Semanal',
+          screen: 'Montagem Programação',
           line: headerFilter.lineCode,
           company: headerFilter.companyCode || 'CIAFAL',
           recordId: updatedItem.id || updatedItem.material_code,
@@ -2250,7 +2250,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
           action: `Drag & Drop: Material ${itemToMove.material_code} transferido da posição #${fromIndex + 1} (${itemToMove.day_of_week}) para #${toIndex + 1} (${destDay})`,
           event_type: 'Reprogramação',
           module: 'Programação',
-          screen: 'Montagem Semanal',
+          screen: 'Montagem Programação',
           company: headerFilter.companyCode || 'CIAFAL',
           line: headerFilter.lineCode,
           record_id: itemToMove.id || itemToMove.material_code,
@@ -2299,7 +2299,7 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
         await pcpAuditService.recordFailureAttempt({
           operation: `Reordenação / Drag & Drop de ${itemToMove.material_code}`,
           module: 'Programação',
-          screen: 'Montagem Semanal',
+          screen: 'Montagem Programação',
           line: headerFilter.lineCode,
           company: headerFilter.companyCode || 'CIAFAL',
           recordId: itemToMove.id || itemToMove.material_code,
@@ -2906,8 +2906,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       // Registrar auditoria da tentativa bloqueada
       await pcpAuditService.recordFailureAttempt({
         operation: 'Envio para Aprovação Semanal',
-        module: 'Montagem Semanal',
-        screen: 'Programação > Montagem Semanal',
+        module: 'Montagem Programação',
+        screen: 'Programação > Montagem Programação',
         line: selectedLineCode,
         company: companyCode,
         errorMessage: `Bloqueio Documental SGQ: ${documentValidationResult.mandatory_violations.map((v) => v.description).join('; ')}`,
@@ -2939,8 +2939,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       await pcpAuditService.recordLog({
         action: `Envio para Aprovação com Snapshot Documental: ${headerFilter.lineCode} W${headerFilter.weekNumber}`,
         event_type: 'SCHEDULE_CHANGE',
-        module: 'Montagem Semanal',
-        screen: 'Programação > Montagem Semanal',
+        module: 'Montagem Programação',
+        screen: 'Programação > Montagem Programação',
         company: companyCode,
         line: selectedLineCode,
         record_id: res.versionTag,

@@ -58,10 +58,10 @@ interface AreaCard {
 
 const areas: AreaCard[] = [
   {
-    title: 'Montagem Semanal',
+    title: 'Montagem Programação',
     subtitle: 'Programação de Linha, Turnos e MP',
     description:
-      'Montagem operacional da programação semanal com cálculo determinístico de necessidade de tarugos, disponibilidade projetada de MP e semáforo.',
+      'Montagem operacional da programação com cálculo determinístico de necessidade de tarugos, disponibilidade projetada de MP e semáforo.',
     href: '/pcp/sequenciamento/montagem-semanal',
     icon: CalendarDays,
     badge: 'Semáforo MP',
@@ -1102,7 +1102,7 @@ export const CentralSequenciamentoLandingPage: React.FC = () => {
                       asChild
                     >
                       <Link to={`/pcp/sequenciamento/montagem-semanal?line=${item.line.code}`}>
-                        Montagem Semanal
+                        Montagem Programação
                       </Link>
                     </Button>
 

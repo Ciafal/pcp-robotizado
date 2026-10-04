@@ -77,7 +77,7 @@ export const EfficiencyCenterMainView: React.FC<EfficiencyCenterMainViewProps> =
       if (err?.name !== 'AbortError') {
         console.error('Erro ao buscar dados de eficiência por centro:', err)
         setError(
-          'Ocorreu um erro ao consultar as fontes de Montagem Semanal e apontamentos MES 4.0. Por favor, tente novamente.',
+          'Ocorreu um erro ao consultar as fontes de Montagem Programação e apontamentos MES 4.0. Por favor, tente novamente.',
         )
       }
     } finally {

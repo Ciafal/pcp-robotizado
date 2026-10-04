@@ -203,7 +203,7 @@ const navSections: NavSectionItem[] = [
         ],
       },
       {
-        title: 'Montagem Semanal',
+        title: 'Montagem Programação',
         href: '/pcp/sequenciamento/montagem-semanal',
         icon: CalendarDays,
         permission: 'pcp.schedule.view',
@@ -787,7 +787,7 @@ export const officialNavGroups: NavGroup[] = [
         ],
       },
       {
-        title: 'Montagem Semanal',
+        title: 'Montagem Programação',
         href: '/pcp/sequenciamento/montagem-semanal',
         icon: CalendarDays,
         permission: 'pcp.schedule.view',

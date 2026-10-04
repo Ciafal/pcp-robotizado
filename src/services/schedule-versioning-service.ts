@@ -664,7 +664,7 @@ export const scheduleVersioningService = {
         action: `Publicação da Versão ${newVersionTag} da Programação (${params.filter.lineCode})`,
         event_type: 'Aprovação',
         module: 'Programação',
-        screen: 'Montagem Semanal',
+        screen: 'Montagem Programação',
         company: params.filter.companyCode || 'CIAFAL',
         line: params.filter.lineCode,
         record_id: createdVersionRec?.id || sharedEventId,

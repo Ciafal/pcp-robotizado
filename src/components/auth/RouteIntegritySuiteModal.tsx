@@ -362,7 +362,7 @@ const INITIAL_CASES: RouteTestCase[] = [
   {
     id: 'R-28',
     route: '/pcp/montagem-semanal',
-    label: 'Montagem Semanal Direta (Operacional)',
+    label: 'Montagem Programação Direta (Operacional)',
     category: 'Central',
     expectedComponent: 'WeeklyScheduleOperationalPage',
     expectedStatus: 'PENDING',
@@ -388,7 +388,7 @@ const INITIAL_CASES: RouteTestCase[] = [
   {
     id: 'R-30',
     route: '/pcp/montagem-sewanal',
-    label: 'Montagem Semanal Typo Alias',
+    label: 'Montagem Programação Typo Alias',
     category: 'Auxiliares',
     expectedComponent: 'WeeklyScheduleOperationalPage',
     expectedStatus: 'PENDING',

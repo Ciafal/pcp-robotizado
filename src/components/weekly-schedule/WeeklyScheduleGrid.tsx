@@ -310,7 +310,8 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           <div className="flex items-center gap-2 text-slate-700 font-semibold">
             <Layers className="w-4 h-4 text-[#004C97]" />
             <span>
-              Grade Operacional de Montagem Semanal (Dia &rarr; Turno &rarr; Turma &rarr; Sequência)
+              Grade Operacional de Montagem Programação (Dia &rarr; Turno &rarr; Turma &rarr;
+              Sequência)
             </span>
           </div>
 
@@ -473,7 +474,7 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                                 className="bg-slate-900 text-white text-xs max-w-xs"
                               >
                                 Teste Industrial controlado pela Programação de Testes. Bloqueado
-                                para edição ou reordenação direta na Montagem Semanal.
+                                para edição ou reordenação direta na Montagem Programação.
                               </TooltipContent>
                             </Tooltip>
                           ) : (

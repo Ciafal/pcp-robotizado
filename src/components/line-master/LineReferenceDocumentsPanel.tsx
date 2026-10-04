@@ -970,7 +970,7 @@ export const LineReferenceDocumentsPanel: React.FC<LineReferenceDocumentsPanelPr
               )}
             </div>
             <DialogDescription>
-              Regras industriais estruturadas que alimentam os motores da Montagem Semanal. A
+              Regras industriais estruturadas que alimentam os motores da Montagem Programação. A
               ativação/desativação aqui controla apenas a utilização pelo PCP, sem alterar o
               documento no SGQ.
             </DialogDescription>

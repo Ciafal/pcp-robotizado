@@ -13,7 +13,11 @@ import {
 } from 'lucide-react'
 
 const subTabs = [
-  { path: '/pcp/sequenciamento/montagem-semanal', label: 'Montagem Semanal', icon: CalendarDays },
+  {
+    path: '/pcp/sequenciamento/montagem-semanal',
+    label: 'Montagem Programação',
+    icon: CalendarDays,
+  },
   { path: '/pcp/sequenciamento/torre-controle', label: 'Torre de Controle', icon: Activity },
   { path: '/pcp/sequenciamento/operacional', label: 'Operacional', icon: Sparkles },
   { path: '/pcp/sequenciamento/programacao', label: 'Sequenciamento (Gantt)', icon: CalendarDays },

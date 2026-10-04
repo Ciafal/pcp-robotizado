@@ -162,7 +162,7 @@ export const EfficiencyCenterHierarchyView: React.FC<EfficiencyCenterHierarchyVi
           Nenhum dado disponível para o período selecionado.
         </h4>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Nenhum apontamento MES 4.0 ou programação oficial da Montagem Semanal encontrada no
+          Nenhum apontamento MES 4.0 ou programação oficial da Montagem Programação encontrada no
           período.
         </p>
       </div>
@@ -186,7 +186,9 @@ export const EfficiencyCenterHierarchyView: React.FC<EfficiencyCenterHierarchyVi
             </Badge>
           )}
         </div>
-        <span className="text-[11px] text-slate-500 font-mono">Montagem Semanal vs MES 4.0</span>
+        <span className="text-[11px] text-slate-500 font-mono">
+          Montagem Programação vs MES 4.0
+        </span>
       </div>
 
       {/* Árvore de Agrupamento: Planta -> Linha -> Centro */}
@@ -440,7 +442,8 @@ export const EfficiencyCenterHierarchyView: React.FC<EfficiencyCenterHierarchyVi
                                     </Badge>
                                   </div>
                                   <span className="text-[11px] text-slate-500 font-mono">
-                                    Fonte: Montagem Semanal (Previsto) &bull; MES 4.0 (Realizado)
+                                    Fonte: Montagem Programação (Previsto) &bull; MES 4.0
+                                    (Realizado)
                                   </span>
                                 </div>
 
