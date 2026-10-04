@@ -1638,9 +1638,23 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
 
   // Centralização com null-guard da abertura do modal de inserção de produto/atividade
   const handleOpenAddModal = (
-    day: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' = 'SEG',
+    day?: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' | string,
     shiftCode?: string,
   ) => {
+    const validDays: Array<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'> = [
+      'SEG',
+      'TER',
+      'QUA',
+      'QUI',
+      'SEX',
+      'SAB',
+      'DOM',
+    ]
+    const normalizedDay: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM' =
+      day && validDays.includes(day as any)
+        ? (day as 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM')
+        : 'SEG'
+
     if (!selectedLineCode || !currentLineOverview) {
       toast({
         title: 'Aguarde o carregamento do centro',
@@ -1649,12 +1663,12 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
       return
     }
 
-    const shifts = currentLineOverview.shifts || []
+    const shifts = Array.isArray(currentLineOverview?.shifts) ? currentLineOverview.shifts : []
     const fallbackShift = shifts[0]?.code || 'T1_L1'
-    const activeShift = shifts.find((s) => s.code === shiftCode)?.code || fallbackShift
-    const shiftObj = shifts.find((s) => s.code === activeShift)
+    const activeShift = shifts.find((s) => s && s.code === shiftCode)?.code || fallbackShift
+    const shiftObj = shifts.find((s) => s && s.code === activeShift)
 
-    setTargetDay(day)
+    setTargetDay(normalizedDay)
     setTargetShiftCode(activeShift)
     setTargetShiftName(shiftObj?.name || '1º Turno')
     setTargetCrewName('Turma A')
@@ -1662,8 +1676,8 @@ export const WeeklyScheduleOperationalPage: React.FC = () => {
   }
 
   // Adiciona Produto com Verificação de HARD BLOCK e Bloqueio de Linha Inativa
-  const handleAddProduct = (newItemData: Partial<WeeklyScheduleItem>) => {
-    if (!newItemData.material_code) return
+  const handleAddProduct = (newItemData?: Partial<WeeklyScheduleItem>) => {
+    if (!newItemData || !newItemData.material_code) return
 
     if (!isLineActive) {
       toast({

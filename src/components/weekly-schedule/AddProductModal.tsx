@@ -157,7 +157,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     const code = (lineCode || '').trim().toUpperCase()
     const desc = (lineOverview?.master?.description || '').toUpperCase()
     return code === 'L1' || code === 'L2' || code.includes('LAM') || desc.includes('LAMINA')
-  }, [lineCode, lineOverview])
+  }, [lineCode, lineOverview?.master?.description])
 
   const [enfornamentoType, setEnfornamentoType] = useState<EnfornamentoType>('NORMAL')
   const [productivityMatch, setProductivityMatch] = useState<EnfornamentoProductivityMatch | null>(
@@ -180,8 +180,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   // Sincroniza dias/turnos quando props mudarem
   useEffect(() => {
     if (isOpen) {
-      setSelectedDay(targetDay)
-      setSelectedShift(targetShiftCode)
+      setSelectedDay(targetDay || 'SEG')
+      setSelectedShift(targetShiftCode || 'T1_L1')
     }
   }, [isOpen, targetDay, targetShiftCode])
 
@@ -226,10 +226,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         })
     }
   }, [isOpen, lineCode, lineOverview])
-  // 1. Extração de Famílias Únicas Homologadas para esta linha
+  // 1. Extração de Famílias Únicas Homologadas para esta linha (com null-guard)
   const homologatedFamilies = useMemo(() => {
+    const list = Array.isArray(officialMaterials) ? officialMaterials : []
     const map = new Map<string, { code: string; name: string; count: number }>()
-    officialMaterials.forEach((m) => {
+    list.forEach((m) => {
+      if (!m) return
       const code = m.family_code || 'GERAL'
       const name = m.family_name || 'Geral'
       const existing = map.get(code)
@@ -239,13 +241,14 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         map.set(code, { code, name, count: 1 })
       }
     })
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+    return Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   }, [officialMaterials])
 
   // 2. Produtos filtrados estritamente pela família selecionada
   const materialsInSelectedFamily = useMemo(() => {
     if (!selectedFamilyCode) return []
-    return officialMaterials.filter((m) => m.family_code === selectedFamilyCode)
+    const list = Array.isArray(officialMaterials) ? officialMaterials : []
+    return list.filter((m) => m && m.family_code === selectedFamilyCode)
   }, [officialMaterials, selectedFamilyCode])
 
   const filteredMaterials = useMemo(() => {
@@ -284,14 +287,19 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   }, [isLaminacao, selectedMaterial, enfornamentoType, lineCode, lineOverview])
   // 3. Cadência Oficial Ficha Mestra (com ajuste de enfornamento quando aplicável)
   const materialCadence = useMemo(() => {
-    if (!selectedMaterial) return null
+    if (!selectedMaterial?.material_code) return null
     if (isLaminacao && productivityMatch && productivityMatch.productivityTh > 0) {
       return productivityMatch.productivityTh
     }
-    return WeeklyScheduleEngine.getProductivityForMaterialStrict(
-      selectedMaterial.material_code,
-      lineOverview,
-    )
+    try {
+      return WeeklyScheduleEngine.getProductivityForMaterialStrict(
+        selectedMaterial.material_code,
+        lineOverview,
+      )
+    } catch (err) {
+      console.warn('[AddProductModal] Erro ao obter produtividade estrita:', err)
+      return (selectedMaterial as any)?.productivity_th || 12.0
+    }
   }, [selectedMaterial, isLaminacao, productivityMatch, lineOverview])
 
   // 4. Executa cálculo temporal bidirecional através do motor central
@@ -300,13 +308,18 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       return null
     }
 
-    return WeeklyScheduleEngine.calculateBidirectionalSchedule({
-      mode: programBy,
-      cadenceTh: materialCadence,
-      quantityTons: Number(quantityInput) || 0,
-      startTime: startTimeInput,
-      endTime: endTimeInput,
-    })
+    try {
+      return WeeklyScheduleEngine.calculateBidirectionalSchedule({
+        mode: programBy,
+        cadenceTh: materialCadence,
+        quantityTons: Number(quantityInput) || 0,
+        startTime: startTimeInput || '06:00',
+        endTime: endTimeInput || '14:20',
+      })
+    } catch (err) {
+      console.error('[AddProductModal] Erro ao calcular cronograma bidirecional:', err)
+      return null
+    }
   }, [selectedMaterial, materialCadence, programBy, quantityInput, startTimeInput, endTimeInput])
 
   // Consulta de Estoque e Carteira ao selecionar material ou alterar quantidade
@@ -502,22 +515,39 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
   // AVALIAÇÃO DE CONTROLE EM TEMPO REAL DE MATÉRIA-PRIMA (BLOCO A + B)
   const mpControlEvaluation = useMemo(() => {
-    return MpProgrammingEngine.evaluateScheduleMpControl({
-      plannedProductionTons: plannedGoodProduction,
-      yieldPct: effectiveYieldPct,
-      rawMaterialRows: rawMaterialRows.map((r) => ({
-        id: r.id,
-        mpType: r.mpType,
-        materialCode: r.materialCode,
-        yieldPct: Number(r.yieldPct) || 90,
-        quantityTons: Number(r.quantityTons) || 0,
-      })),
-      productionDate: new Date(),
-      realStockByMp: {}, // Sem integração direta SAP na sessão: PROIBIDO inventar
-      supplierReceiptsByMp: {},
-      upstreamByMp: {},
-      pcpCommittedOtherByMp,
-    })
+    try {
+      const safeRows = Array.isArray(rawMaterialRows) ? rawMaterialRows : []
+      return MpProgrammingEngine.evaluateScheduleMpControl({
+        plannedProductionTons: plannedGoodProduction || 0,
+        yieldPct: effectiveYieldPct || 90,
+        rawMaterialRows: safeRows.map((r) => ({
+          id: r.id,
+          mpType: r.mpType,
+          materialCode: r.materialCode,
+          yieldPct: Number(r.yieldPct) || 90,
+          quantityTons: Number(r.quantityTons) || 0,
+        })),
+        productionDate: new Date(),
+        realStockByMp: {}, // Sem integração direta SAP na sessão: PROIBIDO inventar
+        supplierReceiptsByMp: {},
+        upstreamByMp: {},
+        pcpCommittedOtherByMp: pcpCommittedOtherByMp || {},
+      })
+    } catch (err) {
+      console.warn('[AddProductModal] Erro ao avaliar controle de MP:', err)
+      return {
+        plannedProductionTons: plannedGoodProduction || 0,
+        totalRequiredTons: 0,
+        totalProgrammedMpTons: 0,
+        differenceTons: 0,
+        fulfillmentPct: 100,
+        status: 'ATENDIDO' as const,
+        statusLabel: 'Normal',
+        alertMessage: null,
+        isExcessBlocked: false,
+        rowsAvailability: [],
+      }
+    }
   }, [plannedGoodProduction, effectiveYieldPct, rawMaterialRows, pcpCommittedOtherByMp])
 
   // 5. Validação de Conflito e Sobreposição de Horários
@@ -681,86 +711,93 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     const deficitTons =
       mpControlEvaluation.differenceTons < 0 ? Math.abs(mpControlEvaluation.differenceTons) : 0
 
-    onAdd({
-      material_code: selectedMaterial.material_code,
-      material_description: selectedMaterial.material_name,
-      family_code: selectedFamilyCode || selectedMaterial.family_code,
-      steel_grade: selectedMaterial.steel_grade || 'SAE 1020',
-      dimensions: selectedMaterial.dimension_spec || '50x50 mm #2.00',
-      day_of_week: selectedDay,
-      shift_code: selectedShift,
-      shift_name: formattedShiftName,
-      crew_name: targetCrewName || 'Turma A',
-      planned_quantity_tons: calculationResult.quantityTons,
-      productivity_rate_th: calculationResult.cadenceTh,
-      production_hours: calculationResult.durationHours,
-      start_datetime: `${selectedDay} ${calculationResult.startTime}`,
-      end_datetime: `${selectedDay} ${calculationResult.endTime}`,
-      order_type: orderType,
-      production_order: productionOrder.trim() || undefined,
-      sales_order_mto: salesOrderMto.trim() || undefined,
-      customer_name:
-        customerName.trim() ||
-        (orderType === 'MTO' ? 'Cliente Específico MTO' : 'Mercado Geral (MTS)'),
-      pcp_notes: pcpNotes.trim() || undefined,
-      item_type: 'PRODUCTION',
-      status: 'DRAFT',
-      sap_cycle_time_avg_min:
-        stockCarteiraData?.tempoMedioCicloMin?.value ??
-        selectedMaterial.sap_cycle_time_avg_min ??
-        null,
-      exception_approval_status: 'NONE',
+    if (typeof onAdd === 'function') {
+      try {
+        onAdd({
+          material_code: selectedMaterial.material_code,
+          material_description: selectedMaterial.material_name,
+          family_code: selectedFamilyCode || selectedMaterial.family_code,
+          steel_grade: selectedMaterial.steel_grade || 'SAE 1020',
+          dimensions: selectedMaterial.dimension_spec || '50x50 mm #2.00',
+          day_of_week: selectedDay,
+          shift_code: selectedShift,
+          shift_name: formattedShiftName,
+          crew_name: targetCrewName || 'Turma A',
+          planned_quantity_tons: calculationResult.quantityTons,
+          productivity_rate_th: calculationResult.cadenceTh,
+          production_hours: calculationResult.durationHours,
+          start_datetime: `${selectedDay} ${calculationResult.startTime}`,
+          end_datetime: `${selectedDay} ${calculationResult.endTime}`,
+          order_type: orderType,
+          production_order: productionOrder.trim() || undefined,
+          sales_order_mto: salesOrderMto.trim() || undefined,
+          customer_name:
+            customerName.trim() ||
+            (orderType === 'MTO' ? 'Cliente Específico MTO' : 'Mercado Geral (MTS)'),
+          pcp_notes: pcpNotes.trim() || undefined,
+          item_type: 'PRODUCTION',
+          status: 'DRAFT',
+          sap_cycle_time_avg_min:
+            stockCarteiraData?.tempoMedioCicloMin?.value ??
+            selectedMaterial.sap_cycle_time_avg_min ??
+            null,
+          exception_approval_status: 'NONE',
 
-      // PARTE 5: Persistência junto ao item programado
-      estoque_referencia_consultado: stockCarteiraData?.estoqueAcab?.value ?? null,
-      carteira_referencia: stockCarteiraData?.carteira?.value ?? null,
-      cobertura_antes_dias: stockCarteiraData?.coverage?.currentCoverageDays ?? null,
-      cobertura_depois_dias: stockCarteiraData?.coverage?.postCoverageDays ?? null,
-      situacao_cobertura: stockCarteiraData?.coverage?.situationText || 'Indisponível para cálculo',
+          // PARTE 5: Persistência junto ao item programado
+          estoque_referencia_consultado: stockCarteiraData?.estoqueAcab?.value ?? null,
+          carteira_referencia: stockCarteiraData?.carteira?.value ?? null,
+          cobertura_antes_dias: stockCarteiraData?.coverage?.currentCoverageDays ?? null,
+          cobertura_depois_dias: stockCarteiraData?.coverage?.postCoverageDays ?? null,
+          situacao_cobertura:
+            stockCarteiraData?.coverage?.situationText || 'Indisponível para cálculo',
 
-      raw_material_type: primaryMpRow.mpType,
-      raw_material_material_code: primaryMpRow.materialCode,
-      raw_material_planned_tons: totalMpQuantity,
-      raw_material_yield_pct: weightedYieldPct,
-      raw_material_available_tons: currentMpRecord?.stockAvailableTons ?? null,
-      raw_material_status: evaluatedStatus,
-      raw_material_status_label: evaluatedStatusLabel,
-      raw_material_deficit_tons: deficitTons,
-      raw_material_summary: {
-        plannedProductionTons: mpControlEvaluation.plannedProductionTons,
-        totalRequiredTons: mpControlEvaluation.totalRequiredTons,
-        totalProgrammedMpTons: mpControlEvaluation.totalProgrammedMpTons,
-        differenceTons: mpControlEvaluation.differenceTons,
-        fulfillmentPct: mpControlEvaluation.fulfillmentPct,
-        status: evaluatedStatus,
-        statusLabel: evaluatedStatusLabel,
-        alertMessage: mpControlEvaluation.alertMessage,
-        isExcessBlocked: mpControlEvaluation.isExcessBlocked,
-      },
-      raw_material_rows: rawMaterialRows.map((r) => {
-        const rowEval = mpControlEvaluation.rowsAvailability.find((row) => row.id === r.id)
-        return {
-          id: r.id,
-          mpType: r.mpType,
-          materialCode: r.materialCode,
-          yieldPct: r.yieldPct,
-          quantityTons: r.quantityTons,
-          availableTons: rowEval?.totalStockTons ?? null,
-          totalStockTons: rowEval?.totalStockTons ?? null,
-          pcpProgrammedStockTons: rowEval?.pcpProgrammedStockTons ?? 0,
-          supplierReceiptsTons: rowEval?.supplierReceiptsTons ?? 0,
-          pcpUpstreamPlannedTons: rowEval?.pcpUpstreamPlannedTons ?? 0,
-          finalBalanceTons: rowEval?.finalBalanceTons ?? null,
-          status: rowEval?.status,
-          statusLabel: rowEval?.statusLabel,
-        }
-      }),
+          raw_material_type: primaryMpRow.mpType,
+          raw_material_material_code: primaryMpRow.materialCode,
+          raw_material_planned_tons: totalMpQuantity,
+          raw_material_yield_pct: weightedYieldPct,
+          raw_material_available_tons: currentMpRecord?.stockAvailableTons ?? null,
+          raw_material_status: evaluatedStatus,
+          raw_material_status_label: evaluatedStatusLabel,
+          raw_material_deficit_tons: deficitTons,
+          raw_material_summary: {
+            plannedProductionTons: mpControlEvaluation.plannedProductionTons,
+            totalRequiredTons: mpControlEvaluation.totalRequiredTons,
+            totalProgrammedMpTons: mpControlEvaluation.totalProgrammedMpTons,
+            differenceTons: mpControlEvaluation.differenceTons,
+            fulfillmentPct: mpControlEvaluation.fulfillmentPct,
+            status: evaluatedStatus,
+            statusLabel: evaluatedStatusLabel,
+            alertMessage: mpControlEvaluation.alertMessage,
+            isExcessBlocked: mpControlEvaluation.isExcessBlocked,
+          },
+          raw_material_rows: rawMaterialRows.map((r) => {
+            const rowEval = mpControlEvaluation.rowsAvailability.find((row) => row.id === r.id)
+            return {
+              id: r.id,
+              mpType: r.mpType,
+              materialCode: r.materialCode,
+              yieldPct: r.yieldPct,
+              quantityTons: r.quantityTons,
+              availableTons: rowEval?.totalStockTons ?? null,
+              totalStockTons: rowEval?.totalStockTons ?? null,
+              pcpProgrammedStockTons: rowEval?.pcpProgrammedStockTons ?? 0,
+              supplierReceiptsTons: rowEval?.supplierReceiptsTons ?? 0,
+              pcpUpstreamPlannedTons: rowEval?.pcpUpstreamPlannedTons ?? 0,
+              finalBalanceTons: rowEval?.finalBalanceTons ?? null,
+              status: rowEval?.status,
+              statusLabel: rowEval?.statusLabel,
+            }
+          }),
 
-      enfornamento_type: isLaminacao ? enfornamentoType : undefined,
-      productivity_applied_source:
-        isLaminacao && productivityMatch ? productivityMatch.notes : undefined,
-      query_timestamp: stockCarteiraData?.calculationTimestamp || new Date().toISOString(),
-    })
+          enfornamento_type: isLaminacao ? enfornamentoType : undefined,
+          productivity_applied_source:
+            isLaminacao && productivityMatch ? productivityMatch.notes : undefined,
+          query_timestamp: stockCarteiraData?.calculationTimestamp || new Date().toISOString(),
+        })
+      } catch (err) {
+        console.error('[AddProductModal] Erro ao invocar onAdd:', err)
+      }
+    }
 
     // BLOCO C: Rastreabilidade de cada cálculo via pcpAuditService
     try {

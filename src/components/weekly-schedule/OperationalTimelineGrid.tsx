@@ -639,7 +639,16 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                         }
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (!isDayPast && onAddItem) onAddItem(dayObj.key, 'T1_L1')
+                          try {
+                            if (!isDayPast && typeof onAddItem === 'function') {
+                              onAddItem(dayObj?.key || 'SEG', 'T1_L1')
+                            }
+                          } catch (err) {
+                            console.error(
+                              '[OperationalTimelineGrid] Falha ao acionar onAddItem (Adicionar item):',
+                              err,
+                            )
+                          }
                         }}
                         className={`text-[10px] font-bold flex items-center gap-1 px-2 py-0.5 rounded border ${
                           isDayPast
@@ -674,8 +683,20 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                           </div>
                           <button
                             type="button"
-                            onClick={() => onAddItem && onAddItem(dayObj.key, 'T1_L1')}
-                            className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              try {
+                                if (typeof onAddItem === 'function') {
+                                  onAddItem(dayObj?.key || 'SEG', 'T1_L1')
+                                }
+                              } catch (err) {
+                                console.error(
+                                  '[OperationalTimelineGrid] Falha ao acionar onAddItem (Inserir Atividade):',
+                                  err,
+                                )
+                              }
+                            }}
+                            className="text-[#004C97] hover:underline font-bold text-[11px] flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" /> Inserir Atividade
                           </button>
