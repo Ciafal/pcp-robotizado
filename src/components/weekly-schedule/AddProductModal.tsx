@@ -537,14 +537,17 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       console.warn('[AddProductModal] Erro ao avaliar controle de MP:', err)
       return {
         plannedProductionTons: plannedGoodProduction || 0,
+        yieldPct: effectiveYieldPct || 90,
         totalRequiredTons: 0,
         totalProgrammedMpTons: 0,
         differenceTons: 0,
         fulfillmentPct: 100,
         status: 'ATENDIDO' as const,
         statusLabel: 'Normal',
-        alertMessage: null,
+        color: 'GREEN' as const,
+        alertMessage: undefined,
         isExcessBlocked: false,
+        canSave: true,
         rowsAvailability: [],
       }
     }

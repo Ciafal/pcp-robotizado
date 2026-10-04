@@ -676,6 +676,13 @@ const IndicadoresControlePage = lazyWithRetry(
     })),
   'IndicadoresControlePage',
 )
+const IndicadoresPcpPage = lazyWithRetry(
+  () =>
+    import('@/pages/IndicadoresPcpPage').then((m) => ({
+      default: m.default ?? m.IndicadoresPcpPage,
+    })),
+  'IndicadoresPcpPage',
+)
 const CogiPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
@@ -1197,6 +1204,25 @@ export const App: React.FC = () => {
                     <Route
                       path="/planejamento-mestre"
                       element={<Navigate to="/pcp/planejamento" replace />}
+                    />
+                    {/* NOVO TÓPICO: Relatórios PCP — Indicadores PCP */}
+                    <Route
+                      path="/pcp/relatorios/indicadores"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Indicadores PCP — Matriz Anual Consolidada">
+                            <IndicadoresPcpPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/relatorios"
+                      element={<Navigate to="/pcp/relatorios/indicadores" replace />}
+                    />
+                    <Route
+                      path="/pcp/indicadores"
+                      element={<Navigate to="/pcp/relatorios/indicadores" replace />}
                     />
                     {/* 4. Gestão de Linhas (Estrutura da Malha Produtiva e Mapa de Integração) */}
                     <Route

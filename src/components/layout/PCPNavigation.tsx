@@ -1211,6 +1211,12 @@ export const officialNavGroups: NavGroup[] = [
     groupTitle: 'RELATÓRIOS',
     items: [
       {
+        title: 'Indicadores PCP',
+        href: '/pcp/relatorios/indicadores',
+        icon: BarChart3,
+        permission: 'pcp.schedule.view',
+      },
+      {
         title: 'Capacidade',
         href: '/pcp/planejamento?tab=aderencia',
         icon: BarChart3,
