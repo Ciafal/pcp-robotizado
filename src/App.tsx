@@ -9,6 +9,8 @@ import { PermissionGuard } from '@/components/auth/PermissionGuard'
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/common/ErrorBoundary'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
+const ProgramacaoParadaPage = lazyWithRetry(() => import('@/pages/ProgramacaoParadaPage'))
+
 // Loading Fallback visual discreto
 const ModuleFallback = () => (
   <div className="p-12 flex flex-col items-center justify-center space-y-3 min-h-[300px]">
@@ -730,6 +732,14 @@ export const App: React.FC = () => {
                 <Routes>
                   <Route element={<Layout />}>
                     {/* Rotas Oficiais de Gestão de Entregas PCP com Submenu Completo */}
+                    <Route
+                      path="/pcp/programacao/parada"
+                      element={
+                        <PermissionGuard requiredPermission="pcp.schedule.view">
+                          <ProgramacaoParadaPage />
+                        </PermissionGuard>
+                      }
+                    />
                     <Route
                       path="/pcp/entregas"
                       element={

@@ -5,6 +5,7 @@ import {
   CalendarRange,
   Layers,
   Activity,
+  CalendarOff,
   Sparkles,
   CalendarDays,
   BarChart3,
@@ -170,9 +171,15 @@ const navSections: NavSectionItem[] = [
         permission: 'pcp.schedule.view',
         subItems: [
           {
-            title: 'Visão Geral',
-            href: '/pcp/entregas',
-            icon: LayoutDashboard,
+            title: 'Montagem Programação',
+            href: '/pcp/programacao/semanal',
+            icon: CalendarRange,
+            permission: 'pcp.schedule.view',
+          },
+          {
+            title: 'Programação de Parada',
+            href: '/pcp/programacao/parada',
+            icon: CalendarOff,
             permission: 'pcp.schedule.view',
           },
           {
