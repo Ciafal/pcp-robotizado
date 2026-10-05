@@ -1091,6 +1091,204 @@ export const WeeklyScheduleEngine = {
   },
 
   /**
+   * Encontra determinísticamente o primeiro horário de início disponível para o dia e turno.
+   * Atende às regras industriais:
+   * (a) lê o início oficial do turno REAL de lineOverview.shifts (nunca 06:00 fixo; 06:00 só fallback)
+   * (b) consolida TODOS os blocos ocupados daquele dia/turno a partir dos items da própria página
+   *     (produção, setup, acerto/tuning, paradas programadas da Ficha Mestra via isScheduledStopApplicable, testes, retrabalho),
+   *     excluindo cancelados
+   * (c) ordena e funde blocos sobrepostos
+   * (d) se não há blocos -> sugere início do turno
+   * (e) se há gap livre ANTES do primeiro bloco ou ENTRE blocos que comporte a duração integral -> sugere o início do primeiro gap compatível
+   * (f) senão -> sugere o fim do último bloco
+   * Retorna {suggestedStartTime, isShiftStart, shiftOfficialStartTime, reason}
+   */
+  findFirstAvailableStartTime(params: {
+    items: WeeklyScheduleItem[]
+    dayOfWeek: string
+    shiftCode?: string
+    durationMinutes: number
+    lineOverview: LineOverviewData | null
+    targetDate?: Date | string | null
+  }): {
+    suggestedStartTime: string
+    isShiftStart: boolean
+    shiftOfficialStartTime: string
+    reason: string
+  } {
+    const { items, dayOfWeek, shiftCode, durationMinutes, lineOverview, targetDate } = params
+
+    const parseMinutes = (tStr: string): number => {
+      if (!tStr) return 0
+      const clean = tStr.includes(' ') ? tStr.split(' ')[1] : tStr
+      const [h, m] = clean.split(':').map(Number)
+      return (h || 0) * 60 + (m || 0)
+    }
+
+    const formatMinutesToHHMM = (totalMin: number): string => {
+      const normalized = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60)
+      const h = Math.floor(normalized / 60)
+      const m = Math.floor(normalized % 60)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      return `${pad(h)}:${pad(m)}`
+    }
+
+    // (a) Determina o horário oficial do turno
+    const shifts = lineOverview?.shifts && lineOverview.shifts.length > 0 ? lineOverview.shifts : []
+    const targetShift = shiftCode ? shifts.find((s) => s.code === shiftCode) : shifts[0]
+    const shiftOfficialStartTime = targetShift?.start_time || '06:00'
+    const shiftStartMin = parseMinutes(shiftOfficialStartTime)
+
+    // (b) Consolida todos os blocos ocupados daquele dia/turno
+    const busyIntervals: Array<{ start: number; end: number; source: string }> = []
+
+    // 1. Itens existentes na programação (ativos)
+    const activeItems = (items || []).filter((it) => {
+      if (it.status === 'CANCELLED') return false
+      if (it.day_of_week !== dayOfWeek) return false
+      if (shiftCode && it.shift_code && it.shift_code !== shiftCode) return false
+      return true
+    })
+
+    for (const it of activeItems) {
+      // Setup block
+      if (it.setup_start && it.setup_end) {
+        const s = parseMinutes(it.setup_start)
+        let e = parseMinutes(it.setup_end)
+        if (e <= s) e += 24 * 60
+        busyIntervals.push({ start: s, end: e, source: `Setup #${it.sequence_order}` })
+      } else if (it.setup_duration_minutes && it.setup_duration_minutes > 0 && it.start_datetime) {
+        const prodStart = parseMinutes(it.start_datetime)
+        const setupStart = Math.max(0, prodStart - it.setup_duration_minutes)
+        busyIntervals.push({
+          start: setupStart,
+          end: prodStart,
+          source: `Setup #${it.sequence_order}`,
+        })
+      }
+
+      // Tuning block
+      if (it.tuning_start && it.tuning_end) {
+        const s = parseMinutes(it.tuning_start)
+        let e = parseMinutes(it.tuning_end)
+        if (e <= s) e += 24 * 60
+        busyIntervals.push({ start: s, end: e, source: `Acerto #${it.sequence_order}` })
+      }
+
+      // Production / Scheduled Stop / Test Industrial main block
+      if (it.start_datetime && it.end_datetime) {
+        const s = parseMinutes(it.start_datetime)
+        let e = parseMinutes(it.end_datetime)
+        if (e <= s) e += 24 * 60
+        busyIntervals.push({ start: s, end: e, source: `${it.item_type} #${it.sequence_order}` })
+      }
+    }
+
+    // 2. Paradas programadas da Ficha Mestra via isScheduledStopApplicable (caso ainda não estejam em items)
+    if (lineOverview?.scheduledStops && lineOverview.scheduledStops.length > 0) {
+      for (const stop of lineOverview.scheduledStops) {
+        const isApplicable = WeeklyScheduleEngine.isScheduledStopApplicable(stop, {
+          date: targetDate,
+          dayOfWeek,
+        })
+        if (!isApplicable) continue
+
+        // Se a parada tem horário fixo planejado
+        const stopStartStr =
+          stop.start_time || (stop as any).scheduled_start_time || stop.scheduled_time
+        const stopDurMin =
+          Number(
+            stop.expected_duration_minutes ||
+              (stop as any).duration_minutes ||
+              (stop as any).stop_duration_minutes,
+          ) || 0
+
+        if (stopStartStr && stopDurMin > 0) {
+          const s = parseMinutes(stopStartStr)
+          const e = s + stopDurMin
+          // Só adiciona se não houver um item idêntico já cadastrado em items
+          const stopCode = stop.code || (stop as any).stop_code
+          const alreadyInItems = activeItems.some(
+            (it) => it.item_type === 'SCHEDULED_STOP' && it.stop_code === stopCode,
+          )
+          if (!alreadyInItems) {
+            busyIntervals.push({
+              start: s,
+              end: e,
+              source: `Parada ${stopCode || stop.description || 'Programada'}`,
+            })
+          }
+        }
+      }
+    }
+
+    // (d) Se não há blocos -> sugere início do turno
+    if (busyIntervals.length === 0) {
+      return {
+        suggestedStartTime: shiftOfficialStartTime,
+        isShiftStart: true,
+        shiftOfficialStartTime,
+        reason: `Turno livre. Sugerido o início oficial do turno (${shiftOfficialStartTime}).`,
+      }
+    }
+
+    // (c) Ordena e funde blocos sobrepostos
+    busyIntervals.sort((a, b) => a.start - b.start)
+    const merged: Array<{ start: number; end: number }> = []
+    for (const cur of busyIntervals) {
+      if (merged.length === 0) {
+        merged.push({ start: cur.start, end: cur.end })
+      } else {
+        const prev = merged[merged.length - 1]
+        if (cur.start <= prev.end) {
+          prev.end = Math.max(prev.end, cur.end)
+        } else {
+          merged.push({ start: cur.start, end: cur.end })
+        }
+      }
+    }
+
+    const duration = Math.max(0, durationMinutes)
+
+    // (e) Se há gap livre ANTES do primeiro bloco que comporte a duração
+    const firstBlock = merged[0]
+    if (firstBlock.start > shiftStartMin && firstBlock.start - shiftStartMin >= duration) {
+      return {
+        suggestedStartTime: shiftOfficialStartTime,
+        isShiftStart: true,
+        shiftOfficialStartTime,
+        reason: `Gap livre no início do turno (${shiftOfficialStartTime} às ${formatMinutesToHHMM(firstBlock.start)}).`,
+      }
+    }
+
+    // (e) Se há gap livre ENTRE blocos que comporte a duração integral
+    for (let i = 0; i < merged.length - 1; i++) {
+      const currentEnd = merged[i].end
+      const nextStart = merged[i + 1].start
+      const gap = nextStart - currentEnd
+      if (gap >= duration && currentEnd >= shiftStartMin) {
+        const suggested = formatMinutesToHHMM(currentEnd)
+        return {
+          suggestedStartTime: suggested,
+          isShiftStart: false,
+          shiftOfficialStartTime,
+          reason: `Gap disponível entre blocos (${suggested} às ${formatMinutesToHHMM(nextStart)}).`,
+        }
+      }
+    }
+
+    // (f) Senão -> sugere o fim do último bloco
+    const lastBlock = merged[merged.length - 1]
+    const suggested = formatMinutesToHHMM(Math.max(lastBlock.end, shiftStartMin))
+    return {
+      suggestedStartTime: suggested,
+      isShiftStart: suggested === shiftOfficialStartTime,
+      shiftOfficialStartTime,
+      reason: `Continuidade após o término do último bloco ocupado (${suggested}).`,
+    }
+  },
+
+  /**
    * Validação de Conflito e Sobreposição de Horários
    * Garante que não haja sobreposição de horários entre itens no mesmo dia e turno
    */
@@ -3374,3 +3572,9 @@ export const WeeklyScheduleEngine = {
  * Alias canônico para compatibilidade com importações de motor de programação
  */
 export const WeeklyScheduleMotor = WeeklyScheduleEngine
+
+/**
+ * Função utilitária exportada de conveniência para encontrar o primeiro horário disponível
+ */
+export const findFirstAvailableStartTime =
+  WeeklyScheduleEngine.findFirstAvailableStartTime.bind(WeeklyScheduleEngine)

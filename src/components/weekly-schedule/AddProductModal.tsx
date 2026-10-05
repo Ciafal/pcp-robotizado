@@ -63,7 +63,11 @@ export interface RawMaterialRowItem {
   quantityTons: number
 }
 import { LineOverviewData } from '@/types/line-master'
-import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import {
+  WeeklyScheduleEngine,
+  findFirstAvailableStartTime,
+} from '@/services/weekly-schedule-engine'
+import { pb } from '@/lib/pocketbase/client'
 import {
   StockCarteiraEngine,
   MaterialStockAndCarteiraData,
@@ -129,6 +133,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [quantityInput, setQuantityInput] = useState<string>('100')
   const [startTimeInput, setStartTimeInput] = useState<string>('06:00')
   const [endTimeInput, setEndTimeInput] = useState<string>('14:20')
+  const [userManuallyModifiedTime, setUserManuallyModifiedTime] = useState<boolean>(false)
 
   // Dia, Turno e Metadados
   const [selectedDay, setSelectedDay] = useState<
@@ -177,11 +182,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   ])
   const [mpDirectionLock, setMpDirectionLock] = useState<'PROD_TO_MP' | 'MP_TO_PROD'>('PROD_TO_MP')
 
-  // Sincroniza dias/turnos quando props mudarem
+  // Sincroniza dias/turnos quando props mudarem e reseta flag de modificação manual ao abrir
   useEffect(() => {
     if (isOpen) {
       setSelectedDay(targetDay || 'SEG')
       setSelectedShift(targetShiftCode || 'T1_L1')
+      setUserManuallyModifiedTime(false)
     }
   }, [isOpen, targetDay, targetShiftCode])
 
@@ -301,6 +307,35 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       return (selectedMaterial as any)?.productivity_th || 12.0
     }
   }, [selectedMaterial, isLaminacao, productivityMatch, lineOverview])
+
+  // Estimativa da duração em minutos para cálculo do primeiro horário disponível
+  const estimatedDurationMinutes = useMemo(() => {
+    const qty = Number(quantityInput) || 0
+    if (materialCadence && materialCadence > 0 && qty > 0) {
+      return Math.max(1, Math.round((qty / materialCadence) * 60))
+    }
+    return 60 // padrão fallback 1 hora
+  }, [quantityInput, materialCadence])
+
+  // Cálculo da sugestão inteligente do motor de programação
+  const scheduleSuggestion = useMemo(() => {
+    return findFirstAvailableStartTime({
+      items: existingItems,
+      dayOfWeek: selectedDay,
+      shiftCode: selectedShift,
+      durationMinutes: estimatedDurationMinutes,
+      lineOverview: lineOverview || null,
+      targetDate: new Date(),
+    })
+  }, [existingItems, selectedDay, selectedShift, estimatedDurationMinutes, lineOverview])
+
+  // Aplicação reativa da sugestão ao abrir modal, trocar dia/turno ou alterar quantidade/itens,
+  // DESDE QUE o usuário não tenha editado manualmente o horário (userManuallyModifiedTime === false)
+  useEffect(() => {
+    if (!userManuallyModifiedTime && scheduleSuggestion?.suggestedStartTime) {
+      setStartTimeInput(scheduleSuggestion.suggestedStartTime)
+    }
+  }, [userManuallyModifiedTime, scheduleSuggestion])
 
   // 4. Executa cálculo temporal bidirecional através do motor central
   const calculationResult = useMemo(() => {
@@ -567,8 +602,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   }, [calculationResult, existingItems, selectedDay, selectedShift])
 
   const handleApplyNextAvailableTime = () => {
-    if (overlapValidation.nextAvailableStartTime) {
-      setStartTimeInput(overlapValidation.nextAvailableStartTime)
+    const nextTime =
+      scheduleSuggestion?.suggestedStartTime || overlapValidation.nextAvailableStartTime
+    if (nextTime) {
+      setStartTimeInput(nextTime)
+      setUserManuallyModifiedTime(false)
     }
   }
 
@@ -850,10 +888,58 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       // Ignora erro assíncrono de auditoria para não travar UX
     }
 
+    // Auditoria de Horário Manual Diferente do Sugerido pelo Motor
+    const chosenStartTime = calculationResult.startTime
+    const engineSuggestedTime = scheduleSuggestion?.suggestedStartTime
+    if (chosenStartTime && engineSuggestedTime && chosenStartTime !== engineSuggestedTime) {
+      try {
+        const currentUser = pb.authStore.record || pb.authStore.model
+        const userName =
+          (currentUser as any)?.name || (currentUser as any)?.email || 'Programador PCP'
+        const userEmail = (currentUser as any)?.email || ''
+
+        pcpAuditService
+          .recordLog({
+            action: 'Ajuste Manual de Horário de Início',
+            event_type: 'Edição',
+            status: 'Alerta',
+            module: 'Programação Semanal',
+            screen: 'AddProductModal',
+            company: 'CIAFAL',
+            line: lineCode,
+            center: 'Produção',
+            entity: 'WEEKLY_SCHEDULE_ITEM',
+            reason: 'Horário manual diferente do primeiro horário sugerido',
+            justification: `Usuário ${userName} escolheu ${chosenStartTime} (sugerido pelo motor: ${engineSuggestedTime}). Fim calculado: ${calculationResult.endTime}.`,
+            details: {
+              user_name: userName,
+              user_email: userEmail,
+              user_id: currentUser?.id || null,
+              line_code: lineCode,
+              center: 'Produção',
+              material_code: selectedMaterial.material_code,
+              material_name: selectedMaterial.material_name,
+              suggested_start_time: engineSuggestedTime,
+              chosen_start_time: chosenStartTime,
+              calculated_end_time: calculationResult.endTime,
+              day_of_week: selectedDay,
+              shift_code: selectedShift,
+              timestamp: new Date().toISOString(),
+            },
+          })
+          .catch((err) => {
+            console.warn('[AddProductModal] Falha ao registrar log de horário manual:', err)
+          })
+      } catch {
+        // Ignora erro assíncrono para não travar UX
+      }
+    }
+
     // Reset de estado
     setSelectedFamilyCode('')
     setSelectedMaterial(null)
     setQuantityInput('100')
+    setUserManuallyModifiedTime(false)
     setStartTimeInput('06:00')
     setEndTimeInput('14:20')
     setRawMaterialRows([
@@ -1428,7 +1514,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
-              {overlapValidation.nextAvailableStartTime && (
+              {(scheduleSuggestion?.suggestedStartTime ||
+                overlapValidation.nextAvailableStartTime) && (
                 <Button
                   type="button"
                   size="sm"
@@ -1436,7 +1523,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   onClick={handleApplyNextAvailableTime}
                   className="shrink-0 bg-white hover:bg-rose-100 text-rose-900 border-rose-300 text-xs font-bold h-8"
                 >
-                  Usar próximo horário ({overlapValidation.nextAvailableStartTime})
+                  Usar próximo horário (
+                  {scheduleSuggestion?.suggestedStartTime ||
+                    overlapValidation.nextAvailableStartTime}
+                  )
                 </Button>
               )}
             </div>
@@ -1501,15 +1591,43 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-800 block mb-1">
-                        Hora Inicial (HH:mm) *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-800">
+                          Hora Inicial (HH:mm) *
+                        </label>
+                        {userManuallyModifiedTime && scheduleSuggestion?.suggestedStartTime && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStartTimeInput(scheduleSuggestion.suggestedStartTime)
+                              setUserManuallyModifiedTime(false)
+                            }}
+                            className="text-[10px] text-[#004C97] hover:underline font-semibold"
+                            title="Restaurar sugestão automática do motor"
+                          >
+                            Restaurar sugestão
+                          </button>
+                        )}
+                      </div>
                       <Input
                         type="time"
                         value={startTimeInput}
-                        onChange={(e) => setStartTimeInput(e.target.value)}
+                        onChange={(e) => {
+                          setStartTimeInput(e.target.value)
+                          setUserManuallyModifiedTime(true)
+                        }}
                         className="font-mono text-sm bg-slate-50 border-blue-300 h-9 text-slate-900"
                       />
+                      {scheduleSuggestion && (
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <span className="font-bold">✓</span>
+                          <span>
+                            {scheduleSuggestion.isShiftStart
+                              ? `Início do turno: ${scheduleSuggestion.suggestedStartTime}`
+                              : `Primeiro horário disponível: ${scheduleSuggestion.suggestedStartTime}`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1566,15 +1684,41 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                     </span>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs font-bold text-slate-800 block mb-1">
-                          Hora Inicial *
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-800">Hora Inicial *</label>
+                          {userManuallyModifiedTime && scheduleSuggestion?.suggestedStartTime && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStartTimeInput(scheduleSuggestion.suggestedStartTime)
+                                setUserManuallyModifiedTime(false)
+                              }}
+                              className="text-[9px] text-[#004C97] hover:underline font-semibold"
+                              title="Restaurar sugestão automática do motor"
+                            >
+                              Restaurar
+                            </button>
+                          )}
+                        </div>
                         <Input
                           type="time"
                           value={startTimeInput}
-                          onChange={(e) => setStartTimeInput(e.target.value)}
+                          onChange={(e) => {
+                            setStartTimeInput(e.target.value)
+                            setUserManuallyModifiedTime(true)
+                          }}
                           className="font-mono text-xs bg-slate-50 border-blue-300 h-9 text-slate-900"
                         />
+                        {scheduleSuggestion && (
+                          <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            <span className="font-bold">✓</span>
+                            <span>
+                              {scheduleSuggestion.isShiftStart
+                                ? `Início do turno: ${scheduleSuggestion.suggestedStartTime}`
+                                : `Primeiro disponível: ${scheduleSuggestion.suggestedStartTime}`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-800 block mb-1">
