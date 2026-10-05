@@ -672,6 +672,16 @@ export const programacaoParadaService = {
         centros_snapshot: centrosProntos,
       })
 
+      // Buscar snapshot anterior dos centros para diff
+      let centrosAnteriores: any[] = []
+      try {
+        centrosAnteriores = await pb.collection('programacao_parada_centros').getFullList({
+          filter: `parada_id = '${dados.id}'`,
+        })
+      } catch (errSnap) {
+        centrosAnteriores = []
+      }
+
       paradaRecord = await pb.collection('programacao_paradas').update(dados.id!, {
         versao: novaVersaoNum,
         versao_rotulo: novaVersaoRotulo,
@@ -687,6 +697,33 @@ export const programacaoParadaService = {
         programacao_alterada_pos_comunicado: alteradaPosComunicado,
         historico_versoes: historicoAtual,
       })
+
+      // Registrar também na collection programacao_parada_historico para rastreabilidade relacional V01 -> V02
+      try {
+        await pb.collection('programacao_parada_historico').create({
+          parada_id: dados.id,
+          codigo_parada: paradaRecord.codigo,
+          versao: novaVersaoNum,
+          versao_rotulo: novaVersaoRotulo,
+          tipo_evento: 'EDICAO',
+          descricao_alteracao: `Atualização de parâmetros e centros da programação (${novaVersaoRotulo})`,
+          dados_anteriores: {
+            versao: versaoAnterior,
+            status: paradaAtual.status,
+            centros: centrosAnteriores,
+          },
+          dados_novos: {
+            versao: novaVersaoNum,
+            status: dados.status || paradaAtual.status,
+            centros: centrosProntos,
+          },
+          usuario_id: dados.usuario_id || null,
+          usuario_nome: dados.usuario_nome,
+          data_hora: agoraFmt,
+        })
+      } catch (eHist) {
+        console.warn('Falha ao gravar programacao_parada_historico:', eHist)
+      }
 
       // Excluir centros antigos e reinserir atualizados (preserva integridade das relações ativas)
       const antigosCentros = await pb.collection('programacao_parada_centros').getFullList({
