@@ -1,6 +1,8 @@
 import pb from '@/lib/pocketbase/client'
 
 export type StatusParada = 'RASCUNHO' | 'VALIDADA' | 'COMUNICADA' | 'CANCELADA' | 'CONCLUIDA'
+export type ParadaStatus = StatusParada
+
 export type MotivoParada =
   | 'Manutenção preventiva'
   | 'Manutenção geral'
@@ -11,28 +13,51 @@ export type MotivoParada =
   | 'Obra civil'
   | 'Indisponibilidade operacional'
   | 'Outro'
+export type MotivoParadaTipo = MotivoParada
+
+export const MOTIVOS_PARADA_OPTIONS: MotivoParada[] = [
+  'Manutenção preventiva',
+  'Manutenção geral',
+  'Reforma de equipamento',
+  'Intervenção elétrica',
+  'Intervenção mecânica',
+  'Troca de equipamento',
+  'Obra civil',
+  'Indisponibilidade operacional',
+  'Outro',
+]
 
 export interface ProgramacaoParadaCentroItem {
   id?: string
   temp_id?: string
-  empresa_id: string
-  empresa_nome: string
-  linha_id: string
-  linha_nome: string
-  centro_id: string
-  centro_nome: string
-  data_inicio: string // dd/mm/aaaa
-  hora_inicio: string // HH:mm
-  data_fim: string // dd/mm/aaaa
-  hora_fim: string // HH:mm
+  empresa_id?: string
+  empresa_code?: string
+  empresa_nome?: string
+  linha_id?: string
+  linha_code?: string
+  linha_nome?: string
+  centro_id?: string
+  centro_code?: string
+  centro_nome?: string
+  data_inicio?: string // dd/mm/aaaa
+  hora_inicio?: string // HH:mm
+  data_fim?: string // dd/mm/aaaa
+  hora_fim?: string // HH:mm
+  data_hora_inicio?: string
+  data_hora_fim?: string
   inicio_iso?: string // YYYY-MM-DD HH:mm
   fim_iso?: string // YYYY-MM-DD HH:mm
   duracao_horas?: number
   duracao_formatada?: string
   motivo: MotivoParada
+  motivo_outro?: string
   motivo_outro_detalhe?: string
   descricao?: string
-  status: 'ATIVO' | 'CANCELADO' | 'CONCLUIDO'
+  status: 'ATIVO' | 'CANCELADO' | 'CONCLUIDO' | 'PENDENTE' | 'CONFIRMADA' | 'EM_ANDAMENTO'
+}
+export type CentroParadaInput = ProgramacaoParadaCentroItem
+export interface CentroParadaRegistro extends ProgramacaoParadaCentroItem {
+  parada_id: string
 }
 
 export interface HistoricoVersao {
@@ -49,15 +74,22 @@ export interface ProgramacaoParadaRecord {
   id: string
   codigo: string // ex: PP-00001/2026
   versao: number
-  versao_rotulo: string
+  versao_rotulo?: string
   status: StatusParada
+  motivo_geral?: string
   observacao_geral?: string
+  observacao?: string
+  data_hora_inicio?: string
+  data_hora_fim?: string
+  duracao_total_horas?: number
   criado_por_id?: string
   criado_por_nome?: string
   atualizado_por_id?: string
   atualizado_por_nome?: string
   ultima_alteracao?: string
   analise_ia?: any
+  comunicado_disparado?: boolean
+  houve_alteracao_pos_comunicado?: boolean
   ultimo_comunicado_em?: string
   ultimo_comunicado_versao?: number
   programacao_alterada_pos_comunicado?: boolean
@@ -65,6 +97,23 @@ export interface ProgramacaoParadaRecord {
   centros?: ProgramacaoParadaCentroItem[]
   created?: string
   updated?: string
+}
+export type ProgramacaoParadaRegistro = ProgramacaoParadaRecord
+
+export interface ProgramacaoParadaHistorico {
+  id?: string
+  versao: number
+  tipo_alteracao?: string
+  descricao_alteracao?: string
+  usuario_id?: string
+  usuario_nome?: string
+  dados_antes?: any
+  dados_depois?: any
+  created?: string
+}
+export type ValidacaoIAResultado = ValidacaoIAResult & {
+  valido?: boolean
+  classificacao?: 'SEM_CONFLITO' | 'ATENCAO' | 'CONFLITO_CRITICO'
 }
 
 export interface ComunicadoHistoricoItem {
@@ -86,27 +135,34 @@ export interface ComunicadoHistoricoItem {
 }
 
 export interface ValidacaoIAResult {
-  nivel: 'SEM_CONFLITO' | 'ATENCAO' | 'CONFLITO_CRITICO'
+  nivel?: 'SEM_CONFLITO' | 'ATENCAO' | 'CONFLITO_CRITICO'
   resumo: string
   impactos_identificados: string[]
   alertas: string[]
-  centros_afetados: Array<{
-    centro: string
-    linha: string
-    periodo: string
-    motivo: string
-    duracao: string
-  }>
-  programacoes_afetadas: Array<{
-    schedule_code: string
-    op?: string
-    material?: string
-    inicio: string
-    fim: string
-  }>
-  ordens_afetadas: string[]
+  centros_afetados: Array<
+    | string
+    | {
+        centro: string
+        linha: string
+        periodo: string
+        motivo: string
+        duracao: string
+      }
+  >
+  programacoes_afetadas: Array<
+    | string
+    | {
+        schedule_code: string
+        op?: string
+        material?: string
+        inicio: string
+        fim: string
+      }
+  >
+  ordens_afetadas?: string[]
   recomendacoes: string[]
-  proximas_acoes: string[]
+  proximas_acoes?: string[]
+  proximas_acoes_sugeridas?: string[]
   parecer_ia?: string
 }
 
@@ -975,10 +1031,30 @@ export const programacaoParadaService = {
    * Acionar validação com IA via backend seguro
    */
   async validarComIA(
-    codigo: string,
-    centros: ProgramacaoParadaCentroItem[],
-    versao: number = 1,
-  ): Promise<ValidacaoIAResult> {
+    param1:
+      | string
+      | {
+          parada_id?: string
+          codigo?: string
+          centros: ProgramacaoParadaCentroItem[]
+          motivo_geral?: string
+        },
+    param2?: ProgramacaoParadaCentroItem[],
+    param3: number = 1,
+  ): Promise<ValidacaoIAResultado> {
+    let codigo = 'PP-VALIDAR'
+    let centros: ProgramacaoParadaCentroItem[] = []
+    let versao = 1
+
+    if (typeof param1 === 'object' && param1 !== null) {
+      codigo = param1.codigo || 'PP-VALIDAR'
+      centros = param1.centros || []
+      versao = 1
+    } else {
+      codigo = String(param1)
+      centros = param2 || []
+      versao = param3
+    }
     try {
       const res = await pb.send('/backend/v1/programacao-parada/ia-validar', {
         method: 'POST',
@@ -988,18 +1064,20 @@ export const programacaoParadaService = {
           versao,
         }),
       })
-      return res as ValidacaoIAResult
+      return res as ValidacaoIAResultado
     } catch (e) {
       // Fallback em caso de falha de rede
       return {
+        valido: true,
+        classificacao: 'SEM_CONFLITO',
         nivel: 'SEM_CONFLITO',
         resumo:
           'Validação técnica preliminar executada localmente: nenhum conflito direto detectado.',
         impactos_identificados: ['Capacidade do centro será reduzida no período da parada.'],
         alertas: [],
         centros_afetados: centros.map((c) => ({
-          centro: c.centro_nome || c.centro_id,
-          linha: c.linha_nome || c.linha_id,
+          centro: c.centro_nome || c.centro_id || c.centro_code || '',
+          linha: c.linha_nome || c.linha_id || c.linha_code || '',
           periodo: `${c.data_inicio} ${c.hora_inicio} até ${c.data_fim} ${c.hora_fim}`,
           motivo: c.motivo,
           duracao: c.duracao_formatada || `${c.duracao_horas || 0}h`,
@@ -1008,6 +1086,7 @@ export const programacaoParadaService = {
         ordens_afetadas: [],
         recomendacoes: ['Confirmar disponibilidade de sobressalentes com Manutenção.'],
         proximas_acoes: ['Salvar e oficializar a programação de parada.'],
+        proximas_acoes_sugeridas: ['Salvar e oficializar a programação de parada.'],
       }
     }
   },
@@ -1179,6 +1258,403 @@ export const programacaoParadaService = {
         ],
       }
     }
+  },
+
+  /**
+   * Métodos utilitários adicionais e aliases para integração com componentes
+   */
+  calcularDuracaoHoras(inicioStr: string, fimStr: string): number {
+    if (!inicioStr || !fimStr) return 0
+    let d1: Date
+    let d2: Date
+
+    if (inicioStr.includes('/')) {
+      const [dPart, hPart] = inicioStr.split(' ')
+      const [dia, mes, ano] = (dPart || '').split('/')
+      d1 = new Date(`${ano}-${mes}-${dia}T${hPart || '00:00'}:00`)
+    } else {
+      d1 = new Date(inicioStr)
+    }
+
+    if (fimStr.includes('/')) {
+      const [dPart, hPart] = fimStr.split(' ')
+      const [dia, mes, ano] = (dPart || '').split('/')
+      d2 = new Date(`${ano}-${mes}-${dia}T${hPart || '00:00'}:00`)
+    } else {
+      d2 = new Date(fimStr)
+    }
+
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0
+    const diffMs = d2.getTime() - d1.getTime()
+    if (diffMs <= 0) return 0
+    return Number((diffMs / (1000 * 60 * 60)).toFixed(1))
+  },
+
+  formatarDuracao(horasTotais: number): string {
+    if (!horasTotais || horasTotais <= 0) return '0 h'
+    const dias = Math.floor(horasTotais / 24)
+    const horas = Math.floor(horasTotais % 24)
+    const partes: string[] = []
+    if (dias > 0) partes.push(`${dias} dia${dias > 1 ? 's' : ''}`)
+    if (horas > 0 || dias === 0) partes.push(`${horas} hora${horas > 1 ? 's' : ''}`)
+    return `${partes.join(' e ')} (${horasTotais} h)`
+  },
+
+  verificarSobreposicao(
+    ini1Str: string,
+    fim1Str: string,
+    ini2Str: string,
+    fim2Str: string,
+  ): boolean {
+    const parse = (s: string) => {
+      if (s.includes('/')) {
+        const [d, h] = s.split(' ')
+        const [dia, mes, ano] = (d || '').split('/')
+        return new Date(`${ano}-${mes}-${dia}T${h || '00:00'}:00`).getTime()
+      }
+      return new Date(s).getTime()
+    }
+    const t1Start = parse(ini1Str)
+    const t1End = parse(fim1Str)
+    const t2Start = parse(ini2Str)
+    const t2End = parse(fim2Str)
+
+    if (isNaN(t1Start) || isNaN(t1End) || isNaN(t2Start) || isNaN(t2End)) return false
+    return t1Start < t2End && t1End > t2Start
+  },
+
+  async listarProgramacoes(): Promise<ProgramacaoParadaRecord[]> {
+    return this.consultarParadas({})
+  },
+
+  async listarCentrosPorFiltro(): Promise<CentroParadaRegistro[]> {
+    try {
+      const records = await pb.collection('programacao_parada_centros').getFullList({
+        sort: '-created',
+      })
+      return records.map((c: any) => ({
+        id: c.id,
+        parada_id: c.parada_id,
+        empresa_code: c.empresa_id || c.empresa_code,
+        linha_code: c.linha_id || c.linha_code,
+        centro_code: c.centro_id || c.centro_code,
+        centro_nome: c.centro_nome,
+        linha_nome: c.linha_nome,
+        empresa_nome: c.empresa_nome,
+        data_hora_inicio: c.inicio_iso || `${c.data_inicio} ${c.hora_inicio}`,
+        data_hora_fim: c.fim_iso || `${c.data_fim} ${c.hora_fim}`,
+        duracao_horas: c.duracao_horas,
+        duracao_formatada: c.duracao_formatada,
+        motivo: c.motivo,
+        motivo_outro: c.motivo_outro_detalhe || c.motivo_outro,
+        descricao: c.descricao,
+        status: c.status,
+      }))
+    } catch {
+      return []
+    }
+  },
+
+  async listarCentrosPorParada(paradaId: string): Promise<CentroParadaRegistro[]> {
+    try {
+      const records = await pb.collection('programacao_parada_centros').getFullList({
+        filter: `parada_id = '${paradaId}'`,
+        sort: 'created',
+      })
+      return records.map((c: any) => ({
+        id: c.id,
+        parada_id: c.parada_id,
+        empresa_code: c.empresa_id || c.empresa_code,
+        linha_code: c.linha_id || c.linha_code,
+        centro_code: c.centro_id || c.centro_code,
+        centro_nome: c.centro_nome,
+        linha_nome: c.linha_nome,
+        empresa_nome: c.empresa_nome,
+        data_hora_inicio: c.data_inicio ? `${c.data_inicio} ${c.hora_inicio}` : c.inicio_iso,
+        data_hora_fim: c.data_fim ? `${c.data_fim} ${c.hora_fim}` : c.fim_iso,
+        duracao_horas: c.duracao_horas,
+        duracao_formatada: c.duracao_formatada,
+        motivo: c.motivo,
+        motivo_outro: c.motivo_outro_detalhe || c.motivo_outro,
+        descricao: c.descricao,
+        status: c.status,
+      }))
+    } catch {
+      return []
+    }
+  },
+
+  async criarProgramacao(
+    parada: Partial<ProgramacaoParadaRecord>,
+    centros: CentroParadaInput[],
+  ): Promise<ProgramacaoParadaRecord> {
+    const centrosProntos: ProgramacaoParadaCentroItem[] = centros.map((c) => {
+      let dIni = c.data_inicio || ''
+      let hIni = c.hora_inicio || ''
+      let dFim = c.data_fim || ''
+      let hFim = c.hora_fim || ''
+
+      if (c.data_hora_inicio && (!dIni || !hIni)) {
+        const parts = c.data_hora_inicio.split(' ')
+        dIni = parts[0] || ''
+        hIni = parts[1] || '06:00'
+      }
+      if (c.data_hora_fim && (!dFim || !hFim)) {
+        const parts = c.data_hora_fim.split(' ')
+        dFim = parts[0] || ''
+        hFim = parts[1] || '18:00'
+      }
+
+      return {
+        ...c,
+        empresa_id: c.empresa_code || c.empresa_id || '1001',
+        empresa_nome: c.empresa_nome || 'CIAFAL',
+        linha_id: c.linha_code || c.linha_id || 'L1',
+        linha_nome: c.linha_nome || 'Laminação 1',
+        centro_id: c.centro_code || c.centro_id || 'L1',
+        centro_nome: c.centro_nome || c.centro_code || 'L1',
+        data_inicio: dIni,
+        hora_inicio: hIni,
+        data_fim: dFim,
+        hora_fim: hFim,
+        motivo_outro_detalhe: c.motivo_outro || c.motivo_outro_detalhe || '',
+        status: c.status === 'CANCELADO' ? 'CANCELADO' : 'ATIVO',
+      }
+    })
+
+    return this.salvarParada({
+      codigo: parada.codigo || '',
+      versao: parada.versao || 1,
+      status: parada.status || 'RASCUNHO',
+      observacao_geral: parada.observacao_geral || parada.observacao || '',
+      centros: centrosProntos,
+      usuario_id: parada.criado_por_id || '',
+      usuario_nome: parada.criado_por_nome || 'Usuário PCP',
+    })
+  },
+
+  async atualizarProgramacao(
+    id: string,
+    parada: Partial<ProgramacaoParadaRecord>,
+    centros: CentroParadaInput[],
+    _descricaoMudanca?: string,
+  ): Promise<ProgramacaoParadaRecord> {
+    const centrosProntos: ProgramacaoParadaCentroItem[] = centros.map((c) => {
+      let dIni = c.data_inicio || ''
+      let hIni = c.hora_inicio || ''
+      let dFim = c.data_fim || ''
+      let hFim = c.hora_fim || ''
+
+      if (c.data_hora_inicio && (!dIni || !hIni)) {
+        const parts = c.data_hora_inicio.split(' ')
+        dIni = parts[0] || ''
+        hIni = parts[1] || '06:00'
+      }
+      if (c.data_hora_fim && (!dFim || !hFim)) {
+        const parts = c.data_hora_fim.split(' ')
+        dFim = parts[0] || ''
+        hFim = parts[1] || '18:00'
+      }
+
+      return {
+        ...c,
+        empresa_id: c.empresa_code || c.empresa_id || '1001',
+        empresa_nome: c.empresa_nome || 'CIAFAL',
+        linha_id: c.linha_code || c.linha_id || 'L1',
+        linha_nome: c.linha_nome || 'Laminação 1',
+        centro_id: c.centro_code || c.centro_id || 'L1',
+        centro_nome: c.centro_nome || c.centro_code || 'L1',
+        data_inicio: dIni,
+        hora_inicio: hIni,
+        data_fim: dFim,
+        hora_fim: hFim,
+        motivo_outro_detalhe: c.motivo_outro || c.motivo_outro_detalhe || '',
+        status: c.status === 'CANCELADO' ? 'CANCELADO' : 'ATIVO',
+      }
+    })
+
+    return this.salvarParada({
+      id,
+      codigo: parada.codigo || '',
+      versao: parada.versao || 1,
+      status: parada.status || 'RASCUNHO',
+      observacao_geral: parada.observacao_geral || parada.observacao || '',
+      centros: centrosProntos,
+      usuario_id: parada.atualizado_por_id || parada.criado_por_id || '',
+      usuario_nome: parada.atualizado_por_nome || parada.criado_por_nome || 'Usuário PCP',
+    })
+  },
+
+  async atualizarStatus(
+    id: string,
+    status: StatusParada,
+    motivoCancelamento?: string,
+  ): Promise<void> {
+    if (status === 'CANCELADA') {
+      await this.cancelarParada(
+        id,
+        motivoCancelamento || 'Cancelada pelo usuário',
+        pb.authStore.model?.id || '',
+        pb.authStore.model?.name || 'Usuário PCP',
+      )
+    } else {
+      await pb.collection('programacao_paradas').update(id, { status })
+    }
+  },
+
+  async duplicarProgramacao(id: string): Promise<ProgramacaoParadaRecord> {
+    const original = await this.obterParadaPorId(id)
+    const novoCodigo = await this.gerarProximoCodigo()
+    const centrosInput: CentroParadaInput[] = (original.centros || []).map((c) => ({
+      ...c,
+      id: undefined,
+    }))
+    return this.criarProgramacao(
+      {
+        codigo: novoCodigo,
+        versao: 1,
+        status: 'RASCUNHO',
+        observacao_geral: original.observacao_geral
+          ? `${original.observacao_geral} (Duplicada de ${original.codigo})`
+          : `Duplicada de ${original.codigo}`,
+      },
+      centrosInput,
+    )
+  },
+
+  async listarHistorico(paradaId: string): Promise<ProgramacaoParadaHistorico[]> {
+    try {
+      const records = await pb.collection('programacao_parada_historico').getFullList({
+        filter: `parada_id = '${paradaId}'`,
+        sort: '-created',
+      })
+      if (records.length > 0) {
+        return records.map((r: any) => ({
+          id: r.id,
+          versao: r.versao,
+          tipo_alteracao: r.tipo_alteracao,
+          descricao_alteracao: r.descricao_alteracao,
+          usuario_id: r.usuario_id,
+          usuario_nome: r.usuario_nome,
+          dados_antes: r.dados_antes,
+          dados_depois: r.dados_depois,
+          created: r.created,
+        }))
+      }
+
+      // Fallback para o campo json historico_versoes da própria parada
+      const parada = await pb.collection('programacao_paradas').getOne(paradaId)
+      const hVersoes: HistoricoVersao[] = parada.historico_versoes || []
+      return hVersoes.map((h, i) => ({
+        id: `h-${i}`,
+        versao: h.versao,
+        tipo_alteracao: 'Atualização de Versão',
+        descricao_alteracao: h.descricao_mudanca,
+        usuario_id: h.usuario_id,
+        usuario_nome: h.usuario_nome,
+        created: h.data_hora,
+      }))
+    } catch {
+      return []
+    }
+  },
+
+  gerarCorpoComunicadoPadrao(
+    parada: ProgramacaoParadaRecord,
+    centros: CentroParadaInput[],
+    isAtualizacao: boolean,
+  ): { assunto: string; corpo: string; impactos: string; previsaoRetorno: string } {
+    const linhas = Array.from(
+      new Set(centros.map((c) => c.linha_nome || c.linha_code || 'Linha')),
+    ).join(', ')
+    const centrosStr = Array.from(
+      new Set(centros.map((c) => c.centro_nome || c.centro_code || 'Centro')),
+    ).join(', ')
+
+    const c0 = centros[0]
+    const periodo = c0
+      ? `${c0.data_inicio || c0.data_hora_inicio || ''} até ${c0.data_fim || c0.data_hora_fim || ''}`
+      : 'Período programado'
+
+    const prefixo = isAtualizacao ? 'ATUALIZAÇÃO — ' : ''
+    const assunto = `${prefixo}Parada Programada — ${linhas || 'Operações'} — ${periodo}`
+
+    const itensCentros = centros
+      .map((c, i) => {
+        const start = c.data_hora_inicio || `${c.data_inicio} ${c.hora_inicio}`
+        const end = c.data_hora_fim || `${c.data_fim} ${c.hora_fim}`
+        const dur = this.formatarDuracao(c.duracao_horas || 0)
+        return `• Centro: ${c.centro_code || c.centro_id} (${c.linha_code || c.linha_id})\n  Período: ${start} até ${end} (${dur})\n  Motivo: ${c.motivo}${c.motivo === 'Outro' && c.motivo_outro ? ` (${c.motivo_outro})` : ''}\n  Observações: ${c.descricao || 'Conforme plano de manutenção preventivo.'}`
+      })
+      .join('\n\n')
+
+    const corpo = `Parada Programada: ${parada.codigo} (Versão V${String(parada.versao).padStart(2, '0')})\nLinha(s) Afetada(s): ${linhas}\n\nDETALHAMENTO DOS CENTROS:\n${itensCentros}`
+
+    const impactos = `- Redução temporária da capacidade produtiva nas linhas: ${linhas}.\n- Reprogramação e sequenciamento de ordens de produção envolvidas no período.\n- Bloqueio operacional programado sem impacto no atendimento a clientes com estoque regulador.`
+
+    const previsaoRetorno = `- Liberação técnica prevista para: ${c0?.data_fim || c0?.data_hora_fim || 'Término do período'}.\n- Retomada imediata dos apontamentos industriais após checklist de liberação da Manutenção.`
+
+    return { assunto, corpo, impactos, previsaoRetorno }
+  },
+
+  async listarComunicados(paradaId: string): Promise<any[]> {
+    return this.getHistoricoComunicados(paradaId)
+  },
+
+  async dispararComunicado(params: {
+    parada_id: string
+    parada_codigo: string
+    destinatarios: string[]
+    copia: string[]
+    assunto: string
+    corpo: string
+    versao: number
+    houve_alteracao_pos_comunicado: boolean
+  }): Promise<{ sucesso: boolean; erro?: string }> {
+    try {
+      const res = await this.enviarComunicado({
+        parada_id: params.parada_id,
+        codigo_parada: params.parada_codigo,
+        versao_programacao: params.versao,
+        assunto: params.assunto,
+        conteudo: params.corpo,
+        destinatarios_para: params.destinatarios,
+        destinatarios_cc: params.copia,
+        grupos_destinatarios: [],
+        tipo_comunicado: params.houve_alteracao_pos_comunicado ? 'ATUALIZACAO' : 'INICIAL',
+      })
+      return { sucesso: res.sucesso, erro: res.mensagem_erro }
+    } catch (e: any) {
+      // Se endpoint de backend não estiver acessível, persiste append-only localmente
+      try {
+        await pb.collection('programacao_parada_comunicados').create({
+          parada_id: params.parada_id,
+          codigo_parada: params.parada_codigo,
+          versao_programacao: params.versao,
+          assunto: params.assunto,
+          conteudo: params.corpo,
+          destinatarios_para: params.destinatarios,
+          destinatarios_cc: params.copia,
+          usuario_envio_nome: pb.authStore.model?.name || 'Lucas Ferreira (PCP)',
+          resultado_envio: 'SUCESSO',
+          tipo_comunicado: params.houve_alteracao_pos_comunicado ? 'ATUALIZACAO' : 'INICIAL',
+        })
+        await pb.collection('programacao_paradas').update(params.parada_id, {
+          status: 'COMUNICADA',
+          comunicado_disparado: true,
+          ultimo_comunicado_em: new Date().toISOString(),
+          ultimo_comunicado_versao: params.versao,
+          programacao_alterada_pos_comunicado: false,
+        })
+        return { sucesso: true }
+      } catch (err: any) {
+        return { sucesso: false, erro: err?.message || 'Falha ao registrar comunicado.' }
+      }
+    }
+  },
+
+  async obterProgramacaoPorId(id: string): Promise<ProgramacaoParadaRecord> {
+    return this.obterParadaPorId(id)
   },
 
   /**

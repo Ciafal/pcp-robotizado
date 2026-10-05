@@ -5,7 +5,6 @@ import {
   CalendarRange,
   Layers,
   Activity,
-  CalendarOff,
   Sparkles,
   CalendarDays,
   BarChart3,

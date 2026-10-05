@@ -735,7 +735,7 @@ export const App: React.FC = () => {
                     <Route
                       path="/pcp/programacao/parada"
                       element={
-                        <PermissionGuard requiredPermission="pcp.schedule.view">
+                        <PermissionGuard permission="pcp.schedule.view">
                           <ProgramacaoParadaPage />
                         </PermissionGuard>
                       }

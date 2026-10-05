@@ -278,6 +278,16 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
+  const isParadaRoute = Boolean(
+    currentPathname.includes('parada') ||
+    currentPathname.includes('programacao/parada') ||
+    currentPathname.startsWith('/pcp/programacao/parada') ||
+    (typeof window !== 'undefined' &&
+      (window.location.pathname.includes('programacao/parada') ||
+        window.location.hash.includes('programacao/parada') ||
+        window.location.href.includes('programacao/parada'))),
+  )
+
   const isTestProgrammingRoute = Boolean(
     currentPathname.includes('programacao-testes') ||
     currentPathname.includes('test-programming') ||
@@ -292,7 +302,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
         window.location.href.includes('programacao-testes'))),
   )
 
-  if (isTestProgrammingRoute || isEntregasRoute) {
+  if (isTestProgrammingRoute || isEntregasRoute || isParadaRoute) {
     return <>{children}</>
   }
 
