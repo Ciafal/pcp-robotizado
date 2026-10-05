@@ -877,14 +877,40 @@ export const WeeklyScheduleEngine = {
           targetIso = str.slice(0, 10)
         }
       }
+      if (stop.valid_from && targetIso < stop.valid_from.slice(0, 10)) {
+        return false
+      }
+      if (stop.valid_until && targetIso > stop.valid_until.slice(0, 10)) {
+        return false
+      }
+    }
 
-      if (targetIso) {
-        if (stop.valid_from) {
-          const fromIso = String(stop.valid_from).trim().slice(0, 10)
-          if (fromIso && targetIso < fromIso) {
-            return false
+    // 0.1 Integração Oficial com Programação de Parada (alimenta este mesmo motor central)
+    if ((stop as any).is_programacao_parada || (stop as any).is_custom_programacao_parada || stop.recurrence === 'CUSTOM') {
+      const sStart = (stop as any).start_datetime || (stop as any).valid_from
+      const sEnd = (stop as any).end_datetime || (stop as any).valid_until
+      if (sStart && sEnd && context.date) {
+        let currentIso = ''
+        if (context.date instanceof Date) {
+          const pad = (n: number) => String(n).padStart(2, '0')
+          currentIso = `${context.date.getFullYear()}-${pad(context.date.getMonth() + 1)}-${pad(context.date.getDate())} ${pad(context.date.getHours())}:${pad(context.date.getMinutes())}`
+        } else {
+          currentIso = String(context.date)
+        }
+        const sStartClean = String(sStart).replace('T', ' ').substring(0, 16)
+        const sEndClean = String(sEnd).replace('T', ' ').substring(0, 16)
+        const cVal = currentIso.replace('T', ' ').substring(0, 16)
+        if (cVal >= sStartClean && cVal <= sEndClean) {
+          return true
+        }
+        if (cVal.length === 10) {
+          if (cVal >= sStartClean.substring(0, 10) && cVal <= sEndClean.substring(0, 10)) {
+            return true
           }
         }
+        return false
+      }
+    }        }
         if (stop.valid_until) {
           const untilIso = String(stop.valid_until).trim().slice(0, 10)
           if (untilIso && targetIso > untilIso) {
