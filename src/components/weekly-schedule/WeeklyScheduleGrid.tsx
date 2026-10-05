@@ -427,756 +427,836 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredItemsWithIndex.map(({ item, originalIndex }) => {
-                  const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
-                  const isStop = item.item_type === 'SCHEDULED_STOP'
-                  const isMto = item.order_type === 'MTO'
-                  const isAwaiting =
-                    item.status === 'AGUARDANDO_OBSERVACOES' ||
-                    item.awaiting_observations?.is_awaiting
-                  const isSelected = currentSelectedId === item.id
-                  const isLockedExternally = Boolean(
-                    item.is_locked_externally ||
-                    item.is_origin_test_programming ||
-                    isTestIndustrial,
-                  )
-                  const startHour = item.start_datetime
-                    ? item.start_datetime.split(' ')[1] || item.start_datetime
-                    : '--:--'
-                  const endHour = item.end_datetime
-                    ? item.end_datetime.split(' ')[1] || item.end_datetime
-                    : '--:--'
-
-                  const isPast = isWeekPast || isScheduleItemInPast(item, year, weekNumber)
-
-                  return (
-                    <tr
-                      key={item.id || originalIndex}
-                      draggable={!isLockedExternally && !isPast}
-                      onClick={() => handleRowClick(item)}
-                      onDragStart={(e) => !isLockedExternally && handleDragStart(e, originalIndex)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, originalIndex)}
-                      className={getItemRowClasses(item, isSelected)}
+                (() => {
+                  // Agrupamento preservando a ordem por DIA + TURNO
+                  type TableShiftGroup = {
+                    groupKey: string
+                    dayOfWeek?: string
+                    dateStr?: string
+                    shiftCode?: string
+                    shiftName?: string
+                    crewName?: string
+                    rows: Array<
+                      (typeof filteredItemsWithIndex)[number] & {
+                        isGroupFirst: boolean
+                        groupSpan: number
+                      }
                     >
-                      {/* Coluna 1 Fixa: Sequência */}
-                      <td className="py-2 px-2 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
-                        <div className="flex items-center justify-center gap-0.5">
-                          {isLockedExternally ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="p-0.5 cursor-not-allowed">
-                                  <Lock className="w-3.5 h-3.5 text-purple-600" />
+                  }
+
+                  const tableGroups: TableShiftGroup[] = []
+                  for (const entry of filteredItemsWithIndex) {
+                    const dayKey = entry.item.day_of_week || 'SEG'
+                    const shiftKey = entry.item.shift_code || 'T1_L1'
+                    const groupKey = `${dayKey}__${shiftKey}`
+
+                    let grp = tableGroups[tableGroups.length - 1]
+                    if (!grp || grp.groupKey !== groupKey) {
+                      grp = {
+                        groupKey,
+                        dayOfWeek: entry.item.day_of_week,
+                        dateStr: entry.item.date_str,
+                        shiftCode: entry.item.shift_code,
+                        shiftName: entry.item.shift_name,
+                        crewName: entry.item.crew_name,
+                        rows: [],
+                      }
+                      tableGroups.push(grp)
+                    }
+                    grp.rows.push({ ...entry, isGroupFirst: false, groupSpan: 0 })
+                  }
+
+                  // Marcar primeira linha e tamanho do span
+                  for (const grp of tableGroups) {
+                    if (grp.rows.length > 0) {
+                      grp.rows[0].isGroupFirst = true
+                      grp.rows[0].groupSpan = grp.rows.length
+                    }
+                  }
+
+                  return tableGroups.flatMap((grp) =>
+                    grp.rows.map((rowEntry) => {
+                      const { item, originalIndex, isGroupFirst, groupSpan } = rowEntry
+                      const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
+                      const isStop = item.item_type === 'SCHEDULED_STOP'
+                      const isMto = item.order_type === 'MTO'
+                      const isAwaiting =
+                        item.status === 'AGUARDANDO_OBSERVACOES' ||
+                        item.awaiting_observations?.is_awaiting
+                      const isSelected = currentSelectedId === item.id
+                      const isLockedExternally = Boolean(
+                        item.is_locked_externally ||
+                        item.is_origin_test_programming ||
+                        isTestIndustrial,
+                      )
+                      const startHour = item.start_datetime
+                        ? item.start_datetime.split(' ')[1] || item.start_datetime
+                        : '--:--'
+                      const endHour = item.end_datetime
+                        ? item.end_datetime.split(' ')[1] || item.end_datetime
+                        : '--:--'
+
+                      const isPast = isWeekPast || isScheduleItemInPast(item, year, weekNumber)
+
+                      return (
+                        <tr
+                          key={item.id || originalIndex}
+                          draggable={!isLockedExternally && !isPast}
+                          onClick={() => handleRowClick(item)}
+                          onDragStart={(e) =>
+                            !isLockedExternally && handleDragStart(e, originalIndex)
+                          }
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, originalIndex)}
+                          className={getItemRowClasses(item, isSelected)}
+                        >
+                          {/* Coluna 1 Fixa: Sequência */}
+                          <td className="py-2 px-2 text-center sticky left-0 z-10 bg-inherit border-r border-slate-200 font-mono font-bold text-slate-800">
+                            <div className="flex items-center justify-center gap-0.5">
+                              {isLockedExternally ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="p-0.5 cursor-not-allowed">
+                                      <Lock className="w-3.5 h-3.5 text-purple-600" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="right"
+                                    className="bg-slate-900 text-white text-xs max-w-xs"
+                                  >
+                                    Teste Industrial controlado pela Programação de Testes.
+                                    Bloqueado para edição ou reordenação direta na Montagem
+                                    Programação.
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
+                              )}
+                              <span>{item.sequence_order || originalIndex + 1}</span>
+                            </div>
+                          </td>
+
+                          {/* Dia: rowspan visual vertical apenas na primeira linha do grupo DIA+TURNO */}
+                          {isGroupFirst && (
+                            <td
+                              rowSpan={groupSpan}
+                              className="py-2 px-2 font-semibold text-slate-900 whitespace-nowrap text-center align-middle border-r border-slate-200 bg-white"
+                            >
+                              <div className="flex flex-col items-center justify-center">
+                                <span className="font-bold">
+                                  {grp.dayOfWeek || item.day_of_week}
                                 </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="right"
-                                className="bg-slate-900 text-white text-xs max-w-xs"
-                              >
-                                Teste Industrial controlado pela Programação de Testes. Bloqueado
-                                para edição ou reordenação direta na Montagem Programação.
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <GripVertical className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 cursor-grab" />
-                          )}
-                          <span>{item.sequence_order || originalIndex + 1}</span>
-                        </div>
-                      </td>
-
-                      {/* Dia */}
-                      <td className="py-2 px-2 font-semibold text-slate-900 whitespace-nowrap text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold">{item.day_of_week}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {item.date_str || '24/08'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Turno Compacto: T1 com tooltip da Turma */}
-                      <td className="py-2 px-2 whitespace-nowrap text-center">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs cursor-help">
-                              {WeeklyScheduleEngine.formatShiftCodeOnly(
-                                item.shift_name,
-                                item.shift_code,
-                              )}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="top"
-                            className="bg-slate-900 text-white text-xs p-2"
-                          >
-                            <p className="font-bold text-amber-300">
-                              {WeeklyScheduleEngine.getShiftTooltipDetails(
-                                item.shift_name,
-                                item.shift_code,
-                                item.crew_name,
-                              )}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
-
-                      {/* Linha do Tempo: Início -> Fim */}
-                      <td className="py-2 px-3 font-mono whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-slate-800">
-                          <span className="font-bold text-[#004C97]">{startHour}</span>
-                          <span className="text-slate-400">&rarr;</span>
-                          <span className="font-bold text-slate-700">{endHour}</span>
-                        </div>
-                      </td>
-
-                      {/* Tipo */}
-                      <td className="py-2 px-3 whitespace-nowrap">
-                        {isTestIndustrial ? (
-                          <Badge className="bg-purple-100 text-purple-950 border-purple-300 text-[10px] font-black flex items-center gap-1 shadow-xs">
-                            <FlaskConical className="w-3 h-3 text-purple-700" />
-                            TESTE IND.
-                          </Badge>
-                        ) : isStop ? (
-                          <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-bold">
-                            <Wrench className="w-2.5 h-2.5 mr-1" />
-                            Parada
-                          </Badge>
-                        ) : isMto ? (
-                          <Badge className="bg-amber-100 text-amber-950 border-amber-300 text-[10px] font-bold">
-                            MTO
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 text-[10px] font-bold">
-                            MTS
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Material / Produto SAP */}
-                      <td className="py-2 px-3">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {isTestIndustrial && (
-                              <Badge className="bg-purple-600 text-white font-mono text-[10px] font-black px-1.5 py-0">
-                                {item.test_code || item.material_code}
-                              </Badge>
-                            )}
-                            <span className="font-mono font-bold text-slate-900 text-xs">
-                              {item.material_code}
-                            </span>
-                            {item.is_derived && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 text-[9px] font-black tracking-wide px-1.5 py-0 flex items-center gap-1 shadow-xs cursor-help">
-                                    <GitFork className="w-2.5 h-2.5" />🔗{' '}
-                                    {item.tipo_geracao === 'AUTOMATICA'
-                                      ? 'DERIVADA AUTO'
-                                      : 'DERIVADA'}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
-                                >
-                                  <p className="font-bold text-blue-300 flex items-center gap-1">
-                                    <GitFork className="w-3.5 h-3.5" /> Programação Derivada
-                                  </p>
-                                  <div className="text-[11px] text-slate-200 space-y-0.5">
-                                    <p>
-                                      <strong>Origem:</strong> Centro{' '}
-                                      {item.centro_origem || 'Origem'}
-                                    </p>
-                                    <p>
-                                      <strong>Destino:</strong> Centro{' '}
-                                      {item.centro_destino || item.line_code}
-                                    </p>
-                                    <p>
-                                      <strong>MATKL:</strong> {item.matkl || '001'}
-                                    </p>
-                                    <p>
-                                      <strong>Quantidade:</strong>{' '}
-                                      {item.quantidade_derivada || item.planned_quantity_tons} t
-                                    </p>
-                                    <p>
-                                      <strong>Status:</strong> {item.derivation_status || 'ATIVA'}
-                                    </p>
-                                    <p>
-                                      <strong>Regra:</strong>{' '}
-                                      {item.derivation_metadata?.regra_resumo ||
-                                        `${item.centro_origem || 'L2'} → ${item.centro_destino || 'ACAB_L2'}`}
-                                    </p>
-                                    <p>
-                                      <strong>Geração:</strong>{' '}
-                                      {item.tipo_geracao === 'AUTOMATICA' ? 'Automática' : 'Manual'}
-                                    </p>
-                                    <p>
-                                      <strong>Data:</strong>{' '}
-                                      {item.derivation_metadata?.data_hora_geracao || item.created
-                                        ? new Date(item.created || '').toLocaleString('pt-BR')
-                                        : '24/08/2026 08:00'}
-                                    </p>
-                                    {item.origem_programacao_id && (
-                                      <p className="text-[10px] text-blue-300 pt-1 border-t border-slate-700">
-                                        Programação Origem: #{item.origem_programacao_id}
-                                      </p>
-                                    )}
-                                  </div>
-                                  {onNavigateToLine && item.centro_origem && (
-                                    <div className="pt-1.5 border-t border-slate-700">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          onNavigateToLine(item.centro_origem!)
-                                        }}
-                                        className="text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1"
-                                      >
-                                        Ver Programação de Origem ({item.centro_origem}) &rarr;
-                                      </button>
-                                    </div>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {!item.is_derived && item.metadata?.derivada_gerada && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 text-[9px] font-bold px-1.5 py-0 flex items-center gap-1 shadow-2xs cursor-help">
-                                    <GitFork className="w-2.5 h-2.5 text-amber-600" />
-                                    ORIGEM DERIVADA
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
-                                >
-                                  <p className="font-bold text-amber-300 flex items-center gap-1">
-                                    <GitFork className="w-3.5 h-3.5" /> Item de Origem Vinculado
-                                  </p>
-                                  <p className="text-[11px] text-slate-200">
-                                    Este produto originou uma programação no centro derivado{' '}
-                                    <strong>{item.metadata?.centro_destino || 'ACAB_L2'}</strong>.
-                                  </p>
-                                  {onNavigateToLine && item.metadata?.centro_destino && (
-                                    <div className="pt-1.5 border-t border-slate-700">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          onNavigateToLine(item.metadata!.centro_destino)
-                                        }}
-                                        className="text-[11px] font-bold text-blue-300 hover:text-blue-200 hover:underline flex items-center gap-1"
-                                      >
-                                        Ver Derivação ({item.metadata.centro_destino}) &rarr;
-                                      </button>
-                                    </div>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {item.cooling_validation?.hasViolation && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
-                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />⚠ NÃO
-                                    ATENDIDO
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
-                                >
-                                  <p className="font-bold text-rose-300">
-                                    Tempo de Resfriamento Não Atendido:
-                                  </p>
-                                  <p className="text-[11px] text-slate-200 mt-0.5">
-                                    {item.cooling_validation.message ||
-                                      'O tempo mínimo de resfriamento entre etapas não foi atendido.'}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {item.deviation_analysis?.hasDeviation && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
-                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
-                                    DESVIO REGRA
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
-                                >
-                                  <p className="font-bold text-rose-300">Desvio Detectado:</p>
-                                  <p className="text-[11px] text-slate-200 mt-0.5">
-                                    {item.deviation_analysis.deviationDetails}
-                                  </p>
-                                  <p className="text-[10px] text-amber-300 mt-1 font-mono">
-                                    Status:{' '}
-                                    {item.exception_approval_status === 'APPROVED'
-                                      ? 'Aprovado pelo Supervisor'
-                                      : 'Pendente de Aprovação PCP'}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            {isAwaiting && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black uppercase px-1.5 py-0 shadow-xs flex items-center gap-1 cursor-help">
-                                    <AlertTriangle className="w-2.5 h-2.5 text-slate-950 font-black" />
-                                    Aguardando Observações
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                  side="top"
-                                  className="bg-slate-900 text-white text-xs max-w-xs p-2.5"
-                                >
-                                  <p className="font-bold text-amber-300">
-                                    {item.awaiting_observations?.reason || 'Aguardando Observações'}
-                                  </p>
-                                  <p className="text-[11px] text-slate-200 mt-1">
-                                    {item.awaiting_observations?.observation ||
-                                      'Item retido na programação aguardando validação.'}
-                                  </p>
-                                  <div className="mt-1.5 pt-1.5 border-t border-slate-700 text-[10px] text-slate-400 font-mono">
-                                    Resp: {item.awaiting_observations?.responsible || 'PCP'}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-slate-600 line-clamp-1">
-                            {item.material_description ||
-                              (isStop ? item.stop_description : 'Produto Cadastrado')}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Aço / Bitola */}
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-[11px] text-slate-700">
-                        {item.dimensions || item.steel_grade || '--'}
-                      </td>
-
-                      {/* Quantidade em Toneladas (t) */}
-                      <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
-                        {!isStop ? (
-                          <span className="font-bold text-slate-900 text-xs">
-                            {item.planned_quantity_tons.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 1,
-                            })}{' '}
-                            <span className="text-[10px] text-slate-500 font-sans font-bold">
-                              t
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">--</span>
-                        )}
-                      </td>
-
-                      {/* Cadência da Ficha Mestre */}
-                      <td className="py-2 px-3 text-right font-mono whitespace-nowrap text-slate-700">
-                        {!isStop ? (
-                          <span>{item.productivity_rate_th} t/h</span>
-                        ) : (
-                          <span className="text-slate-400">--</span>
-                        )}
-                      </td>
-
-                      {/* Horas Produtivas */}
-                      <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
-                        {!isStop ? (
-                          <span className="font-bold text-emerald-800">
-                            {item.production_hours.toFixed(2)} h
-                          </span>
-                        ) : (
-                          <span className="font-bold text-amber-800">
-                            {((item.stop_duration_minutes || 60) / 60).toFixed(2)} h
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Setup / Troca com Tooltip Explicativo da Ficha Mestre */}
-                      <td className="py-2 px-3 whitespace-nowrap">
-                        {!isStop && item.setup_duration_minutes > 0 ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded cursor-help transition-colors">
-                                <Clock className="w-2.5 h-2.5 text-amber-600" />
-                                <span className="font-mono font-bold text-[11px]">
-                                  {item.setup_duration_minutes} min
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {grp.dateStr || item.date_str || '24/08'}
                                 </span>
                               </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              className="bg-slate-900 text-white text-xs max-w-xs p-2"
+                            </td>
+                          )}
+
+                          {/* Turno Compacto: rowspan visual vertical apenas na primeira linha do grupo DIA+TURNO */}
+                          {isGroupFirst && (
+                            <td
+                              rowSpan={groupSpan}
+                              className="py-2 px-2 whitespace-nowrap text-center align-middle border-r border-slate-200 bg-white"
                             >
-                              <p className="font-bold text-amber-300">
-                                Tempo de Setup Conforme Ficha Mestre:
-                              </p>
-                              <p className="text-[11px] text-slate-200 mt-0.5">
-                                {item.setup_reason ||
-                                  'Troca de ferramentas e regulagem de trem de laminação.'}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : !isStop ? (
-                          <span className="text-[11px] text-slate-400 font-mono">
-                            0 min (Mesmo lote)
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 font-mono">--</span>
-                        )}
-                      </td>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs cursor-help inline-block">
+                                    {WeeklyScheduleEngine.formatShiftCodeOnly(
+                                      grp.shiftName || item.shift_name,
+                                      grp.shiftCode || item.shift_code,
+                                    )}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs p-2"
+                                >
+                                  <p className="font-bold text-amber-300">
+                                    {WeeklyScheduleEngine.getShiftTooltipDetails(
+                                      grp.shiftName || item.shift_name,
+                                      grp.shiftCode || item.shift_code,
+                                      grp.crewName || item.crew_name,
+                                    )}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </td>
+                          )}
 
-                      {/* Ordem / Pedido MTO */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap font-mono text-[11px] text-slate-600">
-                        {item.production_order ||
-                          item.sales_order_mto ||
-                          (item.customer_name ? item.customer_name.substring(0, 12) : '--')}
-                      </td>
+                          {/* Linha do Tempo: Início -> Fim */}
+                          <td className="py-2 px-3 font-mono whitespace-nowrap">
+                            <div className="flex items-center gap-1 text-slate-800">
+                              <span className="font-bold text-[#004C97]">{startHour}</span>
+                              <span className="text-slate-400">&rarr;</span>
+                              <span className="font-bold text-slate-700">{endHour}</span>
+                            </div>
+                          </td>
 
-                      {/* Necessidade de Matéria-Prima (com Tooltip Explicativo da Regra) */}
-                      <td className="py-2 px-3 text-right font-mono whitespace-nowrap text-indigo-950 font-bold">
-                        {!isStop && item.raw_material_calc ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="inline-flex items-center gap-1 cursor-help justify-end">
-                                <span>
-                                  {item.raw_material_req_tons.toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 1,
-                                  })}
+                          {/* Tipo */}
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            {isTestIndustrial ? (
+                              <Badge className="bg-purple-100 text-purple-950 border-purple-300 text-[10px] font-black flex items-center gap-1 shadow-xs">
+                                <FlaskConical className="w-3 h-3 text-purple-700" />
+                                TESTE IND.
+                              </Badge>
+                            ) : isStop ? (
+                              <Badge className="bg-orange-100 text-orange-950 border-orange-300 text-[10px] font-bold">
+                                <Wrench className="w-2.5 h-2.5 mr-1" />
+                                Parada
+                              </Badge>
+                            ) : isMto ? (
+                              <Badge className="bg-amber-100 text-amber-950 border-amber-300 text-[10px] font-bold">
+                                MTO
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-100 text-emerald-950 border-emerald-300 text-[10px] font-bold">
+                                MTS
+                              </Badge>
+                            )}
+                          </td>
+
+                          {/* Material / Produto SAP */}
+                          <td className="py-2 px-3">
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {isTestIndustrial && (
+                                  <Badge className="bg-purple-600 text-white font-mono text-[10px] font-black px-1.5 py-0">
+                                    {item.test_code || item.material_code}
+                                  </Badge>
+                                )}
+                                <span className="font-mono font-bold text-slate-900 text-xs">
+                                  {item.material_code}
                                 </span>
+                                {item.is_derived && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-blue-700 text-[9px] font-black tracking-wide px-1.5 py-0 flex items-center gap-1 shadow-xs cursor-help">
+                                        <GitFork className="w-2.5 h-2.5" />🔗{' '}
+                                        {item.tipo_geracao === 'AUTOMATICA'
+                                          ? 'DERIVADA AUTO'
+                                          : 'DERIVADA'}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
+                                    >
+                                      <p className="font-bold text-blue-300 flex items-center gap-1">
+                                        <GitFork className="w-3.5 h-3.5" /> Programação Derivada
+                                      </p>
+                                      <div className="text-[11px] text-slate-200 space-y-0.5">
+                                        <p>
+                                          <strong>Origem:</strong> Centro{' '}
+                                          {item.centro_origem || 'Origem'}
+                                        </p>
+                                        <p>
+                                          <strong>Destino:</strong> Centro{' '}
+                                          {item.centro_destino || item.line_code}
+                                        </p>
+                                        <p>
+                                          <strong>MATKL:</strong> {item.matkl || '001'}
+                                        </p>
+                                        <p>
+                                          <strong>Quantidade:</strong>{' '}
+                                          {item.quantidade_derivada || item.planned_quantity_tons} t
+                                        </p>
+                                        <p>
+                                          <strong>Status:</strong>{' '}
+                                          {item.derivation_status || 'ATIVA'}
+                                        </p>
+                                        <p>
+                                          <strong>Regra:</strong>{' '}
+                                          {item.derivation_metadata?.regra_resumo ||
+                                            `${item.centro_origem || 'L2'} → ${item.centro_destino || 'ACAB_L2'}`}
+                                        </p>
+                                        <p>
+                                          <strong>Geração:</strong>{' '}
+                                          {item.tipo_geracao === 'AUTOMATICA'
+                                            ? 'Automática'
+                                            : 'Manual'}
+                                        </p>
+                                        <p>
+                                          <strong>Data:</strong>{' '}
+                                          {item.derivation_metadata?.data_hora_geracao ||
+                                          item.created
+                                            ? new Date(item.created || '').toLocaleString('pt-BR')
+                                            : '24/08/2026 08:00'}
+                                        </p>
+                                        {item.origem_programacao_id && (
+                                          <p className="text-[10px] text-blue-300 pt-1 border-t border-slate-700">
+                                            Programação Origem: #{item.origem_programacao_id}
+                                          </p>
+                                        )}
+                                      </div>
+                                      {onNavigateToLine && item.centro_origem && (
+                                        <div className="pt-1.5 border-t border-slate-700">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              onNavigateToLine(item.centro_origem!)
+                                            }}
+                                            className="text-[11px] font-bold text-amber-300 hover:text-amber-200 hover:underline flex items-center gap-1"
+                                          >
+                                            Ver Programação de Origem ({item.centro_origem}) &rarr;
+                                          </button>
+                                        </div>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {!item.is_derived && item.metadata?.derivada_gerada && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 text-[9px] font-bold px-1.5 py-0 flex items-center gap-1 shadow-2xs cursor-help">
+                                        <GitFork className="w-2.5 h-2.5 text-amber-600" />
+                                        ORIGEM DERIVADA
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs max-w-sm p-2.5 space-y-1"
+                                    >
+                                      <p className="font-bold text-amber-300 flex items-center gap-1">
+                                        <GitFork className="w-3.5 h-3.5" /> Item de Origem Vinculado
+                                      </p>
+                                      <p className="text-[11px] text-slate-200">
+                                        Este produto originou uma programação no centro derivado{' '}
+                                        <strong>
+                                          {item.metadata?.centro_destino || 'ACAB_L2'}
+                                        </strong>
+                                        .
+                                      </p>
+                                      {onNavigateToLine && item.metadata?.centro_destino && (
+                                        <div className="pt-1.5 border-t border-slate-700">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              onNavigateToLine(item.metadata!.centro_destino)
+                                            }}
+                                            className="text-[11px] font-bold text-blue-300 hover:text-blue-200 hover:underline flex items-center gap-1"
+                                          >
+                                            Ver Derivação ({item.metadata.centro_destino}) &rarr;
+                                          </button>
+                                        </div>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {item.cooling_validation?.hasViolation && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />⚠ NÃO
+                                        ATENDIDO
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
+                                    >
+                                      <p className="font-bold text-rose-300">
+                                        Tempo de Resfriamento Não Atendido:
+                                      </p>
+                                      <p className="text-[11px] text-slate-200 mt-0.5">
+                                        {item.cooling_validation.message ||
+                                          'O tempo mínimo de resfriamento entre etapas não foi atendido.'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {item.deviation_analysis?.hasDeviation && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[9px] font-bold px-1 py-0 cursor-help flex items-center gap-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                                        DESVIO REGRA
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs max-w-sm p-2.5"
+                                    >
+                                      <p className="font-bold text-rose-300">Desvio Detectado:</p>
+                                      <p className="text-[11px] text-slate-200 mt-0.5">
+                                        {item.deviation_analysis.deviationDetails}
+                                      </p>
+                                      <p className="text-[10px] text-amber-300 mt-1 font-mono">
+                                        Status:{' '}
+                                        {item.exception_approval_status === 'APPROVED'
+                                          ? 'Aprovado pelo Supervisor'
+                                          : 'Pendente de Aprovação PCP'}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {isAwaiting && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black uppercase px-1.5 py-0 shadow-xs flex items-center gap-1 cursor-help">
+                                        <AlertTriangle className="w-2.5 h-2.5 text-slate-950 font-black" />
+                                        Aguardando Observações
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      className="bg-slate-900 text-white text-xs max-w-xs p-2.5"
+                                    >
+                                      <p className="font-bold text-amber-300">
+                                        {item.awaiting_observations?.reason ||
+                                          'Aguardando Observações'}
+                                      </p>
+                                      <p className="text-[11px] text-slate-200 mt-1">
+                                        {item.awaiting_observations?.observation ||
+                                          'Item retido na programação aguardando validação.'}
+                                      </p>
+                                      <div className="mt-1.5 pt-1.5 border-t border-slate-700 text-[10px] text-slate-400 font-mono">
+                                        Resp: {item.awaiting_observations?.responsible || 'PCP'}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-600 line-clamp-1">
+                                {item.material_description ||
+                                  (isStop ? item.stop_description : 'Produto Cadastrado')}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Aço / Bitola */}
+                          <td className="py-2 px-3 whitespace-nowrap font-mono text-[11px] text-slate-700">
+                            {item.dimensions || item.steel_grade || '--'}
+                          </td>
+
+                          {/* Quantidade em Toneladas (t) */}
+                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                            {!isStop ? (
+                              <span className="font-bold text-slate-900 text-xs">
+                                {item.planned_quantity_tons.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 1,
+                                })}{' '}
                                 <span className="text-[10px] text-slate-500 font-sans font-bold">
                                   t
                                 </span>
-                                <HelpCircle className="w-3 h-3 text-slate-400" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
-                            >
-                              <p className="font-bold text-blue-300">
-                                Regra de Cálculo de Matéria-Prima:
-                              </p>
-                              <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">
-                                {item.raw_material_calc.calculationRuleExplanation}
-                              </p>
-                              <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between text-[10px] text-slate-300 font-mono">
-                                <span>Rendimento: {item.raw_material_calc.yieldPct}%</span>
-                                <span>Perda: {item.raw_material_calc.lossPct}%</span>
-                                <span>
-                                  Tarugos: ~{item.raw_material_calc.estimatedBilletsCount} un
-                                </span>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : !isStop ? (
-                          <span>
-                            {item.raw_material_req_tons.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 1,
-                            })}{' '}
-                            <span className="text-[10px] text-slate-500 font-sans font-bold">
-                              t
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">--</span>
-                        )}
-                      </td>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">--</span>
+                            )}
+                          </td>
 
-                      {/* Semáforo de MP (Verde / Amarelo / Vermelho com Déficit e Ruptura) */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        {!isStop && item.raw_material_calc ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex flex-col items-center">
-                                {item.raw_material_calc.status === 'GREEN' && (
-                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                                    🟢 GARANTIDA
-                                  </Badge>
-                                )}
-                                {item.raw_material_calc.status === 'YELLOW' && (
-                                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
-                                    <span className="w-2 h-2 rounded-full bg-amber-500" />🟡 COM
-                                    RISCO
-                                  </Badge>
-                                )}
-                                {item.raw_material_calc.status === 'RED' && (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit animate-pulse shadow-xs">
-                                      <AlertCircle className="w-3 h-3 text-rose-600" />🔴
-                                      INSUFICIENTE
-                                    </Badge>
-                                    <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1 rounded border border-rose-200">
-                                      -{item.raw_material_calc.deficitTons.toLocaleString('pt-BR')}{' '}
+                          {/* Cadência da Ficha Mestre */}
+                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap text-slate-700">
+                            {!isStop ? (
+                              <span>{item.productivity_rate_th} t/h</span>
+                            ) : (
+                              <span className="text-slate-400">--</span>
+                            )}
+                          </td>
+
+                          {/* Horas Produtivas */}
+                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                            {!isStop ? (
+                              <span className="font-bold text-emerald-800">
+                                {item.production_hours.toFixed(2)} h
+                              </span>
+                            ) : (
+                              <span className="font-bold text-amber-800">
+                                {((item.stop_duration_minutes || 60) / 60).toFixed(2)} h
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Setup / Troca com Tooltip Explicativo da Ficha Mestre */}
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            {!isStop && item.setup_duration_minutes > 0 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded cursor-help transition-colors">
+                                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                                    <span className="font-mono font-bold text-[11px]">
+                                      {item.setup_duration_minutes} min
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-xs p-2"
+                                >
+                                  <p className="font-bold text-amber-300">
+                                    Tempo de Setup Conforme Ficha Mestre:
+                                  </p>
+                                  <p className="text-[11px] text-slate-200 mt-0.5">
+                                    {item.setup_reason ||
+                                      'Troca de ferramentas e regulagem de trem de laminação.'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : !isStop ? (
+                              <span className="text-[11px] text-slate-400 font-mono">
+                                0 min (Mesmo lote)
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-mono">--</span>
+                            )}
+                          </td>
+
+                          {/* Ordem / Pedido MTO */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap font-mono text-[11px] text-slate-600">
+                            {item.production_order ||
+                              item.sales_order_mto ||
+                              (item.customer_name ? item.customer_name.substring(0, 12) : '--')}
+                          </td>
+
+                          {/* Necessidade de Matéria-Prima (com Tooltip Explicativo da Regra) */}
+                          <td className="py-2 px-3 text-right font-mono whitespace-nowrap text-indigo-950 font-bold">
+                            {!isStop && item.raw_material_calc ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="inline-flex items-center gap-1 cursor-help justify-end">
+                                    <span>
+                                      {item.raw_material_req_tons.toLocaleString('pt-BR', {
+                                        minimumFractionDigits: 1,
+                                      })}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-sans font-bold">
                                       t
                                     </span>
+                                    <HelpCircle className="w-3 h-3 text-slate-400" />
                                   </div>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
-                            >
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <p
-                                    className={`font-bold ${
-                                      item.raw_material_calc.status === 'GREEN'
-                                        ? 'text-emerald-400'
-                                        : item.raw_material_calc.status === 'YELLOW'
-                                          ? 'text-amber-400'
-                                          : 'text-rose-400'
-                                    }`}
-                                  >
-                                    {item.raw_material_calc.statusLabel}
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
+                                >
+                                  <p className="font-bold text-blue-300">
+                                    Regra de Cálculo de Matéria-Prima:
                                   </p>
-                                  {item.raw_material_calc.probableRuptureDate && (
-                                    <span className="text-[10px] font-mono text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded border border-rose-800">
-                                      Ruptura: {item.raw_material_calc.probableRuptureDate}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-slate-200 leading-relaxed">
-                                  {item.raw_material_calc.statusReason}
-                                </p>
-                                <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-300 font-mono space-y-0.5">
-                                  <div className="flex justify-between">
-                                    <span>Estoque Físico SAP/WMS:</span>
-                                    <span className="text-white font-bold">
-                                      {item.raw_material_calc.currentSapStockTons} t
+                                  <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">
+                                    {item.raw_material_calc.calculationRuleExplanation}
+                                  </p>
+                                  <div className="mt-2 pt-2 border-t border-slate-700 flex justify-between text-[10px] text-slate-300 font-mono">
+                                    <span>Rendimento: {item.raw_material_calc.yieldPct}%</span>
+                                    <span>Perda: {item.raw_material_calc.lossPct}%</span>
+                                    <span>
+                                      Tarugos: ~{item.raw_material_calc.estimatedBilletsCount} un
                                     </span>
                                   </div>
-                                  <div className="flex justify-between">
-                                    <span>Entrada Pedidos Compra (PO):</span>
-                                    <span className="text-white font-bold">
-                                      {item.raw_material_calc.confirmedPoTons} t
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Produção Upstream Linhas:</span>
-                                    <span className="text-white font-bold">
-                                      {item.raw_material_calc.upstreamProductionTons} t
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Consumo Próprio Anterior:</span>
-                                    <span className="text-amber-300 font-bold">
-                                      {item.raw_material_calc.priorOwnLineConsumptionTons} t
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between pt-1 border-t border-slate-800">
-                                    <span>Saldo Projetado na Data:</span>
-                                    <span
-                                      className={`font-bold ${
-                                        item.raw_material_calc.projectedBalanceTons >= 0
-                                          ? 'text-emerald-400'
-                                          : 'text-rose-400'
-                                      }`}
-                                    >
-                                      {item.raw_material_calc.projectedBalanceTons} t
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">--</span>
-                        )}
-                      </td>
-
-                      {/* Indicador Operacional de Inventário MP (FRIO / L1) */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        {(() => {
-                          const enfType = (
-                            (item as any).enfornamento_type ||
-                            (item as any).enfornamentoType ||
-                            'FRIO'
-                          ).toUpperCase()
-                          if (isStop || enfType !== 'FRIO') {
-                            return (
-                              <span className="text-[10px] text-slate-300 font-mono">
-                                N/A ({enfType})
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : !isStop ? (
+                              <span>
+                                {item.raw_material_req_tons.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 1,
+                                })}{' '}
+                                <span className="text-[10px] text-slate-500 font-sans font-bold">
+                                  t
+                                </span>
                               </span>
-                            )
-                          }
+                            ) : (
+                              <span className="text-slate-400">--</span>
+                            )}
+                          </td>
 
-                          // Badges com cores operacionais conforme Requisito 8:
-                          // 🟡 aguardando, 🔵 em preparação, 🟠 divergência, 🔴 risco de atraso, 🟢 pronto
-                          return (
-                            <Link
-                              to="/pcp/sequenciamento/inventario-mp"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 group hover:opacity-90"
-                              title="Clique para abrir detalhes do Inventário de Matéria-Prima (DP07 / L1)"
-                            >
-                              <Badge className="bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 text-[9px] font-bold py-0.5 px-1.5 flex items-center gap-1 cursor-pointer shadow-2xs transition-all">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                <span>Inventário MP</span>
-                              </Badge>
-                            </Link>
-                          )
-                        })()}
-                      </td>
-
-                      {/* Status da Atividade */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        {isAwaiting ? (
-                          <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black">
-                            Aguard. Obs.
-                          </Badge>
-                        ) : item.exception_approval_status === 'PENDING_SUPERVISOR' ? (
-                          <Badge className="bg-amber-100 text-amber-900 border-amber-400 text-[9px] font-bold">
-                            Pend. PCP
-                          </Badge>
-                        ) : item.exception_approval_status === 'APPROVED' ? (
-                          <Badge className="bg-emerald-100 text-emerald-900 border-emerald-400 text-[9px] font-bold">
-                            Aprovado PCP
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">
-                            {item.status || 'Rascunho'}
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Ações (Mover, Duplicar, Aguardando Observações, Remover) */}
-                      <td className="py-2 px-3 text-center whitespace-nowrap">
-                        <div
-                          className="flex items-center justify-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {isLockedExternally ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded flex items-center gap-1 cursor-help">
-                                  <Lock className="w-3 h-3 text-purple-600" /> Controlado na Origem
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                className="bg-slate-900 text-white text-xs max-w-xs"
-                              >
-                                Teste Industrial controlado pela Programação de Testes. Alterações
-                                devem ser feitas na tela de Programação de Testes.
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled={originalIndex === 0}
-                                onClick={() => onMoveUp(originalIndex)}
-                                title="Mover para Cima (Recalcular)"
-                                className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={originalIndex === items.length - 1}
-                                onClick={() => onMoveDown(originalIndex)}
-                                title="Mover para Baixo (Recalcular)"
-                                className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
-                              {onEditItem && !isPast && (
-                                <button
-                                  type="button"
-                                  onClick={() => onEditItem(item)}
-                                  title="Editar"
-                                  className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
+                          {/* Semáforo de MP (Verde / Amarelo / Vermelho com Déficit e Ruptura) */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            {!isStop && item.raw_material_calc ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex flex-col items-center">
+                                    {item.raw_material_calc.status === 'GREEN' && (
+                                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                                        🟢 GARANTIDA
+                                      </Badge>
+                                    )}
+                                    {item.raw_material_calc.status === 'YELLOW' && (
+                                      <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit shadow-xs">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500" />🟡 COM
+                                        RISCO
+                                      </Badge>
+                                    )}
+                                    {item.raw_material_calc.status === 'RED' && (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-[10px] font-bold flex items-center gap-1 cursor-help mx-auto w-fit animate-pulse shadow-xs">
+                                          <AlertCircle className="w-3 h-3 text-rose-600" />🔴
+                                          INSUFICIENTE
+                                        </Badge>
+                                        <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1 rounded border border-rose-200">
+                                          -
+                                          {item.raw_material_calc.deficitTons.toLocaleString(
+                                            'pt-BR',
+                                          )}{' '}
+                                          t
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="bg-slate-900 text-white text-xs max-w-sm p-3 shadow-xl"
                                 >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              {!isPast ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onRemove(item)}
-                                  title="Eliminar"
-                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <span
-                                  title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
-                                  className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
-                                >
-                                  🔒 Bloqueado
-                                </span>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200">
-                                    <MoreVertical className="w-3.5 h-3.5" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="text-xs bg-white border-slate-200 text-slate-800 shadow-xl"
-                                >
-                                  {onOpenAwaitingObservationsModal && (
-                                    <DropdownMenuItem
-                                      onClick={() => onOpenAwaitingObservationsModal(item)}
-                                      className="text-amber-800 focus:text-amber-900 focus:bg-amber-50 font-semibold"
-                                    >
-                                      <AlertTriangle className="w-3.5 h-3.5 mr-2 text-amber-600" />
-                                      {isAwaiting
-                                        ? 'Editar Aguardando Observações'
-                                        : 'Aguardando Observações...'}
-                                    </DropdownMenuItem>
-                                  )}
-                                  {onEditItem && !isPast && (
-                                    <DropdownMenuItem
-                                      onClick={() => onEditItem(item)}
-                                      className="text-[#004C97] font-semibold"
-                                    >
-                                      <Edit3 className="w-3.5 h-3.5 mr-2" />
-                                      Editar Parâmetros / Horários
-                                    </DropdownMenuItem>
-                                  )}
-                                  {!isPast && (
-                                    <DropdownMenuItem onClick={() => onDuplicate(originalIndex)}>
-                                      <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                                      Duplicar Atividade
-                                    </DropdownMenuItem>
-                                  )}
-                                  {!isPast && <DropdownMenuSeparator />}
-                                  {!isPast && (
-                                    <DropdownMenuItem
-                                      onClick={() => onRemove(originalIndex)}
-                                      className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                      Remover da Programação
-                                    </DropdownMenuItem>
-                                  )}
-                                  {isPast && (
-                                    <div className="p-2 text-[10px] text-amber-700 italic">
-                                      {TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <p
+                                        className={`font-bold ${
+                                          item.raw_material_calc.status === 'GREEN'
+                                            ? 'text-emerald-400'
+                                            : item.raw_material_calc.status === 'YELLOW'
+                                              ? 'text-amber-400'
+                                              : 'text-rose-400'
+                                        }`}
+                                      >
+                                        {item.raw_material_calc.statusLabel}
+                                      </p>
+                                      {item.raw_material_calc.probableRuptureDate && (
+                                        <span className="text-[10px] font-mono text-rose-300 bg-rose-950 px-1.5 py-0.5 rounded border border-rose-800">
+                                          Ruptura: {item.raw_material_calc.probableRuptureDate}
+                                        </span>
+                                      )}
                                     </div>
+                                    <p className="text-[11px] text-slate-200 leading-relaxed">
+                                      {item.raw_material_calc.statusReason}
+                                    </p>
+                                    <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-300 font-mono space-y-0.5">
+                                      <div className="flex justify-between">
+                                        <span>Estoque Físico SAP/WMS:</span>
+                                        <span className="text-white font-bold">
+                                          {item.raw_material_calc.currentSapStockTons} t
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Entrada Pedidos Compra (PO):</span>
+                                        <span className="text-white font-bold">
+                                          {item.raw_material_calc.confirmedPoTons} t
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Produção Upstream Linhas:</span>
+                                        <span className="text-white font-bold">
+                                          {item.raw_material_calc.upstreamProductionTons} t
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Consumo Próprio Anterior:</span>
+                                        <span className="text-amber-300 font-bold">
+                                          {item.raw_material_calc.priorOwnLineConsumptionTons} t
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between pt-1 border-t border-slate-800">
+                                        <span>Saldo Projetado na Data:</span>
+                                        <span
+                                          className={`font-bold ${
+                                            item.raw_material_calc.projectedBalanceTons >= 0
+                                              ? 'text-emerald-400'
+                                              : 'text-rose-400'
+                                          }`}
+                                        >
+                                          {item.raw_material_calc.projectedBalanceTons} t
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">--</span>
+                            )}
+                          </td>
+
+                          {/* Indicador Operacional de Inventário MP (FRIO / L1) */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            {(() => {
+                              const enfType = (
+                                (item as any).enfornamento_type ||
+                                (item as any).enfornamentoType ||
+                                'FRIO'
+                              ).toUpperCase()
+                              if (isStop || enfType !== 'FRIO') {
+                                return (
+                                  <span className="text-[10px] text-slate-300 font-mono">
+                                    N/A ({enfType})
+                                  </span>
+                                )
+                              }
+
+                              // Badges com cores operacionais conforme Requisito 8:
+                              // 🟡 aguardando, 🔵 em preparação, 🟠 divergência, 🔴 risco de atraso, 🟢 pronto
+                              return (
+                                <Link
+                                  to="/pcp/sequenciamento/inventario-mp"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 group hover:opacity-90"
+                                  title="Clique para abrir detalhes do Inventário de Matéria-Prima (DP07 / L1)"
+                                >
+                                  <Badge className="bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 text-[9px] font-bold py-0.5 px-1.5 flex items-center gap-1 cursor-pointer shadow-2xs transition-all">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                    <span>Inventário MP</span>
+                                  </Badge>
+                                </Link>
+                              )
+                            })()}
+                          </td>
+
+                          {/* Status da Atividade */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            {isAwaiting ? (
+                              <Badge className="bg-amber-400 text-slate-950 border-amber-500 text-[9px] font-black">
+                                Aguard. Obs.
+                              </Badge>
+                            ) : item.exception_approval_status === 'PENDING_SUPERVISOR' ? (
+                              <Badge className="bg-amber-100 text-amber-900 border-amber-400 text-[9px] font-bold">
+                                Pend. PCP
+                              </Badge>
+                            ) : item.exception_approval_status === 'APPROVED' ? (
+                              <Badge className="bg-emerald-100 text-emerald-900 border-emerald-400 text-[9px] font-bold">
+                                Aprovado PCP
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-slate-100 text-slate-800 border-slate-300 text-[9px] font-bold">
+                                {item.status || 'Rascunho'}
+                              </Badge>
+                            )}
+                          </td>
+
+                          {/* Ações (Mover, Duplicar, Aguardando Observações, Remover) */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            <div
+                              className="flex items-center justify-center gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {isLockedExternally ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded flex items-center gap-1 cursor-help">
+                                      <Lock className="w-3 h-3 text-purple-600" /> Controlado na
+                                      Origem
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    className="bg-slate-900 text-white text-xs max-w-xs"
+                                  >
+                                    Teste Industrial controlado pela Programação de Testes.
+                                    Alterações devem ser feitas na tela de Programação de Testes.
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={originalIndex === 0}
+                                    onClick={() => onMoveUp(originalIndex)}
+                                    title="Mover para Cima (Recalcular)"
+                                    className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={originalIndex === items.length - 1}
+                                    onClick={() => onMoveDown(originalIndex)}
+                                    title="Mover para Baixo (Recalcular)"
+                                    className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200 disabled:opacity-30"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Botão de Edição (Lápis) com Lixeira Imediatamente ao Lado */}
+                                  {onEditItem && !isPast && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onEditItem(item)}
+                                      title="Editar"
+                                      className="p-1 rounded text-slate-500 hover:text-[#004C97] hover:bg-blue-50 transition-colors"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
                                   )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                                  {!isPast ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onRemove(item)}
+                                      title="Eliminar"
+                                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span
+                                      title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                      className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                                    >
+                                      🔒 Bloqueado
+                                    </span>
+                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <button className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-200">
+                                        <MoreVertical className="w-3.5 h-3.5" />
+                                      </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="text-xs bg-white border-slate-200 text-slate-800 shadow-xl"
+                                    >
+                                      {onOpenAwaitingObservationsModal && (
+                                        <DropdownMenuItem
+                                          onClick={() => onOpenAwaitingObservationsModal(item)}
+                                          className="text-amber-800 focus:text-amber-900 focus:bg-amber-50 font-semibold"
+                                        >
+                                          <AlertTriangle className="w-3.5 h-3.5 mr-2 text-amber-600" />
+                                          {isAwaiting
+                                            ? 'Editar Aguardando Observações'
+                                            : 'Aguardando Observações...'}
+                                        </DropdownMenuItem>
+                                      )}
+                                      {onEditItem && !isPast && (
+                                        <DropdownMenuItem
+                                          onClick={() => onEditItem(item)}
+                                          className="text-[#004C97] font-semibold"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5 mr-2" />
+                                          Editar Parâmetros / Horários
+                                        </DropdownMenuItem>
+                                      )}
+                                      {!isPast && (
+                                        <DropdownMenuItem
+                                          onClick={() => onDuplicate(originalIndex)}
+                                        >
+                                          <Copy className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                                          Duplicar Atividade
+                                        </DropdownMenuItem>
+                                      )}
+                                      {!isPast && <DropdownMenuSeparator />}
+                                      {!isPast && (
+                                        <DropdownMenuItem
+                                          onClick={() => onRemove(originalIndex)}
+                                          className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                          Remover da Programação
+                                        </DropdownMenuItem>
+                                      )}
+                                      {isPast && (
+                                        <div className="p-2 text-[10px] text-amber-700 italic">
+                                          {TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                        </div>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }),
                   )
-                })
+                })()
               )}
             </tbody>
           </table>

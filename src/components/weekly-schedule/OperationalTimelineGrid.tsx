@@ -663,7 +663,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
 
                   {/* CONTEÚDO EXPANDIDO DO DIA */}
                   {isExpanded && (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-200">
                       {dayItems.length === 0 ? (
                         <div
                           onDragOver={(e) => {
@@ -702,92 +702,56 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                           </button>
                         </div>
                       ) : (
-                        dayItems.map((seg, idx) => {
-                          const {
-                            item,
-                            originalIndex,
-                            segmentStartStr,
-                            segmentEndStr,
-                            isMultiDaySegment,
-                            segmentPartIndex,
-                            totalSegmentParts,
-                          } = seg
-                          const isSelected = selectedItemId === item.id
-                          const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
-                          const isLockedExternally = Boolean(
-                            item.is_locked_externally ||
-                            item.is_origin_test_programming ||
-                            isTestIndustrial,
-                          )
-                          const isStop = item.item_type === 'SCHEDULED_STOP'
-                          const isAwaiting =
-                            item.status === 'AGUARDANDO_OBSERVACOES' ||
-                            item.awaiting_observations?.is_awaiting
-                          const isCoolingViolated = item.cooling_validation?.hasViolation
-                          const startStr = segmentStartStr
-                          const endStr = segmentEndStr
-                          const timelinePos = calculateTimelinePosition(startStr, endStr)
-
-                          return (
-                            <div
-                              key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
-                              draggable={!isLockedExternally}
-                              onDragStart={(e) =>
-                                !isLockedExternally && handleDragStart(e, originalIndex)
+                        (() => {
+                          // Agrupamento preservando a ordem por DIA + TURNO
+                          type ShiftGroup = {
+                            groupKey: string
+                            shiftCode: string
+                            shiftName?: string
+                            crewName?: string
+                            segments: typeof dayItems
+                          }
+                          const shiftGroups: ShiftGroup[] = []
+                          for (const seg of dayItems) {
+                            const shiftCode = seg.item.shift_code || 'T1_L1'
+                            const groupKey = `${dayObj.key}__${shiftCode}`
+                            let grp = shiftGroups[shiftGroups.length - 1]
+                            if (!grp || grp.groupKey !== groupKey) {
+                              grp = {
+                                groupKey,
+                                shiftCode,
+                                shiftName: seg.item.shift_name,
+                                crewName: seg.item.crew_name,
+                                segments: [],
                               }
-                              onDragOver={(e) => handleDragOver(e, originalIndex)}
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                const fromIndex =
-                                  draggedIdx !== null
-                                    ? draggedIdx
-                                    : Number(e.dataTransfer.getData('text/plain'))
-                                if (!isNaN(fromIndex) && onMoveItem) {
-                                  onMoveItem(fromIndex, originalIndex, {
-                                    day_of_week: item.day_of_week || dayObj.key,
-                                    date_str: item.date_str || dayObj.date,
-                                    shift_code: item.shift_code,
-                                    shift_name: item.shift_name,
-                                    crew_name: item.crew_name,
-                                  })
-                                }
-                                setDraggedIdx(null)
-                                setDragOverIdx(null)
-                                setDragValidationMsg(null)
-                              }}
-                              onClick={() => onSelectItem && onSelectItem(item)}
-                              className={`flex min-h-[44px] transition-colors cursor-pointer group ${
-                                dragOverIdx === originalIndex
-                                  ? 'bg-blue-50/80 border-t-2 border-blue-500'
-                                  : ''
-                              } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
+                              shiftGroups.push(grp)
+                            }
+                            grp.segments.push(seg)
+                          }
+
+                          return shiftGroups.map((grp) => (
+                            <div
+                              key={grp.groupKey}
+                              className="flex items-stretch border-b border-slate-200 last:border-b-0"
                             >
-                              {/* Coluna Fixa 1: DIA/DATA COMPACTA (Sticky) */}
-                              <div className="w-[80px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center text-center sticky left-0 z-20 bg-white group-hover:bg-slate-50">
-                                <span className="font-black text-slate-900 text-[11px] flex items-center justify-center gap-1">
+                              {/* Coluna Fixa 1: DIA/DATA COMPACTA FUNDIDA (Sticky left-0, rowspan visual vertical) */}
+                              <div className="w-[80px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs font-semibold text-slate-700 flex flex-col justify-center items-center text-center sticky left-0 z-20 bg-white">
+                                <span className="font-black text-slate-900 text-[11px]">
                                   {dayObj.label}
-                                  {isMultiDaySegment && (
-                                    <span
-                                      title={`Item contínuo dividido entre dias (Parte ${segmentPartIndex + 1}/${totalSegmentParts})`}
-                                      className="text-[9px] bg-purple-100 text-purple-700 px-1 rounded font-mono font-bold"
-                                    >
-                                      P{segmentPartIndex + 1}
-                                    </span>
-                                  )}
                                 </span>
                                 <span className="text-[10px] text-slate-500 font-mono">
                                   {displayDate}
                                 </span>
                               </div>
 
-                              {/* Coluna Fixa 2: TURNO COMPACTO (T1, T2...) COM TOOLTIP DA TURMA COMPLETA (Sticky) */}
+                              {/* Coluna Fixa 2: TURNO COMPACTO FUNDIDO (T1, T2...) (Sticky left-[80px], rowspan visual vertical) */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="w-[70px] shrink-0 px-2 py-1.5 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white group-hover:bg-slate-50 cursor-help">
+                                  <div className="w-[70px] shrink-0 px-2 py-2 border-r border-slate-200 text-xs flex items-center justify-center text-center sticky left-[80px] z-20 bg-white cursor-help">
                                     <span className="font-black text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-[11px]">
                                       {WeeklyScheduleEngine.formatShiftCodeOnly(
-                                        item.shift_name,
-                                        item.shift_code,
+                                        grp.shiftName,
+                                        grp.shiftCode,
                                       )}
                                     </span>
                                   </div>
@@ -798,9 +762,9 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 >
                                   <p className="font-bold text-amber-300">
                                     {WeeklyScheduleEngine.getShiftTooltipDetails(
-                                      item.shift_name,
-                                      item.shift_code,
-                                      item.crew_name,
+                                      grp.shiftName,
+                                      grp.shiftCode,
+                                      grp.crewName,
                                     )}
                                   </p>
                                   <p className="text-[10px] text-slate-300 mt-0.5">
@@ -809,753 +773,902 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                 </TooltipContent>
                               </Tooltip>
 
-                              {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky) */}
-                              <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
-                                <div className="flex items-center gap-0.5">
-                                  {isLockedExternally ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div className="p-1 cursor-not-allowed">
-                                          <Lock className="w-3.5 h-3.5 text-purple-600" />
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="bg-slate-900 text-white text-xs max-w-xs"
-                                      >
-                                        Teste Industrial controlado pela Programação de Testes.
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    <div
-                                      className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
-                                      title="Clique e arraste para alterar a sequência"
-                                    >
-                                      <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
-                                    </div>
-                                  )}
-                                  <span className="font-black text-slate-900 text-[11px]">
-                                    {item.sequence_order || originalIndex + 1}
-                                  </span>
-                                  {draggedIdx === originalIndex && dragOverIdx !== null && (
-                                    <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
-                                      {item.sequence_order} →{' '}
-                                      {items[dragOverIdx]?.sequence_order || dragOverIdx + 1}
-                                    </span>
-                                  )}
-                                  {item.exception_approval_status === 'PENDING_SUPERVISOR' && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="text-xs bg-slate-900 text-amber-200"
-                                      >
-                                        Exceção pendente de aprovação do Supervisor PCP
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* LINHA DO TEMPO COM BLOCO PROPORCIONAL AO TEMPO */}
-                              <div className="flex-1 overflow-x-auto no-scrollbar relative min-w-[720px] p-1 flex items-center">
-                                {/* Linhas verticais de fundo a cada hora */}
-                                <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
-
-                                {/* BLOCOS SEPARADOS E CONTÍGUOS: SETUP (TROCA) E ACERTO COM POSICIONAMENTO PROPORCIONAL REAL */}
-                                {(() => {
-                                  if (isStop) return null
-
-                                  // Setup (Troca Mecânica DE→PARA)
-                                  const setupMin =
-                                    item.setup_breakdown?.planned_change_minutes ??
-                                    item.setup_duration_minutes ??
-                                    0
-                                  const sStartStr = item.setup_start
-                                    ? item.setup_start.includes(' ')
-                                      ? item.setup_start.split(' ')[1].slice(0, 5)
-                                      : item.setup_start.slice(0, 5)
-                                    : ''
-                                  const sEndStr = item.setup_end
-                                    ? item.setup_end.includes(' ')
-                                      ? item.setup_end.split(' ')[1].slice(0, 5)
-                                      : item.setup_end.slice(0, 5)
-                                    : ''
-                                  const hasSetupBlock =
-                                    setupMin > 0 &&
-                                    item.setup_start &&
-                                    item.setup_end &&
-                                    (!isMultiDaySegment || segmentPartIndex === 0)
-                                  const setupPos = hasSetupBlock
-                                    ? calculateTimelinePosition(sStartStr, sEndStr, { minWidth: 3 })
-                                    : null
-
-                                  // Acerto de Bitola
-                                  const tuningMin =
-                                    item.tuning_duration_minutes ??
-                                    item.setup_breakdown?.planned_tuning_minutes ??
-                                    0
-                                  const tStartStr = item.tuning_start
-                                    ? item.tuning_start.includes(' ')
-                                      ? item.tuning_start.split(' ')[1].slice(0, 5)
-                                      : item.tuning_start.slice(0, 5)
-                                    : ''
-                                  const tEndStr = item.tuning_end
-                                    ? item.tuning_end.includes(' ')
-                                      ? item.tuning_end.split(' ')[1].slice(0, 5)
-                                      : item.tuning_end.slice(0, 5)
-                                    : ''
-                                  const hasTuningBlock =
-                                    tuningMin > 0 &&
-                                    item.tuning_start &&
-                                    item.tuning_end &&
-                                    (!isMultiDaySegment || segmentPartIndex === 0)
-                                  const tuningPos = hasTuningBlock
-                                    ? calculateTimelinePosition(tStartStr, tEndStr, {
-                                        minWidth: 2.8,
-                                      })
-                                    : null
-
-                                  const prevMat =
-                                    item.setup_breakdown?.from_material_code || 'Produto anterior'
-                                  const curMat =
-                                    item.setup_breakdown?.to_material_code || item.material_code
-                                  const isUnparam = !!(
-                                    item.setup_breakdown?.is_missing_standard_param ||
-                                    item.setup_reason?.includes('Setup não parametrizado') ||
-                                    item.setup_source === 'SEM_REGRA_PARAMETRIZADA'
+                              {/* CONTAINER VERTICAL DAS SUB-LINHAS DE SEQUÊNCIA */}
+                              <div className="flex-1 min-w-0 flex flex-col divide-y divide-slate-100">
+                                {grp.segments.map((seg) => {
+                                  const {
+                                    item,
+                                    originalIndex,
+                                    segmentStartStr,
+                                    segmentEndStr,
+                                    isMultiDaySegment,
+                                    segmentPartIndex,
+                                    totalSegmentParts,
+                                  } = seg
+                                  const isSelected = selectedItemId === item.id
+                                  const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
+                                  const isLockedExternally = Boolean(
+                                    item.is_locked_externally ||
+                                    item.is_origin_test_programming ||
+                                    isTestIndustrial,
                                   )
+                                  const isStop = item.item_type === 'SCHEDULED_STOP'
+                                  const isAwaiting =
+                                    item.status === 'AGUARDANDO_OBSERVACOES' ||
+                                    item.awaiting_observations?.is_awaiting
+                                  const isCoolingViolated = item.cooling_validation?.hasViolation
+                                  const startStr = segmentStartStr
+                                  const endStr = segmentEndStr
+                                  const timelinePos = calculateTimelinePosition(startStr, endStr)
 
                                   return (
-                                    <>
-                                      {/* 1. Bloco de Setup / Troca de Bitola Proporcional */}
-                                      {hasSetupBlock && setupPos && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div
-                                              style={{
-                                                left: `${setupPos.leftPct}%`,
-                                                width: `${setupPos.widthPct}%`,
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                              }}
-                                              className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
-                                                isUnparam
-                                                  ? 'bg-amber-200 text-amber-950 border-amber-500 animate-pulse'
-                                                  : 'bg-slate-200 hover:bg-slate-300 text-slate-900 border-slate-400'
-                                              }`}
-                                            >
-                                              <span className="truncate">
-                                                {isUnparam ? '⚠' : '🔧'} {setupMin} min
-                                              </span>
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="top"
-                                            className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
-                                          >
-                                            <div className="font-black text-amber-400 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
-                                              <span>SETUP / TROCA DE BITOLA</span>
-                                              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
-                                                {setupMin} min
-                                              </span>
-                                            </div>
-                                            <div className="space-y-1 text-[11px] text-slate-300">
-                                              <p>
-                                                <span className="text-slate-400">De:</span>{' '}
-                                                <strong className="text-white">{prevMat}</strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Para:</span>{' '}
-                                                <strong className="text-white">{curMat}</strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Início:</span>{' '}
-                                                <strong className="text-amber-300 font-mono">
-                                                  {sStartStr}
-                                                </strong>
-                                                {' • '}
-                                                <span className="text-slate-400">Fim:</span>{' '}
-                                                <strong className="text-amber-300 font-mono">
-                                                  {sEndStr}
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Duração:</span>{' '}
-                                                <strong className="text-white">
-                                                  {setupMin} min
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">
-                                                  Regra aplicada:
-                                                </span>{' '}
-                                                <strong className="text-slate-200 font-mono">
-                                                  {item.setup_rule_code ||
-                                                    item.setup_breakdown?.change_type ||
-                                                    'Matriz DE→PARA'}
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Fonte:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.setup_source ||
-                                                    'Ficha Mestra → Matriz de Setup DE→PARA'}
-                                                </span>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Responsável:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.setup_breakdown?.responsible_area ===
-                                                  'OFICINA_CILINDROS'
-                                                    ? 'Oficina de Cilindros'
-                                                    : 'Produção'}
-                                                </span>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Centro:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.company_code || 'CIAFAL Matriz'}
-                                                </span>
-                                                {' • '}
-                                                <span className="text-slate-400">Linha:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.line_code ||
-                                                    lineOverview?.line?.code ||
-                                                    'L1'}
-                                                </span>
-                                              </p>
-
-                                              {isUnparam && (
-                                                <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
-                                                  <p className="font-bold text-[11px] text-amber-300">
-                                                    Setup não parametrizado na Ficha Mestra para
-                                                    esta transição DE→PARA.
-                                                  </p>
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation()
-                                                      const lineTarget =
-                                                        item.line_code ||
-                                                        lineOverview?.line?.code ||
-                                                        'L1'
-                                                      window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
-                                                    }}
-                                                    className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
-                                                  >
-                                                    Consultar Ficha Mestra &rarr;
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      )}
-
-                                      {/* 2. Bloco de Acerto de Bitola Proporcional */}
-                                      {hasTuningBlock && tuningPos && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <div
-                                              style={{
-                                                left: `${tuningPos.leftPct}%`,
-                                                width: `${tuningPos.widthPct}%`,
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                if (onOpenSetupDetail) onOpenSetupDetail(item)
-                                              }}
-                                              className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
-                                                item.tuning_unparametrized
-                                                  ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
-                                                  : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
-                                              }`}
-                                            >
-                                              <span className="truncate">
-                                                {item.tuning_unparametrized
-                                                  ? '⚠️ N/P'
-                                                  : `⚙ ${tuningMin} min`}
-                                              </span>
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="top"
-                                            className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
-                                          >
-                                            <div className="font-black text-blue-300 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
-                                              <span>ACERTO DE BITOLA</span>
-                                              <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
-                                                {tuningMin} min
-                                              </span>
-                                            </div>
-                                            <div className="space-y-1 text-[11px] text-slate-300">
-                                              <p>
-                                                <span className="text-slate-400">Referência:</span>{' '}
-                                                <strong className="text-white">
-                                                  {curMat}{' '}
-                                                  {item.dimensions ? `(${item.dimensions})` : ''}
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Início:</span>{' '}
-                                                <strong className="text-blue-300 font-mono">
-                                                  {tStartStr}
-                                                </strong>
-                                                {' • '}
-                                                <span className="text-slate-400">Fim:</span>{' '}
-                                                <strong className="text-blue-300 font-mono">
-                                                  {tEndStr}
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Duração:</span>{' '}
-                                                <strong className="text-white">
-                                                  {tuningMin} min
-                                                </strong>
-                                              </p>
-                                              <p>
-                                                <span className="text-slate-400">Fonte:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.tuning_source || 'Ficha Mestra → Acertos'}
-                                                </span>
-                                              </p>
-                                              {item.tuning_rule_code && (
-                                                <p>
-                                                  <span className="text-slate-400">Regra:</span>{' '}
-                                                  <span className="text-slate-200 font-mono">
-                                                    {item.tuning_rule_code}
-                                                  </span>
-                                                </p>
-                                              )}
-                                              <p>
-                                                <span className="text-slate-400">Centro:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.company_code || 'CIAFAL Matriz'}
-                                                </span>
-                                                {' • '}
-                                                <span className="text-slate-400">Linha:</span>{' '}
-                                                <span className="text-slate-200">
-                                                  {item.line_code ||
-                                                    lineOverview?.line?.code ||
-                                                    'L1'}
-                                                </span>
-                                              </p>
-
-                                              {item.sample_type && (
-                                                <p>
-                                                  <span className="text-slate-400">
-                                                    Tipo de Amostra:
-                                                  </span>{' '}
-                                                  <span className="text-slate-200">
-                                                    {item.sample_type}
-                                                  </span>
-                                                </p>
-                                              )}
-
-                                              {item.tuning_unparametrized && (
-                                                <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
-                                                  <p className="font-bold text-[11px] text-amber-300">
-                                                    Acerto não parametrizado na Ficha Mestra para
-                                                    esta bitola.
-                                                  </p>
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation()
-                                                      const lineTarget =
-                                                        item.line_code ||
-                                                        lineOverview?.line?.code ||
-                                                        'L1'
-                                                      window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
-                                                    }}
-                                                    className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
-                                                  >
-                                                    Consultar Ficha Mestra &rarr;
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      )}
-                                    </>
-                                  )
-                                })()}
-
-                                {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
                                     <div
-                                      style={{
-                                        left: `${timelinePos.leftPct}%`,
-                                        width: `${timelinePos.widthPct}%`,
+                                      key={`${item.id || originalIndex}-part-${segmentPartIndex}`}
+                                      draggable={!isLockedExternally}
+                                      onDragStart={(e) =>
+                                        !isLockedExternally && handleDragStart(e, originalIndex)
+                                      }
+                                      onDragOver={(e) => handleDragOver(e, originalIndex)}
+                                      onDrop={(e) => {
+                                        e.preventDefault()
+                                        const fromIndex =
+                                          draggedIdx !== null
+                                            ? draggedIdx
+                                            : Number(e.dataTransfer.getData('text/plain'))
+                                        if (!isNaN(fromIndex) && onMoveItem) {
+                                          onMoveItem(fromIndex, originalIndex, {
+                                            day_of_week: item.day_of_week || dayObj.key,
+                                            date_str: item.date_str || dayObj.date,
+                                            shift_code: item.shift_code,
+                                            shift_name: item.shift_name,
+                                            crew_name: item.crew_name,
+                                          })
+                                        }
+                                        setDraggedIdx(null)
+                                        setDragOverIdx(null)
+                                        setDragValidationMsg(null)
                                       }}
-                                      className={`absolute h-8 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
-                                        item,
-                                        isSelected,
-                                      )} shadow-2xs hover:shadow-xs`}
+                                      onClick={() => onSelectItem && onSelectItem(item)}
+                                      className={`flex min-h-[44px] transition-colors cursor-pointer group ${
+                                        dragOverIdx === originalIndex
+                                          ? 'bg-blue-50/80 border-t-2 border-blue-500'
+                                          : ''
+                                      } ${isSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50/80'}`}
                                     >
-                                      {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
-                                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
-                                        {isTestIndustrial && (
-                                          <span className="text-[9px] bg-purple-600 text-white font-black px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap flex items-center gap-1">
-                                            <Lock className="w-2.5 h-2.5" />
-                                            {item.test_code || 'TESTE'}
-                                          </span>
-                                        )}
-                                        {isCoolingViolated && (
-                                          <span
-                                            className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
-                                            title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
-                                          >
-                                            ⚠ NÃO ATENDIDO
-                                          </span>
-                                        )}
-
-                                        {!isCoolingViolated && !isStop && (
-                                          <span
-                                            className="text-[9px] text-sky-700 shrink-0 font-bold"
-                                            title="Resfriamento atendido"
-                                          >
-                                            ❄
-                                          </span>
-                                        )}
-
-                                        {/* BLOCO C: Badge de Matéria-Prima com Tooltip Informativo */}
-                                        {!isStop &&
-                                          (() => {
-                                            const mpStatus = item.raw_material_status
-                                            const requiredTons =
-                                              item.raw_material_summary?.totalRequiredTons ??
-                                              (item.raw_material_yield_pct &&
-                                              item.raw_material_yield_pct > 0
-                                                ? Math.round(
-                                                    (item.planned_quantity_tons /
-                                                      (item.raw_material_yield_pct / 100)) *
-                                                      100,
-                                                  ) / 100
-                                                : item.planned_quantity_tons)
-                                            const programmedTons =
-                                              item.raw_material_summary?.totalProgrammedMpTons ??
-                                              item.raw_material_planned_tons ??
-                                              0
-                                            const deficitTons =
-                                              item.raw_material_deficit_tons ??
-                                              Math.max(
-                                                0,
-                                                Math.round((requiredTons - programmedTons) * 100) /
-                                                  100,
-                                              )
-
-                                            if (
-                                              mpStatus === 'MP_NAO_PROGRAMADA' ||
-                                              (programmedTons <= 0 && requiredTons > 0)
-                                            ) {
-                                              return (
-                                                <span
-                                                  className="text-[9px] bg-rose-600 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap animate-pulse"
-                                                  title={`⚠ Falta MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
-                                                >
-                                                  ⚠ Falta MP
-                                                </span>
-                                              )
-                                            }
-                                            if (
-                                              mpStatus === 'MP_PARCIALMENTE_ATENDIDA' ||
-                                              deficitTons > 0.01
-                                            ) {
-                                              return (
-                                                <span
-                                                  className="text-[9px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
-                                                  title={`⚠ MP Pendente — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
-                                                >
-                                                  ⚠ MP Pendente
-                                                </span>
-                                              )
-                                            }
-                                            if (mpStatus === 'SALDO_NEGATIVO_RISCO_RUPTURA') {
-                                              return (
-                                                <span
-                                                  className="text-[9px] bg-rose-700 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
-                                                  title={`⚠ Risco de Ruptura MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
-                                                >
-                                                  ⚠ Risco MP
-                                                </span>
-                                              )
-                                            }
-                                            return null
-                                          })()}
-
-                                        <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
-                                          {item.material_code}
-                                        </span>
-
-                                        {item.is_derived && (
-                                          <span
-                                            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-600 text-white shadow-2xs shrink-0 cursor-help flex items-center gap-0.5"
-                                            title={`Origem: ${item.centro_origem || 'L2'} | Regra: ${item.derivation_metadata?.regra_resumo || 'Derivação'} | MATKL: ${item.matkl || item.family_code || '001'} | Geração: ${item.tipo_geracao || 'MANUAL'}`}
-                                          >
-                                            DERIVADA
-                                          </span>
-                                        )}
-
-                                        {documentImpactsByItem[item.id] && (
-                                          <SgqRuleIndicatorBadge
-                                            impacts={documentImpactsByItem[item.id]}
-                                            compact={true}
-                                          />
-                                        )}
-
-                                        {item.tuning_unparametrized && (
-                                          <span
-                                            className="text-[9px] text-amber-900 bg-amber-200 border border-amber-300 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 whitespace-nowrap"
-                                            title="Acerto não parametrizado na Ficha Mestre"
-                                          >
-                                            ⚠ Acerto N/P
-                                          </span>
-                                        )}
-
-                                        {item.dimensions && (
-                                          <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
-                                            {item.dimensions}
-                                          </span>
-                                        )}
-
-                                        {isMultiDaySegment && (
-                                          <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-mono font-bold shrink-0">
-                                            Parte {segmentPartIndex + 1}/{totalSegmentParts}
-                                          </span>
-                                        )}
-
-                                        {!isStop && (
-                                          <>
-                                            <span className="text-slate-400 shrink-0">•</span>
-                                            <span className="font-mono text-[11px] font-black text-slate-900 shrink-0 whitespace-nowrap">
-                                              {item.planned_quantity_tons} t
-                                            </span>
-                                            <span className="text-slate-400 shrink-0">•</span>
-                                            <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap hidden sm:inline-block">
-                                              {isAwaiting
-                                                ? 'AGUARDANDO OBS'
-                                                : item.exception_approval_status ===
-                                                    'PENDING_SUPERVISOR'
-                                                  ? 'PENDENTE PCP'
-                                                  : item.order_type === 'MTO'
-                                                    ? `MTO · ${item.sales_order_mto || 'Ped'}`
-                                                    : 'MTS'}
-                                            </span>
-                                          </>
-                                        )}
-
-                                        {isStop && (
-                                          <>
-                                            <span className="text-slate-400 shrink-0">•</span>
-                                            <span className="text-[10px] font-bold text-amber-900 shrink-0 whitespace-nowrap">
-                                              Parada ({item.stop_duration_minutes || 60} min)
-                                            </span>
-                                          </>
-                                        )}
-                                      </div>
-
-                                      {/* Horário sempre legível e botões de edição e exclusão */}
-                                      <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
-                                        <span className="shrink-0">
-                                          {startStr} &rarr; {endStr}
-                                        </span>
-                                        {isLockedExternally ? (
-                                          <span
-                                            title="Teste Industrial controlado pela Programação de Testes."
-                                            className="text-[9px] text-purple-700 bg-purple-100 px-1 py-0.2 rounded border border-purple-300 font-sans flex items-center gap-0.5"
-                                          >
-                                            <Lock className="w-2.5 h-2.5 text-purple-600" />{' '}
-                                            Controlado na Origem
-                                          </span>
-                                        ) : (
-                                          <>
-                                            {onEditItem && !isItemInPast(item) && !isWeekPast && (
-                                              <button
-                                                type="button"
-                                                title="Editar item da programação"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  onEditItem(item)
-                                                }}
-                                                className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                      {/* Coluna Fixa 3: SEQUÊNCIA COMPACTA COM DRAG INDICATOR (Sticky left-[150px]) */}
+                                      <div className="w-[60px] shrink-0 px-1 py-1.5 border-r border-slate-200 flex items-center justify-center font-mono text-xs sticky left-[150px] z-20 bg-white group-hover:bg-slate-50">
+                                        <div className="flex items-center gap-0.5">
+                                          {isLockedExternally ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <div className="p-1 cursor-not-allowed">
+                                                  <Lock className="w-3.5 h-3.5 text-purple-600" />
+                                                </div>
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="top"
+                                                className="bg-slate-900 text-white text-xs max-w-xs"
                                               >
-                                                ✏️
-                                              </button>
-                                            )}
-                                            {onRemoveItem && !isItemInPast(item) && !isWeekPast && (
-                                              <button
-                                                type="button"
-                                                title="Eliminar"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  onRemoveItem(item)
-                                                }}
-                                                className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
-                                              >
-                                                <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
-                                              </button>
-                                            )}
-                                          </>
-                                        )}
-                                        {(isItemInPast(item) || isWeekPast) && (
-                                          <span
-                                            title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
-                                            className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
-                                          >
-                                            🔒 Bloqueado
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
-                                  >
-                                    <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
-                                      <span className="font-black text-amber-400 text-sm">
-                                        {item.material_code} —{' '}
-                                        {item.material_description || 'Produto Laminado'}
-                                      </span>
-                                      <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
-                                        Seq. #{item.sequence_order || originalIndex + 1}
-                                      </span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                                      <div>
-                                        <span className="text-slate-400">Família:</span>{' '}
-                                        <strong className="text-slate-200">
-                                          {item.family_code || 'Não informada'}
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Dimensões:</span>{' '}
-                                        <strong className="text-slate-200">
-                                          {item.dimensions || 'Padrão'}
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Quantidade:</span>{' '}
-                                        <strong className="text-emerald-400 font-mono">
-                                          {item.planned_quantity_tons} t
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Cadência:</span>{' '}
-                                        <strong className="text-blue-300 font-mono">
-                                          {item.productivity_rate_th || 12} t/h
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Horário:</span>{' '}
-                                        <strong className="text-amber-300 font-mono">
-                                          {startStr} &rarr; {endStr}
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Duração:</span>{' '}
-                                        <strong className="text-slate-200">
-                                          {item.production_hours || 0} h
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Regime:</span>{' '}
-                                        <strong className="text-slate-200">
-                                          {item.order_type === 'MTO'
-                                            ? `MTO (${item.sales_order_mto || 'Ped'})`
-                                            : 'MTS (Estoque)'}
-                                        </strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400">Status:</span>{' '}
-                                        <strong className="text-slate-200">{item.status}</strong>
-                                      </div>
-                                      {item.setup_duration_minutes > 0 && (
-                                        <div className="col-span-2 text-slate-300 border-t border-slate-800 pt-1 mt-1">
-                                          🔧 <span className="text-slate-400">Setup Prévio:</span>{' '}
-                                          <strong>{item.setup_duration_minutes} min</strong> (
-                                          {item.setup_breakdown?.responsible_area || 'Produção'})
-                                        </div>
-                                      )}
-                                      {/* BLOCO C: Detalhes de MP no Tooltip do item */}
-                                      <div className="col-span-2 text-slate-300 bg-slate-900/90 p-2 rounded mt-1 border border-slate-800 space-y-1">
-                                        <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-800 pb-1">
-                                          <span>📦 Matéria-Prima Programada:</span>
-                                          <span className="font-mono text-[10px]">
-                                            {item.raw_material_status_label ||
-                                              item.raw_material_status ||
-                                              'OK'}
-                                          </span>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                          <div>
-                                            <span className="text-slate-400 block">
-                                              Necessário:
-                                            </span>
-                                            <strong className="text-white font-mono">
-                                              {(
-                                                item.raw_material_summary?.totalRequiredTons ??
-                                                (item.raw_material_yield_pct &&
-                                                item.raw_material_yield_pct > 0
-                                                  ? Math.round(
-                                                      (item.planned_quantity_tons /
-                                                        (item.raw_material_yield_pct / 100)) *
-                                                        100,
-                                                    ) / 100
-                                                  : item.planned_quantity_tons)
-                                              ).toFixed(2)}{' '}
-                                              t
-                                            </strong>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-400 block">
-                                              Programado:
-                                            </span>
-                                            <strong className="text-white font-mono">
-                                              {(
-                                                item.raw_material_summary?.totalProgrammedMpTons ??
-                                                item.raw_material_planned_tons ??
-                                                0
-                                              ).toFixed(2)}{' '}
-                                              t
-                                            </strong>
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-400 block">Déficit:</span>
-                                            <strong
-                                              className={`font-mono ${
-                                                (item.raw_material_deficit_tons || 0) > 0
-                                                  ? 'text-rose-400'
-                                                  : 'text-emerald-400'
-                                              }`}
+                                                Teste Industrial controlado pela Programação de
+                                                Testes.
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          ) : (
+                                            <div
+                                              className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200 transition-colors"
+                                              title="Clique e arraste para alterar a sequência"
                                             >
-                                              {(item.raw_material_deficit_tons ?? 0).toFixed(2)} t
-                                            </strong>
-                                          </div>
+                                              <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+                                            </div>
+                                          )}
+                                          <span className="font-black text-slate-900 text-[11px]">
+                                            {item.sequence_order || originalIndex + 1}
+                                          </span>
+                                          {draggedIdx === originalIndex && dragOverIdx !== null && (
+                                            <span className="text-[9px] bg-blue-100 text-[#004C97] px-1 rounded font-bold">
+                                              {item.sequence_order} →{' '}
+                                              {items[dragOverIdx]?.sequence_order ||
+                                                dragOverIdx + 1}
+                                            </span>
+                                          )}
+                                          {item.exception_approval_status ===
+                                            'PENDING_SUPERVISOR' && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="top"
+                                                className="text-xs bg-slate-900 text-amber-200"
+                                              >
+                                                Exceção pendente de aprovação do Supervisor PCP
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
                                         </div>
                                       </div>
 
-                                      {item.pcp_notes && (
-                                        <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
-                                          📝 <span className="text-slate-400">Obs:</span>{' '}
-                                          {item.pcp_notes}
-                                        </div>
-                                      )}
+                                      {/* LINHA DO TEMPO COM BLOCO PROPORCIONAL AO TEMPO */}
+                                      <div className="flex-1 overflow-x-auto no-scrollbar relative min-w-[720px] p-1 flex items-center">
+                                        {/* Linhas verticais de fundo a cada hora */}
+                                        <div className="absolute inset-0 grid grid-cols-16 divide-x divide-slate-100 pointer-events-none opacity-60" />
+
+                                        {/* BLOCOS SEPARADOS E CONTÍGUOS: SETUP (TROCA) E ACERTO COM POSICIONAMENTO PROPORCIONAL REAL */}
+                                        {(() => {
+                                          if (isStop) return null
+
+                                          // Setup (Troca Mecânica DE→PARA)
+                                          const setupMin =
+                                            item.setup_breakdown?.planned_change_minutes ??
+                                            item.setup_duration_minutes ??
+                                            0
+                                          const sStartStr = item.setup_start
+                                            ? item.setup_start.includes(' ')
+                                              ? item.setup_start.split(' ')[1].slice(0, 5)
+                                              : item.setup_start.slice(0, 5)
+                                            : ''
+                                          const sEndStr = item.setup_end
+                                            ? item.setup_end.includes(' ')
+                                              ? item.setup_end.split(' ')[1].slice(0, 5)
+                                              : item.setup_end.slice(0, 5)
+                                            : ''
+                                          const hasSetupBlock =
+                                            setupMin > 0 &&
+                                            item.setup_start &&
+                                            item.setup_end &&
+                                            (!isMultiDaySegment || segmentPartIndex === 0)
+                                          const setupPos = hasSetupBlock
+                                            ? calculateTimelinePosition(sStartStr, sEndStr, {
+                                                minWidth: 3,
+                                              })
+                                            : null
+
+                                          // Acerto de Bitola
+                                          const tuningMin =
+                                            item.tuning_duration_minutes ??
+                                            item.setup_breakdown?.planned_tuning_minutes ??
+                                            0
+                                          const tStartStr = item.tuning_start
+                                            ? item.tuning_start.includes(' ')
+                                              ? item.tuning_start.split(' ')[1].slice(0, 5)
+                                              : item.tuning_start.slice(0, 5)
+                                            : ''
+                                          const tEndStr = item.tuning_end
+                                            ? item.tuning_end.includes(' ')
+                                              ? item.tuning_end.split(' ')[1].slice(0, 5)
+                                              : item.tuning_end.slice(0, 5)
+                                            : ''
+                                          const hasTuningBlock =
+                                            tuningMin > 0 &&
+                                            item.tuning_start &&
+                                            item.tuning_end &&
+                                            (!isMultiDaySegment || segmentPartIndex === 0)
+                                          const tuningPos = hasTuningBlock
+                                            ? calculateTimelinePosition(tStartStr, tEndStr, {
+                                                minWidth: 2.8,
+                                              })
+                                            : null
+
+                                          const prevMat =
+                                            item.setup_breakdown?.from_material_code ||
+                                            'Produto anterior'
+                                          const curMat =
+                                            item.setup_breakdown?.to_material_code ||
+                                            item.material_code
+                                          const isUnparam = !!(
+                                            item.setup_breakdown?.is_missing_standard_param ||
+                                            item.setup_reason?.includes(
+                                              'Setup não parametrizado',
+                                            ) ||
+                                            item.setup_source === 'SEM_REGRA_PARAMETRIZADA'
+                                          )
+
+                                          return (
+                                            <>
+                                              {/* 1. Bloco de Setup / Troca de Bitola Proporcional */}
+                                              {hasSetupBlock && setupPos && (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <div
+                                                      style={{
+                                                        left: `${setupPos.leftPct}%`,
+                                                        width: `${setupPos.widthPct}%`,
+                                                      }}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        if (onOpenSetupDetail)
+                                                          onOpenSetupDetail(item)
+                                                      }}
+                                                      className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
+                                                        isUnparam
+                                                          ? 'bg-amber-200 text-amber-950 border-amber-500 animate-pulse'
+                                                          : 'bg-slate-200 hover:bg-slate-300 text-slate-900 border-slate-400'
+                                                      }`}
+                                                    >
+                                                      <span className="truncate">
+                                                        {isUnparam ? '⚠' : '🔧'} {setupMin} min
+                                                      </span>
+                                                    </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent
+                                                    side="top"
+                                                    className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
+                                                  >
+                                                    <div className="font-black text-amber-400 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                                      <span>SETUP / TROCA DE BITOLA</span>
+                                                      <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                        {setupMin} min
+                                                      </span>
+                                                    </div>
+                                                    <div className="space-y-1 text-[11px] text-slate-300">
+                                                      <p>
+                                                        <span className="text-slate-400">De:</span>{' '}
+                                                        <strong className="text-white">
+                                                          {prevMat}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Para:
+                                                        </span>{' '}
+                                                        <strong className="text-white">
+                                                          {curMat}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Início:
+                                                        </span>{' '}
+                                                        <strong className="text-amber-300 font-mono">
+                                                          {sStartStr}
+                                                        </strong>
+                                                        {' • '}
+                                                        <span className="text-slate-400">
+                                                          Fim:
+                                                        </span>{' '}
+                                                        <strong className="text-amber-300 font-mono">
+                                                          {sEndStr}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Duração:
+                                                        </span>{' '}
+                                                        <strong className="text-white">
+                                                          {setupMin} min
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Regra aplicada:
+                                                        </span>{' '}
+                                                        <strong className="text-slate-200 font-mono">
+                                                          {item.setup_rule_code ||
+                                                            item.setup_breakdown?.change_type ||
+                                                            'Matriz DE→PARA'}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Fonte:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.setup_source ||
+                                                            'Ficha Mestra → Matriz de Setup DE→PARA'}
+                                                        </span>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Responsável:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.setup_breakdown
+                                                            ?.responsible_area ===
+                                                          'OFICINA_CILINDROS'
+                                                            ? 'Oficina de Cilindros'
+                                                            : 'Produção'}
+                                                        </span>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Centro:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.company_code || 'CIAFAL Matriz'}
+                                                        </span>
+                                                        {' • '}
+                                                        <span className="text-slate-400">
+                                                          Linha:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.line_code ||
+                                                            lineOverview?.line?.code ||
+                                                            'L1'}
+                                                        </span>
+                                                      </p>
+
+                                                      {isUnparam && (
+                                                        <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
+                                                          <p className="font-bold text-[11px] text-amber-300">
+                                                            Setup não parametrizado na Ficha Mestra
+                                                            para esta transição DE→PARA.
+                                                          </p>
+                                                          <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation()
+                                                              const lineTarget =
+                                                                item.line_code ||
+                                                                lineOverview?.line?.code ||
+                                                                'L1'
+                                                              window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
+                                                            }}
+                                                            className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
+                                                          >
+                                                            Consultar Ficha Mestra &rarr;
+                                                          </button>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              )}
+
+                                              {/* 2. Bloco de Acerto de Bitola Proporcional */}
+                                              {hasTuningBlock && tuningPos && (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <div
+                                                      style={{
+                                                        left: `${tuningPos.leftPct}%`,
+                                                        width: `${tuningPos.widthPct}%`,
+                                                      }}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        if (onOpenSetupDetail)
+                                                          onOpenSetupDetail(item)
+                                                      }}
+                                                      className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
+                                                        item.tuning_unparametrized
+                                                          ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
+                                                          : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
+                                                      }`}
+                                                    >
+                                                      <span className="truncate">
+                                                        {item.tuning_unparametrized
+                                                          ? '⚠️ N/P'
+                                                          : `⚙ ${tuningMin} min`}
+                                                      </span>
+                                                    </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent
+                                                    side="top"
+                                                    className="bg-slate-950 text-white text-xs p-3 max-w-sm shadow-xl border border-slate-800"
+                                                  >
+                                                    <div className="font-black text-blue-300 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                                                      <span>ACERTO DE BITOLA</span>
+                                                      <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                        {tuningMin} min
+                                                      </span>
+                                                    </div>
+                                                    <div className="space-y-1 text-[11px] text-slate-300">
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Referência:
+                                                        </span>{' '}
+                                                        <strong className="text-white">
+                                                          {curMat}{' '}
+                                                          {item.dimensions
+                                                            ? `(${item.dimensions})`
+                                                            : ''}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Início:
+                                                        </span>{' '}
+                                                        <strong className="text-blue-300 font-mono">
+                                                          {tStartStr}
+                                                        </strong>
+                                                        {' • '}
+                                                        <span className="text-slate-400">
+                                                          Fim:
+                                                        </span>{' '}
+                                                        <strong className="text-blue-300 font-mono">
+                                                          {tEndStr}
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Duração:
+                                                        </span>{' '}
+                                                        <strong className="text-white">
+                                                          {tuningMin} min
+                                                        </strong>
+                                                      </p>
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Fonte:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.tuning_source ||
+                                                            'Ficha Mestra → Acertos'}
+                                                        </span>
+                                                      </p>
+                                                      {item.tuning_rule_code && (
+                                                        <p>
+                                                          <span className="text-slate-400">
+                                                            Regra:
+                                                          </span>{' '}
+                                                          <span className="text-slate-200 font-mono">
+                                                            {item.tuning_rule_code}
+                                                          </span>
+                                                        </p>
+                                                      )}
+                                                      <p>
+                                                        <span className="text-slate-400">
+                                                          Centro:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.company_code || 'CIAFAL Matriz'}
+                                                        </span>
+                                                        {' • '}
+                                                        <span className="text-slate-400">
+                                                          Linha:
+                                                        </span>{' '}
+                                                        <span className="text-slate-200">
+                                                          {item.line_code ||
+                                                            lineOverview?.line?.code ||
+                                                            'L1'}
+                                                        </span>
+                                                      </p>
+
+                                                      {item.sample_type && (
+                                                        <p>
+                                                          <span className="text-slate-400">
+                                                            Tipo de Amostra:
+                                                          </span>{' '}
+                                                          <span className="text-slate-200">
+                                                            {item.sample_type}
+                                                          </span>
+                                                        </p>
+                                                      )}
+
+                                                      {item.tuning_unparametrized && (
+                                                        <div className="mt-2 p-2 rounded bg-amber-950/80 border border-amber-500/60 text-amber-200">
+                                                          <p className="font-bold text-[11px] text-amber-300">
+                                                            Acerto não parametrizado na Ficha Mestra
+                                                            para esta bitola.
+                                                          </p>
+                                                          <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation()
+                                                              const lineTarget =
+                                                                item.line_code ||
+                                                                lineOverview?.line?.code ||
+                                                                'L1'
+                                                              window.location.href = `/pcp/linhas?line=${lineTarget}&tab=matrices`
+                                                            }}
+                                                            className="mt-1 text-[10px] font-bold text-amber-400 hover:text-amber-200 underline flex items-center gap-1"
+                                                          >
+                                                            Consultar Ficha Mestra &rarr;
+                                                          </button>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              )}
+                                            </>
+                                          )
+                                        })()}
+
+                                        {/* BLOCO PRINCIPAL DA ATIVIDADE NA TIMELINE COM TOOLTIP COMPLETO */}
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div
+                                              style={{
+                                                left: `${timelinePos.leftPct}%`,
+                                                width: `${timelinePos.widthPct}%`,
+                                              }}
+                                              className={`absolute h-8 rounded border px-2 flex items-center justify-between text-xs transition-all z-10 ${getBlockStyle(
+                                                item,
+                                                isSelected,
+                                              )} shadow-2xs hover:shadow-xs`}
+                                            >
+                                              {/* Conteúdo Interno do Bloco com Anti-Truncamento Soberano */}
+                                              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1 mr-1">
+                                                {isTestIndustrial && (
+                                                  <span className="text-[9px] bg-purple-600 text-white font-black px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap flex items-center gap-1">
+                                                    <Lock className="w-2.5 h-2.5" />
+                                                    {item.test_code || 'TESTE'}
+                                                  </span>
+                                                )}
+                                                {isCoolingViolated && (
+                                                  <span
+                                                    className="text-[9px] text-rose-800 bg-rose-200 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 shadow-2xs whitespace-nowrap"
+                                                    title="Resfriamento não atendido. Verifique o tempo de resfriamento do tarugo."
+                                                  >
+                                                    ⚠ NÃO ATENDIDO
+                                                  </span>
+                                                )}
+
+                                                {!isCoolingViolated && !isStop && (
+                                                  <span
+                                                    className="text-[9px] text-sky-700 shrink-0 font-bold"
+                                                    title="Resfriamento atendido"
+                                                  >
+                                                    ❄
+                                                  </span>
+                                                )}
+
+                                                {/* BLOCO C: Badge de Matéria-Prima com Tooltip Informativo */}
+                                                {!isStop &&
+                                                  (() => {
+                                                    const mpStatus = item.raw_material_status
+                                                    const requiredTons =
+                                                      item.raw_material_summary
+                                                        ?.totalRequiredTons ??
+                                                      (item.raw_material_yield_pct &&
+                                                      item.raw_material_yield_pct > 0
+                                                        ? Math.round(
+                                                            (item.planned_quantity_tons /
+                                                              (item.raw_material_yield_pct / 100)) *
+                                                              100,
+                                                          ) / 100
+                                                        : item.planned_quantity_tons)
+                                                    const programmedTons =
+                                                      item.raw_material_summary
+                                                        ?.totalProgrammedMpTons ??
+                                                      item.raw_material_planned_tons ??
+                                                      0
+                                                    const deficitTons =
+                                                      item.raw_material_deficit_tons ??
+                                                      Math.max(
+                                                        0,
+                                                        Math.round(
+                                                          (requiredTons - programmedTons) * 100,
+                                                        ) / 100,
+                                                      )
+
+                                                    if (
+                                                      mpStatus === 'MP_NAO_PROGRAMADA' ||
+                                                      (programmedTons <= 0 && requiredTons > 0)
+                                                    ) {
+                                                      return (
+                                                        <span
+                                                          className="text-[9px] bg-rose-600 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap animate-pulse"
+                                                          title={`⚠ Falta MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                        >
+                                                          ⚠ Falta MP
+                                                        </span>
+                                                      )
+                                                    }
+                                                    if (
+                                                      mpStatus === 'MP_PARCIALMENTE_ATENDIDA' ||
+                                                      deficitTons > 0.01
+                                                    ) {
+                                                      return (
+                                                        <span
+                                                          className="text-[9px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
+                                                          title={`⚠ MP Pendente — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                        >
+                                                          ⚠ MP Pendente
+                                                        </span>
+                                                      )
+                                                    }
+                                                    if (
+                                                      mpStatus === 'SALDO_NEGATIVO_RISCO_RUPTURA'
+                                                    ) {
+                                                      return (
+                                                        <span
+                                                          className="text-[9px] bg-rose-700 text-white font-extrabold px-1.5 py-0.5 rounded shadow-2xs shrink-0 whitespace-nowrap"
+                                                          title={`⚠ Risco de Ruptura MP — Necessário: ${requiredTons.toFixed(2)} t | Programado: ${programmedTons.toFixed(2)} t | Déficit: ${deficitTons.toFixed(2)} t`}
+                                                        >
+                                                          ⚠ Risco MP
+                                                        </span>
+                                                      )
+                                                    }
+                                                    return null
+                                                  })()}
+
+                                                <span className="font-mono font-extrabold text-[11px] text-slate-900 shrink-0 whitespace-nowrap">
+                                                  {item.material_code}
+                                                </span>
+
+                                                {item.is_derived && (
+                                                  <span
+                                                    className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-600 text-white shadow-2xs shrink-0 cursor-help flex items-center gap-0.5"
+                                                    title={`Origem: ${item.centro_origem || 'L2'} | Regra: ${item.derivation_metadata?.regra_resumo || 'Derivação'} | MATKL: ${item.matkl || item.family_code || '001'} | Geração: ${item.tipo_geracao || 'MANUAL'}`}
+                                                  >
+                                                    DERIVADA
+                                                  </span>
+                                                )}
+
+                                                {documentImpactsByItem[item.id] && (
+                                                  <SgqRuleIndicatorBadge
+                                                    impacts={documentImpactsByItem[item.id]}
+                                                    compact={true}
+                                                  />
+                                                )}
+
+                                                {item.tuning_unparametrized && (
+                                                  <span
+                                                    className="text-[9px] text-amber-900 bg-amber-200 border border-amber-300 px-1 py-0.5 rounded font-black flex items-center gap-0.5 shrink-0 whitespace-nowrap"
+                                                    title="Acerto não parametrizado na Ficha Mestre"
+                                                  >
+                                                    ⚠ Acerto N/P
+                                                  </span>
+                                                )}
+
+                                                {item.dimensions && (
+                                                  <span className="text-[10px] text-slate-600 font-mono hidden xl:inline shrink-0 whitespace-nowrap">
+                                                    {item.dimensions}
+                                                  </span>
+                                                )}
+
+                                                {isMultiDaySegment && (
+                                                  <span className="text-[9px] bg-purple-200 text-purple-900 px-1 py-0.2 rounded font-mono font-bold shrink-0">
+                                                    Parte {segmentPartIndex + 1}/{totalSegmentParts}
+                                                  </span>
+                                                )}
+
+                                                {!isStop && (
+                                                  <>
+                                                    <span className="text-slate-400 shrink-0">
+                                                      •
+                                                    </span>
+                                                    <span className="font-mono text-[11px] font-black text-slate-900 shrink-0 whitespace-nowrap">
+                                                      {item.planned_quantity_tons} t
+                                                    </span>
+                                                    <span className="text-slate-400 shrink-0">
+                                                      •
+                                                    </span>
+                                                    <span className="text-[9px] uppercase font-extrabold px-1 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap hidden sm:inline-block">
+                                                      {isAwaiting
+                                                        ? 'AGUARDANDO OBS'
+                                                        : item.exception_approval_status ===
+                                                            'PENDING_SUPERVISOR'
+                                                          ? 'PENDENTE PCP'
+                                                          : item.order_type === 'MTO'
+                                                            ? `MTO · ${item.sales_order_mto || 'Ped'}`
+                                                            : 'MTS'}
+                                                    </span>
+                                                  </>
+                                                )}
+
+                                                {isStop && (
+                                                  <>
+                                                    <span className="text-slate-400 shrink-0">
+                                                      •
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-amber-900 shrink-0 whitespace-nowrap">
+                                                      Parada ({item.stop_duration_minutes || 60}{' '}
+                                                      min)
+                                                    </span>
+                                                  </>
+                                                )}
+                                              </div>
+
+                                              {/* Horário sempre legível e botões de edição e exclusão */}
+                                              <div className="font-mono text-[10px] text-slate-900 font-black pl-1.5 shrink-0 bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs whitespace-nowrap ml-auto">
+                                                <span className="shrink-0">
+                                                  {startStr} &rarr; {endStr}
+                                                </span>
+                                                {isLockedExternally ? (
+                                                  <span
+                                                    title="Teste Industrial controlado pela Programação de Testes."
+                                                    className="text-[9px] text-purple-700 bg-purple-100 px-1 py-0.2 rounded border border-purple-300 font-sans flex items-center gap-0.5"
+                                                  >
+                                                    <Lock className="w-2.5 h-2.5 text-purple-600" />{' '}
+                                                    Controlado na Origem
+                                                  </span>
+                                                ) : (
+                                                  <>
+                                                    {onEditItem &&
+                                                      !isItemInPast(item) &&
+                                                      !isWeekPast && (
+                                                        <button
+                                                          type="button"
+                                                          title="Editar item da programação"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            onEditItem(item)
+                                                          }}
+                                                          className="p-0.5 text-slate-500 hover:text-blue-700 rounded hover:bg-slate-200 transition-colors shrink-0 cursor-pointer"
+                                                        >
+                                                          ✏️
+                                                        </button>
+                                                      )}
+                                                    {onRemoveItem &&
+                                                      !isItemInPast(item) &&
+                                                      !isWeekPast && (
+                                                        <button
+                                                          type="button"
+                                                          title="Eliminar"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            onRemoveItem(item)
+                                                          }}
+                                                          className="p-0.5 text-slate-400 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
+                                                        >
+                                                          <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
+                                                        </button>
+                                                      )}
+                                                  </>
+                                                )}
+                                                {(isItemInPast(item) || isWeekPast) && (
+                                                  <span
+                                                    title={TEMPORAL_MESSAGES.ITEM_PAST_BLOCKED}
+                                                    className="text-[9px] text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans"
+                                                  >
+                                                    🔒 Bloqueado
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent
+                                            side="top"
+                                            className="bg-slate-950 text-white text-xs p-3 max-w-md shadow-xl border border-slate-800"
+                                          >
+                                            <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-4">
+                                              <span className="font-black text-amber-400 text-sm">
+                                                {item.material_code} —{' '}
+                                                {item.material_description || 'Produto Laminado'}
+                                              </span>
+                                              <span className="font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
+                                                Seq. #{item.sequence_order || originalIndex + 1}
+                                              </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                                              <div>
+                                                <span className="text-slate-400">Família:</span>{' '}
+                                                <strong className="text-slate-200">
+                                                  {item.family_code || 'Não informada'}
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Dimensões:</span>{' '}
+                                                <strong className="text-slate-200">
+                                                  {item.dimensions || 'Padrão'}
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Quantidade:</span>{' '}
+                                                <strong className="text-emerald-400 font-mono">
+                                                  {item.planned_quantity_tons} t
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Cadência:</span>{' '}
+                                                <strong className="text-blue-300 font-mono">
+                                                  {item.productivity_rate_th || 12} t/h
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Horário:</span>{' '}
+                                                <strong className="text-amber-300 font-mono">
+                                                  {startStr} &rarr; {endStr}
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Duração:</span>{' '}
+                                                <strong className="text-slate-200">
+                                                  {item.production_hours || 0} h
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Regime:</span>{' '}
+                                                <strong className="text-slate-200">
+                                                  {item.order_type === 'MTO'
+                                                    ? `MTO (${item.sales_order_mto || 'Ped'})`
+                                                    : 'MTS (Estoque)'}
+                                                </strong>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-400">Status:</span>{' '}
+                                                <strong className="text-slate-200">
+                                                  {item.status}
+                                                </strong>
+                                              </div>
+                                              {item.setup_duration_minutes > 0 && (
+                                                <div className="col-span-2 text-slate-300 border-t border-slate-800 pt-1 mt-1">
+                                                  🔧{' '}
+                                                  <span className="text-slate-400">
+                                                    Setup Prévio:
+                                                  </span>{' '}
+                                                  <strong>{item.setup_duration_minutes} min</strong>{' '}
+                                                  (
+                                                  {item.setup_breakdown?.responsible_area ||
+                                                    'Produção'}
+                                                  )
+                                                </div>
+                                              )}
+                                              {/* BLOCO C: Detalhes de MP no Tooltip do item */}
+                                              <div className="col-span-2 text-slate-300 bg-slate-900/90 p-2 rounded mt-1 border border-slate-800 space-y-1">
+                                                <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-800 pb-1">
+                                                  <span>📦 Matéria-Prima Programada:</span>
+                                                  <span className="font-mono text-[10px]">
+                                                    {item.raw_material_status_label ||
+                                                      item.raw_material_status ||
+                                                      'OK'}
+                                                  </span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                                                  <div>
+                                                    <span className="text-slate-400 block">
+                                                      Necessário:
+                                                    </span>
+                                                    <strong className="text-white font-mono">
+                                                      {(
+                                                        item.raw_material_summary
+                                                          ?.totalRequiredTons ??
+                                                        (item.raw_material_yield_pct &&
+                                                        item.raw_material_yield_pct > 0
+                                                          ? Math.round(
+                                                              (item.planned_quantity_tons /
+                                                                (item.raw_material_yield_pct /
+                                                                  100)) *
+                                                                100,
+                                                            ) / 100
+                                                          : item.planned_quantity_tons)
+                                                      ).toFixed(2)}{' '}
+                                                      t
+                                                    </strong>
+                                                  </div>
+                                                  <div>
+                                                    <span className="text-slate-400 block">
+                                                      Programado:
+                                                    </span>
+                                                    <strong className="text-white font-mono">
+                                                      {(
+                                                        item.raw_material_summary
+                                                          ?.totalProgrammedMpTons ??
+                                                        item.raw_material_planned_tons ??
+                                                        0
+                                                      ).toFixed(2)}{' '}
+                                                      t
+                                                    </strong>
+                                                  </div>
+                                                  <div>
+                                                    <span className="text-slate-400 block">
+                                                      Déficit:
+                                                    </span>
+                                                    <strong
+                                                      className={`font-mono ${
+                                                        (item.raw_material_deficit_tons || 0) > 0
+                                                          ? 'text-rose-400'
+                                                          : 'text-emerald-400'
+                                                      }`}
+                                                    >
+                                                      {(
+                                                        item.raw_material_deficit_tons ?? 0
+                                                      ).toFixed(2)}{' '}
+                                                      t
+                                                    </strong>
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {item.pcp_notes && (
+                                                <div className="col-span-2 text-slate-300 bg-slate-900 p-1.5 rounded mt-1 border border-slate-800">
+                                                  📝 <span className="text-slate-400">Obs:</span>{' '}
+                                                  {item.pcp_notes}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
                                     </div>
-                                  </TooltipContent>
-                                </Tooltip>
+                                  )
+                                })}
                               </div>
                             </div>
-                          )
-                        })
+                          ))
+                        })()
                       )}
                     </div>
                   )}
