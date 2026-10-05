@@ -325,6 +325,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
+    isParadaRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
@@ -335,6 +336,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/controle-producao') ||
     currentPathname.startsWith('/pcp/producao') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+    currentPathname.startsWith('/pcp/programacao/parada') ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
@@ -415,6 +417,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isInventarioMpRoute ||
     isTestProgrammingRoute ||
     isEntregasRoute ||
+    isParadaRoute ||
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isCarteiraMinimaRoute ||
@@ -560,11 +563,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/programacao/parada') ||
       currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
-      isGestaoMpRoute
+      isGestaoMpRoute ||
+      isParadaRoute
     ) {
       hasPerm = true
     }
@@ -590,11 +595,13 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       isHierarquiaRoute ||
       isGestaoMpRoute ||
       isChecklistFechamentoRoute ||
+      isParadaRoute ||
       currentPathname === '/pcp/cadastros/hierarquia' ||
       currentPathname.startsWith('/pcp/cadastros/hierarquia') ||
       currentPathname.startsWith('/pcp/cadastros') ||
       currentPathname.startsWith('/pcp/cadastros/ficha-mestre') ||
       currentPathname.startsWith('/pcp/entregas') ||
+      currentPathname.startsWith('/pcp/programacao/parada') ||
       currentPathname.startsWith('/pcp/gestao-materia-prima') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
@@ -612,6 +619,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     hasValidAuthStore ||
     isDirectOperationalView ||
     isDadosIbgeRoute ||
+    isParadaRoute ||
     isChecklistFechamentoRoute ||
     isCadastrosOrMasterDataEarly ||
     isCadastrosOrMasterData,

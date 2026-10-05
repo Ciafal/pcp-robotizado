@@ -299,4 +299,51 @@ describe('Programação de Parada — Suíte de Interface e Integração', () =>
     expect(screen.getByText(/Adicionar Centro \/ Linha à Programação/i)).toBeInTheDocument()
     expect(screen.getByText(/Centros e Linhas Afetadas/i)).toBeInTheDocument()
   })
+
+  // Teste 7: Validação da hierarquia e ordem oficial dos menus em officialNavGroups
+  it('Teste 7: officialNavGroups contém "Programação de Parada" no grupo PROGRAMAÇÃO na posição imediatamente posterior a "Montagem Programação"', async () => {
+    const { officialNavGroups } = await import('@/components/layout/PCPNavigation')
+    const progGroup = officialNavGroups.find((g) => g.groupTitle === 'PROGRAMAÇÃO')
+    expect(progGroup).toBeDefined()
+
+    const itemTitles = progGroup!.items.map((i) => i.title)
+    const montagemIndex = itemTitles.indexOf('Montagem Programação')
+    const paradaIndex = itemTitles.indexOf('Programação de Parada')
+    const testesIndex = itemTitles.indexOf('Programação de Testes')
+
+    expect(montagemIndex).toBeGreaterThanOrEqual(0)
+    expect(paradaIndex).toBe(montagemIndex + 1)
+    expect(testesIndex).toBe(paradaIndex + 1)
+
+    const paradaItem = progGroup!.items[paradaIndex]
+    expect(paradaItem.href).toBe('/pcp/programacao/parada')
+    expect(paradaItem.permission).toBe('pcp.schedule.view')
+  })
+
+  // Teste 8: Rota /pcp/programacao/parada renderiza com role PCP_PROGRAMMER via PermissionGuard sem travar nem exibir Acesso Negado
+  it('Teste 8: Rota /pcp/programacao/parada com role PCP_PROGRAMMER exibe o conteúdo real da página', async () => {
+    const { PermissionGuard } = await import('@/components/auth/PermissionGuard')
+    const { MemoryRouter, Routes, Route } = await import('react-router-dom')
+
+    render(
+      <MemoryRouter initialEntries={['/pcp/programacao/parada']}>
+        <Routes>
+          <Route
+            path="/pcp/programacao/parada"
+            element={
+              <PermissionGuard permission="pcp.schedule.view">
+                <ProgramacaoParadaPage />
+              </PermissionGuard>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Verifica que o conteúdo real da página aparece imediatamente
+    expect(screen.getByText(/PROGRAMAÇÃO DE PARADA/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Acesso negado/i)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('permission-guard-error-state')).not.toBeInTheDocument()
+    expect(screen.getByText(/Adicionar Centro \/ Linha à Programação/i)).toBeInTheDocument()
+  })
 })

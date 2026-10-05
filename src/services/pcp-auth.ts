@@ -181,7 +181,14 @@ export const authService = {
         'pcp.production.view',
       ]
     }
-    if (roleUpper === 'PCP_PROGRAMMER' || roleUpper === 'PPC_PROGRAMMER') {
+    if (
+      roleUpper === 'PCP_PROGRAMMER' ||
+      roleUpper === 'PPC_PROGRAMMER' ||
+      roleUpper === 'SUPERVISOR_PCP' ||
+      roleUpper === 'SUPERVISOR' ||
+      roleUpper === 'GERENTE_PCP' ||
+      roleUpper === 'APROVADOR_PCP'
+    ) {
       return [
         'pcp.cockpit.view',
         'pcp.schedule.view',
