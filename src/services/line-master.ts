@@ -544,6 +544,71 @@ export const lineMasterService = {
           filter: `line_id = '${lineId}'`,
           sort: '-created',
         })
+        .then(async (masterStops) => {
+          try {
+            // Sincroniza com as Paradas Programadas ativas/validadas/comunicadas do módulo Programação de Paradas
+            const lineCodeMatch = line.code || line.name || ''
+            const pCentros = await pb
+              .collection('programacao_parada_centros')
+              .getFullList({
+                filter: `linha_id = '${lineId}' || linha_nome = '${lineCodeMatch}' || linha_nome = '${line.name}'`,
+                sort: '-created',
+              })
+              .catch(() => [])
+
+            if (pCentros.length === 0) return masterStops
+
+            // Buscar os cabeçalhos das paradas para checar status não cancelado
+            const paradaIds = Array.from(
+              new Set(pCentros.map((c: any) => c.parada_id).filter(Boolean)),
+            )
+            const validParadasMap = new Map<string, any>()
+            for (const pid of paradaIds) {
+              try {
+                const pRec = await pb.collection('programacao_paradas').getOne(pid)
+                if (pRec && pRec.status !== 'CANCELADA') {
+                  validParadasMap.set(pid, pRec)
+                }
+              } catch {
+                // Ignora erro pontual
+              }
+            }
+
+            const dynamicStops: StandardScheduledStop[] = []
+            for (const c of pCentros) {
+              const pHead = validParadasMap.get(c.parada_id)
+              if (!pHead) continue
+
+              // Formatar datas para compatibilidade com StandardScheduledStop e isScheduledStopApplicable
+              const validFrom = `${c.data_inicio} ${c.hora_inicio || '00:00'}`
+              const validUntil = `${c.data_fim} ${c.hora_fim || '23:59'}`
+
+              dynamicStops.push({
+                id: c.id,
+                line_id: lineId,
+                code: pHead.codigo || `PP-${c.id.slice(0, 5)}`,
+                description: `PARADA PROGRAMADA — ${c.centro_nome || c.centro_id || 'Centro'}: ${c.motivo}${c.motivo === 'Outro' && c.motivo_outro_detalhe ? ' (' + c.motivo_outro_detalhe + ')' : ''}${c.descricao ? ' - ' + c.descricao : ''}`,
+                category: c.motivo?.toLowerCase().includes('manuten')
+                  ? 'PREVENTIVE_MAINTENANCE'
+                  : 'OTHER',
+                recurrence: 'CUSTOM' as any,
+                expected_duration_minutes: Number(c.duracao_horas || 0) * 60,
+                valid_from: validFrom,
+                valid_until: validUntil,
+                active: true,
+                reason: c.motivo,
+                // Flags de integração oficial
+                is_programacao_parada: true,
+                start_datetime: validFrom,
+                end_datetime: validUntil,
+              } as any)
+            }
+
+            return [...masterStops, ...dynamicStops]
+          } catch {
+            return masterStops
+          }
+        })
         .catch(() => []),
       pb
         .collection('line_structural_constraints')

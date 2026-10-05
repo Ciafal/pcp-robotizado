@@ -886,7 +886,11 @@ export const WeeklyScheduleEngine = {
     }
 
     // 0.1 Integração Oficial com Programação de Parada (alimenta este mesmo motor central)
-    if ((stop as any).is_programacao_parada || (stop as any).is_custom_programacao_parada || stop.recurrence === 'CUSTOM') {
+    if (
+      (stop as any).is_programacao_parada ||
+      (stop as any).is_custom_programacao_parada ||
+      stop.recurrence === 'CUSTOM'
+    ) {
       const sStart = (stop as any).start_datetime || (stop as any).valid_from
       const sEnd = (stop as any).end_datetime || (stop as any).valid_until
       if (sStart && sEnd && context.date) {
@@ -909,14 +913,6 @@ export const WeeklyScheduleEngine = {
           }
         }
         return false
-      }
-    }        }
-        if (stop.valid_until) {
-          const untilIso = String(stop.valid_until).trim().slice(0, 10)
-          if (untilIso && targetIso > untilIso) {
-            return false
-          }
-        }
       }
     }
 

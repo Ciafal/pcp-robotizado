@@ -97,6 +97,10 @@ export interface WeeklyScheduleItem {
   is_locked_externally?: boolean
   test_technical_lead?: string
   test_objectives?: string[] | string
+  is_programacao_parada?: boolean
+  programacao_parada_codigo?: string
+  programacao_parada_motivo?: string
+  programacao_parada_tooltip?: string
   material_code: string
   material_description: string
   family_code?: string
