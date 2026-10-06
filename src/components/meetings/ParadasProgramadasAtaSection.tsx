@@ -144,16 +144,37 @@ export const ParadasProgramadasAtaSection: React.FC<ParadasProgramadasAtaSection
       return 'Nenhuma parada programada registrada para este período no cronograma industrial oficial.'
     }
 
-    const frases: string[] = []
+    // Consolidação hierárquica estrita: Empresa -> Linha -> Centro
+    const hierarquia: Record<string, Record<string, ParadaSnapshotItem[]>> = {}
     itensExibicao.forEach((it) => {
-      const ini = formatDateTimeDisplay(it.data_hora_inicio)
-      const fim = formatDateTimeDisplay(it.data_hora_fim)
-      const dur = `${it.duracao_horas || 0} horas`
-      const mot = it.motivo || 'manutenção preventiva'
-      frases.push(
-        `Está prevista parada da ${it.linha_code} (Centro ${it.centro_code}, Empresa ${it.empresa_code}) entre ${ini} e ${fim} para ${mot.toLowerCase()}, correspondendo a ${dur} de indisponibilidade programada.`,
-      )
+      const emp = it.empresa_code || '1001'
+      const lin = it.linha_code || 'L1'
+      if (!hierarquia[emp]) hierarquia[emp] = {}
+      if (!hierarquia[emp][lin]) hierarquia[emp][lin] = []
+      hierarquia[emp][lin].push(it)
     })
+
+    const frases: string[] = []
+    Object.keys(hierarquia)
+      .sort()
+      .forEach((emp) => {
+        const linhas = hierarquia[emp]
+        Object.keys(linhas)
+          .sort()
+          .forEach((lin) => {
+            const centros = linhas[lin]
+            centros.forEach((it) => {
+              const ini = formatDateTimeDisplay(it.data_hora_inicio)
+              const fim = formatDateTimeDisplay(it.data_hora_fim)
+              const dur = `${it.duracao_horas || 0} horas`
+              const mot = it.motivo || 'manutenção preventiva'
+              const num = it.numero_pp ? ` (${it.numero_pp})` : ''
+              frases.push(
+                `Empresa ${emp} → Linha ${lin} → Centro ${it.centro_code}${num}: parada programada entre ${ini} e ${fim} (${dur}) para ${mot.toLowerCase()}${it.status === 'CANCELADA' ? ' [CANCELADA NO CRONOGRAMA]' : ''}.`,
+              )
+            })
+          })
+      })
 
     return frases.join(' ')
   }, [itensExibicao])
@@ -246,12 +267,13 @@ export const ParadasProgramadasAtaSection: React.FC<ParadasProgramadasAtaSection
               <TableHead className="font-bold text-slate-700 text-center">Duração</TableHead>
               <TableHead className="font-bold text-slate-700">Motivo</TableHead>
               <TableHead className="font-bold text-slate-700 text-center">Status</TableHead>
+              <TableHead className="font-bold text-slate-700">Responsável / Atualização</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {itensExibicao.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-6 text-xs text-slate-500">
+                <TableCell colSpan={10} className="text-center py-6 text-xs text-slate-500">
                   {loading
                     ? 'Carregando paradas programadas...'
                     : 'Nenhuma parada programada registrada para este período.'}
@@ -333,12 +355,22 @@ export const ParadasProgramadasAtaSection: React.FC<ParadasProgramadasAtaSection
                           </Badge>
                         )}
                       </TableCell>
+                      <TableCell className="text-slate-600 text-[11px] whitespace-nowrap">
+                        <div className="font-medium text-slate-800">
+                          {item.responsavel_cadastro || 'PCP — Planejamento Operacional'}
+                        </div>
+                        {item.ultima_alteracao && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Alt: {formatDateTimeDisplay(item.ultima_alteracao)}
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
 
                     {/* Sinalização de Atualização Posterior à Emissão da ATA */}
                     {diff && (
                       <TableRow className="bg-amber-50/80 border-t-0">
-                        <TableCell colSpan={9} className="py-2 px-4">
+                        <TableCell colSpan={10} className="py-2 px-4">
                           <div
                             data-testid="alerta-diff-pos-ata"
                             className="text-[11px] text-amber-900 flex items-start gap-2"

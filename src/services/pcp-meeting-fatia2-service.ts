@@ -720,7 +720,7 @@ export class PcpMeetingFatia2Service {
       }
     }
 
-    // 4. Incorporar Paradas Programadas da fonte oficial na Seção de Paradas da ATA
+    // 4. Incorporar Paradas Programadas da fonte oficial na Seção de Paradas da ATA (Consolidando por Empresa -> Linha -> Centro)
     try {
       const paradasCentros = await pb.collection('programacao_parada_centros').getFullList({
         sort: 'inicio_iso',
@@ -733,6 +733,19 @@ export class PcpMeetingFatia2Service {
         }
       }
 
+      // Ordenar por Empresa -> Linha -> Centro para consolidação
+      paradasCentros.sort((a: any, b: any) => {
+        const ea = a.empresa_id || a.empresa_code || '1001'
+        const eb = b.empresa_id || b.empresa_code || '1001'
+        if (ea !== eb) return ea.localeCompare(eb)
+        const la = a.linha_id || a.linha_code || 'L1'
+        const lb = b.linha_id || b.linha_code || 'L1'
+        if (la !== lb) return la.localeCompare(lb)
+        const ca = a.centro_id || a.centro_code || ''
+        const cb = b.centro_id || b.centro_code || ''
+        return ca.localeCompare(cb)
+      })
+
       for (const pc of paradasCentros) {
         const linha = pc.linha_id || pc.linha_code || 'L1'
         const centro = pc.centro_id || pc.centro_code || 'Centro'
@@ -741,11 +754,14 @@ export class PcpMeetingFatia2Service {
         const fim = pc.fim_iso || `${pc.data_fim} ${pc.hora_fim}`
         const dur = pc.duracao_horas ? `${pc.duracao_horas} h` : ''
         const mot = pc.motivo || 'Manutenção Preventiva'
+        const numPP = pc.parada_id
+          ? `PP-${pc.parada_id.slice(-5).toUpperCase()}/2026`
+          : 'PP-00001/2026'
 
-        const textoItem = `Empresa: ${empresa} | Linha: ${linha} | Centro: ${centro} | Início: ${ini} | Fim: ${fim} | Duração: ${dur} | Motivo: ${mot} | Status: ${pc.status || 'ATIVO'}`
+        const textoItem = `Empresa ${empresa} → Linha ${linha} → Centro ${centro} (${numPP}) | Início: ${ini} | Fim: ${fim} | Duração: ${dur} | Motivo: ${mot} | Status: ${pc.status || 'ATIVO'}`
         updatedSecoes[targetSecKey].itens.push({
           id: `parada_${pc.id}`,
-          topico: `Parada ${linha} - Centro ${centro}`,
+          topico: `${empresa} - ${linha} - ${centro} (${numPP})`,
           detalhes: textoItem,
           status_info: 'NOVA',
           responsavel: 'PCP',
@@ -914,6 +930,41 @@ export class PcpMeetingFatia2Service {
       new_value: 'ATA_APROVADA',
       reason: `Aprovado por autoridade competente: ${approverContext.name}`,
     })
+
+    // Log corporativo adicional imutável em pcp_audit_logs para a integração da ATA com Paradas
+    try {
+      await pb.collection('pcp_audit_logs').create({
+        user_id: approverContext.id || null,
+        user_name: approverContext.name,
+        user_email: 'pcp@ciafal.com.br',
+        user_role: 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'ATUALIZACAO_ATA_PARADAS',
+        resource: 'PCP_MEETING_ATA',
+        resource_id: ataId,
+        permission_required: 'pcp.meeting.view',
+        outcome: 'SUCCESS',
+        module: 'REUNIAO_PCP',
+        screen: 'Central de ATAs',
+        entity: 'pcp_meeting_ata',
+        record_id: ataId,
+        status: 'Concluído',
+        reason: `Congelamento do snapshot de ${paradasSnapshot.length} parada(s) programada(s) na aprovação formal da ATA`,
+        details: {
+          meeting_id: meetingId,
+          paradas_snapshot_count: paradasSnapshot.length,
+          paradas: paradasSnapshot.map((p) => ({
+            id: p.id,
+            centro: p.centro_code,
+            linha: p.linha_code,
+            inicio: p.data_hora_inicio,
+            fim: p.data_hora_fim,
+          })),
+        },
+      })
+    } catch (eAudit) {
+      console.warn('Falha ao registrar auditoria de atualização da ATA:', eAudit)
+    }
 
     return updated
   }

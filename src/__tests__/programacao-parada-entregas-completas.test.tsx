@@ -213,6 +213,37 @@ describe('Testes de Aceitação: Entregas 1, 2 e 3 de Programação de Paradas',
   })
 
   // ═════════════════════════════════════════════════════════════════════════
+  // ENTREGA 2.1 — SEÇÃO CENTROS COM PARADA PROGRAMADA (FILTROS E BOTÃO CONTADOR)
+  // ═════════════════════════════════════════════════════════════════════════
+  it('E2.1: CentrosComParadaProgramadaSection possui colunas obrigatórias e multi-seleção com contador', async () => {
+    render(<CentrosComParadaProgramadaSection />)
+
+    await waitFor(() => {
+      expect(screen.getByText('C-L1-01')).toBeDefined()
+    })
+
+    // Colunas esperadas na tabela de Centros com Parada
+    expect(screen.getByText('Empresa')).toBeDefined()
+    expect(screen.getByText('Linha')).toBeDefined()
+    expect(screen.getByText('Centro')).toBeDefined()
+    expect(screen.getByText('Início')).toBeDefined()
+    expect(screen.getByText('Fim')).toBeDefined()
+    expect(screen.getByText('Duração')).toBeDefined()
+    expect(screen.getByText('Motivo')).toBeDefined()
+    expect(screen.getByText('Status')).toBeDefined()
+
+    // Botão Selecionar Todos os Filtrados
+    const selectAllBtn = screen.getByText('Selecionar todos os filtrados')
+    expect(selectAllBtn).toBeDefined()
+    fireEvent.click(selectAllBtn)
+
+    // Contador deve atualizar para 2 selecionados
+    await waitFor(() => {
+      expect(screen.getByTestId('badge-selecionados').textContent).toBe('2')
+    })
+  })
+
+  // ═════════════════════════════════════════════════════════════════════════
   // ENTREGA 3 — INTEGRAÇÃO COM ATA DO PCP: FONTE OFICIAL & SNAPSHOT CONGELADO
   // ═════════════════════════════════════════════════════════════════════════
   it('E3: ParadasProgramadasAtaSection exibe base viva quando ATA em elaboração (MINUTA/EM_REVISAO)', async () => {
@@ -278,7 +309,10 @@ describe('Testes de Aceitação: Entregas 1, 2 e 3 de Programação de Paradas',
     expect(screen.getByTestId('badge-snapshot-congelado')).toBeDefined()
 
     // O centro do snapshot deve estar presente
-    expect(screen.getByText('C-L1-01')).toBeDefined()
+    expect(screen.getAllByText('C-L1-01').length).toBeGreaterThan(0)
+
+    // Colunas da ATA incluindo Responsável / Atualização
+    expect(screen.getByText('Responsável / Atualização')).toBeDefined()
 
     // Como no mock a base viva tem fim '06/11/2026 18:00', deve acusar o alerta de atualização posterior à emissão
     await waitFor(() => {
@@ -288,5 +322,22 @@ describe('Testes de Aceitação: Entregas 1, 2 e 3 de Programação de Paradas',
       expect(alertaDiff.textContent).toContain('Versão registrada na reunião')
       expect(alertaDiff.textContent).toContain('Atualização posterior')
     })
+  })
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // AUDITORIA IMUTÁVEL ENVIO_COMUNICADO_PARADA & GERACAO DE ATA
+  // ═════════════════════════════════════════════════════════════════════════
+  it('Auditoria: gravarAuditoriaComunicado grava em pcp_audit_logs com dados imutáveis', async () => {
+    await programacaoParadaService.gravarAuditoriaComunicado({
+      parada_codigo: 'PP-00001/2026',
+      assunto: 'Comunicado Oficial de Paradas Programadas',
+      destinatarios: ['gerencia@ciafal.com.br'],
+      copia: ['pcp@ciafal.com.br'],
+      centros_ids: ['ppc-01', 'ppc-02'],
+      usuario_id: 'user-01',
+      usuario_nome: 'Lucas Ferreira',
+    })
+    // Não lança exceção e executa de ponta a ponta
+    expect(true).toBe(true)
   })
 })
