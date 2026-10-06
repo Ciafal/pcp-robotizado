@@ -720,6 +720,42 @@ export class PcpMeetingFatia2Service {
       }
     }
 
+    // 4. Incorporar Paradas Programadas da fonte oficial na Seção de Paradas da ATA
+    try {
+      const paradasCentros = await pb.collection('programacao_parada_centros').getFullList({
+        sort: 'inicio_iso',
+      })
+      const targetSecKey = 'sec_paradas'
+      if (!updatedSecoes[targetSecKey]) {
+        updatedSecoes[targetSecKey] = {
+          nome: 'Paradas Programadas',
+          itens: [],
+        }
+      }
+
+      for (const pc of paradasCentros) {
+        const linha = pc.linha_id || pc.linha_code || 'L1'
+        const centro = pc.centro_id || pc.centro_code || 'Centro'
+        const empresa = pc.empresa_id || pc.empresa_code || '1001'
+        const ini = pc.inicio_iso || `${pc.data_inicio} ${pc.hora_inicio}`
+        const fim = pc.fim_iso || `${pc.data_fim} ${pc.hora_fim}`
+        const dur = pc.duracao_horas ? `${pc.duracao_horas} h` : ''
+        const mot = pc.motivo || 'Manutenção Preventiva'
+
+        const textoItem = `Empresa: ${empresa} | Linha: ${linha} | Centro: ${centro} | Início: ${ini} | Fim: ${fim} | Duração: ${dur} | Motivo: ${mot} | Status: ${pc.status || 'ATIVO'}`
+        updatedSecoes[targetSecKey].itens.push({
+          id: `parada_${pc.id}`,
+          topico: `Parada ${linha} - Centro ${centro}`,
+          detalhes: textoItem,
+          status_info: 'NOVA',
+          responsavel: 'PCP',
+          origem: 'Programação de Parada',
+        })
+      }
+    } catch (errParadas) {
+      console.warn('Não foi possível carregar paradas na geração da ATA:', errParadas)
+    }
+
     // Se nenhuma alteração foi identificada, gerar item explicativo
     if (comparisonItems.length === 0) {
       comparisonItems.push({
@@ -816,11 +852,54 @@ export class PcpMeetingFatia2Service {
     approverContext: { id?: string; name: string },
   ): Promise<PCPMeetingRecord> {
     const nowIso = new Date().toISOString()
-    await pb.collection('pcp_meeting_ata').update(ataId, {
-      status: 'APROVADA',
-      approver_name: approverContext.name,
-      approved_at: nowIso,
-    })
+
+    // Ao aprovar, congela o snapshot das paradas programadas vigentes da fonte oficial
+    let paradasSnapshot: any[] = []
+    try {
+      const liveParadas = await pb.collection('programacao_parada_centros').getFullList({
+        sort: 'inicio_iso',
+      })
+      paradasSnapshot = liveParadas.map((lp: any, idx: number) => ({
+        id: lp.id || `live-${idx}`,
+        parada_id: lp.parada_id,
+        empresa_code: lp.empresa_id || lp.empresa_code || '1001',
+        linha_code: lp.linha_id || lp.linha_code || 'L1',
+        centro_code: lp.centro_id || lp.centro_code || 'Centro',
+        data_hora_inicio: lp.inicio_iso || `${lp.data_inicio} ${lp.hora_inicio}`,
+        data_hora_fim: lp.fim_iso || `${lp.data_fim} ${lp.hora_fim}`,
+        duracao_horas: lp.duracao_horas || 0,
+        motivo: lp.motivo || 'Manutenção Preventiva',
+        status: lp.status || 'ATIVO',
+        numero_pp: lp.parada_id
+          ? `PP-${lp.parada_id.slice(-5).toUpperCase()}/2026`
+          : `PP-0000${idx + 1}/2026`,
+        observacao: lp.descricao || '',
+        responsavel_cadastro: approverContext.name,
+        ultima_alteracao: nowIso,
+      }))
+    } catch {
+      // segue com snapshot vazio se falhar busca
+    }
+
+    // Busca a ATA atual para atualizar seu structured_content com o snapshot
+    try {
+      const ataAtual = await pb.collection('pcp_meeting_ata').getOne(ataId)
+      const stContent = ataAtual.structured_content || {}
+      stContent.paradas_programadas_snapshot = paradasSnapshot
+
+      await pb.collection('pcp_meeting_ata').update(ataId, {
+        status: 'APROVADA',
+        approver_name: approverContext.name,
+        approved_at: nowIso,
+        structured_content: stContent,
+      })
+    } catch {
+      await pb.collection('pcp_meeting_ata').update(ataId, {
+        status: 'APROVADA',
+        approver_name: approverContext.name,
+        approved_at: nowIso,
+      })
+    }
 
     const updated = await pb.collection('pcp_meeting').update<PCPMeetingRecord>(meetingId, {
       status: 'ATA_APROVADA',

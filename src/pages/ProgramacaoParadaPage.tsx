@@ -27,6 +27,7 @@ import {
 import { ParadaHeader } from '@/components/programacao-parada/ParadaHeader'
 import { ParadaForm } from '@/components/programacao-parada/ParadaForm'
 import { CentrosTable } from '@/components/programacao-parada/CentrosTable'
+import { CentrosComParadaProgramadaSection } from '@/components/programacao-parada/CentrosComParadaProgramadaSection'
 import { AIValidationModal } from '@/components/programacao-parada/AIValidationModal'
 import { SendCommunicationModal } from '@/components/programacao-parada/SendCommunicationModal'
 import { VersionHistoryModal } from '@/components/programacao-parada/VersionHistoryModal'
@@ -555,13 +556,19 @@ export const ProgramacaoParadaPage: React.FC = () => {
             disabled={!canEdit || paradaAtual.status === 'CANCELADA'}
           />
 
-          {/* 3. Tabela de Múltiplos Centros */}
+          {/* 3. Tabela de Múltiplos Centros da Programação Atual */}
           <CentrosTable
             centros={centros}
             onEdit={(idx) => setEditingCentroIndex(idx)}
             onDuplicate={handleDuplicateCentro}
             onDelete={handleDeleteCentro}
             disabled={!canEdit || paradaAtual.status === 'CANCELADA'}
+          />
+
+          {/* 4. Seção "Centros com Parada Programada" + Comunicado por Seleção */}
+          <CentrosComParadaProgramadaSection
+            refreshTrigger={centros.length}
+            onRefreshNeeded={() => {}}
           />
         </div>
       ) : (

@@ -18,6 +18,7 @@ import {
 } from '@/types/pcp-meeting'
 import { pcpMeetingFatia1Service } from '@/services/pcp-meeting-fatia1-service'
 import { pcpMeetingFatia2Service } from '@/services/pcp-meeting-fatia2-service'
+import { ParadasProgramadasAtaSection } from './ParadasProgramadasAtaSection'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -576,6 +577,17 @@ export const CentralAtasFatia2View: React.FC<CentralAtasFatia2ViewProps> = ({
                   <span className="font-extrabold text-slate-900 uppercase tracking-wide block text-xs">
                     Estrutura Completa de Seções Corporativas (SGQ 8.1.001-R002 Rev 8)
                   </span>
+
+                  {/* Seção Obrigatória de Paradas Programadas da Fonte Oficial */}
+                  <ParadasProgramadasAtaSection
+                    ata={selectedAta}
+                    isApprovedOrPublished={
+                      selectedAta.status === 'APROVADA' ||
+                      selectedAta.status === 'PUBLICADA' ||
+                      selectedMeeting.status === 'ATA_APROVADA' ||
+                      selectedMeeting.status === 'PUBLICADA'
+                    }
+                  />
 
                   {Object.entries(selectedAta.structured_content.secoes || {}).map(
                     ([secKey, sec]) => (

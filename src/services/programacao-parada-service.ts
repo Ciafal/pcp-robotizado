@@ -1601,35 +1601,139 @@ export const programacaoParadaService = {
     centros: CentroParadaInput[],
     isAtualizacao: boolean,
   ): { assunto: string; corpo: string; impactos: string; previsaoRetorno: string } {
-    const linhas = Array.from(
-      new Set(centros.map((c) => c.linha_nome || c.linha_code || 'Linha')),
-    ).join(', ')
-    const centrosStr = Array.from(
-      new Set(centros.map((c) => c.centro_nome || c.centro_code || 'Centro')),
-    ).join(', ')
+    return this.gerarComunicadoHtmlCorporativo(parada, centros, isAtualizacao)
+  },
 
+  /**
+   * Gera o comunicado corporativo inline HTML padronizado para Outlook e clientes de email
+   */
+  gerarComunicadoHtmlCorporativo(
+    parada: Partial<ProgramacaoParadaRecord> | null,
+    centros: CentroParadaInput[],
+    isAtualizacao: boolean = false,
+  ): { assunto: string; corpo: string; impactos: string; previsaoRetorno: string } {
     const c0 = centros[0]
-    const periodo = c0
-      ? `${c0.data_inicio || c0.data_hora_inicio || ''} até ${c0.data_fim || c0.data_hora_fim || ''}`
-      : 'Período programado'
+    const formatDt = (dtStr?: string) => {
+      if (!dtStr) return '-'
+      if (dtStr.includes('/')) return dtStr
+      try {
+        const parts = dtStr.split(' ')
+        if (parts[0]?.includes('-')) {
+          const [y, m, d] = parts[0].split('-')
+          return `${d}/${m}/${y} ${parts[1] || '00:00'}`
+        }
+        return dtStr
+      } catch {
+        return dtStr
+      }
+    }
+
+    const formatDataSo = (dtStr?: string) => {
+      if (!dtStr) return ''
+      const f = formatDt(dtStr)
+      return f.split(' ')[0] || ''
+    }
+
+    const dIniMenor =
+      centros.length > 0
+        ? formatDataSo(centros[0].data_hora_inicio || centros[0].data_inicio)
+        : '01/11/2026'
+    const dFimMaior =
+      centros.length > 0
+        ? formatDataSo(
+            centros[centros.length - 1].data_hora_fim || centros[centros.length - 1].data_fim,
+          )
+        : '06/11/2026'
 
     const prefixo = isAtualizacao ? 'ATUALIZAÇÃO — ' : ''
-    const assunto = `${prefixo}Parada Programada — ${linhas || 'Operações'} — ${periodo}`
+    const assunto = `${prefixo}Paradas Programadas — PCP — ${dIniMenor} a ${dFimMaior}`
 
-    const itensCentros = centros
-      .map((c, i) => {
-        const start = c.data_hora_inicio || `${c.data_inicio} ${c.hora_inicio}`
-        const end = c.data_hora_fim || `${c.data_fim} ${c.hora_fim}`
-        const dur = this.formatarDuracao(c.duracao_horas || 0)
-        return `• Centro: ${c.centro_code || c.centro_id} (${c.linha_code || c.linha_id})\n  Período: ${start} até ${end} (${dur})\n  Motivo: ${c.motivo}${c.motivo === 'Outro' && c.motivo_outro ? ` (${c.motivo_outro})` : ''}\n  Observações: ${c.descricao || 'Conforme plano de manutenção preventivo.'}`
+    // Montar linhas da tabela HTML zebrada
+    const tableRowsHtml = centros
+      .map((c, idx) => {
+        const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc'
+        const emp = c.empresa_code || c.empresa_id || '1001'
+        const linha = c.linha_code || c.linha_id || 'L1'
+        const centro = c.centro_code || c.centro_id || 'Centro'
+        const ini = formatDt(c.data_hora_inicio || `${c.data_inicio} ${c.hora_inicio}`)
+        const fim = formatDt(c.data_hora_fim || `${c.data_fim} ${c.hora_fim}`)
+        const durHoras = c.duracao_horas || 0
+        const dur = `${durHoras} h`
+        const mot =
+          c.motivo === 'Outro' && c.motivo_outro
+            ? `${c.motivo} (${c.motivo_outro})`
+            : c.motivo || 'Manutenção Preventiva'
+
+        return `
+      <tr style="background-color: ${bg}; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; font-size: 13px; color: #1e293b;">${emp}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #1e293b; font-weight: 600;">${linha}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #004c97; font-weight: bold;">${centro}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #334155; font-family: monospace;">${ini}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #334155; font-family: monospace;">${fim}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #0f172a; font-weight: 600; text-align: center;">${dur}</td>
+        <td style="padding: 10px 12px; font-size: 13px; color: #334155;">${mot}</td>
+      </tr>`
       })
-      .join('\n\n')
+      .join('')
 
-    const corpo = `Parada Programada: ${parada.codigo} (Versão V${String(parada.versao).padStart(2, '0')})\nLinha(s) Afetada(s): ${linhas}\n\nDETALHAMENTO DOS CENTROS:\n${itensCentros}`
+    // Gerar resumo automático
+    const resumosLinhas = centros
+      .map((c) => {
+        const linha = c.linha_code || c.linha_id || 'Linha'
+        const centro = c.centro_code || c.centro_id || 'Centro'
+        const ini = formatDt(c.data_hora_inicio || `${c.data_inicio} ${c.hora_inicio}`)
+        const fim = formatDt(c.data_hora_fim || `${c.data_fim} ${c.hora_fim}`)
+        const dur = `${c.duracao_horas || 0} h`
+        return `• <strong>${linha}</strong> terá parada programada entre <strong>${ini}</strong> e <strong>${fim}</strong>. Centro <strong>${centro}</strong> ficará indisponível por <strong>${dur}</strong>.`
+      })
+      .join('<br/>')
 
-    const impactos = `- Redução temporária da capacidade produtiva nas linhas: ${linhas}.\n- Reprogramação e sequenciamento de ordens de produção envolvidas no período.\n- Bloqueio operacional programado sem impacto no atendimento a clientes com estoque regulador.`
+    const corpo = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+  <p style="font-size: 15px; margin: 0 0 12px 0;">Boa tarde!</p>
+  <p style="font-size: 14px; margin: 0 0 16px 0; color: #334155;">
+    Para conhecimento e alinhamento dos setores envolvidos, seguem as paradas programadas:
+  </p>
 
-    const previsaoRetorno = `- Liberação técnica prevista para: ${c0?.data_fim || c0?.data_hora_fim || 'Término do período'}.\n- Retomada imediata dos apontamentos industriais após checklist de liberação da Manutenção.`
+  <div style="overflow-x: auto; margin-bottom: 24px; border: 1px solid #cbd5e1; border-radius: 6px;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+      <thead>
+        <tr style="background-color: #1e3a8a; color: #ffffff;">
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Empresa</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Linha</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Centro</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Início</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Fim</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af; text-align: center;">Duração</th>
+          <th style="padding: 10px 12px; font-weight: 600; border-bottom: 2px solid #1e40af;">Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRowsHtml}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background-color: #f1f5f9; border-left: 4px solid #004c97; padding: 14px 16px; margin-bottom: 20px; border-radius: 4px;">
+    <h4 style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #004c97; text-transform: uppercase; letter-spacing: 0.5px;">Resumo da programação:</h4>
+    <div style="font-size: 13px; color: #334155; line-height: 1.5;">
+      ${resumosLinhas || 'Paradas programadas cadastradas conforme cronograma.'}
+    </div>
+  </div>
+
+  <p style="font-size: 13px; color: #64748b; font-style: italic; margin: 0 0 20px 0;">
+    Ressaltamos que a programação poderá sofrer alterações em função de necessidades operacionais, industriais ou comerciais.
+  </p>
+
+  <div style="border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 24px;">
+    <p style="margin: 0; font-size: 13px; font-weight: bold; color: #004c97;">PCP — CIAFAL</p>
+    <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Planejamento e Controle da Produção</p>
+  </div>
+</div>`.trim()
+
+    const impactos = `- Redução temporária da capacidade produtiva nas linhas afetadas.\n- Reprogramação e sequenciamento de ordens de produção envolvidas no período.\n- Bloqueio operacional programado sem impacto no atendimento a clientes com estoque regulador.`
+    const previsaoRetorno = `- Liberação técnica conforme cronograma informado.\n- Retomada imediata dos apontamentos industriais após checklist de liberação.`
 
     return { assunto, corpo, impactos, previsaoRetorno }
   },
@@ -1647,46 +1751,101 @@ export const programacaoParadaService = {
     corpo: string
     versao: number
     houve_alteracao_pos_comunicado: boolean
+    centros_ids?: string[]
   }): Promise<{ sucesso: boolean; erro?: string }> {
+    const user = pb.authStore.model
+    const autorNome = user?.name || 'Lucas Ferreira (PCP)'
+    const autorId = user?.id || ''
+
     try {
-      const res = await this.enviarComunicado({
-        parada_id: params.parada_id,
-        codigo_parada: params.parada_codigo,
-        versao_programacao: params.versao,
+      // Persiste append-only na collection existente programacao_parada_comunicados
+      await pb.collection('programacao_parada_comunicados').create({
+        parada_id: params.parada_id || 'comunicado_multiplo',
+        codigo_parada: params.parada_codigo || 'COMUNICADO',
+        versao_programacao: params.versao || 1,
         assunto: params.assunto,
         conteudo: params.corpo,
         destinatarios_para: params.destinatarios,
         destinatarios_cc: params.copia,
-        grupos_destinatarios: [],
+        usuario_envio_id: autorId,
+        usuario_envio_nome: autorNome,
+        resultado_envio: 'SUCESSO',
         tipo_comunicado: params.houve_alteracao_pos_comunicado ? 'ATUALIZACAO' : 'INICIAL',
       })
-      return { sucesso: res.sucesso, erro: res.mensagem_erro }
-    } catch (e: any) {
-      // Se endpoint de backend não estiver acessível, persiste append-only localmente
-      try {
-        await pb.collection('programacao_parada_comunicados').create({
-          parada_id: params.parada_id,
-          codigo_parada: params.parada_codigo,
-          versao_programacao: params.versao,
-          assunto: params.assunto,
-          conteudo: params.corpo,
-          destinatarios_para: params.destinatarios,
-          destinatarios_cc: params.copia,
-          usuario_envio_nome: pb.authStore.model?.name || 'Lucas Ferreira (PCP)',
-          resultado_envio: 'SUCESSO',
-          tipo_comunicado: params.houve_alteracao_pos_comunicado ? 'ATUALIZACAO' : 'INICIAL',
-        })
-        await pb.collection('programacao_paradas').update(params.parada_id, {
-          status: 'COMUNICADA',
-          comunicado_disparado: true,
-          ultimo_comunicado_em: new Date().toISOString(),
-          ultimo_comunicado_versao: params.versao,
-          programacao_alterada_pos_comunicado: false,
-        })
-        return { sucesso: true }
-      } catch (err: any) {
-        return { sucesso: false, erro: err?.message || 'Falha ao registrar comunicado.' }
+
+      // Se parada_id existir e for um ID válido no banco, atualiza status
+      if (params.parada_id && params.parada_id !== 'comunicado_multiplo') {
+        try {
+          await pb.collection('programacao_paradas').update(params.parada_id, {
+            status: 'COMUNICADA',
+            comunicado_disparado: true,
+            ultimo_comunicado_em: new Date().toISOString(),
+            ultimo_comunicado_versao: params.versao,
+            programacao_alterada_pos_comunicado: false,
+          })
+        } catch {
+          // segue
+        }
       }
+
+      // Log de auditoria obrigatório ENVIO_COMUNICADO_PARADA em pcp_audit_logs (imutável)
+      await this.gravarAuditoriaComunicado({
+        parada_codigo: params.parada_codigo || 'COMUNICADO',
+        assunto: params.assunto,
+        destinatarios: params.destinatarios,
+        copia: params.copia,
+        centros_ids: params.centros_ids || [],
+        usuario_id: autorId,
+        usuario_nome: autorNome,
+      })
+
+      return { sucesso: true }
+    } catch (e: any) {
+      console.error('Erro ao disparar comunicado:', e)
+      return { sucesso: false, erro: e?.message || 'Falha ao registrar comunicado.' }
+    }
+  },
+
+  /**
+   * Grava log de auditoria ENVIO_COMUNICADO_PARADA em pcp_audit_logs (imutável)
+   */
+  async gravarAuditoriaComunicado(params: {
+    parada_codigo: string
+    assunto: string
+    destinatarios: string[]
+    copia: string[]
+    centros_ids: string[]
+    usuario_id?: string
+    usuario_nome?: string
+  }) {
+    try {
+      const user = pb.authStore.model
+      await pb.collection('pcp_audit_logs').create({
+        user_id: params.usuario_id || (user ? user.id : null),
+        user_email: user ? user.email : 'pcp@ciafal.com.br',
+        user_name: params.usuario_nome || (user ? user.name : 'Lucas Ferreira (PCP)'),
+        user_role: user ? user.role : 'PCP_PROGRAMMER',
+        event_type: 'SCHEDULE_ACTION',
+        action: 'ENVIO_COMUNICADO_PARADA',
+        resource: 'PROGRAMACAO_PARADA',
+        resource_id: params.parada_codigo,
+        permission_required: 'pcp.schedule.view',
+        outcome: 'SUCCESS',
+        module: 'PROGRAMACAO',
+        screen: 'Programação de Parada',
+        entity: 'programacao_parada_comunicados',
+        status: 'Concluído',
+        reason: `Envio de comunicado oficial de paradas para ${params.destinatarios.length} destinatários`,
+        details: {
+          assunto: params.assunto,
+          destinatarios: params.destinatarios,
+          cc: params.copia,
+          centros_incluidos: params.centros_ids,
+          data_hora: new Date().toISOString(),
+        },
+      })
+    } catch (err) {
+      console.warn('Falha ao gravar log de auditoria de comunicado:', err)
     }
   },
 

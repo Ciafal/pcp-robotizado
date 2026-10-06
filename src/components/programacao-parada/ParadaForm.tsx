@@ -441,29 +441,32 @@ export const ParadaForm: React.FC<ParadaFormProps> = ({
             </div>
           </div>
 
-          {/* Linha 2: Datas, Horários e Duração Prevista */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-lg">
+          {/* Linha 2: Datas, Horários e Duração Prevista — Grid unificado e alinhado */}
+          <div
+            data-testid="periodo-grid"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-lg"
+          >
             {/* Data Início */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-slate-400" />
-                Data Início (dd/mm/aaaa)
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1 h-5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Data Início</span>
               </Label>
               <Input
                 type="text"
-                placeholder="Ex: 10/10/2026"
+                placeholder="Ex: 01/11/2026"
                 value={dataInicio}
                 onChange={(e) => setDataInicio(e.target.value)}
                 disabled={disabled}
-                className="h-8 text-xs bg-white"
+                className="h-10 text-sm bg-white border-slate-300 focus:border-[#004C97]"
               />
             </div>
 
             {/* Hora Início */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-400" />
-                Horário Início (24h)
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1 h-5">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Horário Início (24h)</span>
               </Label>
               <Input
                 type="text"
@@ -471,31 +474,31 @@ export const ParadaForm: React.FC<ParadaFormProps> = ({
                 value={horaInicio}
                 onChange={(e) => setHoraInicio(e.target.value)}
                 disabled={disabled}
-                className="h-8 text-xs bg-white"
+                className="h-10 text-sm bg-white border-slate-300 focus:border-[#004C97]"
               />
             </div>
 
             {/* Data Fim */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-slate-400" />
-                Data Fim (dd/mm/aaaa)
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1 h-5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Data Fim</span>
               </Label>
               <Input
                 type="text"
-                placeholder="Ex: 18/10/2026"
+                placeholder="Ex: 06/11/2026"
                 value={dataFim}
                 onChange={(e) => setDataFim(e.target.value)}
                 disabled={disabled}
-                className="h-8 text-xs bg-white"
+                className="h-10 text-sm bg-white border-slate-300 focus:border-[#004C97]"
               />
             </div>
 
             {/* Hora Fim */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-400" />
-                Horário Fim (24h)
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1 h-5">
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Horário Fim (24h)</span>
               </Label>
               <Input
                 type="text"
@@ -503,14 +506,21 @@ export const ParadaForm: React.FC<ParadaFormProps> = ({
                 value={horaFim}
                 onChange={(e) => setHoraFim(e.target.value)}
                 disabled={disabled}
-                className="h-8 text-xs bg-white"
+                className="h-10 text-sm bg-white border-slate-300 focus:border-[#004C97]"
               />
             </div>
 
-            {/* Duração Prevista Calculada */}
-            <div className="space-y-1 flex flex-col justify-center">
-              <Label className="text-xs font-medium text-slate-600">Duração Prevista</Label>
-              <div className="h-8 px-2.5 rounded-md bg-blue-50/80 border border-blue-200 text-xs font-semibold text-[#004C97] flex items-center truncate">
+            {/* Duração Prevista — readonly estilizado */}
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1 h-5">
+                <Clock className="w-3.5 h-3.5 text-[#004C97] shrink-0" />
+                <span>Duração Prevista</span>
+              </Label>
+              <div
+                data-testid="duracao-prevista-display"
+                className="h-10 px-3 rounded-md bg-slate-50 border border-slate-300 text-sm font-semibold text-slate-800 flex items-center truncate cursor-not-allowed select-none shadow-2xs"
+                title={duracaoFormatada}
+              >
                 {duracaoFormatada}
               </div>
             </div>
@@ -582,28 +592,41 @@ export const ParadaForm: React.FC<ParadaFormProps> = ({
             </div>
           )}
 
-          {/* Botão de Ação */}
-          <div className="flex justify-end items-center gap-2 pt-2 border-t border-slate-100">
-            {editingCentro && onCancelEditCentro && (
+          {/* Botão de Ação — alinhamento limpo sem botões fantasmas */}
+          <div className="flex justify-between items-center gap-2 pt-2 border-t border-slate-100">
+            <div>
+              {editingCentro && (
+                <div className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                  <span>
+                    Editando centro:{' '}
+                    <strong>{editingCentro.centro_code || editingCentro.centro_id}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editingCentro && onCancelEditCentro && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onCancelEditCentro}
+                  className="text-xs h-9 px-3"
+                >
+                  Cancelar Edição
+                </Button>
+              )}
               <Button
-                type="button"
-                variant="outline"
+                type="submit"
                 size="sm"
-                onClick={onCancelEditCentro}
-                className="text-xs h-8"
+                disabled={disabled}
+                className="text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white h-9 px-4 gap-1.5 shadow-xs"
               >
-                Cancelar Edição
+                <Plus className="w-3.5 h-3.5" />
+                {editingCentro ? 'Atualizar Centro' : '+ Adicionar Centro à Parada'}
               </Button>
-            )}
-            <Button
-              type="submit"
-              size="sm"
-              disabled={disabled}
-              className="text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white h-8 gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {editingCentro ? 'Atualizar Centro' : '+ Adicionar Centro à Parada'}
-            </Button>
+            </div>
           </div>
         </form>
       </CardContent>

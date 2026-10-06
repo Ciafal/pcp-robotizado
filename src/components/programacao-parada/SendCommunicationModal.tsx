@@ -33,19 +33,32 @@ import {
 
 interface SendCommunicationModalProps {
   open: boolean
-  onOpenChange: (open: boolean) => void
-  parada: ProgramacaoParadaRegistro
+  onOpenChange?: (open: boolean) => void
+  onClose?: () => void
+  parada?: Partial<ProgramacaoParadaRegistro> | null
   centros: CentroParadaInput[]
-  onSuccessSend: () => void
+  onSuccessSend?: () => void
+  onSuccess?: () => void
 }
 
 export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
   open,
   onOpenChange,
+  onClose,
   parada,
   centros,
   onSuccessSend,
+  onSuccess,
 }) => {
+  const handleClose = () => {
+    if (onClose) onClose()
+    if (onOpenChange) onOpenChange(false)
+  }
+
+  const handleNotifySuccess = () => {
+    if (onSuccessSend) onSuccessSend()
+    if (onSuccess) onSuccess()
+  }
   // Lista de destinatários do sistema
   const [usuariosDisponiveis, setUsuariosDisponiveis] = useState<any[]>([])
   const [gruposDisponiveis, setGruposDisponiveis] = useState<any[]>([])
@@ -86,10 +99,11 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
 
       // 2. Se já tem comunicado prévio e houve alteração, sugere formato de ATUALIZAÇÃO
       const isAtualizacao =
-        parada.houve_alteracao_pos_comunicado || (parada.comunicado_disparado && parada.versao > 1)
+        Boolean(parada?.houve_alteracao_pos_comunicado) ||
+        Boolean(parada?.comunicado_disparado && (parada?.versao || 1) > 1)
 
-      const gerado = programacaoParadaService.gerarCorpoComunicadoPadrao(
-        parada,
+      const gerado = programacaoParadaService.gerarComunicadoHtmlCorporativo(
+        parada || null,
         centros,
         isAtualizacao,
       )
@@ -108,7 +122,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
       setCopia(['gerencia.industrial@ciafal.com.br'])
 
       // Carregar histórico append-only
-      if (parada.id) {
+      if (parada?.id && parada.id !== 'comunicado_multiplo') {
         const hists = await programacaoParadaService.listarComunicados(parada.id)
         setHistoricoList(hists)
       }
@@ -150,9 +164,10 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
   // Gerar novamente com IA / template inteligente
   const handleRegenerateIA = () => {
     const isAtualizacao =
-      parada.houve_alteracao_pos_comunicado || (parada.comunicado_disparado && parada.versao > 1)
-    const gerado = programacaoParadaService.gerarCorpoComunicadoPadrao(
-      parada,
+      Boolean(parada?.houve_alteracao_pos_comunicado) ||
+      Boolean(parada?.comunicado_disparado && (parada?.versao || 1) > 1)
+    const gerado = programacaoParadaService.gerarComunicadoHtmlCorporativo(
+      parada || null,
       centros,
       isAtualizacao,
     )
@@ -162,8 +177,11 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
     setPrevisaoRetorno(gerado.previsaoRetorno)
   }
 
-  // Corpo final consolidado para envio / preview
-  const corpoFinalMontado = `Boa tarde!\n\nPara conhecimento e alinhamento dos setores envolvidos, informamos a programação de parada abaixo:\n\n${corpo}\n\nIMPACTOS PREVISTOS:\n${impactos || '- Reorganização do sequenciamento produtivo do período.'}\n\nPREVISÃO DE RETORNO:\n${previsaoRetorno || '- Retorno conforme liberação técnica do Centro.'}\n\nAtenciosamente,\nPCP — Ciafal`
+  // Corpo final consolidado: se o corpo já contiver tags HTML (<table, <div), usa ele diretamente
+  const corpoFinalMontado =
+    corpo.includes('<table') || corpo.includes('<div')
+      ? corpo
+      : `Boa tarde!\n\nPara conhecimento e alinhamento dos setores envolvidos, informamos a programação de parada abaixo:\n\n${corpo}\n\nIMPACTOS PREVISTOS:\n${impactos || '- Reorganização do sequenciamento produtivo do período.'}\n\nPREVISÃO DE RETORNO:\n${previsaoRetorno || '- Retorno conforme liberação técnica do Centro.'}\n\nAtenciosamente,\nPCP — Ciafal`
 
   // Disparo oficial com persistência
   const handleExecuteSend = async () => {
@@ -171,26 +189,33 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
     setSendSuccessMessage(null)
     setSendErrorMessage(null)
 
+    const pCodigo = parada?.codigo || 'PARADAS-PROGRAMADAS'
+    const pId = parada?.id || 'comunicado_multiplo'
+    const pVersao = parada?.versao || 1
+
     try {
       const res = await programacaoParadaService.dispararComunicado({
-        parada_id: parada.id,
-        parada_codigo: parada.codigo,
+        parada_id: pId,
+        parada_codigo: pCodigo,
         destinatarios,
         copia,
         assunto,
         corpo: corpoFinalMontado,
-        versao: parada.versao,
-        houve_alteracao_pos_comunicado: Boolean(parada.houve_alteracao_pos_comunicado),
+        versao: pVersao,
+        houve_alteracao_pos_comunicado: Boolean(parada?.houve_alteracao_pos_comunicado),
+        centros_ids: centros.map((c) => c.centro_code || c.centro_id || c.id || '').filter(Boolean),
       })
 
       if (res.sucesso) {
         setSendSuccessMessage(
-          `Comunicado da Parada Programada ${parada.codigo} enviado com sucesso para ${destinatarios.length} destinatários.`,
+          `Comunicado de ${centros.length} paradas programadas enviado com sucesso para ${destinatarios.length} destinatários.`,
         )
         // Atualiza histórico local
-        const hists = await programacaoParadaService.listarComunicados(parada.id)
-        setHistoricoList(hists)
-        onSuccessSend()
+        if (pId && pId !== 'comunicado_multiplo') {
+          const hists = await programacaoParadaService.listarComunicados(pId)
+          setHistoricoList(hists)
+        }
+        handleNotifySuccess()
       } else {
         setSendErrorMessage(
           res.erro ||
@@ -207,7 +232,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={(val) => !val && handleClose()}>
         <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto bg-white p-0 border border-slate-200 rounded-2xl shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/70 via-white to-slate-50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -218,13 +243,15 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
                 <div>
                   <DialogTitle className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
                     Comunicado Oficial de Parada Programada
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-[#004C97]">
-                      {parada.codigo}
-                    </span>
+                    {parada?.codigo && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-[#004C97]">
+                        {parada.codigo}
+                      </span>
+                    )}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-slate-500">
                     Alinhamento corporativo com Manutenção, Produção, Qualidade, Comercial e
-                    Diretoria.
+                    Diretoria. ({centros.length} centro(s) selecionado(s))
                   </DialogDescription>
                 </div>
               </div>
@@ -245,7 +272,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
             </div>
 
             {/* Aviso de Programação Alterada */}
-            {parada.houve_alteracao_pos_comunicado && (
+            {Boolean(parada?.houve_alteracao_pos_comunicado) && (
               <div className="mt-3 p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-800 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
@@ -567,8 +594,15 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans bg-slate-50/50 p-4 rounded-lg border border-slate-100">
-                  {corpoFinalMontado}
+                <div
+                  data-testid="preview-corpo-html"
+                  className="text-xs text-slate-800 leading-relaxed font-sans bg-slate-50/50 p-4 rounded-lg border border-slate-100 overflow-x-auto"
+                >
+                  {corpoFinalMontado.includes('<table') || corpoFinalMontado.includes('<div') ? (
+                    <div dangerouslySetInnerHTML={{ __html: corpoFinalMontado }} />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{corpoFinalMontado}</div>
+                  )}
                 </div>
               </div>
             )}
@@ -579,7 +613,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
               className="text-xs"
             >
               Cancelar
@@ -590,7 +624,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onOpenChange(false)}
+                onClick={handleClose}
                 className="text-xs text-slate-700"
               >
                 Salvar Rascunho
@@ -599,12 +633,13 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
                 type="button"
                 variant="default"
                 size="sm"
+                data-testid="btn-abrir-confirmacao-envio"
                 onClick={() => setIsConfirmDialogOpen(true)}
                 disabled={destinatarios.length === 0 || isSending}
-                className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
+                className="text-xs font-semibold bg-[#004C97] hover:bg-[#003d7a] text-white gap-1.5 shadow-xs"
               >
                 <Send className="w-3.5 h-3.5" />
-                Disparar Comunicado ({destinatarios.length} destinatários)
+                Enviar Comunicado ({destinatarios.length} destinatários)
               </Button>
             </div>
           </DialogFooter>
@@ -620,8 +655,7 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
               Confirmar Envio de Comunicado
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-600 pt-2 font-medium">
-              Deseja enviar o comunicado de Parada Programada{' '}
-              <strong className="text-slate-900">{parada.codigo}</strong> para{' '}
+              Enviar comunicado de <strong>{centros.length} paradas programadas</strong> para{' '}
               <strong className="text-slate-900">{destinatarios.length} destinatários</strong>?
             </DialogDescription>
           </DialogHeader>
@@ -653,11 +687,12 @@ export const SendCommunicationModal: React.FC<SendCommunicationModalProps> = ({
               type="button"
               variant="default"
               size="sm"
+              data-testid="btn-confirmar-envio-comunicado"
               onClick={handleExecuteSend}
               disabled={isSending}
               className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isSending ? 'Enviando...' : 'Confirmar Envio'}
+              {isSending ? 'Enviando...' : 'Confirmar envio'}
             </Button>
           </DialogFooter>
         </DialogContent>
