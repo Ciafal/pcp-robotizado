@@ -171,7 +171,7 @@ describe('Camada Visual da Legenda e Blocos da Montagem Programação CIAFAL (v0
   })
 
   describe('4. Renderização da Legenda em OperationalTimelineGrid e WeeklyScheduleGrid', () => {
-    const mockItem: WeeklyScheduleItem = {
+    const mockItem = {
       id: 'item-leg-1',
       schedule_code: 'SCH-TEST',
       company_code: 'CIAFAL',
@@ -199,7 +199,9 @@ describe('Camada Visual da Legenda e Blocos da Montagem Programação CIAFAL (v0
       start_datetime: '2026-10-05 06:00',
       end_datetime: '2026-10-05 08:00',
       status: 'DRAFT',
-    } as WeeklyScheduleItem
+      period_display: 'Semana 41',
+      version: 1,
+    } as unknown as WeeklyScheduleItem
 
     it('OperationalTimelineGrid exibe os 9 itens da legenda sem termos obsoletos', () => {
       render(
