@@ -21,8 +21,6 @@ export interface PlanejadorCargasPageProps {
   defaultTab?: 'lista' | 'planejamento' | 'mapa' | 'comparacao'
 }
 
-export default PlanejadorCargasPage
-
 export const PlanejadorCargasPage: React.FC<PlanejadorCargasPageProps> = ({
   defaultTab = 'mapa',
 }) => {
@@ -250,3 +248,5 @@ export const PlanejadorCargasPage: React.FC<PlanejadorCargasPageProps> = ({
     </div>
   )
 }
+
+export default PlanejadorCargasPage

@@ -37,10 +37,15 @@ import {
 import {
   IndicadorMatrizLinha,
   ComparacaoRegra,
+  SentidoIndicador,
   formatarValorPtBr,
   pcpIndicadoresService,
   IndicadorHistoricoLog,
+  AnaliseDesvioRecord,
+  Acao5W2HRecord,
 } from '@/services/pcp-indicadores-service'
+import { GraficoIndividualModal } from './GraficoIndividualModal'
+import { GerarAnaliseAcaoModal } from './GerarAnaliseAcaoModal'
 import { toast } from '@/hooks/use-toast'
 
 interface IndicadorDetailModalProps {
@@ -64,25 +69,51 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
   centroFiltro,
   onSalvarMeta,
 }) => {
-  const [activeTab, setActiveTab] = useState<'visao' | 'grafico' | 'ia' | 'metas' | 'historico'>(
-    'visao',
-  )
+  const [activeTab, setActiveTab] = useState<
+    'visao' | 'grafico' | 'ia' | 'analise_acoes' | 'metas' | 'historico'
+  >('visao')
   const [salvandoMeta, setSalvandoMeta] = useState(false)
   const [novaMeta, setNovaMeta] = useState<number>(0)
   const [novaRegra, setNovaRegra] = useState<ComparacaoRegra>('>=')
+  const [novoSentido, setNovoSentido] = useState<SentidoIndicador>('MAIOR_MELHOR')
   const [justificativa, setJustificativa] = useState('')
   const [historicoLogs, setHistoricoLogs] = useState<IndicadorHistoricoLog[]>([])
   const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+
+  // Modais de Ação Avançada
+  const [openGraficoIndividual, setOpenGraficoIndividual] = useState(false)
+  const [openWorkflowAnalise, setOpenWorkflowAnalise] = useState(false)
+
+  // Lista de análises e ações do indicador para a aba "Análise de Causa & Ações"
+  const [analisesDoIndicador, setAnalisesDoIndicador] = useState<AnaliseDesvioRecord[]>([])
+  const [acoesDoIndicador, setAcoesDoIndicador] = useState<Acao5W2HRecord[]>([])
+  const [carregandoAcoes, setCarregandoAcoes] = useState(false)
 
   // Ao abrir ou alterar indicador selecionado, carrega estado de edição e histórico
   React.useEffect(() => {
     if (linha && open) {
       setNovaMeta(linha.indicador.meta)
       setNovaRegra(linha.indicador.regra_comparacao)
+      setNovoSentido(linha.indicador.sentido_indicador || 'MAIOR_MELHOR')
       setJustificativa('')
       carregarHistorico(linha.indicador.codigo)
+      carregarAnalisesEAcoes(linha.indicador.codigo)
     }
   }, [linha, open])
+
+  const carregarAnalisesEAcoes = async (codigo: string) => {
+    setCarregandoAcoes(true)
+    try {
+      const [analises, acoes] = await Promise.all([
+        pcpIndicadoresService.listarAnalisesPorIndicador(codigo, ano),
+        pcpIndicadoresService.listarTodasAcoes({ indicadorCodigo: codigo, exercicio: ano }),
+      ])
+      setAnalisesDoIndicador(analises)
+      setAcoesDoIndicador(acoes)
+    } finally {
+      setCarregandoAcoes(false)
+    }
+  }
 
   const carregarHistorico = async (codigo: string) => {
     setCarregandoHistorico(true)
@@ -120,9 +151,9 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
         indicadorId: ind.id,
         metaNova: Number(novaMeta),
         regraNova: novaRegra,
+        sentidoNovo: novoSentido,
         justificativa: justificativa.trim(),
       })
-
       toast({
         title: 'Meta atualizada com sucesso',
         description: `Nova meta ${novaRegra} ${novaMeta} ${ind.unidade} registrada no pcp_audit_logs.`,
@@ -173,22 +204,43 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
               </DialogDescription>
             </div>
 
-            {/* Resumo da Regra & Meta */}
-            <div className="flex items-center gap-2 text-right">
-              <div className="bg-white border border-slate-200 rounded p-2 px-3 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">
-                  Meta Vigente
-                </div>
-                <div className="text-sm font-bold text-[#004C97]">
-                  {ind.regra_comparacao} {formatarValorPtBr(ind.meta, ind.unidade)}
-                </div>
+            {/* Resumo da Regra & Meta + Botões Principais */}
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setOpenGraficoIndividual(true)}
+                  className="bg-[#004C97] hover:bg-[#003B75] text-white text-xs font-semibold shadow-xs gap-1.5 h-8"
+                >
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Gráfico Individual
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setOpenWorkflowAnalise(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs gap-1.5 h-8"
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                  Gerar Análise e Ação
+                </Button>
               </div>
-              <div className="bg-white border border-slate-200 rounded p-2 px-3 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">
-                  Média / Acumulado
+
+              <div className="flex items-center gap-2 text-right">
+                <div className="bg-white border border-slate-200 rounded p-2 px-3 shadow-2xs">
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                    Meta Vigente
+                  </div>
+                  <div className="text-sm font-bold text-[#004C97]">
+                    {ind.regra_comparacao} {formatarValorPtBr(ind.meta, ind.unidade)}
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-slate-900">
-                  {formatarValorPtBr(linha.mediaOuAcumuladoAno, ind.unidade)}
+                <div className="bg-white border border-slate-200 rounded p-2 px-3 shadow-2xs">
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                    Média / Acumulado
+                  </div>
+                  <div className="text-sm font-bold text-slate-900">
+                    {formatarValorPtBr(linha.mediaOuAcumuladoAno, ind.unidade)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,6 +273,13 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
               >
                 <Bot className="w-3.5 h-3.5 text-[#004C97]" />
                 Análise IA PCP
+              </TabsTrigger>
+              <TabsTrigger
+                value="analise_acoes"
+                className="data-[state=active]:border-b-2 data-[state=active]:border-[#004C97] data-[state=active]:text-[#004C97] rounded-none px-2 py-2 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Análise de Causa & Ações ({acoesDoIndicador.length})
               </TabsTrigger>
               <TabsTrigger
                 value="metas"
@@ -599,6 +658,101 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
               </div>
             </TabsContent>
 
+            {/* ABA NOVA: Análise de Causa & Ações */}
+            <TabsContent value="analise_acoes" className="mt-0 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">
+                    Planos de Ação 5W2H e Análises Vinculadas
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Rastreabilidade completa de causas raízes investigadas e eficácia apurada.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setOpenWorkflowAnalise(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold gap-1.5"
+                >
+                  <Bot className="w-3.5 h-3.5" />+ Nova Análise / Ação
+                </Button>
+              </div>
+
+              {carregandoAcoes ? (
+                <div className="p-8 text-center text-xs text-slate-500">
+                  Carregando ações e análises...
+                </div>
+              ) : acoesDoIndicador.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 bg-white border border-slate-200 rounded-md">
+                  Nenhuma ação corretiva registrada para este indicador no exercício {ano}. Clique
+                  em &quot;+ Nova Análise / Ação&quot; para iniciar o fluxo de resolução de desvio.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="p-2.5">Código / Ação (What)</th>
+                        <th className="p-2.5">Causa Raiz</th>
+                        <th className="p-2.5">Responsável</th>
+                        <th className="p-2.5">Prazo</th>
+                        <th className="p-2.5">Status</th>
+                        <th className="p-2.5">Eficácia</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {acoesDoIndicador.map((act) => (
+                        <tr key={act.id} className="hover:bg-slate-50/50">
+                          <td className="p-2.5 font-medium">
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              {act.codigo}
+                            </span>
+                            {act.what_acao}
+                          </td>
+                          <td className="p-2.5 text-slate-600 max-w-[200px] truncate">
+                            {act.causa_raiz_vinculada || '—'}
+                          </td>
+                          <td className="p-2.5 text-slate-700">{act.who_responsavel_nome}</td>
+                          <td className="p-2.5 font-mono">
+                            {act.when_prazo
+                              ? new Date(act.when_prazo).toLocaleDateString('pt-BR')
+                              : '—'}
+                          </td>
+                          <td className="p-2.5">
+                            <Badge
+                              className={`text-[10px] ${
+                                act.status === 'CONCLUIDA'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : act.status === 'ATRASADA'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {act.status}
+                            </Badge>
+                          </td>
+                          <td className="p-2.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${
+                                act.situacao_eficacia === 'EFICAZ'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : act.situacao_eficacia === 'INEFICAZ'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-300'
+                                    : 'bg-slate-50 text-slate-600'
+                              }`}
+                            >
+                              {act.situacao_eficacia || 'Aguardando'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+
             {/* ABA 4: Editar Metas & Regras (Governança & Auditoria) */}
             <TabsContent value="metas" className="mt-0 space-y-4">
               <Card className="border border-slate-200">
@@ -613,7 +767,29 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700">
+                        Sentido Operacional
+                      </Label>
+                      <Select value={novoSentido} onValueChange={(val: any) => setNovoSentido(val)}>
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Sentido" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MAIOR_MELHOR" className="text-xs">
+                            Maior é melhor (ex: Cumprimento, OEE)
+                          </SelectItem>
+                          <SelectItem value="MENOR_MELHOR" className="text-xs">
+                            Menor é melhor (ex: Setup, Falta MP)
+                          </SelectItem>
+                          <SelectItem value="FAIXA_ACEITAVEL" className="text-xs">
+                            Faixa aceitável (tolerância mínima/máxima)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-700">
                         Regra de Comparação
@@ -624,13 +800,13 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value=">=" className="text-xs">
-                            &gt;= (Maior ou Igual — ex: Aderência, Cumprimento)
+                            &gt;= (Maior ou Igual)
                           </SelectItem>
                           <SelectItem value="<=" className="text-xs">
-                            &lt;= (Menor ou Igual — ex: Tempo Setup, Falta MP)
+                            &lt;= (Menor ou Igual)
                           </SelectItem>
                           <SelectItem value="=" className="text-xs">
-                            = (Igual — tolerância estrita)
+                            = (Igual / Faixa)
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -746,6 +922,25 @@ export const IndicadorDetailModal: React.FC<IndicadorDetailModalProps> = ({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Modal Gráfico Individual (90-95% da tela) */}
+      <GraficoIndividualModal
+        isOpen={openGraficoIndividual}
+        onClose={() => setOpenGraficoIndividual(false)}
+        linha={linha}
+        anoExercicio={ano}
+      />
+
+      {/* Modal Workflow Gerar Análise e Ação (8 etapas) */}
+      <GerarAnaliseAcaoModal
+        isOpen={openWorkflowAnalise}
+        onClose={() => setOpenWorkflowAnalise(false)}
+        linha={linha}
+        anoExercicio={ano}
+        onSuccess={() => {
+          if (linha) carregarAnalisesEAcoes(linha.indicador.codigo)
+        }}
+      />
     </Dialog>
   )
 }

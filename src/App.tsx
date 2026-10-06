@@ -686,6 +686,20 @@ const IndicadoresPcpPage = lazyWithRetry(
     })),
   'IndicadoresPcpPage',
 )
+const ControleAcoesIndicadoresPage = lazyWithRetry(
+  () =>
+    import('@/pages/ControleAcoesIndicadoresPage').then((m) => ({
+      default: m.default ?? m.ControleAcoesIndicadoresPage,
+    })),
+  'ControleAcoesIndicadoresPage',
+)
+const DashboardIndicadoresPcpPage = lazyWithRetry(
+  () =>
+    import('@/pages/DashboardIndicadoresPcpPage').then((m) => ({
+      default: m.default ?? m.DashboardIndicadoresPcpPage,
+    })),
+  'DashboardIndicadoresPcpPage',
+)
 const CogiPendenciesPage = lazyWithRetry(
   () =>
     import('@/pages/production-control/CogiPendenciesPage').then((m) => ({
@@ -1257,13 +1271,33 @@ export const App: React.FC = () => {
                       path="/planejamento-mestre"
                       element={<Navigate to="/pcp/planejamento" replace />}
                     />
-                    {/* NOVO TÓPICO: Relatórios PCP — Indicadores PCP */}
+                    {/* NOVO TÓPICO: Relatórios PCP — Indicadores PCP, Controle de Ações e Dashboard */}
                     <Route
                       path="/pcp/relatorios/indicadores"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
                           <ErrorBoundary moduleName="Indicadores PCP — Matriz Anual Consolidada">
                             <IndicadoresPcpPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/relatorios/controle-acoes"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Controle de Ações dos Indicadores">
+                            <ControleAcoesIndicadoresPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/relatorios/dashboard-indicadores"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Dashboard de Indicadores PCP">
+                            <DashboardIndicadoresPcpPage />
                           </ErrorBoundary>
                         </PermissionGuard>
                       }

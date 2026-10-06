@@ -94,6 +94,7 @@ describe('Regras de Comparação e Avaliação de Metas do PCP (>=, <=, =)', () 
           unidade: '%',
           meta: 95.0,
           regra_comparacao: '>=',
+          sentido_indicador: 'MAIOR_MELHOR',
           tipo_indicador: 'PROGRAMACAO',
           status_ativo: true,
           ordem_exibicao: 1,
@@ -107,6 +108,15 @@ describe('Regras de Comparação e Avaliação de Metas do PCP (>=, <=, =)', () 
         totalMesesAtingidos: 1,
         totalMesesFora: 1,
         totalMesesSemDados: 10,
+        ultimoResultado: 89.0,
+        desvioAtual: -6.0,
+        projecaoDezembro: 89.0,
+        projecaoFechamentoFormatada: '89,0 %',
+        isProjecaoPreliminar: true,
+        tendencia: 'PIORANDO',
+        mediaHistoricaAnoMenos2: 94.0,
+        mediaHistoricaAnoMenos1: 95.0,
+        mediaUltimos2Anos: 94.5,
         meses: [
           {
             mesIndex: 0,

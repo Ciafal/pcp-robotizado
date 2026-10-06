@@ -61,6 +61,7 @@ import {
   CheckSquare,
   Scale,
   Truck,
+  ListChecks,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -1233,6 +1234,18 @@ export const officialNavGroups: NavGroup[] = [
         title: 'Indicadores PCP',
         href: '/pcp/relatorios/indicadores',
         icon: BarChart3,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Controle de Ações dos Indicadores',
+        href: '/pcp/relatorios/controle-acoes',
+        icon: ListChecks,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Dashboard de Indicadores PCP',
+        href: '/pcp/relatorios/dashboard-indicadores',
+        icon: LayoutDashboard,
         permission: 'pcp.schedule.view',
       },
       {
