@@ -10,7 +10,6 @@ import { ErrorBoundary, RouteErrorBoundary } from '@/components/common/ErrorBoun
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
 const ProgramacaoParadaPage = lazyWithRetry(() => import('@/pages/ProgramacaoParadaPage'))
-const PlanejadorCargasPage = lazyWithRetry(() => import('@/pages/PlanejadorCargasPage'))
 
 // Loading Fallback visual discreto
 const ModuleFallback = () => (
@@ -746,47 +745,6 @@ export const App: React.FC = () => {
               <Suspense fallback={<ModuleFallback />}>
                 <Routes>
                   <Route element={<Layout />}>
-                    {/* Rotas Oficiais TMS - Planejador de Cargas e Mapa Logístico */}
-                    <Route
-                      path="/pcp/tms/planejador-cargas"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <ErrorBoundary moduleName="TMS — Planejador de Cargas">
-                            <PlanejadorCargasPage />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/tms/mapa-logistico"
-                      element={
-                        <PermissionGuard permission="pcp.schedule.view">
-                          <ErrorBoundary moduleName="TMS — Mapa Logístico">
-                            <PlanejadorCargasPage defaultTab="mapa" />
-                          </ErrorBoundary>
-                        </PermissionGuard>
-                      }
-                    />
-                    <Route
-                      path="/pcp/tms"
-                      element={<Navigate to="/pcp/tms/planejador-cargas" replace />}
-                    />
-                    <Route
-                      path="/tms/planejador-cargas"
-                      element={<Navigate to="/pcp/tms/planejador-cargas" replace />}
-                    />
-                    <Route
-                      path="/tms/mapa-logistico"
-                      element={<Navigate to="/pcp/tms/mapa-logistico" replace />}
-                    />
-                    <Route
-                      path="/tms"
-                      element={<Navigate to="/pcp/tms/planejador-cargas" replace />}
-                    />
-                    <Route
-                      path="/pcp-robotizado/tms/*"
-                      element={<Navigate to="/pcp/tms/planejador-cargas" replace />}
-                    />
                     {/* Rotas Oficiais de Gestão de Entregas PCP com Submenu Completo */}
                     <Route
                       path="/pcp/programacao/parada"

@@ -60,7 +60,6 @@ import {
   XCircle,
   CheckSquare,
   Scale,
-  Truck,
   ListChecks,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
@@ -1080,18 +1079,6 @@ export const officialNavGroups: NavGroup[] = [
     ],
   },
   {
-    groupTitle: 'TMS',
-    items: [
-      {
-        title: 'Planejador de Cargas',
-        href: '/pcp/tms/planejador-cargas',
-        icon: Truck,
-        badge: 'Novo',
-        permission: 'pcp.schedule.view',
-      },
-    ],
-  },
-  {
     groupTitle: 'GESTÃO DE MP',
     items: [
       {
@@ -1341,12 +1328,6 @@ export const PCPSidebar: React.FC = () => {
           currentPath.startsWith('/pcp/programacao') ||
           currentPath.startsWith('/pcp/sequenciamento') ||
           currentPath.startsWith('/pcp/entregas'))
-      const isTmsRoute =
-        g.groupTitle === 'TMS' &&
-        (currentPath.startsWith('/pcp/tms') ||
-          currentPath.startsWith('/tms') ||
-          currentPath.includes('planejador-cargas') ||
-          currentPath.includes('mapa-logistico'))
       // Auto-expansão do grupo CADASTROS quando currentPath.startsWith('/pcp/cadastros')
       const isCadastrosRoute =
         g.groupTitle === 'CADASTROS' && currentPath.startsWith('/pcp/cadastros')
@@ -1367,8 +1348,7 @@ export const PCPSidebar: React.FC = () => {
         isGovernanceRoute ||
         isProducaoRoute ||
         isCadastrosRoute ||
-        isProgramacaoRoute ||
-        isTmsRoute
+        isProgramacaoRoute
       ) {
         initial[g.groupTitle] = false
       } else {
@@ -1468,21 +1448,12 @@ export const PCPSidebar: React.FC = () => {
           location.pathname.startsWith('/pcp/sequenciamento') ||
           location.pathname.startsWith('/pcp/entregas'))
 
-      // Se a rota for do grupo TMS (/pcp/tms/*, etc.), força expansão
-      const isTmsDirect =
-        group.groupTitle === 'TMS' &&
-        (location.pathname.startsWith('/pcp/tms') ||
-          location.pathname.startsWith('/tms') ||
-          location.pathname.includes('planejador-cargas') ||
-          location.pathname.includes('mapa-logistico'))
-
       if (
         hasActiveItem ||
         isGovernanceDirect ||
         isProducaoDirect ||
         isCadastrosDirect ||
-        isProgramacaoDirect ||
-        isTmsDirect
+        isProgramacaoDirect
       ) {
         setCollapsedGroups((prev) => {
           if (prev[group.groupTitle]) {
@@ -1565,9 +1536,6 @@ export const PCPSidebar: React.FC = () => {
                   )}
                   {group.groupTitle === 'RELATÓRIOS' && (
                     <BarChart3 className="w-3 h-3 text-[#004C97] shrink-0" />
-                  )}
-                  {group.groupTitle === 'TMS' && (
-                    <Truck className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
                   {group.groupTitle === 'INTEGRAÇÕES & GOVERNANÇA' && (
                     <Network className="w-3 h-3 text-[#004C97] shrink-0" />
@@ -1688,25 +1656,13 @@ export const PCPSidebar: React.FC = () => {
                                                                 location.pathname.startsWith(
                                                                   '/pcp/configuracoes',
                                                                 )
-                                                              : item.href ===
-                                                                  '/pcp/tms/planejador-cargas'
-                                                                ? location.pathname.startsWith(
-                                                                    '/pcp/tms',
-                                                                  ) ||
-                                                                  location.pathname.startsWith(
-                                                                    '/tms',
-                                                                  ) ||
-                                                                  location.pathname.includes(
-                                                                    'planejador-cargas',
-                                                                  )
-                                                                : group.groupTitle === 'CADASTROS'
-                                                                  ? location.pathname === item.href
-                                                                  : location.pathname ===
-                                                                      item.href ||
-                                                                    (item.href.includes('?') &&
-                                                                      location.pathname +
-                                                                        location.search ===
-                                                                        item.href)
+                                                              : group.groupTitle === 'CADASTROS'
+                                                                ? location.pathname === item.href
+                                                                : location.pathname === item.href ||
+                                                                  (item.href.includes('?') &&
+                                                                    location.pathname +
+                                                                      location.search ===
+                                                                      item.href)
 
                     const isProducaoChild = group.groupTitle === 'CONTROLE DE PRODUÇÃO'
 
