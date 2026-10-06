@@ -702,3 +702,315 @@ export const DAYS_OF_WEEK: {
   { code: 'SAB', label: 'Sábado' },
   { code: 'DOM', label: 'Domingo' },
 ]
+
+/**
+ * =======================================================================
+ * MAPEAMENTO CENTRAL ÚNICO DE CORES DA MONTAGEM PROGRAMAÇÃO CIAFAL (v0.0.434)
+ * =======================================================================
+ * Camada visual oficial e sincronizada entre a Legenda e os Blocos nas visões
+ * Dia (OperationalTimelineGrid), Semana (WeeklyScheduleGrid) e Mês.
+ *
+ * Itens Oficiais da Legenda na ORDEM EXATA:
+ * 1. MTS: azul claro (bg-sky-100 / border-sky-300 / text-slate-900)
+ * 2. MTS Aço Especial: azul escuro (bg-[#003366] / border-[#002244] / text-white)
+ * 3. MTO: vermelho (bg-red-600 / border-red-700 / text-white)
+ * 4. Troca Setup: cinza escuro (bg-slate-700 / border-slate-800 / text-white)
+ * 5. Acerto: cinza claro (bg-slate-200 / border-slate-300 / text-slate-900)
+ * 6. Parada Programada: preto (bg-black / border-black / text-white)
+ * 7. Manutenção Programada: laranja (bg-amber-600 / border-amber-700 / text-white)
+ * 8. Resfriado: ❄ text-sky-700 font-bold (mantido como indicador)
+ * 9. Selecionado: ring-2 ring-blue-600 bg-blue-50 (mantido como indicador)
+ */
+
+export type ScheduleItemVisualType =
+  | 'MTS'
+  | 'MTS_ACO_ESPECIAL'
+  | 'MTO'
+  | 'TROCA_SETUP'
+  | 'ACERTO'
+  | 'PARADA_PROGRAMADA'
+  | 'MANUTENCAO_PROGRAMADA'
+  | 'RESFRIADO'
+  | 'SELECIONADO'
+
+export interface ScheduleVisualConfig {
+  type: ScheduleItemVisualType
+  label: string
+  bgClass: string
+  borderClass: string
+  textClass: string
+  indicatorClass: string
+  ringClass?: string
+  badgeClass: string
+  hoverClass: string
+  icon?: string
+}
+
+export const SCHEDULE_TYPE_COLORS: Record<ScheduleItemVisualType, ScheduleVisualConfig> = {
+  MTS: {
+    type: 'MTS',
+    label: 'MTS',
+    bgClass: 'bg-sky-100',
+    borderClass: 'border-sky-300',
+    textClass: 'text-slate-900',
+    indicatorClass: 'bg-sky-100 border border-sky-300',
+    badgeClass: 'bg-sky-100 text-slate-900 border-sky-300',
+    hoverClass: 'hover:bg-sky-200',
+  },
+  MTS_ACO_ESPECIAL: {
+    type: 'MTS_ACO_ESPECIAL',
+    label: 'MTS Aço Especial',
+    bgClass: 'bg-[#003366]',
+    borderClass: 'border-[#002244]',
+    textClass: 'text-white',
+    indicatorClass: 'bg-[#003366] border border-[#002244]',
+    badgeClass: 'bg-[#003366] text-white border-[#002244]',
+    hoverClass: 'hover:bg-[#002855]',
+  },
+  MTO: {
+    type: 'MTO',
+    label: 'MTO',
+    bgClass: 'bg-red-600',
+    borderClass: 'border-red-700',
+    textClass: 'text-white',
+    indicatorClass: 'bg-red-600 border border-red-700',
+    badgeClass: 'bg-red-600 text-white border-red-700',
+    hoverClass: 'hover:bg-red-700',
+  },
+  TROCA_SETUP: {
+    type: 'TROCA_SETUP',
+    label: 'Troca Setup',
+    bgClass: 'bg-slate-700',
+    borderClass: 'border-slate-800',
+    textClass: 'text-white',
+    indicatorClass: 'bg-slate-700 border border-slate-800',
+    badgeClass: 'bg-slate-700 text-white border-slate-800',
+    hoverClass: 'hover:bg-slate-800',
+  },
+  ACERTO: {
+    type: 'ACERTO',
+    label: 'Acerto',
+    bgClass: 'bg-slate-200',
+    borderClass: 'border-slate-300',
+    textClass: 'text-slate-900',
+    indicatorClass: 'bg-slate-200 border border-slate-300',
+    badgeClass: 'bg-slate-200 text-slate-900 border-slate-300',
+    hoverClass: 'hover:bg-slate-300',
+  },
+  PARADA_PROGRAMADA: {
+    type: 'PARADA_PROGRAMADA',
+    label: 'Parada Programada',
+    bgClass: 'bg-black',
+    borderClass: 'border-black',
+    textClass: 'text-white',
+    indicatorClass: 'bg-black border border-black',
+    badgeClass: 'bg-black text-white border-black',
+    hoverClass: 'hover:bg-neutral-900',
+  },
+  MANUTENCAO_PROGRAMADA: {
+    type: 'MANUTENCAO_PROGRAMADA',
+    label: 'Manutenção Programada',
+    bgClass: 'bg-amber-600',
+    borderClass: 'border-amber-700',
+    textClass: 'text-white',
+    indicatorClass: 'bg-amber-600 border border-amber-700',
+    badgeClass: 'bg-amber-600 text-white border-amber-700',
+    hoverClass: 'hover:bg-amber-700',
+  },
+  RESFRIADO: {
+    type: 'RESFRIADO',
+    label: 'Resfriado',
+    bgClass: 'bg-sky-50',
+    borderClass: 'border-sky-200',
+    textClass: 'text-sky-700 font-bold',
+    indicatorClass: 'text-sky-700 font-bold text-xs',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-300',
+    hoverClass: 'hover:bg-sky-100',
+    icon: '❄',
+  },
+  SELECIONADO: {
+    type: 'SELECIONADO',
+    label: 'Selecionado',
+    bgClass: 'bg-blue-50',
+    borderClass: 'border-blue-600',
+    textClass: 'text-blue-900',
+    indicatorClass:
+      'w-3.5 h-3.5 rounded border-2 border-blue-600 bg-blue-50 ring-2 ring-blue-600/40',
+    ringClass: 'ring-2 ring-blue-600 ring-offset-1',
+    badgeClass: 'bg-blue-50 text-blue-900 border-blue-600',
+    hoverClass: 'hover:bg-blue-100',
+  },
+}
+
+/**
+ * Lista ordenada oficial dos 9 itens da legenda na ordem EXATA:
+ * MTS | MTS Aço Especial | MTO | Troca Setup | Acerto | Parada Programada | Manutenção Programada | Resfriado | Selecionado
+ */
+export const SCHEDULE_LEGEND_ORDER: ScheduleItemVisualType[] = [
+  'MTS',
+  'MTS_ACO_ESPECIAL',
+  'MTO',
+  'TROCA_SETUP',
+  'ACERTO',
+  'PARADA_PROGRAMADA',
+  'MANUTENCAO_PROGRAMADA',
+  'RESFRIADO',
+  'SELECIONADO',
+]
+
+export const SCHEDULE_LEGEND_ITEMS = SCHEDULE_LEGEND_ORDER.map((t) => SCHEDULE_TYPE_COLORS[t])
+
+/**
+ * Diferenciação automática de Aço Especial usando SOMENTE dados já carregados no item:
+ * steel_grade, material_code, material_description e flags existentes como is_special_steel/steel_type === 'ACO_ESPECIAL'.
+ * Aços identificados: 1045, 1050, 1060, 4140, 8620, 1524, 1522, 20MNCR5, LIGA, ESPECIAL e pools SDC POOL_B, POOL_C, POOL_D.
+ */
+export function isSpecialSteelGrade(
+  grade?: string,
+  desc?: string,
+  code?: string,
+  extraMetadata?: Record<string, any>,
+): boolean {
+  if (extraMetadata) {
+    if (extraMetadata.is_special_steel === true) return true
+    if (extraMetadata.steel_type === 'ACO_ESPECIAL' || extraMetadata.steel_type === 'ESPECIAL') {
+      return true
+    }
+    const pool = String(extraMetadata.pool_code || extraMetadata.pool || '').toUpperCase()
+    if (pool.includes('POOL_B') || pool.includes('POOL_C') || pool.includes('POOL_D')) {
+      return true
+    }
+  }
+
+  const combined = `${grade || ''} ${desc || ''} ${code || ''}`.toUpperCase()
+  if (!combined.trim()) return false
+
+  // Padrões de aços especiais CIAFAL / SDC
+  const specialPatterns = [
+    '1045',
+    '1050',
+    '1060',
+    '4140',
+    '8620',
+    '1524',
+    '1522',
+    '20MNCR5',
+    '20MNCR',
+    'ACO LIGA',
+    'AÇO LIGA',
+    'LIGA',
+    'ACO ESPECIAL',
+    'AÇO ESPECIAL',
+    'ESPECIAL',
+    'POOL_B',
+    'POOL_C',
+    'POOL_D',
+  ]
+
+  return specialPatterns.some((p) => combined.includes(p))
+}
+
+/**
+ * Determina se uma parada deve ser classificada como MANUTENCAO_PROGRAMADA ou PARADA_PROGRAMADA.
+ * Baseia-se em: stop_type === 'MANUTENCAO' ou descrição/motivo contendo MANUTENÇÃO/MANUTENCAO/PREVENTIVA/CORRETIVA.
+ */
+export function isMaintenanceStop(
+  item: Partial<WeeklyScheduleItem> & {
+    stop_type?: string
+    stop_description?: string
+    stop_code?: string
+    programacao_parada_motivo?: string
+  },
+): boolean {
+  const stopType = String((item as any).stop_type || '').toUpperCase()
+  if (stopType.includes('MANUTEN')) return true
+
+  const combined = `${item.stop_description || ''} ${item.stop_code || ''} ${
+    item.programacao_parada_motivo || ''
+  }`.toUpperCase()
+
+  return (
+    combined.includes('MANUTENÇÃO') ||
+    combined.includes('MANUTENCAO') ||
+    combined.includes('MANUT') ||
+    combined.includes('PREVENTIVA') ||
+    combined.includes('CORRETIVA')
+  )
+}
+
+/**
+ * Helper unificado para determinar o tipo visual de um item de programação.
+ */
+export function resolveScheduleItemVisualType(
+  item: Partial<WeeklyScheduleItem> & {
+    stop_type?: string
+  },
+): ScheduleItemVisualType {
+  // 1. SETUP explícito
+  if (item.item_type === 'SETUP') {
+    return 'TROCA_SETUP'
+  }
+
+  // 2. PARADA PROGRAMADA vs MANUTENÇÃO PROGRAMADA
+  if (item.item_type === 'SCHEDULED_STOP') {
+    return isMaintenanceStop(item) ? 'MANUTENCAO_PROGRAMADA' : 'PARADA_PROGRAMADA'
+  }
+
+  // 3. MTO
+  if (item.order_type === 'MTO') {
+    return 'MTO'
+  }
+
+  // 4. MTS (ou fallback de produção) -> verificar se é Aço Especial
+  const isSpecial = isSpecialSteelGrade(
+    item.steel_grade,
+    item.material_description,
+    item.material_code,
+    item.metadata,
+  )
+
+  return isSpecial ? 'MTS_ACO_ESPECIAL' : 'MTS'
+}
+
+/**
+ * Helper central que retorna a configuração visual completa para uso em blocos e linhas.
+ * Retorna classes de fundo, borda, texto e ring de seleção garantindo consistência total.
+ */
+export function getScheduleItemVisualConfig(
+  item: Partial<WeeklyScheduleItem> & { stop_type?: string },
+  isSelected = false,
+): {
+  type: ScheduleItemVisualType
+  config: ScheduleVisualConfig
+  bgClass: string
+  borderClass: string
+  textClass: string
+  combinedClass: string
+  isCoolingAttended: boolean
+  isSpecialSteel: boolean
+} {
+  const visualType = resolveScheduleItemVisualType(item)
+  const config = SCHEDULE_TYPE_COLORS[visualType]
+  const isSpecialSteel = visualType === 'MTS_ACO_ESPECIAL'
+  const isCoolingAttended =
+    !item.cooling_validation?.hasViolation && item.item_type !== 'SCHEDULED_STOP'
+
+  const ringPart = isSelected
+    ? 'ring-2 ring-blue-600 ring-offset-1 z-20 font-bold shadow-md'
+    : 'shadow-2xs'
+
+  // Para MTS Aço Especial, MTO, Troca Setup, Parada e Manutenção, garantimos contraste com texto branco
+  const combinedClass =
+    `${config.bgClass} ${config.borderClass} ${config.textClass} ${config.hoverClass} ${ringPart}`.trim()
+
+  return {
+    type: visualType,
+    config,
+    bgClass: config.bgClass,
+    borderClass: config.borderClass,
+    textClass: config.textClass,
+    combinedClass,
+    isCoolingAttended,
+    isSpecialSteel,
+  }
+}

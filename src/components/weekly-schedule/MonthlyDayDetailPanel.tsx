@@ -1,6 +1,6 @@
 import React from 'react'
 import { MonthlyDayCellData } from '@/types/monthly-schedule'
-import { WeeklyScheduleItem } from '@/types/weekly-schedule'
+import { WeeklyScheduleItem, getScheduleItemVisualConfig } from '@/types/weekly-schedule'
 import {
   CalendarDays,
   Clock,
@@ -179,9 +179,16 @@ export const MonthlyDayDetailPanel: React.FC<MonthlyDayDetailPanelProps> = ({
                   <span className="truncate max-w-[200px]">
                     {item.material_description || 'Produto Laminado'}
                   </span>
-                  <span className="font-bold text-[9px] uppercase px-1 rounded bg-slate-100">
-                    {item.order_type || 'MTS'}
-                  </span>
+                  {(() => {
+                    const visual = getScheduleItemVisualConfig(item as WeeklyScheduleItem)
+                    return (
+                      <span
+                        className={`font-bold text-[9px] uppercase px-1.5 py-0.5 rounded border ${visual.config.badgeClass}`}
+                      >
+                        {visual.config.label}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
             ))}

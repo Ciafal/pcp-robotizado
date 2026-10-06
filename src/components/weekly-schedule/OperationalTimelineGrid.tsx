@@ -19,7 +19,11 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { WeeklyScheduleItem } from '@/types/weekly-schedule'
+import {
+  WeeklyScheduleItem,
+  SCHEDULE_LEGEND_ITEMS,
+  getScheduleItemVisualConfig,
+} from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 import { SgqRuleIndicatorBadge } from '@/components/weekly-schedule/SgqRuleIndicatorBadge'
@@ -374,58 +378,18 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
   }
 
   /**
-   * Helper de cores de blocos (Requisito 9):
-   * - MTS = verde muito claro
-   * - MTO = amarelo muito claro
-   * - AGUARDANDO OBSERVAÇÕES = amarelo mais forte/destacado
-   * - SETUP/TROCA = cinza
-   * - PARADA PROGRAMADA = laranja muito claro
-   * - MANUTENÇÃO = azul claro
-   * - BLOQUEIO / CRÍTICO = vermelho claro
+   * Helper de cores de blocos sincronizado com o mapeamento central oficial:
+   * - MTS: azul claro
+   * - MTS Aço Especial: azul escuro
+   * - MTO: vermelho
+   * - Troca Setup: cinza escuro
+   * - Acerto: cinza claro
+   * - Parada Programada: preto
+   * - Manutenção Programada: laranja
+   * - Resfriado e Selecionado preservados
    */
   const getBlockStyle = (item: WeeklyScheduleItem, isSelected: boolean) => {
-    const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
-    const isAwaiting =
-      item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
-    const isStop = item.item_type === 'SCHEDULED_STOP'
-    const isMto = item.order_type === 'MTO'
-    const isBlocked =
-      item.is_blocked_attempt ||
-      (lineOverview?.blockedProducts &&
-        lineOverview.blockedProducts.some(
-          (b) =>
-            b.active &&
-            b.product_code.trim().toUpperCase() === item.material_code.trim().toUpperCase(),
-        ))
-    const isCritical = item.raw_material_calc?.status === 'RED' || isBlocked
-
-    let bgClass = 'bg-emerald-50/90 text-emerald-950 border-emerald-300 hover:bg-emerald-100'
-
-    if (isTestIndustrial) {
-      bgClass = 'bg-purple-100 text-purple-950 border-purple-400 hover:bg-purple-200 font-bold'
-    } else if (isCritical) {
-      bgClass = 'bg-rose-100 text-rose-950 border-rose-400 hover:bg-rose-200'
-    } else if (isAwaiting) {
-      bgClass =
-        'bg-amber-300 text-amber-950 border-amber-500 hover:bg-amber-400 font-bold shadow-xs'
-    } else if (isStop) {
-      if (
-        item.stop_description?.toLowerCase().includes('manuten') ||
-        item.stop_code?.toLowerCase().includes('manut')
-      ) {
-        bgClass = 'bg-sky-100 text-sky-950 border-sky-300 hover:bg-sky-200'
-      } else {
-        bgClass = 'bg-orange-100 text-orange-950 border-orange-300 hover:bg-orange-200'
-      }
-    } else if (isMto) {
-      bgClass = 'bg-amber-50/90 text-amber-950 border-amber-300 hover:bg-amber-100'
-    }
-
-    const ringClass = isSelected
-      ? 'ring-2 ring-blue-600 ring-offset-1 z-20 font-bold shadow-md'
-      : 'shadow-2xs'
-
-    return `${bgClass} ${ringClass}`
+    return getScheduleItemVisualConfig(item, isSelected).combinedClass
   }
 
   // Converte horário string (ex: '08:30' ou ISO '2026-09-16 15:03') em percentual na timeline das 06:00 às 22:00 (16 horas)
@@ -982,7 +946,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                       className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
                                                         isUnparam
                                                           ? 'bg-amber-200 text-amber-950 border-amber-500 animate-pulse'
-                                                          : 'bg-slate-200 hover:bg-slate-300 text-slate-900 border-slate-400'
+                                                          : 'bg-slate-700 hover:bg-slate-800 text-white border-slate-800'
                                                       }`}
                                                     >
                                                       <span className="truncate">
@@ -1131,7 +1095,7 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
                                                       className={`absolute h-7 rounded-sm border px-1 flex items-center justify-center text-[9px] font-mono font-bold cursor-pointer transition-colors shadow-2xs z-20 ${
                                                         item.tuning_unparametrized
                                                           ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
-                                                          : 'bg-blue-100 hover:bg-blue-200 text-[#004C97] border-blue-300'
+                                                          : 'bg-slate-200 hover:bg-slate-300 text-slate-900 border-slate-300'
                                                       }`}
                                                     >
                                                       <span className="truncate">
@@ -1677,48 +1641,33 @@ export const OperationalTimelineGrid: React.FC<OperationalTimelineGridProps> = (
             })}
         </div>
 
-        {/* FAIXA DE LEGENDA DISCRETA ABAIXO DA GRADE */}
-        <div className="bg-slate-50 border-t border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+        {/* FAIXA DE LEGENDA DISCRETA ABAIXO DA GRADE — SINCRONIZADA AO MAPEAMENTO CENTRAL */}
+        <div className="bg-slate-50 border-t border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-700">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" />
-              <span>MTS (verde)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />
-              <span>MTO (amarelo)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-amber-300 border border-amber-500 font-bold" />
-              <span className="font-semibold text-amber-950">Aguardando observações</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-slate-200 border border-slate-400" />
-              <span>Troca Setup (cinza)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300" />
-              <span>Acerto (azul)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-amber-100 border border-amber-400" />
-              <span>Acerto N/P (amarelo)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-orange-100 border border-orange-300" />
-              <span>Parada Programada (laranja)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-sky-100 border border-sky-300" />
-              <span>Manutenção (azul)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-sky-700 font-bold">❄ Resfriamento</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded ring-2 ring-blue-600 bg-blue-50" />
-              <span>Selecionado</span>
-            </div>
+            {SCHEDULE_LEGEND_ITEMS.map((legendItem) => {
+              if (legendItem.type === 'RESFRIADO') {
+                return (
+                  <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-sky-700 font-bold text-xs">❄</span>
+                    <span className="font-medium text-slate-800">Resfriado</span>
+                  </div>
+                )
+              }
+              if (legendItem.type === 'SELECIONADO') {
+                return (
+                  <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                    <span className="w-3.5 h-3.5 rounded border-2 border-blue-600 bg-blue-50 shrink-0" />
+                    <span className="font-medium text-slate-800">Selecionado</span>
+                  </div>
+                )
+              }
+              return (
+                <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                  <span className={`w-3.5 h-3.5 rounded shrink-0 ${legendItem.indicatorClass}`} />
+                  <span className="font-medium text-slate-800">{legendItem.label}</span>
+                </div>
+              )
+            })}
           </div>
 
           <div className="text-[10px] font-mono text-slate-400">

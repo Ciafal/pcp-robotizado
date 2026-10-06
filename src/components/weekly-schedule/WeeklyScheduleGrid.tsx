@@ -32,7 +32,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Link } from 'react-router-dom'
-import { WeeklyScheduleItem } from '@/types/weekly-schedule'
+import {
+  WeeklyScheduleItem,
+  SCHEDULE_LEGEND_ITEMS,
+  getScheduleItemVisualConfig,
+} from '@/types/weekly-schedule'
 import { LineOverviewData } from '@/types/line-master'
 import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
 
@@ -236,70 +240,15 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
 
   /**
    * Helper para determinar estilo de fundo/linha conforme as Cores Oficiais da Programação:
-   * - Verde claro: MTS
-   * - Amarelo claro: MTO
-   * - Amarelo destacado: Aguardando observações
-   * - Cinza: Setup / Troca
-   * - Laranja: Parada Programada
-   * - Azul claro: Manutenção
-   * - Vermelho: Bloqueio / condição crítica
-   * - Contorno azul: item atualmente selecionado
+   * Consome getScheduleItemVisualConfig para garantir sincronização 100% com a legenda e com a visão diária.
    */
   const getItemRowClasses = (item: WeeklyScheduleItem, isSelected: boolean) => {
-    const isTestIndustrial = item.item_type === 'TEST_INDUSTRIAL'
-    const isAwaiting =
-      item.status === 'AGUARDANDO_OBSERVACOES' || item.awaiting_observations?.is_awaiting
-    const isStop = item.item_type === 'SCHEDULED_STOP'
-    const isSetup = item.item_type === 'SETUP'
-    const isBlocked =
-      item.is_blocked_attempt ||
-      (lineOverview?.blockedProducts &&
-        lineOverview.blockedProducts.some(
-          (b) =>
-            b.active &&
-            b.product_code.trim().toUpperCase() === item.material_code.trim().toUpperCase(),
-        ))
-    const isCriticalCondition = item.raw_material_calc?.status === 'RED' || isBlocked
-
-    let bgClass = 'bg-white'
-
-    if (isTestIndustrial) {
-      // Roxo/Índigo com borda destacada: Teste Industrial originado na Programação de Testes
-      bgClass =
-        'bg-purple-50/90 hover:bg-purple-100/90 text-purple-950 border-purple-300 font-medium'
-    } else if (isCriticalCondition) {
-      // Vermelho: Bloqueio / condição crítica
-      bgClass = 'bg-rose-50/80 hover:bg-rose-100/80 text-rose-950'
-    } else if (isAwaiting) {
-      // Amarelo destacado: Aguardando observações
-      bgClass = 'bg-amber-100/90 hover:bg-amber-200/90 text-amber-950 font-medium'
-    } else if (isStop) {
-      if (
-        item.stop_description?.toLowerCase().includes('manuten') ||
-        item.stop_code?.toLowerCase().includes('manut')
-      ) {
-        // Azul claro: Manutenção
-        bgClass = 'bg-sky-50 hover:bg-sky-100 text-sky-950'
-      } else {
-        // Laranja: Parada Programada
-        bgClass = 'bg-orange-50 hover:bg-orange-100 text-orange-950 font-medium'
-      }
-    } else if (isSetup) {
-      // Cinza: Setup / Troca
-      bgClass = 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-    } else if (item.order_type === 'MTO') {
-      // Amarelo claro: MTO
-      bgClass = 'bg-amber-50/60 hover:bg-amber-100/60 text-slate-900'
-    } else {
-      // Verde claro: MTS
-      bgClass = 'bg-emerald-50/40 hover:bg-emerald-100/50 text-slate-900'
-    }
-
+    const visual = getScheduleItemVisualConfig(item, isSelected)
     const selectedClass = isSelected
-      ? 'ring-2 ring-blue-600 ring-inset shadow-md z-10 relative !bg-blue-50/90'
+      ? 'ring-2 ring-blue-600 ring-inset shadow-md z-10 relative'
       : ''
 
-    return `${bgClass} ${selectedClass} transition-colors cursor-pointer group`
+    return `${visual.bgClass} ${visual.textClass} ${visual.config.hoverClass} ${selectedClass} transition-colors cursor-pointer group`
   }
 
   return (
@@ -1262,51 +1211,37 @@ export const WeeklyScheduleGrid: React.FC<WeeklyScheduleGridProps> = ({
           </table>
         </div>
 
-        {/* 3. LEGENDA OFICIAL DA PROGRAMAÇÃO (SEMPRE VISÍVEL ABAIXO DA GRADE) */}
+        {/* 3. LEGENDA OFICIAL DA PROGRAMAÇÃO (SEMPRE VISÍVEL ABAIXO DA GRADE — SINCRONIZADA AO MAPEAMENTO CENTRAL) */}
         <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
             <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
               Legenda Oficial da Programação CIAFAL:
             </span>
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-700">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-emerald-300 bg-emerald-100/90 shrink-0" />
-                <span>Verde claro: MTS</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-amber-300 bg-amber-50 shrink-0" />
-                <span>Amarelo claro: MTO</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-amber-400 bg-amber-200 shrink-0 font-bold text-slate-950" />
-                <span className="font-semibold text-amber-950">
-                  Amarelo destacado: Aguardando observações
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-slate-300 bg-slate-200 shrink-0" />
-                <span>Cinza: Setup / Troca</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-orange-300 bg-orange-100 shrink-0" />
-                <span>Laranja: Parada Programada</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-sky-300 bg-sky-100 shrink-0" />
-                <span>Azul claro: Manutenção</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-purple-300 bg-purple-100 shrink-0" />
-                <span>Roxo: Teste Industrial (Controlado na Origem)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border border-rose-300 bg-rose-100 shrink-0" />
-                <span>Vermelho: Bloqueio / Condição crítica</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded border-2 border-blue-600 bg-blue-50 shrink-0" />
-                <span>Contorno azul: Item selecionado</span>
-              </div>
+              {SCHEDULE_LEGEND_ITEMS.map((legendItem) => {
+                if (legendItem.type === 'RESFRIADO') {
+                  return (
+                    <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-sky-700 font-bold text-xs">❄</span>
+                      <span className="font-medium text-slate-800">Resfriado</span>
+                    </div>
+                  )
+                }
+                if (legendItem.type === 'SELECIONADO') {
+                  return (
+                    <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-3.5 h-3.5 rounded border-2 border-blue-600 bg-blue-50 shrink-0" />
+                      <span className="font-medium text-slate-800">Selecionado</span>
+                    </div>
+                  )
+                }
+                return (
+                  <div key={legendItem.type} className="flex items-center gap-1.5 shrink-0">
+                    <span className={`w-3.5 h-3.5 rounded shrink-0 ${legendItem.indicatorClass}`} />
+                    <span className="font-medium text-slate-800">{legendItem.label}</span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
