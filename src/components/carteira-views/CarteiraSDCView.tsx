@@ -31,6 +31,12 @@ import { formatNumberPTBR, formatDatePTBR, formatPercentagePTBR } from '@/lib/fo
 import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
+import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import {
+  calcularMinimoNaoAtingido,
+  MinimoNaoAtingidoSummary,
+} from '@/services/carteira-minimo-nao-atingido-engine'
 
 interface CarteiraSDCViewProps {
   itens: CarteiraSDCItem[]
@@ -72,7 +78,16 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [isModalImportOpen, setIsModalImportOpen] = useState(false)
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
   const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
+
+  // Cálculo reativo do Mínimo Não Atingido para Carteira SDC
+  const resumoMinimoSDC: MinimoNaoAtingidoSummary = useMemo(() => {
+    return calcularMinimoNaoAtingido({
+      itens,
+      tipoVisao: 'SDC',
+    })
+  }, [itens])
 
   // Curva ABC por faturamento para SDC
   const resultadoABCSDC = useMemo(() => {
@@ -423,6 +438,14 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
           </div>
           <span className="text-[10px] text-rose-600 block mt-0.5">Sem prog / Sem estoque</span>
         </div>
+      </div>
+
+      {/* Card Executivo 'Mínimo não atingido' Carteira SDC */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+        <MinimoNaoAtingidoCard
+          summary={resumoMinimoSDC}
+          onClick={() => setIsMinimoModalOpen(true)}
+        />
       </div>
 
       {/* PAINEL DE INTELIGÊNCIA ARTIFICIAL: ALERTAS & IA */}
@@ -1010,6 +1033,17 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
         onSelectMaterial={(itemCalc) => {
           const sdc = itens.find((i) => i.material === itemCalc.codigo_material)
           if (sdc) handleOpenDetalhe(sdc)
+        }}
+      />
+
+      {/* Modal Mínimo Não Atingido SDC */}
+      <MinimoNaoAtingidoModal
+        isOpen={isMinimoModalOpen}
+        onClose={() => setIsMinimoModalOpen(false)}
+        summary={resumoMinimoSDC}
+        tituloVisao="Carteira SDC (SDPL)"
+        onSelectMaterial={(mat) => {
+          setBusca(mat)
         }}
       />
     </div>

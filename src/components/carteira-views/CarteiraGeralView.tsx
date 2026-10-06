@@ -36,6 +36,12 @@ import { PortfolioDrilldown } from './PortfolioDrilldown'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { PortfolioAISection } from './PortfolioAISection'
+import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import {
+  calcularMinimoNaoAtingido,
+  MinimoNaoAtingidoSummary,
+} from '@/services/carteira-minimo-nao-atingido-engine'
 
 interface CarteiraGeralViewProps {
   itens: CarteiraItem[]
@@ -81,6 +87,7 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
   // Modais analíticos
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
   const [drilldownConfig, setDrilldownConfig] = useState<{
     isOpen: boolean
     nome: string
@@ -91,6 +98,14 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     nome: '',
     itens: [],
   })
+
+  // Cálculo reativo do indicador Mínimo Não Atingido para a Carteira Geral
+  const resumoMinimoNaoAtingido: MinimoNaoAtingidoSummary = useMemo(() => {
+    return calcularMinimoNaoAtingido({
+      itens: [...itens, ...sdcItens],
+      tipoVisao: 'Geral',
+    })
+  }, [itens, sdcItens])
 
   // 1. Processar dados da Carteira Consolidada (Geral + SDC) pelo motor Curva ABC por faturamento
   const conjuntoBrutoConsolidado = useMemo(() => {
@@ -589,8 +604,16 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
         onOpenCurvaAbcModal={() => setIsAbcOpen(true)}
       />
 
-      {/* Grid de 17 Cards Executivos Consolidados */}
-      <PortfolioCardsGrid cards={cardsExecutivos} onCardClick={handleCardClick} />
+      {/* Grid de Cards Executivos Consolidados com o Card 'Mínimo não atingido' integrado responsivamente */}
+      <div className="space-y-2.5">
+        <PortfolioCardsGrid cards={cardsExecutivos} onCardClick={handleCardClick} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+          <MinimoNaoAtingidoCard
+            summary={resumoMinimoNaoAtingido}
+            onClick={() => setIsMinimoModalOpen(true)}
+          />
+        </div>
+      </div>
 
       {/* Barra de Filtros Combináveis */}
       <Card className="bg-white border-slate-200 shadow-xs">
@@ -932,6 +955,18 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
             descricao: `Materiais classificados na faixa ${faixa} por faturamento comercial`,
             itens: faixaItens,
           })
+        }}
+      />
+
+      {/* Modal Mínimo Não Atingido */}
+      <MinimoNaoAtingidoModal
+        isOpen={isMinimoModalOpen}
+        onClose={() => setIsMinimoModalOpen(false)}
+        summary={resumoMinimoNaoAtingido}
+        tituloVisao="Carteira Geral"
+        onSelectMaterial={(mat) => {
+          setSearchTerm(mat)
+          setPagina(1)
         }}
       />
     </div>

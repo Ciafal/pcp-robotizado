@@ -10,6 +10,12 @@ import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engi
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
+import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import {
+  calcularMinimoNaoAtingido,
+  MinimoNaoAtingidoSummary,
+} from '@/services/carteira-minimo-nao-atingido-engine'
 
 interface CarteiraL2ViewProps {
   itens: CarteiraItem[]
@@ -29,6 +35,7 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
   const [mostrarColunasTemporais, setMostrarColunasTemporais] = useState(false)
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
 
   const itensL2 = useMemo(() => {
     return itens.filter(
@@ -62,6 +69,14 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
     return CarteiraAnaliseEngine.analisarCarteiraGenerica('L2', itens, entradasFuturas)
   }, [itens, entradasFuturas])
 
+  // Cálculo reativo do Mínimo Não Atingido para Linha L2
+  const resumoMinimoL2: MinimoNaoAtingidoSummary = React.useMemo(() => {
+    return calcularMinimoNaoAtingido({
+      itens,
+      tipoVisao: 'L2',
+    })
+  }, [itens])
+
   return (
     <div className="space-y-4">
       {/* Alertas & IA • Análise Automática da Carteira L2 */}
@@ -76,6 +91,14 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
           if (item && onOpenDetalheMaterial) onOpenDetalheMaterial(item)
         }}
       />
+
+      {/* Card Executivo 'Mínimo não atingido' Linha L2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+        <MinimoNaoAtingidoCard
+          summary={resumoMinimoL2}
+          onClick={() => setIsMinimoModalOpen(true)}
+        />
+      </div>
 
       <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
@@ -310,6 +333,18 @@ export const CarteiraL2View: React.FC<CarteiraL2ViewProps> = ({
         resultadoABC={resultadoABCL2}
         onSelectMaterial={(itemCalc) => {
           const ci = itensL2.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      {/* Modal Mínimo Não Atingido L2 */}
+      <MinimoNaoAtingidoModal
+        isOpen={isMinimoModalOpen}
+        onClose={() => setIsMinimoModalOpen(false)}
+        summary={resumoMinimoL2}
+        tituloVisao="Carteira L2"
+        onSelectMaterial={(mat) => {
+          const ci = itensL2.find((i) => i.codigo_material === mat)
           if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
         }}
       />

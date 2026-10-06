@@ -11,6 +11,12 @@ import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engi
 import { AlertasIACarteiraCard } from './AlertasIACarteiraCard'
 import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
+import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
+import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import {
+  calcularMinimoNaoAtingido,
+  MinimoNaoAtingidoSummary,
+} from '@/services/carteira-minimo-nao-atingido-engine'
 
 interface CarteiraMTOViewProps {
   itens: CarteiraItem[]
@@ -31,10 +37,19 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   const [isConsultarRequisitosOpen, setIsConsultarRequisitosOpen] = useState(false)
   const [isChartsOpen, setIsChartsOpen] = useState(false)
   const [isAbcOpen, setIsAbcOpen] = useState(false)
+  const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
   const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
     null,
   )
   const itensMTO = useMemo(() => itens.filter((i) => i.tipo_ordem === 'MTO'), [itens])
+
+  // Cálculo reativo de Mínimo Não Atingido para Carteira MTO
+  const resumoMinimoMTO: MinimoNaoAtingidoSummary = useMemo(() => {
+    return calcularMinimoNaoAtingido({
+      itens: itensMTO,
+      tipoVisao: 'MTO',
+    })
+  }, [itensMTO])
 
   const resultadoABCMTO = useMemo(() => {
     return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensMTO)
@@ -231,6 +246,14 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             {formatNumberPTBR(bloqueadosTons, 2)} t
           </strong>
         </div>
+      </div>
+
+      {/* Card Executivo 'Mínimo não atingido' Carteira MTO */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+        <MinimoNaoAtingidoCard
+          summary={resumoMinimoMTO}
+          onClick={() => setIsMinimoModalOpen(true)}
+        />
       </div>
 
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
@@ -453,6 +476,18 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
         resultadoABC={resultadoABCMTO}
         onSelectMaterial={(itemCalc) => {
           const ci = itensMTO.find((i) => i.codigo_material === itemCalc.codigo_material)
+          if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
+        }}
+      />
+
+      {/* Modal Mínimo Não Atingido MTO */}
+      <MinimoNaoAtingidoModal
+        isOpen={isMinimoModalOpen}
+        onClose={() => setIsMinimoModalOpen(false)}
+        summary={resumoMinimoMTO}
+        tituloVisao="Carteira MTO"
+        onSelectMaterial={(mat) => {
+          const ci = itensMTO.find((i) => i.codigo_material === mat)
           if (ci && onOpenDetalheMaterial) onOpenDetalheMaterial(ci)
         }}
       />
