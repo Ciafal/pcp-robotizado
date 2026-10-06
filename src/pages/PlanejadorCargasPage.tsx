@@ -17,10 +17,24 @@ import {
   AlertCircle,
 } from 'lucide-react'
 
-export const PlanejadorCargasPage: React.FC = () => {
+export interface PlanejadorCargasPageProps {
+  defaultTab?: 'lista' | 'planejamento' | 'mapa' | 'comparacao'
+}
+
+export default PlanejadorCargasPage
+
+export const PlanejadorCargasPage: React.FC<PlanejadorCargasPageProps> = ({
+  defaultTab = 'mapa',
+}) => {
   const [activeTab, setActiveTab] = useState<'lista' | 'planejamento' | 'mapa' | 'comparacao'>(
-    'mapa',
+    defaultTab,
   )
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab)
+    }
+  }, [defaultTab])
   const [selectedOrdersForPlan, setSelectedOrdersForPlan] = useState<SapSalesOrderItem[]>([])
 
   const handleNavigateToPlanning = (orders?: SapSalesOrderItem[]) => {

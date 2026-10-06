@@ -159,6 +159,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     windowPath.includes('analise-carteira/carteira-minima-nao-atingida'),
   )
 
+  // Rota canônica do Planejador de Cargas TMS / Mapa Logístico (/pcp/tms/planejador-cargas, /tms/*)
+  const isTmsRoute = Boolean(
+    currentPathname.includes('tms') ||
+    currentPathname.includes('planejador-cargas') ||
+    currentPathname.includes('mapa-logistico') ||
+    currentPathname.startsWith('/pcp/tms') ||
+    currentPathname.startsWith('/tms') ||
+    currentHash.includes('tms') ||
+    currentHash.includes('planejador-cargas') ||
+    windowPath.includes('tms') ||
+    windowPath.includes('planejador-cargas'),
+  )
+
   // Janela de timeout ajustada para 5000ms (5s) para permitir cold start e carregamento inicial completo
   const GUARD_TIMEOUT_MS = 5000
 
@@ -273,6 +286,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
+    isTmsRoute ||
     isCadastrosOrMasterDataEarly
   ) {
     return <>{children}</>
@@ -330,6 +344,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
+    isTmsRoute ||
     isCarteiraRouteOrPerm ||
     permission === 'pcp.production.view' ||
     permission === 'pcp.mp_opt.view' ||
@@ -337,6 +352,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.startsWith('/pcp/producao') ||
     currentPathname.startsWith('/pcp/gestao-materia-prima') ||
     currentPathname.startsWith('/pcp/programacao/parada') ||
+    currentPathname.startsWith('/pcp/tms') ||
+    currentPathname.startsWith('/tms') ||
     currentPathname === '/' ||
     currentPathname === '/pcp' ||
     currentPathname === '/pcp/' ||
@@ -421,6 +438,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isHierarquiaRoute ||
     isGestaoMpRoute ||
     isCarteiraMinimaRoute ||
+    isTmsRoute ||
     permission === 'pcp.carteira.view' ||
     permission.startsWith('pcp.carteira.') ||
     permission === 'pcp.mp_opt.view' ||
@@ -429,7 +447,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname.includes('cancelados') ||
     currentPathname.includes('kpis') ||
     currentPathname.includes('/pedidos-cancelados') ||
-    currentPathname.includes('gestao-materia-prima')
+    currentPathname.includes('gestao-materia-prima') ||
+    currentPathname.includes('tms')
   ) {
     return <>{children}</>
   }
@@ -569,7 +588,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
       isGestaoMpRoute ||
-      isParadaRoute
+      isParadaRoute ||
+      isTmsRoute
     ) {
       hasPerm = true
     }
