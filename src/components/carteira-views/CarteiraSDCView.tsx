@@ -33,6 +33,7 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
   MinimoNaoAtingidoSummary,
@@ -81,13 +82,17 @@ export const CarteiraSDCView: React.FC<CarteiraSDCViewProps> = ({
   const [isMinimoModalOpen, setIsMinimoModalOpen] = useState(false)
   const [destaqueMaterial, setDestaqueMaterial] = useState<string | null>(materialAncorado || null)
 
+  // Réplica oficial SAP do lote mínimo sincronizado via RFC
+  const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
+
   // Cálculo reativo do Mínimo Não Atingido para Carteira SDC
   const resumoMinimoSDC: MinimoNaoAtingidoSummary = useMemo(() => {
     return calcularMinimoNaoAtingido({
       itens,
       tipoVisao: 'SDC',
+      replicaSapPorCodigo: replicaSapLoteMinimo,
     })
-  }, [itens])
+  }, [itens, replicaSapLoteMinimo])
 
   // Curva ABC por faturamento para SDC
   const resultadoABCSDC = useMemo(() => {

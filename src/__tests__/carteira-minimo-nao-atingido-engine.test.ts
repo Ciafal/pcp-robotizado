@@ -1,18 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   calcularMinimoNaoAtingido,
-  resolverMinimoNecessario,
-  classificarStatusMinimo,
-  round2,
-  formatPtBr,
+  normalizarCodigoMaterialSap,
+  consultarLoteMinimoOficialSap,
+  formatarDataHoraPtBr,
+  formatarToneladasPtBr,
 } from '@/services/carteira-minimo-nao-atingido-engine'
+import {
+  SapMaterialLoteMinimoRecord,
+  sapMaterialLoteMinimoService,
+} from '@/services/sap-material-lote-minimo-service'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CarteiraSDCItem } from '@/types/carteira-sdc'
 
-describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e E', () => {
+describe('Motor de Mínimo Não Atingido - Regra Oficial SAP RFC por Código de Material', () => {
+  beforeEach(() => {
+    sapMaterialLoteMinimoService.clearMemoryCache()
+  })
+
   /**
    * CENÁRIO A:
-   * Carteira 8,00 t / mínimo 15,00 t → não atingido, déficit 7,00 t
+   * Carteira 8,00 t / mínimo 15,00 t (da réplica SAP) → não atingido, déficit 7,00 t
    */
   it('CENÁRIO A: carteira 8,00 t / mínimo 15,00 t → não atingido, déficit 7,00 t', () => {
     const itemA: Partial<CarteiraItem> = {
@@ -29,25 +37,36 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
       curva_abc: 'B',
     }
 
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-TESTE-A',
+        {
+          id: 'rec-a',
+          codigo_material: 'MAT-TESTE-A',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+          last_sync: '2026-03-30T10:00:00.000Z',
+          unidade_medida: 't',
+        },
+      ],
+    ])
+
     const resultado = calcularMinimoNaoAtingido({
       itens: [itemA as CarteiraItem],
       tipoVisao: 'Geral',
-      context: {
-        regraFallbackMinimoTons: 15.0,
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    expect(resultado.total_materiais).toBe(1)
-    expect(resultado.total_deficit_tons).toBe(7.0)
-    expect(resultado.card_principal_texto).toBe('1 item')
-    expect(resultado.card_adicional_texto).toBe('Déficit para mínimo: 7,00 t')
+    expect(resultado.total_materiais_abaixo_minimo).toBe(1)
+    expect(resultado.total_toneladas_faltantes).toBe(7.0)
+    expect(resultado.total_toneladas_carteira_afetada).toBe(8.0)
 
-    const item = resultado.itens[0]
+    const item = resultado.materiais_abaixo[0]
     expect(item.codigo_material).toBe('MAT-TESTE-A')
-    expect(item.carteira_tons).toBe(8.0)
-    expect(item.minimo_necessario_tons).toBe(15.0)
-    expect(item.deficit_tons).toBe(7.0)
-    expect(item.deficit_formatado).toBe('Faltam 7,00 t para atingir o mínimo')
+    expect(item.quantidade_consolidada_tons).toBe(8.0)
+    expect(item.lote_minimo_tons).toBe(15.0)
+    expect(item.falta_para_minimo_tons).toBe(7.0)
+    expect(item.status_lote).toBe('MINIMO_NAO_ATINGIDO')
   })
 
   /**
@@ -69,19 +88,32 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
       curva_abc: 'A',
     }
 
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-TESTE-B',
+        {
+          id: 'rec-b',
+          codigo_material: 'MAT-TESTE-B',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+          last_sync: '2026-03-30T10:00:00.000Z',
+          unidade_medida: 't',
+        },
+      ],
+    ])
+
     const resultado = calcularMinimoNaoAtingido({
       itens: [itemB as CarteiraItem],
       tipoVisao: 'Geral',
-      context: {
-        regraFallbackMinimoTons: 15.0,
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    expect(resultado.total_materiais).toBe(0)
-    expect(resultado.total_deficit_tons).toBe(0)
-    expect(resultado.card_principal_texto).toBe('0 itens')
-    expect(resultado.card_adicional_texto).toBe('Déficit para mínimo: 0,00 t')
-    expect(resultado.itens.length).toBe(0)
+    expect(resultado.total_materiais_abaixo_minimo).toBe(0)
+    expect(resultado.total_toneladas_faltantes).toBe(0)
+    expect(resultado.materiais_abaixo.length).toBe(0)
+    expect(resultado.total_materiais_atingidos).toBe(1)
+    expect(resultado.materiais_atingidos[0].codigo_material).toBe('MAT-TESTE-B')
+    expect(resultado.materiais_atingidos[0].status_lote).toBe('MINIMO_ATINGIDO')
   })
 
   /**
@@ -103,22 +135,35 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
       curva_abc: 'A',
     }
 
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-TESTE-C',
+        {
+          id: 'rec-c',
+          codigo_material: 'MAT-TESTE-C',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+          last_sync: '2026-03-30T10:00:00.000Z',
+          unidade_medida: 't',
+        },
+      ],
+    ])
+
     const resultado = calcularMinimoNaoAtingido({
       itens: [itemC as CarteiraItem],
       tipoVisao: 'Geral',
-      context: {
-        regraFallbackMinimoTons: 15.0,
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    expect(resultado.total_materiais).toBe(0)
-    expect(resultado.total_deficit_tons).toBe(0)
-    expect(resultado.itens.length).toBe(0)
+    expect(resultado.total_materiais_abaixo_minimo).toBe(0)
+    expect(resultado.total_toneladas_faltantes).toBe(0)
+    expect(resultado.materiais_abaixo.length).toBe(0)
+    expect(resultado.total_materiais_atingidos).toBe(1)
   })
 
   /**
    * CENÁRIO D:
-   * Pedidos 4 + 5 + 3 t mesmo material/centro → 1 material, déficit 3,00 t (não 3 itens)
+   * Pedidos 4 + 5 + 3 t mesmo material/centro → 1 material consolidado (12,00 t), déficit 3,00 t (não 3 itens)
    */
   it('CENÁRIO D: pedidos 4+5+3 t mesmo material/centro → 1 material, déficit 3,00 t (não 3 itens)', () => {
     const pedidosD: Partial<CarteiraItem>[] = [
@@ -163,23 +208,32 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
       },
     ]
 
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-AGRUPADO-D',
+        {
+          id: 'rec-d',
+          codigo_material: 'MAT-AGRUPADO-D',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+          unidade_medida: 't',
+        },
+      ],
+    ])
+
     const resultado = calcularMinimoNaoAtingido({
       itens: pedidosD as CarteiraItem[],
       tipoVisao: 'Geral',
-      context: {
-        // Fixando mínimo de 15,00 t para teste da consolidação
-        lineMinBatchSizes: { L1: 15.0 },
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    // Garante que NÃO contou 3 itens isolados, mas exatamente 1 material consolidado!
-    expect(resultado.total_materiais).toBe(1)
-    expect(resultado.card_principal_texto).toBe('1 item')
-    expect(resultado.itens[0].pedidos_count).toBe(3)
-    expect(resultado.itens[0].carteira_tons).toBe(12.0) // 4 + 5 + 3 = 12 t
-    expect(resultado.itens[0].minimo_necessario_tons).toBe(15.0)
-    expect(resultado.itens[0].deficit_tons).toBe(3.0) // 15 - 12 = 3 t
-    expect(resultado.total_deficit_tons).toBe(3.0)
+    // Garante que NÃO contou 3 ocorrências isoladas, mas exatamente 1 material consolidado!
+    expect(resultado.total_materiais_abaixo_minimo).toBe(1)
+    expect(resultado.materiais_abaixo[0].pedidos_consolidados_count).toBe(3)
+    expect(resultado.materiais_abaixo[0].quantidade_consolidada_tons).toBe(12.0) // 4 + 5 + 3 = 12 t
+    expect(resultado.materiais_abaixo[0].lote_minimo_tons).toBe(15.0)
+    expect(resultado.materiais_abaixo[0].falta_para_minimo_tons).toBe(3.0) // 15 - 12 = 3 t
+    expect(resultado.total_toneladas_faltantes).toBe(3.0)
   })
 
   /**
@@ -187,7 +241,6 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
    * Item sai do card automaticamente ao atingir o mínimo (12,00 t + 3,50 t = 15,50 t)
    */
   it('CENÁRIO E: item sai do card automaticamente ao atingir o mínimo (12,00 t + 3,50 t = 15,50 t)', () => {
-    // Estado inicial: 12,00 t contra mínimo de 15,00 t (está no card com déficit 3,00 t)
     const pedidoInicial: Partial<CarteiraItem>[] = [
       {
         codigo_material: 'MAT-DINAMICO-E',
@@ -203,16 +256,27 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
       },
     ]
 
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-DINAMICO-E',
+        {
+          id: 'rec-e',
+          codigo_material: 'MAT-DINAMICO-E',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+          unidade_medida: 't',
+        },
+      ],
+    ])
+
     const antes = calcularMinimoNaoAtingido({
       itens: pedidoInicial as CarteiraItem[],
       tipoVisao: 'L2',
-      context: {
-        lineMinBatchSizes: { L2: 15.0 },
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    expect(antes.total_materiais).toBe(1)
-    expect(antes.total_deficit_tons).toBe(3.0)
+    expect(antes.total_materiais_abaixo_minimo).toBe(1)
+    expect(antes.total_toneladas_faltantes).toBe(3.0)
 
     // Entrada de novo pedido de 3,50 t do mesmo material
     const pedidoAdicional: Partial<CarteiraItem> = {
@@ -234,186 +298,277 @@ describe('Motor de Mínimo Não Atingido - Cenários Obrigatórios A, B, C, D e 
     const depois = calcularMinimoNaoAtingido({
       itens: carteiraAtualizada,
       tipoVisao: 'L2',
-      context: {
-        lineMinBatchSizes: { L2: 15.0 },
-      },
+      replicaSapPorCodigo: replicaSap,
     })
 
-    // Soma = 12 + 3.5 = 15.50 t > 15.00 t => déficit <= 0 => SAI AUTOMATICAMENTE DO CARD!
-    expect(depois.total_materiais).toBe(0)
-    expect(depois.total_deficit_tons).toBe(0)
-    expect(depois.itens.length).toBe(0)
+    // Soma = 12 + 3.5 = 15.50 t >= 15.00 t => falta_para_minimo = 0 => SAI AUTOMATICAMENTE DO CARD DE NÃO ATINGIDOS!
+    expect(depois.total_materiais_abaixo_minimo).toBe(0)
+    expect(depois.total_toneladas_faltantes).toBe(0)
+    expect(depois.materiais_abaixo.length).toBe(0)
+    expect(depois.total_materiais_atingidos).toBe(1)
+    expect(depois.materiais_atingidos[0].codigo_material).toBe('MAT-DINAMICO-E')
+    expect(depois.materiais_atingidos[0].quantidade_consolidada_tons).toBe(15.5)
   })
 
   /**
-   * TESTE ADICIONAL DE CONSISTÊNCIA NAS 5 VISÕES
+   * TESTE DE ATUALIZAÇÃO DA RÉPLICA: 15,00 t → 18,00 t COM ORIGEM "Integração SAP RFC"
+   * Verifica a evolução dinâmica do lote mínimo via ingestão/sincronização RFC SAP
    */
-  it('Segmentação consistente nas 5 visões (Geral, L1, L2, MTO e SDC)', () => {
-    const itensMix: Array<Partial<CarteiraItem>> = [
-      // Item L1
+  it('TESTE DE ATUALIZAÇÃO DA RÉPLICA: 15,00 t → 18,00 t com origem "Integração SAP RFC"', () => {
+    // 1. Estado inicial na réplica: material MAT-RFC-SYNC com 15,00 t
+    const replicaInicial = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-RFC-SYNC',
+        {
+          id: 'rec-sync-1',
+          codigo_material: 'MAT-RFC-SYNC',
+          descricao_material: 'Barra Chata Laminada 2x3/8',
+          lote_minimo: 15.0,
+          unidade_medida: 't',
+          origem: 'Integração SAP RFC',
+          valor_anterior: null,
+          last_sync: '2026-03-30T08:00:00.000Z',
+          rfc_execucao: 'Z_RFC_MATERIAL_LOTE_MINIMO',
+        },
+      ],
+    ])
+
+    const carteira: Partial<CarteiraItem>[] = [
       {
-        codigo_material: 'C1020-001',
-        descricao_material: 'Cantoneira L1',
+        codigo_material: 'MAT-RFC-SYNC',
+        descricao_material: 'Barra Chata Laminada 2x3/8',
         centro: '1100',
         linha: 'L1',
-        carteira_aberta_tons: 5.0,
-        tipo_ordem: 'MTS',
-      },
-      // Item L2
-      {
-        codigo_material: 'R1045-001',
-        descricao_material: 'Redondo L2',
-        centro: '1100',
-        linha: 'L2',
-        carteira_aberta_tons: 6.0,
-        tipo_ordem: 'MTS',
-      },
-      // Item MTO
-      {
-        codigo_material: 'MTO-ESPECIAL',
-        descricao_material: 'Especial Sob Encomenda',
-        centro: '1100',
-        linha: 'L1',
-        carteira_aberta_tons: 7.0,
-        tipo_ordem: 'MTO',
+        carteira_aberta_tons: 16.0, // 16 t em carteira
       },
     ]
 
-    const itemSDC: Partial<CarteiraSDCItem> = {
-      material: 'SDC-PERFIL-01',
-      descricao: 'Perfil Especial Sidercentro',
-      centro_sap: 'SDPL',
-      origem_producao: 'Sidercentro',
-      carteira_t: 10.0,
-      estoque_total_t: 0,
+    // Com lote mínimo inicial de 15,00 t, carteira de 16,00 t ATINGE o mínimo
+    const resultadoAntes = calcularMinimoNaoAtingido({
+      itens: carteira as CarteiraItem[],
+      tipoVisao: 'Geral',
+      replicaSapPorCodigo: replicaInicial,
+    })
+    expect(resultadoAntes.total_materiais_abaixo_minimo).toBe(0)
+    expect(resultadoAntes.total_materiais_atingidos).toBe(1)
+
+    // 2. SAP atualiza o lote mínimo para 18,00 t via RFC com origem "Integração SAP RFC"
+    const replicaAtualizada = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-RFC-SYNC',
+        {
+          id: 'rec-sync-1',
+          codigo_material: 'MAT-RFC-SYNC',
+          descricao_material: 'Barra Chata Laminada 2x3/8',
+          lote_minimo: 18.0,
+          unidade_medida: 't',
+          origem: 'Integração SAP RFC',
+          valor_anterior: 15.0, // Registra valor anterior
+          last_sync: '2026-03-30T14:30:00.000Z',
+          rfc_execucao: 'Z_RFC_MATERIAL_LOTE_MINIMO',
+        },
+      ],
+    ])
+
+    // 3. Consulta direta da réplica atualizada
+    const consulta = consultarLoteMinimoOficialSap('MAT-RFC-SYNC', replicaAtualizada)
+    expect(consulta.lote_minimo).toBe(18.0)
+    expect(consulta.origem).toBe('Integração SAP RFC')
+
+    // 4. Com o novo lote mínimo de 18,00 t, a carteira de 16,00 t agora fica ABAIXO do mínimo!
+    const resultadoDepois = calcularMinimoNaoAtingido({
+      itens: carteira as CarteiraItem[],
+      tipoVisao: 'Geral',
+      replicaSapPorCodigo: replicaAtualizada,
+    })
+
+    expect(resultadoDepois.total_materiais_abaixo_minimo).toBe(1)
+    expect(resultadoDepois.total_toneladas_faltantes).toBe(2.0) // 18 - 16 = 2,00 t
+    expect(resultadoDepois.materiais_abaixo[0].codigo_material).toBe('MAT-RFC-SYNC')
+    expect(resultadoDepois.materiais_abaixo[0].lote_minimo_tons).toBe(18.0)
+    expect(resultadoDepois.materiais_abaixo[0].falta_para_minimo_tons).toBe(2.0)
+    expect(resultadoDepois.materiais_abaixo[0].origem_lote_minimo).toBe('Integração SAP RFC')
+  })
+
+  /**
+   * TESTE DE REGRA CRÍTICA: Código sem retorno da RFC SAP
+   * Deve ser classificado como "SEM_PARAMETRIZACAO_SAP" ("Lote mínimo não recebido"),
+   * sem inventar default, sem zero, e isolado na seção de inconsistência.
+   */
+  it('Código sem retorno da RFC SAP → status SEM_PARAMETRIZACAO_SAP (Lote mínimo não recebido)', () => {
+    const itemSemSap: Partial<CarteiraItem> = {
+      codigo_material: 'COD-SEM-RFC',
+      descricao_material: 'Produto sem RFC SAP',
+      carteira_aberta_tons: 25.0,
+      curva_abc: 'A',
     }
 
-    const todos = [...(itensMix as CarteiraItem[]), itemSDC as unknown as CarteiraItem]
+    // Réplica vazia (ou sem este código)
+    const replicaVazia = new Map<string, SapMaterialLoteMinimoRecord>()
 
-    const ctx = {
-      lineMinBatchSizes: { L1: 15.0, L2: 15.0, SDC: 20.0 },
-      regraFallbackMinimoTons: 15.0,
-    }
+    const resultado = calcularMinimoNaoAtingido({
+      itens: [itemSemSap as CarteiraItem],
+      tipoVisao: 'Geral',
+      replicaSapPorCodigo: replicaVazia,
+    })
 
-    // 1. Visão Geral (consolida tudo)
-    const resGeral = calcularMinimoNaoAtingido({ itens: todos, tipoVisao: 'Geral', context: ctx })
-    expect(resGeral.total_materiais).toBe(4)
+    expect(resultado.total_materiais_abaixo_minimo).toBe(0)
+    expect(resultado.total_materiais_atingidos).toBe(0)
+    expect(resultado.total_materiais_sem_minimo_sap).toBe(1)
+    expect(resultado.total_toneladas_sem_minimo_sap).toBe(25.0)
+
+    const mat = resultado.materiais_sem_minimo_sap[0]
+    expect(mat.codigo_material).toBe('COD-SEM-RFC')
+    expect(mat.status_lote).toBe('SEM_PARAMETRIZACAO_SAP')
+    expect(mat.inconsistencia_dados).toBe(true)
+    expect(mat.lote_minimo_tons).toBeNull()
+    expect(mat.falta_para_minimo_tons).toBe(0)
+  })
+
+  /**
+   * TESTE DE CONSISTÊNCIA NAS 5 VISÕES (Geral, L1, L2, MTO e SDC)
+   * As 5 visões consom o MESMO motor central e a mesma réplica SAP
+   */
+  it('As 5 visões (Geral, L1, L2, MTO e SDC) consom o mesmo motor central e réplica SAP', () => {
+    const itensGerais: Partial<CarteiraItem>[] = [
+      {
+        codigo_material: 'MAT-L1',
+        descricao_material: 'Perfil L1',
+        linha: 'L1',
+        centro: '1100',
+        carteira_aberta_tons: 10.0,
+      },
+      {
+        codigo_material: 'MAT-L2',
+        descricao_material: 'Perfil L2',
+        linha: 'L2',
+        centro: '1100',
+        carteira_aberta_tons: 12.0,
+      },
+      {
+        codigo_material: 'MAT-MTO',
+        descricao_material: 'Perfil MTO',
+        linha: 'L1',
+        centro: '1100',
+        tipo_ordem: 'MTO',
+        carteira_aberta_tons: 6.0,
+      },
+    ]
+
+    const itensSDC: Partial<CarteiraSDCItem>[] = [
+      {
+        material: 'MAT-SDC',
+        descricao: 'Perfil Sidercentro SDPL',
+        centro_sap: 'SDPL',
+        origem_producao: 'Sidercentro',
+        carteira_t: 14.0,
+      },
+    ]
+
+    const replicaSap = new Map<string, SapMaterialLoteMinimoRecord>([
+      [
+        'MAT-L1',
+        {
+          id: '1',
+          codigo_material: 'MAT-L1',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+        },
+      ],
+      [
+        'MAT-L2',
+        {
+          id: '2',
+          codigo_material: 'MAT-L2',
+          lote_minimo: 15.0,
+          origem: 'SAP / RFC',
+        },
+      ],
+      [
+        'MAT-MTO',
+        {
+          id: '3',
+          codigo_material: 'MAT-MTO',
+          lote_minimo: 10.0,
+          origem: 'SAP / RFC',
+        },
+      ],
+      [
+        'MAT-SDC',
+        {
+          id: '4',
+          codigo_material: 'MAT-SDC',
+          lote_minimo: 20.0,
+          origem: 'SAP / RFC',
+        },
+      ],
+    ])
+
+    // 1. Visão Geral (todos juntos)
+    const resGeral = calcularMinimoNaoAtingido({
+      itens: [...(itensGerais as CarteiraItem[]), ...(itensSDC as any)],
+      tipoVisao: 'Geral',
+      replicaSapPorCodigo: replicaSap,
+    })
+    expect(resGeral.total_materiais_abaixo_minimo).toBe(4)
 
     // 2. Visão L1
-    const resL1 = calcularMinimoNaoAtingido({ itens: todos, tipoVisao: 'L1', context: ctx })
-    expect(resL1.total_materiais).toBe(2) // C1020-001 e MTO-ESPECIAL (ambos linha L1)
+    const resL1 = calcularMinimoNaoAtingido({
+      itens: [itensGerais[0] as CarteiraItem],
+      tipoVisao: 'L1',
+      replicaSapPorCodigo: replicaSap,
+    })
+    expect(resL1.total_materiais_abaixo_minimo).toBe(1)
+    expect(resL1.materiais_abaixo[0].codigo_material).toBe('MAT-L1')
+    expect(resL1.materiais_abaixo[0].falta_para_minimo_tons).toBe(5.0)
 
     // 3. Visão L2
-    const resL2 = calcularMinimoNaoAtingido({ itens: todos, tipoVisao: 'L2', context: ctx })
-    expect(resL2.total_materiais).toBe(1) // R1045-001
+    const resL2 = calcularMinimoNaoAtingido({
+      itens: [itensGerais[1] as CarteiraItem],
+      tipoVisao: 'L2',
+      replicaSapPorCodigo: replicaSap,
+    })
+    expect(resL2.total_materiais_abaixo_minimo).toBe(1)
+    expect(resL2.materiais_abaixo[0].codigo_material).toBe('MAT-L2')
+    expect(resL2.materiais_abaixo[0].falta_para_minimo_tons).toBe(3.0)
 
     // 4. Visão MTO
-    const resMTO = calcularMinimoNaoAtingido({ itens: todos, tipoVisao: 'MTO', context: ctx })
-    expect(resMTO.total_materiais).toBe(1) // MTO-ESPECIAL
-    expect(resMTO.itens[0].codigo_material).toBe('MTO-ESPECIAL')
+    const resMTO = calcularMinimoNaoAtingido({
+      itens: [itensGerais[2] as CarteiraItem],
+      tipoVisao: 'MTO',
+      replicaSapPorCodigo: replicaSap,
+    })
+    expect(resMTO.total_materiais_abaixo_minimo).toBe(1)
+    expect(resMTO.materiais_abaixo[0].codigo_material).toBe('MAT-MTO')
+    expect(resMTO.materiais_abaixo[0].falta_para_minimo_tons).toBe(4.0)
 
-    // 5. Visão SDC
+    // 5. Visão SDC (CarteiraSDCItem com material e carteira_t)
     const resSDC = calcularMinimoNaoAtingido({
-      itens: [itemSDC as CarteiraSDCItem],
+      itens: itensSDC as CarteiraSDCItem[],
       tipoVisao: 'SDC',
-      context: ctx,
+      replicaSapPorCodigo: replicaSap,
     })
-    expect(resSDC.total_materiais).toBe(1)
-    expect(resSDC.itens[0].codigo_material).toBe('SDC-PERFIL-01')
-    expect(resSDC.itens[0].minimo_necessario_tons).toBe(20.0)
-    expect(resSDC.itens[0].deficit_tons).toBe(10.0)
+    expect(resSDC.total_materiais_abaixo_minimo).toBe(1)
+    expect(resSDC.materiais_abaixo[0].codigo_material).toBe('MAT-SDC')
+    expect(resSDC.materiais_abaixo[0].carteira).toBe('SDC')
+    expect(resSDC.materiais_abaixo[0].quantidade_consolidada_tons).toBe(14.0)
+    expect(resSDC.materiais_abaixo[0].lote_minimo_tons).toBe(20.0)
+    expect(resSDC.materiais_abaixo[0].falta_para_minimo_tons).toBe(6.0) // 20 - 14 = 6 t
   })
 
   /**
-   * TESTE DA CADEIA DE PRECEDÊNCIA
+   * TESTE DE FORMATADORES E NORMALIZAÇÃO PT-BR
    */
-  it('Cadeia de precedência de resolução do lote mínimo', () => {
-    // Nível 1: Restrição de bitola ativa por linha
-    const r1 = resolverMinimoNecessario({
-      material: 'BIT-001',
-      linha: 'L1',
-      centro: '1100',
-      context: {
-        activeGaugeRestrictions: [
-          {
-            id: 'rule-1',
-            line_code: 'L1',
-            min_value: 25.0,
-            unit_of_measure: 't',
-            status: 'ATIVA',
-            restriction_type: 'QUANTIDADE',
-            rule_description: 'Bitola Pesada Lote 25t',
-          } as any,
-        ],
-        lineMinBatchSizes: { L1: 15.0 },
-      },
-    })
-    expect(r1.minimoTons).toBe(25.0)
-    expect(r1.fonte).toContain('Restrição de Bitola')
+  it('Funções utilitárias: normalização e formatação pt-BR estrita', () => {
+    expect(normalizarCodigoMaterialSap('  mat-001  ')).toBe('MAT-001')
+    expect(normalizarCodigoMaterialSap('')).toBe('')
+    expect(normalizarCodigoMaterialSap(null)).toBe('')
 
-    // Nível 2: min_batch_size da Ficha Mestra
-    const r2 = resolverMinimoNecessario({
-      material: 'MAT-002',
-      linha: 'L2',
-      centro: '1100',
-      context: {
-        lineMinBatchSizes: { L2: 35.0 },
-      },
-    })
-    expect(r2.minimoTons).toBe(35.0)
-    expect(r2.fonte).toContain('Ficha Mestra Linha L2')
+    expect(formatarToneladasPtBr(15.5)).toBe('15,50 t')
+    expect(formatarToneladasPtBr(0)).toBe('0,00 t')
+    expect(formatarToneladasPtBr(null)).toBe('N/D')
 
-    // Nível 3: Regras centrais (RULE_LM_L1 com 3h @ 22.5 t/h)
-    const r3 = resolverMinimoNecessario({
-      material: 'MAT-003',
-      linha: 'L1',
-      centro: '1100',
-    })
-    expect(r3.minimoTons).toBeGreaterThan(0)
-    expect(r3.fonte).toContain('RULE_LM_L1')
-
-    // Nível 4: Fallback padrão industrial
-    const r4 = resolverMinimoNecessario({
-      material: 'OUTRO',
-      linha: 'GERAL',
-      centro: '1100',
-      context: {
-        regraFallbackMinimoTons: 15.0,
-      },
-    })
-    expect(r4.minimoTons).toBe(15.0)
-    expect(r4.fonte).toContain('RFC Z_RFC_CARTEIRA_MINIMA_PROD')
-  })
-
-  /**
-   * TESTE DE FORMATAÇÃO E STATUS
-   */
-  it('Padrão pt-BR e classificação de criticidade', () => {
-    expect(formatPtBr(42.5)).toBe('42,50')
-    expect(formatPtBr(125450.0)).toBe('125.450,00')
-
-    const statCritico = classificarStatusMinimo({
-      qtdConsideradaTons: 3.0,
-      minimoNecessarioTons: 15.0,
-      deficitTons: 12.0,
-      diasRestantes: 2,
-    })
-    expect(statCritico.status).toBe('Crítico')
-
-    const statProximo = classificarStatusMinimo({
-      qtdConsideradaTons: 12.0,
-      minimoNecessarioTons: 15.0,
-      deficitTons: 3.0,
-      diasRestantes: 15,
-    })
-    expect(statProximo.status).toBe('Próximo do mínimo')
-
-    const statAguardando = classificarStatusMinimo({
-      qtdConsideradaTons: 5.0,
-      minimoNecessarioTons: 15.0,
-      deficitTons: 10.0,
-      diasRestantes: 20,
-    })
-    expect(statAguardando.status).toBe('Aguardando composição de lote')
+    const dataFormatada = formatarDataHoraPtBr('2026-03-30T10:15:00.000Z')
+    expect(dataFormatada).toMatch(/\d{2}\/\d{2}\/2026 \d{2}:\d{2}/)
   })
 })
