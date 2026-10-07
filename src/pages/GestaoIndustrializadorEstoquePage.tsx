@@ -221,8 +221,8 @@ export const GestaoIndustrializadorEstoquePage: React.FC = () => {
     <div className="flex-1 bg-slate-50 min-h-screen p-3 sm:p-5 lg:p-6 space-y-4">
       {/* 1. FILTRO GERAL COMPARTILHADO */}
       <IndustrializerHeaderFilter
-        title="Estoque de Industrializados"
-        subtitle="Segregação física DP07/18, DP09/08, DP24/30 &bull; Sem dupla contagem &bull; Rastreabilidade de NFs e Lotes"
+        title="Estoque Industrializados"
+        subtitle="MP, semiacabado e acabado"
         activeSubtopic="estoque"
         industrializadores={industrializadores}
         filters={filters}
@@ -251,15 +251,15 @@ export const GestaoIndustrializadorEstoquePage: React.FC = () => {
         </div>
       )}
 
-      {/* 2. OS 8 CARDS DE ESTOQUE */}
+      {/* 2. OS 8 CARDS DE ESTOQUE (Grid responsivo: 1 col <600px, 2 col 600-899px, 3 col 900-1199px, 4 col 1200-1599px, 8 col >=1600px) */}
       {loading && items.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2.5">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-lg bg-slate-200/80" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2.5">
           {/* Card 1: MP no Industrializador */}
           <button
             type="button"
@@ -560,12 +560,16 @@ export const GestaoIndustrializadorEstoquePage: React.FC = () => {
           </Badge>
         </div>
 
-        <div className="overflow-x-auto max-h-[70vh]">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="w-full overflow-x-auto max-h-[70vh] border-t border-slate-100">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
               <tr>
-                <th className="py-2.5 px-3 whitespace-nowrap">Industrializador</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Material</th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky left-0 bg-slate-100 z-20">
+                  Industrializador
+                </th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky left-28 bg-slate-100 z-20">
+                  Material
+                </th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Descrição</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Lote</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Aço</th>

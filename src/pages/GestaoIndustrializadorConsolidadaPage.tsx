@@ -122,8 +122,8 @@ export const GestaoIndustrializadorConsolidadaPage: React.FC = () => {
     <div className="flex-1 bg-slate-50 min-h-screen p-3 sm:p-5 lg:p-6 space-y-4">
       {/* 1. FILTRO GERAL COMPARTILHADO COM INDUSTRIALIZADOR DINÂMICO */}
       <IndustrializerHeaderFilter
-        title="Gestão Industrializador — Visão Consolidada"
-        subtitle="Painel executivo com 14 indicadores estratégicos, segregação de estoques sem dupla contagem e rastreabilidade SAP"
+        title="Gestão Industrializador"
+        subtitle="Visão Consolidada de MP, carteira, sequenciamento e estoques"
         activeSubtopic="mp"
         industrializadores={industrializadores}
         filters={filters}
@@ -161,96 +161,103 @@ export const GestaoIndustrializadorConsolidadaPage: React.FC = () => {
         </div>
       ) : metrics ? (
         <div className="space-y-4">
-          {/* Navegação Rápida entre Subtópicos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Navegação Rápida entre Subtópicos — Cards Compactos Padrão HUB Ciafal */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             <Link
               to="/pcp/gestao-industrializador/mp"
-              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-sm rounded-lg p-3 transition-all flex items-center justify-between group"
+              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-xs rounded-lg p-3 transition-all flex items-center justify-between group"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-md bg-blue-50 text-[#004C97] flex items-center justify-center font-bold text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-blue-50 text-[#004C97] flex items-center justify-center font-bold text-xs shrink-0">
                   MP
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#004C97]">
-                    1. Gestão de MP
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#004C97] truncate">
+                    Gestão de MP
                   </h3>
-                  <p className="text-[10px] text-slate-500">
-                    Projeção, DP07/18, trânsito e rupturas
-                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">Projeção e ruptura</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#004C97] group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#004C97] group-hover:translate-x-0.5 transition-transform shrink-0" />
             </Link>
 
             <Link
               to="/pcp/gestao-industrializador/carteira"
-              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-sm rounded-lg p-3 transition-all flex items-center justify-between group"
+              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-xs rounded-lg p-3 transition-all flex items-center justify-between group"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-md bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
                   CR
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-purple-700">
-                    2. Análise de Carteira
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-purple-700 truncate">
+                    Análise de Carteira
                   </h3>
-                  <p className="text-[10px] text-slate-500">Base SAP ZSD28C, riscos e alertas</p>
+                  <p className="text-[11px] text-slate-500 truncate">Carteira e riscos</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-700 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-700 group-hover:translate-x-0.5 transition-transform shrink-0" />
             </Link>
 
             <Link
               to="/pcp/gestao-industrializador/sequenciamento"
-              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-sm rounded-lg p-3 transition-all flex items-center justify-between group"
+              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-xs rounded-lg p-3 transition-all flex items-center justify-between group"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
                   SQ
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-emerald-700">
-                    3. Sequenciamento P x R
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 truncate whitespace-nowrap">
+                    Sequenciamento <span className="whitespace-nowrap">P x R</span>
                   </h3>
-                  <p className="text-[10px] text-slate-500">Aderência %, datas reais e timeline</p>
+                  <p className="text-[11px] text-slate-500 truncate">Previsto x realizado</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-transform shrink-0" />
             </Link>
 
             <Link
               to="/pcp/gestao-industrializador/estoque"
-              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-sm rounded-lg p-3 transition-all flex items-center justify-between group"
+              className="bg-white border border-slate-200 hover:border-[#004C97] hover:shadow-xs rounded-lg p-3 transition-all flex items-center justify-between group"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
                   ES
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-amber-700">
-                    4. Estoque Industrializados
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-amber-700 truncate">
+                    Estoque Industrializados
                   </h3>
-                  <p className="text-[10px] text-slate-500">Semiacabados, acabados e faturados</p>
+                  <p className="text-[11px] text-slate-500 truncate">Estoques da cadeia</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-transform shrink-0" />
             </Link>
           </div>
 
-          {/* 3. OS 14 CARDS CLICÁVEIS COM DRILLDOWN EM MODAL */}
+          {/* 3. OS 14 INDICADORES CONSOLIDADOS DA CADEIA */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <BarChart3 className="w-3.5 h-3.5 text-[#004C97]" />
-                14 Indicadores Consolidados da Cadeia (Clique em cada card para abrir detalhamento)
-              </h2>
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#004C97]" />
+                <h2 className="text-sm font-bold text-slate-900">Indicadores da Cadeia</h2>
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  (Selecione um indicador para ver detalhes)
+                </span>
+              </div>
               <span className="text-[11px] text-slate-500">
-                Fórmula oficial sem dupla contagem &bull; SI (t)
+                Fórmula sem dupla contagem &bull; t
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+            {/* Grid dos 14 Indicadores:
+                >=1600px: 5 cards/linha (2xl:grid-cols-5)
+                1200-1599px: 4 cards/linha (xl:grid-cols-4)
+                900-1199px: 3 cards/linha (lg:grid-cols-3)
+                600-899px: 2 cards/linha (sm:grid-cols-2)
+                <600px: 1 card/linha (grid-cols-1) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
               {/* 1. MP Total Disponível */}
               <button
                 type="button"

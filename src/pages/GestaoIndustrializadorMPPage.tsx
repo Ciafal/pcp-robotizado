@@ -143,8 +143,8 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
     <div className="flex-1 bg-slate-50 min-h-screen p-3 sm:p-5 lg:p-6 space-y-4">
       {/* 1. FILTRO GERAL COMPARTILHADO */}
       <IndustrializerHeaderFilter
-        title="Gestão de Matéria-Prima — Industrialização"
-        subtitle="Matriz de projeção de saldo, segregação de depósitos DP07/DP18 e cobertura física da cadeia"
+        title="Gestão de MP"
+        subtitle="Estoque, trânsito, consumo e projeção de ruptura"
         activeSubtopic="mp"
         industrializadores={industrializadores}
         filters={filters}
@@ -176,13 +176,13 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
 
       {/* 2. CARDS ESPECÍFICOS DE GESTÃO DE MP */}
       {loading && rows.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9 gap-2.5">
           {Array.from({ length: 9 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-lg bg-slate-200/80" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-9 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-9 gap-2.5">
           {/* Card 1: MP Total Disponível */}
           <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-500 truncate">
@@ -359,12 +359,14 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[70vh]">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="w-full overflow-x-auto max-h-[70vh] border-t border-slate-100">
+          <table className="w-full min-w-[1200px] text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
               <tr>
-                <th className="py-2.5 px-3 w-8"></th>
-                <th className="py-2.5 px-3 whitespace-nowrap">MP</th>
+                <th className="py-2.5 px-3 w-8 sticky left-0 bg-slate-100 z-20"></th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky left-8 bg-slate-100 z-20">
+                  MP
+                </th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Descrição</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Forma</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Dimensão</th>
@@ -414,14 +416,14 @@ export const GestaoIndustrializadorMPPage: React.FC = () => {
                         }`}
                         onClick={() => toggleRow(row.id)}
                       >
-                        <td className="py-2 px-3 text-slate-400">
+                        <td className="py-2 px-3 text-slate-400 sticky left-0 bg-white group-hover:bg-blue-50/40 z-10">
                           {isExpanded ? (
                             <ChevronDown className="w-4 h-4 text-[#004C97]" />
                           ) : (
                             <ChevronRight className="w-4 h-4 text-slate-400" />
                           )}
                         </td>
-                        <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap font-mono">
+                        <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap font-mono sticky left-8 bg-white group-hover:bg-blue-50/40 z-10">
                           {row.mp_code}
                         </td>
                         <td

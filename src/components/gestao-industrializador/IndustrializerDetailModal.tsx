@@ -43,9 +43,9 @@ export const IndustrializerDetailModal: React.FC<DetailModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div
-        className="bg-white rounded-xl shadow-2xl flex flex-col w-[94vw] h-[92vh] max-w-[1500px] border border-slate-200 overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl flex flex-col w-full sm:w-[94vw] lg:w-[90vw] xl:w-[85vw] max-w-[1500px] h-full sm:h-[90vh] max-h-[95vh] border border-slate-200 overflow-hidden"
         role="dialog"
         aria-modal="true"
       >

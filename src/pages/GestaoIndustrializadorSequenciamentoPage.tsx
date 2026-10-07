@@ -274,8 +274,8 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
     <div className="flex-1 bg-slate-50 min-h-screen p-3 sm:p-5 lg:p-6 space-y-4">
       {/* 1. FILTRO GERAL COMPARTILHADO — ÚNICO BLOCO CENTRALIZADO */}
       <IndustrializerHeaderFilter
-        title="Sequenciamento — Previsto x Realizado"
-        subtitle="Aderência da programação por industrializador &bull; Rota produtiva, WMS e faturamento &bull; Timeline ponta a ponta"
+        title="Sequenciamento P x R"
+        subtitle="Acompanhamento do previsto x realizado"
         activeSubtopic="sequenciamento"
         industrializadores={industrializadores}
         filters={filters}
@@ -287,17 +287,17 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
         availableCompanies={availableCompanies}
         availableLines={availableLines}
         headerControls={
-          <div className="flex items-center gap-2">
-            <Badge className="bg-emerald-600 text-white text-[11px] font-semibold px-2.5 py-0.5 shadow-2xs">
+          <div className="flex items-center gap-1.5">
+            <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 shadow-2xs whitespace-nowrap">
               Oficial Aprovada
             </Badge>
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-700">
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-slate-700">
               <span className="text-[10px] font-bold uppercase text-slate-500">Visão:</span>
               <select
                 aria-label="Agrupamento de Visão"
                 value={viewGrouping}
                 onChange={(e) => setViewGrouping(e.target.value as any)}
-                className="h-6 text-xs bg-white border border-slate-300 rounded px-1.5 text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
+                className="h-6 text-[11px] bg-white border border-slate-300 rounded px-1 text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
               >
                 <option value="todos">Padrão Sequência</option>
                 <option value="dia">Por Dia</option>
@@ -331,15 +331,15 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
         </div>
       )}
 
-      {/* 3. OS 8 CARDS DE SEQUENCIAMENTO */}
+      {/* 3. OS 8 CARDS DE SEQUENCIAMENTO (Grid responsivo: 1 col <600px, 2 col 600-899px, 3 col 900-1199px, 4 col 1200-1599px, 8 col >=1600px) */}
       {loading && items.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2.5">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-lg bg-slate-200/80" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2.5">
           {/* Card 1: Volume Programado */}
           <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-500 truncate">
@@ -485,18 +485,22 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[70vh]">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="w-full overflow-x-auto max-h-[70vh] border-t border-slate-100">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
               <tr>
                 {/* Ordem estrita das colunas:
                     Seq., Empresa, Linha, Material, Descrição, Volume previsto (t), Tarugo padrão,
                     Centro de Trabalho, Data prevista no Centro, Data Inventário WMS, Data Faturamento,
                     Data Arcelor, Volume realizado (t), Desvio (t), Aderência (%), Status */}
-                <th className="py-2.5 px-3 whitespace-nowrap">Seq.</th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky left-0 bg-slate-100 z-20">
+                  Seq.
+                </th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Empresa</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Linha</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Material</th>
+                <th className="py-2.5 px-3 whitespace-nowrap sticky left-12 bg-slate-100 z-20">
+                  Material
+                </th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Descrição</th>
                 <th className="py-2.5 px-3 whitespace-nowrap text-right">Volume previsto (t)</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Tarugo padrão</th>
@@ -530,7 +534,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer"
                       title="Clique para abrir a Timeline Rastreável do Material"
                     >
-                      <td className="py-2 px-3 font-mono font-bold text-slate-500">
+                      <td className="py-2 px-3 font-mono font-bold text-slate-500 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10">
                         {row.sequence_order}
                       </td>
                       <td className="py-2 px-3 font-semibold text-slate-800 whitespace-nowrap">
@@ -539,7 +543,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                       <td className="py-2 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap">
                         {row.line_name || row.line_code || 'L1'}
                       </td>
-                      <td className="py-2 px-3 font-semibold text-blue-700 hover:underline whitespace-nowrap font-mono">
+                      <td className="py-2 px-3 font-semibold text-blue-700 hover:underline whitespace-nowrap font-mono sticky left-12 bg-white group-hover:bg-blue-50/50 z-10">
                         {row.material_code}
                       </td>
                       <td

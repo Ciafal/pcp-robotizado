@@ -11,7 +11,12 @@ import {
   Database,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   IndustrializadorEntity,
   IndustrializerFilterParams,
@@ -146,49 +151,59 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
   }, [lastSyncAt])
 
   return (
-    <div className="space-y-3">
-      {/* Faixa Superior: Título, Metadados Oficiais e Ações */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-4 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#004C97]/10 border border-[#004C97]/20 flex items-center justify-center text-[#004C97] shrink-0 mt-0.5">
-            <Building2 className="w-5 h-5" />
+    <div className="space-y-2.5">
+      {/* Cabeçalho Compacto Padrão HUB Ciafal (sem faixas gigantes, sem badge, tipografia padronizada) */}
+      <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-md bg-[#004C97]/10 border border-[#004C97]/20 flex items-center justify-center text-[#004C97] shrink-0">
+            <Building2 className="w-4 h-4" />
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                PCP ROBOTIZADO &bull; GESTÃO INDUSTRIALIZADOR
-              </span>
-              <Badge className="bg-[#004C97] text-white text-[10px] px-2 py-0.2">
-                Camada Integradora
-              </Badge>
-            </div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{title}</h1>
-            <p className="text-xs text-slate-600 mt-0.5">{subtitle}</p>
+          <div className="min-w-0">
+            <h1 className="text-[18px] sm:text-[20px] lg:text-[22px] font-bold text-slate-900 tracking-tight leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-[13px] text-slate-600 truncate leading-snug">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Informações Oficiais, Controles do Cabeçalho e Botões */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0 text-xs">
+        {/* À Direita: Rastreabilidade discreta via tooltip + Controles adicionais + Ações [Atualizar] [Parâmetros] */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {headerControls}
 
-          <div className="flex flex-col sm:items-end text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md">
-            <div className="flex items-center gap-1.5 font-medium text-slate-700">
-              <Database className="w-3.5 h-3.5 text-[#004C97]" />
-              <span>Fonte oficial:</span>
-              <span className="font-semibold text-slate-900">{officialSource}</span>
-            </div>
-            <div className="text-[11px] text-slate-500">
-              Última sincronização:{' '}
-              <span className="font-mono text-slate-700">{formattedSync}</span>
-            </div>
-          </div>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-600 cursor-pointer hover:bg-slate-100/80 transition-colors"
+                  data-testid="last-sync-badge"
+                  onClick={onOpenSettings}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <Info className="w-3.5 h-3.5 text-[#004C97]" />
+                  <span>
+                    Atualizado <span className="font-semibold text-slate-800">{formattedSync}</span>
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs bg-slate-900 text-white max-w-xs p-2.5">
+                <p className="font-bold text-[11px] text-blue-200 mb-0.5">Rastreabilidade Oficial</p>
+                <p className="text-[11px]">Fonte: {officialSource || 'SAP ECC (MB52 / MD04 / ZSD28C / RFC) & PocketBase PCP'}</p>
+                <p className="text-[10px] text-slate-300 mt-1">Clique para abrir Parâmetros e detalhes da integração.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <Button
             variant="outline"
             size="sm"
             onClick={onRefresh}
-            className="text-xs gap-1.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-            title="Sincronizar com SAP e bases PCP"
+            className="h-8 text-xs gap-1.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+            title="Atualizar dados oficiais"
           >
             <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
             Atualizar
@@ -199,7 +214,8 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
               variant="outline"
               size="sm"
               onClick={onOpenSettings}
-              className="text-xs gap-1.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              className="h-8 text-xs gap-1.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+              title="Ajustar parâmetros de semáforo e ver integração"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#004C97]" />
               Parâmetros
@@ -208,21 +224,30 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
         </div>
       </div>
 
-      {/* Barra de Filtros Unificados e Estruturais */}
+      {/* Barra de Filtros Compacta e Responsiva */}
       <div className="bg-white border border-slate-200 rounded-lg p-3 sm:p-3.5 shadow-xs">
-        <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
             <Filter className="w-3.5 h-3.5 text-[#004C97]" />
-            <span>Filtros Estruturais Compartilhados</span>
-            <span className="text-[10px] text-slate-500 font-normal">
-              (Industrializador é dimensão primária mandatória)
-            </span>
+            <span>Filtros</span>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-pointer text-slate-400 hover:text-slate-600">
+                    <Info className="w-3.5 h-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs bg-slate-900 text-white">
+                  Industrializador é dimensão primária mandatória de recorte.
+                </TooltipContent>
+              </TooltipProvider>
+            </Tooltip>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="h-7 px-2 text-[11px] text-slate-500 hover:text-slate-900"
+            className="h-7 px-2 text-[11px] text-slate-500 hover:text-slate-900 font-medium"
           >
             Limpar filtros
           </Button>
@@ -392,11 +417,13 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
             </div>
           </div>
         ) : (
-          /* Grid padrão para as outras abas (carteira, estoque, mp) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2.5 text-xs">
+          /* Grid padrão para as outras abas (carteira, estoque, mp):
+             Responsivo padronizado: 1 col mobile, 2 tablet pequeno, 3-4 notebook, até 6 desktop largo.
+             Alturas uniformes h-9, labels alinhados, cantos consistentes */
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 text-xs">
             {/* 1. INDUSTRIALIZADOR */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase text-slate-700 flex items-center gap-1">
+              <label className="text-[10px] font-bold uppercase text-slate-700 flex items-center gap-1 truncate block">
                 <span>Industrializador</span>
                 <span className="text-red-500">*</span>
               </label>
@@ -404,9 +431,9 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
                 aria-label="Selecionar Industrializador"
                 value={filters.industrializerCode || 'ALL'}
                 onChange={(e) => handleInputChange('industrializerCode', e.target.value)}
-                className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97] truncate"
               >
-                <option value="ALL">Todos os Industrializadores</option>
+                <option value="ALL">Todos os Ind.</option>
                 {industrializadores.map((ind) => (
                   <option key={ind.code} value={ind.code}>
                     {ind.name} ({ind.code})
@@ -417,14 +444,16 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
 
             {/* 2. CÓDIGO DO MATERIAL / MP */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-600">Material / MP</label>
+              <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                Material / MP
+              </label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Ex: TAR-130X130 ou BAR-RED"
+                  placeholder="Código..."
                   value={filters.materialCode || ''}
                   onChange={(e) => handleInputChange('materialCode', e.target.value)}
-                  className="w-full h-8 pl-7 pr-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                  className="w-full h-9 pl-7 pr-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
                 />
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5 pointer-events-none" />
               </div>
@@ -432,38 +461,44 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
 
             {/* 3. AÇO / QUALIDADE */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-600">Aço / Norma</label>
+              <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                Aço / Norma
+              </label>
               <input
                 type="text"
-                placeholder="Ex: 1020 AI, 1045, ST52"
+                placeholder="Ex: 1020, 1045..."
                 value={filters.steelGrade || ''}
                 onChange={(e) => handleInputChange('steelGrade', e.target.value)}
-                className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
               />
             </div>
 
             {/* 4. FORMA / DIMENSÃO */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-600">Forma / Dimensão</label>
+              <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                Forma / Dimensão
+              </label>
               <input
                 type="text"
-                placeholder='Ex: 130x130, Ø 3/8", 150x150'
+                placeholder='Ex: 130x130, Ø 3/8"'
                 value={filters.dimension || ''}
                 onChange={(e) => handleInputChange('dimension', e.target.value)}
-                className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
               />
             </div>
 
             {/* 5. CENTRO / LINHA */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-600">Centro / Linha</label>
+              <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                Centro / Linha
+              </label>
               <select
                 aria-label="Selecionar Centro ou Linha"
                 value={filters.centerLine || ''}
                 onChange={(e) => handleInputChange('centerLine', e.target.value)}
-                className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97] truncate"
               >
-                <option value="">Todos os Centros/Linhas</option>
+                <option value="">Todos Centros/Linhas</option>
                 <option value="L1">L1 — Laminação 1 (CFPL)</option>
                 <option value="L2">L2 — Laminação 2</option>
                 <option value="CFPL">CFPL — Centro Fabril Ciafal</option>
@@ -473,41 +508,47 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
 
             {/* 6. STATUS OPERACIONAL */}
             <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-slate-600">Status</label>
+              <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                Status
+              </label>
               <select
                 aria-label="Selecionar Status"
                 value={filters.status || ''}
                 onChange={(e) => handleInputChange('status', e.target.value)}
-                className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97] truncate"
               >
-                <option value="">Todos os Status</option>
-                <option value="VERDE">Verde (Normal / No Prazo)</option>
-                <option value="AMARELO">Amarelo (Atenção / Parcial)</option>
-                <option value="VERMELHO">Vermelho (Crítico / Atrasado)</option>
-                <option value="AZUL">Azul (Programação Futura)</option>
+                <option value="">Todos</option>
+                <option value="VERDE">No Prazo / Normal</option>
+                <option value="AMARELO">Atenção / Parcial</option>
+                <option value="VERMELHO">Crítico / Atrasado</option>
+                <option value="AZUL">Futura</option>
               </select>
             </div>
 
             {activeSubtopic === 'carteira' && (
               <>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-600">Pedido SAP</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                    Pedido SAP
+                  </label>
                   <input
                     type="text"
                     placeholder="Ex: 45008912"
                     value={filters.sapOrder || ''}
                     onChange={(e) => handleInputChange('sapOrder', e.target.value)}
-                    className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                    className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-600">Cliente</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                    Cliente
+                  </label>
                   <input
                     type="text"
                     placeholder="Filtrar cliente..."
                     value={filters.clientName || ''}
                     onChange={(e) => handleInputChange('clientName', e.target.value)}
-                    className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                    className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
                   />
                 </div>
               </>
@@ -515,12 +556,14 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
 
             {activeSubtopic === 'estoque' && (
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-600">Depósito SAP</label>
+                <label className="text-[10px] font-bold uppercase text-slate-700 truncate block">
+                  Depósito SAP
+                </label>
                 <select
                   aria-label="Selecionar Depósito SAP"
                   value={filters.storageDeposit || ''}
                   onChange={(e) => handleInputChange('storageDeposit', e.target.value)}
-                  className="w-full h-8 px-2.5 rounded border border-slate-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97]"
+                  className="w-full h-9 px-2.5 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#004C97] truncate"
                 >
                   <option value="">Todos os Depósitos</option>
                   <option value="DP18">DP18 — Tarugos Inteiros Pátio</option>

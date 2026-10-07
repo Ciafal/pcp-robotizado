@@ -287,11 +287,18 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isAproveitamentoMpForaPadraoRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
-    isGestaoIndustrializadorRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
     isCadastrosOrMasterDataEarly
+  ) {
+    return <>{children}</>
+  }
+
+  // Para Gestão Industrializador: se possui sessão, usuário, can() ou admin, libera imediatamente
+  if (
+    isGestaoIndustrializadorRoute &&
+    (hasValidAuthStore || Boolean(user) || isAdminUser || can(permission))
   ) {
     return <>{children}</>
   }
@@ -345,7 +352,6 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isEntregasRoute ||
     isParadaRoute ||
     isHierarquiaRoute ||
-    isGestaoIndustrializadorRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
@@ -665,7 +671,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isDadosIbgeRoute ||
     isParadaRoute ||
     isChecklistFechamentoRoute ||
-    isGestaoIndustrializadorRoute ||
+    (isGestaoIndustrializadorRoute && (Boolean(user) || hasValidAuthStore)) ||
     isCadastrosOrMasterDataEarly ||
     isCadastrosOrMasterData,
   )
