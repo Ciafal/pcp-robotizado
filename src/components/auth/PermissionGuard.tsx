@@ -287,6 +287,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isAproveitamentoMpForaPadraoRoute ||
     isEntregasRoute ||
     isHierarquiaRoute ||
+    isGestaoIndustrializadorRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||
@@ -344,6 +345,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isEntregasRoute ||
     isParadaRoute ||
     isHierarquiaRoute ||
+    isGestaoIndustrializadorRoute ||
     isGestaoMpRoute ||
     isChecklistFechamentoRoute ||
     isCarteiraMinimaRoute ||

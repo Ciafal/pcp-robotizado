@@ -8,16 +8,16 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { pb } from '@/lib/pocketbase/client'
 import { officialNavGroups } from '@/components/layout/PCPNavigation'
 
-const mockAuthValuePcpProgrammer: AuthContextType = {
+const mockAuthValuePcpProgrammer = {
   user: {
     id: 'user-prog-01',
     email: 'programador@ciafal.com.br',
     name: 'Programador PCP',
-    role: 'PCP_PROGRAMMER',
+    role: 'PCP_PROGRAMMER' as const,
   },
-  roles: ['PCP_PROGRAMMER'],
-  permissions: ['pcp.schedule.view', 'pcp.carteira.view', 'pcp.cockpit.view'],
-  activeRole: 'PCP_PROGRAMMER',
+  roles: ['PCP_PROGRAMMER' as const],
+  permissions: ['pcp.schedule.view' as any, 'pcp.carteira.view' as any, 'pcp.cockpit.view' as any],
+  activeRole: 'PCP_PROGRAMMER' as const,
   isLoading: false,
   isAuthenticated: true,
   isGlobalAdmin: false,
@@ -37,25 +37,25 @@ const mockAuthValuePcpProgrammer: AuthContextType = {
   refreshPermissions: async () => {},
   delegations: [],
   switchRole: () => {},
-}
+} as unknown as AuthContextType
 
-const mockAuthWithoutPerm: AuthContextType = {
+const mockAuthWithoutPerm = {
   user: {
     id: 'user-guest-01',
     email: 'guest@ciafal.com.br',
     name: 'Visitante Externo',
-    role: 'OPERATOR',
+    role: 'CONSULTOR_LOGISTICA' as const,
   },
-  roles: ['OPERATOR'],
+  roles: ['CONSULTOR_LOGISTICA' as const],
   permissions: [],
-  activeRole: 'OPERATOR',
+  activeRole: 'CONSULTOR_LOGISTICA' as const,
   isLoading: false,
   isAuthenticated: true,
   isGlobalAdmin: false,
   isExecutiveViewer: false,
   isPcpSupervisor: false,
   isProgrammer: false,
-  isOperator: true,
+  isOperator: false,
   hasCriticalPermission: false,
   can: (_perm: string) => false,
   canAccessModule: () => false,
@@ -66,7 +66,7 @@ const mockAuthWithoutPerm: AuthContextType = {
   refreshPermissions: async () => {},
   delegations: [],
   switchRole: () => {},
-}
+} as unknown as AuthContextType
 
 describe('Suíte de Aceitação — Resiliência do PermissionGuard em Gestão Industrializador', () => {
   beforeEach(() => {
@@ -120,10 +120,12 @@ describe('Suíte de Aceitação — Resiliência do PermissionGuard em Gestão I
     // Simula sessão válida no authStore do PocketBase como ocorre em um reload de navegador (F5 direto)
     pb.authStore.save('fake-token-jwt-12345', {
       id: 'user-prog-01',
+      collectionId: 'users',
+      collectionName: 'users',
       email: 'programador@ciafal.com.br',
       name: 'Programador PCP',
       role: 'PCP_PROGRAMMER',
-    })
+    } as any)
 
     // Estado transitório de revalidação inicial (AuthContext ainda carregando assincronamente)
     const coldStartAuth: AuthContextType = {

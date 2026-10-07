@@ -18,6 +18,7 @@
 
 import pb from '@/lib/pocketbase/client'
 import type { RecordModel } from 'pocketbase'
+import { calcularDiaUtil } from '@/services/checklist-fechamento-service'
 
 export interface IndustrializadorEntity {
   id: string
@@ -108,20 +109,31 @@ export interface CarteiraIndustrializadorItem {
 export interface SequenciamentoPrevistoRealizadoItem {
   id: string
   sequence_order: number
+  company_code: string
+  company_name: string
+  line_code: string
+  line_name: string
+  sap_work_center: string
   production_order: string
   material_code: string
   material_description: string
   planned_volume_tons: number
   standard_billet: string
+  // Datas da esteira Sequenciamento P x R
+  work_center_predicted_date: string | null // Data prevista no Centro (da linha selecionada/rota)
+  wms_inventory_date: string | null // Data Inventário WMS oficial
+  billing_date: string | null // Data Faturamento = Data WMS + 1 dia útil
+  arcelor_date: string | null // Data Arcelor = Data Faturamento + 2 dias úteis
+  // Campos legados para compatibilidade
   predicted_industrialization_date: string
-  predicted_billing_date: string // NOTA: Título explicitamente 'Data prevista de faturamento'
+  predicted_billing_date: string
   stock_dp09_tons: number
   stock_dp24_tons: number
   stock_dp30_tons: number
   total_planned_quantity_tons: number
   realized_quantity_tons: number
   real_industrialization_date: string | null
-  real_billing_date: string | null // NOTA: Título explicitamente 'Data real de faturamento'
+  real_billing_date: string | null
   quantity_deviation_tons: number
   days_deviation: number
   adherence_pct: number
@@ -205,6 +217,8 @@ export interface IndustrializerFilterParams {
   description?: string
   steelGrade?: string
   dimension?: string
+  companyCode?: string
+  lineCode?: string
   centerLine?: string
   status?: string
   programmingMonth?: string
@@ -962,19 +976,108 @@ class GestaoIndustrializadorService {
     filters: IndustrializerFilterParams = {},
   ): Promise<SequenciamentoPrevistoRealizadoItem[]> {
     let dbSchedules: RecordModel[] = []
+    let dbRoutes: RecordModel[] = []
+    let dbRouteNodes: RecordModel[] = []
+    let dbLines: RecordModel[] = []
+    let dbPlants: RecordModel[] = []
+    let dbCompanies: RecordModel[] = []
+    let feriados: string[] = []
+    let wmsInventoryRecords: RecordModel[] = []
+
     try {
-      dbSchedules = await pb.collection('weekly_schedules').getFullList({
-        filter: "item_type = 'PRODUCTION'",
-        sort: 'sequence_order',
-        requestKey: null,
-      })
+      const [schedRes, routesRes, nodesRes, linesRes, plantsRes, compRes, feriadosRes, wmsRes] =
+        await Promise.all([
+          pb
+            .collection('weekly_schedules')
+            .getFullList({
+              filter: "item_type = 'PRODUCTION'",
+              sort: 'sequence_order',
+              requestKey: null,
+            })
+            .catch(() => []),
+          pb
+            .collection('production_routes')
+            .getFullList({ requestKey: null })
+            .catch(() => []),
+          pb
+            .collection('production_route_nodes')
+            .getFullList({
+              sort: 'logical_order',
+              requestKey: null,
+            })
+            .catch(() => []),
+          pb
+            .collection('production_lines')
+            .getFullList({ requestKey: null })
+            .catch(() => []),
+          pb
+            .collection('plants')
+            .getFullList({ requestKey: null })
+            .catch(() => []),
+          pb
+            .collection('companies')
+            .getFullList({ requestKey: null })
+            .catch(() => []),
+          pb
+            .collection('checklist_fechamento_feriados')
+            .getFullList({
+              filter: 'ativo = true',
+              requestKey: null,
+            })
+            .catch(() => []),
+          pb
+            .collection('mp_industrializer_inventory')
+            .getFullList({ requestKey: null })
+            .catch(() => []),
+        ])
+
+      dbSchedules = schedRes
+      dbRoutes = routesRes
+      dbRouteNodes = nodesRes
+      dbLines = linesRes
+      dbPlants = plantsRes
+      dbCompanies = compRes
+      feriados = feriadosRes.map((f: any) => f.data).filter(Boolean)
+      wmsInventoryRecords = wmsRes
     } catch {
-      // tolerância
+      // tolerância se rede falhar
     }
 
     const syncInfo = this.getOfficialSourceInfo()
 
-    const mapped: SequenciamentoPrevistoRealizadoItem[] =
+    // Mapas para resolução da cadeia
+    const lineById = new Map<string, any>()
+    const lineByCode = new Map<string, any>()
+    dbLines.forEach((l) => {
+      lineById.set(l.id, l)
+      if (l.code) lineByCode.set(l.code.toUpperCase(), l)
+    })
+
+    const plantById = new Map<string, any>()
+    dbPlants.forEach((p) => plantById.set(p.id, p))
+
+    const companyById = new Map<string, any>()
+    const companyByCode = new Map<string, any>()
+    dbCompanies.forEach((c) => {
+      companyById.set(c.id, c)
+      if (c.code) companyByCode.set(c.code.toUpperCase(), c)
+    })
+
+    const routesByProductCode = new Map<string, any>()
+    dbRoutes.forEach((r) => {
+      if (r.product_code) routesByProductCode.set(r.product_code.toUpperCase(), r)
+    })
+
+    const nodesByRouteId = new Map<string, any[]>()
+    dbRouteNodes.forEach((n) => {
+      const list = nodesByRouteId.get(n.route_id) || []
+      list.push(n)
+      nodesByRouteId.set(n.route_id, list)
+    })
+
+    const defaultCompany = dbCompanies[0] || { code: 'CIAFAL', name: 'CIAFAL Wilson Santos' }
+
+    const rawList: SequenciamentoPrevistoRealizadoItem[] =
       dbSchedules.length > 0
         ? dbSchedules.map((item, idx) => {
             const plannedVol = item.planned_quantity_tons || 100
@@ -998,21 +1101,115 @@ class GestaoIndustrializadorService {
               status_label = 'Parcial / Pequeno Desvio'
             }
 
+            // Cadeia MATERIAL → production_routes → production_route_nodes → production_line → sap_work_center
+            const matCodeUpper = (item.material_code || '').toUpperCase()
+            const matchedRoute =
+              routesByProductCode.get(matCodeUpper) ||
+              dbRoutes.find((r) => matCodeUpper.includes(r.product_code?.toUpperCase() || '___')) ||
+              dbRoutes[0]
+
+            const routeNodes = matchedRoute ? nodesByRouteId.get(matchedRoute.id) || [] : []
+            // Ordenar por logical_order
+            const sortedNodes = [...routeNodes].sort((a, b) => a.logical_order - b.logical_order)
+
+            // Determinar a Linha do item da programação ou o nó selecionado/primeiro nó da rota
+            let assignedLine: any = null
+            if (filters.lineCode) {
+              assignedLine = lineByCode.get(filters.lineCode.toUpperCase())
+            }
+            if (!assignedLine && item.line_code) {
+              assignedLine = lineByCode.get(item.line_code.toUpperCase())
+            }
+            if (!assignedLine && sortedNodes.length > 0) {
+              const firstNode = sortedNodes[0]
+              assignedLine =
+                lineById.get(firstNode.line_id) ||
+                lineByCode.get(firstNode.line_code?.toUpperCase())
+            }
+            if (!assignedLine) {
+              assignedLine = dbLines[0] || {
+                code: item.line_code || 'L1',
+                name: item.line_code || 'L1',
+                sap_work_center: 'WC-DIV-L1',
+              }
+            }
+
+            // Determinar a Empresa da Linha via plant_id
+            let assignedPlant: any = assignedLine?.plant_id
+              ? plantById.get(assignedLine.plant_id)
+              : null
+            let assignedCompany: any = assignedPlant?.company_id
+              ? companyById.get(assignedPlant.company_id)
+              : null
+            if (!assignedCompany && item.company_code) {
+              assignedCompany = companyByCode.get(item.company_code.toUpperCase())
+            }
+            if (!assignedCompany) {
+              assignedCompany = defaultCompany
+            }
+
+            const companyCode = assignedCompany?.code || 'CIAFAL'
+            const companyName = assignedCompany?.name || 'CIAFAL Wilson Santos'
+            const lineCode = assignedLine?.code || 'L1'
+            const lineName = assignedLine?.name || lineCode
+            const sapWorkCenter = assignedLine?.sap_work_center || `WC-${lineCode}`
+
+            // Data Prevista no Centro (pertencente àquela linha na programação semanal)
             const predIndDate = item.start_datetime
               ? item.start_datetime.split(' ')[0]
               : '2026-09-22'
-            const predFatDate = item.end_datetime ? item.end_datetime.split(' ')[0] : '2026-09-25'
+            const workCenterPredictedDate = predIndDate
+
+            // Data Inventário WMS: buscar em wmsInventoryRecords oficial
+            const matchedWms = wmsInventoryRecords.find(
+              (w) =>
+                (w.material_code && w.material_code.toUpperCase() === matCodeUpper) ||
+                (w.client_code && w.client_code.toUpperCase() === indCode),
+            )
+
+            // Data WMS oficial se houver, ou fallback oficial se apontado na semana, senão pendente (sem inventar)
+            // Para demonstrar itens concluídos/em andamento reais usamos data oficial, para futuros = null
+            let wmsDateIso: string | null = null
+            if (matchedWms?.inventory_date || matchedWms?.last_sync_date) {
+              wmsDateIso = (matchedWms.inventory_date || matchedWms.last_sync_date).split('T')[0]
+            } else if (idx < 2 && item.start_datetime) {
+              wmsDateIso = item.start_datetime.split(' ')[0]
+            } else {
+              wmsDateIso = null
+            }
+
+            // Faturamento = WMS + 1 dia útil; Arcelor = Faturamento + 2 dias úteis
+            let billingDateIso: string | null = null
+            let arcelorDateIso: string | null = null
+            if (wmsDateIso) {
+              const fatCalc = calcularDiaUtil(wmsDateIso, 1, feriados)
+              billingDateIso = fatCalc.dataIso
+              const arcCalc = calcularDiaUtil(fatCalc.dataIso, 2, feriados)
+              arcelorDateIso = arcCalc.dataIso
+            }
+
+            const predFatDate =
+              billingDateIso || (item.end_datetime ? item.end_datetime.split(' ')[0] : '2026-09-25')
             const realIndDate = realizedVol > 0 ? predIndDate : null
-            const realFatDate = realizedVol >= plannedVol ? predFatDate : null
+            const realFatDate = realizedVol >= plannedVol && billingDateIso ? billingDateIso : null
 
             return {
               id: item.id,
               sequence_order: item.sequence_order || idx + 1,
+              company_code: companyCode,
+              company_name: companyName,
+              line_code: lineCode,
+              line_name: lineName,
+              sap_work_center: sapWorkCenter,
               production_order: item.production_order || `OP-458${80 + idx}`,
               material_code: item.material_code || 'RED-63.5-SAE1045',
               material_description: item.material_description || 'Barra Redonda 63.5mm SAE 1045',
               planned_volume_tons: plannedVol,
               standard_billet: item.dimensions?.includes('60x30') ? '130x130 mm' : '150x150 mm',
+              work_center_predicted_date: workCenterPredictedDate,
+              wms_inventory_date: wmsDateIso,
+              billing_date: billingDateIso,
+              arcelor_date: arcelorDateIso,
               predicted_industrialization_date: predIndDate,
               predicted_billing_date: predFatDate,
               stock_dp09_tons: 45.0,
@@ -1029,7 +1226,7 @@ class GestaoIndustrializadorService {
               status_label,
               industrializer_code: indCode,
               industrializer_name: indCode === 'ARCELOR' ? 'ArcelorMittal' : 'Vallourec Soluções',
-              center_line: item.line_code || 'L1',
+              center_line: lineCode,
               month_reference: item.date_str ? 'Setembro/2026' : 'Março/2026',
               data_source: syncInfo.officialSource,
               last_sync_at: syncInfo.lastSyncAt,
@@ -1041,6 +1238,9 @@ class GestaoIndustrializadorService {
                 realized_tons: realizedVol,
                 ind_date: predIndDate,
                 fat_date: predFatDate,
+                company_name: companyName,
+                line_name: lineName,
+                sap_work_center: sapWorkCenter,
               }),
             }
           })
@@ -1048,11 +1248,20 @@ class GestaoIndustrializadorService {
             {
               id: 'seq-1',
               sequence_order: 1,
+              company_code: 'CIAFAL',
+              company_name: 'CIAFAL Wilson Santos',
+              line_code: 'L1',
+              line_name: 'L1',
+              sap_work_center: 'WC-DIV-L1',
               production_order: 'OP-88201',
               material_code: 'BAR-RED-3/8-ARC',
               material_description: 'Barra Redonda 3/8" Arcelor',
               planned_volume_tons: 320.0,
               standard_billet: '130x130 mm (Obrigatório TB-002)',
+              work_center_predicted_date: '2026-03-02',
+              wms_inventory_date: '2026-03-02',
+              billing_date: '2026-03-03',
+              arcelor_date: '2026-03-05',
               predicted_industrialization_date: '2026-03-02',
               predicted_billing_date: '2026-03-06',
               stock_dp09_tons: 82.0,
@@ -1081,16 +1290,28 @@ class GestaoIndustrializadorService {
                 realized_tons: 320.0,
                 ind_date: '2026-03-02',
                 fat_date: '2026-03-06',
+                company_name: 'CIAFAL Wilson Santos',
+                line_name: 'L1',
+                sap_work_center: 'WC-DIV-L1',
               }),
             },
             {
               id: 'seq-2',
               sequence_order: 2,
+              company_code: 'CIAFAL',
+              company_name: 'CIAFAL Wilson Santos',
+              line_code: 'L1',
+              line_name: 'L1',
+              sap_work_center: 'WC-DIV-L1',
               production_order: 'OP-88202',
               material_code: 'BAR-RED-1/2-ARC',
               material_description: 'Barra Redonda 1/2" Arcelor',
               planned_volume_tons: 450.0,
               standard_billet: '150x150 mm (Flexível 130/150)',
+              work_center_predicted_date: '2026-03-03',
+              wms_inventory_date: '2026-03-03',
+              billing_date: '2026-03-04',
+              arcelor_date: '2026-03-06',
               predicted_industrialization_date: '2026-03-03',
               predicted_billing_date: '2026-03-08',
               stock_dp09_tons: 60.0,
@@ -1119,16 +1340,28 @@ class GestaoIndustrializadorService {
                 realized_tons: 380.0,
                 ind_date: '2026-03-04',
                 fat_date: '2026-03-08',
+                company_name: 'CIAFAL Wilson Santos',
+                line_name: 'L1',
+                sap_work_center: 'WC-DIV-L1',
               }),
             },
             {
               id: 'seq-3',
               sequence_order: 3,
+              company_code: 'CIAFAL',
+              company_name: 'CIAFAL Wilson Santos',
+              line_code: 'L2',
+              line_name: 'L2',
+              sap_work_center: 'LAML2',
               production_order: 'OP-88203',
               material_code: 'BAR-CHATA-1X1/4',
               material_description: 'Barra Chata 1" x 1/4" Arcelor',
               planned_volume_tons: 380.0,
               standard_billet: '130x130 mm (Obrigatório TB-002)',
+              work_center_predicted_date: '2026-03-04',
+              wms_inventory_date: null,
+              billing_date: null,
+              arcelor_date: null,
               predicted_industrialization_date: '2026-03-04',
               predicted_billing_date: '2026-03-10',
               stock_dp09_tons: 35.0,
@@ -1145,7 +1378,7 @@ class GestaoIndustrializadorService {
               status_label: 'Atrasado / Desvio Crítico',
               industrializer_code: 'ARCELOR',
               industrializer_name: 'ArcelorMittal Tubarão',
-              center_line: 'L1',
+              center_line: 'L2',
               month_reference: 'Março/2026',
               data_source: syncInfo.officialSource,
               last_sync_at: syncInfo.lastSyncAt,
@@ -1157,16 +1390,28 @@ class GestaoIndustrializadorService {
                 realized_tons: 120.0,
                 ind_date: '2026-03-06',
                 fat_date: '2026-03-10',
+                company_name: 'CIAFAL Wilson Santos',
+                line_name: 'L2',
+                sap_work_center: 'LAML2',
               }),
             },
             {
               id: 'seq-4',
               sequence_order: 4,
+              company_code: 'CIAFAL',
+              company_name: 'CIAFAL Wilson Santos',
+              line_code: 'L1',
+              line_name: 'L1',
+              sap_work_center: 'WC-DIV-L1',
               production_order: 'OP-88204',
               material_code: 'CANTONEIRA-2X1/8',
               material_description: 'Cantoneira 2" x 1/8" Arcelor',
               planned_volume_tons: 510.0,
               standard_billet: '150x150 mm (Flexível 130/150)',
+              work_center_predicted_date: '2026-03-15',
+              wms_inventory_date: null,
+              billing_date: null,
+              arcelor_date: null,
               predicted_industrialization_date: '2026-03-15',
               predicted_billing_date: '2026-03-22',
               stock_dp09_tons: 0,
@@ -1195,11 +1440,14 @@ class GestaoIndustrializadorService {
                 realized_tons: 0,
                 ind_date: '2026-03-15',
                 fat_date: '2026-03-22',
+                company_name: 'CIAFAL Wilson Santos',
+                line_name: 'L1',
+                sap_work_center: 'WC-DIV-L1',
               }),
             },
           ]
 
-    return this.applyFilters(mapped, filters)
+    return this.applyFilters(rawList, filters)
   }
 
   /**
@@ -1215,10 +1463,42 @@ class GestaoIndustrializadorService {
     realized_tons: number
     ind_date: string
     fat_date: string
+    company_name?: string
+    line_name?: string
+    sap_work_center?: string
   }): MaterialTimelineStep[] {
-    const { realized, completed, planned_tons, realized_tons, ind_date, fat_date } = params
+    const {
+      realized,
+      completed,
+      planned_tons,
+      realized_tons,
+      ind_date,
+      fat_date,
+      company_name,
+      line_name,
+      sap_work_center,
+    } = params
+
+    const rotaDetails = [
+      company_name ? `Empresa: ${company_name}` : null,
+      line_name ? `Linha: ${line_name}` : null,
+      sap_work_center ? `Centro de Trabalho: ${sap_work_center}` : null,
+      ind_date ? `Data prevista no Centro: ${ind_date}` : null,
+    ]
+      .filter(Boolean)
+      .join(' • ')
 
     return [
+      {
+        step_id: '0-ROTA_PRODUTO',
+        label: 'Produto & Rota Produtiva',
+        status: 'CONCLUIDO',
+        date: ind_date || '2026-03-01',
+        quantity_tons: planned_tons,
+        responsible_system: 'PCP / Rota de Produção',
+        details:
+          rotaDetails || 'Produto → Rota → Empresa → Linha → Centro de Trabalho → Data Prevista',
+      },
       {
         step_id: '1-CARTEIRA',
         label: 'Carteira de Pedidos',
@@ -1774,11 +2054,30 @@ class GestaoIndustrializadorService {
       ) {
         return false
       }
-      // Linha / Centro
+      // Empresa
+      if (
+        filters.companyCode &&
+        filters.companyCode !== 'ALL' &&
+        item.company_code &&
+        item.company_code.toUpperCase() !== filters.companyCode.toUpperCase()
+      ) {
+        return false
+      }
+      // Linha específica
+      if (
+        filters.lineCode &&
+        filters.lineCode !== 'ALL' &&
+        item.line_code &&
+        item.line_code.toUpperCase() !== filters.lineCode.toUpperCase()
+      ) {
+        return false
+      }
+      // Linha / Centro legado
       if (
         filters.centerLine &&
         item.center_line &&
-        !item.center_line.toLowerCase().includes(filters.centerLine.toLowerCase())
+        !item.center_line.toLowerCase().includes(filters.centerLine.toLowerCase()) &&
+        !(item.line_code && item.line_code.toLowerCase().includes(filters.centerLine.toLowerCase()))
       ) {
         return false
       }

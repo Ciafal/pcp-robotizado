@@ -31,6 +31,11 @@ import {
 import { IndustrializerHeaderFilter } from '@/components/gestao-industrializador/IndustrializerHeaderFilter'
 import { MaterialTimelineModal } from '@/components/gestao-industrializador/MaterialTimelineModal'
 import { IndustrializerParametersModal } from '@/components/gestao-industrializador/IndustrializerParametersModal'
+import { pb } from '@/lib/pocketbase/client'
+import {
+  CompanyOption,
+  LineOption,
+} from '@/components/gestao-industrializador/IndustrializerHeaderFilter'
 
 export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
   const [items, setItems] = useState<SequenciamentoPrevistoRealizadoItem[]>([])
@@ -38,11 +43,22 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<IndustrializerFilterParams>({
+    companyCode: 'ALL',
     industrializerCode: 'ALL',
+    lineCode: '',
+    centerLine: '',
+    materialCode: '',
+    steelGrade: '',
+    dimension: '',
+    programmingMonth: '',
+    productionOrder: '',
+    status: '',
   })
   const [thresholds, setThresholds] = useState<ThresholdParameters>(
     gestaoIndustrializadorService.getThresholds() || DEFAULT_THRESHOLDS,
   )
+  const [availableCompanies, setAvailableCompanies] = useState<CompanyOption[]>([])
+  const [availableLines, setAvailableLines] = useState<LineOption[]>([])
 
   // Visualização por dia/semana/mês/material/família/aço/industrializador
   const [viewGrouping, setViewGrouping] = useState<
@@ -66,6 +82,115 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
 
   const [isParamsModalOpen, setIsParamsModalOpen] = useState(false)
   const officialInfo = gestaoIndustrializadorService.getOfficialSourceInfo()
+
+  // Carregar cadastro dinâmico de Empresas e Linhas ligadas a Rotas de Produção
+  const loadDynamicEntities = useCallback(async () => {
+    try {
+      const [routes, routeNodes, lines, plants, companies] = await Promise.all([
+        pb
+          .collection('production_routes')
+          .getFullList({ requestKey: null })
+          .catch(() => []),
+        pb
+          .collection('production_route_nodes')
+          .getFullList({ requestKey: null })
+          .catch(() => []),
+        pb
+          .collection('production_lines')
+          .getFullList({ requestKey: null })
+          .catch(() => []),
+        pb
+          .collection('plants')
+          .getFullList({ requestKey: null })
+          .catch(() => []),
+        pb
+          .collection('companies')
+          .getFullList({ requestKey: null })
+          .catch(() => []),
+      ])
+
+      // Linhas associadas a nós de rotas existentes
+      const nodeLineIds = new Set<string>()
+      const nodeLineCodes = new Set<string>()
+      routeNodes.forEach((n: any) => {
+        if (n.line_id) nodeLineIds.add(n.line_id)
+        if (n.line_code) nodeLineCodes.add(n.line_code.toUpperCase())
+      })
+
+      // Linhas ativas das rotas
+      const relevantLines = lines.filter(
+        (l: any) =>
+          nodeLineIds.size === 0 ||
+          nodeLineIds.has(l.id) ||
+          nodeLineCodes.has((l.code || '').toUpperCase()),
+      )
+
+      // Plantas ligadas a essas linhas
+      const plantById = new Map<string, any>()
+      plants.forEach((p: any) => plantById.set(p.id, p))
+
+      // Empresas ligadas a essas plantas
+      const companyById = new Map<string, any>()
+      companies.forEach((c: any) => companyById.set(c.id, c))
+
+      const activeCompaniesMap = new Map<string, CompanyOption>()
+      const activeLinesList: LineOption[] = []
+
+      relevantLines.forEach((line: any) => {
+        const plant = line.plant_id ? plantById.get(line.plant_id) : null
+        const comp = plant?.company_id ? companyById.get(plant.company_id) : null
+        const werks = plant?.werks || plant?.code || ''
+        const compCode = comp?.code || 'CIAFAL'
+        const compName = comp?.name || 'CIAFAL'
+
+        if (!activeCompaniesMap.has(compCode)) {
+          activeCompaniesMap.set(compCode, {
+            code: compCode,
+            name: compName,
+            werks,
+            displayLabel: werks ? `${compName} — [${werks}]` : compName,
+          })
+        }
+
+        activeLinesList.push({
+          code: line.code,
+          name: line.name ? `${line.name} (${line.code})` : line.code,
+          companyCode: compCode,
+          sapWorkCenter: line.sap_work_center || '',
+        })
+      })
+
+      // Se não encontrou nenhuma por rota ainda, usar as empresas cadastradas oficialmente
+      if (activeCompaniesMap.size === 0) {
+        companies.forEach((c: any) => {
+          activeCompaniesMap.set(c.code, {
+            code: c.code,
+            name: c.name,
+            werks: '1000',
+            displayLabel: `${c.name} — [1000]`,
+          })
+        })
+      }
+
+      setAvailableCompanies(Array.from(activeCompaniesMap.values()))
+      setAvailableLines(
+        activeLinesList.length > 0
+          ? activeLinesList
+          : lines.map((l: any) => ({
+              code: l.code,
+              name: l.name || l.code,
+              companyCode: 'CIAFAL',
+              sapWorkCenter: l.sap_work_center || '',
+            })),
+      )
+    } catch (e) {
+      console.warn('Erro ao carregar empresas e linhas das rotas:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDynamicEntities()
+  }, [loadDynamicEntities])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -119,14 +244,19 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
     }
   }, [items])
 
-  const formatDateBr = (dStr: string | null) => {
-    if (!dStr) return 'Pendente'
+  const formatDateBr = (dStr: string | null, fallback = '—') => {
+    if (!dStr) return fallback
     try {
+      // Tratar formato YYYY-MM-DD direto para evitar problemas de fuso horário
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+        const [y, m, d] = dStr.split('-')
+        return `${d}/${m}/${y}`
+      }
       const d = new Date(dStr)
       if (isNaN(d.getTime())) return dStr
       return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     } catch {
-      return dStr
+      return dStr || fallback
     }
   }
 
@@ -142,10 +272,10 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
 
   return (
     <div className="flex-1 bg-slate-50 min-h-screen p-3 sm:p-5 lg:p-6 space-y-4">
-      {/* 1. FILTRO GERAL COMPARTILHADO */}
+      {/* 1. FILTRO GERAL COMPARTILHADO — ÚNICO BLOCO CENTRALIZADO */}
       <IndustrializerHeaderFilter
         title="Sequenciamento — Previsto x Realizado"
-        subtitle="Aderência da programação por industrializador &bull; Sem duplicação de colunas &bull; Timeline ponta a ponta"
+        subtitle="Aderência da programação por industrializador &bull; Rota produtiva, WMS e faturamento &bull; Timeline ponta a ponta"
         activeSubtopic="sequenciamento"
         industrializadores={industrializadores}
         filters={filters}
@@ -154,6 +284,32 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
         onOpenSettings={() => setIsParamsModalOpen(true)}
         officialSource={officialInfo.officialSource}
         lastSyncAt={officialInfo.lastSyncAt}
+        availableCompanies={availableCompanies}
+        availableLines={availableLines}
+        headerControls={
+          <div className="flex items-center gap-2">
+            <Badge className="bg-emerald-600 text-white text-[11px] font-semibold px-2.5 py-0.5 shadow-2xs">
+              Oficial Aprovada
+            </Badge>
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-700">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Visão:</span>
+              <select
+                aria-label="Agrupamento de Visão"
+                value={viewGrouping}
+                onChange={(e) => setViewGrouping(e.target.value as any)}
+                className="h-6 text-xs bg-white border border-slate-300 rounded px-1.5 text-slate-800 font-medium focus:ring-1 focus:ring-[#004C97]"
+              >
+                <option value="todos">Padrão Sequência</option>
+                <option value="dia">Por Dia</option>
+                <option value="semana">Por Semana</option>
+                <option value="mes">Por Mês</option>
+                <option value="material">Por Material</option>
+                <option value="aco">Por Aço</option>
+                <option value="industrializador">Por Industrializador</option>
+              </select>
+            </div>
+          </div>
+        }
       />
 
       {/* ERRO */}
@@ -174,65 +330,6 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
           </Button>
         </div>
       )}
-
-      {/* 2. CABEÇALHO OPERACIONAL DE PROGRAMAÇÃO */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">
-              Industrializador Ativo
-            </span>
-            <span className="font-semibold text-slate-800">
-              {filters.industrializerCode && filters.industrializerCode !== 'ALL'
-                ? filters.industrializerCode
-                : 'Todos os Industrializadores'}
-            </span>
-          </div>
-
-          <div className="border-l border-slate-200 pl-4">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">
-              Mês / Período
-            </span>
-            <span className="font-semibold text-slate-800">
-              {filters.programmingMonth || 'Competência Corrente (Março/2026)'}
-            </span>
-          </div>
-
-          <div className="border-l border-slate-200 pl-4">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">
-              Centro / Linha
-            </span>
-            <span className="font-semibold text-slate-800">
-              {filters.centerLine || 'Linhas L1 / L2 (CFPL)'}
-            </span>
-          </div>
-
-          <div className="border-l border-slate-200 pl-4">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">
-              Status Programação
-            </span>
-            <Badge className="bg-emerald-600 text-white text-[10px]">Oficial Aprovada</Badge>
-          </div>
-        </div>
-
-        {/* Agrupamento da Visualização */}
-        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-md p-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase px-1">Visão:</span>
-          <select
-            value={viewGrouping}
-            onChange={(e) => setViewGrouping(e.target.value as any)}
-            className="h-6 text-xs bg-white border border-slate-300 rounded px-2 text-slate-700 font-medium focus:ring-1 focus:ring-[#004C97]"
-          >
-            <option value="todos">Padrão Sequência</option>
-            <option value="dia">Por Dia</option>
-            <option value="semana">Por Semana</option>
-            <option value="mes">Por Mês</option>
-            <option value="material">Por Material</option>
-            <option value="aco">Por Aço</option>
-            <option value="industrializador">Por Industrializador</option>
-          </select>
-        </div>
-      </div>
 
       {/* 3. OS 8 CARDS DE SEQUENCIAMENTO */}
       {loading && items.length === 0 ? (
@@ -392,30 +489,32 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200 text-[11px]">
               <tr>
+                {/* Ordem estrita das colunas:
+                    Seq., Empresa, Linha, Material, Descrição, Volume previsto (t), Tarugo padrão,
+                    Centro de Trabalho, Data prevista no Centro, Data Inventário WMS, Data Faturamento,
+                    Data Arcelor, Volume realizado (t), Desvio (t), Aderência (%), Status */}
                 <th className="py-2.5 px-3 whitespace-nowrap">Seq.</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Empresa</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Linha</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Material</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Descrição</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Vol. previsto (t)</th>
+                <th className="py-2.5 px-3 whitespace-nowrap text-right">Volume previsto (t)</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Tarugo padrão</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Data prevista de industrialização</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Data prevista de faturamento</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Estoque DP09</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Estoque DP24</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Estoque DP30</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Qtd. prevista total</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Qtd. realizada</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Data real de industrialização</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Data real de faturamento</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Desvio qtd. (t)</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Desvio prazo (dias)</th>
-                <th className="py-2.5 px-3 whitespace-nowrap text-right">Aderência %</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Centro de Trabalho</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data prevista no Centro</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data Inventário WMS</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data Faturamento</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data Arcelor</th>
+                <th className="py-2.5 px-3 whitespace-nowrap text-right">Volume realizado (t)</th>
+                <th className="py-2.5 px-3 whitespace-nowrap text-right">Desvio (t)</th>
+                <th className="py-2.5 px-3 whitespace-nowrap text-right">Aderência (%)</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="py-12 text-center text-slate-500">
+                  <td colSpan={16} className="py-12 text-center text-slate-500">
                     <CalendarDays className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700">
                       Nenhum sequenciamento encontrado para os filtros selecionados.
@@ -434,6 +533,12 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                       <td className="py-2 px-3 font-mono font-bold text-slate-500">
                         {row.sequence_order}
                       </td>
+                      <td className="py-2 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                        {row.company_name || 'CIAFAL'}
+                      </td>
+                      <td className="py-2 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap">
+                        {row.line_name || row.line_code || 'L1'}
+                      </td>
                       <td className="py-2 px-3 font-semibold text-blue-700 hover:underline whitespace-nowrap font-mono">
                         {row.material_code}
                       </td>
@@ -447,52 +552,41 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                         {formatNumberPtBr(row.planned_volume_tons, {
                           minimumFractionDigits: 1,
                           maximumFractionDigits: 1,
-                        })}
+                        })}{' '}
+                        t
                       </td>
                       <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600">
                         {row.standard_billet}
                       </td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-700">
-                        {formatDateBr(row.predicted_industrialization_date)}
+                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-700 font-semibold">
+                        {row.sap_work_center || `WC-${row.line_code}`}
                       </td>
                       <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-700">
-                        {formatDateBr(row.predicted_billing_date)}
+                        {formatDateBr(row.work_center_predicted_date, '—')}
                       </td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-amber-700">
-                        {formatNumberPtBr(row.stock_dp09_tons, {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 1,
-                        })}
+                      <td className="py-2 px-3 whitespace-nowrap font-mono">
+                        {row.wms_inventory_date ? (
+                          <span className="text-slate-800 font-medium">
+                            {formatDateBr(row.wms_inventory_date)}
+                          </span>
+                        ) : (
+                          <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                            Aguardando WMS
+                          </span>
+                        )}
                       </td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-emerald-700">
-                        {formatNumberPtBr(row.stock_dp24_tons, {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 1,
-                        })}
+                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-700">
+                        {row.billing_date ? formatDateBr(row.billing_date) : '—'}
                       </td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-mono text-emerald-700">
-                        {formatNumberPtBr(row.stock_dp30_tons, {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 1,
-                        })}
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-mono">
-                        {formatNumberPtBr(row.total_planned_quantity_tons, {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 1,
-                        })}
+                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-700">
+                        {row.arcelor_date ? formatDateBr(row.arcelor_date) : '—'}
                       </td>
                       <td className="py-2 px-3 whitespace-nowrap text-right font-mono font-bold text-emerald-700">
                         {formatNumberPtBr(row.realized_quantity_tons, {
                           minimumFractionDigits: 1,
                           maximumFractionDigits: 1,
-                        })}
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600">
-                        {formatDateBr(row.real_industrialization_date)}
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-600">
-                        {formatDateBr(row.real_billing_date)}
+                        })}{' '}
+                        t
                       </td>
                       <td
                         className={`py-2 px-3 whitespace-nowrap text-right font-mono ${
@@ -504,10 +598,8 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                         {formatNumberPtBr(row.quantity_deviation_tons, {
                           minimumFractionDigits: 1,
                           maximumFractionDigits: 1,
-                        })}
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-mono">
-                        {row.days_deviation}
+                        })}{' '}
+                        t
                       </td>
                       <td className="py-2 px-3 whitespace-nowrap text-right font-mono font-bold">
                         {formatNumberPtBr(row.adherence_pct, {
@@ -540,7 +632,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
             {items.length > 0 && (
               <tfoot className="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300 text-xs">
                 <tr>
-                  <td colSpan={3} className="py-3 px-3 uppercase tracking-wider">
+                  <td colSpan={5} className="py-3 px-3 uppercase tracking-wider">
                     Total Geral do Sequenciamento
                   </td>
                   <td className="py-3 px-3 text-right font-mono text-sm">
@@ -550,7 +642,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                     })}{' '}
                     t
                   </td>
-                  <td colSpan={7}></td>
+                  <td colSpan={6}></td>
                   <td className="py-3 px-3 text-right font-mono text-sm text-emerald-700">
                     {formatNumberPtBr(summary.volRealized, {
                       minimumFractionDigits: 1,
@@ -558,7 +650,6 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                     })}{' '}
                     t
                   </td>
-                  <td colSpan={2}></td>
                   <td className="py-3 px-3 text-right font-mono text-sm text-rose-700">
                     {formatNumberPtBr(summary.volRealized - summary.volProgrammed, {
                       minimumFractionDigits: 1,
@@ -566,7 +657,6 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                     })}{' '}
                     t
                   </td>
-                  <td></td>
                   <td className="py-3 px-3 text-right font-mono text-sm">
                     {formatNumberPtBr(summary.adherence, {
                       minimumFractionDigits: 1,

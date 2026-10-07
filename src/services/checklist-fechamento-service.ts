@@ -15,6 +15,60 @@ import {
  * Utilitário de cálculo do 2º dia útil corporativo do mês subsequente
  * Regra: Segunda a Sexta, desconsiderando finais de semana e feriados cadastrados
  */
+/**
+ * Adiciona N dias úteis a uma data ISO (YYYY-MM-DD), desconsiderando sábados, domingos e feriados cadastrados.
+ * Ex: quarta 07/10/2026 + 1 dia útil = quinta 08/10/2026.
+ * Ex: quinta 08/10/2026 + 2 dias úteis = sexta 09/10, pula sáb 10, dom 11, feriado seg 12/10 (N. Sra Aparecida) -> terça 13/10/2026.
+ * (Ou se WMS quarta 07/10 -> Faturamento quinta 08/10, Arcelor = Faturamento + 2 dias úteis -> 13/10).
+ */
+export function calcularDiaUtil(
+  dataBaseIso: string,
+  diasUteisToAdd: number,
+  feriadosList: string[] = [],
+): { dataIso: string; dataFormatada: string } {
+  if (!dataBaseIso) {
+    return { dataIso: '', dataFormatada: '—' }
+  }
+
+  const feriadosSet = new Set(feriadosList)
+  const parts = dataBaseIso.split('-')
+  if (parts.length < 3) {
+    return { dataIso: '', dataFormatada: '—' }
+  }
+
+  const y = parseInt(parts[0], 10)
+  const m = parseInt(parts[1], 10) - 1
+  const d = parseInt(parts[2], 10)
+
+  let cur = new Date(Date.UTC(y, m, d))
+  let diasAdicionados = 0
+
+  while (diasAdicionados < diasUteisToAdd) {
+    cur.setUTCDate(cur.getUTCDate() + 1)
+    const diaSemana = cur.getUTCDay() // 0 = Dom, 6 = Sab
+    const isoDate = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, '0')}-${String(cur.getUTCDate()).padStart(2, '0')}`
+
+    const isFimDeSemana = diaSemana === 0 || diaSemana === 6
+    const isFeriado = feriadosSet.has(isoDate)
+
+    if (!isFimDeSemana && !isFeriado) {
+      diasAdicionados++
+    }
+  }
+
+  const anoRes = cur.getUTCFullYear()
+  const mesRes = String(cur.getUTCMonth() + 1).padStart(2, '0')
+  const diaRes = String(cur.getUTCDate()).padStart(2, '0')
+  const dataIso = `${anoRes}-${mesRes}-${diaRes}`
+  const dataFormatada = `${diaRes}/${mesRes}/${anoRes}`
+
+  return { dataIso, dataFormatada }
+}
+
+/**
+ * Utilitário de cálculo do 2º dia útil corporativo do mês subsequente
+ * Regra: Segunda a Sexta, desconsiderando finais de semana e feriados cadastrados
+ */
 export function calcularSegundoDiaUtil(
   ano: number,
   mes: number, // 1-12 (mês da competência)
