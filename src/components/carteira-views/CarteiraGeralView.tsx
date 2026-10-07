@@ -38,6 +38,7 @@ import { PortfolioABC } from './PortfolioABC'
 import { PortfolioAISection } from './PortfolioAISection'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
   MinimoNaoAtingidoSummary,
@@ -99,13 +100,17 @@ export const CarteiraGeralView: React.FC<CarteiraGeralViewProps> = ({
     itens: [],
   })
 
+  // Réplica oficial SAP do lote mínimo sincronizado via RFC
+  const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
+
   // Cálculo reativo do indicador Mínimo Não Atingido para a Carteira Geral
   const resumoMinimoNaoAtingido: MinimoNaoAtingidoSummary = useMemo(() => {
     return calcularMinimoNaoAtingido({
       itens: [...itens, ...sdcItens],
       tipoVisao: 'Geral',
+      replicaSapPorCodigo: replicaSapLoteMinimo,
     })
-  }, [itens, sdcItens])
+  }, [itens, sdcItens, replicaSapLoteMinimo])
 
   // 1. Processar dados da Carteira Consolidada (Geral + SDC) pelo motor Curva ABC por faturamento
   const conjuntoBrutoConsolidado = useMemo(() => {

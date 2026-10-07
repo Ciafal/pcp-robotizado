@@ -25,6 +25,7 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
   MinimoNaoAtingidoSummary,
@@ -92,13 +93,17 @@ export const CarteiraL1View: React.FC<CarteiraL1ViewProps> = ({
     return CarteiraAnaliseEngine.analisarCarteiraGenerica('L1', itens, entradasFuturas)
   }, [itens, entradasFuturas])
 
+  // Réplica oficial SAP do lote mínimo sincronizado via RFC
+  const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
+
   // Cálculo reativo do Mínimo Não Atingido para Linha L1
   const resumoMinimoL1: MinimoNaoAtingidoSummary = React.useMemo(() => {
     return calcularMinimoNaoAtingido({
       itens,
       tipoVisao: 'L1',
+      replicaSapPorCodigo: replicaSapLoteMinimo,
     })
-  }, [itens])
+  }, [itens, replicaSapLoteMinimo])
 
   const topNegativos = [...itensL1]
     .filter((i) => i.saldo_negativo_tons < 0)

@@ -13,6 +13,7 @@ import { PortfolioCharts } from './PortfolioCharts'
 import { PortfolioABC } from './PortfolioABC'
 import { MinimoNaoAtingidoCard } from './MinimoNaoAtingidoCard'
 import { MinimoNaoAtingidoModal } from './MinimoNaoAtingidoModal'
+import { useSapMaterialLoteMinimo } from '@/hooks/use-sap-material-lote-minimo'
 import {
   calcularMinimoNaoAtingido,
   MinimoNaoAtingidoSummary,
@@ -43,13 +44,17 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   )
   const itensMTO = useMemo(() => itens.filter((i) => i.tipo_ordem === 'MTO'), [itens])
 
+  // Réplica oficial SAP do lote mínimo sincronizado via RFC
+  const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
+
   // Cálculo reativo de Mínimo Não Atingido para Carteira MTO
   const resumoMinimoMTO: MinimoNaoAtingidoSummary = useMemo(() => {
     return calcularMinimoNaoAtingido({
       itens: itensMTO,
       tipoVisao: 'MTO',
+      replicaSapPorCodigo: replicaSapLoteMinimo,
     })
-  }, [itensMTO])
+  }, [itensMTO, replicaSapLoteMinimo])
 
   const resultadoABCMTO = useMemo(() => {
     return CurvaAbcFaturamentoEngine.calcularCurvaAbc(itensMTO)
