@@ -14,7 +14,11 @@ import {
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { ConsultarRequisitosMTOModal } from './ConsultarRequisitosMTOModal'
-import { getRequirementsCountsMap, buildMtoOrderKey } from '@/services/mto-requirements-service'
+import {
+  getRequirementsGridInfoMap,
+  buildMtoOrderKey,
+  type MtoGridCellRequirementInfo,
+} from '@/services/mto-requirements-service'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
 import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
@@ -52,10 +56,12 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
     null,
   )
-  const [countsMap, setCountsMap] = useState<Map<string, number>>(new Map())
+  const [requirementsGridMap, setRequirementsGridMap] = useState<
+    Map<string, MtoGridCellRequirementInfo>
+  >(new Map())
   const itensMTO = useMemo(() => itens.filter((i) => i.tipo_ordem === 'MTO'), [itens])
 
-  // Carrega contagens reais de requisitos MTO por Pedido + Item
+  // Carrega contagens e resumo dos tipos reais de requisitos MTO por Pedido + Item (Seção 5, 6 e 7)
   React.useEffect(() => {
     if (!itensMTO.length) return
     let isSubscribed = true
@@ -64,8 +70,8 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
       item: String(it.item_ordem || ''),
     }))
 
-    getRequirementsCountsMap(orderKeys).then((map) => {
-      if (isSubscribed) setCountsMap(map)
+    getRequirementsGridInfoMap(orderKeys).then((map) => {
+      if (isSubscribed) setRequirementsGridMap(map)
     })
 
     return () => {
@@ -212,20 +218,6 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
             className="h-7 text-xs font-bold bg-[#004C97] hover:bg-[#003870] text-white gap-1"
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-200" /> Curva ABC
-          </Button>
-
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => {
-              setItemRequisitosSelecionado(itensMTO[0] || null)
-              setIsConsultarRequisitosOpen(true)
-            }}
-            className="h-7 text-xs gap-1.5 bg-[#004C97] hover:bg-[#003870] text-white font-semibold shadow-xs"
-            title="Consultar Requisitos MTO do Pedido (Produto, Produção, Qualidade, Comercial)"
-          >
-            <ClipboardCheck className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Requisitos MTO</span>
           </Button>
 
           <Button
@@ -395,12 +387,14 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                           ? formatNumberPTBR(it.falta_produzir_tons, 2)
                           : '0,00'}
                       </td>
-                      {/* NOVA COLUNA REQUISITOS MTO (PREFERENCIALMENTE ANTES DE STATUS ATENDIMENTO) */}
+                      {/* COLUNA REQUISITOS MTO (PONTO ÚNICO POR LINHA — SEÇÃO 3, 5, 6 e 7) */}
                       <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                         {(() => {
                           const specificKey = buildMtoOrderKey(it.ordem_venda, it.item_ordem)
-                          const count =
-                            countsMap.get(specificKey) ?? countsMap.get(String(it.ordem_venda)) ?? 0
+                          const info =
+                            requirementsGridMap.get(specificKey) ||
+                            requirementsGridMap.get(String(it.ordem_venda))
+                          const count = info?.count || 0
 
                           if (count <= 0) {
                             return (
@@ -414,19 +408,29 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                           }
 
                           return (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setItemRequisitosSelecionado(it)
-                                setIsConsultarRequisitosOpen(true)
-                              }}
-                              className="h-6 px-2 text-[10px] bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border-blue-200 font-semibold gap-1 transition-colors shadow-2xs"
-                              title={`Consultar ${count} requisito(s) deste pedido`}
-                            >
-                              <FileText className="w-3 h-3 text-blue-700" />
-                              <span>Ver requisitos ({count})</span>
-                            </Button>
+                            <div className="flex flex-col items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setItemRequisitosSelecionado(it)
+                                  setIsConsultarRequisitosOpen(true)
+                                }}
+                                className="h-6 px-2 text-[10px] bg-blue-50/90 hover:bg-blue-100 text-[#004C97] hover:text-[#003870] border-blue-200 font-bold gap-1 transition-colors shadow-2xs"
+                                title={`Consultar ${count} requisito(s) cadastrado(s) deste item`}
+                              >
+                                <FileText className="w-3 h-3 text-[#004C97]" />
+                                <span>Ver requisitos ({count})</span>
+                              </Button>
+                              {info?.tiposResumoTexto && (
+                                <span
+                                  className="text-[9.5px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 truncate max-w-[170px]"
+                                  title={info.tiposResumoTexto}
+                                >
+                                  {info.tiposResumoTexto}
+                                </span>
+                              )}
+                            </div>
                           )
                         })()}
                       </td>
@@ -482,26 +486,14 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                         </>
                       )}
                       <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setItemRequisitosSelecionado(it)
-                              setIsConsultarRequisitosOpen(true)
-                            }}
-                            className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1 border border-blue-200"
-                            title="Consultar Requisitos MTO do Pedido"
-                          >
-                            <ClipboardCheck className="w-3 h-3 text-[#004C97]" /> Requisitos
-                          </Button>
+                        <div className="flex items-center justify-center">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() =>
                               onOpenDetalheMaterial ? onOpenDetalheMaterial(it) : onOpenMemoria(it)
                             }
-                            className="h-6 px-1.5 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1"
+                            className="h-6 px-2 text-[10px] text-[#004C97] hover:bg-blue-50 font-semibold gap-1 border border-blue-200"
                             title="Ver detalhe com Cobertura Temporal & Previsão"
                           >
                             <Eye className="w-3 h-3" /> Detalhe

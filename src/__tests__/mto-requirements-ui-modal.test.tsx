@@ -105,11 +105,32 @@ describe('ConsultarRequisitosMTOModal Component Tests', () => {
     expect(screen.getByText('NBR 7007')).toBeDefined()
     expect(screen.getByText('400 MPa')).toBeDefined()
 
+    // Título / Tipo em destaque no cabeçalho
+    expect(screen.getByText(/Tipo Principal:/i)).toBeDefined()
+
     // Clica na aba Requisito 02
     fireEvent.click(tabReq2)
 
     // No Requisito 02: condição AISI SAE J403/01 e valores de tração "—"
     expect(screen.getByText('AISI SAE J403/01')).toBeDefined()
     expect(screen.queryByText('400 MPa')).toBeNull()
+  })
+
+  it('Verifica rótulos de abas com Requisito 01 — [Tipo] (Seção 5 e 6)', async () => {
+    vi.spyOn(mtoService, 'getRequirementsByOrderAndItem').mockResolvedValue([mockReq1, mockReq2])
+
+    render(
+      <ConsultarRequisitosMTOModal
+        open={true}
+        onOpenChange={() => {}}
+        pedidoNumero="50000499"
+        itemPedido="10"
+      />,
+    )
+
+    const tabReq1 = await screen.findByRole('button', { name: /Requisito 01 — Comprimento/i })
+    const tabReq2 = screen.getByRole('button', { name: /Requisito 02 — Comprimento/i })
+    expect(tabReq1).toBeDefined()
+    expect(tabReq2).toBeDefined()
   })
 })

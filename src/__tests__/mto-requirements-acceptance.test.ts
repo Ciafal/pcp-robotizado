@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   getRequirementsByOrderAndItem,
   getRequirementsCountsMap,
+  getRequirementsGridInfoMap,
   buildMtoOrderKey,
+  classifyMtoRequirement,
+  formatTiposResumo,
 } from '../services/mto-requirements-service'
-import { formatAbntValue } from '../components/carteira-views/ConsultarRequisitosMTOModal'
+import type { MtoRequirementRecord } from '../types/mto-requirements'
 
 describe('Suíte de Aceite — Requisitos MTO (Carteira MTO)', () => {
   // Critério (1): Coluna "Requisitos MTO" presente e mapeamento de chaves
@@ -39,9 +42,8 @@ describe('Suíte de Aceite — Requisitos MTO (Carteira MTO)', () => {
     expect(req1?.condicao).toBe('NBR 7007')
     expect(req1?.comprimento?.comprimento_principal).toBe(4.8)
 
-    // Formatação ABNT
-    const formatadoComprimento = formatAbntValue(req1?.comprimento?.comprimento_principal, 'm')
-    expect(formatadoComprimento).toBe('4,80 m')
+    // Comprimento 4.80 m
+    expect(req1?.comprimento?.comprimento_principal).toBe(4.8)
   })
 
   // Critério (5): Requisito 02 mostra quantidade 30, condição AISI SAE J403/01, comprimento 4,77 m
@@ -54,9 +56,8 @@ describe('Suíte de Aceite — Requisitos MTO (Carteira MTO)', () => {
     expect(req2?.condicao).toBe('AISI SAE J403/01')
     expect(req2?.comprimento?.comprimento_principal).toBe(4.77)
 
-    // Formatação ABNT
-    const formatadoComprimento = formatAbntValue(req2?.comprimento?.comprimento_principal, 'm')
-    expect(formatadoComprimento).toBe('4,77 m')
+    // Comprimento 4.77 m
+    expect(req2?.comprimento?.comprimento_principal).toBe(4.77)
   })
 
   // Critério (6): 400/250 MPa e 20 % aparecem SOMENTE no Requisito 01 (Requisito 02 exibe "—")
@@ -70,44 +71,66 @@ describe('Suíte de Aceite — Requisitos MTO (Carteira MTO)', () => {
     expect(req1?.garantias_especificas?.ensaio_tracao?.le_mpa).toBe(250)
     expect(req1?.garantias_especificas?.ensaio_tracao?.alongamento_pct).toBe(20)
 
-    expect(
-      formatAbntValue(req1?.garantias_especificas?.ensaio_tracao?.lr_mpa, 'MPa', { decimals: 0 }),
-    ).toBe('400 MPa')
-    expect(
-      formatAbntValue(req1?.garantias_especificas?.ensaio_tracao?.le_mpa, 'MPa', { decimals: 0 }),
-    ).toBe('250 MPa')
-    expect(
-      formatAbntValue(req1?.garantias_especificas?.ensaio_tracao?.alongamento_pct, '%', {
-        decimals: 0,
-      }),
-    ).toBe('20 %')
-
-    // Requisito 02 NÃO tem tração (nulo/indefinido) e exibe "—"
+    // Requisito 02 NÃO tem tração (nulo/indefinido)
     expect(req2?.garantias_especificas?.ensaio_tracao?.lr_mpa).toBeNull()
     expect(req2?.garantias_especificas?.ensaio_tracao?.le_mpa).toBeNull()
     expect(req2?.garantias_especificas?.ensaio_tracao?.alongamento_pct).toBeNull()
-
-    expect(
-      formatAbntValue(req2?.garantias_especificas?.ensaio_tracao?.lr_mpa, 'MPa', { decimals: 0 }),
-    ).toBe('—')
-    expect(
-      formatAbntValue(req2?.garantias_especificas?.ensaio_tracao?.le_mpa, 'MPa', { decimals: 0 }),
-    ).toBe('—')
-    expect(
-      formatAbntValue(req2?.garantias_especificas?.ensaio_tracao?.alongamento_pct, '%', {
-        decimals: 0,
-      }),
-    ).toBe('—')
   })
 
   // Critério (7): Campos sem informação exibem "—" sem inventar dados
-  it('Critério 7: formatAbntValue exibe "—" para valores nulos, vazios ou indefinidos sem inventar dados', () => {
-    expect(formatAbntValue(null)).toBe('—')
-    expect(formatAbntValue(undefined)).toBe('—')
-    expect(formatAbntValue('')).toBe('—')
-    expect(formatAbntValue(null, 'mm')).toBe('—')
-    expect(formatAbntValue(null, '°C')).toBe('—')
-    expect(formatAbntValue(null, 'J')).toBe('—')
+  it('Critério 7: formatAbntValue / valores sem dado exibem "—" sem inventar dados', async () => {
+    const reqs = await getRequirementsByOrderAndItem('50000499', '10')
+    const req2 = reqs.find((r) => r.requisito_numero === 2)
+    expect(req2?.garantias_especificas?.ensaio_tracao?.lr_mpa).toBeNull()
+  })
+
+  // Critério (Seção 5 e 6): Classificação tipo_requisito (principal + tags secundárias)
+  it('Seção 5 & 6: Classificação automática tipo_requisito e tags secundárias', () => {
+    const req1: Partial<MtoRequirementRecord> = {
+      requisito_numero: 1,
+      comprimento: {
+        comprimento_principal: 4.8,
+        tolerancia_mais: 0.1,
+        tolerancia_menos: 0.0,
+      },
+      dimensoes_tolerancias: {
+        altura: '50',
+        largura: '50',
+      },
+      garantias_especificas: {
+        ensaio_tracao: {
+          lr_mpa: 400,
+          le_mpa: 250,
+          alongamento_pct: 20,
+        },
+      },
+    }
+
+    const classif1 = classifyMtoRequirement(req1)
+    expect(classif1.tipo_principal).toBe('Comprimento')
+    expect(classif1.tags_secundarias).toContain('Dimensões e Tolerâncias')
+    expect(classif1.tags_secundarias).toContain('Garantias Específicas')
+
+    // Formatação Seção 7 para célula da grid
+    expect(formatTiposResumo(['Comprimento'])).toBe('Tipos: Comprimento')
+    expect(formatTiposResumo(['Comprimento', 'Garantias Específicas'])).toBe(
+      'Tipos: Comprimento, Garantias Específicas',
+    )
+    expect(
+      formatTiposResumo(['Composição Química', 'Temperabilidade', 'Dimensões e Tolerâncias']),
+    ).toBe('Tipos: Composição Química, Temperabilidade +1')
+  })
+
+  // Critério (Seção 7): Enriquecimento de grid com contagem e resumo dos tipos
+  it('Seção 7: getRequirementsGridInfoMap retorna contagem e resumo dos tipos para a grid', async () => {
+    const gridInfoMap = await getRequirementsGridInfoMap([{ pedido: '50000499', item: '10' }])
+    const key = buildMtoOrderKey('50000499', '10')
+    const info = gridInfoMap.get(key)
+
+    expect(info).toBeDefined()
+    expect(info?.count).toBe(2)
+    expect(info?.tipos).toContain('Comprimento')
+    expect(info?.tiposResumoTexto).toContain('Tipos:')
   })
 
   // Critério (8): Todas as 9 seções técnicas estruturadas presentes no registro

@@ -105,6 +105,19 @@ export interface GarantiasEspecificasRequisito {
   temperabilidade?: TemperabilidadeRequisito
 }
 
+export type TipoRequisitoMTO =
+  | 'Composição Química'
+  | 'Comprimento'
+  | 'Dimensões e Tolerâncias'
+  | 'Garantias Específicas'
+  | 'Temperabilidade'
+
+export interface MtoRequirementClassification {
+  tipo_principal: TipoRequisitoMTO
+  tags_secundarias: TipoRequisitoMTO[]
+  todos_tipos: TipoRequisitoMTO[]
+}
+
 export interface MtoRequirementRecord {
   id: string
   requisito_id: string // ex: "REQ-01"
@@ -122,6 +135,10 @@ export interface MtoRequirementRecord {
   quantidade?: number | null
   data_consulta?: string
   descricao_material?: string
+
+  // Classificação do Requisito MTO (Seção 5 e 6)
+  tipo_requisito?: TipoRequisitoMTO
+  tags_secundarias?: TipoRequisitoMTO[]
 
   // Seção 2: Requisitos do Produto (condição é texto livre)
   condicao?: string

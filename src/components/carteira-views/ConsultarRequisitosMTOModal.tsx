@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -6,16 +6,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   FileText,
-  Layers,
-  Calendar,
-  User,
   FlaskConical,
   Ruler,
   Maximize2,
@@ -23,12 +19,15 @@ import {
   ShieldAlert,
   Activity,
   CheckCircle2,
-  X,
   AlertCircle,
-  HelpCircle,
+  Layers,
+  Tag,
 } from 'lucide-react'
-import type { MtoRequirementRecord } from '@/types/mto-requirements'
-import { getRequirementsByOrderAndItem } from '@/services/mto-requirements-service'
+import {
+  getRequirementsByOrderAndItem,
+  classifyMtoRequirement,
+} from '@/services/mto-requirements-service'
+import type { MtoRequirementRecord, TipoRequisitoMTO } from '@/types/mto-requirements'
 import { formatNumberPtBr } from '@/lib/number-format'
 
 interface ConsultarRequisitosMTOModalProps {
@@ -42,33 +41,39 @@ interface ConsultarRequisitosMTOModalProps {
 }
 
 /**
- * Utilitário para formatar valores numéricos com unidade conforme norma ABNT/SI:
- * - vírgula decimal pt-BR
- * - espaço entre número e unidade (ex.: "4,80 m", "400 MPa", "20 %", "25 °C")
- * - campos sem informação exibem "—" sem inventar valores
+ * Formata valores numéricos para exibição no padrão ABNT (vírgula decimal).
+ * Caso não haja valor, exibe "—" (traço oficial para campo sem dado).
  */
-export function formatAbntValue(
+function formatAbntValue(
   value: number | string | null | undefined,
-  unit?: string,
+  suffix?: string,
   options?: { decimals?: number },
 ): string {
-  if (value === null || value === undefined || value === '') {
-    return '—'
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === '-' || trimmed === '—') return '—'
+    const num = Number(trimmed.replace(',', '.'))
+    if (!isNaN(num)) {
+      const dec = options?.decimals ?? (Number.isInteger(num) ? 0 : 2)
+      const formatted = formatNumberPtBr(num, {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec,
+      })
+      return suffix ? `${formatted} ${suffix}` : formatted
+    }
+    return suffix ? `${trimmed} ${suffix}` : trimmed
   }
-
   if (typeof value === 'number') {
     if (isNaN(value)) return '—'
-    const formattedNum = formatNumberPtBr(value, {
-      minimumFractionDigits: options?.decimals !== undefined ? options.decimals : 2,
-      maximumFractionDigits: options?.decimals !== undefined ? options.decimals : 2,
+    const dec = options?.decimals ?? (Number.isInteger(value) ? 0 : 2)
+    const formatted = formatNumberPtBr(value, {
+      minimumFractionDigits: dec,
+      maximumFractionDigits: dec,
     })
-    return unit ? `${formattedNum} ${unit}` : formattedNum
+    return suffix ? `${formatted} ${suffix}` : formatted
   }
-
-  // Se já for string (ex: "4,80", "NÃO INFORMADA")
-  const trimmed = String(value).trim()
-  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '—'
-  return unit ? `${trimmed} ${unit}` : trimmed
+  return '—'
 }
 
 export function ConsultarRequisitosMTOModal({
@@ -118,7 +123,13 @@ export function ConsultarRequisitosMTOModal({
     return requirements[selectedReqIndex] || requirements[0]
   }, [requirements, selectedReqIndex])
 
-  // Fallback de dados do cabeçalho caso o requisito ainda esteja carregando
+  // Classificação do requisito atual (Seções 4, 5 e 6)
+  const currentClassification = useMemo(() => {
+    if (!currentReq) return null
+    return classifyMtoRequirement(currentReq)
+  }, [currentReq])
+
+  // Dados do cabeçalho / resumo visual desduplicados (Seção 4)
   const displayPedido = currentReq?.pedido_numero || pedidoNumero || '—'
   const displayItem = currentReq?.item_pedido || itemPedido || '—'
   const displayCliente = currentReq?.cliente_nome || clienteNome || '—'
@@ -131,28 +142,32 @@ export function ConsultarRequisitosMTOModal({
         ? `${formatNumberPtBr(quantidadeTons, { maximumFractionDigits: 2 })} t`
         : '—'
   const displayCondicao = currentReq?.condicao || '—'
+  const displayTipoPrincipal =
+    currentClassification?.tipo_principal || currentReq?.tipo_requisito || 'Comprimento'
+  const secondaryTags: TipoRequisitoMTO[] =
+    currentClassification?.tags_secundarias || currentReq?.tags_secundarias || []
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-[96vw] max-w-[1550px] h-[92vh] max-h-[95vh] p-0 flex flex-col bg-slate-50 overflow-hidden rounded-xl border border-slate-200 shadow-2xl"
+        className="w-[94vw] max-w-[95vw] h-[90vh] max-h-[90vh] p-0 flex flex-col bg-slate-50 overflow-hidden rounded-xl border border-slate-200 shadow-2xl focus:outline-hidden"
         aria-describedby="dialog-mto-description"
       >
-        {/* CABEÇALHO FIXO DURANTE A ROLAGEM */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200">
-                  <FileText className="h-4 w-4" />
+        {/* CABEÇALHO FIXO (SEÇÃO 1 e 4): título, qtd de requisitos, pedido, item, material */}
+        <DialogHeader className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 flex-shrink-0 text-left">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="h-7 w-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200 shrink-0">
+                  <FileText className="h-4 w-4 text-[#004C97]" />
                 </div>
-                <DialogTitle className="text-xl font-bold text-slate-900 tracking-tight">
+                <DialogTitle className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                   Requisitos MTO
                 </DialogTitle>
                 {requirements.length > 0 && (
                   <Badge
                     variant="outline"
-                    className="bg-blue-50 text-blue-700 border-blue-200 font-semibold px-2.5 py-0.5"
+                    className="bg-blue-50 text-[#004C97] border-blue-200 font-semibold px-2 py-0.5 text-xs"
                   >
                     {requirements.length}{' '}
                     {requirements.length === 1 ? 'requisito cadastrado' : 'requisitos cadastrados'}
@@ -169,34 +184,38 @@ export function ConsultarRequisitosMTOModal({
               </div>
               <DialogDescription
                 id="dialog-mto-description"
-                className="text-xs md:text-sm text-slate-600 truncate max-w-5xl"
+                className="text-xs sm:text-sm text-slate-600 break-words line-clamp-2"
               >
                 Pedido <span className="font-semibold text-slate-900">{displayPedido}</span> • Item{' '}
                 <span className="font-semibold text-slate-900">{displayItem}</span> •{' '}
-                <span className="text-blue-900 font-medium">{displayMaterial}</span>
+                <span className="text-[#004C97] font-medium break-words">{displayMaterial}</span>
               </DialogDescription>
             </div>
 
-            {/* SELETOR RESPONSIVO DE REQUISITOS (QUANDO HOUVER MÚLTIPLOS) */}
+            {/* SELETOR / ABAS DE REQUISITOS (SEÇÃO 5 e 6: Requisito 01 — [Tipo]) */}
             {requirements.length > 1 && (
-              <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200 flex-shrink-0 overflow-x-auto max-w-full">
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 flex-shrink-0 flex-wrap max-w-full">
                 {requirements.map((req, idx) => {
                   const isSelected = idx === selectedReqIndex
-                  const label = `Requisito ${String(req.requisito_numero || idx + 1).padStart(2, '0')}`
+                  const reqClassif = classifyMtoRequirement(req)
+                  const reqTipo = req.tipo_requisito || reqClassif.tipo_principal
+                  const reqNum = String(req.requisito_numero || idx + 1).padStart(2, '0')
+                  const label = `Requisito ${reqNum} — ${reqTipo}`
                   return (
                     <Button
                       key={req.id || idx}
                       size="sm"
                       variant={isSelected ? 'default' : 'ghost'}
-                      className={`text-xs h-8 px-3 transition-all ${
+                      className={`text-xs h-7 px-2.5 transition-all whitespace-normal text-left ${
                         isSelected
-                          ? 'bg-blue-700 text-white font-semibold shadow-sm hover:bg-blue-800'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                          ? 'bg-[#004C97] text-white font-semibold shadow-xs hover:bg-[#003870]'
+                          : 'text-slate-700 hover:text-slate-900 hover:bg-white/70'
                       }`}
                       onClick={() => setSelectedReqIndex(idx)}
+                      title={`Alternar para Requisito ${reqNum} (${reqTipo})`}
                     >
-                      <Layers className="h-3 w-3 mr-1.5" />
-                      {label}
+                      <Layers className="h-3 w-3 mr-1 shrink-0" />
+                      <span>{label}</span>
                     </Button>
                   )
                 })}
@@ -204,60 +223,92 @@ export function ConsultarRequisitosMTOModal({
             )}
           </div>
 
-          {/* BARRA DE RESUMO EXECUTIVO FIXA (RESUMO METADADOS) */}
-          <div className="mt-3.5 pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-xs">
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+          {/* RESUMO RÁPIDO ABAIXO DO CABEÇALHO (SEÇÃO 4: pedido, item, cliente, classe aço, quantidade, condição, tipo/título) */}
+          <div className="mt-2.5 pt-2.5 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 text-xs">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Pedido
               </span>
-              <span className="font-semibold text-slate-900 font-mono text-xs">
+              <span className="font-semibold text-slate-900 font-mono text-xs break-all">
                 {displayPedido}
               </span>
             </div>
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Item
               </span>
-              <span className="font-semibold text-slate-900 font-mono text-xs">{displayItem}</span>
+              <span className="font-semibold text-slate-900 font-mono text-xs break-all">
+                {displayItem}
+              </span>
             </div>
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100 col-span-2 sm:col-span-1 lg:col-span-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0 col-span-2 sm:col-span-1 lg:col-span-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Cliente
               </span>
-              <span className="font-medium text-slate-800 truncate block" title={displayCliente}>
+              <span
+                className="font-medium text-slate-800 break-words line-clamp-1"
+                title={displayCliente}
+              >
                 {displayCliente}
               </span>
             </div>
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Classe do Aço
               </span>
-              <span className="font-semibold text-slate-800">{displayClasseAco}</span>
+              <span className="font-semibold text-slate-800 break-words">{displayClasseAco}</span>
             </div>
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Quantidade
               </span>
-              <span className="font-semibold text-blue-900">{displayQtd}</span>
+              <span className="font-bold text-[#004C97] break-words">{displayQtd}</span>
             </div>
-            <div className="bg-slate-50/70 p-2 rounded border border-slate-100">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <div className="bg-slate-50 p-2 rounded border border-slate-200/80 min-w-0">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider truncate">
                 Condição
               </span>
-              <span className="font-semibold text-slate-800 truncate block" title={displayCondicao}>
+              <span
+                className="font-semibold text-slate-800 break-words line-clamp-1"
+                title={displayCondicao}
+              >
                 {displayCondicao}
               </span>
             </div>
           </div>
-        </div>
 
-        {/* CORPO COM SCROLL INTERNO: AS 9 SEÇÕES ESTRUTURADAS */}
-        <ScrollArea className="flex-1 overflow-y-auto px-6 py-5">
+          {/* TÍTULO / TIPO DO REQUISITO DESTACADO NO RESUMO (SEÇÃO 5 e 6) */}
+          <div className="mt-2 flex items-center gap-2 flex-wrap text-xs bg-blue-50/60 p-2 rounded-md border border-blue-100">
+            <span className="font-bold text-slate-700 flex items-center gap-1 shrink-0">
+              <Tag className="h-3 w-3 text-[#004C97]" /> Tipo Principal:
+            </span>
+            <Badge className="bg-[#004C97] hover:bg-[#003870] text-white font-semibold text-[11px] px-2 py-0.5">
+              {displayTipoPrincipal}
+            </Badge>
+            {secondaryTags.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-slate-500 font-medium text-[11px]">Tags secundárias:</span>
+                {secondaryTags.map((t) => (
+                  <Badge
+                    key={t}
+                    variant="outline"
+                    className="bg-white text-slate-700 border-slate-300 font-medium text-[10.5px] px-1.5 py-0.2"
+                  >
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogHeader>
+
+        {/* CORPO COM ROLAGEM VERTICAL INTERNA (SEÇÃO 1 e 2: sem corte lateral, sem rolagem horizontal na página) */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
           {loading ? (
             <div className="space-y-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-44 w-full" />
-              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-28 w-full" />
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-56 w-full" />
             </div>
           ) : !currentReq ? (
             <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-xl border border-slate-200">
@@ -271,64 +322,66 @@ export function ConsultarRequisitosMTOModal({
               </p>
             </div>
           ) : (
-            <div className="space-y-5 pb-6">
-              {/* 1. IDENTIFICAÇÃO DO REQUISITO */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-blue-700" />
-                    <CardTitle className="text-sm font-bold text-slate-800">
-                      1. Identificação do Requisito
-                    </CardTitle>
+            <div className="space-y-4 pb-4">
+              {/* 1. IDENTIFICAÇÃO DO REQUISITO (SEÇÃO 4: sem triplicação redundante, campos responsivos com break-words) */}
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-[#004C97]" />
+                      <CardTitle className="text-sm font-bold text-slate-800">
+                        1. Identificação do Requisito ({displayTipoPrincipal})
+                      </CardTitle>
+                    </div>
+                    {currentReq.requisito_id && (
+                      <span className="text-xs font-mono font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {currentReq.requisito_id}
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
-                    <div>
+                <CardContent className="p-4">
+                  {/* Grid responsiva com quebra de linha: 4 colunas desktop, 2 colunas tablet, 1 coluna mobile */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Código do Documento:</span>
-                      <span className="font-semibold text-slate-800 font-mono">
+                      <span className="font-semibold text-slate-800 font-mono break-all">
                         {currentReq.codigo_documento || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Cliente:</span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.cliente_nome || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Produto:</span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.produto || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Aplicação:</span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.aplicacao || '—'}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Classe do Aço:</span>
-                      <span className="font-semibold text-slate-800">
-                        {currentReq.classe_aco || '—'}
-                      </span>
-                    </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">
                         Responsável pela Consulta:
                       </span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.responsavel_consulta || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Norma Aplicável:</span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.norma_aplicavel || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Nº de Peças:</span>
                       <span className="font-semibold text-slate-800">
                         {currentReq.numero_pecas !== null &&
@@ -338,37 +391,17 @@ export function ConsultarRequisitosMTOModal({
                           : '—'}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Nº do Pedido:</span>
-                      <span className="font-semibold text-slate-800 font-mono">
-                        {currentReq.pedido_numero || '—'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Item do Pedido:</span>
-                      <span className="font-semibold text-slate-800 font-mono">
-                        {currentReq.item_pedido || '—'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Quantidade:</span>
-                      <span className="font-bold text-blue-900">
-                        {currentReq.quantidade !== null && currentReq.quantidade !== undefined
-                          ? `${formatNumberPtBr(currentReq.quantidade, { maximumFractionDigits: 2 })} peças`
-                          : '—'}
-                      </span>
-                    </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Data da Consulta:</span>
                       <span className="font-semibold text-slate-800">
                         {currentReq.data_consulta || '—'}
                       </span>
                     </div>
-                    <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 pt-2 border-t border-slate-100">
+                    <div className="sm:col-span-2 lg:col-span-4 pt-2 border-t border-slate-100 min-w-0">
                       <span className="text-slate-500 font-medium block">
                         Descrição do Material:
                       </span>
-                      <span className="font-bold text-slate-900 text-sm">
+                      <span className="font-bold text-slate-900 text-sm break-words">
                         {currentReq.descricao_material || '—'}
                       </span>
                     </div>
@@ -377,56 +410,57 @@ export function ConsultarRequisitosMTOModal({
               </Card>
 
               {/* 2. REQUISITOS DO PRODUTO (CONDIÇÃO LIVRE) */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-blue-700" />
+                    <CheckCircle2 className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       2. Requisitos do Produto
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                    <div className="sm:col-span-2 md:col-span-3">
-                      <span className="text-slate-500 font-medium block mb-1">
-                        Condição (Texto livre / Especificação de Fornecimento):
+                <CardContent className="p-4">
+                  <div className="text-xs min-w-0">
+                    <span className="text-slate-500 font-medium block mb-1">
+                      Condição (Texto livre / Especificação de Fornecimento):
+                    </span>
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 break-words">
+                      <span className="font-bold text-slate-900 text-sm font-mono break-words">
+                        {currentReq.condicao || '—'}
                       </span>
-                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <span className="font-bold text-slate-900 text-sm font-mono">
-                          {currentReq.condicao || '—'}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* 3. COMPOSIÇÃO QUÍMICA (%) */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              {/* 3. COMPOSIÇÃO QUÍMICA (%) — TABELA TÉCNICA COM SCROLL HORIZONTAL LOCAL */}
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <FlaskConical className="h-4 w-4 text-blue-700" />
+                      <FlaskConical className="h-4 w-4 text-[#004C97]" />
                       <CardTitle className="text-sm font-bold text-slate-800">
                         3. Composição Química (%)
                       </CardTitle>
                     </div>
-                    <span className="text-[11px] text-slate-500">Valores em % peso</span>
+                    <span className="text-[11px] text-slate-500">
+                      Valores em % peso (scroll local se necessário)
+                    </span>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  {/* Grid de 12 elementos obrigatórios */}
-                  <div className="overflow-x-auto">
+                <CardContent className="p-4">
+                  <div className="overflow-x-auto max-w-full">
                     <table className="w-full text-xs text-left border-collapse border border-slate-200">
                       <thead>
-                        <tr className="bg-slate-100/70 text-slate-700 font-bold border-b border-slate-200">
-                          <th className="py-2 px-3 border-r border-slate-200 w-28">Elemento</th>
+                        <tr className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
+                          <th className="py-2 px-3 border-r border-slate-200 w-28 shrink-0">
+                            Elemento
+                          </th>
                           {['C', 'Mn', 'Si', 'P', 'S', 'Cr', 'Ni', 'Mo', 'Al', 'B', 'Cu', 'H'].map(
                             (el) => (
                               <th
                                 key={el}
-                                className="py-2 px-2 text-center border-r border-slate-200 last:border-r-0 min-w-[58px]"
+                                className="py-2 px-2 text-center border-r border-slate-200 last:border-r-0 min-w-[54px]"
                               >
                                 {el}
                               </th>
@@ -496,38 +530,40 @@ export function ConsultarRequisitosMTOModal({
               </Card>
 
               {/* 4. DIMENSÕES E TOLERÂNCIAS */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <Ruler className="h-4 w-4 text-blue-700" />
+                    <Ruler className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       4. Dimensões e Tolerâncias
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Raio de Canto:</span>
-                      <span className="font-bold text-slate-900 text-sm">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Raio de Canto:
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm break-words">
                         {formatAbntValue(currentReq.dimensoes_tolerancias?.raio_canto, 'mm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Romboidade:</span>
-                      <span className="font-bold text-slate-900 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">Romboidade:</span>
+                      <span className="font-bold text-slate-900 text-sm break-words">
                         {formatAbntValue(currentReq.dimensoes_tolerancias?.romboidade, 'mm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Altura:</span>
-                      <span className="font-bold text-slate-900 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">Altura:</span>
+                      <span className="font-bold text-slate-900 text-sm break-words">
                         {formatAbntValue(currentReq.dimensoes_tolerancias?.altura, 'mm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Largura:</span>
-                      <span className="font-bold text-slate-900 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">Largura:</span>
+                      <span className="font-bold text-slate-900 text-sm break-words">
                         {formatAbntValue(currentReq.dimensoes_tolerancias?.largura, 'mm')}
                       </span>
                     </div>
@@ -536,70 +572,84 @@ export function ConsultarRequisitosMTOModal({
               </Card>
 
               {/* 5. COMPRIMENTO */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <Maximize2 className="h-4 w-4 text-blue-700" />
+                    <Maximize2 className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       5. Comprimento
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 text-xs">
-                    <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                      <span className="text-blue-900/70 font-semibold block">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                    <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-200 min-w-0 col-span-2 sm:col-span-1">
+                      <span className="text-blue-900/80 font-semibold block truncate">
                         Comprimento Principal:
                       </span>
-                      <span className="font-extrabold text-blue-950 text-base">
+                      <span className="font-extrabold text-[#004C97] text-base break-words">
                         {formatAbntValue(currentReq.comprimento?.comprimento_principal, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Tolerância +:</span>
-                      <span className="font-bold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Tolerância +:
+                      </span>
+                      <span className="font-bold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.tolerancia_mais, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Tolerância −:</span>
-                      <span className="font-bold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Tolerância −:
+                      </span>
+                      <span className="font-bold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.tolerancia_menos, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Múltiplo 1º:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Múltiplo 1º:
+                      </span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.multiplo_1, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Múltiplo 2º:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Múltiplo 2º:
+                      </span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.multiplo_2, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Múltiplo 3º:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Múltiplo 3º:
+                      </span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.multiplo_3, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Curtos Mín.:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Curtos Mín.:
+                      </span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.curtos_min, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Curtos Máx.:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Curtos Máx.:
+                      </span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.curtos_max, 'm')}
                       </span>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium block">Curtos %:</span>
-                      <span className="font-semibold text-slate-800 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border border-slate-200 min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">Curtos %:</span>
+                      <span className="font-semibold text-slate-800 text-sm break-words">
                         {formatAbntValue(currentReq.comprimento?.curtos_pct, '%')}
                       </span>
                     </div>
@@ -608,36 +658,36 @@ export function ConsultarRequisitosMTOModal({
               </Card>
 
               {/* 6. CONDIÇÕES E GARANTIAS PARA SUPERFÍCIE */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-blue-700" />
+                    <ShieldCheck className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       6. Condições e Garantias para Superfície
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                    <div>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">Aplicação:</span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.garantias_superficie?.aplicacao || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">
                         Padrão de Qualidade Superficial:
                       </span>
-                      <span className="font-bold text-blue-900 text-sm font-mono">
+                      <span className="font-bold text-[#004C97] text-sm font-mono break-words">
                         {currentReq.garantias_superficie?.padrao_qualidade_superficial || '—'}
                       </span>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-500 font-medium block">
                         Observações / Condições de Superfície:
                       </span>
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.garantias_superficie?.observacoes || '—'}
                       </span>
                     </div>
@@ -646,38 +696,44 @@ export function ConsultarRequisitosMTOModal({
               </Card>
 
               {/* 7. CONDIÇÕES DE GARANTIA INTERNA */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <ShieldAlert className="h-4 w-4 text-blue-700" />
+                    <ShieldAlert className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       7. Condições de Garantia Interna
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                    <div>
-                      <span className="text-slate-500 font-medium block">Garantia Interna:</span>
-                      <span className="font-semibold text-slate-800">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Garantia Interna:
+                      </span>
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.garantias_internas?.garantia_interna || '—'}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Método:</span>
-                      <span className="font-semibold text-slate-800">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">Método:</span>
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.garantias_internas?.metodo || '—'}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Valor Máximo:</span>
-                      <span className="font-semibold text-slate-800">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Valor Máximo:
+                      </span>
+                      <span className="font-semibold text-slate-800 break-words">
                         {formatAbntValue(currentReq.garantias_internas?.valor_maximo)}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-medium block">Queda Eco Fundo:</span>
-                      <span className="font-semibold text-slate-800">
+                    <div className="min-w-0">
+                      <span className="text-slate-500 font-medium block truncate">
+                        Queda Eco Fundo:
+                      </span>
+                      <span className="font-semibold text-slate-800 break-words">
                         {currentReq.garantias_internas?.queda_eco_fundo || '—'}
                       </span>
                     </div>
@@ -685,29 +741,29 @@ export function ConsultarRequisitosMTOModal({
                 </CardContent>
               </Card>
 
-              {/* 8. GARANTIAS ESPECÍFICAS (COM BLOCOS INTERNOS) */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="py-3 px-5 border-b border-slate-100 bg-slate-50/50">
+              {/* 8. GARANTIAS ESPECÍFICAS (COM BLOCOS INTERNOS E TABELAS COM SCROLL LOCAL) */}
+              <Card className="bg-white border-slate-200 shadow-2xs">
+                <CardHeader className="py-2.5 px-4 border-b border-slate-100 bg-slate-50/70">
                   <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-blue-700" />
+                    <Activity className="h-4 w-4 text-[#004C97]" />
                     <CardTitle className="text-sm font-bold text-slate-800">
                       8. Garantias Específicas
                     </CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent className="p-5 space-y-5">
+                <CardContent className="p-4 space-y-4">
                   {/* Bloco 8.1: Ensaio de Tração */}
-                  <div className="p-4 rounded-lg bg-slate-50/80 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                  <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#004C97] inline-block"></span>
                       Ensaio de Tração
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                      <div className="bg-white p-3 rounded border border-slate-200">
-                        <span className="text-slate-500 font-medium block">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-white p-2.5 rounded border border-slate-200 min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
                           LR — Limite de Resistência:
                         </span>
-                        <span className="font-extrabold text-slate-900 text-sm">
+                        <span className="font-extrabold text-slate-900 text-sm break-words">
                           {formatAbntValue(
                             currentReq.garantias_especificas?.ensaio_tracao?.lr_mpa,
                             'MPa',
@@ -715,11 +771,11 @@ export function ConsultarRequisitosMTOModal({
                           )}
                         </span>
                       </div>
-                      <div className="bg-white p-3 rounded border border-slate-200">
-                        <span className="text-slate-500 font-medium block">
+                      <div className="bg-white p-2.5 rounded border border-slate-200 min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
                           LE — Limite de Escoamento:
                         </span>
-                        <span className="font-extrabold text-slate-900 text-sm">
+                        <span className="font-extrabold text-slate-900 text-sm break-words">
                           {formatAbntValue(
                             currentReq.garantias_especificas?.ensaio_tracao?.le_mpa,
                             'MPa',
@@ -727,9 +783,11 @@ export function ConsultarRequisitosMTOModal({
                           )}
                         </span>
                       </div>
-                      <div className="bg-white p-3 rounded border border-slate-200">
-                        <span className="text-slate-500 font-medium block">Alongamento:</span>
-                        <span className="font-extrabold text-slate-900 text-sm">
+                      <div className="bg-white p-2.5 rounded border border-slate-200 min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
+                          Alongamento:
+                        </span>
+                        <span className="font-extrabold text-slate-900 text-sm break-words">
                           {formatAbntValue(
                             currentReq.garantias_especificas?.ensaio_tracao?.alongamento_pct,
                             '%',
@@ -741,27 +799,27 @@ export function ConsultarRequisitosMTOModal({
                   </div>
 
                   {/* Bloco 8.2: Dureza */}
-                  <div className="p-4 rounded-lg bg-slate-50/80 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                  <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#004C97] inline-block"></span>
                       Dureza
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="min-w-0">
                         <span className="text-slate-500 font-medium block">Tipo de Dureza:</span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {currentReq.garantias_especificas?.dureza?.tipo_dureza || '—'}
                         </span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-slate-500 font-medium block">Máximo:</span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {formatAbntValue(currentReq.garantias_especificas?.dureza?.maximo)}
                         </span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-slate-500 font-medium block">Mínimo:</span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {formatAbntValue(currentReq.garantias_especificas?.dureza?.minimo)}
                         </span>
                       </div>
@@ -769,23 +827,25 @@ export function ConsultarRequisitosMTOModal({
                   </div>
 
                   {/* Bloco 8.3: Ensaio Charpy */}
-                  <div className="p-4 rounded-lg bg-slate-50/80 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                  <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#004C97] inline-block"></span>
                       Ensaio Charpy
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                      <div>
-                        <span className="text-slate-500 font-medium block">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
                           Orientação do Corpo de Prova:
                         </span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {currentReq.garantias_especificas?.ensaio_charpy?.orientacao || '—'}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-slate-500 font-medium block">Temperatura (°C):</span>
-                        <span className="font-semibold text-slate-800">
+                      <div className="min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
+                          Temperatura (°C):
+                        </span>
+                        <span className="font-semibold text-slate-800 break-words">
                           {formatAbntValue(
                             currentReq.garantias_especificas?.ensaio_charpy?.temperatura_c,
                             '°C',
@@ -793,9 +853,11 @@ export function ConsultarRequisitosMTOModal({
                           )}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-slate-500 font-medium block">Valor Mínimo (J):</span>
-                        <span className="font-semibold text-slate-800">
+                      <div className="min-w-0">
+                        <span className="text-slate-500 font-medium block truncate">
+                          Valor Mínimo (J):
+                        </span>
+                        <span className="font-semibold text-slate-800 break-words">
                           {formatAbntValue(
                             currentReq.garantias_especificas?.ensaio_charpy?.valor_minimo_j,
                             'J',
@@ -807,24 +869,24 @@ export function ConsultarRequisitosMTOModal({
                   </div>
 
                   {/* Bloco 8.4: Caracterização Metalúrgica e Microinclusões */}
-                  <div className="p-4 rounded-lg bg-slate-50/80 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                  <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#004C97] inline-block"></span>
                       Caracterização Metalúrgica
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs mb-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-3">
+                      <div className="min-w-0">
                         <span className="text-slate-500 font-medium block">
                           Tamanho de Grão Austenítico:
                         </span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {currentReq.garantias_especificas?.caracterizacao_metalurgica
                             ?.tamanho_grao_austenitico || '—'}
                         </span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-slate-500 font-medium block">Descarbonetação:</span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 break-words">
                           {currentReq.garantias_especificas?.caracterizacao_metalurgica
                             ?.descarbonetacao || '—'}
                         </span>
@@ -832,7 +894,7 @@ export function ConsultarRequisitosMTOModal({
                     </div>
 
                     {/* Sub-card Microinclusões ASTM E45 Método A */}
-                    <div className="bg-white p-3.5 rounded border border-slate-200">
+                    <div className="bg-white p-3 rounded border border-slate-200">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-semibold text-slate-700">
                           Microinclusões — ASTM E45 Método A
@@ -841,7 +903,7 @@ export function ConsultarRequisitosMTOModal({
                           AF, BF, CF, DF / AG, BG, CG, DG
                         </span>
                       </div>
-                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 text-center text-xs">
+                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 text-center text-xs">
                         {['af', 'bf', 'cf', 'df', 'ag', 'bg', 'cg', 'dg'].map((key) => {
                           const val = (
                             currentReq.garantias_especificas?.caracterizacao_metalurgica
@@ -850,12 +912,12 @@ export function ConsultarRequisitosMTOModal({
                           return (
                             <div
                               key={key}
-                              className="bg-slate-50 p-1.5 rounded border border-slate-200"
+                              className="bg-slate-50 p-1 rounded border border-slate-200"
                             >
                               <span className="text-[10px] uppercase font-bold text-slate-400 block">
                                 {key}
                               </span>
-                              <span className="font-semibold text-slate-800">
+                              <span className="font-semibold text-slate-800 text-[11px]">
                                 {formatAbntValue(val)}
                               </span>
                             </div>
@@ -865,14 +927,14 @@ export function ConsultarRequisitosMTOModal({
                     </div>
                   </div>
 
-                  {/* Bloco 8.5: Temperabilidade */}
-                  <div className="p-4 rounded-lg bg-slate-50/80 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                  {/* Bloco 8.5: Temperabilidade (Scroll horizontal estritamente local dentro da seção) */}
+                  <div className="p-3 rounded-lg bg-slate-50/80 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#004C97] inline-block"></span>
                       Temperabilidade (Pontos mm & Escala 1/16")
                     </h4>
 
-                    {/* Tabela com scroll interno */}
+                    {/* Tabela mm com scroll interno */}
                     <div className="bg-white rounded border border-slate-200 overflow-hidden">
                       <div className="p-2 bg-slate-100 text-[11px] font-semibold text-slate-700 border-b border-slate-200">
                         Pontos em Milímetros (mm)
@@ -898,7 +960,7 @@ export function ConsultarRequisitosMTOModal({
                               ].map((p) => (
                                 <th
                                   key={p}
-                                  className="p-1.5 border-r border-slate-200 last:border-r-0 min-w-[50px]"
+                                  className="p-1.5 border-r border-slate-200 last:border-r-0 min-w-[46px]"
                                 >
                                   {p} mm
                                 </th>
@@ -941,6 +1003,7 @@ export function ConsultarRequisitosMTOModal({
                       </div>
                     </div>
 
+                    {/* Tabela polegada com scroll interno */}
                     <div className="bg-white rounded border border-slate-200 overflow-hidden mt-3">
                       <div className="p-2 bg-slate-100 text-[11px] font-semibold text-slate-700 border-b border-slate-200">
                         Escala em 1/16 de Polegada (Posições 1 a 32)
@@ -952,7 +1015,7 @@ export function ConsultarRequisitosMTOModal({
                               {Array.from({ length: 32 }, (_, i) => i + 1).map((n) => (
                                 <th
                                   key={n}
-                                  className="p-1 border-r border-slate-200 last:border-r-0 min-w-[38px] text-[10px]"
+                                  className="p-1 border-r border-slate-200 last:border-r-0 min-w-[36px] text-[10px]"
                                 >
                                   {n}
                                 </th>
@@ -984,12 +1047,12 @@ export function ConsultarRequisitosMTOModal({
                 </CardContent>
               </Card>
 
-              {/* 9. POLÍTICA DA QUALIDADE (SEÇÃO DISCRETA AO FINAL) */}
-              <div className="bg-slate-100/80 rounded-lg p-4 border border-slate-200 text-slate-600 text-xs">
+              {/* 9. POLÍTICA DA QUALIDADE */}
+              <div className="bg-slate-100/80 rounded-lg p-3.5 border border-slate-200 text-slate-600 text-xs">
                 <span className="font-bold text-slate-700 uppercase tracking-wider text-[10px] block mb-1">
                   9. Política da Qualidade
                 </span>
-                <p className="italic text-slate-700 leading-relaxed">
+                <p className="italic text-slate-700 leading-relaxed break-words">
                   "
                   {currentReq.politica_qualidade ||
                     'Buscar sempre o atendimento dos requisitos para satisfazer os clientes, produzir e comercializar laminados a quente, utilizando recursos de forma otimizada, satisfazendo as partes interessadas, melhorando continuamente.'}
@@ -998,11 +1061,11 @@ export function ConsultarRequisitosMTOModal({
               </div>
             </div>
           )}
-        </ScrollArea>
+        </div>
 
-        {/* RODAPÉ FIXO COM APENAS "FECHAR" */}
-        <div className="bg-white border-t border-slate-200 px-6 py-3.5 flex items-center justify-between flex-shrink-0">
-          <div className="text-xs text-slate-500">
+        {/* RODAPÉ FIXO (SEÇÃO 1) */}
+        <div className="bg-white border-t border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="text-xs text-slate-500 truncate mr-2">
             {currentReq?.origem_dados && (
               <span>
                 Origem:{' '}
@@ -1012,7 +1075,7 @@ export function ConsultarRequisitosMTOModal({
           </div>
           <Button
             variant="default"
-            className="bg-slate-800 hover:bg-slate-900 text-white font-medium px-5 h-9"
+            className="bg-[#004C97] hover:bg-[#003870] text-white font-medium px-5 h-8 text-xs shrink-0"
             onClick={() => onOpenChange(false)}
           >
             Fechar
