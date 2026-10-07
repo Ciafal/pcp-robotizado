@@ -492,7 +492,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                 {/* Ordem estrita das colunas:
                     Seq., Empresa, Linha, Material, Descrição, Volume previsto (t), Tarugo padrão,
                     Centro de Trabalho, Data prevista no Centro, Data Inventário WMS, Data Faturamento,
-                    Data Arcelor, Volume realizado (t), Desvio (t), Aderência (%), Status */}
+                    Data Industrializador Final, Volume realizado (t), Desvio (t), Aderência (%), Status */}
                 <th className="py-2.5 px-3 whitespace-nowrap sticky left-0 bg-slate-100 z-20">
                   Seq.
                 </th>
@@ -508,7 +508,7 @@ export const GestaoIndustrializadorSequenciamentoPage: React.FC = () => {
                 <th className="py-2.5 px-3 whitespace-nowrap">Data prevista no Centro</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Data Inventário WMS</th>
                 <th className="py-2.5 px-3 whitespace-nowrap">Data Faturamento</th>
-                <th className="py-2.5 px-3 whitespace-nowrap">Data Arcelor</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">Data Industrializador Final</th>
                 <th className="py-2.5 px-3 whitespace-nowrap text-right">Volume realizado (t)</th>
                 <th className="py-2.5 px-3 whitespace-nowrap text-right">Desvio (t)</th>
                 <th className="py-2.5 px-3 whitespace-nowrap text-right">Aderência (%)</th>

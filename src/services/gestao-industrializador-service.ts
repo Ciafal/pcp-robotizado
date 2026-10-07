@@ -123,7 +123,7 @@ export interface SequenciamentoPrevistoRealizadoItem {
   work_center_predicted_date: string | null // Data prevista no Centro (da linha selecionada/rota)
   wms_inventory_date: string | null // Data Inventário WMS oficial
   billing_date: string | null // Data Faturamento = Data WMS + 1 dia útil
-  arcelor_date: string | null // Data Arcelor = Data Faturamento + 2 dias úteis
+  arcelor_date: string | null // Data Industrializador Final = Data Faturamento + 2 dias úteis
   // Campos legados para compatibilidade
   predicted_industrialization_date: string
   predicted_billing_date: string

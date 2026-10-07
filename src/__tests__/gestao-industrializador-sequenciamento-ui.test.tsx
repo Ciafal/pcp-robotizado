@@ -99,6 +99,6 @@ describe('Suíte de Aceitação — Página de Sequenciamento P x R (Layout, Fil
     expect(screen.getByText('Data prevista no Centro')).toBeInTheDocument()
     expect(screen.getByText('Data Inventário WMS')).toBeInTheDocument()
     expect(screen.getByText('Data Faturamento')).toBeInTheDocument()
-    expect(screen.getByText('Data Arcelor')).toBeInTheDocument()
+    expect(screen.getByText('Data Industrializador Final')).toBeInTheDocument()
   })
 })
