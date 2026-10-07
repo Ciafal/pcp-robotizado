@@ -1,10 +1,20 @@
 import React, { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, Factory, SlidersHorizontal, ClipboardCheck, BarChart3, Sparkles } from 'lucide-react'
+import {
+  Eye,
+  Factory,
+  SlidersHorizontal,
+  ClipboardCheck,
+  BarChart3,
+  Sparkles,
+  FileText,
+  CheckCircle2,
+} from 'lucide-react'
 import { CarteiraItem } from '@/types/carteira-analise'
 import { CoberturaTemporalEngine } from '@/services/cobertura-temporal-engine'
 import { ConsultarRequisitosMTOModal } from './ConsultarRequisitosMTOModal'
+import { getRequirementsCountsMap, buildMtoOrderKey } from '@/services/mto-requirements-service'
 import { formatNumberPTBR, formatDatePTBR } from '@/lib/formatters-ptbr'
 import { CarteiraAnaliseEngine } from '@/services/carteira-analise-engine-unified'
 import { CurvaAbcFaturamentoEngine } from '@/services/curva-abc-faturamento-engine'
@@ -42,7 +52,26 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
   const [itemRequisitosSelecionado, setItemRequisitosSelecionado] = useState<CarteiraItem | null>(
     null,
   )
+  const [countsMap, setCountsMap] = useState<Map<string, number>>(new Map())
   const itensMTO = useMemo(() => itens.filter((i) => i.tipo_ordem === 'MTO'), [itens])
+
+  // Carrega contagens reais de requisitos MTO por Pedido + Item
+  React.useEffect(() => {
+    if (!itensMTO.length) return
+    let isSubscribed = true
+    const orderKeys = itensMTO.map((it) => ({
+      pedido: String(it.ordem_venda || ''),
+      item: String(it.item_ordem || ''),
+    }))
+
+    getRequirementsCountsMap(orderKeys).then((map) => {
+      if (isSubscribed) setCountsMap(map)
+    })
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [itensMTO])
 
   // Réplica oficial SAP do lote mínimo sincronizado via RFC
   const { replicaMap: replicaSapLoteMinimo } = useSapMaterialLoteMinimo()
@@ -276,6 +305,7 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                 <th className="p-2.5 text-right">Saldo Pedido (t)</th>
                 <th className="p-2.5 text-right">Estoque MTO (t)</th>
                 <th className="p-2.5 text-right">Falta Produzir (t)</th>
+                <th className="p-2.5 text-center">Requisitos MTO</th>
                 <th className="p-2.5 text-center">Status Atendimento</th>
                 <th className="p-2.5 text-center">Data Desejada</th>
                 {mostrarColunasTemporais && (
@@ -365,6 +395,41 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
                           ? formatNumberPTBR(it.falta_produzir_tons, 2)
                           : '0,00'}
                       </td>
+                      {/* NOVA COLUNA REQUISITOS MTO (PREFERENCIALMENTE ANTES DE STATUS ATENDIMENTO) */}
+                      <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const specificKey = buildMtoOrderKey(it.ordem_venda, it.item_ordem)
+                          const count =
+                            countsMap.get(specificKey) ?? countsMap.get(String(it.ordem_venda)) ?? 0
+
+                          if (count <= 0) {
+                            return (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-50 border border-slate-200 cursor-not-allowed select-none"
+                                title="Sem requisitos MTO cadastrados para este pedido"
+                              >
+                                Sem requisito
+                              </span>
+                            )
+                          }
+
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setItemRequisitosSelecionado(it)
+                                setIsConsultarRequisitosOpen(true)
+                              }}
+                              className="h-6 px-2 text-[10px] bg-blue-50/80 hover:bg-blue-100 text-blue-700 hover:text-blue-900 border-blue-200 font-semibold gap-1 transition-colors shadow-2xs"
+                              title={`Consultar ${count} requisito(s) deste pedido`}
+                            >
+                              <FileText className="w-3 h-3 text-blue-700" />
+                              <span>Ver requisitos ({count})</span>
+                            </Button>
+                          )
+                        })()}
+                      </td>
                       <td className="p-2.5 text-center">
                         {it.bloqueio ? (
                           <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-bold">
@@ -453,14 +518,18 @@ export const CarteiraMTOView: React.FC<CarteiraMTOViewProps> = ({
 
       {/* Modal Reutilizável de Consulta de Requisitos MTO */}
       <ConsultarRequisitosMTOModal
-        isOpen={isConsultarRequisitosOpen}
-        onClose={() => {
-          setIsConsultarRequisitosOpen(false)
-          setItemRequisitosSelecionado(null)
+        open={isConsultarRequisitosOpen}
+        onOpenChange={(open) => {
+          setIsConsultarRequisitosOpen(open)
+          if (!open) {
+            setItemRequisitosSelecionado(null)
+          }
         }}
-        item={itemRequisitosSelecionado}
-        itensMtoDisponiveis={itensMTO}
-        onSelecionarItem={(it) => setItemRequisitosSelecionado(it)}
+        pedidoNumero={itemRequisitosSelecionado?.ordem_venda}
+        itemPedido={itemRequisitosSelecionado?.item_ordem}
+        clienteNome={itemRequisitosSelecionado?.nome_cliente}
+        descricaoMaterial={itemRequisitosSelecionado?.descricao_material}
+        quantidadeTons={itemRequisitosSelecionado?.qtd_ordem_tons}
       />
 
       {/* Modais Analíticos */}
