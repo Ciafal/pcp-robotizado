@@ -15,6 +15,10 @@ interface PermissionGuardProps {
   lineId?: string
 }
 
+export const PermissionGate: React.FC<PermissionGuardProps> = (props) => (
+  <PermissionGuard {...props} />
+)
+
 export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   permission: propPermission,
   required,

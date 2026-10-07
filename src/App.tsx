@@ -5,7 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
 import { OeeDrilldownProvider } from '@/contexts/OeeDrilldownContext'
 import { OeeDrilldownModal } from '@/components/common/OeeDrilldownModal'
-import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import { PermissionGuard, PermissionGate } from '@/components/auth/PermissionGuard'
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/common/ErrorBoundary'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
