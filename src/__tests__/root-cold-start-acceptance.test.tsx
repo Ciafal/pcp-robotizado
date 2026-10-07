@@ -8,7 +8,7 @@ import { ProductionOrdersPage } from '@/pages/production-control/ProductionOrder
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ControlTowerProvider } from '@/contexts/ControlTowerContext'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import { PermissionGuard, PermissionGate } from '@/components/auth/PermissionGuard'
 import pb from '@/lib/pocketbase/client'
 
 // Helper para inspecionar localização atual no DOM
@@ -47,6 +47,11 @@ describe('Aceite de Cold Start na Raiz (/) e Resiliência de Rotas — HUB CIAFA
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+  })
+
+  it('(a.1) exporta e instancia PermissionGate como alias funcional idêntico a PermissionGuard', () => {
+    expect(PermissionGate).toBeDefined()
+    expect(typeof PermissionGate).toBe('function')
   })
 
   it('(a) abrir "/" carrega diretamente o cockpit normalmente sem ErrorBoundary e sem tela de instabilidade', async () => {
