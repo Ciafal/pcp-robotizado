@@ -585,6 +585,43 @@ const MPAproveitamentoForaPadraoPage = lazyWithRetry(
     })),
   'MPAproveitamentoForaPadraoPage',
 )
+
+// NOVO MÓDULO: GESTÃO INDUSTRIALIZADOR (Visão Consolidada + 4 Subtópicos)
+const GestaoIndustrializadorConsolidadaPage = lazyWithRetry(
+  () =>
+    import('@/pages/GestaoIndustrializadorConsolidadaPage').then((m: any) => ({
+      default: m.default ?? m.GestaoIndustrializadorConsolidadaPage,
+    })),
+  'GestaoIndustrializadorConsolidadaPage',
+)
+const GestaoIndustrializadorMPPage = lazyWithRetry(
+  () =>
+    import('@/pages/GestaoIndustrializadorMPPage').then((m: any) => ({
+      default: m.default ?? m.GestaoIndustrializadorMPPage,
+    })),
+  'GestaoIndustrializadorMPPage',
+)
+const GestaoIndustrializadorCarteiraPage = lazyWithRetry(
+  () =>
+    import('@/pages/GestaoIndustrializadorCarteiraPage').then((m: any) => ({
+      default: m.default ?? m.GestaoIndustrializadorCarteiraPage,
+    })),
+  'GestaoIndustrializadorCarteiraPage',
+)
+const GestaoIndustrializadorSequenciamentoPage = lazyWithRetry(
+  () =>
+    import('@/pages/GestaoIndustrializadorSequenciamentoPage').then((m: any) => ({
+      default: m.default ?? m.GestaoIndustrializadorSequenciamentoPage,
+    })),
+  'GestaoIndustrializadorSequenciamentoPage',
+)
+const GestaoIndustrializadorEstoquePage = lazyWithRetry(
+  () =>
+    import('@/pages/GestaoIndustrializadorEstoquePage').then((m: any) => ({
+      default: m.default ?? m.GestaoIndustrializadorEstoquePage,
+    })),
+  'GestaoIndustrializadorEstoquePage',
+)
 const RulesEnginePage = lazyWithRetry(
   () =>
     import('@/pages/RulesEnginePage').then((m) => ({
@@ -1467,6 +1504,66 @@ export const App: React.FC = () => {
                           <MPUtilizationAndSubstitutionSubpage />
                         </PermissionGuard>
                       }
+                    />
+                    {/* NOVO TÓPICO E ROTAS: GESTÃO INDUSTRIALIZADOR */}
+                    <Route
+                      path="/pcp/gestao-industrializador"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — Visão Consolidada">
+                            <GestaoIndustrializadorConsolidadaPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/mp"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — MP">
+                            <GestaoIndustrializadorMPPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/carteira"
+                      element={
+                        <PermissionGuard permission="pcp.carteira.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — Análise de Carteira">
+                            <GestaoIndustrializadorCarteiraPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/sequenciamento"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — Sequenciamento P x R">
+                            <GestaoIndustrializadorSequenciamentoPage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    <Route
+                      path="/pcp/gestao-industrializador/estoque"
+                      element={
+                        <PermissionGuard permission="pcp.schedule.view">
+                          <ErrorBoundary moduleName="Gestão Industrializador — Estoque">
+                            <GestaoIndustrializadorEstoquePage />
+                          </ErrorBoundary>
+                        </PermissionGuard>
+                      }
+                    />
+                    {/* Redirecionamentos de conveniência */}
+                    <Route
+                      path="/gestao-industrializador"
+                      element={<Navigate to="/pcp/gestao-industrializador" replace />}
+                    />
+                    <Route
+                      path="/pcp-robotizado/gestao-industrializador"
+                      element={<Navigate to="/pcp/gestao-industrializador" replace />}
                     />
                     {/* 9. NOVO TÓPICO: Matéria-prima – Industrializador */}
                     <Route

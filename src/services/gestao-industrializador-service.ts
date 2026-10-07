@@ -1316,6 +1316,15 @@ class GestaoIndustrializadorService {
    * FATURADO E AINDA NÃO RECEBIDO.
    * Totalização sem dupla contagem.
    */
+  /**
+   * Alias de compatibilidade para getEstoqueAnalitico
+   */
+  async getEstoqueIndustrializadoAnalitico(
+    filters: IndustrializerFilterParams = {},
+  ): Promise<EstoqueIndustrializadoAnaliticoItem[]> {
+    return this.getEstoqueAnalitico(filters)
+  }
+
   async getEstoqueAnalitico(
     filters: IndustrializerFilterParams = {},
   ): Promise<EstoqueIndustrializadoAnaliticoItem[]> {
@@ -1638,6 +1647,32 @@ class GestaoIndustrializadorService {
   /**
    * Registro obrigatório de auditoria append-only em pcp_audit_logs
    */
+  /**
+   * Alias de auditoria para chamadas simplificadas
+   */
+  async logAuditAction(params: {
+    action: string
+    entity?: string
+    record_id?: string
+    old_value?: any
+    new_value?: any
+    source?: string
+    details?: any
+  }): Promise<boolean> {
+    try {
+      await this.registerAuditLog({
+        action: params.action,
+        resource: params.entity || 'GESTAO_INDUSTRIALIZADOR',
+        resourceId: params.record_id,
+        changes: { previous: params.old_value, current: params.new_value },
+        details: typeof params.details === 'object' ? params.details : { info: params.details },
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async registerAuditLog(params: {
     action: string
     resource: string

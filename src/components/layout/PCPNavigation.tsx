@@ -1086,6 +1086,42 @@ export const officialNavGroups: NavGroup[] = [
     ],
   },
   {
+    groupTitle: 'GESTÃO INDUSTRIALIZADOR',
+    items: [
+      {
+        title: 'Visão Consolidada',
+        href: '/pcp/gestao-industrializador',
+        icon: LayoutDashboard,
+        permission: 'pcp.schedule.view',
+        badge: 'Novo',
+      },
+      {
+        title: '1. Gestão de MP',
+        href: '/pcp/gestao-industrializador/mp',
+        icon: Boxes,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: '2. Análise de Carteira',
+        href: '/pcp/gestao-industrializador/carteira',
+        icon: Briefcase,
+        permission: 'pcp.carteira.view',
+      },
+      {
+        title: '3. Sequenciamento P x R',
+        href: '/pcp/gestao-industrializador/sequenciamento',
+        icon: CalendarDays,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: '4. Estoque Industrializados',
+        href: '/pcp/gestao-industrializador/estoque',
+        icon: Layers,
+        permission: 'pcp.schedule.view',
+      },
+    ],
+  },
+  {
     groupTitle: 'GESTÃO DE MP',
     items: [
       {
@@ -1335,6 +1371,9 @@ export const PCPSidebar: React.FC = () => {
           currentPath.startsWith('/pcp/programacao') ||
           currentPath.startsWith('/pcp/sequenciamento') ||
           currentPath.startsWith('/pcp/entregas'))
+      const isIndustrializadorRoute =
+        g.groupTitle === 'GESTÃO INDUSTRIALIZADOR' &&
+        currentPath.startsWith('/pcp/gestao-industrializador')
       // Auto-expansão do grupo CADASTROS quando currentPath.startsWith('/pcp/cadastros')
       const isCadastrosRoute =
         g.groupTitle === 'CADASTROS' && currentPath.startsWith('/pcp/cadastros')
@@ -1355,7 +1394,8 @@ export const PCPSidebar: React.FC = () => {
         isGovernanceRoute ||
         isProducaoRoute ||
         isCadastrosRoute ||
-        isProgramacaoRoute
+        isProgramacaoRoute ||
+        isIndustrializadorRoute
       ) {
         initial[g.groupTitle] = false
       } else {
@@ -1534,6 +1574,9 @@ export const PCPSidebar: React.FC = () => {
                   )}
                   {group.groupTitle === 'ANÁLISE DE CARTEIRA' && (
                     <Briefcase className="w-3 h-3 text-[#004C97] shrink-0" />
+                  )}
+                  {group.groupTitle === 'GESTÃO INDUSTRIALIZADOR' && (
+                    <Building2 className="w-3 h-3 text-[#004C97] shrink-0" />
                   )}
                   {group.groupTitle === 'GESTÃO DE MP' && (
                     <Boxes className="w-3 h-3 text-[#004C97] shrink-0" />
