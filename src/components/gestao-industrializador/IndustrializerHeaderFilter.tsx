@@ -11,12 +11,7 @@ import {
   Database,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   IndustrializadorEntity,
   IndustrializerFilterParams,
@@ -163,9 +158,7 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
               {title}
             </h1>
             {subtitle && (
-              <p className="text-[13px] text-slate-600 truncate leading-snug">
-                {subtitle}
-              </p>
+              <p className="text-[13px] text-slate-600 truncate leading-snug">{subtitle}</p>
             )}
           </div>
         </div>
@@ -190,10 +183,19 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
                   </span>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs bg-slate-900 text-white max-w-xs p-2.5">
-                <p className="font-bold text-[11px] text-blue-200 mb-0.5">Rastreabilidade Oficial</p>
-                <p className="text-[11px]">Fonte: {officialSource || 'SAP ECC (MB52 / MD04 / ZSD28C / RFC) & PocketBase PCP'}</p>
-                <p className="text-[10px] text-slate-300 mt-1">Clique para abrir Parâmetros e detalhes da integração.</p>
+              <TooltipContent
+                side="bottom"
+                className="text-xs bg-slate-900 text-white max-w-xs p-2.5"
+              >
+                <p className="font-bold text-[11px] text-blue-200 mb-0.5">
+                  Rastreabilidade Oficial
+                </p>
+                <p className="text-[11px]">
+                  Fonte: {officialSource || 'SAP ECC (MB52 / MD04 / ZSD28C / RFC) & PocketBase PCP'}
+                </p>
+                <p className="text-[10px] text-slate-300 mt-1">
+                  Clique para abrir Parâmetros e detalhes da integração.
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -240,8 +242,8 @@ export const IndustrializerHeaderFilter: React.FC<IndustrializerHeaderFilterProp
                 <TooltipContent side="right" className="text-xs bg-slate-900 text-white">
                   Industrializador é dimensão primária mandatória de recorte.
                 </TooltipContent>
-              </TooltipProvider>
-            </Tooltip>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <Button
             variant="ghost"
