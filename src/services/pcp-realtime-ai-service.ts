@@ -29,7 +29,7 @@ export class PcpRealtimeAiService {
     company: RealtimeCompanyConsolidated,
     lines: RealtimeLineData[],
   ): OperationalAiSummary {
-    const allCenters = lines.flatMap((l) => l.centers)
+    const allCenters = (lines || []).flatMap((l) => l?.centers || [])
     const factualPoints: string[] = []
     const calculatedAlerts: string[] = []
     const aiInterpretations: string[] = []
@@ -59,30 +59,30 @@ export class PcpRealtimeAiService {
 
     // 2. Alertas Calculados
     const belowOeeCenters = allCenters.filter(
-      (c) => c.oee.value !== null && c.oee.target !== null && c.oee.value < c.oee.target,
+      (c) => c?.oee?.value != null && c?.oee?.target != null && c.oee.value < c.oee.target,
     )
     if (belowOeeCenters.length > 0) {
       calculatedAlerts.push(
-        `${belowOeeCenters.length} centro(s) abaixo da meta de OEE (85,00 %): ${belowOeeCenters.map((c) => c.centerName).join(', ')}.`,
+        `${belowOeeCenters.length} centro(s) abaixo da meta de OEE (85,00 %): ${belowOeeCenters.map((c) => c.centerName || c.centerCode || 'Centro').join(', ')}.`,
       )
     }
 
     const belowYieldCenters = allCenters.filter(
       (c) =>
-        c.metallicYield.yieldPct !== null &&
-        c.metallicYield.targetPct !== null &&
+        c?.metallicYield?.yieldPct != null &&
+        c?.metallicYield?.targetPct != null &&
         c.metallicYield.yieldPct < c.metallicYield.targetPct,
     )
     if (belowYieldCenters.length > 0) {
       calculatedAlerts.push(
-        `${belowYieldCenters.length} centro(s) com rendimento metálico inferior à meta: ${belowYieldCenters.map((c) => c.centerName).join(', ')}.`,
+        `${belowYieldCenters.length} centro(s) com rendimento metálico inferior à meta: ${belowYieldCenters.map((c) => c.centerName || c.centerCode || 'Centro').join(', ')}.`,
       )
     }
 
-    const stoppedCenters = allCenters.filter((c) => c.activeStop !== null)
+    const stoppedCenters = allCenters.filter((c) => Boolean(c?.activeStop))
     if (stoppedCenters.length > 0) {
       calculatedAlerts.push(
-        `Parada ativa detectada em ${stoppedCenters.length} centro(s): ${stoppedCenters.map((c) => `${c.centerName} (${c.activeStop?.reason || 'Parada'})`).join('; ')}.`,
+        `Parada ativa detectada em ${stoppedCenters.length} centro(s): ${stoppedCenters.map((c) => `${c.centerName || c.centerCode || 'Centro'} (${c.activeStop?.reason || 'Parada'})`).join('; ')}.`,
       )
     }
 
@@ -100,7 +100,7 @@ export class PcpRealtimeAiService {
     let nextAction =
       'Manter monitoramento ativo e acionar supervisão operacional nos centros com status Crítico ou Atenção.'
     if (stoppedCenters.length > 0) {
-      nextAction = `Acompanhar previsão de retorno e liberação técnica no centro ${stoppedCenters[0].centerName}.`
+      nextAction = `Acompanhar previsão de retorno e liberação técnica no centro ${stoppedCenters[0]?.centerName || stoppedCenters[0]?.centerCode || 'parado'}.`
     } else if (company.achievementPct !== null && company.achievementPct < 85) {
       nextAction =
         'Revisar sequenciamento das próximas horas para recuperar o volume previsto do turno.'
@@ -198,8 +198,8 @@ export class PcpRealtimeAiService {
     }
 
     if (
-      center.oee.value !== null &&
-      center.oee.target !== null &&
+      center.oee?.value != null &&
+      center.oee?.target != null &&
       center.oee.value < center.oee.target
     ) {
       calculatedAlerts.push(
@@ -207,7 +207,7 @@ export class PcpRealtimeAiService {
       )
     }
 
-    if (center.metallicYield.yieldPct !== null && center.metallicYield.targetPct !== null) {
+    if (center.metallicYield?.yieldPct != null && center.metallicYield?.targetPct != null) {
       calculatedAlerts.push(
         `Rendimento Metálico apurado: ${formatNumberPtBr(center.metallicYield.yieldPct)} % (Meta: ${formatNumberPtBr(center.metallicYield.targetPct)} %). Perda estimada: ${center.metallicYield.estimatedLossTons !== null ? formatNumberPtBr(center.metallicYield.estimatedLossTons) + ' t' : 'N/D'}.`,
       )

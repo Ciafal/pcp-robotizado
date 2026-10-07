@@ -424,12 +424,29 @@ export class PcpRealtimeAnalysisService {
       }
 
       for (const st of stopsHistory) {
+        const formatStopTimestamp = (isoString?: string | null): string => {
+          if (!isoString) return '--:--:--'
+          try {
+            if (isoString.includes('T')) {
+              const timePart = isoString.split('T')[1]?.slice(0, 8)
+              if (timePart && timePart.length >= 5) return timePart
+            }
+            if (isoString.length >= 19 && (isoString[10] === ' ' || isoString[10] === 'T')) {
+              return isoString.slice(11, 19)
+            }
+            const d = new Date(isoString)
+            if (!isNaN(d.getTime())) {
+              return d.toLocaleTimeString('pt-BR', { hour12: false })
+            }
+          } catch {
+            // fallback
+          }
+          return '--:--:--'
+        }
+
         timeline.push({
           id: `stop-${st.id}`,
-          timestamp:
-            st.startDatetime.split('T')[1]?.slice(0, 8) ||
-            st.startDatetime.slice(11, 19) ||
-            '10:00:00',
+          timestamp: formatStopTimestamp(st.startDatetime),
           type: st.isProgrammed ? 'SETUP' : 'PARADA',
           title: `${st.categoryLabel}: ${st.reason}`,
           description: `Duração: ${st.durationMinutes} min | Setor: ${st.responsibleSector} | Equipamento: ${st.equipment || '-'}`,
@@ -440,10 +457,7 @@ export class PcpRealtimeAnalysisService {
         if (st.endDatetime) {
           timeline.push({
             id: `ret-${st.id}`,
-            timestamp:
-              st.endDatetime.split('T')[1]?.slice(0, 8) ||
-              st.endDatetime.slice(11, 19) ||
-              '10:25:00',
+            timestamp: formatStopTimestamp(st.endDatetime),
             type: 'RETORNO',
             title: `Retorno Operacional do Centro ${centerCode}`,
             description: `Reinício de laminação após liberação técnica de ${st.reason}.`,
@@ -603,7 +617,7 @@ export class PcpRealtimeAnalysisService {
     let totalGoodSum = 0
     let currentRateSum = 0
 
-    const allCenters = linesData.flatMap((l) => l.centers)
+    const allCenters = linesData.flatMap((l) => l?.centers || [])
     for (const c of allCenters) {
       if (c.status === 'NORMAL') centersOperating++
       else if (c.status === 'CRITICO') centersStopped++

@@ -9,6 +9,7 @@ import {
 import { PcpRealtimeAnalysisService } from '@/services/pcp-realtime-analysis-service'
 import { PcpRealtimeAiService } from '@/services/pcp-realtime-ai-service'
 import { RealtimeDrilldownModal } from '@/components/realtime-analysis/RealtimeDrilldownModal'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { formatNumberPtBr } from '@/lib/number-format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -123,12 +124,22 @@ export const RealtimeAnalysisPage: React.FC = () => {
     return PcpRealtimeAiService.generateCompanySummary(data.consolidatedCompany, data.linesData)
   }, [data])
 
-  // Formata hora HH:mm:ss a partir de ISO string
-  const formatTime = (isoString?: string) => {
-    if (!isoString) return '--:--:--'
+  // Formata hora HH:mm:ss a partir de ISO string com tratamento defensivo
+  const formatTime = (isoString?: string | null) => {
+    if (!isoString || typeof isoString !== 'string') return '--:--:--'
     try {
       const d = new Date(isoString)
-      return d.toLocaleTimeString('pt-BR', { hour12: false })
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('pt-BR', { hour12: false })
+      }
+      if (isoString.includes('T')) {
+        const timePart = isoString.split('T')[1]?.slice(0, 8)
+        if (timePart && timePart.length >= 5) return timePart
+      }
+      if (isoString.length >= 19 && (isoString[10] === ' ' || isoString[10] === 'T')) {
+        return isoString.slice(11, 19)
+      }
+      return '--:--:--'
     } catch {
       return '--:--:--'
     }
@@ -429,213 +440,220 @@ export const RealtimeAnalysisPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-[#004C97]" />
-                Nível 1 — Visão Consolidada da Empresa: {data.consolidatedCompany.companyName}
+                Nível 1 — Visão Consolidada da Empresa:{' '}
+                {data.consolidatedCompany?.companyName || 'Empresa'}
               </h2>
               <Badge variant="outline" className="text-xs text-slate-600">
                 Ponderação por Tempo Produtivo
               </Badge>
             </div>
 
-            {/* Resumo Real Time IA Empresa (Fatos, Alertas e Interpretações) */}
-            {companyAiSummary && (
-              <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white border border-blue-200 rounded-2xl p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#004C97] font-bold text-sm">
-                    <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
-                    Resumo Real Time — Empresa (IA Orientativa PCP)
-                  </div>
-                  <Badge variant="outline" className="bg-white text-[11px] text-slate-600">
-                    Base Real • Sem Alucinações
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                  <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Fatos Medidos no
-                      Escopo
+            {/* Resumo Real Time IA Empresa (Fatos, Alertas e Interpretações) protegido por ErrorBoundary local */}
+            <ErrorBoundary moduleName="Resumo IA Empresa" variant="compact">
+              {companyAiSummary && (
+                <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white border border-blue-200 rounded-2xl p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[#004C97] font-bold text-sm">
+                      <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                      Resumo Real Time — Empresa (IA Orientativa PCP)
                     </div>
-                    <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
-                      {companyAiSummary.factualPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
+                    <Badge variant="outline" className="bg-white text-[11px] text-slate-600">
+                      Base Real • Sem Alucinações
+                    </Badge>
                   </div>
 
-                  <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Alertas & Desvios
-                    </div>
-                    {companyAiSummary.calculatedAlerts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Fatos Medidos no
+                        Escopo
+                      </div>
                       <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
-                        {companyAiSummary.calculatedAlerts.map((al, i) => (
-                          <li key={i}>{al}</li>
+                        {companyAiSummary.factualPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
                         ))}
                       </ul>
-                    ) : (
-                      <p className="text-xs text-slate-500 italic">
-                        Nenhum desvio crítico registrado.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 3 Maiores Pontos de
-                      Atenção
                     </div>
-                    <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
-                      {companyAiSummary.aiInterpretations.map((it, i) => (
-                        <li key={i}>{it}</li>
-                      ))}
-                    </ul>
-                    <div className="pt-2 border-t border-slate-100">
-                      <span className="text-[11px] font-bold text-indigo-900">
-                        Próxima Atenção:{' '}
-                      </span>
-                      <span className="text-xs text-slate-700">
-                        {companyAiSummary.nextActionAdvice}
-                      </span>
+
+                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Alertas & Desvios
+                      </div>
+                      {companyAiSummary.calculatedAlerts.length > 0 ? (
+                        <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
+                          {companyAiSummary.calculatedAlerts.map((al, i) => (
+                            <li key={i}>{al}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic">
+                          Nenhum desvio crítico registrado.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 3 Maiores Pontos de
+                        Atenção
+                      </div>
+                      <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
+                        {companyAiSummary.aiInterpretations.map((it, i) => (
+                          <li key={i}>{it}</li>
+                        ))}
+                      </ul>
+                      <div className="pt-2 border-t border-slate-100">
+                        <span className="text-[11px] font-bold text-indigo-900">
+                          Próxima Atenção:{' '}
+                        </span>
+                        <span className="text-xs text-slate-700">
+                          {companyAiSummary.nextActionAdvice}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </ErrorBoundary>
 
-            {/* Grid dos Cards Obrigatórios da Empresa */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {/* Centros no Escopo */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">
-                    Centros no Escopo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-2xl font-black text-slate-900">
-                    {data.consolidatedCompany.totalCenters}
-                  </div>
-                  <div className="text-[10px] text-slate-600 flex flex-wrap gap-1 leading-tight">
-                    <span className="text-emerald-700 font-bold">
-                      {data.consolidatedCompany.centersOperating} op
-                    </span>{' '}
-                    •{' '}
-                    <span className="text-rose-700 font-bold">
-                      {data.consolidatedCompany.centersStopped} par
-                    </span>{' '}
-                    •{' '}
-                    <span className="text-amber-700 font-bold">
-                      {data.consolidatedCompany.centersInSetup} set
-                    </span>{' '}
-                    •{' '}
-                    <span className="text-blue-700 font-bold">
-                      {data.consolidatedCompany.centersScheduledStop} prog
-                    </span>{' '}
-                    •{' '}
-                    <span className="text-slate-500 font-bold">
-                      {data.consolidatedCompany.centersWithoutSchedule} s/prg
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Grid dos Cards Obrigatórios da Empresa protegido por ErrorBoundary local */}
+            <ErrorBoundary moduleName="Resumo Consolidado Empresa" variant="compact">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* Centros no Escopo */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      Centros no Escopo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-2xl font-black text-slate-900">
+                      {data.consolidatedCompany?.totalCenters ?? 0}
+                    </div>
+                    <div className="text-[10px] text-slate-600 flex flex-wrap gap-1 leading-tight">
+                      <span className="text-emerald-700 font-bold">
+                        {data.consolidatedCompany?.centersOperating ?? 0} op
+                      </span>{' '}
+                      •{' '}
+                      <span className="text-rose-700 font-bold">
+                        {data.consolidatedCompany?.centersStopped ?? 0} par
+                      </span>{' '}
+                      •{' '}
+                      <span className="text-amber-700 font-bold">
+                        {data.consolidatedCompany?.centersInSetup ?? 0} set
+                      </span>{' '}
+                      •{' '}
+                      <span className="text-blue-700 font-bold">
+                        {data.consolidatedCompany?.centersScheduledStop ?? 0} prog
+                      </span>{' '}
+                      •{' '}
+                      <span className="text-slate-500 font-bold">
+                        {data.consolidatedCompany?.centersWithoutSchedule ?? 0} s/prg
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* OEE da Empresa */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">
-                    OEE da Empresa
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-2xl font-black text-slate-900">
-                    {data.consolidatedCompany.oeePct !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.oeePct)} %`
-                      : 'N/D'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">Meta corporativa: 85,00 %</div>
-                </CardContent>
-              </Card>
-
-              {/* Taxa de Utilização */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">
-                    Taxa de Utilização
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-2xl font-black text-slate-900">
-                    {data.consolidatedCompany.utilizationPct !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.utilizationPct)} %`
-                      : 'N/D'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">Meta corporativa: 88,00 %</div>
-                </CardContent>
-              </Card>
-
-              {/* Rendimento Metálico */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">
-                    Rendimento Metálico
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-2xl font-black text-slate-900">
-                    {data.consolidatedCompany.metallicYieldPct !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.metallicYieldPct)} %`
-                      : 'N/D'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">Meta nominal: 97,44 %</div>
-                </CardContent>
-              </Card>
-
-              {/* Produção Realizada x Prevista */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">Produção (t)</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-lg font-black text-slate-900">
-                    {data.consolidatedCompany.realizedProductionTons !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.realizedProductionTons)} t`
-                      : 'N/D'}{' '}
-                    <span className="text-xs font-normal text-slate-400">
-                      /{' '}
-                      {data.consolidatedCompany.plannedProductionTons !== null
-                        ? `${formatNumberPtBr(data.consolidatedCompany.plannedProductionTons)} t`
+                {/* OEE da Empresa */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      OEE da Empresa
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-2xl font-black text-slate-900">
+                      {data.consolidatedCompany?.oeePct != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.oeePct)} %`
                         : 'N/D'}
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-semibold text-emerald-600">
-                    Atingimento:{' '}
-                    {data.consolidatedCompany.achievementPct !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.achievementPct)} %`
-                      : 'N/D'}
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
+                    <div className="text-[11px] text-slate-500">Meta corporativa: 85,00 %</div>
+                  </CardContent>
+                </Card>
 
-              {/* Taxa Atual e Tempo Parado */}
-              <Card className="shadow-2xs">
-                <CardHeader className="p-3.5 pb-1">
-                  <CardTitle className="text-xs text-slate-500 font-medium">
-                    Taxa Atual / Parada
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3.5 pt-0 space-y-1">
-                  <div className="text-xl font-black text-slate-900">
-                    {data.consolidatedCompany.currentProductionRatePerHour !== null
-                      ? `${formatNumberPtBr(data.consolidatedCompany.currentProductionRatePerHour)} t/h`
-                      : '0,00 t/h'}
-                  </div>
-                  <div className="text-[11px] text-rose-600 font-semibold">
-                    Parada total:{' '}
-                    {formatSecondsToHms(data.consolidatedCompany.totalStoppedTimeSeconds)}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                {/* Taxa de Utilização */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      Taxa de Utilização
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-2xl font-black text-slate-900">
+                      {data.consolidatedCompany?.utilizationPct != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.utilizationPct)} %`
+                        : 'N/D'}
+                    </div>
+                    <div className="text-[11px] text-slate-500">Meta corporativa: 88,00 %</div>
+                  </CardContent>
+                </Card>
+
+                {/* Rendimento Metálico */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      Rendimento Metálico
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-2xl font-black text-slate-900">
+                      {data.consolidatedCompany?.metallicYieldPct != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.metallicYieldPct)} %`
+                        : 'N/D'}
+                    </div>
+                    <div className="text-[11px] text-slate-500">Meta nominal: 97,44 %</div>
+                  </CardContent>
+                </Card>
+
+                {/* Produção Realizada x Prevista */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      Produção (t)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-lg font-black text-slate-900">
+                      {data.consolidatedCompany?.realizedProductionTons != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.realizedProductionTons)} t`
+                        : 'N/D'}{' '}
+                      <span className="text-xs font-normal text-slate-400">
+                        /{' '}
+                        {data.consolidatedCompany?.plannedProductionTons != null
+                          ? `${formatNumberPtBr(data.consolidatedCompany.plannedProductionTons)} t`
+                          : 'N/D'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-emerald-600">
+                      Atingimento:{' '}
+                      {data.consolidatedCompany?.achievementPct != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.achievementPct)} %`
+                        : 'N/D'}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Taxa Atual e Tempo Parado */}
+                <Card className="shadow-2xs">
+                  <CardHeader className="p-3.5 pb-1">
+                    <CardTitle className="text-xs text-slate-500 font-medium">
+                      Taxa Atual / Parada
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3.5 pt-0 space-y-1">
+                    <div className="text-xl font-black text-slate-900">
+                      {data.consolidatedCompany?.currentProductionRatePerHour != null
+                        ? `${formatNumberPtBr(data.consolidatedCompany.currentProductionRatePerHour)} t/h`
+                        : '0,00 t/h'}
+                    </div>
+                    <div className="text-[11px] text-rose-600 font-semibold">
+                      Parada total:{' '}
+                      {formatSecondsToHms(data.consolidatedCompany?.totalStoppedTimeSeconds ?? 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </ErrorBoundary>
           </section>
 
           {/* NÍVEL 2: SITUAÇÃO DAS LINHAS */}
@@ -646,98 +664,102 @@ export const RealtimeAnalysisPage: React.FC = () => {
                 Nível 2 — Situação das Linhas Produtivas
               </h2>
               <span className="text-xs text-slate-500">
-                {data.linesData.length} linha(s) em monitoramento
+                {(data.linesData || []).length} linha(s) em monitoramento
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.linesData.map((line) => (
-                <div
+              {(data.linesData || []).map((line) => (
+                <ErrorBoundary
                   key={line.lineCode}
-                  onClick={() => handleOpenLineDrilldown(line)}
-                  className="bg-white border border-slate-200 hover:border-[#004C97] rounded-2xl p-5 shadow-xs transition-all cursor-pointer hover:shadow-md space-y-4"
+                  moduleName={`Linha ${line.lineName || line.lineCode}`}
+                  variant="compact"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-500">
-                          {line.lineCode}
-                        </span>
-                        {renderStatusBadge(line.status)}
+                  <div
+                    onClick={() => handleOpenLineDrilldown(line)}
+                    className="bg-white border border-slate-200 hover:border-[#004C97] rounded-2xl p-5 shadow-xs transition-all cursor-pointer hover:shadow-md space-y-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-slate-500">
+                            {line.lineCode}
+                          </span>
+                          {renderStatusBadge(line.status)}
+                        </div>
+                        <h3 className="text-base font-bold text-slate-900 mt-1">{line.lineName}</h3>
+                        <div className="text-xs text-slate-500">
+                          {line.plantName} • {line.companyName}
+                        </div>
                       </div>
-                      <h3 className="text-base font-bold text-slate-900 mt-1">{line.lineName}</h3>
-                      <div className="text-xs text-slate-500">
-                        {line.plantName} • {line.companyName}
-                      </div>
+                      <Badge variant="outline" className="text-xs font-semibold">
+                        {(line.scheduleSituation || '').replace('_', ' ')}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      {line.scheduleSituation.replace('_', ' ')}
-                    </Badge>
-                  </div>
 
-                  {/* Métricas Principais da Linha */}
-                  <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
-                    <div>
-                      <span className="text-[11px] text-slate-400">Produção Realizada</span>
-                      <p className="text-sm font-black text-slate-800">
-                        {line.realizedTons !== null
-                          ? `${formatNumberPtBr(line.realizedTons)} t`
-                          : 'N/D'}
-                        <span className="text-xs font-normal text-slate-400">
-                          {' '}
-                          /{' '}
-                          {line.plannedTons !== null
-                            ? `${formatNumberPtBr(line.plannedTons)} t`
+                    {/* Métricas Principais da Linha */}
+                    <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-[11px] text-slate-400">Produção Realizada</span>
+                        <p className="text-sm font-black text-slate-800">
+                          {line.realizedTons != null
+                            ? `${formatNumberPtBr(line.realizedTons)} t`
                             : 'N/D'}
-                        </span>
-                      </p>
+                          <span className="text-xs font-normal text-slate-400">
+                            {' '}
+                            /{' '}
+                            {line.plannedTons != null
+                              ? `${formatNumberPtBr(line.plannedTons)} t`
+                              : 'N/D'}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-400">Atingimento %</span>
+                        <p className="text-sm font-black text-emerald-600">
+                          {line.achievementPct != null
+                            ? `${formatNumberPtBr(line.achievementPct)} %`
+                            : 'N/D'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-400">OEE / Utilização</span>
+                        <p className="text-sm font-black text-slate-800">
+                          {line.oeePct != null ? `${formatNumberPtBr(line.oeePct)} %` : 'N/D'} /{' '}
+                          {line.utilizationPct != null
+                            ? `${formatNumberPtBr(line.utilizationPct)} %`
+                            : 'N/D'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-400">Taxa Atual (t/h)</span>
+                        <p className="text-sm font-black text-slate-800">
+                          {line.currentRatePerHour != null
+                            ? `${formatNumberPtBr(line.currentRatePerHour)} t/h`
+                            : '0,00 t/h'}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <span className="text-[11px] text-slate-400">Atingimento %</span>
-                      <p className="text-sm font-black text-emerald-600">
-                        {line.achievementPct !== null
-                          ? `${formatNumberPtBr(line.achievementPct)} %`
-                          : 'N/D'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400">OEE / Utilização</span>
-                      <p className="text-sm font-black text-slate-800">
-                        {line.oeePct !== null ? `${formatNumberPtBr(line.oeePct)} %` : 'N/D'} /{' '}
-                        {line.utilizationPct !== null
-                          ? `${formatNumberPtBr(line.utilizationPct)} %`
-                          : 'N/D'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400">Taxa Atual (t/h)</span>
-                      <p className="text-sm font-black text-slate-800">
-                        {line.currentRatePerHour !== null
-                          ? `${formatNumberPtBr(line.currentRatePerHour)} t/h`
-                          : '0,00 t/h'}
-                      </p>
+                    <div className="text-xs text-slate-600 pt-1 border-t border-slate-100 flex items-center justify-between">
+                      <span
+                        className="truncate max-w-[200px]"
+                        title={line.currentProduct || 'Sem produto em processo'}
+                      >
+                        Produto: {line.currentProduct || 'Sem produto em processo'}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Atualizado às {formatTime(line.lastUpdated)}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="text-xs text-slate-600 pt-1 border-t border-slate-100 flex items-center justify-between">
-                    <span
-                      className="truncate max-w-[200px]"
-                      title={line.currentProduct || 'Sem produto em processo'}
-                    >
-                      Produto: {line.currentProduct || 'Sem produto em processo'}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Atualizado às {line.lastUpdated.slice(11, 19)}
-                    </span>
-                  </div>
-                </div>
+                </ErrorBoundary>
               ))}
             </div>
           </section>
-
           {/* NÍVEL 3: DETALHAMENTO POR CENTRO (LINHAS EXPANSÍVEIS COM TODAS AS ESPECIFICAÇÕES) */}
           <section className="space-y-4 pt-3" data-testid="realtime-level-3-centers">
             <div className="flex items-center justify-between">
@@ -750,340 +772,357 @@ export const RealtimeAnalysisPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 w-10"></th>
-                      <th className="p-3">Centro / Linha</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Produto Atual (OP)</th>
-                      <th className="p-3">Produção (t)</th>
-                      <th className="p-3">Atingimento %</th>
-                      <th className="p-3">Taxa (t/h)</th>
-                      <th className="p-3">OEE</th>
-                      <th className="p-3">Utilização</th>
-                      <th className="p-3">Rendimento</th>
-                      <th className="p-3">Última Atualização</th>
-                      <th className="p-3 text-right">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {data.linesData
-                      .flatMap((l) => l.centers)
-                      .map((center) => {
-                        const isExpanded = !!expandedCenters[center.centerCode]
+            <ErrorBoundary moduleName="Tabela de Centros Produtivos" variant="compact">
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 w-10"></th>
+                        <th className="p-3">Centro / Linha</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Produto Atual (OP)</th>
+                        <th className="p-3">Produção (t)</th>
+                        <th className="p-3">Atingimento %</th>
+                        <th className="p-3">Taxa (t/h)</th>
+                        <th className="p-3">OEE</th>
+                        <th className="p-3">Utilização</th>
+                        <th className="p-3">Rendimento</th>
+                        <th className="p-3">Última Atualização</th>
+                        <th className="p-3 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(data.linesData || [])
+                        .flatMap((l) => l?.centers || [])
+                        .map((center) => {
+                          const isExpanded = !!expandedCenters[center.centerCode]
 
-                        return (
-                          <React.Fragment key={center.centerCode}>
-                            <tr
-                              className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
-                                isExpanded ? 'bg-blue-50/20' : ''
-                              }`}
-                              onClick={() => toggleCenterExpand(center.centerCode)}
-                            >
-                              <td className="p-3 text-center">
-                                {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4 text-slate-600" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                                )}
-                              </td>
-                              <td className="p-3">
-                                <div className="font-bold text-slate-900">{center.centerName}</div>
-                                <div className="text-[11px] text-slate-500 font-mono">
-                                  {center.centerCode} • {center.lineName}
-                                </div>
-                              </td>
-                              <td className="p-3">{renderStatusBadge(center.status)}</td>
-                              <td className="p-3 max-w-[180px]">
-                                <div
-                                  className="font-semibold text-slate-800 truncate"
-                                  title={center.materialDescription || ''}
-                                >
-                                  {center.materialDescription || 'Sem ordem'}
-                                </div>
-                                <div className="text-[11px] text-slate-400">
-                                  OP: {center.productionOrder || '-'}
-                                </div>
-                              </td>
-                              <td className="p-3 font-mono">
-                                <span className="font-bold text-slate-900">
-                                  {center.realizedTons !== null
-                                    ? `${formatNumberPtBr(center.realizedTons)} t`
-                                    : 'N/D'}
-                                </span>
-                                <span className="text-[11px] text-slate-400">
-                                  {' '}
-                                  /{' '}
-                                  {center.programmedTons !== null
-                                    ? `${formatNumberPtBr(center.programmedTons)} t`
-                                    : 'N/D'}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                {center.achievementPct !== null ? (
-                                  <span
-                                    className={`font-bold ${
-                                      center.achievementPct >= 100
-                                        ? 'text-emerald-700'
-                                        : center.achievementPct >= 80
-                                          ? 'text-amber-600'
-                                          : 'text-rose-600'
-                                    }`}
+                          return (
+                            <React.Fragment key={center.centerCode}>
+                              <tr
+                                className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
+                                  isExpanded ? 'bg-blue-50/20' : ''
+                                }`}
+                                onClick={() => toggleCenterExpand(center.centerCode)}
+                              >
+                                <td className="p-3 text-center">
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-slate-600" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-900">
+                                    {center.centerName}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 font-mono">
+                                    {center.centerCode} • {center.lineName}
+                                  </div>
+                                </td>
+                                <td className="p-3">{renderStatusBadge(center.status)}</td>
+                                <td className="p-3 max-w-[180px]">
+                                  <div
+                                    className="font-semibold text-slate-800 truncate"
+                                    title={center.materialDescription || ''}
                                   >
-                                    {center.achievementPct > 100 ? `Previsto: ` : ''}
-                                    {formatNumberPtBr(center.achievementPct)} %
+                                    {center.materialDescription || 'Sem ordem'}
+                                  </div>
+                                  <div className="text-[11px] text-slate-400">
+                                    OP: {center.productionOrder || '-'}
+                                  </div>
+                                </td>
+                                <td className="p-3 font-mono">
+                                  <span className="font-bold text-slate-900">
+                                    {center.realizedTons != null
+                                      ? `${formatNumberPtBr(center.realizedTons)} t`
+                                      : 'N/D'}
                                   </span>
-                                ) : (
-                                  <span className="text-slate-400">N/D</span>
-                                )}
-                              </td>
-                              <td className="p-3 font-mono">
-                                <span className="font-bold text-slate-900">
-                                  {center.currentRatePerHour !== null
-                                    ? `${formatNumberPtBr(center.currentRatePerHour)} t/h`
-                                    : '0,00 t/h'}
-                                </span>
-                                <div className="text-[10px] text-slate-400">
-                                  Plan:{' '}
-                                  {center.plannedRatePerHour !== null
-                                    ? `${formatNumberPtBr(center.plannedRatePerHour)} t/h`
-                                    : 'N/D'}
-                                </div>
-                              </td>
-                              <td
-                                className="p-3 font-bold text-blue-700 hover:underline cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenCenterDrilldown(center)
-                                }}
-                              >
-                                {center.oee.value !== null
-                                  ? `${formatNumberPtBr(center.oee.value)} %`
-                                  : 'N/D'}
-                              </td>
-                              <td
-                                className="p-3 font-bold text-slate-800 hover:underline cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenCenterDrilldown(center)
-                                }}
-                              >
-                                {center.utilization.value !== null
-                                  ? `${formatNumberPtBr(center.utilization.value)} %`
-                                  : 'N/D'}
-                              </td>
-                              <td
-                                className="p-3 font-bold text-slate-800 hover:underline cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenCenterDrilldown(center)
-                                }}
-                              >
-                                {center.metallicYield.yieldPct !== null
-                                  ? `${formatNumberPtBr(center.metallicYield.yieldPct)} %`
-                                  : 'N/D'}
-                              </td>
-                              <td className="p-3 text-[11px] text-slate-500">
-                                {center.lastUpdated.slice(11, 19)}
-                              </td>
-                              <td className="p-3 text-right">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
+                                  <span className="text-[11px] text-slate-400">
+                                    {' '}
+                                    /{' '}
+                                    {center.programmedTons != null
+                                      ? `${formatNumberPtBr(center.programmedTons)} t`
+                                      : 'N/D'}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  {center.achievementPct != null ? (
+                                    <span
+                                      className={`font-bold ${
+                                        center.achievementPct >= 100
+                                          ? 'text-emerald-700'
+                                          : center.achievementPct >= 80
+                                            ? 'text-amber-600'
+                                            : 'text-rose-600'
+                                      }`}
+                                    >
+                                      {center.achievementPct > 100 ? `Previsto: ` : ''}
+                                      {formatNumberPtBr(center.achievementPct)} %
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">N/D</span>
+                                  )}
+                                </td>
+                                <td className="p-3 font-mono">
+                                  <span className="font-bold text-slate-900">
+                                    {center.currentRatePerHour != null
+                                      ? `${formatNumberPtBr(center.currentRatePerHour)} t/h`
+                                      : '0,00 t/h'}
+                                  </span>
+                                  <div className="text-[10px] text-slate-400">
+                                    Plan:{' '}
+                                    {center.plannedRatePerHour != null
+                                      ? `${formatNumberPtBr(center.plannedRatePerHour)} t/h`
+                                      : 'N/D'}
+                                  </div>
+                                </td>
+                                <td
+                                  className="p-3 font-bold text-blue-700 hover:underline cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     handleOpenCenterDrilldown(center)
                                   }}
-                                  className="h-7 text-xs text-[#004C97] border-blue-200 hover:bg-blue-50"
                                 >
-                                  Detalhes
-                                </Button>
-                              </td>
-                            </tr>
-
-                            {/* LINHA EXPANDIDA COM OS 3 BLOCOS OBRIGATÓRIOS DO CENTRO */}
-                            {isExpanded && (
-                              <tr className="bg-slate-50/90 border-b border-slate-200">
-                                <td colSpan={12} className="p-5 space-y-4">
-                                  {/* Resumo IA do Centro */}
-                                  <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-2xs space-y-2">
-                                    <div className="flex items-center gap-2 text-[#004C97] font-bold text-xs">
-                                      <Sparkles className="w-4 h-4 text-indigo-600" />
-                                      Resumo Operacional IA — Centro {center.centerName}
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
-                                      <div>
-                                        <span className="font-semibold text-slate-700">
-                                          Fatos da Fonte:{' '}
-                                        </span>
-                                        <p className="text-slate-600">
-                                          Material em conformação:{' '}
-                                          {center.materialDescription || 'Nenhum'} (OP{' '}
-                                          {center.productionOrder || 'N/A'}). Produção atual de{' '}
-                                          {center.realizedTons !== null
-                                            ? `${formatNumberPtBr(center.realizedTons)} t`
-                                            : 'N/D'}
-                                          .
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="font-semibold text-amber-700">
-                                          Alertas Calculados:{' '}
-                                        </span>
-                                        <p className="text-slate-600">
-                                          {center.activeStop
-                                            ? `Parada Ativa: ${center.activeStop.reason} (${center.activeStop.durationMinutes} min).`
-                                            : 'Operação dentro dos padrões sem paradas críticas ativas.'}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="font-semibold text-indigo-700">
-                                          Próxima Atenção:{' '}
-                                        </span>
-                                        <p className="text-slate-600">
-                                          {center.activeStop
-                                            ? `Acompanhar retorno previsto: ${center.activeStop.expectedReturnDatetime || 'Imediato'}.`
-                                            : 'Garantir alimentação de tarugos para o próximo produto.'}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Detalhamento de Produção e Paradas */}
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {/* Bloco 1: Produção Atual */}
-                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
-                                      <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
-                                        <span>Produção Atual & Material</span>
-                                        <Badge variant="outline" className="text-[10px]">
-                                          OP: {center.productionOrder || 'Sem OP'}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-xs space-y-1 text-slate-600">
-                                        <div>
-                                          <span className="font-semibold">Material:</span>{' '}
-                                          {center.materialDescription || 'N/D'}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Dimensão / Aço:</span>{' '}
-                                          {center.dimension} / {center.steelGrade}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Campanha:</span>{' '}
-                                          {center.campaign}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Início Real:</span>{' '}
-                                          {center.productionStartTime} |{' '}
-                                          <span className="font-semibold">Término Previsto:</span>{' '}
-                                          {center.productionForecastEndTime}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Bloco 2: Volumes e Taxas */}
-                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
-                                      <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
-                                        <span>Volumes & Cadência (t/h)</span>
-                                        <span className="text-[11px] font-semibold text-emerald-600">
-                                          {center.achievementPct !== null
-                                            ? `${formatNumberPtBr(center.achievementPct)} %`
-                                            : 'N/D'}
-                                        </span>
-                                      </div>
-                                      <div className="text-xs space-y-1 text-slate-600">
-                                        <div>
-                                          <span className="font-semibold">Programado:</span>{' '}
-                                          {center.programmedTons !== null
-                                            ? `${formatNumberPtBr(center.programmedTons)} t`
-                                            : 'N/D'}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Realizado:</span>{' '}
-                                          {center.realizedTons !== null
-                                            ? `${formatNumberPtBr(center.realizedTons)} t`
-                                            : 'N/D'}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Saldo:</span>{' '}
-                                          {center.balanceTons !== null
-                                            ? `${formatNumberPtBr(center.balanceTons)} t`
-                                            : 'N/D'}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Taxa Instantânea:</span>{' '}
-                                          {center.currentRatePerHour !== null
-                                            ? `${formatNumberPtBr(center.currentRatePerHour)} t/h`
-                                            : '0,00 t/h'}{' '}
-                                          (Meta:{' '}
-                                          {center.plannedRatePerHour !== null
-                                            ? `${formatNumberPtBr(center.plannedRatePerHour)} t/h`
-                                            : 'N/D'}
-                                          )
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Bloco 3: Paradas por Centro */}
-                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
-                                      <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
-                                        <span>Paradas do Turno</span>
-                                        <Badge
-                                          variant={center.activeStop ? 'destructive' : 'secondary'}
-                                          className="text-[10px]"
-                                        >
-                                          {center.activeStop ? 'Parada Ativa' : 'Normal'}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-xs space-y-1 text-slate-600">
-                                        <div>
-                                          <span className="font-semibold">
-                                            Ocorrências no Turno:
-                                          </span>{' '}
-                                          {center.stopsCountShift}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">
-                                            Tempo Parado no Turno:
-                                          </span>{' '}
-                                          {center.stoppedMinutesShift} min
-                                        </div>
-                                        {center.activeStop && (
-                                          <div className="pt-1 text-rose-700 font-semibold border-t">
-                                            {center.activeStop.categoryLabel}:{' '}
-                                            {center.activeStop.reason} (
-                                            {center.activeStop.durationMinutes} min)
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Botão de Ação do Centro */}
-                                  <div className="flex justify-end pt-1">
-                                    <Button
-                                      size="sm"
-                                      variant="default"
-                                      onClick={() => handleOpenCenterDrilldown(center)}
-                                      className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold gap-1.5"
-                                    >
-                                      <Activity className="w-3.5 h-3.5" />
-                                      Abrir Painel Completo do Centro
-                                    </Button>
-                                  </div>
+                                  {center?.oee?.value != null
+                                    ? `${formatNumberPtBr(center.oee.value)} %`
+                                    : 'N/D'}
+                                </td>
+                                <td
+                                  className="p-3 font-bold text-slate-800 hover:underline cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenCenterDrilldown(center)
+                                  }}
+                                >
+                                  {center?.utilization?.value != null
+                                    ? `${formatNumberPtBr(center.utilization.value)} %`
+                                    : 'N/D'}
+                                </td>
+                                <td
+                                  className="p-3 font-bold text-slate-800 hover:underline cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenCenterDrilldown(center)
+                                  }}
+                                >
+                                  {center?.metallicYield?.yieldPct != null
+                                    ? `${formatNumberPtBr(center.metallicYield.yieldPct)} %`
+                                    : 'N/D'}
+                                </td>
+                                <td className="p-3 text-[11px] text-slate-500">
+                                  {formatTime(center?.lastUpdated)}
+                                </td>
+                                <td className="p-3 text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleOpenCenterDrilldown(center)
+                                    }}
+                                    className="h-7 text-xs text-[#004C97] border-blue-200 hover:bg-blue-50"
+                                  >
+                                    Detalhes
+                                  </Button>
                                 </td>
                               </tr>
-                            )}
-                          </React.Fragment>
-                        )
-                      })}
-                  </tbody>
-                </table>
+
+                              {/* LINHA EXPANDIDA COM OS 3 BLOCOS OBRIGATÓRIOS DO CENTRO */}
+                              {isExpanded && (
+                                <tr className="bg-slate-50/90 border-b border-slate-200">
+                                  <td colSpan={12} className="p-5 space-y-4">
+                                    {/* Resumo IA do Centro */}
+                                    <ErrorBoundary
+                                      moduleName={`Resumo IA Centro ${center.centerName}`}
+                                      variant="compact"
+                                    >
+                                      <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-2xs space-y-2">
+                                        <div className="flex items-center gap-2 text-[#004C97] font-bold text-xs">
+                                          <Sparkles className="w-4 h-4 text-indigo-600" />
+                                          Resumo Operacional IA — Centro {center.centerName}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                                          <div>
+                                            <span className="font-semibold text-slate-700">
+                                              Fatos da Fonte:{' '}
+                                            </span>
+                                            <p className="text-slate-600">
+                                              Material em conformação:{' '}
+                                              {center.materialDescription || 'Nenhum'} (OP{' '}
+                                              {center.productionOrder || 'N/A'}). Produção atual de{' '}
+                                              {center.realizedTons != null
+                                                ? `${formatNumberPtBr(center.realizedTons)} t`
+                                                : 'N/D'}
+                                              .
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold text-amber-700">
+                                              Alertas Calculados:{' '}
+                                            </span>
+                                            <p className="text-slate-600">
+                                              {center.activeStop
+                                                ? `Parada Ativa: ${center.activeStop.reason} (${center.activeStop.durationMinutes} min).`
+                                                : 'Operação dentro dos padrões sem paradas críticas ativas.'}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold text-indigo-700">
+                                              Próxima Atenção:{' '}
+                                            </span>
+                                            <p className="text-slate-600">
+                                              {center.activeStop
+                                                ? `Acompanhar retorno previsto: ${center.activeStop.expectedReturnDatetime || 'Imediato'}.`
+                                                : 'Garantir alimentação de tarugos para o próximo produto.'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </ErrorBoundary>
+
+                                    {/* Detalhamento de Produção e Paradas */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      {/* Bloco 1: Produção Atual */}
+                                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
+                                        <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
+                                          <span>Produção Atual & Material</span>
+                                          <Badge variant="outline" className="text-[10px]">
+                                            OP: {center.productionOrder || 'Sem OP'}
+                                          </Badge>
+                                        </div>
+                                        <div className="text-xs space-y-1 text-slate-600">
+                                          <div>
+                                            <span className="font-semibold">Material:</span>{' '}
+                                            {center.materialDescription || 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Dimensão / Aço:</span>{' '}
+                                            {center.dimension || 'N/D'} /{' '}
+                                            {center.steelGrade || 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Campanha:</span>{' '}
+                                            {center.campaign || 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Início Real:</span>{' '}
+                                            {center.productionStartTime || '-'} |{' '}
+                                            <span className="font-semibold">Término Previsto:</span>{' '}
+                                            {center.productionForecastEndTime || '-'}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Bloco 2: Volumes e Taxas */}
+                                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
+                                        <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
+                                          <span>Volumes & Cadência (t/h)</span>
+                                          <span className="text-[11px] font-semibold text-emerald-600">
+                                            {center.achievementPct != null
+                                              ? `${formatNumberPtBr(center.achievementPct)} %`
+                                              : 'N/D'}
+                                          </span>
+                                        </div>
+                                        <div className="text-xs space-y-1 text-slate-600">
+                                          <div>
+                                            <span className="font-semibold">Programado:</span>{' '}
+                                            {center.programmedTons != null
+                                              ? `${formatNumberPtBr(center.programmedTons)} t`
+                                              : 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Realizado:</span>{' '}
+                                            {center.realizedTons != null
+                                              ? `${formatNumberPtBr(center.realizedTons)} t`
+                                              : 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Saldo:</span>{' '}
+                                            {center.balanceTons != null
+                                              ? `${formatNumberPtBr(center.balanceTons)} t`
+                                              : 'N/D'}
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold">Taxa Instantânea:</span>{' '}
+                                            {center.currentRatePerHour != null
+                                              ? `${formatNumberPtBr(center.currentRatePerHour)} t/h`
+                                              : '0,00 t/h'}{' '}
+                                            (Meta:{' '}
+                                            {center.plannedRatePerHour != null
+                                              ? `${formatNumberPtBr(center.plannedRatePerHour)} t/h`
+                                              : 'N/D'}
+                                            )
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Bloco 3: Paradas por Centro com ErrorBoundary local */}
+                                      <ErrorBoundary
+                                        moduleName={`Paradas Centro ${center.centerName}`}
+                                        variant="compact"
+                                      >
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
+                                          <div className="text-xs font-bold text-slate-800 border-b pb-1.5 flex items-center justify-between">
+                                            <span>Paradas do Turno</span>
+                                            <Badge
+                                              variant={
+                                                center.activeStop ? 'destructive' : 'secondary'
+                                              }
+                                              className="text-[10px]"
+                                            >
+                                              {center.activeStop ? 'Parada Ativa' : 'Normal'}
+                                            </Badge>
+                                          </div>
+                                          <div className="text-xs space-y-1 text-slate-600">
+                                            <div>
+                                              <span className="font-semibold">
+                                                Ocorrências no Turno:
+                                              </span>{' '}
+                                              {center.stopsCountShift ?? 0}
+                                            </div>
+                                            <div>
+                                              <span className="font-semibold">
+                                                Tempo Parado no Turno:
+                                              </span>{' '}
+                                              {center.stoppedMinutesShift ?? 0} min
+                                            </div>
+                                            {center.activeStop && (
+                                              <div className="pt-1 text-rose-700 font-semibold border-t">
+                                                {center.activeStop.categoryLabel}:{' '}
+                                                {center.activeStop.reason} (
+                                                {center.activeStop.durationMinutes} min)
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </ErrorBoundary>
+                                    </div>
+
+                                    {/* Botão de Ação do Centro */}
+                                    <div className="flex justify-end pt-1">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        onClick={() => handleOpenCenterDrilldown(center)}
+                                        className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold gap-1.5"
+                                      >
+                                        <Activity className="w-3.5 h-3.5" />
+                                        Abrir Painel Completo do Centro
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            </ErrorBoundary>
           </section>
         </>
       )}

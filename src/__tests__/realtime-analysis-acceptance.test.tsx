@@ -364,6 +364,148 @@ describe('Suíte de Aceitação: Análise Real Time — PCP Robotizado', () => {
     expect(summary.nextActionAdvice).toBeTruthy()
   })
 
+  it('5.1 PCP-6DACD360: PcpRealtimeAiService tolera lines com centers null/undefined e arrays vazios', () => {
+    // lines vazio
+    expect(() => {
+      const summaryEmpty = PcpRealtimeAiService.generateCompanySummary(
+        mockPayload.consolidatedCompany,
+        [],
+      )
+      expect(summaryEmpty.level).toBe('EMPRESA')
+    }).not.toThrow()
+
+    // lines com centers null ou ausente
+    expect(() => {
+      const summaryNullCenters = PcpRealtimeAiService.generateCompanySummary(
+        mockPayload.consolidatedCompany,
+        [
+          {
+            ...mockPayload.linesData[0],
+            centers: null as unknown as any[],
+            lastUpdated: undefined as unknown as string,
+          },
+        ],
+      )
+      expect(summaryNullCenters.level).toBe('EMPRESA')
+    }).not.toThrow()
+  })
+
+  it('5.2 PCP-6DACD360: renderização defensiva com lastUpdated nulo/undefined e métricas ausentes (N/D)', async () => {
+    const degradedData = {
+      consolidatedCompany: {
+        companyCode: 'CIAFAL',
+        companyName: 'Ciafal Homologação',
+        scopeLinesCount: 1,
+        totalCenters: 1,
+        centersOperating: 0,
+        centersStopped: 0,
+        centersInSetup: 0,
+        centersScheduledStop: 0,
+        centersWithoutSchedule: 1,
+        oeePct: null,
+        utilizationPct: null,
+        metallicYieldPct: null,
+        realizedProductionTons: null,
+        plannedProductionTons: null,
+        achievementPct: null,
+        currentProductionRatePerHour: null,
+        totalStoppedTimeSeconds: 0,
+      },
+      linesData: [
+        {
+          lineCode: 'L-DEG',
+          lineName: 'Linha Sem Dados',
+          plantName: 'Matriz',
+          companyName: 'Ciafal',
+          status: 'SEM_PROGRAMACAO',
+          scheduleSituation: 'SEM_PROGRAMACAO',
+          realizedTons: null,
+          plannedTons: null,
+          achievementPct: null,
+          oeePct: null,
+          utilizationPct: null,
+          currentRatePerHour: null,
+          currentProduct: null,
+          lastUpdated: undefined as unknown as string,
+          centers: [
+            {
+              centerCode: 'C-DEG',
+              centerName: 'Centro Sem Dados',
+              lineCode: 'L-DEG',
+              lineName: 'Linha Sem Dados',
+              status: 'SEM_PROGRAMACAO',
+              productionOrder: null,
+              materialDescription: null,
+              dimension: null,
+              steelGrade: null,
+              campaign: null,
+              productionStartTime: null,
+              productionForecastEndTime: null,
+              realizedTons: null,
+              programmedTons: null,
+              balanceTons: null,
+              achievementPct: null,
+              currentRatePerHour: null,
+              plannedRatePerHour: null,
+              oee: {
+                value: null,
+                target: 85,
+                difference: null,
+                timestamp: undefined as unknown as string,
+                origin: 'MES',
+              },
+              utilization: {
+                value: null,
+                target: 88,
+                difference: null,
+                timestamp: undefined as unknown as string,
+                origin: 'MES',
+              },
+              metallicYield: {
+                yieldPct: null,
+                targetPct: 97.44,
+                difference: null,
+                estimatedLossTons: null,
+              },
+              stopsCountShift: 0,
+              stoppedMinutesShift: 0,
+              activeStop: null,
+              lastUpdated: undefined as unknown as string,
+            },
+          ],
+        },
+      ],
+      systemStatus: {
+        online: true,
+        mesConnected: false,
+        sapConnected: false,
+        lastSync: '2025-01-01T00:00:00.000Z',
+      },
+    }
+
+    vi.spyOn(PcpRealtimeAnalysisService, 'fetchRealtimeData').mockResolvedValueOnce(
+      degradedData as any,
+    )
+
+    render(
+      <BrowserRouter>
+        <RealtimeAnalysisPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Linha Sem Dados')).toBeInTheDocument()
+    })
+
+    // Garante que não quebrou por lastUpdated undefined e exibiu fallback defensivo
+    const fallbackTimestamps = screen.getAllByText(/Atualizado às --:--:--/i)
+    expect(fallbackTimestamps.length).toBeGreaterThan(0)
+
+    // Métricas exibidas como N/D
+    const ndBadges = screen.getAllByText('N/D')
+    expect(ndBadges.length).toBeGreaterThan(0)
+  })
+
   it('6. Drill-down abre modal com 94% viewport desktop ao clicar em detalhes de centro', async () => {
     render(
       <BrowserRouter>

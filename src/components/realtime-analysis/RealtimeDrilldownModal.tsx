@@ -45,6 +45,31 @@ interface RealtimeDrilldownModalProps {
   metricKey?: 'oee' | 'utilization' | 'metallicYield' | 'production' | null
 }
 
+const formatModalTime = (isoString?: string | null, includeSeconds = true): string => {
+  if (!isoString) return includeSeconds ? '--:--:--' : '--:--'
+  try {
+    const d = new Date(isoString)
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('pt-BR', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        ...(includeSeconds ? { second: '2-digit' } : {}),
+      })
+    }
+    if (isoString.includes('T')) {
+      const part = isoString.split('T')[1]?.slice(0, includeSeconds ? 8 : 5)
+      if (part) return part
+    }
+    if (isoString.length >= (includeSeconds ? 19 : 16)) {
+      return isoString.slice(11, includeSeconds ? 19 : 16)
+    }
+  } catch {
+    // fallback
+  }
+  return includeSeconds ? '--:--:--' : '--:--'
+}
+
 export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
   open,
   onOpenChange,
@@ -320,7 +345,8 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 border-t pt-2">
-                    Origem: {center?.oee.origin} | Atualizado: {center?.oee.timestamp.slice(11, 19)}
+                    Origem: {center?.oee?.origin || 'N/D'} | Atualizado:{' '}
+                    {formatModalTime(center?.oee?.timestamp)}
                   </div>
                 </div>
 
@@ -354,8 +380,8 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 border-t pt-2">
-                    Origem: {center?.utilization.origin} | Atualizado:{' '}
-                    {center?.utilization.timestamp.slice(11, 19)}
+                    Origem: {center?.utilization?.origin || 'N/D'} | Atualizado:{' '}
+                    {formatModalTime(center?.utilization?.timestamp)}
                   </div>
                 </div>
 
@@ -432,7 +458,9 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                               {s.technicalCauseConfirmed || 'Em análise'}
                             </td>
                             <td className="p-3 text-slate-600">{s.equipment || '-'}</td>
-                            <td className="p-3 text-slate-600">{s.startDatetime.slice(11, 16)}</td>
+                            <td className="p-3 text-slate-600">
+                              {formatModalTime(s.startDatetime, false)}
+                            </td>
                             <td className="p-3 font-bold text-slate-900">
                               {s.durationMinutes} min
                             </td>
