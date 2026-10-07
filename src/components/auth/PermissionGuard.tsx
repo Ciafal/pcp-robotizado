@@ -68,6 +68,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     currentPathname === '/inventario-mp',
   )
 
+  // Rota canônica de Gestão Industrializador (/pcp/gestao-industrializador e sub-rotas)
+  const isGestaoIndustrializadorRoute = Boolean(
+    currentPathname === '/pcp/gestao-industrializador' ||
+    currentPathname.startsWith('/pcp/gestao-industrializador/') ||
+    currentPathname === '/gestao-industrializador' ||
+    currentPathname.startsWith('/gestao-industrializador/') ||
+    currentPathname === '/pcp-robotizado/gestao-industrializador' ||
+    currentPathname.startsWith('/pcp-robotizado/gestao-industrializador/') ||
+    currentPathname.includes('gestao-industrializador') ||
+    currentHash.includes('gestao-industrializador') ||
+    windowPath.includes('gestao-industrializador'),
+  )
+
   // Segregação estrita para rotas de Entregas PCP (NUNCA usar substring genérica 'entregas')
   const isEntregasRoute = Boolean(
     !isInventarioMpRoute &&
@@ -361,7 +374,15 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
           window.location.hash.includes('analise-real-time')))),
   )
 
-  if (isRealtimeAnalysisRoute) {
+  // Bypass resiliente para Gestão Industrializador (/pcp/gestao-industrializador e sub-rotas):
+  // Renderização imediata quando há sessão válida no authStore (Stale-While-Revalidate)
+  // mantendo validação de permissão/RBAC do usuário sem travar na inicialização assíncrona.
+  const isGestaoIndustrializadorResilientRoute = Boolean(
+    isGestaoIndustrializadorRoute &&
+    (hasValidAuthStore || Boolean(user) || isAdminUser || can(permission)),
+  )
+
+  if (isRealtimeAnalysisRoute || isGestaoIndustrializadorResilientRoute) {
     return <>{children}</>
   }
 
@@ -587,6 +608,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||
+      isGestaoIndustrializadorRoute ||
       isGestaoMpRoute ||
       isParadaRoute
     ) {
@@ -612,6 +634,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       permission === 'pcp.mp_opt.view' ||
       isDadosIbgeRoute ||
       isHierarquiaRoute ||
+      isGestaoIndustrializadorRoute ||
       isGestaoMpRoute ||
       isChecklistFechamentoRoute ||
       isParadaRoute ||
@@ -640,6 +663,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     isDadosIbgeRoute ||
     isParadaRoute ||
     isChecklistFechamentoRoute ||
+    isGestaoIndustrializadorRoute ||
     isCadastrosOrMasterDataEarly ||
     isCadastrosOrMasterData,
   )
@@ -756,7 +780,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
 
           {!hasPerm ? (
             <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-              O perfil ativo (
+              Você não possui permissão para acessar esta página. O perfil ativo (
               <span className="font-bold text-[#004C97] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                 {user?.role || 'Não identificado'}
               </span>
@@ -764,8 +788,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
             </p>
           ) : (
             <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-              Esta linha ou centro de trabalho não está dentro do seu escopo de autorização ativo no
-              HUB CIAFAL.
+              Você não possui permissão para acessar esta página. Esta linha ou centro de trabalho
+              não está dentro do seu escopo de autorização ativo no HUB CIAFAL.
             </p>
           )}
 
