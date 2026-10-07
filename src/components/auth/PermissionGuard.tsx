@@ -352,6 +352,19 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
 
   // BYPASS IMEDIATO:
+  const isRealtimeAnalysisRoute = Boolean(
+    permission === 'pcp.schedule.view' &&
+    (currentPathname.includes('analise-real-time') ||
+      currentPathname.startsWith('/pcp/analise-real-time') ||
+      (typeof window !== 'undefined' &&
+        (window.location.pathname.includes('analise-real-time') ||
+          window.location.hash.includes('analise-real-time')))),
+  )
+
+  if (isRealtimeAnalysisRoute) {
+    return <>{children}</>
+  }
+
   // 1) Rotas de Cadastros (/pcp/cadastros/*, /pcp/linhas/*), Ficha Mestra e Centros
   //    (pcp.masterdata.view / pcp.masterdata.edit / pcp.masterdata.admin / pcp.lines.view / pcp.rules.view),
   //    Cockpit/Principal (/pcp, /pcp/cockpit, /pcp/principal) e Controle de Produção (pcp.production.view):
@@ -569,6 +582,8 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
       currentPathname.startsWith('/pcp/entregas') ||
       currentPathname.startsWith('/pcp/programacao/parada') ||
       currentPathname.startsWith('/pcp/gestao-materia-prima') ||
+      currentPathname.startsWith('/pcp/analise-real-time') ||
+      currentPathname.includes('analise-real-time') ||
       currentPathname.includes('/hierarquia') ||
       currentPathname.includes('/ficha-mestre') ||
       currentPathname.startsWith('/pcp/analise-carteira') ||

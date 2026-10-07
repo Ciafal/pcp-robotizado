@@ -61,6 +61,7 @@ import {
   CheckSquare,
   Scale,
   ListChecks,
+  Radio,
 } from 'lucide-react'
 import { Can } from '@/components/auth/Can'
 import { ADSimulatorSwitcher } from '@/components/auth/ADSimulatorSwitcher'
@@ -741,6 +742,12 @@ export const officialNavGroups: NavGroup[] = [
         title: 'Torre de Controle',
         href: '/pcp/sequenciamento/torre-controle',
         icon: Activity,
+        permission: 'pcp.schedule.view',
+      },
+      {
+        title: 'Análise real time',
+        href: '/pcp/analise-real-time',
+        icon: Radio,
         permission: 'pcp.schedule.view',
       },
     ],
