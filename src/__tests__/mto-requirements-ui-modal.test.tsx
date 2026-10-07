@@ -133,4 +133,22 @@ describe('ConsultarRequisitosMTOModal Component Tests', () => {
     expect(tabReq1).toBeDefined()
     expect(tabReq2).toBeDefined()
   })
+
+  it('Verifica dimensionamento do modal (92-95% viewport, 90% altura, sem corte lateral)', async () => {
+    vi.spyOn(mtoService, 'getRequirementsByOrderAndItem').mockResolvedValue([mockReq1])
+
+    render(
+      <ConsultarRequisitosMTOModal
+        open={true}
+        onOpenChange={() => {}}
+        pedidoNumero="50000499"
+        itemPedido="10"
+      />,
+    )
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog.className).toContain('w-[94vw]')
+    expect(dialog.className).toContain('h-[90vh]')
+    expect(dialog.className).toContain('overflow-hidden')
+  })
 })

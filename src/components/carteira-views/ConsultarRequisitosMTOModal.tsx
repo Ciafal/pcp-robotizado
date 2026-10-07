@@ -150,7 +150,7 @@ export function ConsultarRequisitosMTOModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-[94vw] max-w-[95vw] h-[90vh] max-h-[90vh] p-0 flex flex-col bg-slate-50 overflow-hidden rounded-xl border border-slate-200 shadow-2xl focus:outline-hidden"
+        className="w-[94vw] max-w-[94vw] md:w-[92vw] md:max-w-[92vw] lg:w-[94vw] lg:max-w-[94vw] h-[90vh] max-h-[90vh] p-0 flex flex-col bg-slate-50 overflow-hidden rounded-xl border border-slate-200 shadow-2xl focus:outline-hidden"
         aria-describedby="dialog-mto-description"
       >
         {/* CABEÇALHO FIXO (SEÇÃO 1 e 4): título, qtd de requisitos, pedido, item, material */}
