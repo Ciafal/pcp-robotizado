@@ -184,6 +184,19 @@ export interface RealtimeCompanyConsolidated {
   totalGoodTons: number | null
 }
 
+export type RealtimePeriod = 'DIA' | 'ONTEM' | 'SEMANA' | 'MES' | 'ANO'
+
+export interface RealtimePeriodRange {
+  period: RealtimePeriod
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD
+  startDatetimeIso: string
+  endDatetimeIso: string
+  label: string
+  isCurrentPeriodInProgress: boolean
+  elapsedFractionOfPeriod: number // 0.0 a 1.0 (para cálculo de parcela de produção planejada transcorrida)
+}
+
 export interface RealtimeFilters {
   companyCode?: string
   lineCode?: string
@@ -191,6 +204,7 @@ export interface RealtimeFilters {
   date?: string
   shiftCode?: string
   operationalStatus?: string
+  period?: RealtimePeriod
 }
 
 export interface RealtimeDataPayload {
@@ -205,4 +219,5 @@ export interface RealtimeDataPayload {
   centers: { code: string; name: string; lineCode: string; companyCode: string }[]
   consolidatedCompany: RealtimeCompanyConsolidated
   linesData: RealtimeLineData[]
+  periodRange?: RealtimePeriodRange
 }

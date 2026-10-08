@@ -384,9 +384,10 @@ describe('Suíte de Rotas e Resiliência dos 20 Cenários — Análise Real Time
     await waitFor(() => {
       expect(screen.getByText('Análise Real Time — PCP')).toBeInTheDocument()
     })
-    // Indicadores continuam visíveis
-    expect(screen.getByText('Centros no Escopo')).toBeInTheDocument()
+    // Indicadores continuam visíveis (Centros no Escopo foi removido, OEE e Previsto x Realizado visíveis)
+    expect(screen.queryByText('Centros no Escopo')).not.toBeInTheDocument()
     expect(screen.getByText('OEE da Empresa')).toBeInTheDocument()
+    expect(screen.getByText('Previsto x Realizado')).toBeInTheDocument()
   })
 
   // 10. Cenário Perfil PCP_PROGRAMMER com bypass e renderização direta

@@ -33,6 +33,7 @@ import {
   ChevronDown,
   ChevronRight,
   Radio,
+  Calendar,
 } from 'lucide-react'
 
 // Funções defensivas utilitárias
@@ -91,6 +92,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
     centerCode: 'ALL',
     shiftCode: 'ALL',
     operationalStatus: 'ALL',
+    period: 'DIA',
   })
 
   const [data, setData] = useState<RealtimeDataPayload | null>(null)
@@ -166,10 +168,19 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
   const companyAiSummary = useMemo(() => {
     if (!data?.consolidatedCompany) return null
     try {
-      return PcpRealtimeAiService.generateCompanySummary(
+      const summary = PcpRealtimeAiService.generateCompanySummary(
         data.consolidatedCompany,
         safeArray<RealtimeLineData>(data.linesData),
       )
+      if (summary && data.periodRange) {
+        // Enriquecer com o contexto temporal selecionado
+        const periodLabel = data.periodRange.label
+        summary.factualPoints = [
+          `Período Analisado: ${periodLabel}.`,
+          ...safeArray<string>(summary.factualPoints),
+        ]
+      }
+      return summary
     } catch (err) {
       console.warn('Resumo IA da Empresa gerou aviso controlado:', err)
       return null
@@ -278,13 +289,29 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
         </div>
       </ErrorBoundary>
 
-      {/* 2. FILTROS DEPENDENTES NO TOPO */}
+      {/* 2. CABEÇALHO DE FILTROS EXISTENTES & PONDERAÇÃO POR TEMPO PRODUTIVO */}
       <ErrorBoundary moduleName="Filtros Análise Real Time" variant="compact">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-          <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Layers className="w-4 h-4 text-[#004C97]" />
-            Filtros Operacionais Dependentes
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-[#004C97]" />
+              Filtros Operacionais do HUB CIAFAL
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[11px] font-semibold bg-blue-50 text-[#004C97] border-blue-200"
+              >
+                Ponderação por Tempo Produtivo Ativa
+              </Badge>
+              {data?.periodRange && (
+                <span className="text-[11px] text-slate-500 font-mono">
+                  {data.periodRange.label}
+                </span>
+              )}
+            </div>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Empresa */}
             <div>
@@ -300,7 +327,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                   }))
                 }
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-slate-300 bg-white">
                   <SelectValue placeholder="Selecione Empresa" />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,7 +354,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                   }))
                 }
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-slate-300 bg-white">
                   <SelectValue placeholder="Todas as Linhas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -356,7 +383,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                 value={filters.centerCode || 'ALL'}
                 onValueChange={(val) => setFilters((prev) => ({ ...prev, centerCode: val }))}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-slate-300 bg-white">
                   <SelectValue placeholder="Todos os Centros" />
                 </SelectTrigger>
                 <SelectContent>
@@ -385,7 +412,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                 value={filters.shiftCode || 'ALL'}
                 onValueChange={(val) => setFilters((prev) => ({ ...prev, shiftCode: val }))}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-slate-300 bg-white">
                   <SelectValue placeholder="Todos os Turnos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -406,7 +433,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                 value={filters.operationalStatus || 'ALL'}
                 onValueChange={(val) => setFilters((prev) => ({ ...prev, operationalStatus: val }))}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-slate-300 bg-white">
                   <SelectValue placeholder="Todas as Situações" />
                 </SelectTrigger>
                 <SelectContent>
@@ -432,12 +459,63 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                     centerCode: 'ALL',
                     shiftCode: 'ALL',
                     operationalStatus: 'ALL',
+                    period: 'DIA',
                   })
                 }
-                className="w-full h-9 text-xs text-slate-600 hover:text-slate-900 border-slate-300"
+                className="w-full h-9 text-xs text-slate-700 hover:text-slate-900 border-slate-300 bg-slate-50 hover:bg-slate-100"
               >
                 Restaurar Padrão
               </Button>
+            </div>
+          </div>
+
+          {/* 3. NOVA BARRA HORIZONTAL DE SELEÇÃO DE PERÍODO: DIA | ONTEM | SEMANA | MÊS | ANO */}
+          <div
+            className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3"
+            data-testid="realtime-period-selector-bar"
+          >
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Calendar className="w-4 h-4 text-[#004C97]" />
+              <span>Período de Análise:</span>
+            </div>
+
+            <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+              {(
+                [
+                  { id: 'DIA', label: 'DIA' },
+                  { id: 'ONTEM', label: 'ONTEM' },
+                  { id: 'SEMANA', label: 'SEMANA' },
+                  { id: 'MES', label: 'MÊS' },
+                  { id: 'ANO', label: 'ANO' },
+                ] as const
+              ).map((p) => {
+                const isActive = (filters.period || 'DIA') === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        period: p.id,
+                      }))
+                    }
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      isActive
+                        ? 'bg-[#004C97] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    }`}
+                    data-testid={`period-filter-${p.id}`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="text-[11px] text-slate-500 font-medium hidden md:block">
+              Fuso:{' '}
+              <span className="font-mono text-slate-700 font-semibold">America/Sao_Paulo</span>
             </div>
           </div>
         </div>
@@ -486,12 +564,177 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                 Nível 1 — Visão Consolidada da Empresa:{' '}
                 {data.consolidatedCompany?.companyName || 'Empresa'}
               </h2>
-              <Badge variant="outline" className="text-xs text-slate-600">
+              <Badge variant="outline" className="text-xs text-slate-600 bg-white border-slate-300">
                 Ponderação por Tempo Produtivo
               </Badge>
             </div>
 
-            {/* Resumo Real Time IA Empresa (Fatos, Alertas e Interpretações) protegido por ErrorBoundary local */}
+            {/* ITEM 4: CARDS DOS INDICADORES INDUSTRIAIS (IMEDIATAMENTE ABAIXO DOS FILTROS) */}
+            <ErrorBoundary moduleName="Resumo Consolidado Empresa" variant="compact">
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5"
+                data-testid="realtime-kpi-cards-grid"
+              >
+                {/* Card 1 — OEE da Empresa */}
+                <Card className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px]">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span>OEE da Empresa</span>
+                      <span className="w-2 h-2 rounded-full bg-[#004C97]" />
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 mt-2">
+                      {safeFormatNumber(data.consolidatedCompany?.oeePct, '%')}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Meta: 85,00 %</span>
+                    <span
+                      className={`font-semibold ${
+                        (data.consolidatedCompany?.oeePct ?? 0) >= 85
+                          ? 'text-emerald-600'
+                          : 'text-amber-600'
+                      }`}
+                    >
+                      {data.consolidatedCompany?.oeePct != null
+                        ? `${(data.consolidatedCompany.oeePct - 85).toFixed(1)} pp`
+                        : 'N/D'}
+                    </span>
+                  </div>
+                </Card>
+
+                {/* Card 2 — Taxa de Utilização */}
+                <Card className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px]">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span>Taxa de Utilização</span>
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 mt-2">
+                      {safeFormatNumber(data.consolidatedCompany?.utilizationPct, '%')}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Meta: 88,00 %</span>
+                    <span
+                      className={`font-semibold ${
+                        (data.consolidatedCompany?.utilizationPct ?? 0) >= 88
+                          ? 'text-emerald-600'
+                          : 'text-amber-600'
+                      }`}
+                    >
+                      {data.consolidatedCompany?.utilizationPct != null
+                        ? `${(data.consolidatedCompany.utilizationPct - 88).toFixed(1)} pp`
+                        : 'N/D'}
+                    </span>
+                  </div>
+                </Card>
+
+                {/* Card 3 — Rendimento Metálico */}
+                <Card className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px]">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span>Rendimento Metálico</span>
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 mt-2">
+                      {safeFormatNumber(data.consolidatedCompany?.metallicYieldPct, '%')}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Meta nominal: 97,44 %</span>
+                    <span
+                      className={`font-semibold ${
+                        (data.consolidatedCompany?.metallicYieldPct ?? 0) >= 97.44
+                          ? 'text-emerald-600'
+                          : 'text-rose-600'
+                      }`}
+                    >
+                      {data.consolidatedCompany?.metallicYieldPct != null
+                        ? `${(data.consolidatedCompany.metallicYieldPct - 97.44).toFixed(1)} pp`
+                        : 'N/D'}
+                    </span>
+                  </div>
+                </Card>
+
+                {/* Card 4 — Produção (t) */}
+                <Card className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px]">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span>Produção (t)</span>
+                      <span className="w-2 h-2 rounded-full bg-cyan-600" />
+                    </div>
+                    <div className="text-xl font-black text-slate-900 mt-2">
+                      {safeFormatNumber(data.consolidatedCompany?.realizedProductionTons, 't')}
+                      <span className="text-xs font-normal text-slate-400">
+                        {' '}
+                        / {safeFormatNumber(data.consolidatedCompany?.plannedProductionTons, 't')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Programação</span>
+                    <span className="font-semibold text-emerald-600">
+                      {safeFormatNumber(data.consolidatedCompany?.achievementPct, '%')}
+                    </span>
+                  </div>
+                </Card>
+
+                {/* Card 5 (Substituído conforme item 3.3) — Previsto x Realizado */}
+                <Card
+                  className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px]"
+                  data-testid="card-previsto-x-realizado"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span>Previsto x Realizado</span>
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          (data.consolidatedCompany?.achievementPct ?? 0) >= 100
+                            ? 'bg-emerald-500'
+                            : (data.consolidatedCompany?.achievementPct ?? 0) >= 80
+                              ? 'bg-blue-600'
+                              : 'bg-amber-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="text-2xl font-black text-slate-900 mt-2 flex items-baseline gap-1.5">
+                      <span>{safeFormatNumber(data.consolidatedCompany?.achievementPct, '%')}</span>
+                      {data.consolidatedCompany?.achievementPct != null &&
+                        data.consolidatedCompany.achievementPct > 100 && (
+                          <span className="text-[11px] font-bold text-emerald-600 uppercase">
+                            Superado
+                          </span>
+                        )}
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Previsto / Real:</span>
+                      <span className="font-medium text-slate-700">
+                        {safeFormatNumber(data.consolidatedCompany?.plannedProductionTons, 't')} /{' '}
+                        {safeFormatNumber(data.consolidatedCompany?.realizedProductionTons, 't')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Desvio:</span>
+                      <span
+                        className={`font-semibold ${
+                          (data.consolidatedCompany?.deviationTons ?? 0) >= 0
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}
+                      >
+                        {data.consolidatedCompany?.deviationTons != null
+                          ? `${data.consolidatedCompany.deviationTons > 0 ? '+' : ''}${formatNumberPtBr(data.consolidatedCompany.deviationTons)} t`
+                          : 'N/D'}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </ErrorBoundary>
+
+            {/* ITEM 5: PAINEL "Resumo Real Time — Empresa (IA Orientativa PCP)" (REPOSICIONADO ABAIXO DOS INDICADORES) */}
             <ErrorBoundary
               moduleName="Resumo IA Empresa"
               variant="compact"
@@ -503,59 +746,75 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
               }
             >
               {companyAiSummary ? (
-                <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white border border-blue-200 rounded-2xl p-5 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
+                <div
+                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3"
+                  data-testid="realtime-ai-summary-panel"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2 text-[#004C97] font-bold text-sm">
-                      <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
+                      <Sparkles className="w-4 h-4 text-[#004C97] animate-pulse" />
                       Resumo Real Time — Empresa (IA Orientativa PCP)
                     </div>
-                    <Badge variant="outline" className="bg-white text-[11px] text-slate-600">
-                      Base Real • Sem Alucinações
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {data.periodRange && (
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-[11px] text-slate-700 font-semibold border-slate-200"
+                        >
+                          Período: {data.periodRange.label}
+                        </Badge>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className="bg-white text-[11px] text-slate-600 border-slate-300"
+                      >
+                        Base Real • Sem Alucinações
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Fatos Medidos no
                         Escopo
                       </div>
-                      <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
+                      <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4 leading-relaxed">
                         {safeArray<string>(companyAiSummary.factualPoints).map((pt, i) => (
                           <li key={i}>{pt}</li>
                         ))}
                       </ul>
                     </div>
 
-                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Alertas & Desvios
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Alertas & Desvios
                       </div>
                       {safeArray<string>(companyAiSummary.calculatedAlerts).length > 0 ? (
-                        <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
+                        <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4 leading-relaxed">
                           {safeArray<string>(companyAiSummary.calculatedAlerts).map((al, i) => (
                             <li key={i}>{al}</li>
                           ))}
                         </ul>
                       ) : (
                         <p className="text-xs text-slate-500 italic">
-                          Nenhum desvio crítico registrado.
+                          Nenhum desvio crítico registrado no período.
                         </p>
                       )}
                     </div>
 
-                    <div className="bg-white/95 border border-slate-200/90 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 3 Maiores Pontos de
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-[#004C97] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#004C97]" /> 3 Maiores Pontos de
                         Atenção
                       </div>
-                      <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4 leading-relaxed">
+                      <ul className="text-xs text-slate-700 space-y-1.5 list-disc pl-4 leading-relaxed">
                         {safeArray<string>(companyAiSummary.aiInterpretations).map((it, i) => (
                           <li key={i}>{it}</li>
                         ))}
                       </ul>
-                      <div className="pt-2 border-t border-slate-100">
-                        <span className="text-[11px] font-bold text-indigo-900">
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="text-[11px] font-bold text-[#004C97]">
                           Próxima Atenção:{' '}
                         </span>
                         <span className="text-xs text-slate-700">
@@ -566,131 +825,6 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                   </div>
                 </div>
               ) : null}
-            </ErrorBoundary>
-
-            {/* Grid dos Cards Obrigatórios da Empresa protegido por ErrorBoundary local */}
-            <ErrorBoundary moduleName="Resumo Consolidado Empresa" variant="compact">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {/* Centros no Escopo */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      Centros no Escopo
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-2xl font-black text-slate-900">
-                      {data.consolidatedCompany?.totalCenters ?? 0}
-                    </div>
-                    <div className="text-[10px] text-slate-600 flex flex-wrap gap-1 leading-tight">
-                      <span className="text-emerald-700 font-bold">
-                        {data.consolidatedCompany?.centersOperating ?? 0} op
-                      </span>{' '}
-                      •{' '}
-                      <span className="text-rose-700 font-bold">
-                        {data.consolidatedCompany?.centersStopped ?? 0} par
-                      </span>{' '}
-                      •{' '}
-                      <span className="text-amber-700 font-bold">
-                        {data.consolidatedCompany?.centersInSetup ?? 0} set
-                      </span>{' '}
-                      •{' '}
-                      <span className="text-blue-700 font-bold">
-                        {data.consolidatedCompany?.centersScheduledStop ?? 0} prog
-                      </span>{' '}
-                      •{' '}
-                      <span className="text-slate-500 font-bold">
-                        {data.consolidatedCompany?.centersWithoutSchedule ?? 0} s/prg
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* OEE da Empresa */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      OEE da Empresa
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-2xl font-black text-slate-900">
-                      {safeFormatNumber(data.consolidatedCompany?.oeePct, '%')}
-                    </div>
-                    <div className="text-[11px] text-slate-500">Meta corporativa: 85,00 %</div>
-                  </CardContent>
-                </Card>
-
-                {/* Taxa de Utilização */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      Taxa de Utilização
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-2xl font-black text-slate-900">
-                      {safeFormatNumber(data.consolidatedCompany?.utilizationPct, '%')}
-                    </div>
-                    <div className="text-[11px] text-slate-500">Meta corporativa: 88,00 %</div>
-                  </CardContent>
-                </Card>
-
-                {/* Rendimento Metálico */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      Rendimento Metálico
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-2xl font-black text-slate-900">
-                      {safeFormatNumber(data.consolidatedCompany?.metallicYieldPct, '%')}
-                    </div>
-                    <div className="text-[11px] text-slate-500">Meta nominal: 97,44 %</div>
-                  </CardContent>
-                </Card>
-
-                {/* Produção Realizada x Prevista */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      Produção (t)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-lg font-black text-slate-900">
-                      {safeFormatNumber(data.consolidatedCompany?.realizedProductionTons, 't')}{' '}
-                      <span className="text-xs font-normal text-slate-400">
-                        / {safeFormatNumber(data.consolidatedCompany?.plannedProductionTons, 't')}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-semibold text-emerald-600">
-                      Atingimento: {safeFormatNumber(data.consolidatedCompany?.achievementPct, '%')}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Taxa Atual e Tempo Parado */}
-                <Card className="shadow-2xs">
-                  <CardHeader className="p-3.5 pb-1">
-                    <CardTitle className="text-xs text-slate-500 font-medium">
-                      Taxa Atual / Parada
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3.5 pt-0 space-y-1">
-                    <div className="text-xl font-black text-slate-900">
-                      {data.consolidatedCompany?.currentProductionRatePerHour != null
-                        ? `${formatNumberPtBr(data.consolidatedCompany.currentProductionRatePerHour)} t/h`
-                        : '0,00 t/h'}
-                    </div>
-                    <div className="text-[11px] text-rose-600 font-semibold">
-                      Parada total:{' '}
-                      {safeFormatSecondsToHms(data.consolidatedCompany?.totalStoppedTimeSeconds)}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             </ErrorBoundary>
           </section>
 

@@ -325,10 +325,14 @@ describe('Suíte de Aceitação: Análise Real Time — PCP Robotizado', () => {
       expect(screen.getByTestId('realtime-level-1-company')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Centros no Escopo')).toBeInTheDocument()
+    // Card "Centros no Escopo" foi removido conforme requisito 3.1
+    expect(screen.queryByText('Centros no Escopo')).not.toBeInTheDocument()
+    // 4 cards mantidos + Previsto x Realizado
     expect(screen.getByText('OEE da Empresa')).toBeInTheDocument()
     expect(screen.getByText('Taxa de Utilização')).toBeInTheDocument()
     expect(screen.getByText('Rendimento Metálico')).toBeInTheDocument()
+    expect(screen.getByText('Produção (t)')).toBeInTheDocument()
+    expect(screen.getByText('Previsto x Realizado')).toBeInTheDocument()
 
     // Valida formatação de vírgula decimal pt-BR
     expect(screen.getByText('86,50 %')).toBeInTheDocument()

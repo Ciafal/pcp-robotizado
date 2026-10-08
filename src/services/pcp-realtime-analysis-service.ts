@@ -1,6 +1,8 @@
 import { pb } from '@/lib/pocketbase/client'
 import {
   RealtimeFilters,
+  RealtimePeriod,
+  RealtimePeriodRange,
   RealtimeDataPayload,
   RealtimeCompanyConsolidated,
   RealtimeLineData,
@@ -11,10 +13,131 @@ import {
   RealtimeStopEvent,
   RealtimeTimelineEvent,
 } from '@/types/pcp-realtime-analysis'
+import { getPlantNow } from '@/lib/temporal-utils'
 
 const DEFAULT_STALE_MINUTES = 15
 
 export class PcpRealtimeAnalysisService {
+  /**
+   * Constrói o range temporal no fuso America/Sao_Paulo (UTC-3)
+   */
+  public static calculatePeriodRange(period: RealtimePeriod = 'DIA'): RealtimePeriodRange {
+    const now = getPlantNow()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const formatYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+    let startDate: string
+    let endDate: string
+    let label: string
+    let isCurrentPeriodInProgress = false
+    let elapsedFractionOfPeriod = 1.0
+
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-based
+    const currentDay = now.getDate()
+    const currentHour = now.getHours()
+    const currentMin = now.getMinutes()
+
+    switch (period) {
+      case 'DIA': {
+        const todayStr = formatYmd(now)
+        startDate = todayStr
+        endDate = todayStr
+        label = `Hoje (${pad(currentDay)}/${pad(currentMonth + 1)}/${currentYear})`
+        isCurrentPeriodInProgress = true
+        // Fração do dia decorrida de 00:00 até agora (minutos decorridos / 1440)
+        const minutesElapsed = currentHour * 60 + currentMin
+        elapsedFractionOfPeriod = Math.max(0.04, Math.min(1.0, minutesElapsed / 1440))
+        break
+      }
+      case 'ONTEM': {
+        const yesterday = new Date(now)
+        yesterday.setDate(now.getDate() - 1)
+        const yesterdayStr = formatYmd(yesterday)
+        startDate = yesterdayStr
+        endDate = yesterdayStr
+        label = `Ontem (${pad(yesterday.getDate())}/${pad(yesterday.getMonth() + 1)}/${yesterday.getFullYear()})`
+        isCurrentPeriodInProgress = false
+        elapsedFractionOfPeriod = 1.0
+        break
+      }
+      case 'SEMANA': {
+        // Segunda-feira (1) até Domingo (7)
+        const dayOfWeek = now.getDay() // 0 (Dom) a 6 (Sáb)
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + diffToMonday)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+
+        startDate = formatYmd(monday)
+        endDate = formatYmd(sunday)
+        label = `Semana Atual (${pad(monday.getDate())}/${pad(monday.getMonth() + 1)} a ${pad(sunday.getDate())}/${pad(sunday.getMonth() + 1)})`
+        isCurrentPeriodInProgress = true
+
+        // Fração da semana decorrida de Segunda 00h00 até agora (minutos decorridos / (7 * 1440))
+        const daysPassed = (dayOfWeek === 0 ? 7 : dayOfWeek) - 1
+        const weekMinutesElapsed = daysPassed * 1440 + currentHour * 60 + currentMin
+        elapsedFractionOfPeriod = Math.max(0.02, Math.min(1.0, weekMinutesElapsed / (7 * 1440)))
+        break
+      }
+      case 'MES': {
+        const firstDay = new Date(currentYear, currentMonth, 1)
+        const lastDay = new Date(currentYear, currentMonth + 1, 0)
+
+        startDate = formatYmd(firstDay)
+        endDate = formatYmd(lastDay)
+        label = `Mês Atual (${pad(currentMonth + 1)}/${currentYear})`
+        isCurrentPeriodInProgress = true
+
+        const totalDaysInMonth = lastDay.getDate()
+        const monthMinutesElapsed = (currentDay - 1) * 1440 + currentHour * 60 + currentMin
+        elapsedFractionOfPeriod = Math.max(
+          0.01,
+          Math.min(1.0, monthMinutesElapsed / (totalDaysInMonth * 1440)),
+        )
+        break
+      }
+      case 'ANO': {
+        const firstDay = new Date(currentYear, 0, 1)
+        const lastDay = new Date(currentYear, 11, 31)
+
+        startDate = formatYmd(firstDay)
+        endDate = formatYmd(lastDay)
+        label = `Ano Vigente (${currentYear})`
+        isCurrentPeriodInProgress = true
+
+        const isLeapYear =
+          (currentYear % 4 === 0 && currentYear % 100 !== 0) || currentYear % 400 === 0
+        const totalDaysInYear = isLeapYear ? 366 : 365
+        const dayOfYear = Math.floor(
+          (now.getTime() - new Date(currentYear, 0, 1).getTime()) / (1000 * 60 * 60 * 24),
+        )
+        elapsedFractionOfPeriod = Math.max(0.005, Math.min(1.0, (dayOfYear + 1) / totalDaysInYear))
+        break
+      }
+      default: {
+        const todayStr = formatYmd(now)
+        startDate = todayStr
+        endDate = todayStr
+        label = 'Período Atual'
+        isCurrentPeriodInProgress = true
+        elapsedFractionOfPeriod = 1.0
+        break
+      }
+    }
+
+    return {
+      period,
+      startDate,
+      endDate,
+      startDatetimeIso: `${startDate}T00:00:00.000Z`,
+      endDatetimeIso: `${endDate}T23:59:59.999Z`,
+      label,
+      isCurrentPeriodInProgress,
+      elapsedFractionOfPeriod,
+    }
+  }
   /**
    * Consulta os dados reais estruturados do HUB CIAFAL (empresas, linhas, montagem semanal, apontamentos MES, paradas MES)
    * Sem inventar números: valores ausentes retornam null ou N/D com integridade de rastreabilidade.
@@ -187,7 +310,12 @@ export class PcpRealtimeAnalysisService {
       }
     })
 
-    // 4. Aplicação dos filtros dependentes de Empresa, Linha e Centro
+    // 4. Período Temporal & Intervalo de Datas
+    const activePeriod: RealtimePeriod = filters.period || 'DIA'
+    const periodRange = this.calculatePeriodRange(activePeriod)
+    const { startDate, endDate, elapsedFractionOfPeriod, isCurrentPeriodInProgress } = periodRange
+
+    // 5. Aplicação dos filtros dependentes de Empresa, Linha e Centro
     const selectedCompanyCode =
       filters.companyCode && filters.companyCode !== 'ALL' ? filters.companyCode : 'CIAFAL'
     const targetLines = availableLines.filter((l) => {
@@ -197,8 +325,17 @@ export class PcpRealtimeAnalysisService {
       return true
     })
 
-    // 5. Constrói Centros e Linhas
+    // 6. Constrói Centros e Linhas
     const linesData: RealtimeLineData[] = []
+
+    // Helper para verificar se uma data YYYY-MM-DD ou ISO está dentro do intervalo [startDate, endDate]
+    const isDateWithinRange = (dateCandidate?: string | null): boolean => {
+      if (!dateCandidate) return false
+      const ymd = dateCandidate.includes('T')
+        ? dateCandidate.split('T')[0]
+        : dateCandidate.slice(0, 10)
+      return ymd >= startDate && ymd <= endDate
+    }
 
     for (const targetLine of targetLines) {
       const rawLine = linesList.find((l) => l.code === targetLine.code) || {}
@@ -213,15 +350,33 @@ export class PcpRealtimeAnalysisService {
         continue
       }
 
-      // Filtra apontamentos, paradas, ordens e programação deste centro/linha
-      const centerPostings = postingsList.filter(
-        (p) =>
-          (p.linha_code === targetLine.code ||
-            p.centro_code === centerCode ||
-            p.work_center === centerCode) &&
-          (!filters.date || p.posting_date === filters.date) &&
-          (!filters.shiftCode || filters.shiftCode === 'ALL' || p.shift_code === filters.shiftCode),
-      )
+      // Filtra apontamentos MES respeitando centro/linha, período selecionado (startDate..endDate), data manual e turno
+      const centerPostings = postingsList.filter((p) => {
+        const matchesCenter =
+          p.linha_code === targetLine.code ||
+          p.centro_code === centerCode ||
+          p.work_center === centerCode
+        if (!matchesCenter) return false
+
+        // Se o usuário passou data específica via filtro, prevalece; senão checa se cai no período selecionado
+        if (filters.date) {
+          if (p.posting_date !== filters.date) return false
+        } else {
+          // Checa data do apontamento
+          const postDate = p.posting_date || (p.created ? p.created.slice(0, 10) : null)
+          if (!isDateWithinRange(postDate)) return false
+        }
+
+        if (
+          filters.shiftCode &&
+          filters.shiftCode !== 'ALL' &&
+          p.shift_code !== filters.shiftCode
+        ) {
+          return false
+        }
+
+        return true
+      })
 
       const centerStops = stopsList.filter(
         (s) => s.linha_code === targetLine.code || s.centro_code === centerCode,
@@ -234,7 +389,25 @@ export class PcpRealtimeAnalysisService {
           o.work_center === centerCode,
       )
 
-      const centerSchedules = weeklySchedules.filter((ws) => ws.line_code === targetLine.code)
+      // Programações vigentes do PCP para esta linha
+      // Respeita filtro por período selecionado quando aplicável
+      const centerSchedules = weeklySchedules.filter((ws) => {
+        if (ws.line_code !== targetLine.code) return false
+        // Se a programação tiver datas de início/fim, valida se intercepta o período
+        const schedStart =
+          ws.start_date || ws.planned_start_date || (ws.created ? ws.created.slice(0, 10) : null)
+        const schedEnd = ws.end_date || ws.planned_end_date || schedStart
+        if (schedStart && schedEnd) {
+          // Intercepta se schedStart <= endDate && schedEnd >= startDate
+          const s1 = schedStart.slice(0, 10)
+          const s2 = schedEnd.slice(0, 10)
+          if (s1 > endDate || s2 < startDate) {
+            // Não intercepta no período
+            return false
+          }
+        }
+        return true
+      })
 
       // Identifica dados de produção atual
       const activeOrder =
@@ -284,7 +457,7 @@ export class PcpRealtimeAnalysisService {
         }
       }
 
-      // Cálculos de Volume (t)
+      // Cálculos de Volume (t) e Previsto x Realizado Unificado
       let realizedTons: number | null = null
       let programmedTons: number | null = null
 
@@ -299,20 +472,48 @@ export class PcpRealtimeAnalysisService {
         )
       }
 
-      if (primarySchedule && primarySchedule.planned_quantity_tons) {
-        programmedTons = Number(primarySchedule.planned_quantity_tons)
-      } else if (activeOrder && activeOrder.quantity_planned_tons) {
-        programmedTons = Number(activeOrder.quantity_planned_tons)
+      // Soma a programação de todo o período para este centro/linha
+      if (centerSchedules.length > 0) {
+        const totalSched = centerSchedules.reduce(
+          (sum, ws) => sum + Number(ws.planned_quantity_tons || 0),
+          0,
+        )
+        if (totalSched > 0) {
+          programmedTons = totalSched
+        }
+      }
+      if (programmedTons === null) {
+        if (primarySchedule && primarySchedule.planned_quantity_tons) {
+          programmedTons = Number(primarySchedule.planned_quantity_tons)
+        } else if (activeOrder && activeOrder.quantity_planned_tons) {
+          programmedTons = Number(activeOrder.quantity_planned_tons)
+        }
+      }
+
+      // Regra 8 de cálculo de Previsto x Realizado:
+      // Para períodos em andamento (ex: DIA, SEMANA, MES, ANO em curso), comparar a produção realizada
+      // com a PARCELA da produção planejada correspondente ao intervalo já transcorrido,
+      // evitando comparar produção parcial do dia com a meta diária inteira sem ponderação.
+      let plannedTonsProrated = programmedTons
+      if (
+        isCurrentPeriodInProgress &&
+        programmedTons !== null &&
+        programmedTons > 0 &&
+        elapsedFractionOfPeriod < 1.0
+      ) {
+        plannedTonsProrated = Number((programmedTons * elapsedFractionOfPeriod).toFixed(2))
       }
 
       const balanceTons =
-        programmedTons !== null && realizedTons !== null
-          ? Number((programmedTons - realizedTons).toFixed(2))
+        plannedTonsProrated !== null && realizedTons !== null
+          ? Number((realizedTons - plannedTonsProrated).toFixed(2))
           : null
 
+      // Previsto x Realizado (%) = (Produção Realizada / Produção Planejada) * 100
+      // Permite valores acima de 100% e retorna null se planejada for zero/nula
       const achievementPct =
-        programmedTons !== null && realizedTons !== null && programmedTons > 0
-          ? Number(((realizedTons / programmedTons) * 100).toFixed(2))
+        plannedTonsProrated !== null && realizedTons !== null && plannedTonsProrated > 0
+          ? Number(((realizedTons / plannedTonsProrated) * 100).toFixed(2))
           : null
 
       // Taxas t/h
@@ -674,12 +875,27 @@ export class PcpRealtimeAnalysisService {
       utilWeightCount > 0 ? Number((utilWeightedSum / utilWeightCount).toFixed(2)) : null
     const companyYieldPct =
       totalInputSum > 0 ? Number(((totalGoodSum / totalInputSum) * 100).toFixed(2)) : null
+    // Aplicação da regra de Previsto x Realizado Consolidado da Empresa:
+    // Se o período está em andamento, compara a produção realizada com a parcela da produção planejada
+    // correspondente ao intervalo transcorrido, conforme a regra 8 obrigatória.
+    let companyPlannedProrated = totalPlannedTons
+    if (
+      isCurrentPeriodInProgress &&
+      hasPlanned &&
+      totalPlannedTons > 0 &&
+      elapsedFractionOfPeriod < 1.0
+    ) {
+      companyPlannedProrated = Number((totalPlannedTons * elapsedFractionOfPeriod).toFixed(2))
+    }
+
     const companyAchievementPct =
-      hasPlanned && hasRealized && totalPlannedTons > 0
-        ? Number(((totalRealizedTons / totalPlannedTons) * 100).toFixed(2))
+      hasPlanned && hasRealized && companyPlannedProrated > 0
+        ? Number(((totalRealizedTons / companyPlannedProrated) * 100).toFixed(2))
         : null
     const companyDeviationTons =
-      hasPlanned && hasRealized ? Number((totalRealizedTons - totalPlannedTons).toFixed(2)) : null
+      hasPlanned && hasRealized
+        ? Number((totalRealizedTons - companyPlannedProrated).toFixed(2))
+        : null
 
     const consolidatedCompany: RealtimeCompanyConsolidated = {
       companyCode: selectedCompanyCode,
@@ -693,7 +909,7 @@ export class PcpRealtimeAnalysisService {
       oeePct: companyOeePct,
       utilizationPct: companyUtilPct,
       metallicYieldPct: companyYieldPct,
-      plannedProductionTons: hasPlanned ? Number(totalPlannedTons.toFixed(2)) : null,
+      plannedProductionTons: hasPlanned ? Number(companyPlannedProrated.toFixed(2)) : null,
       realizedProductionTons: hasRealized ? Number(totalRealizedTons.toFixed(2)) : null,
       achievementPct: companyAchievementPct,
       deviationTons: companyDeviationTons,
@@ -724,6 +940,7 @@ export class PcpRealtimeAnalysisService {
       centers: availableCenters,
       consolidatedCompany,
       linesData,
+      periodRange,
     }
   }
 
