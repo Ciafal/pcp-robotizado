@@ -182,6 +182,47 @@ export interface RealtimeCompanyConsolidated {
   totalStoppedTimeSeconds: number // para HH:mm:ss
   totalInputTons: number | null
   totalGoodTons: number | null
+
+  // Indicador "Produtividade t/h" consolidada da empresa
+  productivityConsolidated?: RealtimeProductivityConsolidated | null
+}
+
+export interface RealtimeProductivityConsolidated {
+  plannedProductivityTh: number | null // Média ponderada Σ(produtividade prevista × peso) / Σ(pesos)
+  realizedProductivityTh: number | null // Produção real realizada (t) ÷ tempo produtivo real (h)
+  deviationTh: number | null // Realizada - Prevista (t/h)
+  deviationPct: number | null // (Realizada / Prevista * 100) - 100
+  achievementPct: number | null // (Realizada / Prevista) * 100
+  totalRealizedTons: number // Total de t produzidas
+  totalPlannedTons: number // Total de t planejadas (pesos)
+  totalProductiveHours: number // Tempo produtivo real (h)
+  totalStoppedHours: number // Total de horas paradas (h)
+  ordersCount: number // Quantidade de ordens analisadas
+}
+
+export type OrderProductivityStatus = 'DENTRO_PREVISTO' | 'ABAIXO_PREVISTO' | 'ACIMA_PREVISTO'
+
+export interface RealtimeOrderProductivityItem {
+  opNumber: string // Ordem de Produção
+  centerCode: string // Centro
+  lineCode: string // Linha
+  centerName?: string
+  lineName?: string
+  materialCode: string // Código do Material
+  materialDescription: string // Descrição
+  bitola: string // Bitola
+  steelGrade: string // Aço / Família / Produto
+  plannedQuantityTons: number // Quantidade planejada (t)
+  realizedQuantityTons: number // Quantidade realizada (t)
+  plannedProductivityTh: number | null // Produtividade prevista (t/h)
+  realizedProductivityTh: number | null // Produtividade realizada (t/h)
+  deviationTh: number | null // Desvio (t/h)
+  deviationPct: number | null // Desvio (%)
+  productiveHours: number // Tempo produtivo real (h)
+  stoppedHours: number // Tempo de parada (h)
+  mainStopReason: string // Principal motivo de parada
+  status: OrderProductivityStatus // dentro / abaixo / acima do previsto
+  ruleOrigin?: string // Regra técnica aplicada (Ficha Mestra, line_productivity_rates, etc.)
 }
 
 export type RealtimePeriod = 'DIA' | 'ONTEM' | 'SEMANA' | 'MES' | 'ANO'
@@ -220,4 +261,5 @@ export interface RealtimeDataPayload {
   consolidatedCompany: RealtimeCompanyConsolidated
   linesData: RealtimeLineData[]
   periodRange?: RealtimePeriodRange
+  orderProductivityList?: RealtimeOrderProductivityItem[]
 }
