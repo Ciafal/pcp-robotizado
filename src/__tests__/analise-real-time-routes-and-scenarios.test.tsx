@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MemoryRouter, Routes, Route, Link } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import { AnaliseRealTimeSafePage } from '@/pages/AnaliseRealTimeSafePage'
 import { PcpRealtimeAnalysisService } from '@/services/pcp-realtime-analysis-service'
 import { PcpRealtimeAiService } from '@/services/pcp-realtime-ai-service'
@@ -444,5 +444,116 @@ describe('Suíte de Rotas e Resiliência dos 20 Cenários — Análise Real Time
     })
     expect(screen.queryByText('NaN')).not.toBeInTheDocument()
     expect(screen.queryByText('Infinity')).not.toBeInTheDocument()
+  })
+
+  // 13. Resolução da rota canônica /pcp/analise-real-time e não 404
+  it('Cenário 13: Rota canônica /pcp/analise-real-time resolve para a página e NÃO cai no 404 do HUB', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/analise-real-time']}>
+        <Routes>
+          <Route
+            path="/pcp/analise-real-time"
+            element={
+              <PermissionGuard permission="pcp.schedule.view">
+                <AnaliseRealTimeSafePage />
+              </PermissionGuard>
+            }
+          />
+          <Route path="*" element={<div>Módulo ou Recurso não localizado no HUB CIAFAL</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Análise Real Time — PCP')).toBeInTheDocument()
+    })
+    expect(
+      screen.queryByText('Módulo ou Recurso não localizado no HUB CIAFAL'),
+    ).not.toBeInTheDocument()
+  })
+
+  // 14. URL PCP inexistente deve cair no fallback 404
+  it('Cenário 14: URL PCP inexistente cai corretamente no fallback 404 do HUB', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pcp/rota-inexistente-xyz']}>
+        <Routes>
+          <Route path="/pcp/cockpit" element={<div>Cockpit Principal</div>} />
+          <Route
+            path="/pcp/analise-real-time"
+            element={
+              <PermissionGuard permission="pcp.schedule.view">
+                <AnaliseRealTimeSafePage />
+              </PermissionGuard>
+            }
+          />
+          <Route path="*" element={<div>Módulo ou Recurso não localizado no HUB CIAFAL</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Módulo ou Recurso não localizado no HUB CIAFAL')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Análise Real Time — PCP')).not.toBeInTheDocument()
+  })
+
+  // 15. Compatibilidade de redirects legados (/analise-real-time e /pcp-robotizado/analise-real-time)
+  it('Cenário 15: Redirecionamentos legados (/analise-real-time e /pcp-robotizado/analise-real-time) convergem para a rota canônica', async () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/analise-real-time']}>
+        <Routes>
+          <Route
+            path="/pcp/analise-real-time"
+            element={
+              <PermissionGuard permission="pcp.schedule.view">
+                <AnaliseRealTimeSafePage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/analise-real-time"
+            element={<Navigate to="/pcp/analise-real-time" replace />}
+          />
+          <Route
+            path="/pcp-robotizado/analise-real-time"
+            element={<Navigate to="/pcp/analise-real-time" replace />}
+          />
+          <Route path="*" element={<div>Módulo ou Recurso não localizado no HUB CIAFAL</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Análise Real Time — PCP')).toBeInTheDocument()
+    })
+    unmount()
+
+    render(
+      <MemoryRouter initialEntries={['/pcp-robotizado/analise-real-time']}>
+        <Routes>
+          <Route
+            path="/pcp/analise-real-time"
+            element={
+              <PermissionGuard permission="pcp.schedule.view">
+                <AnaliseRealTimeSafePage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/analise-real-time"
+            element={<Navigate to="/pcp/analise-real-time" replace />}
+          />
+          <Route
+            path="/pcp-robotizado/analise-real-time"
+            element={<Navigate to="/pcp/analise-real-time" replace />}
+          />
+          <Route path="*" element={<div>Módulo ou Recurso não localizado no HUB CIAFAL</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Análise Real Time — PCP')).toBeInTheDocument()
+    })
   })
 })

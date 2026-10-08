@@ -1165,7 +1165,7 @@ export const App: React.FC = () => {
                     <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route path="/pcp/cockpit" element={<Index />} />
                     <Route
-                      path="analise-real-time"
+                      path="/pcp/analise-real-time"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
                           <Suspense fallback={<ModuleFallback />}>
@@ -1173,7 +1173,11 @@ export const App: React.FC = () => {
                           </Suspense>
                         </PermissionGuard>
                       }
-                    />{' '}
+                    />
+                    <Route
+                      path="/analise-real-time"
+                      element={<Navigate to="/pcp/analise-real-time" replace />}
+                    />
                     <Route
                       path="/pcp-robotizado/analise-real-time"
                       element={<Navigate to="/pcp/analise-real-time" replace />}
