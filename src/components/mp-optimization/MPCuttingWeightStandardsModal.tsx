@@ -147,9 +147,9 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
       min_weight_kg: undefined,
       max_weight_kg: undefined,
       tolerance_lower_val: 0,
-      tolerance_lower_type: 'KG',
+      tolerance_lower_type: 'TON',
       tolerance_upper_val: 0,
-      tolerance_upper_type: 'KG',
+      tolerance_upper_type: 'TON',
       priority: 'MEDIA',
       start_date: new Date().toISOString().split('T')[0],
       end_date: '',
@@ -159,8 +159,8 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     setTargetWeightInput('')
     setMinWeightInput('')
     setMaxWeightInput('')
-    setTolLowerInput('0')
-    setTolUpperInput('0')
+    setTolLowerInput('')
+    setTolUpperInput('')
     setFieldErrors({})
     setFormError(null)
     setFormSuccess(null)
@@ -168,47 +168,83 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   }
 
   const handleOpenEdit = (item: MPCuttingWeightStandard) => {
-    setFormData({ ...item })
-    // Formata os números no padrão visual pt-BR
+    // Normalizar tolerâncias: se era 'KG', na UI exibimos em 'TON' (t = kg / 1000) com seletor inicial TON
+    const isTolLowerPct = item.tolerance_lower_type === 'PERCENT'
+    const isTolUpperPct = item.tolerance_upper_type === 'PERCENT'
+
+    // Derivação matemática robusta das tolerâncias a partir dos limites canônicos caso estejam zeradas
+    let tolLowerTonVal = isTolLowerPct
+      ? item.tolerance_lower_val
+      : (item.tolerance_lower_val ?? 0) / 1000
+    let tolUpperTonVal = isTolUpperPct
+      ? item.tolerance_upper_val
+      : (item.tolerance_upper_val ?? 0) / 1000
+
+    if (
+      !isTolLowerPct &&
+      (!tolLowerTonVal || tolLowerTonVal === 0) &&
+      item.target_weight_kg &&
+      item.min_weight_kg
+    ) {
+      tolLowerTonVal = Math.max(0, (item.target_weight_kg - item.min_weight_kg) / 1000)
+    }
+    if (
+      !isTolUpperPct &&
+      (!tolUpperTonVal || tolUpperTonVal === 0) &&
+      item.target_weight_kg &&
+      item.max_weight_kg
+    ) {
+      tolUpperTonVal = Math.max(0, (item.max_weight_kg - item.target_weight_kg) / 1000)
+    }
+
+    setFormData({
+      ...item,
+      tolerance_lower_type: isTolLowerPct ? 'PERCENT' : 'TON',
+      tolerance_upper_type: isTolUpperPct ? 'PERCENT' : 'TON',
+      tolerance_lower_val: tolLowerTonVal,
+      tolerance_upper_val: tolUpperTonVal,
+    })
+
+    // Formata os pesos de kg -> t no padrão visual pt-BR com 3 casas decimais
     setTargetWeightInput(
       item.target_weight_kg != null
-        ? formatNumberPtBr(item.target_weight_kg, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+        ? formatNumberPtBr(item.target_weight_kg / 1000, {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
           })
         : '',
     )
     setMinWeightInput(
       item.min_weight_kg != null
-        ? formatNumberPtBr(item.min_weight_kg, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+        ? formatNumberPtBr(item.min_weight_kg / 1000, {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
           })
         : '',
     )
     setMaxWeightInput(
       item.max_weight_kg != null
-        ? formatNumberPtBr(item.max_weight_kg, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+        ? formatNumberPtBr(item.max_weight_kg / 1000, {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
           })
         : '',
     )
     setTolLowerInput(
-      item.tolerance_lower_val != null
-        ? formatNumberPtBr(item.tolerance_lower_val, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+      tolLowerTonVal != null && tolLowerTonVal > 0
+        ? formatNumberPtBr(tolLowerTonVal, {
+            minimumFractionDigits: isTolLowerPct ? 2 : 3,
+            maximumFractionDigits: isTolLowerPct ? 2 : 3,
           })
-        : '0',
+        : '',
     )
     setTolUpperInput(
-      item.tolerance_upper_val != null
-        ? formatNumberPtBr(item.tolerance_upper_val, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+      tolUpperTonVal != null && tolUpperTonVal > 0
+        ? formatNumberPtBr(tolUpperTonVal, {
+            minimumFractionDigits: isTolUpperPct ? 2 : 3,
+            maximumFractionDigits: isTolUpperPct ? 2 : 3,
           })
-        : '0',
+        : '',
     )
     setFieldErrors({})
     setFormError(null)
@@ -246,33 +282,161 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     }
   }
 
-  // Atualiza inputs textuais pt-BR e sincroniza tolerâncias e limites
-  const handleTargetInputChange = (raw: string) => {
+  // SINCRONIZAÇÃO BIDIRECIONAL MATEMÁTICA SEM LOOPS:
+  // Todas as variáveis na interface operam em toneladas (t) ou %
+  // 1. Mudou Peso Ideal: recalcula limites a partir das tolerâncias ativas
+  const handleTargetChange = (raw: string) => {
     setTargetWeightInput(raw)
-    setFieldErrors((prev) => ({ ...prev, target_weight_kg: '' }))
-    const parsed = parsePtBrNumber(raw)
-    if (!isNaN(parsed) && parsed > 0) {
-      setFormData((prev) => ({ ...prev, target_weight_kg: parsed }))
-      // Se mínimo ou máximo ainda não foram digitados ou se tolerâncias estão preenchidas, calcula sugestão
-      const parsedTolLow = parsePtBrNumber(tolLowerInput)
-      const parsedTolUp = parsePtBrNumber(tolUpperInput)
-      if (!minWeightInput && !isNaN(parsedTolLow) && parsedTolLow > 0) {
-        const lowKg =
-          formData.tolerance_lower_type === 'PERCENT' ? (parsed * parsedTolLow) / 100 : parsedTolLow
-        const minVal = Number((parsed - lowKg).toFixed(2))
+    setFieldErrors((prev) => ({
+      ...prev,
+      target_weight_kg: '',
+      min_weight_kg: '',
+      max_weight_kg: '',
+    }))
+    const targetTon = parsePtBrNumber(raw)
+    if (!isNaN(targetTon) && targetTon > 0) {
+      // Se houver tolerância inferior informada, sincroniza peso mínimo = peso ideal - tol_inf
+      const tolLow = parsePtBrNumber(tolLowerInput)
+      if (!isNaN(tolLow) && tolLow >= 0) {
+        const tolLowTon =
+          formData.tolerance_lower_type === 'PERCENT' ? (targetTon * tolLow) / 100 : tolLow
+        const minTon = Math.max(0, targetTon - tolLowTon)
         setMinWeightInput(
-          formatNumberPtBr(minVal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          formatNumberPtBr(minTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
         )
-        setFormData((prev) => ({ ...prev, min_weight_kg: minVal }))
       }
-      if (!maxWeightInput && !isNaN(parsedTolUp) && parsedTolUp > 0) {
-        const upKg =
-          formData.tolerance_upper_type === 'PERCENT' ? (parsed * parsedTolUp) / 100 : parsedTolUp
-        const maxVal = Number((parsed + upKg).toFixed(2))
+
+      // Se houver tolerância superior informada, sincroniza peso máximo = peso ideal + tol_sup
+      const tolUp = parsePtBrNumber(tolUpperInput)
+      if (!isNaN(tolUp) && tolUp >= 0) {
+        const tolUpTon =
+          formData.tolerance_upper_type === 'PERCENT' ? (targetTon * tolUp) / 100 : tolUp
+        const maxTon = targetTon + tolUpTon
         setMaxWeightInput(
-          formatNumberPtBr(maxVal, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          formatNumberPtBr(maxTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
         )
-        setFormData((prev) => ({ ...prev, max_weight_kg: maxVal }))
+      }
+    }
+  }
+
+  // 2. Mudou Tolerância Inferior (em t ou %): peso mínimo = peso ideal - tolerância inferior
+  const handleTolLowerChange = (raw: string, type = formData.tolerance_lower_type || 'TON') => {
+    setTolLowerInput(raw)
+    setFieldErrors((prev) => ({ ...prev, tolerance_lower_val: '', min_weight_kg: '' }))
+    const val = parsePtBrNumber(raw)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(val) && val >= 0 && !isNaN(targetTon) && targetTon > 0) {
+      const tolLowTon = type === 'PERCENT' ? (targetTon * val) / 100 : val
+      const minTon = Math.max(0, targetTon - tolLowTon)
+      setMinWeightInput(
+        formatNumberPtBr(minTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+      )
+    }
+  }
+
+  // 3. Mudou Tolerância Superior (em t ou %): peso máximo = peso ideal + tolerância superior
+  const handleTolUpperChange = (raw: string, type = formData.tolerance_upper_type || 'TON') => {
+    setTolUpperInput(raw)
+    setFieldErrors((prev) => ({ ...prev, tolerance_upper_val: '', max_weight_kg: '' }))
+    const val = parsePtBrNumber(raw)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(val) && val >= 0 && !isNaN(targetTon) && targetTon > 0) {
+      const tolUpTon = type === 'PERCENT' ? (targetTon * val) / 100 : val
+      const maxTon = targetTon + tolUpTon
+      setMaxWeightInput(
+        formatNumberPtBr(maxTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+      )
+    }
+  }
+
+  // 4. Mudou Peso Mínimo: tolerância inferior = peso ideal - peso mínimo
+  const handleMinWeightChange = (raw: string) => {
+    setMinWeightInput(raw)
+    setFieldErrors((prev) => ({ ...prev, min_weight_kg: '', tolerance_lower_val: '' }))
+    const minTon = parsePtBrNumber(raw)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(minTon) && !isNaN(targetTon) && targetTon > 0 && targetTon >= minTon) {
+      const diffTon = Math.max(0, targetTon - minTon)
+      if (formData.tolerance_lower_type === 'PERCENT') {
+        const pct = (diffTon / targetTon) * 100
+        setTolLowerInput(
+          formatNumberPtBr(pct, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+      } else {
+        setTolLowerInput(
+          formatNumberPtBr(diffTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        )
+      }
+    }
+  }
+
+  // 5. Mudou Peso Máximo: tolerância superior = peso máximo - peso ideal
+  const handleMaxWeightChange = (raw: string) => {
+    setMaxWeightInput(raw)
+    setFieldErrors((prev) => ({ ...prev, max_weight_kg: '', tolerance_upper_val: '' }))
+    const maxTon = parsePtBrNumber(raw)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(maxTon) && !isNaN(targetTon) && targetTon > 0 && maxTon >= targetTon) {
+      const diffTon = Math.max(0, maxTon - targetTon)
+      if (formData.tolerance_upper_type === 'PERCENT') {
+        const pct = (diffTon / targetTon) * 100
+        setTolUpperInput(
+          formatNumberPtBr(pct, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+      } else {
+        setTolUpperInput(
+          formatNumberPtBr(diffTon, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        )
+      }
+    }
+  }
+
+  // Alternância do tipo de tolerância inferior (TON <-> PERCENT)
+  const handleToggleTolLowerType = (newType: MPToleranceType) => {
+    setFormData((prev) => ({ ...prev, tolerance_lower_type: newType }))
+    const currentVal = parsePtBrNumber(tolLowerInput)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(currentVal) && !isNaN(targetTon) && targetTon > 0) {
+      if (newType === 'PERCENT' && formData.tolerance_lower_type !== 'PERCENT') {
+        // Converteu de t para %: % = (t / targetTon) * 100
+        const pct = (currentVal / targetTon) * 100
+        setTolLowerInput(
+          formatNumberPtBr(pct, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+      } else if (newType !== 'PERCENT' && formData.tolerance_lower_type === 'PERCENT') {
+        // Converteu de % para t: t = (targetTon * %) / 100
+        const ton = (targetTon * currentVal) / 100
+        setTolLowerInput(
+          formatNumberPtBr(ton, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        )
+      }
+    }
+  }
+
+  // Alternância do tipo de tolerância superior (TON <-> PERCENT)
+  const handleToggleTolUpperType = (newType: MPToleranceType) => {
+    setFormData((prev) => ({ ...prev, tolerance_upper_type: newType }))
+    const currentVal = parsePtBrNumber(tolUpperInput)
+    const targetTon = parsePtBrNumber(targetWeightInput)
+
+    if (!isNaN(currentVal) && !isNaN(targetTon) && targetTon > 0) {
+      if (newType === 'PERCENT' && formData.tolerance_upper_type !== 'PERCENT') {
+        // Converteu de t para %: % = (t / targetTon) * 100
+        const pct = (currentVal / targetTon) * 100
+        setTolUpperInput(
+          formatNumberPtBr(pct, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        )
+      } else if (newType !== 'PERCENT' && formData.tolerance_upper_type === 'PERCENT') {
+        // Converteu de % para t: t = (targetTon * %) / 100
+        const ton = (targetTon * currentVal) / 100
+        setTolUpperInput(
+          formatNumberPtBr(ton, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        )
       }
     }
   }
@@ -284,19 +448,27 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     setFormSuccess(null)
     setFieldErrors({})
 
-    const parsedTarget = parsePtBrNumber(targetWeightInput)
-    const parsedMin = parsePtBrNumber(minWeightInput)
-    const parsedMax = parsePtBrNumber(maxWeightInput)
+    const parsedTargetTon = parsePtBrNumber(targetWeightInput)
+    const parsedMinTon = parsePtBrNumber(minWeightInput)
+    const parsedMaxTon = parsePtBrNumber(maxWeightInput)
     const parsedTolLow = tolLowerInput ? parsePtBrNumber(tolLowerInput) : 0
     const parsedTolUp = tolUpperInput ? parsePtBrNumber(tolUpperInput) : 0
 
+    // Conversão para unidade interna canônica (kg)
+    const targetKg = isNaN(parsedTargetTon) ? 0 : parsedTargetTon * 1000
+    const minKg = isNaN(parsedMinTon) ? 0 : parsedMinTon * 1000
+    const maxKg = isNaN(parsedMaxTon) ? 0 : parsedMaxTon * 1000
+
+    // Tolerâncias: se for % mantém o percentual; se for TON, grava o valor numérico em ton
     const payloadToValidate: Partial<MPCuttingWeightStandard> = {
       ...formData,
-      target_weight_kg: isNaN(parsedTarget) ? 0 : parsedTarget,
-      min_weight_kg: isNaN(parsedMin) ? 0 : parsedMin,
-      max_weight_kg: isNaN(parsedMax) ? 0 : parsedMax,
+      target_weight_kg: targetKg,
+      min_weight_kg: minKg,
+      max_weight_kg: maxKg,
       tolerance_lower_val: isNaN(parsedTolLow) ? 0 : parsedTolLow,
+      tolerance_lower_type: formData.tolerance_lower_type || 'TON',
       tolerance_upper_val: isNaN(parsedTolUp) ? 0 : parsedTolUp,
+      tolerance_upper_type: formData.tolerance_upper_type || 'TON',
     }
 
     // Validação de engenharia com destaque dos campos
@@ -475,10 +647,10 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                         setFormData({ ...formData, description: e.target.value })
                         setFieldErrors((prev) => ({ ...prev, description: '' }))
                       }}
-                      placeholder="Ex: Tarugo L1 130x130 Padrão Bloco 1.250 kg"
+                      placeholder="Ex: Tarugo L1 130x130 Padrão Bloco 1,250 t"
                       className={`mt-1 ${fieldErrors.description ? 'border-red-500 ring-1 ring-red-400' : ''}`}
                       required
-                    />
+                    />{' '}
                     {fieldErrors.description && (
                       <p className="text-[11px] text-red-600 font-medium mt-1">
                         {fieldErrors.description}
@@ -600,22 +772,24 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
                       <Scale className="w-4 h-4 text-blue-700" /> Parâmetros de Pesagem e
-                      Tolerâncias (kg)
+                      Tolerâncias (t)
                     </span>
-                    <span className="text-xs text-slate-500">Regra: Mínimo ≤ Ideal ≤ Máximo</span>
+                    <span className="text-xs text-slate-500">
+                      Regra: Mínimo ≤ Ideal ≤ Máximo (1 t = 1.000 kg)
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Peso Ideal (kg) *
+                        Peso Ideal (t) *
                       </Label>
                       <Input
                         type="text"
                         inputMode="decimal"
                         value={targetWeightInput}
-                        onChange={(e) => handleTargetInputChange(e.target.value)}
-                        placeholder="Ex: 1.250"
+                        onChange={(e) => handleTargetChange(e.target.value)}
+                        placeholder="Ex: 1,250"
                         className={`mt-1 font-bold text-blue-950 bg-white ${
                           fieldErrors.target_weight_kg
                             ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
@@ -631,17 +805,14 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     </div>
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Peso Mínimo Permitido (kg) *
+                        Peso Mínimo Permitido (t) *
                       </Label>
                       <Input
                         type="text"
                         inputMode="decimal"
                         value={minWeightInput}
-                        onChange={(e) => {
-                          setMinWeightInput(e.target.value)
-                          setFieldErrors((prev) => ({ ...prev, min_weight_kg: '' }))
-                        }}
-                        placeholder="Ex: 1.200"
+                        onChange={(e) => handleMinWeightChange(e.target.value)}
+                        placeholder="Ex: 1,200"
                         className={`mt-1 font-semibold text-slate-900 bg-white ${
                           fieldErrors.min_weight_kg
                             ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
@@ -657,17 +828,14 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     </div>
                     <div>
                       <Label className="text-xs font-semibold text-slate-700">
-                        Peso Máximo Permitido (kg) *
+                        Peso Máximo Permitido (t) *
                       </Label>
                       <Input
                         type="text"
                         inputMode="decimal"
                         value={maxWeightInput}
-                        onChange={(e) => {
-                          setMaxWeightInput(e.target.value)
-                          setFieldErrors((prev) => ({ ...prev, max_weight_kg: '' }))
-                        }}
-                        placeholder="Ex: 1.300"
+                        onChange={(e) => handleMaxWeightChange(e.target.value)}
+                        placeholder="Ex: 1,300"
                         className={`mt-1 font-semibold text-slate-900 bg-white ${
                           fieldErrors.max_weight_kg
                             ? 'border-red-500 ring-1 ring-red-400 bg-red-50/20'
@@ -683,22 +851,22 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     </div>
                   </div>
 
-                  {/* Tolerâncias Inferior e Superior */}
+                  {/* Tolerâncias Inferior e Superior com seletor de unidade t ou % (padrão inicial = t) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                     <div className="flex items-end gap-2">
                       <div className="flex-1">
                         <Label className="text-xs font-semibold text-slate-700">
-                          Tolerância Inferior *
+                          Tolerância Inferior (
+                          {formData.tolerance_lower_type === 'PERCENT' ? '%' : 't'}) *
                         </Label>
                         <Input
                           type="text"
                           inputMode="decimal"
                           value={tolLowerInput}
-                          onChange={(e) => {
-                            setTolLowerInput(e.target.value)
-                            setFieldErrors((prev) => ({ ...prev, tolerance_lower_val: '' }))
-                          }}
-                          placeholder="Ex: 50"
+                          onChange={(e) => handleTolLowerChange(e.target.value)}
+                          placeholder={
+                            formData.tolerance_lower_type === 'PERCENT' ? 'Ex: 4' : 'Ex: 0,050'
+                          }
                           className={`mt-1 bg-white ${
                             fieldErrors.tolerance_lower_val
                               ? 'border-red-500 ring-1 ring-red-400'
@@ -706,18 +874,20 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                           }`}
                           required
                         />
+                        {fieldErrors.tolerance_lower_val && (
+                          <p className="text-[11px] text-red-600 font-medium mt-1">
+                            {fieldErrors.tolerance_lower_val}
+                          </p>
+                        )}
                       </div>
                       <select
-                        value={formData.tolerance_lower_type || 'KG'}
+                        value={formData.tolerance_lower_type === 'PERCENT' ? 'PERCENT' : 'TON'}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            tolerance_lower_type: e.target.value as MPToleranceType,
-                          })
+                          handleToggleTolLowerType(e.target.value as MPToleranceType)
                         }
-                        className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold"
+                        className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold text-blue-950"
                       >
-                        <option value="KG">kg</option>
+                        <option value="TON">t</option>
                         <option value="PERCENT">%</option>
                       </select>
                     </div>
@@ -725,17 +895,17 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <div className="flex items-end gap-2">
                       <div className="flex-1">
                         <Label className="text-xs font-semibold text-slate-700">
-                          Tolerância Superior *
+                          Tolerância Superior (
+                          {formData.tolerance_upper_type === 'PERCENT' ? '%' : 't'}) *
                         </Label>
                         <Input
                           type="text"
                           inputMode="decimal"
                           value={tolUpperInput}
-                          onChange={(e) => {
-                            setTolUpperInput(e.target.value)
-                            setFieldErrors((prev) => ({ ...prev, tolerance_upper_val: '' }))
-                          }}
-                          placeholder="Ex: 50"
+                          onChange={(e) => handleTolUpperChange(e.target.value)}
+                          placeholder={
+                            formData.tolerance_upper_type === 'PERCENT' ? 'Ex: 4' : 'Ex: 0,050'
+                          }
                           className={`mt-1 bg-white ${
                             fieldErrors.tolerance_upper_val
                               ? 'border-red-500 ring-1 ring-red-400'
@@ -743,18 +913,20 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                           }`}
                           required
                         />
+                        {fieldErrors.tolerance_upper_val && (
+                          <p className="text-[11px] text-red-600 font-medium mt-1">
+                            {fieldErrors.tolerance_upper_val}
+                          </p>
+                        )}
                       </div>
                       <select
-                        value={formData.tolerance_upper_type || 'KG'}
+                        value={formData.tolerance_upper_type === 'PERCENT' ? 'PERCENT' : 'TON'}
                         onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            tolerance_upper_type: e.target.value as MPToleranceType,
-                          })
+                          handleToggleTolUpperType(e.target.value as MPToleranceType)
                         }
-                        className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold"
+                        className="h-9 w-20 rounded-md border border-input bg-white px-2 py-1 text-xs shadow-sm font-semibold text-blue-950"
                       >
-                        <option value="KG">kg</option>
+                        <option value="TON">t</option>
                         <option value="PERCENT">%</option>
                       </select>
                     </div>
@@ -869,9 +1041,11 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                       <TableHead className="text-xs font-bold text-slate-700">Descrição</TableHead>
                       <TableHead className="text-xs font-bold text-slate-700">Tipo</TableHead>
                       <TableHead className="text-xs font-bold text-slate-700">Centros</TableHead>
-                      <TableHead className="text-xs font-bold text-slate-700">Peso Ideal</TableHead>
                       <TableHead className="text-xs font-bold text-slate-700">
-                        Faixa Permitida
+                        Peso Ideal (t)
+                      </TableHead>
+                      <TableHead className="text-xs font-bold text-slate-700">
+                        Faixa Permitida (t)
                       </TableHead>
                       <TableHead className="text-xs font-bold text-slate-700">Prioridade</TableHead>
                       <TableHead className="text-xs font-bold text-slate-700">Status</TableHead>
@@ -926,20 +1100,23 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                             {(std.center_codes || []).join(', ') || 'Geral'}
                           </TableCell>
                           <TableCell className="text-xs font-bold text-slate-900">
-                            {std.target_weight_kg.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
+                            {(std.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
                             })}{' '}
-                            kg
+                            t
                           </TableCell>
                           <TableCell className="text-xs text-slate-600">
-                            {std.min_weight_kg.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
+                            {(std.min_weight_kg / 1000).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
                             })}{' '}
                             a{' '}
-                            {std.max_weight_kg.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
+                            {(std.max_weight_kg / 1000).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
                             })}{' '}
-                            kg
+                            t
                           </TableCell>
                           <TableCell>
                             <span

@@ -107,17 +107,30 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                   {bestScenario.yield_pct.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
                 </span>
                 <span className="text-[10px] text-blue-300">
-                  {bestScenario.used_weight_kg.toLocaleString('pt-BR')} kg
+                  {(bestScenario.used_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
               </div>
 
               <div className="bg-blue-900/60 border border-blue-700/50 rounded-lg p-2.5">
                 <span className="text-[11px] text-blue-200 block">Peso Unit. Calculado</span>
                 <span className="text-sm font-bold text-white mt-0.5 block">
-                  {bestScenario.calculated_weight_kg.toLocaleString('pt-BR')} kg
+                  {(bestScenario.calculated_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
                 <span className="text-[10px] text-amber-200">
-                  Ideal: {bestScenario.target_weight_kg.toLocaleString('pt-BR')} kg
+                  Ideal:{' '}
+                  {(bestScenario.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
               </div>
 
@@ -125,19 +138,35 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                 <span className="text-[11px] text-blue-200 block">Desvio do Padrão</span>
                 <span className="text-sm font-bold text-amber-300 mt-0.5 block">
                   {bestScenario.deviation_kg > 0 ? '+' : ''}
-                  {bestScenario.deviation_kg.toLocaleString('pt-BR')} kg (
-                  {bestScenario.deviation_pct}%)
+                  {(bestScenario.deviation_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t ({bestScenario.deviation_pct}%)
                 </span>
                 <span className="text-[10px] text-blue-300">
-                  Faixa {bestScenario.min_allowed_weight_kg.toLocaleString('pt-BR')} a{' '}
-                  {bestScenario.max_allowed_weight_kg.toLocaleString('pt-BR')} kg
+                  Faixa{' '}
+                  {(bestScenario.min_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  a{' '}
+                  {(bestScenario.max_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
               </div>
 
               <div className="bg-blue-900/60 border border-blue-700/50 rounded-lg p-2.5">
                 <span className="text-[11px] text-blue-200 block">Perda de Corte</span>
                 <span className="text-sm font-bold text-red-300 mt-0.5 block">
-                  {bestScenario.cutting_loss_kg.toLocaleString('pt-BR')} kg
+                  {(bestScenario.cutting_loss_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
                 <span className="text-[10px] text-blue-300">Ficha Mestra</span>
               </div>
@@ -245,14 +274,22 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                     <div className="bg-slate-50 p-2 rounded border border-slate-100">
                       <span className="text-[10px] text-slate-500 block">Peso Unit. Calculado</span>
                       <span className="font-bold text-slate-900 text-sm block mt-0.5">
-                        {scen.calculated_weight_kg.toLocaleString('pt-BR')} kg
+                        {(scen.calculated_weight_kg / 1000).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
                       </span>
                     </div>
 
                     <div className="bg-slate-50 p-2 rounded border border-slate-100">
                       <span className="text-[10px] text-slate-500 block">Peso Ideal (Padrão)</span>
                       <span className="font-semibold text-slate-700 block mt-0.5">
-                        {scen.target_weight_kg.toLocaleString('pt-BR')} kg
+                        {(scen.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
                       </span>
                     </div>
 
@@ -264,14 +301,22 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                         }`}
                       >
                         {scen.deviation_kg > 0 ? '+' : ''}
-                        {scen.deviation_kg.toLocaleString('pt-BR')} kg ({scen.deviation_pct}%)
+                        {(scen.deviation_kg / 1000).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t ({scen.deviation_pct}%)
                       </span>
                     </div>
 
                     <div className="bg-slate-50 p-2 rounded border border-slate-100">
                       <span className="text-[10px] text-slate-500 block">Perda de Corte</span>
                       <span className="font-semibold text-slate-700 block mt-0.5">
-                        {scen.cutting_loss_kg.toLocaleString('pt-BR')} kg
+                        {(scen.cutting_loss_kg / 1000).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}{' '}
+                        t
                       </span>
                     </div>
 
@@ -288,8 +333,16 @@ export const MPCuttingComparativeScenariosGrid: React.FC<
                   <div className="text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-100 pt-2">
                     <span>Faixa permitida:</span>
                     <span className="font-medium text-slate-700">
-                      {scen.min_allowed_weight_kg.toLocaleString('pt-BR')} a{' '}
-                      {scen.max_allowed_weight_kg.toLocaleString('pt-BR')} kg
+                      {(scen.min_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}{' '}
+                      a{' '}
+                      {(scen.max_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}{' '}
+                      t
                     </span>
                   </div>
 

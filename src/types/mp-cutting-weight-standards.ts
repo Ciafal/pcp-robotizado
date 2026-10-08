@@ -1,5 +1,5 @@
 export type MPCuttingType = 'BLOCOS' | 'MULTIPLOS'
-export type MPToleranceType = 'KG' | 'PERCENT'
+export type MPToleranceType = 'TON' | 'PERCENT' | 'KG'
 export type MPStandardPriority = 'ALTA' | 'MEDIA' | 'BAIXA'
 export type MPStandardStatus = 'ATIVO' | 'INATIVO'
 

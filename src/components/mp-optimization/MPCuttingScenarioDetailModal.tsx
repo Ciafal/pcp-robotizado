@@ -134,7 +134,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                   Peso Aproveitado
                 </span>
                 <span className="text-lg font-bold text-slate-900 mt-1 block">
-                  {scenario.used_weight_kg.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kg
+                  {(scenario.used_weight_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
                 <span className="text-[10px] text-slate-400">
                   {scenario.produced_quantity} peças produzidas
@@ -146,8 +150,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                   Perda de Corte (Apara/Carepa)
                 </span>
                 <span className="text-lg font-bold text-amber-700 mt-1 block">
-                  {scenario.cutting_loss_kg.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{' '}
-                  kg
+                  {(scenario.cutting_loss_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })}{' '}
+                  t
                 </span>
                 <span className="text-[10px] text-slate-400">
                   {comp.theoretical_loss_pct || 1.3}% Ficha Mestra
@@ -159,10 +166,11 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                   Sobra Estimada de MP
                 </span>
                 <span className="text-lg font-bold text-slate-700 mt-1 block">
-                  {scenario.estimated_leftover_kg.toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
+                  {(scenario.estimated_leftover_kg / 1000).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
                   })}{' '}
-                  kg
+                  t
                 </span>
                 <span className="text-[10px] text-slate-400">Retorno para estoque</span>
               </div>
@@ -186,11 +194,21 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                 <div>
                   <span className="text-slate-500 block">Peso Ideal vs Calculado:</span>
                   <span className="font-semibold text-slate-900">
-                    Ideal: {scenario.target_weight_kg.toLocaleString('pt-BR')} kg
+                    Ideal:{' '}
+                    {(scenario.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    t
                   </span>
                   <br />
                   <span className="font-bold text-blue-900">
-                    Calculado: {scenario.calculated_weight_kg.toLocaleString('pt-BR')} kg
+                    Calculado:{' '}
+                    {(scenario.calculated_weight_kg / 1000).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    t
                   </span>
                 </div>
                 <div>
@@ -201,12 +219,25 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                     }`}
                   >
                     {scenario.deviation_kg > 0 ? '+' : ''}
-                    {scenario.deviation_kg.toLocaleString('pt-BR')} kg ({scenario.deviation_pct}%)
+                    {(scenario.deviation_kg / 1000).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    t ({scenario.deviation_pct}%)
                   </span>
                   <br />
                   <span className="text-slate-600">
-                    Faixa: {scenario.min_allowed_weight_kg.toLocaleString('pt-BR')} a{' '}
-                    {scenario.max_allowed_weight_kg.toLocaleString('pt-BR')} kg
+                    Faixa:{' '}
+                    {(scenario.min_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    a{' '}
+                    {(scenario.max_allowed_weight_kg / 1000).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    t
                   </span>
                 </div>
               </div>
@@ -263,9 +294,9 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                     <TableRow>
                       <TableHead className="text-xs font-bold">Item #</TableHead>
                       <TableHead className="text-xs font-bold">Tipo</TableHead>
-                      <TableHead className="text-xs font-bold">Peso Ideal</TableHead>
-                      <TableHead className="text-xs font-bold">Peso Calculado</TableHead>
-                      <TableHead className="text-xs font-bold">Faixa Tolerância</TableHead>
+                      <TableHead className="text-xs font-bold">Peso Ideal (t)</TableHead>
+                      <TableHead className="text-xs font-bold">Peso Calculado (t)</TableHead>
+                      <TableHead className="text-xs font-bold">Faixa Tolerância (t)</TableHead>
                       <TableHead className="text-xs font-bold">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -274,11 +305,23 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                       <TableRow key={d.item_index} className="text-xs">
                         <TableCell className="font-mono font-medium">#{d.item_index}</TableCell>
                         <TableCell>{d.item_type}</TableCell>
-                        <TableCell>{d.target_kg.toLocaleString('pt-BR')} kg</TableCell>
-                        <TableCell className="font-bold text-blue-950">
-                          {d.calculated_kg.toLocaleString('pt-BR')} kg
+                        <TableCell>
+                          {(d.target_kg / 1000).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          })}{' '}
+                          t
                         </TableCell>
-                        <TableCell className="text-slate-500">{d.tolerance_range_kg}</TableCell>
+                        <TableCell className="font-bold text-blue-950">
+                          {(d.calculated_kg / 1000).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          })}{' '}
+                          t
+                        </TableCell>
+                        <TableCell className="text-slate-500">
+                          {d.tolerance_range_kg ? d.tolerance_range_kg.replace(/kg/g, 't') : ''}
+                        </TableCell>
                         <TableCell>
                           <Badge
                             variant="outline"

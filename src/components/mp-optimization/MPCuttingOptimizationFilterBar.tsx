@@ -269,7 +269,12 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
                     <span className="font-mono font-bold">{std.code}</span>
                     <span>{std.description}</span>
                     <span className="opacity-90 font-mono text-[11px]">
-                      ({std.target_weight_kg.toLocaleString('pt-BR')} kg)
+                      (
+                      {(std.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })}{' '}
+                      t)
                     </span>
                   </button>
                 )
@@ -280,10 +285,12 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
 
         {/* Linha 3: Peso Ideal, Faixas de Tolerância, Quantidade/Tonelagem e Critério de Otimização */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
-          {/* Peso Ideal com Trava de Ajuste Manual */}
+          {/* Peso Ideal com Trava de Ajuste Manual (em toneladas) */}
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold text-slate-700">Peso Ideal Desejado</Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Peso Ideal Desejado (t)
+              </Label>
               <button
                 type="button"
                 onClick={() => setAllowManualAdjust(!allowManualAdjust)}
@@ -303,12 +310,23 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
             </div>
             <div className="relative mt-1">
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 disabled={!allowManualAdjust}
-                value={filters.target_weight_kg ?? ''}
-                onChange={(e) => handleManualTargetChange(parseFloat(e.target.value) || 0)}
-                placeholder="Ex: 1250 kg"
+                value={
+                  filters.target_weight_kg != null
+                    ? (filters.target_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })
+                    : ''
+                }
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(',', '.')
+                  const valTon = parseFloat(cleaned) || 0
+                  handleManualTargetChange(valTon * 1000)
+                }}
+                placeholder="Ex: 1,250 t"
                 className={`h-8 text-xs font-bold ${
                   allowManualAdjust
                     ? 'bg-amber-50/60 border-amber-300 text-amber-950'
@@ -316,51 +334,83 @@ export const MPCuttingOptimizationFilterBar: React.FC<MPCuttingOptimizationFilte
                 }`}
               />
               <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-semibold">
-                kg
+                t
               </span>
             </div>
           </div>
 
           <div>
-            <Label className="text-xs font-semibold text-slate-700">Tolerância Mínima (kg)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              disabled={!allowManualAdjust}
-              value={filters.min_weight_kg ?? ''}
-              onChange={(e) =>
-                onFiltersChange({
-                  ...filters,
-                  min_weight_kg: parseFloat(e.target.value) || 0,
-                  manual_adjustment_active: true,
-                })
-              }
-              placeholder="Ex: 1200"
-              className={`mt-1 h-8 text-xs ${
-                allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
-              }`}
-            />
+            <Label className="text-xs font-semibold text-slate-700">
+              Peso Mínimo Permitido (t)
+            </Label>
+            <div className="relative mt-1">
+              <Input
+                type="text"
+                inputMode="decimal"
+                disabled={!allowManualAdjust}
+                value={
+                  filters.min_weight_kg != null
+                    ? (filters.min_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })
+                    : ''
+                }
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(',', '.')
+                  const valTon = parseFloat(cleaned) || 0
+                  onFiltersChange({
+                    ...filters,
+                    min_weight_kg: valTon * 1000,
+                    manual_adjustment_active: true,
+                  })
+                }}
+                placeholder="Ex: 1,200 t"
+                className={`h-8 text-xs ${
+                  allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
+                }`}
+              />
+              <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-semibold">
+                t
+              </span>
+            </div>
           </div>
 
           <div>
-            <Label className="text-xs font-semibold text-slate-700">Tolerância Máxima (kg)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              disabled={!allowManualAdjust}
-              value={filters.max_weight_kg ?? ''}
-              onChange={(e) =>
-                onFiltersChange({
-                  ...filters,
-                  max_weight_kg: parseFloat(e.target.value) || 0,
-                  manual_adjustment_active: true,
-                })
-              }
-              placeholder="Ex: 1300"
-              className={`mt-1 h-8 text-xs ${
-                allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
-              }`}
-            />
+            <Label className="text-xs font-semibold text-slate-700">
+              Peso Máximo Permitido (t)
+            </Label>
+            <div className="relative mt-1">
+              <Input
+                type="text"
+                inputMode="decimal"
+                disabled={!allowManualAdjust}
+                value={
+                  filters.max_weight_kg != null
+                    ? (filters.max_weight_kg / 1000).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 3,
+                        maximumFractionDigits: 3,
+                      })
+                    : ''
+                }
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(',', '.')
+                  const valTon = parseFloat(cleaned) || 0
+                  onFiltersChange({
+                    ...filters,
+                    max_weight_kg: valTon * 1000,
+                    manual_adjustment_active: true,
+                  })
+                }}
+                placeholder="Ex: 1,300 t"
+                className={`h-8 text-xs ${
+                  allowManualAdjust ? 'bg-amber-50/60 border-amber-300' : 'bg-slate-100'
+                }`}
+              />
+              <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-semibold">
+                t
+              </span>
+            </div>
           </div>
 
           <div>

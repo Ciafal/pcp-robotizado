@@ -438,7 +438,13 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                         </div>
                         <div className="text-[11px] text-slate-600 font-mono">
                           {it.thickness_mm} × {it.width_mm} × {it.length_mm} mm &bull;{' '}
-                          <strong>{it.weight_kg} kg</strong>
+                          <strong>
+                            {((it.weight_kg || 0) / 1000).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 3,
+                              maximumFractionDigits: 3,
+                            })}{' '}
+                            t
+                          </strong>
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[10px]">
                           <span className="text-slate-500">
@@ -660,7 +666,7 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                       <th className="p-2.5">Espessura</th>
                       <th className="p-2.5">Largura</th>
                       <th className="p-2.5">Comprimento</th>
-                      <th className="p-2.5">Peso (kg)</th>
+                      <th className="p-2.5">Peso (t)</th>
                       <th className="p-2.5">Aplicação Atual</th>
                       <th className="p-2.5">Situação Reserva</th>
                       <th className="p-2.5 text-right">Ação</th>
@@ -677,7 +683,13 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
                         <td className="p-2.5">{it.thickness_mm} mm</td>
                         <td className="p-2.5">{it.width_mm} mm</td>
                         <td className="p-2.5">{it.length_mm} mm</td>
-                        <td className="p-2.5 font-bold text-emerald-800">{it.weight_kg} kg</td>
+                        <td className="p-2.5 font-bold text-emerald-800">
+                          {((it.weight_kg || 0) / 1000).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 3,
+                            maximumFractionDigits: 3,
+                          })}{' '}
+                          t
+                        </td>
                         <td className="p-2.5">{it.current_application}</td>
                         <td className="p-2.5">
                           <Badge

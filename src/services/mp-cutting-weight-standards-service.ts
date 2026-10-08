@@ -16,15 +16,18 @@ class MPCuttingWeightStandardsService {
   private COLLECTION_SIMULATIONS = 'mp_cutting_simulations'
 
   /**
-   * Converte tolerância em kg se estiver em percentual
+   * Converte tolerância em % ou valor direto para kg correspondente
    */
-  calculateToleranceInKg(baseWeight: number, val: number, type: 'KG' | 'PERCENT'): number {
-    if (type === 'KG') {
-      return val
+  calculateToleranceInKg(baseWeight: number, val: number, type: 'KG' | 'PERCENT' | 'TON'): number {
+    if (type === 'PERCENT') {
+      return (baseWeight * val) / 100
     }
-    return (baseWeight * val) / 100
+    if (type === 'TON') {
+      // Se informada em toneladas, converte para kg canônico
+      return val * 1000
+    }
+    return val
   }
-
   /**
    * Validações industriais rigorosas para padrão de peso:
    * - peso mínimo <= ideal <= máximo
@@ -79,10 +82,10 @@ class MPCuttingWeightStandardsService {
     }
 
     if (!isNaN(min) && !isNaN(target) && min > target) {
-      errors.min_weight_kg = `O peso mínimo (${min} kg) não pode ser maior que o peso ideal (${target} kg).`
+      errors.min_weight_kg = `O peso mínimo (${(min / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t) não pode ser maior que o peso ideal (${(target / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t).`
     }
     if (!isNaN(max) && !isNaN(target) && target > max) {
-      errors.max_weight_kg = `O peso máximo (${max} kg) não pode ser menor que o peso ideal (${target} kg).`
+      errors.max_weight_kg = `O peso máximo (${(max / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t) não pode ser menor que o peso ideal (${(target / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3 })} t).`
     }
 
     const tolLowVal =
@@ -106,12 +109,12 @@ class MPCuttingWeightStandardsService {
       const tolLowKg = this.calculateToleranceInKg(
         target,
         tolLowVal,
-        standard.tolerance_lower_type || 'KG',
+        standard.tolerance_lower_type || 'TON',
       )
       const tolUpKg = this.calculateToleranceInKg(
         target,
         tolUpVal,
-        standard.tolerance_upper_type || 'KG',
+        standard.tolerance_upper_type || 'TON',
       )
 
       const implicitMin = target - tolLowKg
@@ -122,12 +125,12 @@ class MPCuttingWeightStandardsService {
           'A tolerância inferior ultrapassa o peso ideal gerando valor negativo.'
       }
 
-      // Se ambos foram informados com precisão, verificar se não há discrepância grave (> 0.05 kg)
-      if (Math.abs(implicitMin - min) > 0.05 && tolLowVal > 0) {
-        errors.tolerance_lower_val = `Tolerância inferior (${tolLowKg.toFixed(2)} kg) diverge do limite mínimo (${min.toFixed(2)} kg vs esperado ${(target - tolLowKg).toFixed(2)} kg).`
+      // Se ambos foram informados com precisão, verificar se não há discrepância grave (> 0.5 kg para evitar falso-positivo em arredondamentos)
+      if (Math.abs(implicitMin - min) > 0.5 && tolLowVal > 0) {
+        errors.tolerance_lower_val = `Tolerância inferior (${(tolLowKg / 1000).toFixed(3)} t) diverge do limite mínimo (${(min / 1000).toFixed(3)} t vs esperado ${((target - tolLowKg) / 1000).toFixed(3)} t).`
       }
-      if (Math.abs(implicitMax - max) > 0.05 && tolUpVal > 0) {
-        errors.tolerance_upper_val = `Tolerância superior (${tolUpKg.toFixed(2)} kg) diverge do limite máximo (${max.toFixed(2)} kg vs esperado ${(target + tolUpKg).toFixed(2)} kg).`
+      if (Math.abs(implicitMax - max) > 0.5 && tolUpVal > 0) {
+        errors.tolerance_upper_val = `Tolerância superior (${(tolUpKg / 1000).toFixed(3)} t) diverge do limite máximo (${(max / 1000).toFixed(3)} t vs esperado ${((target + tolUpKg) / 1000).toFixed(3)} t).`
       }
     }
 
@@ -282,6 +285,37 @@ class MPCuttingWeightStandardsService {
           : data.tolerance_upper_val,
     }
 
+    // Auto-sincronização matemática caso min ou max não tenham sido preenchidos diretamente
+    const target = Number(normalizedData.target_weight_kg || 0)
+    const tolLow = Number(normalizedData.tolerance_lower_val || 0)
+    const tolUp = Number(normalizedData.tolerance_upper_val || 0)
+    if (target > 0) {
+      if (
+        (normalizedData.min_weight_kg === undefined ||
+          isNaN(Number(normalizedData.min_weight_kg))) &&
+        tolLow >= 0
+      ) {
+        const tolLowKg = this.calculateToleranceInKg(
+          target,
+          tolLow,
+          normalizedData.tolerance_lower_type || 'TON',
+        )
+        normalizedData.min_weight_kg = Math.max(0, target - tolLowKg)
+      }
+      if (
+        (normalizedData.max_weight_kg === undefined ||
+          isNaN(Number(normalizedData.max_weight_kg))) &&
+        tolUp >= 0
+      ) {
+        const tolUpKg = this.calculateToleranceInKg(
+          target,
+          tolUp,
+          normalizedData.tolerance_upper_type || 'TON',
+        )
+        normalizedData.max_weight_kg = target + tolUpKg
+      }
+    }
+
     try {
       const all = await this.listStandards(true)
       const validation = this.validateStandard(normalizedData, all)
@@ -308,10 +342,24 @@ class MPCuttingWeightStandardsService {
           target_weight_kg: Number(normalizedData.target_weight_kg),
           min_weight_kg: Number(normalizedData.min_weight_kg),
           max_weight_kg: Number(normalizedData.max_weight_kg),
-          tolerance_lower_val: Number(normalizedData.tolerance_lower_val ?? 0),
-          tolerance_lower_type: normalizedData.tolerance_lower_type,
-          tolerance_upper_val: Number(normalizedData.tolerance_upper_val ?? 0),
-          tolerance_upper_type: normalizedData.tolerance_upper_type,
+          tolerance_lower_val: Number(
+            normalizedData.tolerance_lower_type === 'TON'
+              ? normalizedData.tolerance_lower_val! * 1000
+              : (normalizedData.tolerance_lower_val ?? 0),
+          ),
+          tolerance_lower_type:
+            normalizedData.tolerance_lower_type === 'TON'
+              ? 'KG'
+              : normalizedData.tolerance_lower_type,
+          tolerance_upper_val: Number(
+            normalizedData.tolerance_upper_type === 'TON'
+              ? normalizedData.tolerance_upper_val! * 1000
+              : (normalizedData.tolerance_upper_val ?? 0),
+          ),
+          tolerance_upper_type:
+            normalizedData.tolerance_upper_type === 'TON'
+              ? 'KG'
+              : normalizedData.tolerance_upper_type,
           priority: normalizedData.priority,
           start_date: normalizedData.start_date,
           end_date: normalizedData.end_date || null,
@@ -363,10 +411,24 @@ class MPCuttingWeightStandardsService {
           target_weight_kg: Number(normalizedData.target_weight_kg),
           min_weight_kg: Number(normalizedData.min_weight_kg),
           max_weight_kg: Number(normalizedData.max_weight_kg),
-          tolerance_lower_val: Number(normalizedData.tolerance_lower_val ?? 0),
-          tolerance_lower_type: normalizedData.tolerance_lower_type || 'KG',
-          tolerance_upper_val: Number(normalizedData.tolerance_upper_val ?? 0),
-          tolerance_upper_type: normalizedData.tolerance_upper_type || 'KG',
+          tolerance_lower_val: Number(
+            normalizedData.tolerance_lower_type === 'TON'
+              ? (normalizedData.tolerance_lower_val ?? 0) * 1000
+              : (normalizedData.tolerance_lower_val ?? 0),
+          ),
+          tolerance_lower_type:
+            normalizedData.tolerance_lower_type === 'TON'
+              ? 'KG'
+              : normalizedData.tolerance_lower_type || 'KG',
+          tolerance_upper_val: Number(
+            normalizedData.tolerance_upper_type === 'TON'
+              ? (normalizedData.tolerance_upper_val ?? 0) * 1000
+              : (normalizedData.tolerance_upper_val ?? 0),
+          ),
+          tolerance_upper_type:
+            normalizedData.tolerance_upper_type === 'TON'
+              ? 'KG'
+              : normalizedData.tolerance_upper_type || 'KG',
           priority: normalizedData.priority || 'MEDIA',
           start_date: normalizedData.start_date,
           end_date: normalizedData.end_date || null,
