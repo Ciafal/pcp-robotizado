@@ -117,12 +117,13 @@ describe('Análise Real Time — Nível 1 Visão Consolidada CIAFAL (Aceite Crit
       expect(screen.getByTestId('realtime-kpi-cards-grid')).toBeInTheDocument()
     })
 
-    // 5 cards obrigatórios
+    // Cards obrigatórios consolidados
     expect(screen.getByText('OEE da Empresa')).toBeInTheDocument()
     expect(screen.getByText('Taxa de Utilização')).toBeInTheDocument()
     expect(screen.getByText('Rendimento Metálico')).toBeInTheDocument()
     expect(screen.getByText('Produção (t)')).toBeInTheDocument()
     expect(screen.getByText('Previsto x Realizado')).toBeInTheDocument()
+    expect(screen.getByText('Produtividade t/h')).toBeInTheDocument()
 
     // O antigo "Taxa Atual / Parada" não deve mais ser um card da empresa
     expect(screen.queryByText('Taxa Atual / Parada')).not.toBeInTheDocument()

@@ -9,6 +9,7 @@ import {
 import { PcpRealtimeAnalysisService } from '@/services/pcp-realtime-analysis-service'
 import { PcpRealtimeAiService } from '@/services/pcp-realtime-ai-service'
 import { RealtimeDrilldownModal } from '@/components/realtime-analysis/RealtimeDrilldownModal'
+import { RealtimeProductivityDetailModal } from '@/components/realtime-analysis/RealtimeProductivityDetailModal'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { formatNumberPtBr } from '@/lib/number-format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -34,6 +35,7 @@ import {
   ChevronRight,
   Radio,
   Calendar,
+  Gauge,
 } from 'lucide-react'
 
 // Funções defensivas utilitárias
@@ -108,6 +110,9 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
   const [selectedCenter, setSelectedCenter] = useState<RealtimeCenterData | null>(null)
   const [selectedLine, setSelectedLine] = useState<RealtimeLineData | null>(null)
   const [modalTitle, setModalTitle] = useState<string>('')
+
+  // Modal de Detalhamento da Produtividade t/h
+  const [productivityModalOpen, setProductivityModalOpen] = useState<boolean>(false)
 
   // Carregamento resiliente
   const loadData = useCallback(
@@ -595,7 +600,7 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
             {/* ITEM 4: CARDS DOS INDICADORES INDUSTRIAIS (IMEDIATAMENTE ABAIXO DOS FILTROS) */}
             <ErrorBoundary moduleName="Resumo Consolidado Empresa" variant="compact">
               <div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5"
                 data-testid="realtime-kpi-cards-grid"
               >
                 {/* Card 1 — OEE da Empresa */}
@@ -750,6 +755,76 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                         {data.consolidatedCompany?.deviationTons != null
                           ? `${data.consolidatedCompany.deviationTons > 0 ? '+' : ''}${formatNumberPtBr(data.consolidatedCompany.deviationTons)} t`
                           : 'N/D'}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Card 6 — Produtividade t/h (Consolidada da Empresa com Modal de Detalhamento) */}
+                <Card
+                  className="bg-white border border-slate-200 hover:border-[#004C97] rounded-xl p-4 shadow-xs transition-all flex flex-col justify-between min-h-[128px] cursor-pointer group hover:shadow-md"
+                  data-testid="card-produtividade-th"
+                  onClick={() => setProductivityModalOpen(true)}
+                  title="Clique para abrir o Detalhamento da Produtividade t/h e análise com IA"
+                >
+                  <div>
+                    <div className="text-xs font-semibold text-slate-600 flex items-center justify-between">
+                      <span className="flex items-center gap-1 group-hover:text-[#004C97] transition-colors">
+                        <Gauge className="w-3.5 h-3.5 text-[#004C97]" />
+                        Produtividade t/h
+                      </span>
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          (data.consolidatedCompany?.productivityConsolidated?.deviationTh ?? 0) >=
+                          0
+                            ? 'bg-emerald-500'
+                            : 'bg-rose-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="text-2xl font-black text-[#004C97] mt-2 flex items-baseline gap-1.5">
+                      <span>
+                        {safeFormatNumber(
+                          data.consolidatedCompany?.productivityConsolidated
+                            ?.realizedProductivityTh,
+                          't/h',
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Prevista:</span>
+                      <span className="font-medium text-slate-700">
+                        {safeFormatNumber(
+                          data.consolidatedCompany?.productivityConsolidated?.plannedProductivityTh,
+                          't/h',
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Desvio:</span>
+                      <span
+                        className={`font-semibold ${
+                          (data.consolidatedCompany?.productivityConsolidated?.deviationTh ?? 0) >=
+                          0
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}
+                      >
+                        {data.consolidatedCompany?.productivityConsolidated?.deviationTh != null
+                          ? `${data.consolidatedCompany.productivityConsolidated.deviationTh > 0 ? '+' : ''}${formatNumberPtBr(data.consolidatedCompany.productivityConsolidated.deviationTh)} t/h`
+                          : 'N/D'}
+                        {data.consolidatedCompany?.productivityConsolidated?.achievementPct !=
+                          null && (
+                          <span className="font-normal text-[10px] text-slate-500 ml-1">
+                            (
+                            {formatNumberPtBr(
+                              data.consolidatedCompany.productivityConsolidated.achievementPct,
+                            )}{' '}
+                            %)
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1318,6 +1393,19 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
           periodRange={data?.periodRange}
           orderProductivityList={data?.orderProductivityList}
           loading={modalLoading}
+          onRefresh={() => loadData(false)}
+        />
+      </ErrorBoundary>
+
+      {/* NOVO MODAL ESPECÍFICO DE DETALHAMENTO DA PRODUTIVIDADE T/H COM IA */}
+      <ErrorBoundary moduleName="Modal Produtividade Real Time" variant="compact">
+        <RealtimeProductivityDetailModal
+          open={productivityModalOpen}
+          onOpenChange={setProductivityModalOpen}
+          consolidated={data?.consolidatedCompany?.productivityConsolidated}
+          orderList={data?.orderProductivityList}
+          filters={filters}
+          periodRange={data?.periodRange}
           onRefresh={() => loadData(false)}
         />
       </ErrorBoundary>

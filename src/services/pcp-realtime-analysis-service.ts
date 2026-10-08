@@ -1316,26 +1316,28 @@ export class PcpRealtimeAnalysisService {
         master: {
           nominal_hourly_capacity: Number(rawLine?.nominal_capacity || rawLine?.target_rate || 0),
         } as any,
+        hierarchy: [],
+        managers: [],
+        approvers: [],
+        sequencing: [],
         shifts: [],
+        capabilities: [],
         productivity:
           (rawLine?.id ? ratesByLine.get(rawLine.id) : null) ||
           ratesByLine.get(lineCode) ||
           (productivityRatesList as any[]) ||
           [],
-        bottleneck: [],
-        setupMatrix: [],
-        referenceDocuments: [],
-        crews: [],
-        productFamilies: [],
-        rawMaterialPriorities: [],
+        rawMaterials: [],
         blockedProducts: [],
-        rawMaterialApplications: [],
-        rollShopSetup: null,
-        changeLog: [],
-        capacities: [],
-        maintenanceWindows: [],
-        sapWorkCenters: [],
-        speedCurves: [],
+        setups: [],
+        setupMatrix: [],
+        scheduledStops: [],
+        constraints: [],
+        rulePacks: [],
+        history: [],
+        alerts: [],
+        completeness: 100,
+        readyForScheduling: true,
       }
 
       let plannedProductivityTh: number | null = null
