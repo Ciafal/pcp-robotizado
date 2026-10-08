@@ -66,8 +66,8 @@ describe('Testes Obrigatórios T1 a T7 — Ciclo de Padrões de Peso para Corte'
 
     expect(valVazio.isValid).toBe(false)
     expect(valVazio.errors.description).toContain('obrigatória')
-    expect(valVazio.errors.center_codes).toContain('Pelo menos um centro')
-    expect(valVazio.errors.material_codes).toContain('Pelo menos um material')
+    expect(valVazio.errors.center_codes).toContain('ao menos um centro')
+    expect(valVazio.errors.material_codes).toContain('ao menos um material')
     expect(valVazio.errors.target_weight_kg).toContain('maior que zero')
   })
 

@@ -95,6 +95,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
   const [formError, setFormError] = useState<string | null>(null)
   const [formSuccess, setFormSuccess] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [highlightedCode, setHighlightedCode] = useState<string | null>(null)
 
   // Centros e materiais disponíveis no sistema CIAFAL
   const availableCenters = [
@@ -509,21 +510,27 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
         return
       }
 
-      const successMsg = `Padrão de Peso nº [${res.standard.code}] cadastrado com sucesso.`
+      const code = res.standard.code
+      const isUpdate = Boolean(payloadToValidate.id)
+      const successMsg = isUpdate
+        ? `Padrão de Peso nº [${code}] atualizado com sucesso.`
+        : `Padrão de Peso nº [${code}] cadastrado com sucesso.`
       setFormSuccess(successMsg)
+      setHighlightedCode(code)
       toast({
         title: 'Sucesso',
         description: successMsg,
       })
 
-      // Atualização imediata da tabela e callback
+      // Atualização imediata da tabela real (fetchPocketBase) e callback externo
       await fetchStandards()
       onStandardsChanged?.()
 
-      setTimeout(() => {
-        setIsEditing(false)
-        setFormSuccess(null)
-      }, 700)
+      // Regra inegociável: NUNCA fechar ou limpar automaticamente via setTimeout.
+      // Retorna imediatamente à visão de lista dentro do popup, mantendo o banner persistente
+      // e destacando a nova linha gravada até fechamento manual.
+      setIsEditing(false)
+      setFormError(null)
     } catch (e: any) {
       const msg = `Não foi possível salvar o padrão de peso: ${e?.message || 'Falha de rede'}.`
       setFormError(msg)
@@ -560,9 +567,61 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
     )
   })
 
+  const handleModalClose = () => {
+    // Bloquear fechamento se estiver no meio do salvamento
+    if (saving) return
+
+    // Se estiver editando e houver dados digitados não salvos, confirmar antes de descartar
+    const hasUnsavedChanges =
+      isEditing &&
+      Boolean(
+        formData.description?.trim() ||
+        targetWeightInput.trim() ||
+        minWeightInput.trim() ||
+        maxWeightInput.trim(),
+      )
+
+    if (hasUnsavedChanges) {
+      const confirmDiscard = window.confirm(
+        'Há alterações não salvas no padrão de peso. Deseja realmente fechar e descartar os dados?',
+      )
+      if (!confirmDiscard) return
+    }
+
+    onClose()
+  }
+
+  // Verificar se o padrão recém-salvo ficou oculto pelos filtros ativos
+  const isHighlightedItemHiddenByFilters =
+    Boolean(highlightedCode) && !filteredStandards.some((s) => s.code === highlightedCode)
+
+  const handleClearFilters = () => {
+    setSearchTerm('')
+    setFilterType('TODOS')
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-slate-50 border-blue-900/20 p-6">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          handleModalClose()
+        }
+      }}
+    >
+      <DialogContent
+        onPointerDownOutside={(e) => {
+          if (saving) {
+            e.preventDefault()
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (saving) {
+            e.preventDefault()
+          }
+        }}
+        className="max-w-5xl max-h-[90vh] overflow-y-auto bg-slate-50 border-blue-900/20 p-6"
+      >
         <ErrorBoundary
           fallback={
             <div className="p-4 text-red-600">Erro ao renderizar popup de Padrões de Peso.</div>
@@ -596,6 +655,30 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                 </Button>
               )}
             </div>
+
+            {/* BANNER DE SUCESSO PERSISTENTE NA VISÃO DE LISTA (fora do form desmontado) */}
+            {!isEditing && formSuccess && (
+              <div className="mt-3">
+                <Alert className="bg-emerald-50 border-emerald-300 text-emerald-900 shadow-sm flex items-center justify-between py-2.5 px-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <AlertDescription className="text-sm font-semibold text-emerald-900">
+                      {formSuccess}
+                    </AlertDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFormSuccess(null)}
+                    className="h-6 w-6 p-0 text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100/60 rounded"
+                    title="Fechar aviso de confirmação"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </Alert>
+              </div>
+            )}
           </DialogHeader>
 
           {/* FORMULÁRIO DE CADASTRO / EDIÇÃO */}
@@ -612,8 +695,25 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => {
+                      if (saving) return
+                      const hasData = Boolean(
+                        formData.description?.trim() ||
+                        targetWeightInput.trim() ||
+                        minWeightInput.trim() ||
+                        maxWeightInput.trim(),
+                      )
+                      if (hasData) {
+                        const ok = window.confirm(
+                          'Deseja cancelar a edição e descartar os dados preenchidos?',
+                        )
+                        if (!ok) return
+                      }
+                      setIsEditing(false)
+                      setFormError(null)
+                    }}
                     className="text-slate-500 hover:text-slate-800"
+                    disabled={saving}
                   >
                     <X className="w-4 h-4 mr-1" /> Cancelar
                   </Button>
@@ -988,7 +1088,21 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => {
+                    if (saving) return
+                    const hasData = Boolean(
+                      formData.description?.trim() ||
+                      targetWeightInput.trim() ||
+                      minWeightInput.trim() ||
+                      maxWeightInput.trim(),
+                    )
+                    if (hasData) {
+                      const ok = window.confirm('Deseja cancelar e descartar os dados preenchidos?')
+                      if (!ok) return
+                    }
+                    setIsEditing(false)
+                    setFormError(null)
+                  }}
                   disabled={saving}
                 >
                   Cancelar
@@ -998,14 +1112,34 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                   disabled={saving}
                   className="bg-blue-900 hover:bg-blue-950 text-white gap-2 shadow-sm font-semibold"
                 >
-                  <Save className="w-4 h-4" />{' '}
-                  {saving ? 'Gravando Padrão...' : 'Salvar Padrão de Peso'}
+                  <Save className="w-4 h-4" /> {saving ? 'Salvando...' : 'Salvar Padrão de Peso'}
                 </Button>
               </div>
             </form>
           ) : (
             /* LISTAGEM DE PADRÕES CADASTRADOS */
             <div className="space-y-4 py-3">
+              {/* Alerta de Registro Oculto por Filtros */}
+              {isHighlightedItemHiddenByFilters && (
+                <Alert className="bg-amber-50 border-amber-300 text-amber-900 flex items-center justify-between py-2 px-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <AlertDescription className="text-xs font-medium">
+                      O padrão <strong>{highlightedCode}</strong> foi gravado com sucesso, mas está
+                      oculto pelos filtros atuais (busca ou tipo).
+                    </AlertDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleClearFilters}
+                    className="h-7 text-xs bg-white border-amber-300 hover:bg-amber-100 text-amber-900 font-semibold"
+                  >
+                    Limpar filtros
+                  </Button>
+                </Alert>
+              )}
+
               {/* Barra de Filtros da Lista */}
               <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200">
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -1028,6 +1162,16 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                     <option value="BLOCOS">Somente Blocos</option>
                     <option value="MULTIPLOS">Somente Múltiplos</option>
                   </select>
+                  {(searchTerm || filterType !== 'TODOS') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleClearFilters}
+                      className="h-8 text-xs text-slate-500 hover:text-slate-800"
+                    >
+                      Limpar
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -1071,10 +1215,19 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                       filteredStandards.map((std) => (
                         <TableRow
                           key={std.id || std.code}
-                          className="hover:bg-slate-50/80 transition-colors"
+                          className={`transition-colors ${
+                            highlightedCode === std.code
+                              ? 'bg-emerald-50/80 border-l-4 border-l-emerald-600 font-medium'
+                              : 'hover:bg-slate-50/80'
+                          }`}
                         >
-                          <TableCell className="font-mono text-xs font-bold text-blue-900">
+                          <TableCell className="font-mono text-xs font-bold text-blue-900 flex items-center gap-1.5">
                             {std.code}
+                            {highlightedCode === std.code && (
+                              <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 h-4">
+                                Novo
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium text-xs text-slate-900">
@@ -1183,7 +1336,7 @@ export const MPCuttingWeightStandardsModal: React.FC<MPCuttingWeightStandardsMod
                 <HelpCircle className="w-3.5 h-3.5 text-blue-800" /> Padrões inativos não são
                 calculados em novas simulações mas são preservados no histórico.
               </span>
-              <Button variant="outline" size="sm" onClick={onClose}>
+              <Button variant="outline" size="sm" onClick={handleModalClose} disabled={saving}>
                 Fechar
               </Button>
             </div>
