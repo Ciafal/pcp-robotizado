@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -80,13 +80,17 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
   company,
   metricKey,
 }) => {
-  const aiSummary = center
-    ? PcpRealtimeAiService.generateCenterSummary(center)
-    : line
-      ? PcpRealtimeAiService.generateLineSummary(line)
-      : company
-        ? PcpRealtimeAiService.generateCompanySummary(company, [])
-        : null
+  const aiSummary = useMemo(() => {
+    try {
+      if (center) return PcpRealtimeAiService.generateCenterSummary(center)
+      if (line) return PcpRealtimeAiService.generateLineSummary(line)
+      if (company) return PcpRealtimeAiService.generateCompanySummary(company, [])
+      return null
+    } catch (err) {
+      console.warn('Erro ao gerar resumo IA no modal drilldown:', err)
+      return null
+    }
+  }, [center, line, company])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -323,23 +327,25 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                     <span className="text-sm font-bold text-slate-800">OEE do Centro</span>
                     <Badge variant="outline" className="text-xs font-bold text-blue-700">
                       Meta:{' '}
-                      {center?.oee.target !== null
+                      {center?.oee?.target !== null && center?.oee?.target !== undefined
                         ? `${formatNumberPtBr(center.oee.target)} %`
                         : 'N/D'}
                     </Badge>
                   </div>
                   <div className="text-3xl font-extrabold text-slate-900">
-                    {center?.oee.value !== null ? `${formatNumberPtBr(center.oee.value)} %` : 'N/D'}
+                    {center?.oee?.value !== null && center?.oee?.value !== undefined
+                      ? `${formatNumberPtBr(center.oee.value)} %`
+                      : 'N/D'}
                   </div>
                   <div className="text-xs text-slate-600 flex items-center gap-1">
-                    {center?.oee.trend === 'UP' ? (
+                    {center?.oee?.trend === 'UP' ? (
                       <TrendingUp className="w-4 h-4 text-emerald-600" />
                     ) : (
                       <TrendingDown className="w-4 h-4 text-rose-600" />
                     )}
                     <span>
                       Diferença:{' '}
-                      {center?.oee.difference !== null
+                      {center?.oee?.difference !== null && center?.oee?.difference !== undefined
                         ? `${formatNumberPtBr(center.oee.difference)} p.p.`
                         : 'N/D'}
                     </span>
@@ -356,25 +362,27 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                     <span className="text-sm font-bold text-slate-800">Taxa de Utilização</span>
                     <Badge variant="outline" className="text-xs font-bold text-blue-700">
                       Meta:{' '}
-                      {center?.utilization.target !== null
+                      {center?.utilization?.target !== null &&
+                      center?.utilization?.target !== undefined
                         ? `${formatNumberPtBr(center.utilization.target)} %`
                         : 'N/D'}
                     </Badge>
                   </div>
                   <div className="text-3xl font-extrabold text-slate-900">
-                    {center?.utilization.value !== null
+                    {center?.utilization?.value !== null && center?.utilization?.value !== undefined
                       ? `${formatNumberPtBr(center.utilization.value)} %`
                       : 'N/D'}
                   </div>
                   <div className="text-xs text-slate-600 flex items-center gap-1">
-                    {center?.utilization.trend === 'UP' ? (
+                    {center?.utilization?.trend === 'UP' ? (
                       <TrendingUp className="w-4 h-4 text-emerald-600" />
                     ) : (
                       <TrendingDown className="w-4 h-4 text-rose-600" />
                     )}
                     <span>
                       Diferença:{' '}
-                      {center?.utilization.difference !== null
+                      {center?.utilization?.difference !== null &&
+                      center?.utilization?.difference !== undefined
                         ? `${formatNumberPtBr(center.utilization.difference)} p.p.`
                         : 'N/D'}
                     </span>
@@ -391,29 +399,34 @@ export const RealtimeDrilldownModal: React.FC<RealtimeDrilldownModalProps> = ({
                     <span className="text-sm font-bold text-slate-800">Rendimento Metálico</span>
                     <Badge variant="outline" className="text-xs font-bold text-blue-700">
                       Meta:{' '}
-                      {center?.metallicYield.targetPct !== null
+                      {center?.metallicYield?.targetPct !== null &&
+                      center?.metallicYield?.targetPct !== undefined
                         ? `${formatNumberPtBr(center.metallicYield.targetPct)} %`
                         : 'N/D'}
                     </Badge>
                   </div>
                   <div className="text-3xl font-extrabold text-slate-900">
-                    {center?.metallicYield.yieldPct !== null
+                    {center?.metallicYield?.yieldPct !== null &&
+                    center?.metallicYield?.yieldPct !== undefined
                       ? `${formatNumberPtBr(center.metallicYield.yieldPct)} %`
                       : 'N/D'}
                   </div>
                   <div className="text-xs text-slate-600">
                     Perda estimada:{' '}
-                    {center?.metallicYield.estimatedLossTons !== null
+                    {center?.metallicYield?.estimatedLossTons !== null &&
+                    center?.metallicYield?.estimatedLossTons !== undefined
                       ? `${formatNumberPtBr(center.metallicYield.estimatedLossTons)} t`
                       : 'N/D'}
                   </div>
                   <div className="text-[11px] text-slate-400 border-t pt-2">
                     Entrada:{' '}
-                    {center?.metallicYield.weightInputTons !== null
+                    {center?.metallicYield?.weightInputTons !== null &&
+                    center?.metallicYield?.weightInputTons !== undefined
                       ? `${formatNumberPtBr(center.metallicYield.weightInputTons)} t`
                       : 'N/D'}{' '}
                     | Boa:{' '}
-                    {center?.metallicYield.weightGoodProductTons !== null
+                    {center?.metallicYield?.weightGoodProductTons !== null &&
+                    center?.metallicYield?.weightGoodProductTons !== undefined
                       ? `${formatNumberPtBr(center.metallicYield.weightGoodProductTons)} t`
                       : 'N/D'}
                   </div>

@@ -29,14 +29,23 @@ export class PcpRealtimeAiService {
     company: RealtimeCompanyConsolidated,
     lines: RealtimeLineData[],
   ): OperationalAiSummary {
-    const allCenters = (lines || []).flatMap((l) => l?.centers || [])
+    const allCenters = (Array.isArray(lines) ? lines : []).flatMap((l) =>
+      Array.isArray(l?.centers) ? l.centers : [],
+    )
     const factualPoints: string[] = []
     const calculatedAlerts: string[] = []
     const aiInterpretations: string[] = []
 
+    const totalCenters = company?.totalCenters ?? allCenters.length ?? 0
+    const centersOperating = company?.centersOperating ?? 0
+    const centersStopped = company?.centersStopped ?? 0
+    const centersInSetup = company?.centersInSetup ?? 0
+    const centersScheduledStop = company?.centersScheduledStop ?? 0
+    const centersWithoutSchedule = company?.centersWithoutSchedule ?? 0
+
     // 1. Fatos Medidos
     factualPoints.push(
-      `Escopo consolidado com ${company.totalCenters} centros monitorados: ${company.centersOperating} operando normalmente, ${company.centersStopped} em parada crítica, ${company.centersInSetup} em atenção/setup, ${company.centersScheduledStop} em parada programada e ${company.centersWithoutSchedule} sem programação vigente.`,
+      `Escopo consolidado com ${totalCenters} centros monitorados: ${centersOperating} operando normalmente, ${centersStopped} em parada crítica, ${centersInSetup} em atenção/setup, ${centersScheduledStop} em parada programada e ${centersWithoutSchedule} sem programação vigente.`,
     )
 
     if (company.realizedProductionTons !== null && company.plannedProductionTons !== null) {
@@ -108,7 +117,7 @@ export class PcpRealtimeAiService {
 
     return {
       level: 'EMPRESA',
-      entityName: company.companyName,
+      entityName: company?.companyName || 'CIAFAL',
       factualPoints,
       calculatedAlerts,
       aiInterpretations,
@@ -124,8 +133,12 @@ export class PcpRealtimeAiService {
     const calculatedAlerts: string[] = []
     const aiInterpretations: string[] = []
 
+    const lineName = line?.lineName || line?.lineCode || 'Linha'
+    const status = line?.status || 'NORMAL'
+    const schedSit = (line?.scheduleSituation || '').replace('_', ' ')
+
     factualPoints.push(
-      `Linha ${line.lineName} operando com status ${line.status} e situação da programação: ${line.scheduleSituation.replace('_', ' ')}.`,
+      `Linha ${lineName} operando com status ${status} e situação da programação: ${schedSit}.`,
     )
 
     if (line.realizedTons !== null && line.plannedTons !== null) {
@@ -156,12 +169,12 @@ export class PcpRealtimeAiService {
 
     return {
       level: 'LINHA',
-      entityName: line.lineName,
+      entityName: lineName,
       factualPoints,
       calculatedAlerts,
       aiInterpretations,
       nextActionAdvice:
-        line.status === 'NORMAL'
+        line?.status === 'NORMAL'
           ? 'Manter fluxo contínuo de alimentação de matéria-prima.'
           : 'Verificar alinhamento e causas técnicas de paradas com a liderança do turno.',
     }
@@ -175,8 +188,12 @@ export class PcpRealtimeAiService {
     const calculatedAlerts: string[] = []
     const aiInterpretations: string[] = []
 
+    const centerName = center?.centerName || center?.centerCode || 'Centro'
+    const centerCode = center?.centerCode || '-'
+    const status = center?.status || 'NORMAL'
+
     factualPoints.push(
-      `Centro ${center.centerName} (${center.centerCode}): status ${center.status}. Ordem ativa: ${center.productionOrder || 'Sem ordem vinculada'}.`,
+      `Centro ${centerName} (${centerCode}): status ${status}. Ordem ativa: ${center?.productionOrder || 'Sem ordem vinculada'}.`,
     )
 
     if (center.materialDescription) {
@@ -219,11 +236,11 @@ export class PcpRealtimeAiService {
 
     return {
       level: 'CENTRO',
-      entityName: center.centerName,
+      entityName: centerName,
       factualPoints,
       calculatedAlerts,
       aiInterpretations,
-      nextActionAdvice: center.activeStop
+      nextActionAdvice: center?.activeStop
         ? `Cobrar parecer da manutenção sobre nota/ordem ${center.activeStop.maintenanceOrderRef || 'N/A'}.`
         : 'Confirmar apontamentos MES para fechamento do turno.',
     }

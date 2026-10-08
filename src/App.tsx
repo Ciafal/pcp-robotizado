@@ -62,12 +62,12 @@ const ControlTowerPage = lazyWithRetry(
     import('@/pages/ControlTowerPage').then((m) => ({ default: m.ControlTowerPage || m.default })),
   'ControlTowerPage',
 )
-const RealtimeAnalysisPage = lazyWithRetry(
+const AnaliseRealTimeSafePage = lazyWithRetry(
   () =>
-    import('@/pages/RealtimeAnalysisPage').then((m) => ({
-      default: m.RealtimeAnalysisPage || m.default,
+    import('@/pages/AnaliseRealTimeSafePage').then((m) => ({
+      default: m.AnaliseRealTimeSafePage || m.default,
     })),
-  'RealtimeAnalysisPage',
+  'AnaliseRealTimeSafePage',
 )
 const OperationalPage = lazyWithRetry(
   () =>
@@ -1165,15 +1165,15 @@ export const App: React.FC = () => {
                     <Route path="/pcp/principal" element={<Navigate to="/pcp/cockpit" replace />} />
                     <Route path="/pcp/cockpit" element={<Index />} />
                     <Route
-                      path="/pcp/analise-real-time"
+                      path="analise-real-time"
                       element={
                         <PermissionGuard permission="pcp.schedule.view">
-                          <ErrorBoundary moduleName="Análise Real Time — PCP">
-                            <RealtimeAnalysisPage />
-                          </ErrorBoundary>
+                          <Suspense fallback={<ModuleFallback />}>
+                            <AnaliseRealTimeSafePage />
+                          </Suspense>
                         </PermissionGuard>
                       }
-                    />
+                    />{' '}
                     <Route
                       path="/pcp-robotizado/analise-real-time"
                       element={<Navigate to="/pcp/analise-real-time" replace />}

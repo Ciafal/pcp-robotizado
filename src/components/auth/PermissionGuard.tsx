@@ -372,16 +372,30 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     return <>{children}</>
   }
 
-  // BYPASS IMEDIATO:
+  // BYPASS IMEDIATO / RESILIENTE PARA ANÁLISE REAL TIME:
+  // Renderiza imediatamente quando o usuário possui perfil ou permissão autorizada (PCP_PROGRAMMER, ADMIN, etc.)
+  // ou sessão válida, com o mesmo padrão resiliente de Principal e Torre de Controle
   const isRealtimeAnalysisRoute = Boolean(
-    permission === 'pcp.schedule.view' &&
-    (currentPathname.includes('analise-real-time') ||
-      currentPathname.startsWith('/pcp/analise-real-time') ||
-      (typeof window !== 'undefined' &&
-        (window.location.pathname.includes('analise-real-time') ||
-          window.location.hash.includes('analise-real-time')))),
+    currentPathname.includes('analise-real-time') ||
+    currentPathname.startsWith('/pcp/analise-real-time') ||
+    (typeof window !== 'undefined' &&
+      (window.location.pathname.includes('analise-real-time') ||
+        window.location.hash.includes('analise-real-time'))),
   )
 
+  const isRealtimeAnalysisAuthorized = Boolean(
+    isRealtimeAnalysisRoute &&
+    (isAdminUser ||
+      (user?.role as string) === 'PCP_PROGRAMMER' ||
+      (user?.role as string) === 'PPC_PROGRAMMER' ||
+      effectiveRole === 'PCP_ADMIN' ||
+      can('pcp:indicadores:visualizar') ||
+      can('pcp.indicadores.view') ||
+      can('pcp.schedule.view') ||
+      can(permission) ||
+      hasValidAuthStore ||
+      Boolean(user)),
+  )
   // Bypass resiliente para Gestão Industrializador (/pcp/gestao-industrializador e sub-rotas):
   // Renderização imediata quando há sessão válida no authStore (Stale-While-Revalidate)
   // mantendo validação de permissão/RBAC do usuário sem travar na inicialização assíncrona.
@@ -390,7 +404,7 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
     (hasValidAuthStore || Boolean(user) || isAdminUser || can(permission)),
   )
 
-  if (isRealtimeAnalysisRoute || isGestaoIndustrializadorResilientRoute) {
+  if (isRealtimeAnalysisAuthorized || isGestaoIndustrializadorResilientRoute) {
     return <>{children}</>
   }
 

@@ -191,6 +191,8 @@ export const authService = {
     ) {
       return [
         'pcp.cockpit.view',
+        'pcp:indicadores:visualizar',
+        'pcp.indicadores.view',
         'pcp.schedule.view',
         'pcp.schedule.create',
         'pcp.schedule.edit',

@@ -39,16 +39,21 @@ export class PcpRealtimeAnalysisService {
         pb.collection('plants').getFullList({ sort: 'name' }),
       ])
 
-      if (compRes.status === 'fulfilled') companiesList = compRes.value
-      if (linesRes.status === 'fulfilled') linesList = linesRes.value
-      if (plantsRes.status === 'fulfilled') plantsList = plantsRes.value
+      if (compRes.status === 'fulfilled' && Array.isArray(compRes.value))
+        companiesList = compRes.value
+      if (linesRes.status === 'fulfilled' && Array.isArray(linesRes.value))
+        linesList = linesRes.value
+      if (plantsRes.status === 'fulfilled' && Array.isArray(plantsRes.value))
+        plantsList = plantsRes.value
     } catch (err) {
       console.warn('Erro ao carregar cadastros mestres para análise real time:', err)
     }
 
     // Mapa de plantas por id
     const plantMap = new Map<string, any>()
-    plantsList.forEach((p) => plantMap.set(p.id, p))
+    plantsList.forEach((p) => {
+      if (p && p.id) plantMap.set(p.id, p)
+    })
 
     // Fallback de empresa caso a coleção esteja vazia
     if (companiesList.length === 0) {
@@ -131,10 +136,14 @@ export class PcpRealtimeAnalysisService {
         pb.collection('pcp_production_orders').getFullList({ sort: '-created' }),
       ])
 
-      if (schedRes.status === 'fulfilled') weeklySchedules = schedRes.value
-      if (postRes.status === 'fulfilled') postingsList = postRes.value
-      if (stopsRes.status === 'fulfilled') stopsList = stopsRes.value
-      if (ordersRes.status === 'fulfilled') productionOrders = ordersRes.value
+      if (schedRes.status === 'fulfilled' && Array.isArray(schedRes.value))
+        weeklySchedules = schedRes.value
+      if (postRes.status === 'fulfilled' && Array.isArray(postRes.value))
+        postingsList = postRes.value
+      if (stopsRes.status === 'fulfilled' && Array.isArray(stopsRes.value))
+        stopsList = stopsRes.value
+      if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value))
+        productionOrders = ordersRes.value
     } catch (e) {
       console.warn('Erro ao consultar telemetria/fontes operacionais:', e)
     }
@@ -143,37 +152,37 @@ export class PcpRealtimeAnalysisService {
 
     // 3. Monta mapeamento estruturado de Empresas, Linhas e Centros
     // Relaciona cada Linha com sua Empresa correspondente via plant_id ou padrão CIAFAL
-    const availableCompanies = companiesList.map((c) => ({
-      code: c.code,
-      name: c.name || c.corporate_name || c.code,
+    const availableCompanies = (companiesList || []).map((c) => ({
+      code: c?.code || 'CIAFAL',
+      name: c?.name || c?.corporate_name || c?.code || 'Empresa',
     }))
 
-    const availableLines = linesList.map((l) => {
-      const plant = plantMap.get(l.plant_id)
+    const availableLines = (linesList || []).map((l) => {
+      const plant = l?.plant_id ? plantMap.get(l.plant_id) : null
       let compCode = 'CIAFAL'
       if (plant && plant.company_id) {
-        const comp = companiesList.find((c) => c.id === plant.company_id)
-        if (comp) compCode = comp.code
+        const comp = companiesList.find((c) => c?.id === plant.company_id)
+        if (comp && comp.code) compCode = comp.code
       }
       return {
-        code: l.code,
-        name: l.name || l.code,
+        code: l?.code || 'L_UNKNOWN',
+        name: l?.name || l?.code || 'Linha',
         companyCode: compCode,
       }
     })
 
-    const availableCenters = linesList.map((l) => {
-      const centerCode = l.sap_work_center || l.code
-      const plant = plantMap.get(l.plant_id)
+    const availableCenters = (linesList || []).map((l) => {
+      const centerCode = l?.sap_work_center || l?.code || 'C_UNKNOWN'
+      const plant = l?.plant_id ? plantMap.get(l.plant_id) : null
       let compCode = 'CIAFAL'
       if (plant && plant.company_id) {
-        const comp = companiesList.find((c) => c.id === plant.company_id)
-        if (comp) compCode = comp.code
+        const comp = companiesList.find((c) => c?.id === plant.company_id)
+        if (comp && comp.code) compCode = comp.code
       }
       return {
         code: centerCode,
-        name: `${l.name} (${centerCode})`,
-        lineCode: l.code,
+        name: `${l?.name || 'Linha'} (${centerCode})`,
+        lineCode: l?.code || 'L_UNKNOWN',
         companyCode: compCode,
       }
     })
@@ -617,42 +626,45 @@ export class PcpRealtimeAnalysisService {
     let totalGoodSum = 0
     let currentRateSum = 0
 
-    const allCenters = linesData.flatMap((l) => l?.centers || [])
+    const allCenters = (linesData || []).flatMap((l) =>
+      Array.isArray(l?.centers) ? l.centers : [],
+    )
     for (const c of allCenters) {
+      if (!c) continue
       if (c.status === 'NORMAL') centersOperating++
       else if (c.status === 'CRITICO') centersStopped++
       else if (c.status === 'ATENCAO') centersInSetup++
       else if (c.status === 'PARADA_PROGRAMADA') centersScheduledStop++
       else if (c.status === 'SEM_PROGRAMACAO') centersWithoutSchedule++
 
-      if (c.programmedTons !== null) {
+      if (c.programmedTons !== null && c.programmedTons !== undefined) {
         hasPlanned = true
         totalPlannedTons += c.programmedTons
       }
-      if (c.realizedTons !== null) {
+      if (c.realizedTons !== null && c.realizedTons !== undefined) {
         hasRealized = true
         totalRealizedTons += c.realizedTons
       }
 
-      if (c.oee.value !== null) {
+      if (c.oee?.value !== null && c.oee?.value !== undefined) {
         oeeWeightedSum += c.oee.value
         oeeWeightCount++
       }
-      if (c.utilization.value !== null) {
+      if (c.utilization?.value !== null && c.utilization?.value !== undefined) {
         utilWeightedSum += c.utilization.value
         utilWeightCount++
       }
 
-      if (c.metallicYield.weightInputTons && c.metallicYield.weightGoodProductTons) {
+      if (c.metallicYield?.weightInputTons && c.metallicYield?.weightGoodProductTons) {
         totalInputSum += c.metallicYield.weightInputTons
         totalGoodSum += c.metallicYield.weightGoodProductTons
       }
 
-      if (c.currentRatePerHour !== null) {
+      if (c.currentRatePerHour !== null && c.currentRatePerHour !== undefined) {
         currentRateSum += c.currentRatePerHour
       }
 
-      totalStoppedSeconds += c.stoppedMinutesDay * 60
+      totalStoppedSeconds += (c.stoppedMinutesDay || 0) * 60
     }
 
     const totalCenters = allCenters.length
