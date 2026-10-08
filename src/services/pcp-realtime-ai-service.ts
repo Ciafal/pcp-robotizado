@@ -2,6 +2,8 @@ import {
   RealtimeCompanyConsolidated,
   RealtimeLineData,
   RealtimeCenterData,
+  RealtimeProductivityConsolidated,
+  RealtimeOrderProductivityItem,
 } from '@/types/pcp-realtime-analysis'
 import { formatNumberPtBr } from '@/lib/number-format'
 
@@ -12,6 +14,53 @@ export interface OperationalAiSummary {
   calculatedAlerts: string[] // ALERTA calculado
   aiInterpretations: string[] // INTERPRETAÇÃO IA (sem inventar nada, orientativa)
   nextActionAdvice: string // Próxima atenção recomendada
+}
+
+export interface ProductivityAiReport {
+  hasSufficientData: boolean
+  insufficientDataReason?: string
+  // 1. Resumo Executivo
+  executiveSummary: string
+  // 2. Ordens com maior desvio negativo
+  highestNegativeDeviationOrders: Array<{
+    opNumber: string
+    material: string
+    deviationTh: number
+    realizedRate: number
+    plannedRate: number
+    status: string
+  }>
+  // 3. Ordens com melhor desempenho
+  bestPerformanceOrders: Array<{
+    opNumber: string
+    material: string
+    deviationTh: number
+    realizedRate: number
+    plannedRate: number
+    status: string
+  }>
+  // 4. Principais causas prováveis de perda
+  probableLossCauses: string[]
+  // 5. Correlação com paradas
+  stopsCorrelation: Array<{
+    category: string
+    reason: string
+    totalHours: number
+    occurrences: number
+    impactDescription: string
+  }>
+  // 6. Impacto operacional estimado
+  estimatedOperationalImpact: {
+    lostTons: number | null
+    lostHours: number
+    impactSummary: string
+  }
+  // 7. Ações recomendadas
+  recommendedActions: {
+    pcp: string[]
+    operacao: string[]
+    manutencao: string[]
+  }
 }
 
 export class PcpRealtimeAiService {
@@ -243,6 +292,231 @@ export class PcpRealtimeAiService {
       nextActionAdvice: center?.activeStop
         ? `Cobrar parecer da manutenção sobre nota/ordem ${center.activeStop.maintenanceOrderRef || 'N/A'}.`
         : 'Confirmar apontamentos MES para fechamento do turno.',
+    }
+  }
+
+  /**
+   * BLOCO 2 OBRIGATÓRIO: Análise IA Orientativa de Produtividade t/h (7 Análises)
+   * Base estritamente em dados reais.
+   * Se não houver evidência suficiente: texto exato "Sem dados suficientes para concluir a causa com segurança."
+   * IA só orienta, nunca executa.
+   */
+  public static generateProductivityAnalysis(params: {
+    consolidated: RealtimeProductivityConsolidated | null | undefined
+    orders: RealtimeOrderProductivityItem[] | undefined
+  }): ProductivityAiReport {
+    const INSUFFICIENT_DATA_TEXT = 'Sem dados suficientes para concluir a causa com segurança.'
+
+    const list = Array.isArray(params.orders) ? params.orders : []
+    const cons = params.consolidated
+
+    // Verificação de suficiência de dados: precisa de ordens ou consolidado com dados medidos
+    const hasOrders = list.length > 0
+    const hasConsolidated =
+      Boolean(cons) && (cons?.totalRealizedTons ?? 0) > 0 && (cons?.totalProductiveHours ?? 0) > 0
+
+    if (!hasOrders && !hasConsolidated) {
+      return {
+        hasSufficientData: false,
+        insufficientDataReason: INSUFFICIENT_DATA_TEXT,
+        executiveSummary: INSUFFICIENT_DATA_TEXT,
+        highestNegativeDeviationOrders: [],
+        bestPerformanceOrders: [],
+        probableLossCauses: [INSUFFICIENT_DATA_TEXT],
+        stopsCorrelation: [],
+        estimatedOperationalImpact: {
+          lostTons: null,
+          lostHours: 0,
+          impactSummary: INSUFFICIENT_DATA_TEXT,
+        },
+        recommendedActions: {
+          pcp: [INSUFFICIENT_DATA_TEXT],
+          operacao: [INSUFFICIENT_DATA_TEXT],
+          manutencao: [INSUFFICIENT_DATA_TEXT],
+        },
+      }
+    }
+
+    // 1. Resumo Executivo
+    let executiveSummary = ''
+    if (cons?.plannedProductivityTh && cons?.realizedProductivityTh) {
+      const dev = cons.deviationTh ?? cons.realizedProductivityTh - cons.plannedProductivityTh
+      const devSign = dev >= 0 ? `+${formatNumberPtBr(dev)}` : formatNumberPtBr(dev)
+      const ach = cons.achievementPct ? `${formatNumberPtBr(cons.achievementPct)} %` : 'N/D'
+      executiveSummary = `Produtividade consolidada apurada em ${formatNumberPtBr(cons.realizedProductivityTh)} t/h perante meta média ponderada de ${formatNumberPtBr(cons.plannedProductivityTh)} t/h (desvio de ${devSign} t/h; atingimento de ${ach}) ao longo de ${formatNumberPtBr(cons.totalProductiveHours)} h produtivas e ${formatNumberPtBr(cons.totalRealizedTons)} t realizadas em ${cons.ordersCount} ordem(ns).`
+    } else if (cons?.realizedProductivityTh) {
+      executiveSummary = `Produtividade consolidada apurada em ${formatNumberPtBr(cons.realizedProductivityTh)} t/h com ${formatNumberPtBr(cons.totalRealizedTons)} t realizadas em ${formatNumberPtBr(cons.totalProductiveHours)} h produtivas. Cadência prevista da empresa não cadastrada na totalidade dos itens.`
+    } else {
+      executiveSummary = INSUFFICIENT_DATA_TEXT
+    }
+
+    // 2. Ordens com maior desvio negativo (deviationTh < 0 ordenadas do menor ao maior)
+    const validDeviationOrders = list.filter(
+      (o) =>
+        o.deviationTh !== null &&
+        o.plannedProductivityTh !== null &&
+        o.realizedProductivityTh !== null,
+    )
+
+    const negativeOrders = validDeviationOrders
+      .filter((o) => (o.deviationTh ?? 0) < 0)
+      .sort((a, b) => (a.deviationTh ?? 0) - (b.deviationTh ?? 0))
+      .slice(0, 5)
+      .map((o) => ({
+        opNumber: o.opNumber,
+        material: o.materialDescription || o.materialCode,
+        deviationTh: o.deviationTh ?? 0,
+        realizedRate: o.realizedProductivityTh ?? 0,
+        plannedRate: o.plannedProductivityTh ?? 0,
+        status: o.status,
+      }))
+
+    // 3. Ordens com melhor desempenho (deviationTh >= 0 ordenadas descrescente)
+    const positiveOrders = validDeviationOrders
+      .filter((o) => (o.deviationTh ?? 0) >= 0)
+      .sort((a, b) => (b.deviationTh ?? 0) - (a.deviationTh ?? 0))
+      .slice(0, 5)
+      .map((o) => ({
+        opNumber: o.opNumber,
+        material: o.materialDescription || o.materialCode,
+        deviationTh: o.deviationTh ?? 0,
+        realizedRate: o.realizedProductivityTh ?? 0,
+        plannedRate: o.plannedProductivityTh ?? 0,
+        status: o.status,
+      }))
+
+    // 4. Principais causas prováveis de perda (base em fatos reais de paradas e desvios)
+    const probableLossCauses: string[] = []
+    const stopsByReasonMap = new Map<string, { totalHours: number; count: number }>()
+
+    list.forEach((o) => {
+      const reason = (o.mainStopReason || '').trim()
+      if (reason && reason !== '-') {
+        const cur = stopsByReasonMap.get(reason) || { totalHours: 0, count: 0 }
+        cur.totalHours += o.stoppedHours || 0
+        cur.count += 1
+        stopsByReasonMap.set(reason, cur)
+      }
+    })
+
+    if (stopsByReasonMap.size > 0) {
+      const sortedStops = Array.from(stopsByReasonMap.entries()).sort(
+        (a, b) => b[1].totalHours - a[1].totalHours,
+      )
+      sortedStops.slice(0, 3).forEach(([reason, data], idx) => {
+        probableLossCauses.push(
+          `${idx + 1}. "${reason}": impactou ${formatNumberPtBr(data.totalHours)} h em ${data.count} ordem(ns).`,
+        )
+      })
+    }
+
+    if (negativeOrders.length > 0 && probableLossCauses.length === 0) {
+      probableLossCauses.push(
+        `Descompasso de cadência operacional detectado em ${negativeOrders.length} OP(s), sem registro de parada específica vinculada no MES.`,
+      )
+    }
+
+    if (probableLossCauses.length === 0) {
+      probableLossCauses.push(INSUFFICIENT_DATA_TEXT)
+    }
+
+    // 5. Correlação com paradas (motivos, tempo parado, ocorrências: setup/acerto, falta de MP, manutenção, espera, quebra, troca de bitola, instabilidade de processo)
+    const stopsCorrelation: Array<{
+      category: string
+      reason: string
+      totalHours: number
+      occurrences: number
+      impactDescription: string
+    }> = []
+
+    stopsByReasonMap.forEach((val, reason) => {
+      let category = 'OPERACIONAL'
+      const rUpper = reason.toUpperCase()
+      if (rUpper.includes('SETUP') || rUpper.includes('ACERTO') || rUpper.includes('TROCA')) {
+        category = 'SETUP_ACERTO'
+      } else if (
+        rUpper.includes('MP') ||
+        rUpper.includes('MATERIA') ||
+        rUpper.includes('TARUGO') ||
+        rUpper.includes('FALTA')
+      ) {
+        category = 'FALTA_MP'
+      } else if (
+        rUpper.includes('MECAN') ||
+        rUpper.includes('ELET') ||
+        rUpper.includes('MANUT') ||
+        rUpper.includes('QUEBRA')
+      ) {
+        category = 'MANUTENCAO'
+      } else if (rUpper.includes('ESPERA') || rUpper.includes('AGUARDO')) {
+        category = 'ESPERA'
+      } else if (
+        rUpper.includes('INSTAB') ||
+        rUpper.includes('PROCESSO') ||
+        rUpper.includes('QUALID')
+      ) {
+        category = 'INSTABILIDADE_PROCESSO'
+      }
+
+      stopsCorrelation.push({
+        category,
+        reason,
+        totalHours: Number(val.totalHours.toFixed(2)),
+        occurrences: val.count,
+        impactDescription: `${val.count} ocorrência(s) totalizando ${formatNumberPtBr(val.totalHours)} h de parada.`,
+      })
+    })
+
+    // Ordenar correlações por maior tempo de parada
+    stopsCorrelation.sort((a, b) => b.totalHours - a.totalHours)
+
+    // 6. Impacto operacional estimado
+    const totalStoppedHours = cons?.totalStoppedHours ?? 0
+    let lostTons: number | null = null
+    let impactSummary = ''
+
+    if (cons?.plannedProductivityTh && totalStoppedHours > 0) {
+      lostTons = Number((totalStoppedHours * cons.plannedProductivityTh).toFixed(2))
+      impactSummary = `As ${formatNumberPtBr(totalStoppedHours)} h de paradas apuradas representam uma perda de oportunidade de aproximadamente ${formatNumberPtBr(lostTons)} t com base na cadência nominal ponderada de ${formatNumberPtBr(cons.plannedProductivityTh)} t/h.`
+    } else if (cons?.deviationTh && (cons?.totalProductiveHours ?? 0) > 0 && cons.deviationTh < 0) {
+      lostTons = Number((Math.abs(cons.deviationTh) * cons.totalProductiveHours).toFixed(2))
+      impactSummary = `O ritmo abaixo da meta gerou uma perda de volume estimada em ${formatNumberPtBr(lostTons)} t durante o período avaliado.`
+    } else {
+      impactSummary =
+        totalStoppedHours > 0
+          ? `${formatNumberPtBr(totalStoppedHours)} h de paradas registradas no período.`
+          : 'Operação sem paradas expressivas computadas no período.'
+    }
+
+    // 7. Ações recomendadas para PCP / Operação / Manutenção
+    const recommendedActions = {
+      pcp: [
+        'Ajustar os tempos padrão na Ficha Mestra caso a bitola apresente desvio sistemático em campanhas consecutivas.',
+        'Reprogramar os lotes subsequentes considerando a cadência real realizada no turno.',
+      ],
+      operacao: [
+        'Garantir continuidade na alimentação de matéria-prima nos centros de conformação.',
+        'Padronizar procedimentos de setup e troca de bitola para reduzir o tempo morto de máquina.',
+      ],
+      manutencao: [
+        'Priorizar inspeção preditiva nos centros com paradas recorrentes mecânicas/elétricas.',
+        'Validar notas e ordens de manutenção vinculadas às paradas para retorno definitivo dos equipamentos.',
+      ],
+    }
+
+    return {
+      hasSufficientData: true,
+      executiveSummary,
+      highestNegativeDeviationOrders: negativeOrders,
+      bestPerformanceOrders: positiveOrders,
+      probableLossCauses,
+      stopsCorrelation,
+      estimatedOperationalImpact: {
+        lostTons,
+        lostHours: totalStoppedHours,
+        impactSummary,
+      },
+      recommendedActions,
     }
   }
 }

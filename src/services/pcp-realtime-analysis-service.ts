@@ -7,6 +7,9 @@ import {
   RealtimeCompanyConsolidated,
   RealtimeLineData,
   RealtimeCenterData,
+  RealtimeProductivityConsolidated,
+  RealtimeOrderProductivityItem,
+  OrderProductivityStatus,
   OperationalStatus,
   ScheduleSituation,
   StopCategoryType,
@@ -14,6 +17,8 @@ import {
   RealtimeTimelineEvent,
 } from '@/types/pcp-realtime-analysis'
 import { getPlantNow } from '@/lib/temporal-utils'
+import { WeeklyScheduleEngine } from '@/services/weekly-schedule-engine'
+import { LineOverviewData, LineProductivityRate } from '@/types/line-master'
 
 const DEFAULT_STALE_MINUTES = 15
 
@@ -245,18 +250,20 @@ export class PcpRealtimeAnalysisService {
       ]
     }
 
-    // 2. Consulta Fontes Operacionais: Programações vigentes, Apontamentos MES, Paradas e Ordens
+    // 2. Consulta Fontes Operacionais: Programações vigentes, Apontamentos MES, Paradas, Ordens e Taxas de Produtividade Ficha Mestra
     let weeklySchedules: any[] = []
     let postingsList: any[] = []
     let stopsList: any[] = []
     let productionOrders: any[] = []
+    let productivityRatesList: any[] = []
 
     try {
-      const [schedRes, postRes, stopsRes, ordersRes] = await Promise.allSettled([
+      const [schedRes, postRes, stopsRes, ordersRes, ratesRes] = await Promise.allSettled([
         pb.collection('weekly_schedules').getFullList({ sort: '-created' }),
         pb.collection('pcp_production_postings').getFullList({ sort: '-posting_date' }),
         pb.collection('pcp_production_stops').getFullList({ sort: '-start_datetime' }),
         pb.collection('pcp_production_orders').getFullList({ sort: '-created' }),
+        pb.collection('line_productivity_rates').getFullList({ filter: 'active = true' }),
       ])
 
       if (schedRes.status === 'fulfilled' && Array.isArray(schedRes.value))
@@ -267,6 +274,8 @@ export class PcpRealtimeAnalysisService {
         stopsList = stopsRes.value
       if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value))
         productionOrders = ordersRes.value
+      if (ratesRes.status === 'fulfilled' && Array.isArray(ratesRes.value))
+        productivityRatesList = ratesRes.value
     } catch (e) {
       console.warn('Erro ao consultar telemetria/fontes operacionais:', e)
     }
@@ -897,6 +906,39 @@ export class PcpRealtimeAnalysisService {
         ? Number((totalRealizedTons - companyPlannedProrated).toFixed(2))
         : null
 
+    // 7. CÁLCULO DE PRODUTIVIDADE t/h (CONSOLIDADA E POR ORDEM) — BLOCO 1 OBRIGATÓRIO
+    // Regras:
+    // - Produtividade PREVISTA = média ponderada: Σ(produtividade prevista da ordem × peso) / Σ(pesos), peso = tonelagem planejada da ordem.
+    // - Hierarquia da taxa prevista da OP:
+    //   1) Ficha Mestra line_productivity_rates (Linha+Material/Família+Tipo MP+Enfornamento);
+    //   2) Linha+Material+MP;
+    //   3) Linha+Material (planned_productivity / nominal_productivity);
+    //   4) Campo productivity_rate_th da programação vigente (weekly_schedules);
+    //   5) Fallback capacidade nominal da linha (production_lines.nominal_capacity / target_rate).
+    //   Reutiliza WeeklyScheduleEngine.resolveActiveProductivity para os níveis 1 a 3 e fallback.
+    // - Produtividade REALIZADA = produção real (t) ÷ tempo produtivo real (h).
+    //   Produção real: apontamentos pcp_production_postings (status VALIDADO_MES sem duplicidade ou apontamento do período).
+    //   Tempo produtivo real = tempo operacional decorrido (h) − tempo de paradas registradas (h) (pcp_production_stops vinculadas à ordem/centro no período).
+    // - Desvio = realizada − prevista (t/h); percentual = (realizada ÷ prevista × 100) − 100.
+    // - Se prevista ou peso total zero/nulo → N/D (null, nunca NaN/Infinity).
+    // - Se tempo produtivo zero/nulo → N/D (null).
+
+    const orderProductivityList = this.calculateOrdersProductivity({
+      postingsList,
+      stopsList,
+      weeklySchedules,
+      productionOrders,
+      linesList,
+      productivityRatesList,
+      filters,
+      targetLines,
+      startDate,
+      endDate,
+      isDateWithinRange,
+    })
+
+    const productivityConsolidated = this.calculateConsolidatedProductivity(orderProductivityList)
+
     const consolidatedCompany: RealtimeCompanyConsolidated = {
       companyCode: selectedCompanyCode,
       companyName: availableCompanies.find((c) => c.code === selectedCompanyCode)?.name || 'CIAFAL',
@@ -917,6 +959,7 @@ export class PcpRealtimeAnalysisService {
       totalStoppedTimeSeconds: totalStoppedSeconds,
       totalInputTons: totalInputSum > 0 ? Number(totalInputSum.toFixed(2)) : null,
       totalGoodTons: totalGoodSum > 0 ? Number(totalGoodSum.toFixed(2)) : null,
+      productivityConsolidated,
     }
 
     // Qualidade da telemetria
@@ -941,7 +984,497 @@ export class PcpRealtimeAnalysisService {
       consolidatedCompany,
       linesData,
       periodRange,
+      orderProductivityList,
     }
+  }
+
+  /**
+   * Calcula a produtividade consolidada da empresa a partir da lista de ordens do período
+   * - Prevista: média ponderada = Σ(produtividade prevista da ordem × peso) / Σ(pesos), peso = tonelagem planejada.
+   * - Realizada: Produção real total (t) ÷ Tempo produtivo real total (h)
+   * - Desvio t/h: Realizada - Prevista
+   * - Desvio %: (Realizada / Prevista * 100) - 100
+   * - Atingimento %: (Realizada / Prevista) * 100
+   * - Retorna null/ND se prevista ou peso total for zero, ou tempo produtivo for zero.
+   */
+  public static calculateConsolidatedProductivity(
+    orderList: RealtimeOrderProductivityItem[],
+  ): RealtimeProductivityConsolidated | null {
+    const list = Array.isArray(orderList) ? orderList : []
+    if (list.length === 0) {
+      return null
+    }
+
+    let sumWeightedPlannedRate = 0
+    let sumWeightTons = 0
+    let totalRealizedTons = 0
+    let totalPlannedTons = 0
+    let totalProductiveHours = 0
+    let totalStoppedHours = 0
+
+    for (const item of list) {
+      if (!item) continue
+
+      const planQty = Number(item.plannedQuantityTons) || 0
+      const realQty = Number(item.realizedQuantityTons) || 0
+      const prodHours = Number(item.productiveHours) || 0
+      const stopHours = Number(item.stoppedHours) || 0
+
+      totalRealizedTons += realQty
+      totalPlannedTons += planQty
+      totalProductiveHours += prodHours
+      totalStoppedHours += stopHours
+
+      if (item.plannedProductivityTh !== null && item.plannedProductivityTh > 0 && planQty > 0) {
+        sumWeightedPlannedRate += item.plannedProductivityTh * planQty
+        sumWeightTons += planQty
+      }
+    }
+
+    const plannedProductivityTh =
+      sumWeightTons > 0 ? Number((sumWeightedPlannedRate / sumWeightTons).toFixed(2)) : null
+
+    const realizedProductivityTh =
+      totalProductiveHours > 0 && totalRealizedTons > 0
+        ? Number((totalRealizedTons / totalProductiveHours).toFixed(2))
+        : null
+
+    let deviationTh: number | null = null
+    let deviationPct: number | null = null
+    let achievementPct: number | null = null
+
+    if (
+      realizedProductivityTh !== null &&
+      plannedProductivityTh !== null &&
+      plannedProductivityTh > 0
+    ) {
+      deviationTh = Number((realizedProductivityTh - plannedProductivityTh).toFixed(2))
+      deviationPct = Number(
+        ((realizedProductivityTh / plannedProductivityTh) * 100 - 100).toFixed(2),
+      )
+      achievementPct = Number(((realizedProductivityTh / plannedProductivityTh) * 100).toFixed(2))
+    }
+
+    return {
+      plannedProductivityTh,
+      realizedProductivityTh,
+      deviationTh,
+      deviationPct,
+      achievementPct,
+      totalRealizedTons: Number(totalRealizedTons.toFixed(2)),
+      totalPlannedTons: Number(totalPlannedTons.toFixed(2)),
+      totalProductiveHours: Number(totalProductiveHours.toFixed(2)),
+      totalStoppedHours: Number(totalStoppedHours.toFixed(2)),
+      ordersCount: list.length,
+    }
+  }
+
+  /**
+   * Constrói e calcula os itens de produtividade por ordem de produção (OP)
+   */
+  public static calculateOrdersProductivity(params: {
+    postingsList: any[]
+    stopsList: any[]
+    weeklySchedules: any[]
+    productionOrders: any[]
+    linesList: any[]
+    productivityRatesList: any[]
+    filters: RealtimeFilters
+    targetLines: Array<{ code: string; name: string; companyCode: string }>
+    startDate: string
+    endDate: string
+    isDateWithinRange: (candidate?: string | null) => boolean
+  }): RealtimeOrderProductivityItem[] {
+    const {
+      postingsList,
+      stopsList,
+      weeklySchedules,
+      productionOrders,
+      linesList,
+      productivityRatesList,
+      filters,
+      targetLines,
+      startDate,
+      endDate,
+      isDateWithinRange,
+    } = params
+
+    const validLines = Array.isArray(targetLines) ? targetLines : []
+    const validLinesSet = new Set(validLines.map((l) => l.code))
+
+    // 1. Filtrar apontamentos MES respeitando filtros (período, turno, linha/centro)
+    // Regra: apontamentos pcp_production_postings status VALIDADO_MES (ou todos se VALIDADO_MES for subset)
+    const filteredPostings = (Array.isArray(postingsList) ? postingsList : []).filter((p) => {
+      if (!p) return false
+      const lineCode = p.linha_code || ''
+      const centerCode = p.centro_code || p.work_center || ''
+
+      if (filters.lineCode && filters.lineCode !== 'ALL' && lineCode !== filters.lineCode) {
+        return false
+      }
+      if (filters.centerCode && filters.centerCode !== 'ALL' && centerCode !== filters.centerCode) {
+        return false
+      }
+      if (validLinesSet.size > 0 && lineCode && !validLinesSet.has(lineCode)) {
+        return false
+      }
+
+      if (filters.date) {
+        if (p.posting_date !== filters.date) return false
+      } else {
+        const postDate = p.posting_date || (p.created ? p.created.slice(0, 10) : null)
+        if (!isDateWithinRange(postDate)) return false
+      }
+
+      if (filters.shiftCode && filters.shiftCode !== 'ALL' && p.shift_code !== filters.shiftCode) {
+        return false
+      }
+
+      return true
+    })
+
+    // Se existirem apontamentos com status_mes === 'VALIDADO_MES', prioriza-os
+    const validatedPostings = filteredPostings.filter((p) => p.status_mes === 'VALIDADO_MES')
+    const postingsToUse = validatedPostings.length > 0 ? validatedPostings : filteredPostings
+
+    // 2. Mapear todas as OPs candidatas a partir de:
+    // a) Apontamentos do período
+    // b) Programações semanais vigentes do período
+    // c) Ordens de produção cadastradas ativas no período
+    const opSet = new Set<string>()
+    postingsToUse.forEach((p) => {
+      const op = (p.op_number || '').trim()
+      if (op) opSet.add(op)
+    })
+
+    const filteredSchedules = (Array.isArray(weeklySchedules) ? weeklySchedules : []).filter(
+      (ws) => {
+        if (!ws) return false
+        const lineCode = ws.line_code || ''
+        if (filters.lineCode && filters.lineCode !== 'ALL' && lineCode !== filters.lineCode) {
+          return false
+        }
+        if (validLinesSet.size > 0 && lineCode && !validLinesSet.has(lineCode)) {
+          return false
+        }
+        const sDate = ws.date_str || ws.start_date || (ws.created ? ws.created.slice(0, 10) : null)
+        if (sDate && !isDateWithinRange(sDate)) {
+          return false
+        }
+        return true
+      },
+    )
+
+    filteredSchedules.forEach((ws) => {
+      const op = (ws.production_order || '').trim()
+      if (op) opSet.add(op)
+    })
+
+    const filteredOrders = (Array.isArray(productionOrders) ? productionOrders : []).filter(
+      (ord) => {
+        if (!ord) return false
+        const lineCode = ord.linha_code || ord.line_code || ''
+        const centerCode = ord.centro_code || ord.work_center || ''
+        if (filters.lineCode && filters.lineCode !== 'ALL' && lineCode !== filters.lineCode) {
+          return false
+        }
+        if (
+          filters.centerCode &&
+          filters.centerCode !== 'ALL' &&
+          centerCode !== filters.centerCode
+        ) {
+          return false
+        }
+        if (validLinesSet.size > 0 && lineCode && !validLinesSet.has(lineCode)) {
+          return false
+        }
+        return true
+      },
+    )
+
+    filteredOrders.forEach((o) => {
+      const op = (o.op_number || o.order_number || '').trim()
+      if (op) opSet.add(op)
+    })
+
+    // 3. Montar cada item por OP com cálculo rigoroso
+    const result: RealtimeOrderProductivityItem[] = []
+
+    // Helper de busca de linha
+    const getLineObj = (lineCode?: string) => {
+      return (linesList || []).find((l) => l.code === lineCode) || null
+    }
+
+    // Mapa de taxas ativas por linha para o motor
+    const ratesByLine = new Map<string, LineProductivityRate[]>()
+    ;(productivityRatesList || []).forEach((r) => {
+      if (!r || r.active === false) return
+      const lId = r.line_id || r.line_code || 'ALL'
+      const cur = ratesByLine.get(lId) || []
+      cur.push(r)
+      ratesByLine.set(lId, cur)
+    })
+
+    for (const opNumber of opSet) {
+      // Apontamentos desta OP (deduplicados por posting_code para evitar duplicidade)
+      const opPostingsAll = postingsToUse.filter((p) => (p.op_number || '').trim() === opNumber)
+      const seenPostingCodes = new Set<string>()
+      const opPostings = opPostingsAll.filter((p) => {
+        const pCode = p.posting_code || p.id
+        if (pCode) {
+          if (seenPostingCodes.has(pCode)) return false
+          seenPostingCodes.add(pCode)
+        }
+        return true
+      })
+
+      // Programação desta OP
+      const opSchedule = filteredSchedules.find(
+        (ws) => (ws.production_order || '').trim() === opNumber,
+      )
+
+      // Ordem cadastrada desta OP
+      const opOrder = filteredOrders.find(
+        (o) => (o.op_number || o.order_number || '').trim() === opNumber,
+      )
+
+      // Determina linha e centro
+      const lineCode =
+        opPostings[0]?.linha_code ||
+        opSchedule?.line_code ||
+        opOrder?.linha_code ||
+        opOrder?.line_code ||
+        targetLines[0]?.code ||
+        'L_UNKNOWN'
+
+      const rawLine = getLineObj(lineCode)
+      const centerCode =
+        opPostings[0]?.centro_code ||
+        opPostings[0]?.work_center ||
+        rawLine?.sap_work_center ||
+        rawLine?.code ||
+        'C_UNKNOWN'
+
+      const centerName = rawLine?.name || centerCode
+      const lineName = rawLine?.name || lineCode
+
+      // Metadados do material
+      const materialCode =
+        opOrder?.material_code ||
+        opSchedule?.material_code ||
+        opPostings[0]?.material_code ||
+        'MAT-PADRAO'
+      const materialDescription =
+        opOrder?.material_description ||
+        opSchedule?.material_description ||
+        opPostings[0]?.material_description ||
+        materialCode
+      const bitola =
+        opOrder?.dimension || opSchedule?.dimensions || rawLine?.dimension || '50 x 50 mm'
+      const steelGrade =
+        opOrder?.steel_grade || opSchedule?.steel_grade || rawLine?.steel_grade || 'SAE 1020'
+      const rawMaterialType =
+        opSchedule?.raw_material_type ||
+        opOrder?.raw_material_type ||
+        rawLine?.raw_material_type ||
+        ''
+      const enfornamentoType =
+        opSchedule?.enfornamento_type ||
+        opOrder?.enfornamento_type ||
+        rawLine?.enfornamento_type ||
+        ''
+      const familyCode = opSchedule?.family_code || opOrder?.family_code || ''
+
+      // Quantidade planejada (t)
+      const plannedQuantityTons = Number(
+        opSchedule?.planned_quantity_tons ||
+          opOrder?.quantity_planned_tons ||
+          opOrder?.planned_tons ||
+          0,
+      )
+
+      // Quantidade realizada (t) via apontamentos MES sem duplicidade
+      let realizedQuantityTons = opPostings.reduce(
+        (sum, p) => sum + (Number(p.quantity_tons) || 0),
+        0,
+      )
+      if (realizedQuantityTons === 0 && opOrder) {
+        realizedQuantityTons = Number(
+          opOrder.quantity_produced_tons || opOrder.quantity_posted_tons || 0,
+        )
+      }
+      realizedQuantityTons = Number(realizedQuantityTons.toFixed(2))
+
+      // 4. Determinação da Produtividade PREVISTA (t/h) na hierarquia oficial:
+      // 1) Ficha Mestra line_productivity_rates (Linha+Material/Família+Tipo MP+Enfornamento)
+      // 2) Linha+Material+MP
+      // 3) Linha+Material (planned_productivity / nominal_productivity)
+      // 4) campo productivity_rate_th da programação vigente (weekly_schedules)
+      // 5) fallback capacidade nominal da linha (production_lines.nominal_capacity / target_rate)
+      const lineOverviewData: LineOverviewData = {
+        line: rawLine || ({} as any),
+        master: {
+          nominal_hourly_capacity: Number(rawLine?.nominal_capacity || rawLine?.target_rate || 0),
+        } as any,
+        shifts: [],
+        productivity:
+          (rawLine?.id ? ratesByLine.get(rawLine.id) : null) ||
+          ratesByLine.get(lineCode) ||
+          (productivityRatesList as any[]) ||
+          [],
+        bottleneck: [],
+        setupMatrix: [],
+        referenceDocuments: [],
+        crews: [],
+        productFamilies: [],
+        rawMaterialPriorities: [],
+        blockedProducts: [],
+        rawMaterialApplications: [],
+        rollShopSetup: null,
+        changeLog: [],
+        capacities: [],
+        maintenanceWindows: [],
+        sapWorkCenters: [],
+        speedCurves: [],
+      }
+
+      let plannedProductivityTh: number | null = null
+      let ruleOrigin = 'N/D'
+
+      try {
+        const resolved = WeeklyScheduleEngine.resolveActiveProductivity({
+          materialCode,
+          familyCode,
+          rawMaterialType,
+          enfornamentoType,
+          lineOverview: lineOverviewData,
+        })
+
+        if (resolved && resolved.rateTh > 0 && resolved.level !== 'FALLBACK') {
+          plannedProductivityTh = resolved.rateTh
+          ruleOrigin = resolved.ruleDescription
+        }
+      } catch (err) {
+        console.warn('Erro ao resolver produtividade via WeeklyScheduleEngine:', err)
+      }
+
+      // Nível 4: weekly_schedules.productivity_rate_th
+      if (plannedProductivityTh === null || plannedProductivityTh <= 0) {
+        if (opSchedule && Number(opSchedule.productivity_rate_th) > 0) {
+          plannedProductivityTh = Number(opSchedule.productivity_rate_th)
+          ruleOrigin = 'Programação Vigente (weekly_schedules.productivity_rate_th)'
+        }
+      }
+
+      // Nível 5: fallback nominal da linha
+      if (plannedProductivityTh === null || plannedProductivityTh <= 0) {
+        const nomCap = Number(rawLine?.nominal_capacity || rawLine?.target_rate || 0)
+        if (nomCap > 0) {
+          plannedProductivityTh = nomCap
+          ruleOrigin = `Fallback: Capacidade Nominal da Linha (${nomCap} t/h)`
+        }
+      }
+
+      // 5. Paradas da OP / Centro no período
+      const opStops = (Array.isArray(stopsList) ? stopsList : []).filter((s) => {
+        if (!s) return false
+        const matchOp = s.op_number && (s.op_number || '').trim() === opNumber
+        const matchCenter =
+          (s.centro_code && s.centro_code === centerCode) ||
+          (s.linha_code && s.linha_code === lineCode)
+        return matchOp || matchCenter
+      })
+
+      const stoppedMinutes = opStops.reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
+      const stoppedHours = Number((stoppedMinutes / 60).toFixed(2))
+
+      // Principal motivo de parada da OP
+      let mainStopReason = '-'
+      if (opStops.length > 0) {
+        const sortedByDuration = [...opStops].sort(
+          (a, b) => (Number(b.duration_minutes) || 0) - (Number(a.duration_minutes) || 0),
+        )
+        const topStop = sortedByDuration[0]
+        mainStopReason =
+          topStop.technical_cause_confirmed ||
+          topStop.reason_reported ||
+          topStop.category ||
+          'Parada Operacional'
+      }
+
+      // 6. Tempo Produtivo Real (h) = tempo operacional decorrido - tempo de paradas registradas
+      // Se a ordem teve início e fim ou tempo programado/apontado
+      let operationalHours = 0
+      if (opSchedule && Number(opSchedule.production_hours) > 0) {
+        operationalHours = Number(opSchedule.production_hours)
+      } else if (opOrder && Number(opOrder.real_duration_hours) > 0) {
+        operationalHours = Number(opOrder.real_duration_hours)
+      } else if (opPostings.length > 0) {
+        // Estima tempo decorrido do apontamento: mínimo 0.5h se houve produção
+        operationalHours = Math.max(
+          0.5,
+          stoppedHours + realizedQuantityTons / (plannedProductivityTh || 10),
+        )
+      }
+
+      const productiveHours = Number(Math.max(0, operationalHours - stoppedHours).toFixed(2))
+
+      // 7. Produtividade Realizada = produção real (t) ÷ tempo produtivo real (h)
+      // Se tempo produtivo zero/nulo → N/D (null)
+      const realizedProductivityTh =
+        productiveHours > 0 && realizedQuantityTons > 0
+          ? Number((realizedQuantityTons / productiveHours).toFixed(2))
+          : null
+
+      // 8. Desvio = realizada - prevista (t/h)
+      // Se prevista ou peso total zero/nulo → N/D (null)
+      let deviationTh: number | null = null
+      let deviationPct: number | null = null
+      let status: OrderProductivityStatus = 'DENTRO_PREVISTO'
+
+      if (
+        realizedProductivityTh !== null &&
+        plannedProductivityTh !== null &&
+        plannedProductivityTh > 0
+      ) {
+        deviationTh = Number((realizedProductivityTh - plannedProductivityTh).toFixed(2))
+        deviationPct = Number(
+          ((realizedProductivityTh / plannedProductivityTh) * 100 - 100).toFixed(2),
+        )
+        if (deviationTh < -1.0) {
+          status = 'ABAIXO_PREVISTO'
+        } else if (deviationTh > 1.0) {
+          status = 'ACIMA_PREVISTO'
+        } else {
+          status = 'DENTRO_PREVISTO'
+        }
+      }
+
+      result.push({
+        opNumber,
+        centerCode,
+        lineCode,
+        centerName,
+        lineName,
+        materialCode,
+        materialDescription,
+        bitola,
+        steelGrade,
+        plannedQuantityTons: Number(plannedQuantityTons.toFixed(2)),
+        realizedQuantityTons,
+        plannedProductivityTh,
+        realizedProductivityTh,
+        deviationTh,
+        deviationPct,
+        productiveHours,
+        stoppedHours,
+        mainStopReason,
+        status,
+        ruleOrigin,
+      })
+    }
+
+    return result
   }
 
   private static mapStopCategory(rawCat: string = ''): { type: StopCategoryType; label: string } {
