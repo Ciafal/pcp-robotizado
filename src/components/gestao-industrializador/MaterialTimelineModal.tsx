@@ -21,6 +21,9 @@ interface MaterialTimelineModalProps {
   materialCode: string
   materialDescription: string
   productionOrder: string
+  sapOrder?: string
+  clientName?: string
+  industrializerName?: string
   steps: MaterialTimelineStep[]
 }
 
@@ -30,13 +33,20 @@ export const MaterialTimelineModal: React.FC<MaterialTimelineModalProps> = ({
   materialCode,
   materialDescription,
   productionOrder,
+  sapOrder,
+  clientName,
+  industrializerName,
   steps,
 }) => {
   if (!isOpen) return null
 
   const formatStepDate = (dStr: string | null) => {
-    if (!dStr) return 'Pendente'
+    if (!dStr) return '—'
     try {
+      const parts = dStr.split('-')
+      if (parts.length === 3) {
+        return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`
+      }
       const d = new Date(dStr)
       if (isNaN(d.getTime())) return dStr
       return d.toLocaleDateString('pt-BR', {
@@ -65,13 +75,33 @@ export const MaterialTimelineModal: React.FC<MaterialTimelineModalProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  Rastreabilidade da Cadeia Industrializador
+                  Rastreabilidade da Cadeia Operacional
                 </span>
-                <Badge className="bg-[#004C97] text-white text-[10px]">{productionOrder}</Badge>
+                {sapOrder && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-[#004C97] text-[#004C97] font-mono"
+                  >
+                    Pedido SAP {sapOrder}
+                  </Badge>
+                )}
+                <Badge className="bg-[#004C97] text-white text-[10px]">
+                  {productionOrder || 'Sem OP'}
+                </Badge>
+                {industrializerName && (
+                  <Badge variant="secondary" className="text-[10px] bg-slate-200 text-slate-800">
+                    {industrializerName}
+                  </Badge>
+                )}
               </div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
                 {materialCode} &mdash; {materialDescription}
               </h2>
+              {clientName && (
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Cliente: <span className="font-semibold text-slate-800">{clientName}</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -90,11 +120,11 @@ export const MaterialTimelineModal: React.FC<MaterialTimelineModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2">
             <div>
-              <span className="font-semibold text-slate-800">Cadeia Completa: </span>
-              <span>
-                CARTEIRA &rarr; MP RESERVADA &rarr; MP ENVIADA &rarr; RECEBIDA INDUSTRIALIZADOR
-                &rarr; INDUSTRIALIZAÇÃO INICIADA &rarr; CONCLUÍDA &rarr; ESTOQUE ACABADO &rarr;
-                FATURAMENTO &rarr; RETORNO CIAFAL
+              <span className="font-semibold text-slate-800">Esteira Completa: </span>
+              <span className="font-mono text-[11px] text-slate-700">
+                Pedido SAP &darr; Programação &darr; Data Laminação &darr; Fim Produção
+                (ENDL1/ACABL2) &darr; Inventário WMS &darr; Faturamento &darr; Industrializador
+                Final
               </span>
             </div>
             <Badge variant="outline" className="text-[10px] text-slate-500 font-mono">
