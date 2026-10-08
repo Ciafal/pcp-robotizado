@@ -17,10 +17,7 @@ import {
   RealtimeFilters,
   RealtimePeriodRange,
 } from '@/types/pcp-realtime-analysis'
-import {
-  PcpRealtimeAiService,
-  ProductivityAiReport,
-} from '@/services/pcp-realtime-ai-service'
+import { PcpRealtimeAiService, ProductivityAiReport } from '@/services/pcp-realtime-ai-service'
 import { formatNumberPtBr } from '@/lib/number-format'
 import * as XLSX from 'xlsx'
 import {
@@ -99,7 +96,9 @@ export const RealtimeProductivityDetailModal: React.FC<RealtimeProductivityDetai
     setAiLoading(true)
     const timer = setTimeout(() => {
       try {
-        console.log('[RealtimeProductivityDetailModal] Gerando análise IA orientativa de 7 blocos...')
+        console.log(
+          '[RealtimeProductivityDetailModal] Gerando análise IA orientativa de 7 blocos...',
+        )
         const report = PcpRealtimeAiService.generateProductivityAnalysis({
           consolidated,
           orders: orderList,
@@ -176,17 +175,9 @@ export const RealtimeProductivityDetailModal: React.FC<RealtimeProductivityDetai
           </Badge>
         )
       case 'ABAIXO_PREVISTO':
-        return (
-          <Badge className="bg-rose-600 text-white font-medium text-[10px]">
-            🔴 Abaixo
-          </Badge>
-        )
+        return <Badge className="bg-rose-600 text-white font-medium text-[10px]">🔴 Abaixo</Badge>
       case 'ACIMA_PREVISTO':
-        return (
-          <Badge className="bg-blue-600 text-white font-medium text-[10px]">
-            🔵 Acima
-          </Badge>
-        )
+        return <Badge className="bg-blue-600 text-white font-medium text-[10px]">🔵 Acima</Badge>
       default:
         return <Badge variant="outline">N/D</Badge>
     }
@@ -220,8 +211,8 @@ export const RealtimeProductivityDetailModal: React.FC<RealtimeProductivityDetai
                   </Badge>
                 )}
                 <span className="text-xs text-slate-500 font-mono">
-                  {filters.companyCode || 'CIAFAL'} • Linha: {filters.lineCode || 'Todas'} •
-                  Centro: {filters.centerCode || 'Todos'} • Turno: {filters.shiftCode || 'Todos'}
+                  {filters.companyCode || 'CIAFAL'} • Linha: {filters.lineCode || 'Todas'} • Centro:{' '}
+                  {filters.centerCode || 'Todos'} • Turno: {filters.shiftCode || 'Todos'}
                 </span>
               </div>
               <DialogTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -229,7 +220,8 @@ export const RealtimeProductivityDetailModal: React.FC<RealtimeProductivityDetai
                 Detalhamento da Produtividade t/h
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Memória técnica e cruzamento entre toneladas produzidas, tempos produtivos e cadências oficiais
+                Memória técnica e cruzamento entre toneladas produzidas, tempos produtivos e
+                cadências oficiais
               </DialogDescription>
             </div>
 
