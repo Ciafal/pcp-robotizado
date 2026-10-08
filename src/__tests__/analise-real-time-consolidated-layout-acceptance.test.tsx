@@ -54,7 +54,7 @@ describe('Análise Real Time — Nível 1 Visão Consolidada CIAFAL (Aceite Crit
         plantName: 'Planta Principal',
         companyName: 'CIAFAL Wilson Santos',
         status: 'NORMAL',
-        scheduleSituation: 'PROGRAMADA',
+        scheduleSituation: 'SEM_ATRASO',
         realizedTons: 850.0,
         plannedTons: 1000.0,
         achievementPct: 85.0,

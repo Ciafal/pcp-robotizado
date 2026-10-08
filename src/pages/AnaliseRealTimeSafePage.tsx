@@ -103,6 +103,8 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
 
   // Drilldown Modal
   const [modalOpen, setModalOpen] = useState<boolean>(false)
+  const [modalMode, setModalMode] = useState<'SUMMARY' | 'FULL'>('SUMMARY')
+  const [modalLoading, setModalLoading] = useState<boolean>(false)
   const [selectedCenter, setSelectedCenter] = useState<RealtimeCenterData | null>(null)
   const [selectedLine, setSelectedLine] = useState<RealtimeLineData | null>(null)
   const [modalTitle, setModalTitle] = useState<string>('')
@@ -151,15 +153,36 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
   const handleOpenCenterDrilldown = (center: RealtimeCenterData) => {
     setSelectedCenter(center)
     setSelectedLine(null)
+    setModalMode('SUMMARY')
     setModalTitle(
       `Detalhamento Operacional — ${center?.centerName || 'Centro'} (${center?.centerCode || '-'})`,
     )
+    setModalLoading(true)
     setModalOpen(true)
+    // Curto estado de transição para suavizar renderização do modal
+    setTimeout(() => {
+      setModalLoading(false)
+    }, 60)
+  }
+
+  const handleOpenFullCenterPanel = (center: RealtimeCenterData) => {
+    setSelectedCenter(center)
+    setSelectedLine(null)
+    setModalMode('FULL')
+    setModalTitle(
+      `Painel Completo — ${center?.centerName || 'Centro'} (${center?.centerCode || '-'})`,
+    )
+    setModalLoading(true)
+    setModalOpen(true)
+    setTimeout(() => {
+      setModalLoading(false)
+    }, 60)
   }
 
   const handleOpenLineDrilldown = (line: RealtimeLineData) => {
     setSelectedLine(line)
     setSelectedCenter(null)
+    setModalMode('SUMMARY')
     setModalTitle(`Situação Operacional — Linha ${line?.lineName || line?.lineCode || '-'}`)
     setModalOpen(true)
   }
@@ -1250,7 +1273,10 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
                                       <Button
                                         size="sm"
                                         variant="default"
-                                        onClick={() => handleOpenCenterDrilldown(center)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleOpenFullCenterPanel(center)
+                                        }}
                                         className="bg-[#004C97] hover:bg-[#003d7a] text-white text-xs font-semibold gap-1.5"
                                       >
                                         <Activity className="w-3.5 h-3.5" />
@@ -1276,12 +1302,23 @@ export const AnaliseRealTimeSafePage: React.FC = () => {
       <ErrorBoundary moduleName="Modal Detalhamento Real Time" variant="compact">
         <RealtimeDrilldownModal
           open={modalOpen}
-          onOpenChange={setModalOpen}
+          onOpenChange={(isOpen) => {
+            setModalOpen(isOpen)
+            if (!isOpen) {
+              setModalLoading(false)
+            }
+          }}
           type={selectedCenter ? 'CENTRO' : selectedLine ? 'LINE' : 'COMPANY'}
           title={modalTitle}
           center={selectedCenter}
           line={selectedLine}
           company={data?.consolidatedCompany}
+          mode={modalMode}
+          filters={filters}
+          periodRange={data?.periodRange}
+          orderProductivityList={data?.orderProductivityList}
+          loading={modalLoading}
+          onRefresh={() => loadData(false)}
         />
       </ErrorBoundary>
     </div>
