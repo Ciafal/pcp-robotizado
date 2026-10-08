@@ -16,6 +16,19 @@ import {
   DEFAULT_OPTIMIZATION_PARAMETERS,
 } from '@/services/mp-optimization-engine'
 import { MP3DCanvasViewer } from '@/components/mp-optimization/MP3DCanvasViewer'
+import { MPCuttingWeightStandardsModal } from '@/components/mp-optimization/MPCuttingWeightStandardsModal'
+import { MPCuttingOptimizationFilterBar } from '@/components/mp-optimization/MPCuttingOptimizationFilterBar'
+import { MPCuttingComparativeScenariosGrid } from '@/components/mp-optimization/MPCuttingComparativeScenariosGrid'
+import { MPCuttingScenarioDetailModal } from '@/components/mp-optimization/MPCuttingScenarioDetailModal'
+import { MPCuttingSimulationsHistoryModal } from '@/components/mp-optimization/MPCuttingSimulationsHistoryModal'
+import { mpCuttingWeightStandardsService } from '@/services/mp-cutting-weight-standards-service'
+import { mpCuttingOptimizationEngineService } from '@/services/mp-cutting-optimization-engine-service'
+import type {
+  MPCuttingWeightStandard,
+  MPCuttingOptimizationFilters,
+  MPCuttingScenarioItem,
+  MPCuttingSimulationResult,
+} from '@/types/mp-cutting-weight-standards'
 import { CuttingPlanBottleneckValidationSection } from '@/components/mp-optimization/CuttingPlanBottleneckValidationSection'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -66,6 +79,51 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false)
 
+  // Estados dos Padrões de Peso para Corte e Motor de Cenários Comparativos Evoluído
+  const [isStandardsModalOpen, setIsStandardsModalOpen] = useState(false)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [detailModalScenario, setDetailModalScenario] = useState<MPCuttingScenarioItem | null>(null)
+  const [weightStandards, setWeightStandards] = useState<MPCuttingWeightStandard[]>([])
+  const [optimizationFilters, setOptimizationFilters] = useState<MPCuttingOptimizationFilters>({
+    company_code: 'CIAFAL',
+    center_code: 'SEML1',
+    cutting_type: 'BLOCOS',
+    material_code: 'TARUGO-130-1020',
+    steel_family: 'SAE 1020',
+    selected_standard_codes: [],
+    target_weight_kg: 1250,
+    min_weight_kg: 1200,
+    max_weight_kg: 1300,
+    required_weight_tons: 30,
+    optimization_criterion: 'MAIOR_APROVEITAMENTO',
+  })
+  const [comparativeScenarios, setComparativeScenarios] = useState<MPCuttingScenarioItem[]>([])
+  const [bestScenarioId, setBestScenarioId] = useState<string>('')
+  const [selectedComparativeScenarioId, setSelectedComparativeScenarioId] = useState<string>('')
+  const [aiJustification, setAiJustification] = useState<string>('')
+  const [activeSimulation, setActiveSimulation] = useState<MPCuttingSimulationResult | null>(null)
+
+  const loadWeightStandards = async () => {
+    try {
+      const data = await mpCuttingWeightStandardsService.listStandards(true)
+      setWeightStandards(data)
+      // Se não havia padrão selecionado e há padrões cadastrados, seleciona o primeiro por padrão
+      if (data.length > 0 && optimizationFilters.selected_standard_codes.length === 0) {
+        const first = data[0]
+        setOptimizationFilters((prev) => ({
+          ...prev,
+          selected_standard_codes: [first.code],
+          target_weight_kg: first.target_weight_kg,
+          min_weight_kg: first.min_weight_kg,
+          max_weight_kg: first.max_weight_kg,
+          steel_family: first.steel_family || prev.steel_family,
+        }))
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar padrões de peso:', e)
+    }
+  }
+
   const loadData = async () => {
     try {
       const [inv, reqs, cutPlans] = await Promise.all([
@@ -86,7 +144,50 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
 
   useEffect(() => {
     loadData()
+    loadWeightStandards()
   }, [])
+
+  // Geração dos 6 Cenários Comparativos pelo Motor Integrado aos Padrões de Peso
+  const handleGenerateComparativeScenarios = async () => {
+    setIsGenerating(true)
+    try {
+      const simResult = await mpCuttingOptimizationEngineService.generateComparativeScenarios(
+        optimizationFilters,
+        weightStandards,
+      )
+      setComparativeScenarios(simResult.scenarios)
+      setBestScenarioId(simResult.best_scenario_id)
+      setSelectedComparativeScenarioId(simResult.best_scenario_id)
+      setAiJustification(simResult.technical_justification || '')
+      setActiveSimulation(simResult)
+
+      // Salva no banco de dados para rastreabilidade histórica
+      await mpCuttingWeightStandardsService.saveSimulation(
+        simResult,
+        user?.name || user?.email || 'Engenheiro PCP',
+      )
+
+      toast({
+        title: '6 Cenários Comparativos Gerados',
+        description: `Motor calculou os cenários com base no critério [${simResult.optimization_criterion}] e padrões de peso.`,
+      })
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar cenários',
+        description: err.message || 'Falha no motor de otimização.',
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Executa uma simulação inicial automática para preencher a tela quando carrega
+  useEffect(() => {
+    if (comparativeScenarios.length === 0 && !isGenerating) {
+      handleGenerateComparativeScenarios()
+    }
+  }, [weightStandards.length])
 
   const handleGeneratePlan = () => {
     if (!selectedPlate) {
@@ -608,93 +709,62 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* ABA 3: 6 CENÁRIOS COMPARATIVOS */}
-        <TabsContent value="CENARIOS" className="space-y-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
-              Cenários de Otimização Gerados pelo Motor IA
-            </h3>
+        {/* ABA 3: 6 CENÁRIOS COMPARATIVOS (Integrada aos Padrões de Peso para Corte) */}
+        <TabsContent value="CENARIOS" className="space-y-4">
+          {/* Barra de Filtros Superiores: Empresa, Centro, Padrões Múltiplos, Tolerâncias, Critério */}
+          <MPCuttingOptimizationFilterBar
+            filters={optimizationFilters}
+            standards={weightStandards}
+            onFiltersChange={setOptimizationFilters}
+            onGenerateScenarios={handleGenerateComparativeScenarios}
+            onOpenStandardsModal={() => setIsStandardsModalOpen(true)}
+            isGenerating={isGenerating}
+          />
 
-            {!scenarios ? (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <Sparkles className="w-8 h-8 text-[#004C97] mx-auto mb-2 opacity-60" />
-                <div className="font-bold text-slate-800 text-sm">Nenhum Cenário Calculado</div>
-                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-3">
-                  Clique em "[ GERAR MELHOR PLANO COM IA ]" para rodar o motor multi-cenários sobre
-                  a placa selecionada.
-                </p>
-                <Button
-                  onClick={handleGeneratePlan}
-                  disabled={!selectedPlate}
-                  className="bg-[#004C97] hover:bg-[#003870] text-white text-xs font-bold"
-                >
-                  Gerar Cenários Agora
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(Object.keys(scenarios) as CuttingScenarioType[])
-                  .filter((k) => k !== 'PERSONALIZADO_HUMANO')
-                  .map((scenKey) => {
-                    const sc = scenarios[scenKey]
-                    const isSel = selectedScenarioType === scenKey
-                    return (
-                      <div
-                        key={scenKey}
-                        onClick={() => setSelectedScenarioType(scenKey)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between gap-3 text-xs ${
-                          isSel
-                            ? 'border-[#004C97] bg-blue-50/90 shadow-xs ring-2 ring-[#004C97]'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-black text-slate-900 text-sm">{sc.name}</span>
-                            <Badge className="bg-blue-50 text-[#004C97] text-[10px] font-mono">
-                              Score: {sc.score_ia}/100
-                            </Badge>
-                          </div>
-                          <p className="text-slate-600 text-[11px] leading-snug">
-                            {sc.description}
-                          </p>
-                        </div>
+          {/* Botão de Histórico e Ações Auxiliares */}
+          <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-lg border border-slate-200">
+            <div className="text-xs text-slate-600">
+              {comparativeScenarios.length > 0 ? (
+                <span>
+                  Simulação ativa:{' '}
+                  <strong className="font-mono text-blue-950">
+                    {activeSimulation?.simulation_code || 'SIM-CORRENTE'}
+                  </strong>{' '}
+                  &bull; Critério: <strong>{optimizationFilters.optimization_criterion}</strong>
+                </span>
+              ) : (
+                <span>Aguardando cálculo dos 6 cenários comparativos...</span>
+              )}
+            </div>
 
-                        <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/80 font-mono text-[11px] space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Rendimento:</span>
-                            <span className="font-bold text-emerald-800">{sc.yield_pct}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Sucata Projetada:</span>
-                            <span className="text-slate-700">{sc.scrap_pct}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Sobra Reutilizável:</span>
-                            <span className="font-bold text-[#004C97]">
-                              {sc.reusable_leftover_pct}%
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedScenarioType(scenKey)
-                            setActiveSecondaryTab('NOVO_PLANO')
-                          }}
-                          className={`w-full text-xs font-bold ${
-                            isSel ? 'bg-[#004C97] text-white' : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {isSel ? 'Cenário Ativo no Desenho' : 'Selecionar este Cenário'}
-                        </Button>
-                      </div>
-                    )
-                  })}
-              </div>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryModalOpen(true)}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50 gap-1.5 text-xs font-semibold"
+            >
+              <History className="w-3.5 h-3.5 text-blue-900" /> Consultar Histórico de Simulações
+            </Button>
           </div>
+
+          {/* Grade com os 6 Cenários Comparativos e Destaque para o Melhor Cenário Recomendado */}
+          {comparativeScenarios.length > 0 && (
+            <MPCuttingComparativeScenariosGrid
+              scenarios={comparativeScenarios}
+              bestScenarioId={bestScenarioId}
+              selectedScenarioId={selectedComparativeScenarioId}
+              onSelectScenario={(scenId) => {
+                setSelectedComparativeScenarioId(scenId)
+                toast({
+                  title: 'Cenário Selecionado para Programação',
+                  description: `O cenário ${scenId} foi definido como prioritário para o sequenciamento.`,
+                })
+              }}
+              onDetailScenario={(scen) => setDetailModalScenario(scen)}
+              aiJustification={aiJustification}
+            />
+          )}
         </TabsContent>
 
         {/* ABA 4: GÊMEO DIGITAL 3D */}
@@ -812,6 +882,35 @@ export const MPCuttingPlansUnifiedPage: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* POPUP: Cadastro e Consulta de Padrões de Peso para Corte */}
+      <MPCuttingWeightStandardsModal
+        isOpen={isStandardsModalOpen}
+        onClose={() => setIsStandardsModalOpen(false)}
+        onStandardsChanged={loadWeightStandards}
+      />
+
+      {/* POPUP: Detalhamento do Cenário de Corte */}
+      <MPCuttingScenarioDetailModal
+        isOpen={Boolean(detailModalScenario)}
+        onClose={() => setDetailModalScenario(null)}
+        scenario={detailModalScenario}
+        criterionName={optimizationFilters.optimization_criterion}
+      />
+
+      {/* POPUP: Histórico de Simulações e Planos */}
+      <MPCuttingSimulationsHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        onLoadSimulation={(sim) => {
+          setComparativeScenarios(sim.scenarios)
+          setBestScenarioId(sim.best_scenario_id)
+          setSelectedComparativeScenarioId(sim.selected_scenario_id || sim.best_scenario_id)
+          setAiJustification(sim.technical_justification || '')
+          setActiveSimulation(sim)
+          setOptimizationFilters(sim.filter_parameters_snapshot)
+        }}
+      />
     </MPModuleLayout>
   )
 }
