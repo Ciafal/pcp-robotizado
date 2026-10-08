@@ -252,7 +252,9 @@ export const MP3DCanvasViewer: React.FC<Dimension3DProps> = ({
           <div className="text-[11px] text-slate-600 font-mono mt-1">
             {plate.thickness} × {plate.width} × {plate.length} mm &bull;{' '}
             <span className="font-bold text-slate-900">
-              {plate.weight ? `${plate.weight} kg` : ''}
+              {plate.weight
+                ? `${(plate.weight / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} t`
+                : ''}
             </span>
           </div>
           {pieces.length > 0 && (

@@ -320,7 +320,30 @@ export const MPCuttingScenarioDetailModal: React.FC<MPCuttingScenarioDetailModal
                           t
                         </TableCell>
                         <TableCell className="text-slate-500">
-                          {d.tolerance_range_kg ? d.tolerance_range_kg.replace(/kg/g, 't') : ''}
+                          {d.tolerance_range_kg
+                            ? (() => {
+                                // Se a string for algo como "1200.00 a 1300.00 kg", formata em toneladas com 3 casas
+                                const match = d.tolerance_range_kg.match(
+                                  /([0-9.,]+)\s*a\s*([0-9.,]+)/,
+                                )
+                                if (match) {
+                                  const v1 = parseFloat(match[1].replace(',', '.'))
+                                  const v2 = parseFloat(match[2].replace(',', '.'))
+                                  if (!isNaN(v1) && !isNaN(v2)) {
+                                    const t1 = (v1 / 1000).toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    })
+                                    const t2 = (v2 / 1000).toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 3,
+                                      maximumFractionDigits: 3,
+                                    })
+                                    return `${t1} a ${t2} t`
+                                  }
+                                }
+                                return d.tolerance_range_kg.replace(/kg/g, 't')
+                              })()
+                            : ''}
                         </TableCell>
                         <TableCell>
                           <Badge
